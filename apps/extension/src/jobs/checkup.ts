@@ -40,6 +40,7 @@ export const isEnd = (got: object): got is JobEnd => 'warned' in got;
 /** The step's name, as the progress line says it: "Trying a friend request…". */
 const TRYING: Readonly<Record<TryStep, string>> = {
   headline: 'your headline',
+  about: 'your About',
   bio: 'your bio',
   post: 'a post',
   comment: 'a comment',

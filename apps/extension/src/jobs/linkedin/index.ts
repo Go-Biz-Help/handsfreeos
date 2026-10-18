@@ -30,7 +30,7 @@ import { postOnLinkedIn } from './helpful';
 import { lookupOnLinkedIn } from './lookup';
 import { checkInvitations, saveConnections } from './people';
 import { findPostsBySearch } from './posts';
-import { linkedInHeadlineEdit, linkedInProfileRead } from './profile';
+import { linkedInProfileEdit, linkedInProfileRead } from './profile';
 import { withdrawInvitations } from './withdraw';
 
 type Ended = JobEnd & { readonly result?: AskResult | null };
@@ -64,7 +64,7 @@ export async function linkedInAsk(task: AskTaken['task'], job: Job): Promise<End
     case 'profile_read':
       return linkedInProfileRead(job);
     case 'profile_edit':
-      return linkedInHeadlineEdit(job, task);
+      return linkedInProfileEdit(job, task);
     case 'cancel':
       return withdrawInvitations(job, task.profileIds);
     case 'posts':

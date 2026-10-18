@@ -2,7 +2,12 @@ import { bioEditShown, type AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import { seenWords } from '@hfos/core/addons/outreach/live';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
-import { checkCounts, type AnyProfileItem } from '@hfos/core/addons/outreach/profile-check';
+import {
+  ABOUT_MOST,
+  checkCounts,
+  hasPlaceholder,
+  type AnyProfileItem,
+} from '@hfos/core/addons/outreach/profile-check';
 import {
   CALLS_GOAL,
   numbersLines,
@@ -22,6 +27,7 @@ import { Check, CircleCheck, Circle, Clock, RefreshCw } from '@/components/icons
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
@@ -39,7 +45,9 @@ import { Note, useOutreachAnswer, useOutreachContext } from './kit';
  * playbooks are written there too. It needs signal.
  *
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines to put
- * in, and an About to start from (selectable, to copy), each asked and ticked on LinkedIn.
+ * in, and its whole About, each asked and ticked on LinkedIn; Instagram's its bio to put in and a name to use (decision
+ * 80). What the AI wrote can be changed before it goes in, nothing still in [brackets] goes in, and **Put them all in**
+ * puts the picked headline and the About in with one press, the person's OK for both. As the web's.
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -57,6 +65,58 @@ const STATE_ICON = {
   look_again: { icon: RefreshCw, className: 'text-warning' },
   waiting: { icon: Clock, className: 'text-warning' },
 } satisfies Record<ReadyState, unknown>;
+
+/** A network's profile alone, and what a tick does: for its page of Settings. */
+export interface ProfileProps {
+  readonly readiness: ReadinessOutput | null;
+  readonly onTick: (item: AnyProfileItem, done: boolean) => Promise<void>;
+}
+
+/**
+ * A network's profile alone, for its page of Settings (decision 80): its answer, asked again once a read or a put-in
+ * asked there is done, and what a tick does. Nothing's asked with no network.
+ */
+export function useProfileProps(
+  platform: Platform | null,
+  asks: AsksOutput | null,
+  screen: string,
+): ProfileProps {
+  const ws = useOutreachContext().workspaceId;
+  const ready = useOutreachAnswer(
+    platform
+      ? async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.readiness', {
+              body: { workspaceId: ws, platform },
+            }),
+          )
+      : null,
+    `readiness:${ws}:${platform ?? 'none'}`,
+    screen,
+  );
+  const [shown, setShown] = React.useState<ReadinessOutput | null>(null);
+  React.useEffect(() => setShown(null), [platform]);
+  const { reload } = ready;
+  const again = React.useCallback(() => {
+    setShown(null);
+    reload();
+  }, [reload]);
+  useDoneReload(asks, again);
+  return {
+    readiness: platform ? (shown ?? ready.data) : null,
+    onTick: async (item, done) => {
+      if (!platform) return;
+      try {
+        setShown(
+          (await change('outreach.readiness.profile', { workspaceId: ws, platform, item, done }))
+            .output,
+        );
+      } catch (e) {
+        failed(e);
+      }
+    },
+  };
+}
 
 /**
  * Get ready's answer on a network and what its buttons do: its own profile counts. `onReady` runs once the person is
@@ -317,7 +377,8 @@ function MessagesList({
   );
 }
 
-function ProfileList({
+/** The profile's list: the AI's check, each item to tick, and its words to put in. Get ready's, and Settings'. */
+export function ProfileList({
   readiness,
   asks,
   actions,
@@ -337,6 +398,19 @@ function ProfileList({
   const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
   const edit = bioEditShown(asks, platform, readiness.profileCheck?.at ?? null);
   const timeZone = asks?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // The headline picked for Put them all in, and the About as the person changed it (decision 80).
+  const [picked, setPicked] = React.useState(0);
+  const [about, setAbout] = React.useState(check?.aboutDraft ?? '');
+  React.useEffect(() => setAbout(check?.aboutDraft ?? ''), [check?.aboutDraft]);
+  const bio = check?.bios[picked] ?? check?.bios[0] ?? null;
+  const aboutText = about.trim();
+  const aboutWhy = !aboutText
+    ? null
+    : aboutText.length > ABOUT_MOST
+      ? P.tooLong(aboutText.length, ABOUT_MOST)
+      : hasPlaceholder(about)
+        ? P.fillIn
+        : null;
   return (
     <View className="mt-1 gap-3" testID="ready-profile-list">
       <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="ready-profile-read">
@@ -429,15 +503,35 @@ function ProfileList({
             <Text className="text-[14px] font-semibold">{P.bios}</Text>
             <Note>{P.biosHint}</Note>
           </View>
-          {check.bios.map((bio, i) => (
-            <View key={bio} className="gap-2 rounded-menu border border-border px-3 py-2.5">
-              <Text selectable className="text-[14px] leading-[20px]">
-                “{bio}”
-              </Text>
-              {asks && actions ? (
+          {check.bios.map((option, i) => (
+            <View
+              key={option}
+              className={cn(
+                'gap-2 rounded-menu border px-3 py-2.5',
+                check.aboutDraft && i === picked ? 'border-accent' : 'border-border',
+              )}
+            >
+              {check.aboutDraft ? (
+                // The one Put them all in puts in beside the About.
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: i === picked }}
+                  onPress={() => setPicked(i)}
+                  testID={`ready-bio-pick-${i}`}
+                >
+                  <Text className="text-[14px] leading-[20px]">“{option}”</Text>
+                </Pressable>
+              ) : (
+                <Text selectable className="text-[14px] leading-[20px]">
+                  “{option}”
+                </Text>
+              )}
+              {hasPlaceholder(option) ? (
+                <Text className="text-[12.5px] leading-[17px] text-warning-text">{P.fillIn}</Text>
+              ) : asks && actions ? (
                 <AskButton
                   asks={asks}
-                  ask={{ kind: 'profile_edit', bio }}
+                  ask={{ kind: 'profile_edit', bio: option }}
                   platform={platform}
                   label={P.useBio}
                   actions={actions}
@@ -461,15 +555,67 @@ function ProfileList({
         </View>
       ) : null}
       {check?.aboutDraft && P.about ? (
-        <View className="gap-1" testID="ready-about">
-          <Text className="text-[14px] font-semibold">{P.about}</Text>
-          <Note>{P.aboutHint}</Note>
+        <View className="gap-2" testID="ready-about">
+          <View className="gap-0.5">
+            <Text className="text-[14px] font-semibold">{P.about}</Text>
+            <Note>{P.aboutHint}</Note>
+          </View>
+          <Input
+            value={about}
+            onChangeText={setAbout}
+            multiline
+            textAlignVertical="top"
+            accessibilityLabel={P.about}
+            className="h-56 py-3"
+            testID="ready-about-text"
+          />
           <Text
-            selectable
-            className="rounded-menu border border-border px-3 py-2.5 text-[14px] leading-[20px]"
+            className={cn(
+              'text-[12.5px] leading-[17px]',
+              aboutWhy ? 'text-warning-text' : 'text-text-3',
+            )}
+            testID="ready-about-why"
           >
-            {check.aboutDraft}
+            {aboutWhy ?? P.length(aboutText.length, ABOUT_MOST)}
           </Text>
+          {asks && actions ? (
+            <AskButton
+              asks={asks}
+              ask={{ kind: 'profile_edit', about: aboutText }}
+              platform={platform}
+              label={P.useBio}
+              actions={actions}
+              showLine={false}
+              disabled={aboutWhy !== null || !aboutText}
+              testID="ready-about-use"
+            />
+          ) : null}
+          {asks && actions && bio && !hasPlaceholder(bio) ? (
+            // Both in one press: the headline picked above, and this About (decision 80).
+            <View className="gap-1.5 rounded-menu bg-card-2 px-3 py-2.5" testID="ready-all">
+              <Note>{P.useAllHint}</Note>
+              <AskButton
+                asks={asks}
+                ask={{ kind: 'profile_edit', bio, about: aboutText }}
+                platform={platform}
+                label={P.useAll}
+                variant="primary"
+                actions={actions}
+                showLine={false}
+                disabled={aboutWhy !== null || !aboutText}
+                testID="ready-all-use"
+              />
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {check?.nameDraft ? (
+        <View className="gap-1" testID="ready-name">
+          <Text className="text-[14px] font-semibold">{P.name}</Text>
+          <Text selectable className="text-[14px] leading-[20px]">
+            “{check.nameDraft}”
+          </Text>
+          <Note>{P.nameHint}</Note>
         </View>
       ) : null}
       {check?.feature.length ? (

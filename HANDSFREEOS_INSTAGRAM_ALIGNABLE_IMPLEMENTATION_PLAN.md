@@ -12,26 +12,58 @@ docs/outreach.md), and their Checks now find every step's button on Chris's own 
 - Check Alignable found all 5 on extension 0.59.0.
 - Check Instagram found 4 of 5 on 0.60.0. The fifth, the comment, is fixed in 0.61.0.
 
-Nothing below is built yet. The questions come first, each with a recommendation. Once Chris answers, they become
-this plan's decisions, and the build starts at step 1 of the build order.
+Chris answered the questions the same day (below, and decisions 79 and 80 in docs/outreach.md), and the build starts
+at step 2 of the build order. Nothing past that is built yet.
 
 The plan's earlier work is in HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md: one add-on, a kit per network, and
 each network on its own.
 
-## Questions for Chris
+## Decisions (Chris, 17 Oct 2026)
 
-| #   | Question                                  | Recommendation                                                                                                                                                                                                                                                                                                       |
-| --- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Fix LinkedIn's three gaps first?          | **Yes.** People found by LinkedIn's post search should get invitations, and Settings shouldn't show switches LinkedIn can't do. The first fix is also what Instagram and Alignable need: people found by a search, not only in groups.                                                                               |
-| 2   | Which network first?                      | **Alignable, then Instagram.** Your order of 15 Oct put Instagram first. But Alignable works like LinkedIn (connect, message, follow up), its Check found every button, it's made for local businesses, and its risk is lower. Instagram needs more new pieces: follow-backs, message requests, posts with pictures. |
-| 3   | Which Instagram account?                  | **The business's professional account.** Its replies then also reach HandsFreeOS's inbox through Meta (docs/meta-messaging.md, built), and Instagram shows it contact buttons and a category. A personal account works too, without those.                                                                           |
-| 4   | When does the first Instagram message go? | **Once they follow back, or answer your comment.** If they do neither within 3 days, send one short message with no link. Instagram passes only one text message to someone who doesn't follow you, until they accept it.                                                                                            |
-| 5   | Unfollow on Instagram?                    | **Yes, slowly.** Unfollow people who didn't follow back within 3 weeks, at most 20 a day. Never someone who wrote back, a customer, or anyone you followed yourself. This keeps you well under Instagram's 7,500 cap.                                                                                                |
-| 6   | Posts on Instagram?                       | **The AI drafts the caption and says what picture to use; you post it.** The extension can't choose your photos. Stories are tips only, to start.                                                                                                                                                                    |
-| 7   | Who to look for on Alignable?             | **Each playbook says: customers, referral partners, or both.** Referral partners are businesses whose customers need you, such as a realtor for a home inspector. Alignable is built for referrals. With a partner, the call booked is one to swap referrals, on the same booking link.                              |
-| 8   | Recommend on Alignable?                   | **Only by hand,** for a business you really know. Never on its own. A recommendation is your name vouching for them, and it often earns one back.                                                                                                                                                                    |
-| 9   | Answer questions in Alignable's forum?    | **Yes, after your OK each time.** When someone asks for what you offer, the AI drafts a helpful answer and you OK it before it posts. It's public writing, so it always waits for you.                                                                                                                               |
-| 10  | Starting daily limits?                    | **As in the tables below,** and half for a new or small account, as on the other networks.                                                                                                                                                                                                                           |
+Chris: "go with your recommendations except for the instagram profile i will use my personal except i will optimize
+the profile/account like we do for linkedin. need to have an AI and automated optimize feature for all platforms".
+
+| #   | Question                                  | Answer                                                                                                                                                                                                                                                                                                      |
+| --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Fix LinkedIn's three gaps first?          | **Yes.** People found by LinkedIn's post search get invitations, and Settings show only the switches a network's runner does. The first fix is also what Instagram and Alignable need: people found by a search, not only in groups.                                                                        |
+| 2   | Which network first?                      | **Alignable, then Instagram.** Alignable works like LinkedIn (connect, message, follow up), its Check found every button, it's made for local businesses, and its risk is lower. Instagram needs more new pieces: follow-backs, message requests, posts with pictures.                                      |
+| 3   | Which Instagram account?                  | **Chris's personal account, optimized as his LinkedIn is** (changed from the recommendation, the business's professional account). Its replies come in through the extension reading its messages, as LinkedIn's do: Meta's inbox (docs/meta-messaging.md) takes only professional accounts.                |
+| 4   | When does the first Instagram message go? | **Once they follow back, or answer your comment.** If they do neither within 3 days, one short message with no link. Instagram passes only one text message to someone who doesn't follow you, until they accept it.                                                                                        |
+| 5   | Unfollow on Instagram?                    | **Yes, slowly.** People who didn't follow back within 3 weeks, at most 20 a day. Never someone who wrote back, a customer, or anyone you followed yourself. This keeps you well under Instagram's 7,500 cap.                                                                                                |
+| 6   | Posts on Instagram?                       | **The AI drafts the caption and says what picture to use; you post it.** The extension can't choose your photos. Stories are tips only, to start.                                                                                                                                                           |
+| 7   | Who to look for on Alignable?             | **Each playbook says: customers, referral partners, or both.** Referral partners are businesses whose customers need you, such as a realtor for a home inspector. Alignable is built for referrals. With a partner, the call booked is one to swap referrals, on the same booking link.                     |
+| 8   | Recommend on Alignable?                   | **Only by hand,** for a business you really know. Never on its own. A recommendation is your name vouching for them, and it often earns one back.                                                                                                                                                           |
+| 9   | Answer questions in Alignable's forum?    | **Yes, after your OK each time.** When someone asks for what you offer, the AI drafts a helpful answer and you OK it before it posts. It's public writing, so it always waits for you.                                                                                                                      |
+| 10  | Starting daily limits?                    | **As in the tables below,** and half for a new or small account, as on the other networks.                                                                                                                                                                                                                  |
+| 11  | Your profile, on each network             | **The AI checks it and writes it, and the extension puts it in, on every network** (new, Chris's). Each network's own parts, at its own lengths: "Optimize your profile" below. One press puts every written part in, with the person's OK, as **Put this one in** does now; pictures and covers stay tips. |
+
+## Optimize your profile, on every network
+
+Get ready's profile check (decisions 63 and 64) does this for Facebook's bio and LinkedIn's headline today. It grows to
+every part of the profile a person writes, on every network:
+
+1. **Read my profile:** the extension reads the person's own profile on the network, at a person's pace, in its own
+   window.
+2. **The AI checks each part** against the main offer and **writes each one again**: the bio, and every other part
+   the network has words in, each at the network's own length.
+3. **The person sees each part as it is and as the AI wrote it,** changes any they like, and presses **Put them all
+   in**, or **Put this one in** for one. That press is their OK: their profile is public.
+4. **The extension writes each part in,** and reads the profile again for a new check. Where a site won't let it, it
+   hands that part to the person (**Carry on**), as the headline does now.
+5. **It's checked again** whenever the main offer changes (as now), and once a month. A new check only suggests: what
+   goes in always waits for the person's press.
+
+| Network   | The extension writes                                                            | The AI writes, the person puts in                                  | Tips                                          |
+| --------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------- |
+| Facebook  | The bio (101), as now                                                           | The intro's work line                                              | Picture, cover (with the AI's line), featured |
+| LinkedIn  | The headline (220), as now, and the **About** (2,600)                           | The current position's description; what to feature, with the link | Picture, banner (with the AI's line)          |
+| Instagram | The **bio** (150), on its own form                                              | The name (searched: "Name, what you do, where"); the link          | Picture, highlights, pinned posts             |
+| Alignable | The **description**, and the services or owner's bio, once Check reads its form | Recommendations to ask your customers for                          | Logo or photo, cover                          |
+
+What's under "the AI writes, the person puts in" moves to "the extension writes" one by one, as each network's Check
+finds its form. On the web, as far as is known, Instagram changes a name on its Accounts Center site and links only in
+its phone app, so those stay the person's until the next Check Instagram reads its form; Facebook's work line and
+LinkedIn's position and featured are boxes of their own, tried first in each Check.
 
 ## The process, on one page
 
@@ -188,7 +220,7 @@ everything goes at a person's pace.
 
 ### Your profile
 
-Get ready reads it and the AI checks it against the main offer, as on Facebook:
+Get ready reads it and the AI checks it against the main offer, then writes it ("Optimize your profile" above):
 
 - **Name:** your name, then what you do and where, like "Dana Reyes | Austin Plumber". Instagram searches the name
   field, and lets you change it only twice in 14 days. A tip: you change it.
@@ -249,9 +281,10 @@ Instagram's terms forbid automated access, and it blocks accounts that act too f
 
 ### The inbox
 
-If the business's Instagram professional account is connected in Settings → Facebook & Instagram, its messages
-already come into HandsFreeOS's inbox through Meta. When outreach runs from that same account, Social Outreach hears
-those messages through core's events, and must not count a reply twice.
+Chris works from his personal account (decision 3), so the replies come in as LinkedIn's do: the extension reads
+Instagram's messages and notes who wrote last. A business that connects a professional account in Settings →
+Facebook & Instagram gets its messages in HandsFreeOS's inbox through Meta too; when outreach runs from that same
+account, Social Outreach hears them through core's events, and must not count a reply twice.
 
 ## Alignable
 
@@ -390,14 +423,19 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
 
 ## Build order
 
-1. **Chris answers the questions above.**
-2. **Shared work in core:** people found by a search, steps per network, a playbook's networks. This closes
+1. **Chris answers the questions above.** Done, 17 Oct 2026.
+2. **Optimize your profile, on every network** (decision 11): each network's parts and checklist in core, the AI
+   writing each part, **Put them all in** on the web and the phone, and the extension's writers: LinkedIn's About and
+   Instagram's bio first, Alignable's once its Check has read its form. Built in extension 0.62.0, all but
+   Alignable's reader and writer, with **Your profile** on each network's page of Settings (docs/outreach.md,
+   decision 80).
+3. **Shared work in core:** people found by a search, steps per network, a playbook's networks. This closes
    LinkedIn's gaps first: invitations for people found by post search, and only its own switches in Settings.
-3. **The next Checks** read what's left: Alignable's profile form, its Connect box (is there a note?), a conversation,
+4. **The next Checks** read what's left: Alignable's profile form, its Connect box (is there a note?), a conversation,
    a forum question, a town page. Instagram's followers list, a hashtag page, a place page, its notifications, a chat.
-4. **The first network:** Alignable (recommended), parts 1 to 6.
-5. **The second:** Instagram, parts 1 to 6.
-6. **Chris tries each** on his own account, as he did LinkedIn, and the readers are tuned from what its Check sends
+5. **The first network:** Alignable, parts 1 to 6.
+6. **The second:** Instagram, parts 1 to 6.
+7. **Chris tries each** on his own account, as he did LinkedIn, and the readers are tuned from what its Check sends
    back.
 
 Each step's migration goes on the hosted database before `main` (CLAUDE.md, "Database migrations").

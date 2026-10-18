@@ -63,7 +63,7 @@ describe('LinkedIn’s words in the app', () => {
     expect(linkedIn.bios).toBe('Headlines to pick from');
     expect(linkedIn.biosHint).toContain('up to 220 characters');
     expect(linkedIn.coverLine).toBe('A line for your banner');
-    expect(linkedIn.about).toBe('An About to start from');
+    expect(linkedIn.about).toBe('Your About');
     expect(linkedIn.aboutCopied).toContain('About');
     expect(linkedIn.notRead).toContain('LinkedIn profile');
     expect(linkedIn.read).toBe(PROFILE_CHECK_WORDS.read);
@@ -155,7 +155,7 @@ describe('LinkedIn’s words in the app', () => {
     expect(linkedIn.about).toContain('in a LinkedIn tab');
     expect(linkedIn.about).not.toMatch(/Facebook/);
     expect(askNameOn('cancel', 'linkedin')).toBe('Withdraw old invitations');
-    expect(askNameOn('profile_edit', 'linkedin')).toBe('Put your new headline in');
+    expect(askNameOn('profile_edit', 'linkedin')).toBe('Update your profile');
     expect(askNameOn('profile_read', 'linkedin')).toBe('Read your LinkedIn profile');
     expect(askNameOn('cancel')).toBe(ASK_KINDS.cancel);
   });

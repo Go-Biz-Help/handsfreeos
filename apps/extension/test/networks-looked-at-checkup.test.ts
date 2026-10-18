@@ -95,6 +95,12 @@ const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/austin-tx/acme-plumbing/dana-reyes`]: html(
     `${ALIGNABLE_MENU}<main><button>Connect</button><button>Message</button><button>Recommend</button></main>`,
   ),
+  // The person's own business's profile, with the link to its form (as the owner's own profile linked it).
+  [`${AL}/biz/businesses/my_profile`]: html(`${ALIGNABLE_MENU}<main><h1>Casey’s Roofing</h1>
+    <a href="/biz/businesses/42/edit">Edit</a><button data-testid="elevator-pitch-cta-button">Add Elevator Pitch</button></main>`),
+  [`${AL}/biz/businesses/42/edit`]: html(
+    `<main><form><label for="d">Business Description</label><textarea id="d"></textarea><button>Save Changes</button></form></main>`,
+  ),
 };
 
 /** A tab on a network still looked at, opening the pages above by address; it reads and looks as the tab does. */
@@ -270,6 +276,9 @@ describe('Check Alignable', () => {
       `${AL}/inbox`,
       `${AL}/forum`,
       `${AL}/me`,
+      // Your own profile was a place already; your business's, and the form it's edited on, each read (decision 80).
+      `${AL}/biz/businesses/my_profile`,
+      `${AL}/biz/businesses/42/edit`,
       `${AL}/austin-tx/acme-plumbing/dana-reyes`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
@@ -283,7 +292,7 @@ describe('Check Alignable', () => {
       ['checkup.comment', true],
     ]);
     expect(end.line).toBe(
-      'Read 6 Alignable pages and tried 5 steps up to their last press. Everything works.',
+      'Read 8 Alignable pages and tried 5 steps up to their last press. Everything works.',
     );
   });
 
@@ -332,7 +341,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 6 Alignable pages and tried 5 steps up to their last press. Not working: recommending.',
+      'Read 8 Alignable pages and tried 5 steps up to their last press. Not working: recommending.',
     );
   });
 });

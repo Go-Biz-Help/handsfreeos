@@ -242,15 +242,162 @@ describe('Get ready on the phone', () => {
     expect(within(list).getByText('A headline that says who you help and the result')).toBeTruthy();
     expect(within(list).getByText('Headlines to pick from')).toBeTruthy();
     expect(within(list).getByText('A line for your banner')).toBeTruthy();
-    expect(within(list).getByText('An About to start from')).toBeTruthy();
+    expect(within(list).getByText('Your About')).toBeTruthy();
     expect(
-      within(list).getByText('I help roofers book more inspections. Book a call with me below.'),
+      within(list).getByDisplayValue(
+        'I help roofers book more inspections. Book a call with me below.',
+      ),
     ).toBeTruthy();
     expect(within(list).queryByText(/Facebook/)).toBeNull();
     await fireEvent.press(screen.getByTestId('ready-profile-about'));
     await waitFor(() => expect(onTick).toHaveBeenCalledWith('about', true));
     await fireEvent.press(screen.getByTestId('ready-bio-use-0'));
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'profile_edit', bio: headline }, 'linkedin');
+  });
+
+  it('puts the picked headline and the About, as changed, in with one press, and nothing in [brackets]', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'linkedin',
+      profileCheck: {
+        items: Object.fromEntries(PROFILE_ITEMS_ON.linkedin.map((i) => [i, ok])) as NonNullable<
+          ReadinessOutput['profileCheck']
+        >['items'],
+        bios: [
+          'I help roofers book inspections.',
+          'Booked inspections for roofers.',
+          'Roofers in [your city]: booked inspections.',
+        ],
+        aboutDraft: 'I help roofers book more inspections.',
+        coverLine: null,
+        feature: [],
+        at: '2026-10-14T15:00:00.000Z',
+        version: 1,
+      },
+    };
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.62.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-profile'));
+    // A headline still in [brackets] says to fill it in, with nothing to put in.
+    expect(screen.queryByTestId('ready-bio-use-2')).toBeNull();
+    expect(screen.getByText(READY_WORDS.profile.on.linkedin.items.bio.label)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('ready-bio-pick-1'));
+    await fireEvent.changeText(
+      screen.getByTestId('ready-about-text'),
+      'I help roofers in Austin book more inspections.',
+    );
+    await fireEvent.press(screen.getByTestId('ready-all-use'));
+    expect(actions.ask).toHaveBeenCalledWith(
+      {
+        kind: 'profile_edit',
+        bio: 'Booked inspections for roofers.',
+        about: 'I help roofers in Austin book more inspections.',
+      },
+      'linkedin',
+    );
+    await fireEvent.press(screen.getByTestId('ready-about-use'));
+    expect(actions.ask).toHaveBeenLastCalledWith(
+      { kind: 'profile_edit', about: 'I help roofers in Austin book more inspections.' },
+      'linkedin',
+    );
+    // An About with a part left to fill in goes nowhere until it's filled.
+    await fireEvent.changeText(
+      screen.getByTestId('ready-about-text'),
+      'I help roofers in [your city].',
+    );
+    expect(screen.getByTestId('ready-about-why')).toHaveTextContent(
+      'Fill in the parts in [brackets] first.',
+    );
+    expect(screen.getByTestId('ready-all-use')).toBeDisabled();
+    expect(screen.getByTestId('ready-about-use')).toBeDisabled();
+  });
+
+  it('checks Instagram’s profile by its own list, with a bio to put in and a name to use', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'instagram',
+      profileCheck: {
+        items: {
+          picture: ok,
+          name: fix('Only your name.', 'Add what you do.'),
+          bio: fix('Nothing about who you help.', 'Say who you help.'),
+          link: fix('No link.', 'Add your booking link.'),
+          featured: ok,
+          posts: ok,
+        },
+        bios: ['I help roofers book inspections. Book a call ↓'],
+        nameDraft: 'Chris | Roofing leads',
+        coverLine: null,
+        feature: [],
+        at: '2026-10-14T15:00:00.000Z',
+        version: 1,
+      },
+    };
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.62.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('ready-open-profile'));
+    const list = screen.getByTestId('ready-profile-list');
+    // Instagram's six: three right by the AI, three to tick.
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(3);
+    expect(within(list).getByText('A name that says what you do and where')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('ready-name')).getByText('“Chris | Roofing leads”'),
+    ).toBeTruthy();
+    // No About on Instagram, so nothing to put them all in with.
+    expect(screen.queryByTestId('ready-about')).toBeNull();
+    expect(screen.queryByTestId('ready-all')).toBeNull();
+    await fireEvent.press(screen.getByTestId('ready-bio-use-0'));
+    expect(actions.ask).toHaveBeenCalledWith(
+      { kind: 'profile_edit', bio: 'I help roofers book inspections. Book a call ↓' },
+      'instagram',
+    );
   });
 
   it('says how the last headline put in went once, under them all, and none from before the latest read', async () => {

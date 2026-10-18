@@ -10,12 +10,15 @@ import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
+import { appVersionAtLeast } from '../../../mobile';
 import type { RequestMeta } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import {
   ASK_KIND_KEYS,
   notOnNetworkWords,
   bioTooLongWords,
+  PROFILE_ABOUT_SINCE,
+  profileEditWords,
   targetOn,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
@@ -310,7 +313,11 @@ async function taskOf(
         about: askAbout(ask),
       };
     case 'profile_edit':
-      return { task: { kind: 'profile_edit', bio: ask.bio }, target, about: null };
+      return {
+        task: { kind: 'profile_edit', bio: ask.bio ?? null, about: ask.about ?? null },
+        target,
+        about: null,
+      };
     default:
       return { task: { kind: ask.kind }, target, about: null };
   }
@@ -335,8 +342,15 @@ export const askMake = defineAddonCommand(outreachAddon, {
     const { platform } = input;
     const notOn = notOnNetworkWords(platform, ask.kind);
     if (notOn) throw HfosError.rule('outreach_ask_not_on_network', 409, notOn);
-    const tooLong = ask.kind === 'profile_edit' ? bioTooLongWords(platform, ask.bio) : null;
-    if (tooLong) throw HfosError.rule('outreach_bio_too_long', 400, tooLong);
+    const cant = ask.kind === 'profile_edit' ? profileEditWords(platform, ask) : null;
+    if (cant)
+      throw HfosError.rule(
+        ask.kind === 'profile_edit' && ask.bio && bioTooLongWords(platform, ask.bio)
+          ? 'outreach_bio_too_long'
+          : 'outreach_profile_edit_refused',
+        400,
+        cant,
+      );
     // A network the person doesn't work asks nothing there.
     if (!(await automationOf(ctx, me, now, platform)).choices.on)
       throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
@@ -347,7 +361,12 @@ export const askMake = defineAddonCommand(outreachAddon, {
         409,
         'No computer has the extension signed in yet, so there’s nothing to do this. Install HandsFreeOS Social in Chrome on your computer and sign in, then ask again.',
       );
-    if (tooOldFor(working.version, ask.kind, platform))
+    if (
+      tooOldFor(working.version, ask.kind, platform) ||
+      (ask.kind === 'profile_edit' &&
+        ask.about !== undefined &&
+        !appVersionAtLeast(working.version, PROFILE_ABOUT_SINCE))
+    )
       throw HfosError.rule('outreach_extension_too_old', 409, tooOldWords(working));
     if (onFacebook(ask.kind) && (await warnedToday(ctx, me, now, platform)))
       throw HfosError.rule(

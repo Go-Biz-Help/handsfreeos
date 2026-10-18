@@ -127,6 +127,8 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
   if (address.kind !== 'profile') return { ok: false, error: 'Facebook didn’t open your profile.' };
   if (ask.type === 'hfos-own-profile')
     return { ok: true, read: readOwnProfile(document, location.href, address) };
+  if (ask.type === 'hfos-write-about')
+    return { ok: false, error: 'Facebook has no About to put in.' };
   return { ok: true, result: await writeBio(document, ask.bio) };
 }
 
@@ -231,6 +233,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return joinStep(known);
     case 'hfos-own-profile':
     case 'hfos-write-bio':
+    case 'hfos-write-about':
       return ownProfileStep(known);
     case 'hfos-group-post':
     case 'hfos-engaged':

@@ -723,7 +723,7 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
     const { tab, asked } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }));
     const { hfos, sent } = fakeHfos();
     const end = await onLinkedIn(
-      { kind: 'profile_edit', bio: 'I help roofers answer every lead' },
+      { kind: 'profile_edit', bio: 'I help roofers answer every lead', about: null },
       jobWith(tab, hfos).job,
     );
     expect(asked).toContain('hfos-write-bio');
@@ -748,7 +748,7 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
         'carry_on'
       ),
     });
-    const end = await onLinkedIn({ kind: 'profile_edit', bio: 'I help roofers' }, job);
+    const end = await onLinkedIn({ kind: 'profile_edit', bio: 'I help roofers', about: null }, job);
     expect(handed).toEqual([
       'Put your new headline in: press the pencil by your name on your LinkedIn profile, write “I help roofers” under Headline, and press Save. Then press Carry on.',
     ]);
@@ -914,6 +914,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       ]);
       expect(tried).toEqual([
         ['headline', OWN],
+        ['about', OWN],
         ['post', `${LI}/feed/`],
         ['connect', DANA],
         ['comment', POST],
@@ -929,6 +930,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       expect(notes.map((n) => n.job ?? 'page')).toEqual([
         'page',
         'checkup.headline',
+        'checkup.about',
         'page',
         'checkup.post',
         'page',
@@ -949,9 +951,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         true,
       );
       expect(notes.filter((n) => !n.job).every((n) => n.outline)).toBe(true);
-      expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 8, working: 8 });
+      expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 9, working: 9 });
       expect(end).toEqual({
-        line: 'Read 12 LinkedIn pages and tried 8 steps up to their last press. Everything works.',
+        line: 'Read 12 LinkedIn pages and tried 9 steps up to their last press. Everything works.',
         warned: false,
       });
     });
@@ -994,13 +996,13 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       });
       expect(notes.at(-1)!.found).toEqual({
         pages: 12,
-        steps: 8,
-        working: 6,
+        steps: 9,
+        working: 7,
         notWorking: ['headline'],
         nothingToTry: ['like'],
       });
       expect(end.line).toBe(
-        'Read 12 LinkedIn pages and tried 8 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
+        'Read 12 LinkedIn pages and tried 9 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
       );
     });
 
@@ -1033,9 +1035,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         ]);
         // The address it was handed is the job's alone: never in a note.
         expect(JSON.stringify(notes)).not.toContain('compose');
-        expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 8, working: 8 });
+        expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 9, working: 9 });
         expect(end.line).toBe(
-          'Read 13 LinkedIn pages and tried 8 steps up to their last press. Everything works.',
+          'Read 13 LinkedIn pages and tried 9 steps up to their last press. Everything works.',
         );
       } finally {
         delete pages[COMPOSE];

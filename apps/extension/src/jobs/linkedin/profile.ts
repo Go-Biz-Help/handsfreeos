@@ -13,9 +13,10 @@
  * It stops on any LinkedIn warning.
  */
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
+import type { OwnProfileAnswer } from '../../messages';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import { valueOf, warnedOn, type Job, type JobEnd } from '../job';
-import { headlineNote, loadNote, ownProfileNote } from '../report';
+import { aboutNote, headlineNote, loadNote, ownProfileNote, type ReportNote } from '../report';
 import { OWN_PROFILE, readLinkedIn, SIGNED_IN } from './read';
 
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
@@ -64,27 +65,60 @@ export async function linkedInProfileRead(job: Job): Promise<JobEnd> {
   return (await openOwn(job)) ?? readAndCheck(job);
 }
 
-/** Put this one in: the headline they picked, on their profile, then read again for a new check. */
-export async function linkedInHeadlineEdit(job: Job, task: EditTask): Promise<JobEnd> {
+/**
+ * Puts one part in, on the profile the window shows: what the tab says of how it went, and, when it didn't, the person
+ * puts it in by hand (**Carry on** once it's in) and the profile is opened again. A line to end on, when it ends.
+ */
+async function putIn(
+  job: Job,
+  part: 'headline' | 'About',
+  write: () => Promise<OwnProfileAnswer>,
+  byHand: string,
+  noteOf: (wrote: OwnProfileAnswer) => ReportNote,
+): Promise<JobEnd | null> {
+  job.progress(`Putting your new ${part} in…`);
+  const wrote = await write();
+  const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
+  if (result === 'done') return null;
+  // Something wasn't as expected: the person puts it in, and says when. The note of the page says which step it was.
+  if (!job.handOver) return failed(`LinkedIn didn’t let the extension change your ${part}.`);
+  const reply = await job.handOver(byHand, noteOf(wrote));
+  if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+  return openOwn(job);
+}
+
+/**
+ * Put this one in, or Put them all in (decision 80): the headline they picked, the About they OK'd, or both, on their
+ * profile, then read again for a new check.
+ */
+export async function linkedInProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   job.progress('Opening your LinkedIn profile…');
   const opened = await openOwn(job);
   if (opened) return opened;
-  job.progress('Putting your new headline in…');
-  const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio: task.bio });
-  const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
-  if (result !== 'done') {
-    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which step it was.
-    if (!job.handOver) return failed('LinkedIn didn’t let the extension change your headline.');
-    const reply = await job.handOver(
-      `Put your new headline in: press the pencil by your name on your LinkedIn profile, write “${task.bio}” under Headline, and press Save. Then press Carry on.`,
-      headlineNote(wrote.ok && 'result' in wrote ? wrote.steps : undefined),
+  const { bio, about } = task;
+  if (bio) {
+    const ended = await putIn(
+      job,
+      'headline',
+      () => job.tab.ask({ type: 'hfos-write-bio', bio }),
+      `Put your new headline in: press the pencil by your name on your LinkedIn profile, write “${bio}” under Headline, and press Save. Then press Carry on.`,
+      (wrote) => headlineNote(wrote.ok && 'result' in wrote ? wrote.steps : undefined),
     );
-    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
-    const again = await openOwn(job);
-    if (again) return again;
+    if (ended) return ended;
+  }
+  if (about) {
+    if (job.stopped()) return { line: 'Stopped.', warned: false };
+    const ended = await putIn(
+      job,
+      'About',
+      () => job.tab.ask({ type: 'hfos-write-about', about }),
+      'Put your new About in: press the pencil by About on your LinkedIn profile, paste the About from HandsFreeOS, and press Save. Then press Carry on.',
+      (wrote) => aboutNote(wrote.ok && 'result' in wrote ? wrote.aboutSteps : undefined),
+    );
+    if (ended) return ended;
   }
   const checked = await readAndCheck(job);
-  return checked.failed
-    ? checked
-    : { line: `Your headline now says “${task.bio}”.`, warned: false };
+  if (checked.failed) return checked;
+  const said = [bio ? `Your headline now says “${bio}”.` : null, about ? P.editAboutDone : null];
+  return { line: said.filter(Boolean).join(' '), warned: false };
 }

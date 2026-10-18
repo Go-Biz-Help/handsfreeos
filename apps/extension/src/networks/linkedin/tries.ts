@@ -47,7 +47,7 @@ import { CONTROLS, controlsIn, mainOf, placesOf, wordsOf } from './dom';
 import { readChat } from './chat';
 import { readInvitations } from './invitations';
 import { maskText, outlineNow } from './outline';
-import { headlineMissing, tryHeadline } from './own-profile';
+import { aboutMissing, headlineMissing, tryAbout, tryHeadline } from './own-profile';
 import type { ProfileRef } from './types';
 import { classifyUrl, comparable, linkedinUrl, sameMember } from './urls';
 import { CONNECT, MESSAGE, MORE, WITHDRAW } from './vocabulary';
@@ -60,6 +60,7 @@ const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 /** The steps Check LinkedIn tries. */
 export const TRY_STEPS = [
   'headline',
+  'about',
   'post',
   'comment',
   'connect',
@@ -120,6 +121,19 @@ export async function tryHeadlineStep(doc: Document): Promise<StepTry> {
   const { names, ...found } = steps;
   return {
     ...went('headline', found, headlineMissing(steps, true), names),
+    ...(outline ? { outline } : {}),
+  };
+}
+
+/** Putting the About in, on their own profile (decision 80): its box opened, written in and closed, nothing saved. */
+export async function tryAboutStep(doc: Document): Promise<StepTry> {
+  let outline: string | undefined;
+  const steps = await tryAbout(doc, (sofar) => {
+    if (aboutMissing({ ...sofar, closed: true }, true).length) outline = outlineNow(doc);
+  });
+  const { names, ...found } = steps;
+  return {
+    ...went('about', found, aboutMissing(steps, true), names),
     ...(outline ? { outline } : {}),
   };
 }

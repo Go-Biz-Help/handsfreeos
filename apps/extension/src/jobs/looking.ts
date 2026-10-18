@@ -16,12 +16,17 @@
  *   first (never anything that signs out, pays or deletes), the person's own profile and a business's or a member's,
  *   looking for Connect, Message, Recommend, Like and a box to comment in on each until each is found.
  */
-import type { AskTaken } from '@hfos/core/addons/outreach/asks';
+import type { AskTaken, AskTask } from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
+import {
+  PROFILE_CHECK_WORDS as P,
+  type ProfileRead,
+} from '@hfos/core/addons/outreach/profile-check';
 import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
 import { Checkup, isEnd, SEARCH_WORDS } from './checkup';
-import { readPageIn, type Job, type JobEnd, type JobTab } from './job';
+import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import { ownProfileNote } from './report';
 
 /** Reads the page in the job's window as the network's: anything else means it sent the window elsewhere. */
 const readOn =
@@ -76,6 +81,8 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
   if (stoppedEnd(job)) return stoppedEnd(job)!;
   const form = await c.open(`${INSTAGRAM}/accounts/edit/`, 'your profile’s form');
   if (isEnd(form)) return form;
+  // Its outline too: which of the form's boxes the extension may write in (decision 80).
+  await c.note('your profile’s form', null);
   await c.tryHere('bio');
 
   // A search, for the accounts and posts it shows.
@@ -219,13 +226,27 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
     await lookHere();
   }
 
-  // Your own profile, then a business's or a member's.
+  // Your own profile, your business's, and the form they're edited on, each read with its outline, so its parts can
+  // be written for you (decision 80): its pitch, your ideal customer and partner, the business's description.
   const own = reads.find((r) => r.own)?.own ?? null;
-  if (own && !seen.has(new URL(own).pathname)) {
+  for (const [url, name] of [
+    [own ?? `${ALIGNABLE}/biz/profile`, 'your profile'],
+    [`${ALIGNABLE}/biz/businesses/my_profile`, 'your business’s profile'],
+  ] as const) {
+    if (seen.has(new URL(url).pathname)) continue;
+    seen.add(new URL(url).pathname);
     if (stoppedEnd(job)) return stoppedEnd(job)!;
-    const page = await c.open(own, 'your profile');
+    const page = await c.open(url, name);
     if (isEnd(page)) return page;
-    await c.note('your profile', null);
+    await c.note(name, null);
+    const edit = page.edits[0];
+    if (edit && !seen.has(new URL(edit).pathname)) {
+      seen.add(new URL(edit).pathname);
+      if (stoppedEnd(job)) return stoppedEnd(job)!;
+      const form = await c.open(edit, 'its form');
+      if (isEnd(form)) return form;
+      await c.note('its form', null);
+    }
   }
   const someone = people[0]?.url ?? null;
   if (someone) {
@@ -240,6 +261,102 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
   return c.end();
 }
 
+// ------------------------------------------------------------------------------------------------ your profile
+
+const INSTAGRAM_FORM = `${INSTAGRAM}/accounts/edit/`;
+type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
+
+/** Opens a page of the network's for the person's own profile: their account's, or its form. */
+async function openForProfile(job: Job, url: string): Promise<JobEnd | LookingRead> {
+  await job.tab.open(url);
+  const page = await readOn('instagram')(job.tab);
+  const warned = await warnedOn(job, page);
+  if (warned) return warned;
+  if (page.signedOut) return signedOutEnd('instagram');
+  return page;
+}
+
+/** Reads the profile the tab shows, as the AI's check reads it. */
+async function ownRead(job: Job): Promise<ProfileRead | JobEnd> {
+  const answer = await job.tab.ask({ type: 'hfos-own-profile' });
+  if (!answer.ok) return { line: answer.error, warned: false, failed: true };
+  if (!('read' in answer))
+    return { line: 'Instagram didn’t show your profile.', warned: false, failed: true };
+  return answer.read;
+}
+
+/**
+ * Read my profile, on Instagram (decision 80): their account's own page from the menu's Profile, then its form, whose
+ * bio is the bio as kept; both read, noted, and sent for the AI's check.
+ */
+async function instagramProfileRead(job: Job): Promise<JobEnd> {
+  job.progress('Opening your Instagram profile…');
+  const feed = await openForProfile(job, `${INSTAGRAM}/`);
+  if (isEnd(feed)) return feed;
+  if (!feed.own)
+    return {
+      line: `Instagram didn’t show your own account. ${SIGNED_IN_INSTAGRAM}`,
+      warned: false,
+      failed: true,
+    };
+  const own = await openForProfile(job, feed.own);
+  if (isEnd(own)) return own;
+  job.progress('Reading your profile…');
+  const read = await ownRead(job);
+  if (isEnd(read)) return read;
+  await job.report?.({ ...ownProfileNote(read), outline: true });
+  if (job.stopped()) return { line: 'Stopped.', warned: false };
+  const form = await openForProfile(job, INSTAGRAM_FORM);
+  if (isEnd(form)) return form;
+  const kept = await ownRead(job);
+  if (isEnd(kept)) return kept;
+  await job.report?.({ outline: true });
+  if (job.stopped()) return { line: 'Stopped.', warned: false };
+  job.progress('Checking it with the AI…');
+  valueOf(
+    await job.hfos({
+      type: 'hfos-profile-check',
+      workspaceId: job.businessId,
+      input: { ...read, bio: kept.bio ?? read.bio ?? null },
+    }),
+  );
+  return { line: P.readDone, warned: false };
+}
+
+/** Put this one in, on Instagram: the bio on its form, then the profile read again for a new check. */
+async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
+  const bio = task.bio;
+  if (!bio) return { line: 'Pick a bio to put in first.', warned: false, failed: true };
+  job.progress('Opening your Instagram profile’s form…');
+  const form = await openForProfile(job, INSTAGRAM_FORM);
+  if (isEnd(form)) return form;
+  job.progress('Putting your new bio in…');
+  const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio });
+  const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
+  if (result !== 'done') {
+    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
+    await job.report?.({
+      note: `The bio didn’t go in (${result === 'not_saved' ? 'Submit didn’t keep it' : 'no box for the bio, or no Submit'}).`,
+      outline: true,
+    });
+    if (!job.handOver)
+      return {
+        line: 'Instagram didn’t let the extension change your bio.',
+        warned: false,
+        failed: true,
+      };
+    const reply = await job.handOver(
+      `Put your new bio in: on Instagram press Edit profile, write “${bio}” under Bio, and press Submit. Then press Carry on.`,
+    );
+    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+  }
+  const checked = await instagramProfileRead(job);
+  return checked.failed ? checked : { line: P.editDone(bio), warned: false };
+}
+
+/** What Instagram says when it isn't the person's own account in front of the extension. */
+const SIGNED_IN_INSTAGRAM = 'Check you’re signed in to Instagram in this browser, then ask again.';
+
 /** Check Instagram or Check Alignable: with its window in front the whole time, then the person's own back. */
 function inFront(job: Job, work: (job: Job) => Promise<JobEnd>): Promise<JobEnd> {
   return job.tab.inFront ? job.tab.inFront(() => work(job)) : work(job);
@@ -253,6 +370,11 @@ export function lookingAsk(platform: LookingPlatform) {
   return async (task: AskTaken['task'], job: Job): Promise<JobEnd> => {
     if (task.kind === 'checkup')
       return inFront(job, platform === 'instagram' ? checkupInstagram : checkupAlignable);
+    // Instagram's own profile, before its steps (decision 80): read, and the bio put in.
+    if (platform === 'instagram' && task.kind === 'profile_read')
+      return inFront(job, instagramProfileRead);
+    if (platform === 'instagram' && task.kind === 'profile_edit')
+      return inFront(job, (j) => instagramProfileEdit(j, task));
     const name = NETWORKS[platform].name;
     return {
       line: `The extension only reads ${name} for now, for Check ${name}: it can’t do that there yet.`,

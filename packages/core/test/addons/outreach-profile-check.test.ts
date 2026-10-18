@@ -10,14 +10,22 @@ import {
   ASK_KIND_SINCE,
   askRepliesFor,
   AskInput,
+  AskTask,
   bioTooLongWords,
+  profileEditWords,
+  tooOldFor,
 } from '../../src/addons/outreach/asks';
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import { playbookOffer } from '../../src/addons/outreach/playbook-assist';
 import {
   ABOUT_DRAFT_MOST,
+  ABOUT_MOST,
   BIO_MOST_ON,
   checkedProfileCheck,
+  hasPlaceholder,
+  INSTAGRAM_PROFILE_CHECK_SYSTEM,
+  profileCheckAsk,
+  profileCheckSystem,
   FACEBOOK_BIO_MOST,
   PROFILE_BIO_MOST,
   PROFILE_CHECK_ASK,
@@ -27,6 +35,7 @@ import {
   PROFILE_ITEMS_ON,
   PROFILE_READ_LIMITS,
   profileCheckPrompt,
+  ProfileCheck,
   ProfileRead,
   type ProfileCheckAnswer,
 } from '../../src/addons/outreach/profile-check';
@@ -80,8 +89,8 @@ describe('the AI’s answer, checked', () => {
   it('never calls an item with nothing read right, and says what to change', () => {
     const got = checkedProfileCheck(answer(), read, '2026-10-14T10:00:00.000Z', 2);
     expect(got.items.picture).toEqual({ ok: true, why: 'Looks right, mostly.', fix: null });
-    expect(got.items.cover.ok).toBe(false);
-    expect(got.items.featured.ok).toBe(false);
+    expect(got.items.cover?.ok).toBe(false);
+    expect(got.items.featured?.ok).toBe(false);
     expect(got).toMatchObject({ at: '2026-10-14T10:00:00.000Z', version: 2 });
   });
 
@@ -172,5 +181,97 @@ describe('the asks', () => {
     expect(bioEditShown({ asks: [done] }, 'linkedin', read)).toBe(done);
     expect(bioEditShown({ asks: [going] }, 'linkedin', read)).toBe(going);
     expect(bioEditShown({ asks: [edit('facebook', null)] }, 'linkedin', read)).toBeNull();
+  });
+});
+
+describe('every network’s profile, optimized (decision 80)', () => {
+  it('checks an Instagram profile by its own list: its name, bio, link, highlights and posts', () => {
+    expect(profileCheckSystem('instagram')).toBe(INSTAGRAM_PROFILE_CHECK_SYSTEM);
+    expect(INSTAGRAM_PROFILE_CHECK_SYSTEM).not.toMatch(/facebook|linkedin/i);
+    expect(PROFILE_ITEMS_ON.instagram).toEqual([
+      'picture',
+      'name',
+      'bio',
+      'link',
+      'featured',
+      'posts',
+    ]);
+    const ig = ProfileRead.parse({
+      platform: 'instagram',
+      name: 'Casey',
+      picture: 'casey.owner’s profile picture',
+      bio: 'Coffee, roofs, dogs',
+      intro: [],
+      featured: ['Jobs', 'Reviews'],
+      posts: ['A new roof in Upper Arlington.'],
+    });
+    const prompt = profileCheckPrompt(ig, offer);
+    expect(prompt).toContain('Score this Instagram profile.');
+    expect(prompt).toContain('featured (highlights):');
+    const answer = {
+      items: Object.fromEntries(
+        PROFILE_ITEMS_ON.instagram.map((i) => [i, { ok: true, why: 'Looks right.', fix: 'x' }]),
+      ),
+      bios: ['b'.repeat(150), 'c'.repeat(151)],
+      nameDraft: '“Casey | More booked inspections for Columbus roofers”',
+      feature: ['Reviews'],
+    };
+    expect(profileCheckAsk('instagram').zod.safeParse(answer).success).toBe(true);
+    const check = checkedProfileCheck(answer as never, ig, '2026-10-17T22:40:00.000Z', 1);
+    expect(Object.keys(check.items)).toEqual([...PROFILE_ITEMS_ON.instagram]);
+    // Kept as it is, with no cover or work: Instagram has neither.
+    expect(ProfileCheck.parse(check)).toEqual(check);
+    // No link read: never right, whatever the AI says.
+    expect(check.items.link?.ok).toBe(false);
+    expect(check.items.name?.ok).toBe(true);
+    expect(check.bios).toEqual(['b'.repeat(150)]);
+    expect(check.nameDraft).toBe('Casey | More booked inspections for Columbus roofers');
+    expect(check.coverLine).toBeNull();
+    expect(check.aboutDraft).toBeNull();
+    // A name longer than Instagram takes is left out, never cut mid-word.
+    const long = checkedProfileCheck(
+      { ...answer, nameDraft: 'n'.repeat(65) } as never,
+      ig,
+      '2026-10-17T22:40:00.000Z',
+      1,
+    );
+    expect(long.nameDraft).toBeNull();
+  });
+
+  it('writes LinkedIn’s whole About to go in, inside what LinkedIn takes', () => {
+    expect(ABOUT_DRAFT_MOST).toBeLessThan(ABOUT_MOST);
+    expect(profileCheckSystem('linkedin')).toContain('whole About');
+  });
+
+  it('puts in a bio, an About or both, never one still in [brackets] or too long', () => {
+    expect(AskInput.safeParse({ kind: 'profile_edit', about: 'I help roofers.' }).success).toBe(
+      true,
+    );
+    expect(AskInput.safeParse({ kind: 'profile_edit' }).success).toBe(false);
+    expect(
+      AskInput.safeParse({ kind: 'profile_edit', about: 'x'.repeat(ABOUT_MOST + 1) }).success,
+    ).toBe(false);
+    // What a computer gets: both, each or null; builds before 0.62.0 read the bio alone.
+    expect(AskTask.parse({ kind: 'profile_edit', bio: 'Roofers' })).toEqual({
+      kind: 'profile_edit',
+      bio: 'Roofers',
+      about: null,
+    });
+    expect(profileEditWords('linkedin', { bio: 'Roofers', about: 'I help roofers.' })).toBeNull();
+    expect(profileEditWords('facebook', { about: 'I help roofers.' })).toContain('no About');
+    expect(profileEditWords('linkedin', { about: 'I got [a result] for roofers.' })).toContain(
+      'Fill in the parts in [brackets] in your About',
+    );
+    expect(profileEditWords('instagram', { bio: 'b'.repeat(151) })).toContain(
+      'up to 150 characters',
+    );
+    expect(hasPlaceholder('More booked jobs for roofers')).toBe(false);
+    expect(hasPlaceholder('[Your town]’s roofers')).toBe(true);
+  });
+
+  it('reads Instagram’s profile and puts its bio in, from extension 0.62.0', () => {
+    expect(tooOldFor('0.61.0', 'profile_read', 'instagram')).toBe(true);
+    expect(tooOldFor('0.62.0', 'profile_read', 'instagram')).toBe(false);
+    expect(tooOldFor('0.62.0', 'profile_edit', 'instagram')).toBe(false);
   });
 });

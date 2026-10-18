@@ -52,6 +52,7 @@ import { SaveLine } from './settings-bits';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam } from './settings-network';
 import { useAskActions, useAsks, type AskActions } from './asks';
+import { useProfileProps, type ProfileProps } from './ready';
 
 /**
  * Social Outreach's Settings on the phone (decision 44), a page for each part as on the web (Chris, 2026-10-16: "a
@@ -124,6 +125,8 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
   const networkPart = part !== null && part !== 'general' && mine;
   const asks = useAsks('settings', W.rows.settings, networkPart);
   const askActions = useAskActions(asks.data, asks.reload);
+  // Their profile there, read and checked (decision 80).
+  const profile = useProfileProps(networkPart ? part : null, asks.data, W.rows.settings);
   // Back on the menu from a part: asked again, so each network's On or Off is as just saved.
   const shown = React.useRef(false);
   const { reload: reloadAutomation } = automation;
@@ -162,6 +165,7 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
       error={automation.error}
       asks={asks.data}
       askActions={askActions}
+      profile={profile}
       mine={mine}
       business={ctx.manages ? business.data : null}
       manages={ctx.manages}
@@ -359,6 +363,8 @@ interface PartProps {
   /** On a network's page, the person's own asks of their computer and what to do with them (decision 74). */
   asks?: AsksOutput | null;
   askActions?: AskActions | null;
+  /** On a network's page, the person's own profile there, read and checked (decision 80). */
+  profile?: ProfileProps | null;
 }
 
 /** A part's page: General, or a network's. */
@@ -390,6 +396,7 @@ function PartPage({
   onSaveBusiness,
   asks = null,
   askActions = null,
+  profile = null,
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID = part === 'general' ? 'settings-general' : `settings-networks-${part}`;
   // One line for the page, fixed under its title so it shows wherever the change was made: how the latest save went,
@@ -451,6 +458,7 @@ function PartPage({
               online={online}
               asks={mine ? asks : null}
               askActions={mine ? askActions : null}
+              profile={mine ? profile : null}
             />
             {manages && business ? (
               <NetworkTeam

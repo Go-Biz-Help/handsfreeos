@@ -29,11 +29,12 @@ async function checkup(job: Job): Promise<JobEnd> {
   const c = new Checkup<LinkedInRead>(job, 'linkedin', readLinkedIn);
   const stopped = (): JobEnd | null => (job.stopped() ? { line: 'Stopped.', warned: false } : null);
 
-  // Your profile: read whole, then putting the headline in tried.
+  // Your profile: read whole, then putting the headline in tried, and the About (decision 80).
   const own = await c.open(OWN_PROFILE, 'your profile');
   if (isEnd(own)) return own;
   await wholeProfile(job, true);
   await c.tryHere('headline');
+  await c.tryHere('about');
 
   // Your feed: read, and posting tried.
   const feed = await c.open(`${LINKEDIN}/feed/`, 'your feed');

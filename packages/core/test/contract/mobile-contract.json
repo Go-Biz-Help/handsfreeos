@@ -7434,9 +7434,14 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 220
+                  },
+                  "about": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2600
                   }
                 },
-                "required": ["kind", "bio"]
+                "required": ["kind"]
               },
               {
                 "type": "object",
@@ -8614,7 +8619,17 @@
           },
           "item": {
             "type": "string",
-            "enum": ["picture", "cover", "bio", "work", "featured", "posts", "about"]
+            "enum": [
+              "picture",
+              "cover",
+              "bio",
+              "work",
+              "featured",
+              "posts",
+              "about",
+              "name",
+              "link"
+            ]
           },
           "done": {
             "type": "boolean"

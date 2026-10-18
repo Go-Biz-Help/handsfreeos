@@ -6,7 +6,7 @@
  * read and outlined, and a look for a step's button, never pressed.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
-import type { TryAnswer, TryAsk } from '../../messages';
+import type { OwnProfileAnswer, OwnProfileAsk, TryAnswer, TryAsk } from '../../messages';
 import { isWholeAddress, type Kit } from '../kit';
 import { outlineLooking, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
@@ -21,6 +21,19 @@ async function look(site: LookingSite, ask: TryAsk): Promise<TryAnswer> {
     return { ok: false, error: `${site.name} didn’t open the page that step is on.` };
   return { ok: true, tried: await step.look(document, location.href) };
 }
+
+/** The person's own profile (decision 80): read it for the AI's check, or put the bio in, where the site has one. */
+async function ownProfile(site: LookingSite, ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
+  const own = site.ownProfile;
+  if (!own)
+    return { ok: false, error: `The extension doesn’t read your ${site.name} profile yet.` };
+  if (ask.type === 'hfos-own-profile') return { ok: true, read: own.read(document, location.href) };
+  if (ask.type === 'hfos-write-about')
+    return { ok: false, error: `${site.name} has no About to put in.` };
+  return { ok: true, result: await own.writeBio(document, ask.bio) };
+}
+
+const OWN_PROFILE_ASKS = new Set(['hfos-own-profile', 'hfos-write-bio', 'hfos-write-about']);
 
 export function lookingKit(site: LookingSite): Kit {
   return {
@@ -43,6 +56,11 @@ export function lookingKit(site: LookingSite): Kit {
     lookFor: () => 'warnings',
     noticer: () => ({ click: () => null, enter: () => null }),
     outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
-    work: (ask) => (ask.type === 'hfos-try' ? look(site, ask as TryAsk) : null),
+    work: (ask) =>
+      ask.type === 'hfos-try'
+        ? look(site, ask as TryAsk)
+        : OWN_PROFILE_ASKS.has(ask.type)
+          ? ownProfile(site, ask as OwnProfileAsk)
+          : null,
   };
 }

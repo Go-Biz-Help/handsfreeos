@@ -59,22 +59,25 @@ export async function profileRead(job: Job): Promise<JobEnd> {
 
 /** Put this one in: the bio they picked, on their profile, then read again for a new check. */
 export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
+  // Facebook's profile takes a bio, and nothing else the AI writes.
+  const bio = task.bio;
+  if (!bio) return failed('Pick a bio to put in first.');
   job.progress('Opening your profile…');
   const opened = await openOwn(job);
   if (opened) return opened;
   job.progress('Putting your new bio in…');
-  const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio: task.bio });
+  const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio });
   const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
   if (result !== 'done') {
     // Edit bio wasn't there, or the bio didn't show after Save: the person puts it in, and says when.
     if (!job.handOver) return failed('Facebook didn’t let the extension change your bio.');
     const reply = await job.handOver(
-      `Put your new bio in: press Edit bio on your profile, write “${task.bio}”, and press Save. Then press Carry on.`,
+      `Put your new bio in: press Edit bio on your profile, write “${bio}”, and press Save. Then press Carry on.`,
     );
     if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
     const again = await openOwn(job);
     if (again) return again;
   }
   const checked = await readAndCheck(job);
-  return checked.failed ? checked : { line: P.editDone(task.bio), warned: false };
+  return checked.failed ? checked : { line: P.editDone(bio), warned: false };
 }

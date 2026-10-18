@@ -23,7 +23,8 @@ describe('Check LinkedIn and Check Facebook', () => {
     expect(askableOn('facebook', 'checkup')).toBe(true);
     expect(askNameOn('checkup', 'linkedin')).toBe('Check LinkedIn');
     expect(askNameOn('checkup', 'facebook')).toBe('Check Facebook');
-    expect(ASK_KINDS_FOR.settings).toEqual(['checkup']);
+    // Each network's page asks Check, and reads its profile and puts its words in (decision 80).
+    expect(ASK_KINDS_FOR.settings).toEqual(['checkup', 'profile_read', 'profile_edit']);
     expect(tooOldFor('0.47.0', 'checkup', 'linkedin')).toBe(true);
     expect(tooOldFor('0.48.0', 'checkup', 'linkedin')).toBe(false);
     // Check Facebook came nine builds after Check LinkedIn: a build between them is never asked it.
@@ -35,7 +36,9 @@ describe('Check LinkedIn and Check Facebook', () => {
     expect(REPORT_WORDS.checkupAbout('facebook')).toContain(
       'your bio, a post in a group, a comment, a friend request, a message, a like',
     );
-    expect(REPORT_WORDS.checkupAbout('linkedin')).toContain('your headline, a post, a comment');
+    expect(REPORT_WORDS.checkupAbout('linkedin')).toContain(
+      'your headline, your About, a post, a comment',
+    );
     for (const words of [
       REPORT_WORDS.checkupAbout('facebook'),
       REPORT_WORDS.checkupAbout('linkedin'),

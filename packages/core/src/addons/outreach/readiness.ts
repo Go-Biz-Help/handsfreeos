@@ -492,7 +492,7 @@ export const READY_WORDS = {
     profile: (n: number, platform: Platform = 'facebook') =>
       `${plural(n, 'thing')} left to change on your ${NETWORKS[platform].name} profile.`,
     profileReadOn: (platform: Platform) =>
-      `Have the extension read your ${NETWORKS[platform].name} profile. The AI says what to change, and writes your headline and About.`,
+      `Have the extension read your ${NETWORKS[platform].name} profile. The AI says what to change, and writes ${PROFILE_WRITES_ON[platform]}.`,
     profileRead:
       'Have the extension read your Facebook profile. The AI says what to change, and writes your bio.',
     profileAgain: 'Your main offer changed. Look at your profile again so it still fits.',
@@ -612,10 +612,74 @@ export const READY_WORDS = {
             label: 'Activity that shows who you are, and some proof',
             tip: 'Not only selling: your work, what you’ve learned, a customer’s win.',
           },
-        } satisfies Record<AnyProfileItem, { label: string; tip: string }>,
-        about: 'An About to start from',
-        aboutHint: 'Paste it under About on your profile, and change anything that isn’t you.',
+        } satisfies Partial<Record<AnyProfileItem, { label: string; tip: string }>>,
+        about: 'Your About',
+        aboutHint:
+          'Change anything that isn’t you, then put it in: your computer writes it under About on your profile.',
         aboutCopied: 'Copied. Paste it under About on your LinkedIn profile.',
+      },
+      instagram: {
+        title: 'Check your Instagram profile',
+        hint: 'People look at it before they follow you back or answer. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change and writes your bio, and you tick each one once it’s right.',
+        items: {
+          picture: {
+            label: 'A clear photo of your face',
+            tip: 'Not a logo. People follow back a person.',
+          },
+          name: {
+            label: 'A name that says what you do and where',
+            tip: 'Instagram searches names: your first name, then what you do, like “Dana | Austin roofing”.',
+          },
+          bio: {
+            label: 'A bio that says who you help and what to do next',
+            tip: 'Instagram’s bio, up to 150 characters, from your main offer.',
+          },
+          link: {
+            label: 'A link to book a call',
+            tip: 'In the Instagram app: Edit profile, then Links. Your booking link first.',
+          },
+          featured: {
+            label: 'Highlights: what you do, reviews and how to book',
+            tip: 'Save stories to highlights named Services, Reviews and Book a call.',
+          },
+          posts: {
+            label: 'Posts that show who you are, and some proof',
+            tip: 'Not only selling: your work, your day, a customer’s win. Pin your best three.',
+          },
+        } satisfies Partial<Record<AnyProfileItem, { label: string; tip: string }>>,
+        about: null,
+        aboutHint: null,
+        aboutCopied: null,
+      },
+      // Ticked by the person until Check Alignable has found each part to read (decision 80).
+      alignable: {
+        title: 'Check your Alignable profile',
+        hint: 'Business owners look at it before they connect or send anyone your way. It doesn’t have to sell; it just shouldn’t put anyone off. Tick each one once it’s right.',
+        items: {
+          picture: {
+            label: 'A clear photo of your face',
+            tip: 'It shows beside your business’s name. People connect with a person.',
+          },
+          cover: {
+            label: 'A cover that says the result you get people',
+            tip: 'One line on an image, like “More booked jobs for roofers”. Not a sales pitch.',
+          },
+          bio: {
+            label: 'An Elevator Pitch that says who you help and the result',
+            tip: 'From your main offer: who you help, the result you get them, and how to start.',
+          },
+          work: {
+            label: 'Your Ideal Customer and Ideal Partner filled in',
+            tip: 'Who they are, where, and a few tags. Alignable suggests you to the businesses that fit.',
+          },
+          posts: {
+            label: 'Recommendations and posts that show some proof',
+            tip: 'Ask three happy customers to recommend you, and post a customer’s win now and then.',
+          },
+        } satisfies Partial<Record<AnyProfileItem, { label: string; tip: string }>>,
+        about: null,
+        aboutHint: null,
+        aboutCopied: null,
       },
     } satisfies Partial<Record<Platform, unknown>>,
     offer: 'Your main offer',
@@ -667,15 +731,26 @@ export interface ProfileRowWords {
   readonly tip: string;
 }
 
+/** A network's own words for its profile's list: its title, hint and items, and its About when it has one. */
+interface NetworkProfileWords {
+  readonly title: string;
+  readonly hint: string;
+  readonly items: Readonly<Partial<Record<AnyProfileItem, { label: string; tip: string }>>>;
+  readonly about: string | null;
+  readonly aboutHint: string | null;
+  readonly aboutCopied: string | null;
+}
+
 /**
  * Get ready's profile part on a network, in its words, for the web and the phone: its title and hint, its items in its
  * order (LinkedIn's About among them), the check's words (LinkedIn's headlines and banner), and the About to start
  * from where the network has one. Facebook's are as they always were.
  */
+
 export function profileWordsOn(platform: Platform = 'facebook') {
   const P = READY_WORDS.profile;
   // A network with no words of its own here (one still looked at, decision 78) has Facebook's.
-  const ons: Readonly<Partial<Record<Platform, (typeof P.on)['linkedin']>>> = P.on;
+  const ons: Readonly<Partial<Record<Platform, NetworkProfileWords>>> = P.on;
   const on = platform === 'facebook' ? null : (ons[platform] ?? null);
   const words: Readonly<Partial<Record<AnyProfileItem, { label: string; tip: string }>>> =
     on?.items ?? P.items;
@@ -693,10 +768,18 @@ export function profileWordsOn(platform: Platform = 'facebook') {
     ticked: P.ticked,
     offer: P.offer,
     done: P.done,
-    /** The About to start from: null on a network with none. */
+    /** The About: null on a network with none. */
     about: on?.about ?? null,
     aboutHint: on?.aboutHint ?? null,
     aboutCopied: on?.aboutCopied ?? null,
   };
 }
+
+/** What the AI writes on each network's profile, as Get ready says it (decision 80). */
+const PROFILE_WRITES_ON: Readonly<Record<Platform, string>> = {
+  facebook: 'your bio',
+  linkedin: 'your headline and About',
+  instagram: 'your bio and a name that says what you do',
+  alignable: 'your bio',
+};
 export type ProfileWords = ReturnType<typeof profileWordsOn>;

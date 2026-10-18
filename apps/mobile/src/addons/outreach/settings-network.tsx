@@ -24,18 +24,27 @@ import {
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
 import { askableOn, type AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
+import {
+  profileWordsOn,
+  READY_WORDS,
+  tickCounts,
+  type ReadinessOutput,
+} from '@hfos/core/addons/outreach/readiness';
 import { allowedOn, REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 
 import { AskButton, type AskActions } from './asks';
 import { useAutosave, type Autosave, type SaveState } from './autosave';
 import { Note } from './kit';
+import { ProfileList, type ProfileProps } from './ready';
 import {
   ExtensionTicks,
   NetworkModes,
@@ -51,8 +60,9 @@ import {
  * A network's page of Settings on the phone (Chris, 2026-10-16: a page for each network, every change saved as it's
  * made): its switch for the person, On for you, and while it's on what the extension does there on its own, along the
  * way, Facebook's switches while the person uses it themselves (or, on another network, how Chrome lets the extension
- * on), and their daily limits there as they stand. For owners and admins, the team's say on it: whether the team may
- * use it (Facebook always) and each person's daily limits there. A network the business doesn't use says only why.
+ * on), their daily limits there as they stand, and their profile there (decision 80), on a network still looked at
+ * too. For owners and admins, the team's say on it: whether the team may use it (Facebook always) and each person's
+ * daily limits there. A network the business doesn't use says only why.
  */
 
 /** A network's training wheels: Facebook's, or another network's own. */
@@ -70,6 +80,7 @@ export function NetworkMine({
   online,
   asks = null,
   askActions = null,
+  profile = null,
 }: {
   platform: Platform;
   automation: AutomationOutput;
@@ -79,6 +90,8 @@ export function NetworkMine({
   /** The person's own asks of their computer (Check LinkedIn) and the computer: null on someone else's settings. */
   asks?: AsksOutput | null;
   askActions?: AskActions | null;
+  /** Their own profile on the network, read and checked (decision 80): null on someone else's settings. */
+  profile?: ProfileProps | null;
 }) {
   const p = platform;
   const name = PLATFORMS[p];
@@ -119,7 +132,13 @@ export function NetworkMine({
           {wheels.on && !isLooking(p) ? (
             <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note>
           ) : null}
-          <NetworkComputer platform={p} asks={asks} actions={askActions} testID={testID} />
+          <NetworkComputer
+            platform={p}
+            asks={asks}
+            actions={askActions}
+            profile={profile}
+            testID={testID}
+          />
           {isLooking(p) ? (
             // Still looked at (decision 78): nothing to choose yet, only Chrome's say and its Check.
             <Note testID={`${testID}-looking`}>{NW.looking(name)}</Note>
@@ -187,18 +206,21 @@ export function NetworkMine({
 
 /**
  * The person's computer on a network (decisions 74 and 77): off Facebook, what to press when Chrome hasn't let the
- * extension on it (Facebook's sites are the extension's own); and Check LinkedIn or Check Facebook, which reads the
- * network's main pages, tries each step up to its last press, and sends a note of each.
+ * extension on it (Facebook's sites are the extension's own); their profile there, which it reads and the AI checks
+ * (decision 80); and Check LinkedIn or Check Facebook, which reads the network's main pages, tries each step up to its
+ * last press, and sends a note of each.
  */
 function NetworkComputer({
   platform,
   asks,
   actions,
+  profile,
   testID,
 }: {
   platform: Platform;
   asks: AsksOutput | null;
   actions: AskActions | null;
+  profile: ProfileProps | null;
   testID: string;
 }) {
   const name = PLATFORMS[platform];
@@ -214,6 +236,16 @@ function NetworkComputer({
       ) : (
         <Note testID={`${testID}-chrome`}>{SETTINGS_WORDS.allowInChrome(name)}</Note>
       )}
+      {asks && actions && profile?.readiness ? (
+        <NetworkProfile
+          platform={platform}
+          readiness={profile.readiness}
+          onTick={profile.onTick}
+          asks={asks}
+          actions={actions}
+          testID={`${testID}-profile`}
+        />
+      ) : null}
       {asks && actions && askableOn(platform, 'checkup') ? (
         <Section
           boxed
@@ -232,6 +264,59 @@ function NetworkComputer({
         </Section>
       ) : null}
     </>
+  );
+}
+
+/**
+ * Your profile on the network (decision 80): how far it is, and Get ready's list to read it, see the AI's check and put
+ * its words in. What the computer reads or puts in shows once that ask is done.
+ */
+function NetworkProfile({
+  platform,
+  readiness,
+  onTick,
+  asks,
+  actions,
+  testID,
+}: {
+  platform: Platform;
+  readiness: ReadinessOutput;
+  onTick: ProfileProps['onTick'];
+  asks: AsksOutput;
+  actions: AskActions;
+  testID: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const P = profileWordsOn(platform);
+  const live = readiness.offer?.version ?? null;
+  const check = checkCounts(readiness.profileCheck, live) ? readiness.profileCheck : null;
+  const right = P.items.filter(
+    (i) => tickCounts(readiness.profile[i.item], live) || check?.items[i.item]?.ok === true,
+  ).length;
+  return (
+    <Section
+      boxed
+      title={SETTINGS_WORDS.yourProfile(PLATFORMS[platform])}
+      about={P.hint}
+      testID={testID}
+    >
+      <Note testID={`${testID}-state`}>
+        {check || right ? SETTINGS_WORDS.profileRight(right, P.items.length) : P.notRead}
+      </Note>
+      {open ? (
+        <ProfileList readiness={readiness} asks={asks} actions={actions} onTick={onTick} />
+      ) : (
+        <Button
+          variant={check ? 'secondary' : 'primary'}
+          size="md"
+          className="self-start"
+          onPress={() => setOpen(true)}
+          testID={`${testID}-open`}
+        >
+          {READY_WORDS.items.profile.go}
+        </Button>
+      )}
+    </Section>
   );
 }
 

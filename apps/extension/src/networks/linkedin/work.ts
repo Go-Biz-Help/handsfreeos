@@ -48,12 +48,13 @@ import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
 import { readComments, readReactions, writeFeedPost } from './compose';
 import { dataPage } from './data';
-import { loadWholeProfile, readOwnProfile, writeHeadline } from './own-profile';
+import { loadWholeProfile, readOwnProfile, writeAbout, writeHeadline } from './own-profile';
 import { classifyUrl } from './urls';
 import {
   tryComment,
   tryConnect,
   tryFile,
+  tryAboutStep,
   tryHeadlineStep,
   tryLike,
   tryMessage,
@@ -70,6 +71,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-scroll-list',
   'hfos-own-profile',
   'hfos-write-bio',
+  'hfos-write-about',
   'hfos-withdraw',
   'hfos-their-posts',
   'hfos-like-post',
@@ -110,6 +112,10 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
     const load = await loadWholeProfile(document);
     return { ok: true, read: readOwnProfile(document, location.href), load };
   }
+  if (ask.type === 'hfos-write-about') {
+    const { result, steps } = await writeAbout(document, location.href, ask.about);
+    return { ok: true, result, aboutSteps: steps };
+  }
   return { ok: true, ...(await writeHeadline(document, location.href, ask.bio)) };
 }
 
@@ -126,6 +132,8 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
       return onProfile
         ? { ok: true, tried: await tryHeadlineStep(document) }
         : wrong('your profile');
+    case 'about':
+      return onProfile ? { ok: true, tried: await tryAboutStep(document) } : wrong('your profile');
     case 'post':
       return kind === 'feed' ? { ok: true, tried: await tryPost(document) } : wrong('your feed');
     case 'comment':
@@ -243,6 +251,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return Promise.resolve<BrowseAnswer>({ ok: scrollList(document, location.href) });
     case 'hfos-own-profile':
     case 'hfos-write-bio':
+    case 'hfos-write-about':
       return ownProfileStep(known);
     case 'hfos-withdraw':
       return withdrawStep(known);

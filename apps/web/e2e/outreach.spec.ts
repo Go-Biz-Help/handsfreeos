@@ -864,6 +864,17 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request'),
   ).toContainText('At most 80 in any 7 days');
   await expect(page.getByTestId('outreach-settings-part-linkedin-state')).toHaveText('On');
+  // Their LinkedIn profile, here too: not read yet, and Get ready's sheet to read it (decision 80).
+  await expect(page.getByTestId('outreach-my-networks-linkedin-profile-state')).toHaveText(
+    'Have the extension read your LinkedIn profile, and the AI says what to change.',
+  );
+  await page.getByTestId('outreach-my-networks-linkedin-profile-open').click();
+  const profileSheet = page.getByRole('dialog', { name: 'Check your LinkedIn profile' });
+  await expect(profileSheet.getByTestId('ready-profile-read')).toContainText(
+    'Have the extension read your LinkedIn profile',
+  );
+  await page.keyboard.press('Escape');
+  await expect(profileSheet).toHaveCount(0);
   // The team's daily invitations, typed: saved once it's left, and their own limit follows.
   const invites = page.getByTestId('outreach-rules-linkedin-limit-friend_request');
   await expect(invites).toHaveValue('15');
