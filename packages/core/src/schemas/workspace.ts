@@ -73,6 +73,8 @@ export const WorkspaceJoinOutput = z.object({ workspaceId: uuid, role: workspace
 export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
   inbox: 'inbox.set_visibility',
   money: 'money.save_settings',
+  // Partners' share, terms and smallest payout (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2).
+  partners: 'partners.save_settings',
   telephony: 'phone.update_settings',
   attention: 'attention.save_settings',
   automations: 'automations.save_settings',

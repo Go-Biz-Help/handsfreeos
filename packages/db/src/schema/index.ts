@@ -4165,6 +4165,72 @@ export const refunds = app.table('refunds', {
   memberViewerIds: memberViewerIds(),
 });
 
+/**
+ * A partner of the business (20261027008600, HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md stage 2): someone who sends
+ * it customers for a share of what they pay. One a contact; `code` is what their link carries (`?ref=pa-<code>`).
+ */
+export const partners = app.table('partners', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  /** Their own share in basis points; null for the business's default (settings.partners). */
+  rateBp: integer('rate_bp'),
+  status: text('status').$type<'active' | 'paused' | 'ended'>().notNull().default('active'),
+  termsVersion: integer('terms_version'),
+  termsAcceptedAt: ts('terms_accepted_at'),
+  addedBy: userRef('added_by'),
+  ...timestamps(),
+});
+
+/** A client a partner sent, by their link or marked by hand: each customer is one partner's. */
+export const partnerReferrals = app.table('partner_referrals', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  partnerId: uuid('partner_id')
+    .notNull()
+    .references(() => partners.id, { onDelete: 'cascade' }),
+  /** Null once the customer is deleted for good: what they earned the partner stays. */
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  how: text('how').$type<'link' | 'by_hand'>().notNull(),
+  appointmentId: uuid('appointment_id').references(() => appointments.id, {
+    onDelete: 'set null',
+  }),
+  referredAt: ts('referred_at').notNull(),
+  /** Their first payment after they were referred: their 12 months start then. */
+  firstPaidAt: ts('first_paid_at'),
+  markedBy: userRef('marked_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** A payment's share earned by a partner, or what a refund took back (negative). The worker writes them. */
+export const partnerCommissions = app.table('partner_commissions', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  partnerId: uuid('partner_id')
+    .notNull()
+    .references(() => partners.id, { onDelete: 'cascade' }),
+  referralId: uuid('referral_id')
+    .notNull()
+    .references(() => partnerReferrals.id, { onDelete: 'cascade' }),
+  paymentId: uuid('payment_id')
+    .notNull()
+    .references(() => payments.id, { onDelete: 'cascade' }),
+  refundId: uuid('refund_id').references(() => refunds.id, { onDelete: 'cascade' }),
+  kind: text('kind').$type<'earned' | 'taken_back'>().notNull(),
+  baseCents: cents('base_cents').notNull(),
+  rateBp: integer('rate_bp').notNull(),
+  amountCents: cents('amount_cents').notNull(),
+  earnedAt: ts('earned_at').notNull(),
+  /** Free to pay out 30 days after it's earned; one taken back counts at once. */
+  payableAt: ts('payable_at').notNull(),
+  /** A payment in a provider's test mode: shown, never paid out. */
+  test: boolean('test').notNull().default(false),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 /** Our mirror of a plan billing at the provider. 'unmanaged' is one whose account was disconnected. */
 export const subscriptions = app.table('subscriptions', {
   id: id(),

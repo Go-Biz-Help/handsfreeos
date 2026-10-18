@@ -71,6 +71,8 @@ export * from './main-offer/parts';
 export * from './main-offer/examples';
 export * from './main-offer/assist';
 export * from './main-offer/words';
+// Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2): their settings and how they earn.
+export * from './partners/index';
 export * from './writing';
 export * from './ai-team/index';
 // Quick setup: a few simple questions that set up a working AI teammate.

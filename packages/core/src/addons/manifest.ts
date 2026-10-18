@@ -107,9 +107,11 @@ export interface AddonPermission {
 /**
  * Parts of core that only some add-ons need, so they show only while one of those is on: the business's main offer
  * (docs/main-offer.md) is built in core so Social Outreach and AI Sales Coach can share it, and means nothing to a
- * business running neither. An add-on names the ones it uses in `uses`; core never names an add-on.
+ * business running neither; and its partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md), who earn a share of what
+ * the customers they send pay, from core's payments. An add-on names the ones it uses in `uses`; core never names an
+ * add-on.
  */
-export const CORE_FEATURES = ['main_offer'] as const;
+export const CORE_FEATURES = ['main_offer', 'partners'] as const;
 export type CoreFeature = (typeof CORE_FEATURES)[number];
 
 /** Another add-on this one uses. */

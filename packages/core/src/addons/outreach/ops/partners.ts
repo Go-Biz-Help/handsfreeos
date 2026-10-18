@@ -6,9 +6,12 @@
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
+import { partnerAdd } from '../../../commands/partners';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
+import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
+import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { demoLink, partnerRef, readPartnerRef } from '../demos';
@@ -60,7 +63,7 @@ import {
 } from '../today';
 import { partners, playbooks, profiles } from '../tables';
 import { readsPerDay, readToday } from './checks';
-import { inWorkspace, notNever, partnered, type Ctx } from './common';
+import { inWorkspace, notNever, partnered, saveProfile, type Ctx } from './common';
 import { partnerPlaybooksInUse } from './friends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
@@ -400,6 +403,42 @@ export const partnersList = defineAddonQuery(outreachAddon, {
   },
 });
 
+/**
+ * Someone on the Partners list made a partner in core (`partner.add`, HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md stage
+ * 2): their contact, made from their profile when there's none yet. It promises them a share of what their clients
+ * pay, so it takes partners.manage as well as Social Outreach.
+ */
+async function makeCorePartner(ctx: CommandContext, profileId: string): Promise<void> {
+  if (!scopeCan(ctx.scope, 'partners.manage'))
+    throw HfosError.forbidden(
+      'Making someone a partner promises them a share of what their clients pay, so it takes Manage partners. Ask an owner of this business to do it, or to give you Manage partners in Settings → Permissions.',
+      'partner_needs_manage',
+    );
+  const [profile] = await ctx.tx
+    .select()
+    .from(profiles)
+    .where(and(eq(profiles.workspaceId, ctx.scope.workspaceId!), eq(profiles.id, profileId)));
+  if (!profile)
+    throw HfosError.notFound(
+      'That person isn’t kept in Social Outreach any more. Refresh the page.',
+    );
+  const personId =
+    profile.personId ??
+    (
+      await saveProfile(ctx, {
+        platform: profile.platform,
+        profile: { id: profile.platformId, username: profile.username, url: profile.url },
+        name: profile.name,
+        facts: null,
+      })
+    ).personId;
+  await executeCommandWithin(ctx, partnerAdd, {
+    workspaceId: ctx.scope.workspaceId!,
+    personId,
+    rateBp: null,
+  });
+}
+
 /** The stage a mark puts someone at, and the moment it keeps: the first time each is reached. */
 const MARKED: Record<
   Exclude<PartnerMark, 'again' | 'not_partner'>,
@@ -424,7 +463,7 @@ function stageBefore(row: typeof partners.$inferSelect): PartnerStage {
 export const partnerMark = defineAddonCommand(outreachAddon, {
   name: 'outreach.partner.mark',
   description:
-    'Marks someone on the person’s Partners list: interested, call booked, a partner now, not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.',
+    'Marks someone on the person’s Partners list: interested, call booked, a partner now (made a partner of the business, with a link of their own), not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.',
   risk: 1,
   input: PartnerMarkInput,
   output: PartnerMarkOutput,
@@ -448,6 +487,10 @@ export const partnerMark = defineAddonCommand(outreachAddon, {
       .for('update');
     if (!row || row.stage === null)
       throw HfosError.notFound('They aren’t on your Partners list anymore. Refresh the page.');
+    // Make partner makes them a partner in core first (stage 2): a refusal leaves the list as it was. Pressed again,
+    // it changes nothing, so a partner the business paused or ended there stays so.
+    if (input.mark === 'partner' && row.stage !== 'partner')
+      await makeCorePartner(ctx, row.profileId);
     let stage: PartnerStage | null;
     if (input.mark === 'not_partner') {
       // The AI was wrong: off the list, as if never on it, and pitched as a customer again. Not read again for a while.

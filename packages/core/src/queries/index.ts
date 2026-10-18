@@ -107,6 +107,7 @@ import { migrationQueries } from './migration';
 import { walletQueries } from './wallet';
 import { offerList } from './offer';
 import { mainOfferGet, mainOfferTryList, mainOfferVersionList } from './main-offer';
+import { partnerGet, partnerList, partnerOfPerson, partnersSettings } from './partners';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -340,6 +341,10 @@ export const queries: readonly QueryDef[] = [
   mainOfferGet,
   mainOfferVersionList,
   mainOfferTryList,
+  partnersSettings,
+  partnerList,
+  partnerGet,
+  partnerOfPerson,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,
@@ -478,6 +483,7 @@ export * from './branded-domain';
 export * from './founding';
 export * from './offer';
 export * from './main-offer';
+export * from './partners';
 export * from './relationship';
 export * from './support-access';
 export * from './record-hold';
