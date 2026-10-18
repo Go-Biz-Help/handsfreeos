@@ -282,8 +282,13 @@ if the business says, decision 17), and the calendar the referral link books.
      shows only to whoever holds Manage partners (`partnerMarksFor`'s `makePartner`). The words are core's
      (`partners/business-words.ts`), so the phone says the same. The Deleted bin's box says when a customer is a
      partner (`bin_contents`' `partners`, migration 20261027008900).
-   - **The phone (next):** Settings → Partners and a partner's page, the Partner card on a customer, and sharing a
-     partner's link.
+   - **The phone (built 18 Oct 2026):** Settings → Partners under This business, for whoever holds Manage partners
+     while partners are on. How partners are paid shows to read, with **Change these on the web**, since setting the
+     business up stays on the web as the phone's other settings do; then the partners with what they've earned. A
+     partner's page has everything the web's has, with **Share their link** through the phone's own share sheet in
+     place of copying it, and their own share set from a sheet. A customer's page has the same Partner card. All of
+     it needs signal: the queries are the phone's contract's, and the three partner commands are online ones, never
+     queued.
 
 ## Stage 3: payouts (core)
 
