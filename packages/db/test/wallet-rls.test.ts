@@ -11,6 +11,7 @@
  * Every other money column in this repo is `>= 0`, so the first person to "fix" this one needs a test telling
  * them not to.
  */
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
 import {
@@ -275,6 +276,40 @@ describe('who sees what', () => {
     ).toEqual({ code: '42501', detail: 'wallet_card_is_the_providers' });
   });
 
+  it('lets a person take the card off, which is their own button, and nothing more', async () => {
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set provider = 'stripe', customer_ref = 'cus_a', method_token = 'pm_a',
+              card_brand = 'Visa', card_last4 = '4242', card_expiry_month = 12, card_expiry_year = 2030
+            where workspace_id = ${A.ws}`,
+      ),
+    );
+    // Remove card was refused here for as long as there was a card to remove.
+    await as(owner)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set method_token = null, card_brand = null, card_last4 = null,
+              card_expiry_month = null, card_expiry_year = null, auto_topup = false
+            where workspace_id = ${A.ws}`,
+      ),
+    );
+    const [w] = await rows<{ token: string | null; customer: string | null }>(
+      dbs.admin.db,
+      sql`select method_token as token, customer_ref as customer from app.usage_wallets
+          where workspace_id = ${A.ws}`,
+    );
+    // The provider's customer stays: the next card goes on it.
+    expect(w).toEqual({ token: null, customer: 'cus_a' });
+    expect(
+      await detailOf(() =>
+        as(owner)((tx) =>
+          tx.execute(
+            sql`update app.usage_wallets set method_token = 'pm_mine' where workspace_id = ${A.ws}`,
+          ),
+        ),
+      ),
+    ).toEqual({ code: '42501', detail: 'wallet_card_is_the_providers' });
+  });
+
   it('never lets a person undo a suspension or reset the decline ladder', async () => {
     // Suspend it first. This used to set nulls over nulls on a wallet that had never been suspended, so
     // every `is distinct from` was false, the guard had nothing to refuse, and the update "succeeded" —
@@ -460,6 +495,35 @@ describe('a top-up', () => {
   });
 });
 
+describe('Top up now', () => {
+  it('is written for somebody who may spend the money, through the one function that checks', async () => {
+    const press = (who: TestUser, id: string) =>
+      as(who)((tx) =>
+        rows<{ id: string | null }>(
+          tx,
+          sql`select private.request_wallet_top_up(${B.ws}::uuid, 2500::bigint, ${id}::uuid,
+                ${`topup:${id}`}) as id`,
+        ),
+      );
+    const first = randomUUID();
+    expect((await press(outsider, first))[0]?.id).toBe(first);
+    // One waiting at a time: a second press is told so, and is not a second charge.
+    expect((await press(outsider, randomUUID()))[0]?.id).toBeNull();
+    // Somebody who can't spend this business's money is refused, wallet or no wallet.
+    await refused(() => press(owner, randomUUID()));
+    const [row] = await rows<{ status: string; step: number; by: string }>(
+      dbs.admin.db,
+      sql`select status::text as status, escalation_step as step, requested_by as by
+          from app.wallet_recharges where id = ${first}`,
+    );
+    expect(row).toEqual({ status: 'pending', step: 0, by: outsider.id });
+    // Nothing else here waits behind it.
+    await worker(B)((tx) =>
+      tx.execute(sql`update app.wallet_recharges set status = 'cancelled' where id = ${first}`),
+    );
+  });
+});
+
 describe('the nightly drift check', () => {
   it('finds nothing while every wallet matches its ledger', async () => {
     const drift = await rows<{ workspace_id: string }>(
@@ -486,6 +550,54 @@ describe('the nightly drift check', () => {
       tx.execute(
         sql`update app.usage_wallets set balance_cents = balance_cents - 777 where workspace_id = ${A.ws}`,
       ),
+    );
+  });
+});
+
+describe('the hourly top-up check', () => {
+  it('lists the wallets that could need a top-up, for the worker alone', async () => {
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set method_token = 'pm_a2', card_brand = 'Visa', card_last4 = '4242',
+              auto_topup = true, suspended_at = null, suspended_reason = null where workspace_id = ${A.ws}`,
+      ),
+    );
+    const set = (change: ReturnType<typeof sql>) => worker(A)((tx) => tx.execute(change));
+    const listed = async () =>
+      (
+        await asService({})((tx) =>
+          rows<{ workspace_id: string }>(
+            tx,
+            sql`select workspace_id from private.wallets_to_top_up()`,
+          ),
+        )
+      ).map((r) => r.workspace_id);
+    // Reading the table with no business in scope, as the check used to, the worker sees no wallet at all.
+    const direct = await asService({})((tx) =>
+      rows<{ n: number }>(
+        tx,
+        sql`select count(*)::int as n from app.usage_wallets where workspace_id = ${A.ws}`,
+      ),
+    );
+    expect(direct[0]!.n).toBe(0);
+    expect(await listed()).toContain(A.ws);
+    // Not with automatic top-up off, not suspended, and never a business its agency pays for.
+    await set(sql`update app.usage_wallets set auto_topup = false where workspace_id = ${A.ws}`);
+    expect(await listed()).not.toContain(A.ws);
+    await set(
+      sql`update app.usage_wallets set auto_topup = true, suspended_at = now(),
+            suspended_reason = 'card declined three times' where workspace_id = ${A.ws}`,
+    );
+    expect(await listed()).not.toContain(A.ws);
+    await set(
+      sql`update app.usage_wallets set suspended_at = null, suspended_reason = null, stage = 'agency'
+            where workspace_id = ${A.ws}`,
+    );
+    expect(await listed()).not.toContain(A.ws);
+    await set(sql`update app.usage_wallets set stage = 'off' where workspace_id = ${A.ws}`);
+    expect(await listed()).toContain(A.ws);
+    await refused(() =>
+      as(owner)((tx) => tx.execute(sql`select * from private.wallets_to_top_up()`)),
     );
   });
 });

@@ -46,16 +46,16 @@ kill_timeout = "30s"
   # the file means the current mode is visible in git and every change of it is a commit somebody reviewed.
   # See docs/operations.md, "Usage balances: what businesses pay us".
   #
-  # `shadow` from 2026-10-03: the shadow week (operations, Part 1). The ledger fills, the nightly
-  # reconciliation trues it up against Twilio, and not one business hears a word — what a business feels is
-  # its own stage, which is `off` for everybody until somebody moves it from /admin, one at a time.
+  # `shadow` from 2026-10-03 to 2026-10-18: the shadow week (operations, Part 1). The ledger filled, the
+  # nightly reconciliation trued it up against Twilio, and not one business heard a word. No key on
+  # /admin/rates came in under 1.2× realised margin, on very little traffic.
   #
-  # It stays `shadow` until two things are true: /admin/rates shows no key under 1.2× realised margin over a
-  # full week, and a Stripe platform key is on this app. Going to `on` before the first would bill against
-  # prices nobody has measured. Before the second there is no way to put a card on a wallet at all, so `on`
-  # would change nothing by itself — but the first business moved to `warn` would be told to add a card and
-  # have nowhere to add one, which is the same as not warning them.
-  WALLET_MODE = "shadow"
+  # `on` from 2026-10-18, Chris's call. Top-ups charge cards now: a balance under its floor tops itself up
+  # from its card, and Top up now charges at once. What a business sees and feels is still its own stage,
+  # which is `off` for everybody until somebody moves it from /admin, one at a time. A Stripe platform key
+  # must be on this app before the first business moves to `warn`, or it is told to add a card and has
+  # nowhere to add one.
+  WALLET_MODE = "on"
   LOG_LEVEL = "info"
 
 [http_service]

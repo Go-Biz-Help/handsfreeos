@@ -87,7 +87,7 @@ import {
   onPaymentRecorded,
   onSubscriptionLive,
 } from '../money/jobs';
-import { onWalletLow } from '../money/recharge';
+import { onTopUpPressed, onWalletLow } from '../money/recharge';
 import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
 import { onFoundingCheckoutRequested, onFoundingPaid } from '../founding/checkout';
@@ -290,6 +290,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // already been tried — but it does bring the email, because a push can be switched off and at zero we do
     // not send a text to say there is no money for texts.
     'wallet.low': onWalletLow,
+    // …and somebody pressed Top up now: its charge is queued the same way (money/recharge.ts).
+    'wallet.recharge_requested': onTopUpPressed,
     'wallet.empty': onWalletEmptyNotice,
     'wallet.suspended': onWalletDeclinedNotice,
     // Money (money/jobs.ts): a document that went out carries its own message and then the jobs that follow
