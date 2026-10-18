@@ -434,6 +434,7 @@ import {
 import { estimateCommands } from './estimate';
 import { invoiceCommands } from './invoice';
 import { paymentCommands } from './payment';
+import { partnerPayoutCommands } from './partner-payouts';
 import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
@@ -954,6 +955,8 @@ export const commands: readonly CommandDef[] = [
   partnerCommissionTakeBack,
   partnerCommissionDisputeNote,
   portalPartnerAcceptTerms,
+  // Paying partners (stage 3).
+  ...partnerPayoutCommands,
   knowledgeItemImportFaqs,
   knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,
@@ -1201,6 +1204,7 @@ export * from './money-ai';
 export * from './offer';
 export * from './main-offer';
 export * from './partners';
+export * from './partner-payouts';
 export * from './chat-verify';
 export * from './portal-access';
 export * from './portal-files';

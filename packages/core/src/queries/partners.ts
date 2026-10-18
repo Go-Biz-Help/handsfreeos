@@ -14,6 +14,7 @@ import { loadPartnerSettings, partnersInUse, PERSON_NAME } from '../commands/par
 import { monthsEndAt, partnerLinkPath } from '../partners/rules';
 import { partnerSettingsOf, type PartnerSettings } from '../partners/settings';
 import { clientShortName } from '../partners/words';
+import { payoutAccountOut, payoutsOfPartner } from './partner-payouts';
 import {
   PartnerGetInput,
   PartnerGetOutput,
@@ -74,6 +75,8 @@ interface PartnerRow extends Record<string, unknown> {
   waiting: string | number;
   payable: string | number;
   held: string | number;
+  paying: string | number;
+  paid: string | number;
 }
 
 /** The partners of the business, one or all, with how many clients they sent and what they earned. */
@@ -86,16 +89,19 @@ async function partnersOf(ctx: QueryContext, partnerId: string | null): Promise<
           pa.code, pa.terms_version, pa.created_at,
           (select count(*)::int from app.partner_referrals r where r.partner_id = pa.id) as clients,
           coalesce(e.earned, 0) as earned, coalesce(e.waiting, 0) as waiting, coalesce(e.payable, 0) as payable,
-          coalesce(e.held, 0) as held
+          coalesce(e.held, 0) as held, coalesce(e.paying, 0) as paying, coalesce(e.paid, 0) as paid
         from app.partners pa
         join app.people pp on pp.id = pa.person_id
         left join lateral (
           select sum(c.amount_cents) as earned,
-            sum(c.amount_cents) filter (where not h.held and c.payable_at > now()) as waiting,
-            sum(c.amount_cents) filter (where not h.held and c.payable_at <= now()) as payable,
-            sum(c.amount_cents) filter (where h.held) as held
+            sum(c.amount_cents) filter (where s.free and not s.held and c.payable_at > now()) as waiting,
+            sum(c.amount_cents) filter (where s.free and not s.held and c.payable_at <= now()) as payable,
+            sum(c.amount_cents) filter (where s.free and s.held) as held,
+            sum(c.amount_cents) filter (where l.status in ('pending', 'held')) as paying,
+            sum(c.amount_cents) filter (where l.status = 'paid') as paid
           from app.partner_commissions c
-          cross join lateral (select ${HELD} as held) h
+          left join app.partner_payout_lines l on l.id = c.payout_line_id
+          cross join lateral (select l.id is null or l.status = 'cancelled' as free, ${HELD} as held) s
           where c.partner_id = pa.id and not c.test
         ) e on true
         where pa.workspace_id = ${ws} ${one}
@@ -113,6 +119,8 @@ function partnerOut(
     waitingCents: Number(r.waiting),
     payableCents: Number(r.payable),
     heldCents: Number(r.held),
+    payingCents: Number(r.paying),
+    paidCents: Number(r.paid),
   };
   return {
     partnerId: r.id,
@@ -255,6 +263,7 @@ export const partnerGet = defineQuery({
         clientName: c.client ?? deleted,
         invoiceNumber: c.number,
       })),
+      payouts: await payoutsOfPartner(ctx, row.id),
     };
   },
 });
@@ -372,7 +381,35 @@ export const portalPartner = defineQuery({
       waiting_cents: string | number;
       payable_cents: string | number;
       held_cents: string | number;
-    }>(ctx.tx, sql`select * from portal.partner_earnings()`);
+      paying_cents: string | number;
+      paid_cents: string | number;
+    }>(
+      ctx.tx,
+      sql`select * from portal.partner_earnings() cross join portal.partner_payout_totals()`,
+    );
+    const [open] = await rows<{ open: boolean }>(
+      ctx.tx,
+      sql`select portal.partner_payouts_open() as open`,
+    );
+    const [account] = await rows<{
+      details_submitted: boolean;
+      payouts_enabled: boolean;
+      transfers_active: boolean;
+      disabled_reason: string | null;
+      due_count: number;
+    }>(ctx.tx, sql`select * from portal.partner_payout_account()`);
+    const paidLines = await rows<{
+      line_id: string;
+      month: string;
+      amount_cents: string | number;
+      status: 'pending' | 'paid' | 'held';
+      paid_at: Date | string | null;
+      livemode: boolean;
+    }>(
+      ctx.tx,
+      sql`select line_id, month::text as month, amount_cents, status, paid_at, livemode
+          from portal.partner_payouts()`,
+    );
     const clients = await rows<{
       referral_id: string;
       first_name: string | null;
@@ -405,6 +442,8 @@ export const portalPartner = defineQuery({
           waitingCents: Number(earned?.waiting_cents ?? 0),
           payableCents: Number(earned?.payable_cents ?? 0),
           heldCents: Number(earned?.held_cents ?? 0),
+          payingCents: Number(earned?.paying_cents ?? 0),
+          paidCents: Number(earned?.paid_cents ?? 0),
         },
         clients: clients.map((c) => ({
           referralId: c.referral_id,
@@ -417,6 +456,19 @@ export const portalPartner = defineQuery({
             : null,
           earnedCents: Number(c.earned_cents),
         })),
+        payouts: {
+          open: open?.open ?? false,
+          smallestPayoutCents: settings.smallestPayoutCents,
+          account: account ? payoutAccountOut(account) : null,
+          lines: paidLines.map((l) => ({
+            lineId: l.line_id,
+            month: l.month,
+            amountCents: Number(l.amount_cents),
+            status: l.status,
+            paidAt: isoOrNull(l.paid_at),
+            livemode: l.livemode,
+          })),
+        },
       },
     };
   },

@@ -173,6 +173,30 @@ export interface FakeCheckout {
   cardRef: string | null;
 }
 
+/** A partner's Express account on our own platform (the partners plan's stage 3). */
+export interface FakePayoutAccount {
+  readonly accountRef: string;
+  readonly email: string | null;
+  readonly metadata: Readonly<Record<string, string>>;
+  readonly idempotencyKey: string;
+  detailsSubmitted: boolean;
+  payoutsEnabled: boolean;
+  transfersActive: boolean;
+  disabledReason: string | null;
+  due: string[];
+}
+
+/** Money we sent a partner's account from what a business's card was charged. */
+export interface FakeTransfer {
+  readonly id: string;
+  readonly accountRef: string;
+  readonly amountCents: number;
+  readonly sourceChargeRef: string;
+  readonly transferGroup: string;
+  readonly idempotencyKey: string;
+  readonly metadata: Readonly<Record<string, string>>;
+}
+
 /** One webhook the stand-in posted back to us, kept so a spec can assert on it or replay it. */
 export interface FakeWebhookPost {
   readonly provider: PaymentProviderName;
@@ -228,6 +252,18 @@ export interface FakePayments {
   holdAccount(externalAccountId: string): void;
   /** Where webhooks go; tests set one that injects into the server. */
   setDeliver(deliver: WebhookDeliver): void;
+  /** Partners' Express accounts on our own platform, oldest first. */
+  payoutAccounts(): readonly FakePayoutAccount[];
+  /** What we sent partners, oldest first. */
+  transfers(): readonly FakeTransfer[];
+  /**
+   * A partner finishes Stripe's form (or Stripe stops their account, with `ready: false`): `account.updated`,
+   * posted to our Connect endpoint as Stripe would.
+   */
+  finishPayoutAccount(
+    accountRef: string,
+    opts?: { ready?: boolean },
+  ): Promise<FakePayoutAccount | null>;
   /** Our own Checkout pages (0093), oldest first. */
   checkouts(): readonly FakeCheckout[];
   /**
@@ -263,6 +299,8 @@ export interface FakePageApi {
   cardSession(sessionRef: string): { customerRef: string; sourceToken: string | null } | null;
   /** They typed a card on the stand-in's page: the session now has one, as the provider's would. */
   saveCard(input: { sessionRef: string; instrument: string }): string | null;
+  /** A partner's account the stand-in's form was opened for, or null. */
+  payoutAccount(accountRef: string): FakePayoutAccount | null;
 }
 
 const enc = (s: string) => Buffer.from(s).toString('base64url');
@@ -351,8 +389,12 @@ export function createFakePayments(opts: {
   settleMs?: number;
   log?: Logger;
   deliver?: WebhookDeliver;
+  /** Whether our own key reads as a live one. Live, as the stand-in's payments are, unless a spec says. */
+  livemode?: boolean;
 }): FakePayments {
   const charges = new Map<string, FakeCharge>();
+  const payoutAccounts = new Map<string, FakePayoutAccount>();
+  const transfers: FakeTransfer[] = [];
   const refundRows: FakeRefund[] = [];
   const subs = new Map<string, FakeSubscription>();
   const posts: FakeWebhookPost[] = [];
@@ -622,8 +664,37 @@ export function createFakePayments(opts: {
       // out from the number, the last four, and neither for a bank transfer.
       cardBrand: c.method === 'card' ? c.cardBrand : null,
       cardLast4: c.method === 'card' ? cardLast4(c.instrument) : null,
+      chargeRef: chargeRefOf(c),
     };
   }
+
+  /** The charge behind a payment, as Stripe names it beside its intent. */
+  const chargeRefOf = (c: FakeCharge) => `ch_${c.id.replace(/^pi_/, '')}`;
+
+  /** An Express account as Stripe's Account object carries it. */
+  const accountObject = (a: FakePayoutAccount) => ({
+    id: a.accountRef,
+    object: 'account',
+    type: 'express',
+    details_submitted: a.detailsSubmitted,
+    payouts_enabled: a.payoutsEnabled,
+    capabilities: { transfers: a.transfersActive ? 'active' : 'inactive' },
+    requirements: {
+      currently_due: a.due,
+      past_due: [],
+      disabled_reason: a.disabledReason,
+    },
+  });
+
+  const payoutState = (a: FakePayoutAccount) => ({
+    accountRef: a.accountRef,
+    livemode: opts.livemode ?? true,
+    detailsSubmitted: a.detailsSubmitted,
+    payoutsEnabled: a.payoutsEnabled,
+    transfersActive: a.transfersActive,
+    disabledReason: a.disabledReason,
+    due: [...a.due],
+  });
 
   /** Books the payment where it landed, and tells us about it the way the provider would. */
   async function land(c: FakeCharge, status: PaymentState, failureCode: string | null = null) {
@@ -1008,6 +1079,96 @@ export function createFakePayments(opts: {
        */
       platform: {
         supported: name === 'stripe',
+        livemode: opts.livemode ?? true,
+
+        payouts: {
+          async create(input) {
+            requirePlatform(name);
+            // Idempotent like Stripe's: the same key is the same account.
+            const again = [...payoutAccounts.values()].find(
+              (a) => a.idempotencyKey === input.idempotencyKey,
+            );
+            if (again) return payoutState(again);
+            const a: FakePayoutAccount = {
+              accountRef: nextId('acct_fake'),
+              email: input.email,
+              metadata: { ...input.metadata },
+              idempotencyKey: input.idempotencyKey,
+              detailsSubmitted: false,
+              payoutsEnabled: false,
+              transfersActive: false,
+              disabledReason: 'requirements.past_due',
+              due: ['external_account', 'individual.ssn_last_4', 'tos_acceptance.date'],
+            };
+            payoutAccounts.set(a.accountRef, a);
+            return payoutState(a);
+          },
+
+          async read(accountRef) {
+            requirePlatform(name);
+            const a = payoutAccounts.get(accountRef);
+            if (!a) throw new PaymentError('No such account.', 404, true, null, 'account_invalid');
+            return payoutState(a);
+          },
+
+          async onboardingLink(input) {
+            requirePlatform(name);
+            if (!payoutAccounts.has(input.accountRef))
+              throw new PaymentError('No such account.', 404, true, null, 'account_invalid');
+            const page = new URL(`${opts.publicUrl}/payments/fake/express`);
+            page.searchParams.set('account', input.accountRef);
+            page.searchParams.set('return', input.returnUrl);
+            return { url: page.toString() };
+          },
+
+          async loginLink(accountRef) {
+            requirePlatform(name);
+            const a = payoutAccounts.get(accountRef);
+            if (!a?.detailsSubmitted)
+              throw new PaymentError(
+                'This account hasn’t finished onboarding.',
+                400,
+                true,
+                null,
+                'account_invalid',
+              );
+            return {
+              url: `${opts.publicUrl}/payments/fake/express?account=${encodeURIComponent(accountRef)}&dashboard=1`,
+            };
+          },
+
+          /** Refused, as Stripe refuses, for an account that can't take it or a charge of ours that never landed. */
+          async transfer(input) {
+            requirePlatform(name);
+            const again = transfers.find((t) => t.idempotencyKey === input.idempotencyKey);
+            if (again) return { transferRef: again.id };
+            const a = payoutAccounts.get(input.accountRef);
+            if (!a?.transfersActive)
+              throw new PaymentError(
+                'Your destination account needs to have at least one of the following capabilities enabled: transfers.',
+                400,
+                true,
+                null,
+                'insufficient_capabilities_for_transfer',
+              );
+            const source = [...charges.values()].find(
+              (c) => c.accountId === '' && chargeRefOf(c) === input.sourceChargeRef,
+            );
+            if (source?.status !== 'succeeded')
+              throw new PaymentError('No such charge.', 400, true, null, 'resource_missing');
+            const t: FakeTransfer = {
+              id: nextId('tr'),
+              accountRef: input.accountRef,
+              amountCents: requireAmount(input.amountCents),
+              sourceChargeRef: input.sourceChargeRef,
+              transferGroup: input.transferGroup,
+              idempotencyKey: input.idempotencyKey,
+              metadata: { ...input.metadata },
+            };
+            transfers.push(t);
+            return { transferRef: t.id };
+          },
+        },
 
         async ensureCustomer(input) {
           requirePlatform(name);
@@ -1460,6 +1621,22 @@ export function createFakePayments(opts: {
       deliver = next;
     },
 
+    payoutAccounts: () => [...payoutAccounts.values()],
+    transfers: () => [...transfers],
+
+    async finishPayoutAccount(accountRef, finishOpts = {}) {
+      const a = payoutAccounts.get(accountRef);
+      if (!a) return null;
+      const ready = finishOpts.ready ?? true;
+      a.detailsSubmitted = true;
+      a.payoutsEnabled = ready;
+      a.transfersActive = ready;
+      a.disabledReason = ready ? null : 'requirements.past_due';
+      a.due = ready ? [] : ['external_account'];
+      await send('stripe', 'account.updated', a.accountRef, accountObject(a));
+      return a;
+    },
+
     checkouts: () => [...checkoutPages.values()],
 
     async payCheckout(sessionRef, payOpts = {}) {
@@ -1520,6 +1697,7 @@ export function createFakePayments(opts: {
       intent: (id) => charges.get(id) ?? null,
       tokenise: ({ instrument, method }) => mintToken({ instrument, method, saved: false }),
       cardSession: (sessionRef) => cardSessions.get(sessionRef) ?? null,
+      payoutAccount: (accountRef) => payoutAccounts.get(accountRef) ?? null,
       saveCard({ sessionRef, instrument }) {
         const session = cardSessions.get(sessionRef);
         if (!session) return null;

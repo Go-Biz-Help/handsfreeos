@@ -13,6 +13,7 @@ export * from './tag';
 export * from './offer';
 export * from './main-offer';
 export * from './partners';
+export * from './partner-payouts';
 export * from './pipeline';
 export * from './lead';
 export * from './task';

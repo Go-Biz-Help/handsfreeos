@@ -34,6 +34,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Who can do what: roles and permissions](#who-can-do-what-roles-and-permissions)
 - [Money: Stripe and Square](#money-stripe-and-square)
 - [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
+- [Paying partners: Stripe Express](#paying-partners-stripe-express)
 - [A business's own web address](#a-businesss-own-web-address)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
@@ -672,7 +673,11 @@ Never run these against the hosted project:
 
 #### If you used the Supabase connector instead
 
-The Supabase connector that Claude uses can apply a migration with its `apply_migration` tool. It records its own version number, not the file's. After every migration applied through the connector, fix the record and check it:
+The Supabase connector that Claude uses can apply a migration with its `apply_migration` tool. It records its own version number, not the file's.
+
+The connector holds any SQL with a `drop` in it (a table, a function, anything) until a person approves it. With nobody there to approve, the call gives up after a minute, and nothing is applied. So a migration that only adds goes through on its own. One that removes something needs someone there to approve it, or the CLI above.
+
+After every migration applied through the connector, fix the record and check it:
 
 1. In the **SQL Editor**, run:
 
@@ -9698,6 +9703,116 @@ webhook for our own account`. A wrong secret is fixed by setting the right one; 
   again for three days, so nothing is lost meanwhile.
 - **Somebody paid twice.** They did not. One checkout is live per seat, and the same idempotency key goes to
   Stripe every time the page is asked for, so a second press of **Pay** opens the same page.
+
+## Paying partners: Stripe Express
+
+People who send a business its customers earn a share of what those customers pay (the partners plan,
+`HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md`). Once a month, HandsFreeOS adds up what a business owes its
+partners for payments at least 30 days old, charges the business's card for it on **HandsFreeOS's own Stripe
+account**, and pays each partner to their bank through Stripe. Stripe's fees are the business's, each on its own
+line of the month's statement: $2 for each partner's account paid that month, 0.25% + 25¢ for each payout to a
+partner's bank, and 2.9% + 30¢ on the charge itself.
+
+Each partner's bank is a **Stripe Express account** of HandsFreeOS's platform. The partner fills in Stripe's own
+form from their page in the business's portal: their bank, tax and identity details go to Stripe, never to
+HandsFreeOS or the business. Stripe holds and moves the money, and files each partner's 1099.
+
+It runs on the same Stripe account, keys and Connect webhook as "Money: Stripe and Square", and needs the
+migration `20261027009000_partner_payouts.sql`. Nothing is charged or paid for a business until **you open payouts
+for it in /admin**, one business at a time.
+
+### Before you open payouts for anyone
+
+- **Chris, with his accountant or lawyer** (the plan's "Before stage 3 goes live"): HandsFreeOS charging businesses
+  and paying their partners makes it the platform that pays them. Check the business's terms, the partners' terms
+  and the 1099s.
+- **US partners only for now** (decision 18). Stripe's form asks for a US bank and a US tax id.
+- **Try it in Stripe's test mode first**, on your laptop (Part 4).
+
+### Part 1: Turn on Express accounts
+
+1. Sign in to the Stripe dashboard as HandsFreeOS.
+2. Go to **Settings** → **Connect** (search for "Connect settings" if it has moved).
+3. Under **Account types**, turn on **Express**. Standard stays on: it's what businesses sign in with.
+4. Under **Branding**, check the platform name, icon and colour say HandsFreeOS. A partner sees them on Stripe's
+   form and in their Stripe Express page.
+5. Set the support email and phone partners see on their Stripe Express page (Stripe keeps these with the
+   platform's public details).
+
+You should see Express listed as on. A partner's account only ever receives transfers, so it asks for the
+`transfers` capability and nothing else.
+
+### Part 2: Tax forms
+
+1. Go to **Connect** → **Tax forms** (or **Settings** → **Connect** → **Tax forms**).
+2. Turn on **1099-NEC** for the current tax year, filed by Stripe for HandsFreeOS.
+3. Choose **e-delivery** to partners, with mail as the fallback, and let Stripe file with the IRS and the states.
+4. Leave Stripe to collect each partner's tax id: Stripe's form asks for everything it may need up front, so a
+   partner isn't stopped later for it.
+
+Stripe charges a fee for each form it files and sends (see Stripe's pricing page for today's). That isn't on the
+business's statement yet: it's HandsFreeOS's until Chris decides otherwise.
+
+### Part 3: The webhook
+
+Nothing to add. A partner's Express account is a connected account like a business's, so its `account.updated`
+and `capability.updated` arrive on the Connect endpoint from "Stripe Part 4". The worker routes them to the partner
+by the account (`private.partner_payout_account_by_ref`), reads the account back from Stripe, and keeps what it
+says: whether they finished the form, and whether Stripe can pay them.
+
+### Part 4: Try it in test mode
+
+On your laptop, with the worker running on the "Stripe test keys" (a test key pays only payments taken in a test
+mode, and a live key only live ones):
+
+1. Connect your test business's own Stripe in test mode (Stripe Part 5), and take a few payments from a client a
+   partner sent.
+2. In `/admin` → **Businesses** → your test business, open **Partner payouts** with a reason.
+3. In **Settings** → **Partners** → **Paying your partners**, add a card: `4242 4242 4242 4242`, any future
+   expiry, any CVC.
+4. Send the partner their page, sign in as them, and press **Set up payouts**. On Stripe's test form, use its
+   test data: phone `000 000 0000`, code `000 000`, SSN `000-00-0000`, routing number `110000000` and account
+   number `000123456789`.
+5. The shares are free to pay out 30 days after each payment. On your laptop only, never on the hosted project,
+   bring them forward:
+
+   ```sql
+   update app.partner_commissions set payable_at = now() - interval '1 day' where test;
+   ```
+
+6. Within the hour (the worker's `partner_payouts.plan`), the payout is worked out, the card is charged and the
+   partner is paid. The month's statement is under **Payouts**; the charge and the transfer are in Stripe's test
+   dashboard under **Payments** and **Connect** → **Transfers**.
+
+To see a declined card, add `4000 0000 0000 0341` instead: it saves, and is refused when the payout charges it.
+The owners are emailed, and the card is tried again after six hours, a day and three days.
+
+### Part 5: Open payouts for a business
+
+1. In `/admin` → **Businesses**, open the business.
+2. Under **Partner payouts**, press **Open partner payouts**, say why, and confirm.
+3. Tell the business: someone who manages money adds the card in **Settings** → **Partners** → **Paying your
+   partners**, and each partner sets up payouts from their page.
+
+The first payout goes out within the hour of the card going on, then one on the first of each month, in the
+business's own time zone. **Close partner payouts** stops anything not yet charged; a payout already charged still
+pays its partners.
+
+### When something goes wrong
+
+- **The card was declined.** The owners and admins get an email with Stripe's reason and when it's tried again.
+  A new card is tried at once. After three tries the month's payout is given up on, nothing is charged, and what
+  the partners were owed goes into next month's.
+- **A partner's line says Held.** Stripe wouldn't take the transfer: their account needs something. They open
+  their Stripe page from their partner page and finish it; Stripe's `account.updated` says so, and the line is
+  sent within the hour. The money stays in HandsFreeOS's Stripe balance meanwhile.
+- **A partner never set up payouts.** Nothing is charged for them: their share waits, and the next payout after
+  they finish Stripe's form includes it.
+- **"Worked out with the other kind of Stripe key"** in the worker log. A payout made with a test key is never
+  charged with a live one, nor the other way round. It only happens when a server's key was swapped mid-month.
+- **A partner deleted for good with a held line.** The line keeps the account it was going to; staff sort it out
+  in Stripe (send it, or refund the business that part of the charge). The statement keeps the line as "A deleted
+  partner".
 
 ## A business's own web address
 

@@ -38,6 +38,7 @@ import {
   type PaymentResult,
   type PaymentState,
   type PaymentTokens,
+  type PayoutAccountState,
   type PreparedPayment,
   type RefundResult,
   type SavedMethod,
@@ -210,6 +211,26 @@ export function createStripePayments(opts: {
 }): PaymentProvider {
   const f = opts.fetch ?? fetch;
   const configured = !!(opts.clientId && opts.secretKey);
+  /** A test key moves no real money, and a live one only live money. */
+  const livemode = !/^(sk|rk)_test_/.test(opts.secretKey ?? '');
+
+  /** A partner's Express account as Stripe describes it. What it still needs is what's due now or overdue. */
+  const payoutAccountOf = (raw: unknown): PayoutAccountState => {
+    const a = obj(raw);
+    const caps = obj(a['capabilities']);
+    const req = obj(a['requirements']);
+    const list = (v: unknown) =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    return {
+      accountRef: String(a['id'] ?? ''),
+      livemode,
+      detailsSubmitted: a['details_submitted'] === true,
+      payoutsEnabled: a['payouts_enabled'] === true,
+      transfersActive: caps['transfers'] === 'active',
+      disabledReason: str(req['disabled_reason'])?.slice(0, 200) ?? null,
+      due: [...new Set([...list(req['past_due']), ...list(req['currently_due'])])].slice(0, 200),
+    };
+  };
 
   const keys = () => {
     if (!opts.secretKey || !opts.clientId)
@@ -346,6 +367,9 @@ export function createStripePayments(opts: {
       capturable: status === 'requires_capture',
       cardBrand: cardBrandLabel(str(card['brand'])),
       cardLast4: cardLast4(str(card['last4'])),
+      // A charge made here answers with its charge's id; one read back has it expanded.
+      chargeRef:
+        typeof i['latest_charge'] === 'string' ? str(i['latest_charge']) : str(charge['id']),
     };
   }
 
@@ -663,6 +687,86 @@ export function createStripePayments(opts: {
      */
     platform: {
       supported: true,
+      livemode,
+      payouts: {
+        /**
+         * An Express account on our own platform, in the US only for now (decision 18): Stripe hosts its form and
+         * its dashboard, so a partner's bank, tax and identity details are Stripe's and never reach us. It only
+         * ever receives money, so it asks for transfers and nothing else.
+         */
+        async create(input) {
+          const made = await api<Json>(null, '/accounts', {
+            body: {
+              type: 'express',
+              country: 'US',
+              ...(input.email ? { email: input.email.slice(0, 200) } : {}),
+              capabilities: { transfers: { requested: true } },
+              metadata: cleanMetadata(input.metadata),
+            },
+            idempotencyKey: input.idempotencyKey,
+          });
+          return payoutAccountOf(made);
+        },
+
+        async read(accountRef) {
+          return payoutAccountOf(
+            await api<Json>(null, `/accounts/${encodeURIComponent(accountRef)}`),
+          );
+        },
+
+        /**
+         * A fresh link each time: Stripe's last only minutes, and one opened twice is refused. Everything Stripe may
+         * ever need is asked up front (`eventually_due`), so a partner isn't stopped later for their tax details.
+         */
+        async onboardingLink(input) {
+          const link = await api<Json>(null, '/account_links', {
+            body: {
+              account: input.accountRef,
+              refresh_url: input.refreshUrl,
+              return_url: input.returnUrl,
+              type: 'account_onboarding',
+              collection_options: { fields: 'eventually_due' },
+            },
+          });
+          const url = str(link['url']);
+          if (!url) throw new PaymentError('Stripe gave no page to set up payouts on.', null);
+          return { url };
+        },
+
+        async loginLink(accountRef) {
+          const link = await api<Json>(
+            null,
+            `/accounts/${encodeURIComponent(accountRef)}/login_links`,
+            { body: {} },
+          );
+          const url = str(link['url']);
+          if (!url) throw new PaymentError('Stripe gave no page for this account.', null);
+          return { url };
+        },
+
+        /**
+         * Tied to the charge the money came in on (`source_transaction`), so it goes as soon as that charge's money
+         * is ours and never out of anybody else's.
+         */
+        async transfer(input) {
+          const made = await api<Json>(null, '/transfers', {
+            body: {
+              amount: requireAmount(input.amountCents),
+              currency: 'usd',
+              destination: input.accountRef,
+              source_transaction: input.sourceChargeRef,
+              transfer_group: input.transferGroup,
+              description: input.description.slice(0, 200),
+              metadata: cleanMetadata(input.metadata),
+            },
+            idempotencyKey: input.idempotencyKey,
+          });
+          const transferRef = str(made['id']);
+          if (!transferRef)
+            throw new PaymentError('Stripe didn’t say which transfer it made.', null);
+          return { transferRef };
+        },
+      },
 
       async ensureCustomer(input: CustomerInput) {
         if (input.customerRef) return { customerRef: input.customerRef };

@@ -326,6 +326,8 @@ describe('partners', () => {
       waitingCents: 15_000,
       payableCents: 0,
       heldCents: 0,
+      payingCents: 0,
+      paidCents: 0,
     });
 
     // A refund takes back its share, and never more than was earned, from what it comes off: while that waits its
@@ -340,6 +342,8 @@ describe('partners', () => {
       waitingCents: 9_000,
       payableCents: 0,
       heldCents: 0,
+      payingCents: 0,
+      paidCents: 0,
     });
     // …and once it's free to pay out, what's taken back comes off at once.
     await rows(
@@ -357,6 +361,8 @@ describe('partners', () => {
       waitingCents: 0,
       payableCents: 0,
       heldCents: 0,
+      payingCents: 0,
+      paidCents: 0,
     });
 
     const got = await ask(partnerGet, { ...ws(), partnerId }, t.owner);

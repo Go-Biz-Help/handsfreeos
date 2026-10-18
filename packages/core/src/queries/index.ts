@@ -114,6 +114,7 @@ import {
   partnersSettings,
   portalPartner,
 } from './partners';
+import { partnerPayoutGet, partnerPayouts, platformPartnerPayoutsGet } from './partner-payouts';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -352,6 +353,9 @@ export const queries: readonly QueryDef[] = [
   partnerGet,
   partnerOfPerson,
   portalPartner,
+  partnerPayouts,
+  partnerPayoutGet,
+  platformPartnerPayoutsGet,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,
@@ -491,6 +495,7 @@ export * from './founding';
 export * from './offer';
 export * from './main-offer';
 export * from './partners';
+export * from './partner-payouts';
 export * from './relationship';
 export * from './support-access';
 export * from './record-hold';

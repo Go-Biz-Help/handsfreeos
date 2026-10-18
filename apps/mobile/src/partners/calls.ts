@@ -23,6 +23,7 @@ export type PartnerRow = Ok<'/v1/queries/partner.list'>['partners'][number];
 export type PartnerGetOut = Ok<'/v1/queries/partner.get'>;
 export type PartnerCommissionRow = PartnerGetOut['commissions'][number];
 export type PartnerOfPersonOut = Ok<'/v1/queries/partner.of_person'>;
+export type PartnerPayoutsOut = Ok<'/v1/queries/partner.payouts'>;
 
 /** Who sees partners and changes them, as the commands check it. */
 export const PARTNERS_MANAGE = 'partners.manage';
@@ -42,6 +43,9 @@ export function partnerCalls(workspaceId: string) {
       unwrap(await api.POST('/v1/queries/partner.list', { body: { workspaceId } })).partners,
     get: async (partnerId: string): Promise<PartnerGetOut> =>
       unwrap(await api.POST('/v1/queries/partner.get', { body: { workspaceId, partnerId } })),
+    /** Paying partners (stage 3): the card, the next payout as it stands, and the latest payouts. To read. */
+    payouts: async (): Promise<PartnerPayoutsOut> =>
+      unwrap(await api.POST('/v1/queries/partner.payouts', { body: { workspaceId } })),
     ofPerson: async (personId: string): Promise<PartnerOfPersonOut> =>
       unwrap(await api.POST('/v1/queries/partner.of_person', { body: { workspaceId, personId } })),
     add: async (personId: string) =>

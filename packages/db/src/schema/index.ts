@@ -4259,7 +4259,114 @@ export const partnerCommissions = app.table('partner_commissions', {
   payableAt: ts('payable_at').notNull(),
   /** A payment in a provider's test mode: shown, never paid out. */
   test: boolean('test').notNull().default(false),
+  /** The payout line that pays it (20261027009000), while that line is pending, held or paid. */
+  payoutLineId: uuid('payout_line_id').references(() => partnerPayoutLines.id, {
+    onDelete: 'set null',
+  }),
   createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
+ * How a business pays its partners (20261027009000, the partners plan's stage 3): whether staff have opened payouts
+ * for it, the card it pays with on HandsFreeOS's own Stripe account, and the last month its payout was worked out.
+ * The worker writes it; a person with money.manage may only take the card off.
+ */
+export const partnerPayoutBilling = app.table('partner_payout_billing', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  openedAt: ts('opened_at'),
+  provider: paymentProvider('provider'),
+  customerRef: text('customer_ref'),
+  methodToken: text('method_token'),
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  cardExpiryMonth: smallint('card_expiry_month'),
+  cardExpiryYear: smallint('card_expiry_year'),
+  cardSavedAt: ts('card_saved_at'),
+  /** The month (its first day) whose payout was last worked out. */
+  lastMonth: date('last_month'),
+  ...timestamps(),
+});
+
+/** A partner's bank, as the Stripe Express account they set up with Stripe's own form. */
+export const partnerPayoutAccounts = app.table('partner_payout_accounts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  partnerId: uuid('partner_id')
+    .notNull()
+    .references(() => partners.id, { onDelete: 'cascade' }),
+  provider: paymentProvider('provider').notNull().default('stripe'),
+  accountRef: text('account_ref').notNull(),
+  livemode: boolean('livemode').notNull(),
+  detailsSubmitted: boolean('details_submitted').notNull().default(false),
+  payoutsEnabled: boolean('payouts_enabled').notNull().default(false),
+  transfersActive: boolean('transfers_active').notNull().default(false),
+  disabledReason: text('disabled_reason'),
+  due: text('due')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  ...timestamps(),
+});
+
+/** A month's payout: what the partners were owed, Stripe's fees, and the charge to the business's card. */
+export const partnerPayouts = app.table('partner_payouts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  /** The month it's paid in (its first day). */
+  month: date('month').notNull(),
+  livemode: boolean('livemode').notNull(),
+  status: text('status')
+    .$type<'charging' | 'paying' | 'paid' | 'failed'>()
+    .notNull()
+    .default('charging'),
+  owedCents: cents('owed_cents').notNull(),
+  accountFeesCents: cents('account_fees_cents').notNull(),
+  payoutFeesCents: cents('payout_fees_cents').notNull(),
+  cardFeeCents: cents('card_fee_cents').notNull(),
+  chargeCents: cents('charge_cents').notNull(),
+  cardBrand: text('card_brand'),
+  cardLast4: text('card_last4'),
+  attempts: integer('attempts').notNull().default(0),
+  nextTryAt: ts('next_try_at'),
+  paymentRef: text('payment_ref'),
+  chargeRef: text('charge_ref'),
+  failureCode: text('failure_code'),
+  failureMessage: text('failure_message'),
+  chargedAt: ts('charged_at'),
+  paidAt: ts('paid_at'),
+  failedAt: ts('failed_at'),
+  ...timestamps(),
+});
+
+/** One partner's part of a month's payout, and the transfer that paid them. */
+export const partnerPayoutLines = app.table('partner_payout_lines', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  payoutId: uuid('payout_id')
+    .notNull()
+    .references(() => partnerPayouts.id, { onDelete: 'cascade' }),
+  /** Null once the partner is deleted for good: what the business was charged stays on its statement. */
+  partnerId: uuid('partner_id').references(() => partners.id, { onDelete: 'set null' }),
+  accountRef: text('account_ref').notNull(),
+  amountCents: cents('amount_cents').notNull(),
+  accountFeeCents: cents('account_fee_cents').notNull(),
+  payoutFeeCents: cents('payout_fee_cents').notNull(),
+  status: text('status')
+    .$type<'pending' | 'paid' | 'held' | 'cancelled'>()
+    .notNull()
+    .default('pending'),
+  transferRef: text('transfer_ref'),
+  heldReason: text('held_reason'),
+  paidAt: ts('paid_at'),
+  ...timestamps(),
 });
 
 /** Our mirror of a plan billing at the provider. 'unmanaged' is one whose account was disconnected. */
@@ -7617,6 +7724,10 @@ export const tables = {
   partners,
   partnerReferrals,
   partnerCommissions,
+  partnerPayoutBilling,
+  partnerPayoutAccounts,
+  partnerPayouts,
+  partnerPayoutLines,
   subscriptions,
   attentionItems,
   aiTeammates,

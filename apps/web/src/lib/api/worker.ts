@@ -157,6 +157,32 @@ export function walletCard(input: {
   return workerPost('/v1/wallet/card', input);
 }
 
+/** What `POST /v1/partners/payout-card` answers: a page to go to, the card it came back with, or neither. */
+export type PartnerPayoutCardAnswer =
+  | { readonly stage: 'started'; readonly hostedUrl: string }
+  | { readonly stage: 'cancelled' }
+  | {
+      readonly stage: 'saved';
+      readonly card: {
+        readonly brand: string;
+        readonly last4: string;
+        readonly expiryMonth: number | null;
+        readonly expiryYear: number | null;
+      } | null;
+    };
+
+/**
+ * The card a business pays its partners with (whoever manages money; the worker checks), the same two calls as the
+ * wallet's: once for Stripe's page, once with the session they came back on. The worker keeps the key that bills for
+ * HandsFreeOS, which the API is refused on purpose.
+ */
+export function partnerPayoutCard(input: {
+  workspaceId: string;
+  sessionRef?: string;
+}): Promise<PartnerPayoutCardAnswer> {
+  return workerPost('/v1/partners/payout-card', input);
+}
+
 /**
  * Goes and looks at what a carrier's reviewer would look at, before the registration is sent (owners and
  * admins; the worker checks). The worker does it rather than the browser because these are a business's

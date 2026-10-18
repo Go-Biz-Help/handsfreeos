@@ -5,7 +5,7 @@
  *
  * Browser-safe.
  */
-import type { PartnerStatus } from '../schemas/partners';
+import type { PartnerEarnings, PartnerStatus } from '../schemas/partners';
 
 const clients = (n: number) => (n === 1 ? '1 client' : `${n} clients`);
 
@@ -23,6 +23,8 @@ export const PARTNERS_WORDS = {
     waiting: 'Waiting 30 days',
     payable: 'Free to pay out',
     held: 'Held by a dispute',
+    paying: 'On its way',
+    paid: 'Paid',
     about:
       'Each share is free to pay out 30 days after the client pays, so a refund never has to come back from the partner. Payments taken in a test mode are shown but never count.',
   },
@@ -173,3 +175,32 @@ export const PARTNERS_WORDS = {
     rateBad: 'Type a share between 0.01% and 100%.',
   },
 } as const;
+
+/** The words for each line of what a partner earned: the business's, or the partner's own on their page. */
+export interface EarningsWords {
+  readonly earned: string;
+  readonly waiting: string;
+  readonly payable: string;
+  readonly held: string;
+  readonly paying: string;
+  readonly paid: string;
+}
+
+/**
+ * What a partner earned, as each screen lists it: earned, waiting and free to pay out always, then what a dispute
+ * holds, what's on its way in a payout and what's been paid, each only while there's some.
+ */
+export function earningsTotals(
+  e: PartnerEarnings,
+  words: EarningsWords = PARTNERS_WORDS.earnings,
+): [label: string, cents: number][] {
+  const totals: [string, number][] = [
+    [words.earned, e.earnedCents],
+    [words.waiting, e.waitingCents],
+    [words.payable, e.payableCents],
+  ];
+  if (e.heldCents) totals.push([words.held, e.heldCents]);
+  if (e.payingCents) totals.push([words.paying, e.payingCents]);
+  if (e.paidCents) totals.push([words.paid, e.paidCents]);
+  return totals;
+}

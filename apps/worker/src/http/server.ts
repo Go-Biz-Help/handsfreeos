@@ -23,6 +23,7 @@ import { registerKnowledgeRoutes } from '../knowledge/routes';
 import { registerMainOfferRoutes } from '../main-offer/routes';
 import { registerMoneyLinkRoutes } from '../money/link-routes';
 import { registerWalletCardRoutes } from '../money/wallet-card-routes';
+import { registerPartnerPayoutRoutes } from '../partners/payout-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
 import { loadAccount } from '../telephony/accounts';
 import { ProviderError } from '../telephony/provider';
@@ -295,6 +296,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // Bringing a number that already lives in Twilio: a business's own account, or HighLevel's (20261010000900).
   registerNumberImportRoutes(app, deps);
   registerWalletCardRoutes(app, deps);
+  registerPartnerPayoutRoutes(app, deps);
   await registerChatRoutes(app, deps);
   // A customer's own portal: their private link, the code emailed to them, and the device it signs in.
   await registerPortalRoutes(app, deps);
