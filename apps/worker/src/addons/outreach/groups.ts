@@ -27,6 +27,7 @@ import {
   type JoinAnswerOutput,
 } from '@hfos/core/addons/outreach/group-checks';
 import { groupCheck } from '@hfos/core/addons/outreach/ops/group-checks';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -47,12 +48,12 @@ export const JOIN_ANSWER_ACTION = 'outreach.join.answer';
 export const CHECK_GROUPS_BATCH = 10;
 const HOUR = 3_600_000;
 
-/** The business's playbooks in use, as the AI reads them. */
+/** The business's playbooks in use for customers, as the AI reads them: never a partner playbook (decision 81). */
 export async function playbooksOf(tx: Parameters<typeof rows>[0], ws: string) {
   const kept = await rows<{ id: string; name: string; details: unknown }>(
     tx,
     sql`select id, name, details from addon_outreach.playbooks
-        where workspace_id = ${ws} and archived_at is null order by created_at`,
+        where workspace_id = ${ws} and archived_at is null and ${FOR_CUSTOMERS} order by created_at`,
   );
   return kept.flatMap((p) => {
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));

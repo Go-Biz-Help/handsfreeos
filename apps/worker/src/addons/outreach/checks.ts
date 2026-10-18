@@ -19,6 +19,7 @@ import {
   type CheckPlaybook,
 } from '@hfos/core/addons/outreach/checks';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { checkSave } from '@hfos/core/addons/outreach/ops/checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
@@ -92,7 +93,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     playbooks: await rows<{ id: string; name: string; details: unknown }>(
       tx,
       sql`select id, name, details from addon_outreach.playbooks
-          where workspace_id = ${ws} and archived_at is null order by created_at`,
+          where workspace_id = ${ws} and archived_at is null and ${FOR_CUSTOMERS} order by created_at`,
     ),
   }));
   if (!found.waiting.length) return;

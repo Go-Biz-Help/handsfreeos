@@ -33,7 +33,7 @@ import {
 } from '../friends';
 import { outreachAddon } from '../manifest';
 import { NETWORKS } from '../networks';
-import { PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playbooks';
+import { forPartners, PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { friends, imports, playbooks, profiles, sends } from '../tables';
 import {
@@ -466,8 +466,8 @@ const VIEW_ORDER: Readonly<Record<FriendView, ReturnType<typeof sql>>> = {
 /** The most requests put in order of fit at once: more than Facebook lets anyone keep waiting. */
 const REQUESTS_MOST = 1000;
 
-/** The business's playbooks in use, as much as fit reads. One that doesn't read is left out. */
-export async function playbooksInUse(
+/** Every playbook in use that reads, a partner playbook too. */
+async function playbooksKept(
   ctx: QueryContext | CommandContext,
 ): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
   const list = await ctx.tx
@@ -478,6 +478,23 @@ export async function playbooksInUse(
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
   });
+}
+
+/**
+ * The business's playbooks in use for customers, as much as fit reads: never a partner playbook (decision 81), whose
+ * people are reached through partners. One that doesn't read is left out.
+ */
+export async function playbooksInUse(
+  ctx: QueryContext | CommandContext,
+): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
+  return (await playbooksKept(ctx)).filter((p) => !forPartners(p.details));
+}
+
+/** The business's partner playbooks in use (decision 81): who its partners should have the attention of. */
+export async function partnerPlaybooksInUse(
+  ctx: QueryContext | CommandContext,
+): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
+  return (await playbooksKept(ctx)).filter((p) => forPartners(p.details));
 }
 
 const isoOrNull = (at: Date | string | null) => (at === null ? null : new Date(at).toISOString());

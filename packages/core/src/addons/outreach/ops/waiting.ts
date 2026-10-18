@@ -42,7 +42,7 @@ import { contactable, inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed } from './needs';
 import { listed, mine } from './sends';
-import { pitchable, requestFit, type RequestGot } from './today';
+import { notNever, requestFit, type RequestGot } from './today';
 
 const DAY = 86_400_000;
 /** The most requests lately weighed a person at once: more than Facebook lets anyone keep waiting a fortnight. */
@@ -122,7 +122,7 @@ export async function requestsToDecide(
     ctx.tx,
     sql`select * from (
           select f.user_id, p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
-            (${pitchable('p')}) as pitched,
+            (${notNever('p')}) as pitched,
             row_number() over (partition by f.user_id order by f.since desc) as nth
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id

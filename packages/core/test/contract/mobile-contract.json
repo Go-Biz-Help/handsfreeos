@@ -8265,6 +8265,14 @@
                   }
                 ]
               },
+              "partnerKinds": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["group_admin", "creator", "business"]
+                }
+              },
               "audience": {
                 "anyOf": [
                   {

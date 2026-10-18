@@ -12,6 +12,7 @@
  *   post, on their add-ons switch, opening Today, where it's first.
  */
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import {
   checkedPostWhy,
@@ -78,7 +79,8 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     playbooks: await rows<{ name: string; details: unknown }>(
       tx,
       sql`select name, details from addon_outreach.playbooks
-          where workspace_id = ${ctx.scope.workspaceId} and archived_at is null order by created_at`,
+          where workspace_id = ${ctx.scope.workspaceId} and archived_at is null and ${FOR_CUSTOMERS}
+          order by created_at`,
     ),
   }));
   if (!found.posts.length) return;

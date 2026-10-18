@@ -19,6 +19,7 @@ import {
   checkedChatRead,
 } from '@hfos/core/addons/outreach/chat-read';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { chatRead } from '@hfos/core/addons/outreach/ops/chats';
 import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand } from '@hfos/core/server';
@@ -70,7 +71,8 @@ export async function readChatsJob(ctx: AddonJobContext): Promise<JobResult> {
     playbooks: await rows<{ name: string; details: unknown }>(
       tx,
       sql`select name, details from addon_outreach.playbooks
-          where workspace_id = ${ctx.scope.workspaceId} and archived_at is null order by created_at`,
+          where workspace_id = ${ctx.scope.workspaceId} and archived_at is null and ${FOR_CUSTOMERS}
+          order by created_at`,
     ),
   }));
   if (!chats.length) return;

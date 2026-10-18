@@ -214,7 +214,9 @@ working a profile:
 
 1. **Stage 1, in core:** partner playbooks, the partners table, the partner check, the stages, the new message kinds,
    never pitching partners as customers, and the partner call's ref. Its migration goes on the hosted database before
-   `main`.
+   `main`. Built first: partner playbooks, the partners table and `profiles.partner_found_at`, the partner check, the
+   Partners list and its marks, and never pitching partners as customers (migration 20261027008400). Next: the
+   message kinds, the stages they move, and the partner call's ref.
 2. **Stage 1, the extension:** followers read on each network's profiles, partners found from groups and searches,
    partner warm-ups and asks run as Today's other steps are.
 3. **Stage 1, the apps:** Partners on the web and the phone, and Today's partner items.

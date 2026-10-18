@@ -22,8 +22,8 @@ export const outreachAddon = defineAddon({
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
   // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
-  // 5: a playbook has its short video's script.
-  dataVersion: 5,
+  // 5: a playbook has its short video's script. 6: a partner playbook says which kinds of partner it looks for.
+  dataVersion: 6,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
@@ -133,6 +133,9 @@ export const outreachAddon = defineAddon({
       'outreach.helpful.posted',
       'outreach.helpful.engaged',
       'outreach.country.unskipped',
+      'outreach.partner.looked',
+      'outreach.partner.saved',
+      'outreach.partner.marked',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -148,7 +151,8 @@ export const outreachAddon = defineAddon({
     // ./helpful.ts). People found in a group or asking to be friends, and a change to the country setting, have the AI
     // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
     // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
-    // older one (decision 70, ./tracking.ts).
+    // older one (decision 70, ./tracking.ts). Someone who could partner, read off their profile, waits for the AI's
+    // partner check (decision 81, ./partners.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -170,6 +174,7 @@ export const outreachAddon = defineAddon({
       'outreach.day.started',
       'outreach.automation.saved',
       'main_offer.published',
+      'outreach.partner.looked',
     ],
   },
   jobs: [
@@ -185,6 +190,7 @@ export const outreachAddon = defineAddon({
     'outreach.guess_countries',
     'outreach.day_report',
     'outreach.review',
+    'outreach.check_partners',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -214,6 +220,7 @@ export const outreachAddon = defineAddon({
     'my_groups',
     'needs',
     'opener_uses',
+    'partners',
     'playbooks',
     'posts',
     'profiles',

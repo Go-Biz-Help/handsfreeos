@@ -47,8 +47,40 @@ const knownToMe = (me: string) => sql`p.friendship <> 'self' and ${pitchable('p'
   or exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}))`;
 
 /**
+ * The profiles the person's computer read today on a network for the AI: for its checks of who fits, and of who could
+ * partner (./partners.ts). Both count toward the network's profiles read a day.
+ */
+export async function readToday(
+  ctx: Ctx,
+  me: string,
+  platform: Platform,
+  todayStart: Date,
+): Promise<{ checks: number; partners: number }> {
+  const ws = ctx.scope.workspaceId!;
+  const since = todayStart.toISOString();
+  const [done] = await rows<{ checks: number; partners: number }>(
+    ctx.tx,
+    sql`select
+          (select count(*)::int from addon_outreach.checks ch
+            join addon_outreach.profiles p on p.id = ch.profile_id
+            where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
+              and ch.looked_at >= ${since}::timestamptz) as checks,
+          (select count(*)::int from addon_outreach.partners pa
+            join addon_outreach.profiles p on p.id = pa.profile_id
+            where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${platform}
+              and pa.looked_at >= ${since}::timestamptz) as partners`,
+  );
+  return { checks: done?.checks ?? 0, partners: done?.partners ?? 0 };
+}
+
+/** The network's profiles read a day (`checksPerDay`), halved for a week after a warning there. */
+export const readsPerDay = (platform: Platform, slower: boolean) =>
+  limitNow(Math.min(CHECKS_PER_DAY, NETWORKS[platform].checksPerDay), slower);
+
+/**
  * How many a day the person's computer checks now on a network: its own profiles read a day (`checksPerDay`), halved
- * for a week after a warning there, where the checks read profiles. Another network's checks and warnings never count.
+ * for a week after a warning there, where the checks read profiles; today's partner reads count too. Another network's
+ * checks and warnings never count.
  */
 export async function perDayFor(
   ctx: Ctx,
@@ -58,19 +90,10 @@ export async function perDayFor(
 ) {
   const todayStart = await startOfToday(ctx, now);
   const warning = await warningOf(ctx, me, platform, todayStart, now);
-  const [done] = await rows<{ n: number }>(
-    ctx.tx,
-    sql`select count(*)::int as n from addon_outreach.checks ch
-        join addon_outreach.profiles p on p.id = ch.profile_id
-        where ch.workspace_id = ${ctx.scope.workspaceId!} and ch.user_id = ${me} and p.platform = ${platform}
-          and ch.looked_at >= ${todayStart.toISOString()}::timestamptz`,
-  );
+  const read = await readToday(ctx, me, platform, todayStart);
   return {
-    today: done?.n ?? 0,
-    perDay: limitNow(
-      Math.min(CHECKS_PER_DAY, NETWORKS[platform].checksPerDay),
-      slowsNow(warning, now),
-    ),
+    today: read.checks + read.partners,
+    perDay: readsPerDay(platform, slowsNow(warning, now)),
   };
 }
 

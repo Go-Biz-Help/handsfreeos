@@ -64,7 +64,16 @@ import { asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
 import { approvedHelpful } from './helpful';
 import { CHECK_AGAIN_DAYS, RESEARCH_WORDS } from '../checks';
-import { contactable, inWorkspace, once, pitchable, saveProfile, type Ctx } from './common';
+import {
+  contactable,
+  inWorkspace,
+  notNever,
+  once,
+  partnered,
+  pitchable,
+  saveProfile,
+  type Ctx,
+} from './common';
 import { automationOf } from './automation';
 import { playbooksInUse } from './friends';
 import { perDayFor } from './checks';
@@ -265,11 +274,12 @@ async function taskOf(
         url: string;
         never: boolean;
         off: boolean;
+        partner: boolean;
         verdict: string | null;
       }>(
         ctx.tx,
         sql`select p.name, p.url, (p.friendship = 'self' or not ${pitchable('p')}) as never,
-              not ${contactable('p')} as off, ch.verdict
+              not ${contactable('p')} as off, (${notNever('p')} and ${partnered('p')}) as partner, ch.verdict
             from addon_outreach.profiles p
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${ask.profileId}`,
@@ -284,7 +294,9 @@ async function taskOf(
           409,
           who.off
             ? `${who.name} is on Never contact, so they’re never checked. Turn off Never contact on their row in Social Outreach → People → Friends first if they could be a customer.`
-            : `${who.name} is on Don’t pitch or tagged Friend or family, so they’re never checked. Turn off Don’t pitch on their row first if they could be a customer.`,
+            : who.partner
+              ? `${who.name} is on your Partners list, so they’re asked to partner and never checked as a customer. Mark them Not a partner in Social Outreach → Partners first if they could be a customer.`
+              : `${who.name} is on Don’t pitch or tagged Friend or family, so they’re never checked. Turn off Don’t pitch on their row first if they could be a customer.`,
         );
       if (who.verdict === 'good' || who.verdict === 'maybe' || who.verdict === 'not')
         throw HfosError.rule(

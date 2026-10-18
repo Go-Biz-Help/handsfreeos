@@ -15,6 +15,7 @@ import {
   type MessageSamples,
 } from '@hfos/core/addons/outreach/conversation';
 import { voiceFor } from '@hfos/core/addons/outreach/ops/automation';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { messageSamplesSave } from '@hfos/core/addons/outreach/ops/readiness';
 import {
   paceOf,
@@ -57,7 +58,7 @@ export const messageSamples: AddonWorkerAction<z.input<typeof SamplesInput>> = {
       const playbooks = await rows<{ id: string; name: string; details: unknown }>(
         tx,
         sql`select id, name, details from addon_outreach.playbooks
-            where workspace_id = ${ws} and archived_at is null order by name`,
+            where workspace_id = ${ws} and archived_at is null and ${FOR_CUSTOMERS} order by name`,
       );
       return { business, offer, playbooks, voice: await voiceFor(tx, ws, ctx.userId) };
     });

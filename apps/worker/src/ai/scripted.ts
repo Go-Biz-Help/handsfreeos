@@ -1787,6 +1787,28 @@ function scriptedFitCheck(message: string) {
 }
 
 /**
+ * Social Outreach's partner check (decision 81): a good partner when the facts say they run a group, its members their
+ * audience; might be one with followers; else not.
+ */
+function scriptedPartnerCheck(message: string) {
+  const facts = /<facts>\n?([\s\S]*?)\n?<\/facts>/.exec(message)?.[1] ?? '';
+  const playbook = /^Name: (.*)$/m.exec(message)?.[1] ?? null;
+  const group = /Runs the group (.*?) \(([\d,]+) members\)/.exec(facts);
+  const followers = /([\d,]+) followers/.exec(facts);
+  const fit = group ? 'good' : followers ? 'maybe' : 'not';
+  const size = (n: string | undefined) => (n ? Number(n.replace(/,/g, '')) : null);
+  return {
+    fit,
+    playbook: fit === 'not' ? null : playbook && unquote(playbook),
+    kind: group ? 'group_admin' : followers ? 'creator' : 'business',
+    audience: group ? `Members of ${unquote(group[1]!)}` : null,
+    audienceSize: size(group?.[2] ?? followers?.[1]),
+    why: group ? ['Runs a busy group of the customers'] : followers ? ['Has a following'] : [],
+    nextStep: group ? 'Comment on their latest post' : null,
+  };
+}
+
+/**
  * Social Outreach's check of a group (decision 48): the business's people are there when its About page says
  * "contractors", some when it says "business", else not; who posts is its first About line.
  */
@@ -1998,6 +2020,10 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   },
   { when: /Read this Facebook chat\.$/, json: (message) => scriptedChatRead(message) },
   { when: /Could this person be a customer\?$/, json: (message) => scriptedFitCheck(message) },
+  {
+    when: /Could this person send the business its customers\?$/,
+    json: (message) => scriptedPartnerCheck(message),
+  },
   {
     when: /Are the business’s people in this group\?$/,
     json: (message) => scriptedGroupCheck(message),

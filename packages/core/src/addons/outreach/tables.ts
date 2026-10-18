@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, and 20261027002810 for countries):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, and 20261027008400 for partners):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -47,6 +47,7 @@ import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { ProfileCheck } from './profile-check';
 import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
+import type { PartnerFit, PartnerKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
@@ -181,6 +182,11 @@ export const profiles = addonOutreach.table(
     countryThrough: boolean('country_through').notNull().default(false),
     countryThroughBy: userRef('country_through_by'),
     countryThroughAt: ts('country_through_at'),
+    /** How many follow them, as their profile last said, and when it was read. */
+    followers: integer('followers'),
+    followersAt: ts('followers_at'),
+    /** When they were found as a partner (decision 81): never pitched as a customer since, nor are their twins. */
+    partnerFoundAt: ts('partner_found_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -402,7 +408,7 @@ export const fileChats = addonOutreach.table(
 
 /**
  * Someone saved from a group's People tab: the lines under their name and the part of the list they were in. Who
- * runs the group (an admin or a moderator) is never approached.
+ * runs the group (an admin or a moderator) is never approached as a customer, only asked to partner (decision 81).
  */
 export const groupPeople = addonOutreach.table(
   'group_people',
@@ -1059,6 +1065,59 @@ export const checks = addonOutreach.table(
 );
 
 /**
+ * The AI's partner check of someone with the business's customers' attention (decision 81, ../partners.ts): a group's
+ * admin, someone with a following, or a business with the same customers. What their profile said waits in `lines`
+ * until the AI reads it, then goes; a good or maybe is on the Partners list, its stage kept as each is reached. Each
+ * person's own.
+ */
+export const partners = addonOutreach.table(
+  'partners',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<PartnerKind>(),
+    lines: text('lines')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    fit: text('fit').notNull().default('waiting').$type<PartnerFit>(),
+    /** The partner playbook their audience is (let go when it goes). */
+    playbookId: uuid('playbook_id'),
+    audience: text('audience'),
+    audienceSize: integer('audience_size'),
+    why: text('why')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    nextStep: text('next_step'),
+    stage: text('stage').$type<PartnerStage>(),
+    foundAt: ts('found_at'),
+    warmedAt: ts('warmed_at'),
+    askedAt: ts('asked_at'),
+    interestedAt: ts('interested_at'),
+    callAt: ts('call_at'),
+    partnerAt: ts('partner_at'),
+    notNowAt: ts('not_now_at'),
+    lookedAt: ts('looked_at').notNull(),
+    checkedAt: ts('checked_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
  * What a person or the AI said about where someone stands beyond what's worked out (decision 47): ready to pitch or not
  * a fit, and when the pitch went. Each person's own.
  */
@@ -1309,6 +1368,7 @@ export const OUTREACH_TABLES = {
   liveSteps,
   needs,
   openerUses,
+  partners,
   playbooks,
   posts,
   profiles,
