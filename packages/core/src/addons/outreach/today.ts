@@ -5,7 +5,8 @@
  *
  * - **Friend requests**: people found in the business's groups who fit a playbook, from groups whose full list of
  *   admins and moderators has been read; never anyone who runs a group, is on Don't pitch, is in Contacts, or has had
- *   a request from the business already. As many as today's limit has left.
+ *   a request from the business already. As many as today's limit has left. Ahead of them, people found by a search
+ *   (whoever wrote a post the network's search found, off any group), once a comment or a like has warmed them up.
  * - **Like a post first** (decision 33, while the person's **Like a post first** is on): someone's request waits until
  *   a day after one of their posts was liked, so the list has likes for tomorrow's requests, as many as a day's
  *   requests. A profile with no post to like goes without.

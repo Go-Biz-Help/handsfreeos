@@ -45,6 +45,11 @@ export interface NetworkWords {
   readonly messageLike: string;
 }
 
+/** The kinds on today's list a network's runner can do on its own (automation.ts `autoKinds`). */
+export type RunnerKind = 'confirm' | 'warm_up' | 'friend_request' | 'comment';
+/** The switches along the way a network's runner can read (network-words.ts `ALONG_TICKS`). */
+export type RunnerTick = 'warmUp' | 'confirmRequests' | 'collect' | 'joinGroups' | 'watchPosts';
+
 export interface NetworkKit {
   readonly name: string;
   /**
@@ -72,8 +77,17 @@ export interface NetworkKit {
   readonly checksPerDay: number;
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
+  /**
+   * What the extension's runner does there (the Instagram and Alignable plan's "steps per network"): the kinds on
+   * today's list it does on its own, and the switches along the way it reads. Today marks only these as done on their
+   * own, and Settings show only these switches. A network still looked at does none yet.
+   */
+  readonly runs: { readonly auto: readonly RunnerKind[]; readonly ticks: readonly RunnerTick[] };
   readonly words: NetworkWords;
 }
+
+/** Nothing on its own: a network still looked at (decision 78). */
+const RUNS_NOTHING: NetworkKit['runs'] = { auto: [], ticks: [] };
 
 export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   facebook: {
@@ -88,6 +102,11 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: null,
     checksPerDay: 40,
     tidyLimits: TIDY_LIMITS,
+    // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
+    runs: {
+      auto: ['confirm', 'warm_up', 'friend_request', 'comment'],
+      ticks: ['warmUp', 'confirmRequests', 'collect', 'joinGroups', 'watchPosts'],
+    },
     words: {
       friend: 'friend',
       friends: 'friends',
@@ -114,6 +133,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 40,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
+    // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
+    // along the way it reads the warm-up and saving connections: it joins no groups and has no hourly look.
+    runs: { auto: ['warm_up', 'friend_request', 'comment'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -141,6 +163,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: null,
     checksPerDay: 20,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
+    runs: RUNS_NOTHING,
     words: {
       friend: 'follower',
       friends: 'followers',
@@ -164,6 +187,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: null,
     checksPerDay: 30,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
+    runs: RUNS_NOTHING,
     words: {
       friend: 'connection',
       friends: 'connections',

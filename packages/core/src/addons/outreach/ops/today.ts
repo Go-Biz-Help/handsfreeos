@@ -213,7 +213,7 @@ export const today = defineAddonQuery(outreachAddon, {
     // done on its own: Get ready shows in place of the rest.
     const ready = (await readinessFor(ctx, me, input.platform)).ready;
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
-    const playbooks = await playbooksInUse(ctx);
+    const playbooks = await playbooksInUse(ctx, input.platform);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
     // Only this network's people: every list of the day is one network's (Chris: each network on its own).
     const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${input.platform})`;
@@ -382,9 +382,88 @@ export const today = defineAddonQuery(outreachAddon, {
         }
       }
 
+    // People found by a search (the Instagram and Alignable plan's "people found by a search"): whoever wrote a post the
+    // network's own search found, off any group, that the AI said was worth a comment. The comment, or a like, is their
+    // warm-up: with Like a post first on, their request comes a day after it; before it, their post's comment is on the
+    // list instead. Ahead of the groups' people, whom nothing has warmed yet.
+    let searchRequests = 0;
+    const searchLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
+    if (playbooks.length && !requestsOff && searchLeft) {
+      const searched = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        intro: string[];
+        body: string;
+        playbook_name: string | null;
+        warmed_at: Date | string | null;
+        warm_up_missed_at: Date | string | null;
+      }>(
+        ctx.tx,
+        sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, po.body, pb.name as playbook_name,
+              p.warm_up_missed_at,
+              (select max(t.at) from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind in ('like', 'comment')
+                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as warmed_at
+            from addon_outreach.posts po
+            join addon_outreach.profiles p on p.id = po.profile_id
+            left join addon_outreach.playbooks pb on pb.id = po.playbook_id
+            where po.workspace_id = ${ws} and po.group_id is null and po.check_state = 'good'
+              and po.seen_at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
+              and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+              and not exists (select 1 from addon_outreach.group_people x
+                where x.profile_id = p.id and x.runs_group)
+              and not exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me})
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.kind = 'friend_request')
+            order by p.id, po.seen_at desc
+            limit ${CANDIDATES_MOST}`,
+      );
+      const ready = searched.flatMap((p) => {
+        if (warmIds.has(p.id)) return [];
+        const warmedAt = p.warmed_at === null ? null : new Date(p.warmed_at).getTime();
+        if (
+          settings.warmUp &&
+          p.warm_up_missed_at === null &&
+          (warmedAt === null || warmedAt > now - WARM_UP_WAIT_HOURS * HOUR)
+        )
+          return [];
+        const fit = bestFit(playbooks, {
+          lines: [p.body, ...p.intro],
+          mutualFriends: null,
+          groupName: null,
+        });
+        return fit.level === 'skip' ? [] : [{ p, fit, warmed: warmedAt !== null }];
+      });
+      ready.sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
+      for (const { p, fit, warmed } of ready.slice(0, searchLeft)) {
+        searchRequests++;
+        warmIds.add(p.id);
+        items.push(
+          item({
+            kind: 'friend_request',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            why: [
+              `Wrote a post your search on ${NETWORKS[input.platform].name} found`,
+              ...fit.reasons,
+              ...(warmed ? ['You commented on or liked their post'] : []),
+            ],
+            playbookName: fit.playbookName ?? p.playbook_name,
+          }),
+        );
+      }
+    }
+
     // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
     // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's.
-    const requestsLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
+    const requestsLeft = Math.max(
+      0,
+      leftToday(limits, 'friend_request') - warmRequests - searchRequests,
+    );
     const likesLeft = Math.max(0, leftToday(limits, 'warm_up') - warmLikes);
     if (playbooks.length && !requestsOff && (requestsLeft || (settings.warmUp && likesLeft))) {
       const found = await rows<{
@@ -1045,7 +1124,7 @@ export const today = defineAddonQuery(outreachAddon, {
       readAdmins: readAdmins.map((g) => ({ groupId: g.id, name: g.name, url: g.url })),
       hasPlaybook: playbooks.length > 0,
       warning,
-      auto: ready ? autoKinds(settings) : [],
+      auto: ready ? autoKinds(settings, input.platform) : [],
       messages: messageKinds(settings).filter(
         (k) => ready || k === 'reply' || k === 'partner_reply',
       ),

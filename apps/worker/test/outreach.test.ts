@@ -25,7 +25,7 @@ beforeAll(async () => {
 
 afterAll(closeTestDbs);
 
-describe('Social Outreach’s data versions 2 to 6', () => {
+describe('Social Outreach’s data versions 2 to 7', () => {
   it('gives an older playbook’s questions answers, a pace, follow-ups and empty newer parts, and leaves today’s alone', async () => {
     const before = {
       goal: 'demo',
@@ -57,16 +57,20 @@ describe('Social Outreach’s data versions 2 to 6', () => {
       videoLink: null,
       videoScript: null,
       partnerKinds: ['group_admin', 'creator', 'business'],
+      onItsNetworks: true,
     });
-    const [old, current] = await rows<{ id: string }>(
+    // A partner playbook saved before version 7 kept to its own networks already (decision 81).
+    const partners = { ...before, goal: 'partner' };
+    const [old, current, partner] = await rows<{ id: string }>(
       admin(),
       sql`insert into addon_outreach.playbooks (workspace_id, name, details)
           values (${ws}, 'Old', ${JSON.stringify(before)}::jsonb),
-                 (${ws}, 'Current', ${JSON.stringify(today)}::jsonb)
+                 (${ws}, 'Current', ${JSON.stringify(today)}::jsonb),
+                 (${ws}, 'Partners', ${JSON.stringify(partners)}::jsonb)
           returning id`,
     );
 
-    for (const v of [2, 3, 4, 5, 6]) {
+    for (const v of [2, 3, 4, 5, 6, 7]) {
       const step = outreachAddonWorker.dataMigrations![v]!;
       await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
         step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
@@ -91,6 +95,13 @@ describe('Social Outreach’s data versions 2 to 6', () => {
       videoLink: null,
       videoScript: null,
       partnerKinds: ['group_admin', 'creator', 'business'],
+      // It ran on every network that worked before version 7, and runs on those now.
+      platforms: ['facebook', 'linkedin'],
+      onItsNetworks: true,
+    });
+    expect(PlaybookDetails.parse(got(partner!.id).details)).toMatchObject({
+      platforms: ['facebook'],
+      onItsNetworks: true,
     });
     expect(got(current!.id)).toMatchObject({ details: today, updated: false });
   });

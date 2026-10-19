@@ -341,7 +341,9 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
         'Invitations to connect, likes and comments on their own; each message waits for one tap',
       ),
     ).toBeTruthy();
-    expect(screen.getByText('Accept invitations from people who fit a playbook')).toBeTruthy();
+    // Only the switches LinkedIn's runner does: it never accepts invitations on its own.
+    expect(screen.queryByText('Accept invitations from people who fit a playbook')).toBeNull();
+    expect(screen.getByTestId('settings-networks-linkedin-collect')).toBeTruthy();
     expect(screen.getByTestId('settings-networks-linkedin-chrome')).toHaveTextContent(
       /press Allow on LinkedIn, then Allow in Chrome’s box\.$/,
     );

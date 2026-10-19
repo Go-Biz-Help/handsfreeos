@@ -8298,6 +8298,10 @@
                   "enum": ["group_admin", "creator", "business"]
                 }
               },
+              "onItsNetworks": {
+                "type": "boolean",
+                "const": true
+              },
               "audience": {
                 "anyOf": [
                   {

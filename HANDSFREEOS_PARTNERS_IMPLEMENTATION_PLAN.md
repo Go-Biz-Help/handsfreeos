@@ -564,7 +564,11 @@ request when opened, so no Check opens it: the first real request shows what it 
    it once.
 2. **6b, shared core** (the Instagram and Alignable plan's step 3): people found by a search become people to connect
    with on any network, each network's runner says which steps it does, a playbook's networks count, and an Alignable
-   playbook says customers, referral partners or both.
+   playbook says customers, referral partners or both. Built: a post's author found by search is asked to connect on
+   Today, warmed up first; each network's kit lists what its runner does (`runs`), so Settings shows only those
+   switches and Today marks only those done on its own; and a playbook runs on its networks alone (data version 7,
+   which ticks Facebook and LinkedIn on every customers' playbook saved before). An Alignable partner playbook is the
+   "referral partners" side, so no new field was needed.
 3. **6c, Alignable works** (its parts 1 to 6), built from what 6a sends back, with partners in it: reading its pages,
    noting your steps, its day in the apps, its asks, the runner and Find partners (your town's businesses by the
    playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage last.

@@ -11,7 +11,11 @@
  *   49), pushes to the person who found it at once when it's fresh: "Dana Reyes is asking for what you offer". Once a
  *   post, on their add-ons switch, opening Today, where it's first.
  */
-import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
+import {
+  PlaybookDetails,
+  runsOn,
+  upgradePlaybookDetails,
+} from '@hfos/core/addons/outreach/playbooks';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import {
@@ -84,20 +88,21 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     ),
   }));
   if (!found.posts.length) return;
-  const playbooks: PostCheckPlaybook[] = found.playbooks.flatMap((p) => {
-    const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
-    return read.success
-      ? [
-          {
-            name: p.name,
-            offer: read.data.offer,
-            audience: read.data.audience,
-            signs: read.data.signs,
-            skip: read.data.skip,
-          },
-        ]
-      : [];
+  const read = found.playbooks.flatMap((p) => {
+    const details = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
+    return details.success ? [{ name: p.name, details: details.data }] : [];
   });
+  // Each post is judged by the playbooks that run on its network (data version 7).
+  const playbooksOn = (platform: Platform): PostCheckPlaybook[] =>
+    read
+      .filter((p) => runsOn(p.details, platform))
+      .map((p) => ({
+        name: p.name,
+        offer: p.details.offer,
+        audience: p.details.audience,
+        signs: p.details.signs,
+        skip: p.details.skip,
+      }));
 
   for (const post of found.posts.slice(0, CHECK_POSTS_BATCH)) {
     let check: { good: boolean; strong: boolean; why: string | null } | null;
@@ -111,7 +116,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
               business: found.business?.name ?? 'the business',
               group: post.group,
               text: post.body,
-              playbooks,
+              playbooks: playbooksOn(post.platform),
             }),
           },
         ],

@@ -32,6 +32,7 @@ import { answerNote } from '@hfos/core/addons/outreach/ops/conversation';
 import {
   paceOf,
   PlaybookDetails,
+  runsOn,
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
@@ -212,10 +213,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       ...(found.check?.why ?? []),
       ...(found.check?.next_step ? [`A good first step: ${found.check.next_step}`] : []),
     ];
-    const playbooks = found.playbooks.flatMap((p) => {
+    const kept = found.playbooks.flatMap((p) => {
       const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
       return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
     });
+    // The playbooks that run on their network (data version 7), or every one when none does: a draft asked for by hand
+    // is written all the same.
+    const onIt = kept.filter((p) => runsOn(p.details, found.profile?.platform ?? 'facebook'));
+    const playbooks = onIt.length ? onIt : kept;
     const fit = bestFit(playbooks, {
       lines: [...facts, ...input.lookup, ...(found.post ? [found.post.body] : [])],
       mutualFriends: found.profile?.mutual_friends ?? null,

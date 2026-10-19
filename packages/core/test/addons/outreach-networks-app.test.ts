@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ActivityOutput } from '../../src/addons/outreach/activity';
 import { cantAskWhy, latestAskOn } from '../../src/addons/outreach/asks';
 import {
+  autoKinds,
   AUTOMATION_DEFAULTS,
   NETWORKS_DEFAULTS,
   SENDING_MODES,
@@ -27,6 +28,7 @@ import { DAILY_WORDS } from '../../src/addons/outreach/limits';
 import { listsWaitWords, NO_LISTS } from '../../src/addons/outreach/lists';
 import { dayWords } from '../../src/addons/outreach/live';
 import {
+  ALONG_TICKS,
   chatUrlOn,
   dailyWordsOn,
   NETWORK_FILTERS,
@@ -39,6 +41,7 @@ import {
   sendingModesOn,
   shareWords,
   ticksOn,
+  ticksShownOn,
   todayKindsOn,
   withNetwork,
 } from '../../src/addons/outreach/network-words';
@@ -75,6 +78,20 @@ describe('a network’s words on screen', () => {
     expect(sendingModesOn('facebook')).toEqual(SENDING_MODES);
     expect(sendingModesOn('linkedin').steps).toMatch(/^Invitations to connect, likes/);
     expect(ticksOn('facebook').warmUp).toEqual(W.ticks.warmUp);
+    // Settings show only the switches a network's runner reads; one still looked at has none yet.
+    expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS);
+    expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
+    expect(ticksShownOn('alignable')).toEqual([]);
+    // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.
+    const doing = { ...AUTOMATION_DEFAULTS, sending: 'steps' as const };
+    expect(autoKinds(doing, 'facebook')).toEqual([
+      'confirm',
+      'warm_up',
+      'friend_request',
+      'comment',
+    ]);
+    expect(autoKinds(doing, 'linkedin')).toEqual(['warm_up', 'friend_request', 'comment']);
+    expect(autoKinds(doing, 'instagram')).toEqual([]);
     expect(ticksOn('linkedin').confirmRequests[0]).toBe(
       'Accept invitations from people who fit a playbook',
     );

@@ -262,9 +262,9 @@ export type PostWordsOutput = z.output<typeof PostWordsOutput>;
 
 /**
  * What to search a network's posts with (LinkedIn's post search, latest first): the words the playbooks quote in
- * their signs ("“Owner”, “Founder” or “CEO” in their intro"), then their words for groups, each once, the playbooks
- * that work on the network first (all of them when none says). The posts found are kept only when they say a sign or
- * ask for help (`postLook`), as a group's are.
+ * their signs ("“Owner”, “Founder” or “CEO” in their intro"), then their words for groups, each once, from the
+ * playbooks that run on the network (data version 7). The posts found are kept only when they say a sign or ask for
+ * help (`postLook`), as a group's are.
  */
 export function postSearchWords(
   playbooks: readonly {
@@ -274,8 +274,9 @@ export function postSearchWords(
   }[],
   platform: Platform,
 ): string[] {
-  const named = playbooks.filter((p) => p.details.platforms?.includes(platform));
-  const these = named.length ? named : playbooks;
+  const these = playbooks.filter(
+    (p) => !p.details.platforms || p.details.platforms.includes(platform),
+  );
   const seen = new Set<string>();
   const words: string[] = [];
   for (const word of [

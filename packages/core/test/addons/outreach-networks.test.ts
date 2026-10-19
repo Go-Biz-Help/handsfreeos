@@ -33,11 +33,12 @@ let ws: string;
 beforeAll(async () => {
   owner = await createTestUser('outn-owner', { fullName: 'Morgan Owner' });
   ws = await outreachBusiness(owner, 'Outreach Networks Co');
-  // A playbook with a niche: one of the things a person needs before their day starts (decision 63).
+  // A playbook with a niche: one of the things a person needs before their day starts (decision 63). It runs on
+  // Facebook and LinkedIn (data version 7: a playbook runs on its own networks).
   await runAs(owner, ws, 'outreach.playbook.save', {
     name: 'CRM demos',
     template: 'crm_demos',
-    details: PLAYBOOK_TEMPLATES.crm_demos.details,
+    details: { ...PLAYBOOK_TEMPLATES.crm_demos.details, platforms: ['facebook', 'linkedin'] },
   });
 }, 60_000);
 
@@ -349,10 +350,10 @@ describe('each network’s own choices', () => {
       sending: 'steps',
       warmUp: false,
     });
-    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first.
+    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first. Its runner accepts
+    // no invitations, so those stay the person's whatever the switch says (its kit's `runs`).
     expect((await runAs(dana, ws, 'outreach.today', {})).auto).toEqual([]);
     expect((await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).auto).toEqual([
-      'confirm',
       'friend_request',
       'comment',
     ]);
@@ -862,6 +863,55 @@ describe('one person on two networks', () => {
     expect(await onLinkedInToday()).toEqual([]);
     await runAs(lee, ws, 'outreach.demo.mark', { profileId: onFacebook, booked: false });
     expect(await onLinkedInToday()).toEqual(['reconnect']);
+  });
+});
+
+describe('people found by a search', () => {
+  it('get an invitation on LinkedIn once a comment on the post the search found warmed them up', async () => {
+    const sky = await teammate('Sky Reyes');
+    const author = {
+      id: null,
+      username: 'robin-vale-plumbing',
+      url: 'https://www.linkedin.com/in/robin-vale-plumbing/',
+    };
+    await runAs(sky, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      found: 'search',
+      posts: [
+        {
+          url: 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000777/',
+          author,
+          name: 'Robin Vale',
+          text: 'I’m the owner of a small plumbing business. Can anyone recommend a simple CRM?',
+        },
+      ],
+    });
+    // The AI said the post was worth a comment.
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'good'
+          where workspace_id = ${ws} and user_id = ${sky.id}`,
+    );
+    const onToday = async (platform?: 'linkedin') =>
+      (await runAs(sky, ws, 'outreach.today', platform ? { platform } : {})).items
+        .filter((i: { name: string }) => i.name === 'Robin Vale')
+        .map((i: { kind: string; why: string[] }) => [i.kind, i.why[0]]);
+    // With Like a post first on, their post's comment is their warm-up: no invitation yet.
+    expect(await onToday('linkedin')).toEqual([['comment', expect.any(String)]]);
+
+    // Sky commented on it yesterday: the invitation comes, said to be from the search.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
+          select ${ws}, po.profile_id, ${sky.id}, 'comment', now() - interval '21 hours'
+          from addon_outreach.posts po where po.workspace_id = ${ws} and po.user_id = ${sky.id}`,
+    );
+    expect(await onToday('linkedin')).toContainEqual([
+      'friend_request',
+      'Wrote a post your search on LinkedIn found',
+    ]);
+    // Facebook's list never has them: they're on LinkedIn.
+    expect(await onToday()).toEqual([]);
   });
 });
 

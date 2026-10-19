@@ -17,11 +17,11 @@ import {
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
 import {
-  ALONG_TICKS,
   onItsOwnAbout,
   postingAboutOn,
   sendingModesOn,
   ticksOn,
+  ticksShownOn,
 } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
@@ -358,7 +358,7 @@ export function NetworkTicks({
   return (
     <Section boxed={boxed} title={W.sections.along}>
       <View className="gap-3">
-        {ALONG_TICKS.map((k) => (
+        {ticksShownOn(platform).map((k) => (
           <Tick
             key={k}
             label={ticks[k][0]}
