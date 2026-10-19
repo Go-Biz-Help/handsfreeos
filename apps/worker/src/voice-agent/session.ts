@@ -8,7 +8,8 @@
  * - It speaks a sentence at a time, and knows a reply has been heard when Twilio plays back the mark sent after
  *   it. A reply starts while the model is still writing it: each checked sentence is said as it's ready
  *   (brain.ts, early-speech.ts), and the rest follows once the turn is done. The caller talking over it stops it
- *   at once (barge-in), except while it says goodbye or connects them.
+ *   as soon as their first words are heard (barge-in), except while it says goodbye or connects them; a sound
+ *   that isn't words doesn't.
  * - Sentences go down one voice connection opened while the greeting plays (VoiceLine), which saves each the
  *   time a request takes to start; one the connection can't take goes by request, as the greeting does.
  * - Quiet after it spoke: it asks whether they're still there, then says goodbye and hangs up.
@@ -338,27 +339,34 @@ export class CallSession {
 
   // ---- hearing ----
 
+  /**
+   * A sound: maybe they're talking, so it doesn't ask whether they're still there. Only their words stop it
+   * (talkedOver): a cough, a breath or a noise in the room starts a sound too.
+   */
   private onSpeechStarted(): void {
     this.clearQuiet();
-    // They're talking over it: stop, and let them finish.
-    const speaking = this.speaking;
-    if (speaking?.interruptible) {
-      speaking.abort.abort();
-      this.link.clear();
-      const last = this.lines[this.lines.length - 1];
-      if (last?.who === 'teammate')
-        this.lines[this.lines.length - 1] = { ...last, text: `${last.text} (interrupted)` };
-      this.mind.cut?.(speaking.turn);
-    }
   }
 
   private onWords(w: HeardWords): void {
     if (this.closed) return;
     this.clearQuiet();
+    if (w.text) this.talkedOver();
     this.mind.heard?.(w);
     if (w.language) this.language = w.language;
     if (w.final && w.text) this.heard.push(w.text);
     if (w.endOfTurn) this.maybeTurn();
+  }
+
+  /** Words while it's talking: they're talking over it, so it stops, once, and lets them finish. */
+  private talkedOver(): void {
+    const speaking = this.speaking;
+    if (!speaking?.interruptible || speaking.abort.signal.aborted) return;
+    speaking.abort.abort();
+    this.link.clear();
+    const last = this.lines[this.lines.length - 1];
+    if (last?.who === 'teammate')
+      this.lines[this.lines.length - 1] = { ...last, text: `${last.text} (interrupted)` };
+    this.mind.cut?.(speaking.turn);
   }
 
   private maybeTurn(): void {
