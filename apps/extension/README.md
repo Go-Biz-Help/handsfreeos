@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.65.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.66.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -71,11 +71,16 @@ is on, and both must:
 **A network still looked at** (Instagram and Alignable, decision 78) is read only for its Check, from one reader for
 both (`src/networks/looking/`) and each network's site (its addresses, its own words, its warnings and the buttons each
 step needs: `src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`). Its script notes none of your steps
-and reads nothing as you go but its warnings; HandsFreeOS asks it nothing but its Check (`src/jobs/looking.ts`), which
+and reads nothing as you go but its warnings; HandsFreeOS asks it nothing but its Check (`src/jobs/looking.ts`) and,
+on Instagram, reading and writing your own profile (decision 80). The Check
 reads its main pages and sends a problem report of each with its outline, and looks for each step's button, pressing
 none: Instagram's bio box and Submit, Follow, Message, Like and the box to comment in; Alignable's Connect, Message,
 Recommend, Like and a box to comment in. Check Alignable opens the places Alignable's own menu leads to by their words,
-never one that signs out, pays, invites, deletes or changes settings. Each is built out from what its Check sends back.
+never one that signs out, pays, invites, deletes or changes settings. From 0.66.0 (stage 6 of the partners plan) it
+then opens what Alignable's steps and Find partners are built from next: your town (from your business's address), a
+search for businesses, a forum question a page linked to, your connection requests (My Network's Requests) and a chat
+with one of your connections (a connection's Message), writing nothing. Connect isn't opened: its link may send the
+request. Each is built out from what its Check sends back.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script

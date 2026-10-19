@@ -105,6 +105,7 @@ export function readLooking(
   const people = new Map<string, { url: string }>();
   const posts = new Map<string, { url: string }>();
   const places = new Map<string, { name: string; url: string; worth: boolean }>();
+  const links = new Map<string, { name: string; url: string }>();
   const never = new Set<string>();
   const edits = new Set<string>();
   const mask = maskOn(site);
@@ -136,6 +137,15 @@ export function readLooking(
       if (opening === 'never') never.add(key);
       else if (!places.has(key) && !never.has(key) && places.size < MOST)
         places.set(key, { name: mask(words), url: url.toString(), worth: opening === 'worth' });
+      continue;
+    }
+    // The page's own links, whose words are all the site's: a tab, a connection's Message. Never one it never opens.
+    if (!menu && !profile && links.size < MOST) {
+      const key = `${url.pathname}${url.search}`;
+      const words = nameOf(anchor);
+      if (!words || mask(words) !== words || links.has(key)) continue;
+      if ((site.placeOpening?.(words, url) ?? 'maybe') === 'never') continue;
+      links.set(key, { name: words, url: url.toString() });
     }
   }
   for (const key of never) places.delete(key);
@@ -148,6 +158,7 @@ export function readLooking(
     people: [...people.values()],
     posts: [...posts.values()],
     places: [...places.values()],
+    links: [...links.values()],
     own,
     edits: [...edits],
     warnings: readWarnings(doc, href, site),
@@ -179,7 +190,7 @@ export function outlineSiteOf(site: LookingSite): OutlineSite {
         .split(/\s+[•|·]\s+/)
         .map(mask)
         .join(' • '),
-    queryKept: new Set(['tab', 'type', 'filter', 'sort']),
+    queryKept: new Set(['tab', 'type', 'filter', 'sort', ...(site.queryKept ?? [])]),
     queryDropped: /^(utm_|igsh|igshid$|ref$|fbclid$|__)/,
     // The menus are kept: they're what tells a network's places apart. Nothing of theirs names anyone but the person,
     // and a name is hidden like any other.
