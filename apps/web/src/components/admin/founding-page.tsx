@@ -355,7 +355,10 @@ function OfferCard({
   onStatus: (status: 'draft' | 'open' | 'closed') => void;
 }) {
   const [cap, setCap] = useState(String(offer.seatCap));
-  const { monthly, pct, opens, opened, replaced, paid, action } = foundingOfferCard(offer, offers);
+  const { monthly, pct, opens, opened, replaced, paid, yearly, action } = foundingOfferCard(
+    offer,
+    offers,
+  );
 
   return (
     <Card className="p-4">
@@ -390,6 +393,8 @@ function OfferCard({
       {replaced ? <p className="mt-2 text-[13px] text-text-3">{replaced}</p> : null}
 
       {paid ? <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.paidNote}</p> : null}
+
+      {yearly ? <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.yearlyNote}</p> : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-2">
         {monthly ? null : (

@@ -24,8 +24,11 @@ export interface FoundingCount {
   readonly seatCap: number;
   readonly claimed: number;
   readonly remaining: number;
-  /** `once` is a founding seat, free or paid once. `monthly` is the plan itself, which has no seats. */
-  readonly billing: 'once' | 'monthly';
+  /**
+   * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year. `monthly` is the plan
+   * itself, which has no seats.
+   */
+  readonly billing: 'once' | 'yearly' | 'monthly';
   /** Whether its numbers are for printing. Off for the monthly plan. */
   readonly showCounter: boolean;
   /** A later founding offer has opened after this one: it is no longer what is on sale. */
@@ -56,7 +59,7 @@ const isCount = (v: unknown): v is RawCount => {
  */
 const normalise = (o: RawCount): FoundingCount => ({
   ...(o as unknown as FoundingCount),
-  billing: o['billing'] === 'monthly' ? 'monthly' : 'once',
+  billing: o['billing'] === 'monthly' ? 'monthly' : o['billing'] === 'yearly' ? 'yearly' : 'once',
   showCounter: typeof o['showCounter'] === 'boolean' ? o['showCounter'] : true,
   superseded: o['superseded'] === true,
 });
@@ -100,7 +103,7 @@ export function currentFoundingOffer(
   counts: readonly FoundingCount[] | null,
 ): FoundingCount | null {
   const live = (counts ?? []).filter(
-    (c) => c.billing === 'once' && c.status !== 'draft' && !c.superseded,
+    (c) => c.billing !== 'monthly' && c.status !== 'draft' && !c.superseded,
   );
   // Several at once only if somebody opened offers out of order by hand; the later one is the later stage.
   return live.at(-1) ?? null;

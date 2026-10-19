@@ -108,7 +108,12 @@ import {
   SPEECH_JOBS,
 } from './money/speech-usage';
 import { NUMBER_MONTH_JOBS, NUMBER_MONTHS_KEY, runNumberMonths } from './money/number-months';
-import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
+import {
+  FOUNDING_EXPIRE_KEY,
+  FOUNDING_JOBS,
+  FOUNDING_RENEWALS_KEY,
+  foundingJobs,
+} from './founding/checkout';
 import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
 import { TEXTING_FEE_JOBS, TEXTING_MONTHS_KEY, textingFeeJobs } from './telephony/texting-fees';
 import { PAYOUT_JOBS, PAYOUT_PLAN_KEY, partnerPayoutJobs } from './partners/payouts';
@@ -780,6 +785,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: FOUNDING_JOBS.expire,
       dedupeKey: FOUNDING_EXPIRE_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The $497 founding seat (20261027009500), hourly: a paid year that is up is renewed, charged to the card its
+    // first payment kept, and a seat somebody stopped renewing goes back once its year is over.
+    await scheduleJob(tx, {
+      kind: FOUNDING_JOBS.renewals,
+      dedupeKey: FOUNDING_RENEWALS_KEY,
       runAt,
       payload: {},
       workspaceId: null,

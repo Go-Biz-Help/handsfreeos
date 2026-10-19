@@ -100,25 +100,27 @@ export const foundingOffers = [
     // What /founding says while this is the offer on sale.
     headline: 'Twenty-five founding partners.',
     sub: 'Not a beta, and not a discount. Twenty-five real businesses letting it do the real work — answering, booking, chasing — and telling us what is wrong, for as long as HandsFreeOS exists.',
-    afterwards: 'When these are gone, a pay-once seat opens on its own: $497, a hundred of them.',
+    afterwards:
+      'When these are gone, a yearly seat opens on its own: $497 a year, a hundred of them.',
     softwareLine: 'The software is free for life. The phone company is not.',
   },
   {
     id: 'founding_lifetime',
     name: 'Founding Customer',
     price: 497,
-    priceLabel: '$497 once',
-    blurb: 'Pay once. Use it for as long as HandsFreeOS exists.',
+    priceLabel: '$497 a year',
+    blurb: 'One payment a year for all of HandsFreeOS.',
     includes: [
-      'Everything in HandsFreeOS, for as long as it exists, with no monthly bill',
+      'Everything in HandsFreeOS, for $497 a year, with no monthly bill',
       'Every feature we add to the core product, at no extra cost',
-      'The price of five months, instead of every month',
+      'About five months of the monthly price, for the whole year',
+      'Renews each year on its own, and you can stop it any time',
     ],
     asks: [],
     headline: 'A hundred founding customers.',
-    sub: 'The free seats are gone. The next hundred businesses pay once, $497, for a CRM that does the work for them — and never see a monthly bill for the software.',
+    sub: 'The free seats are gone. The next hundred businesses pay $497 a year for a CRM that does the work for them — about five months of the monthly price, for the whole year.',
     afterwards: 'Partway through these, HandsFreeOS also goes on sale month to month, at $97.',
-    softwareLine: 'The software is paid for once. The phone company is not.',
+    softwareLine: 'The software is one payment a year. The phone company is not.',
   },
 ] as const;
 

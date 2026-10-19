@@ -31,7 +31,13 @@ export default async function FoundingCheckoutPage({
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 py-12 [background:radial-gradient(70%_45%_at_50%_0%,color-mix(in_oklab,var(--accent)_9%,transparent),transparent_75%)]">
       <Brand size={32} className="text-base" />
       <Card className="w-[480px] max-w-full rounded-dialog p-9">
-        <span className="text-[13px] text-text-2">{money(status.amountCents)}, paid once</span>
+        <span className="text-[13px] text-text-2">
+          {status.renewal
+            ? `${money(status.amountCents)}, another year`
+            : status.billing === 'yearly'
+              ? `${money(status.amountCents)} a year`
+              : `${money(status.amountCents)}, paid once`}
+        </span>
         <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight">
           {status.offerName}
         </h1>

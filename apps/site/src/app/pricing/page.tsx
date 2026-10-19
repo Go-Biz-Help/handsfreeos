@@ -94,7 +94,7 @@ export default async function PricingPage() {
 
       {/*
         The plan goes on sale by itself partway through the $497 seats. Until then it is not on the page at all:
-        the founding seats are the offer, and a monthly price beside a pay-once one makes the monthly one the
+        the founding seats are the offer, and a monthly price beside a yearly one makes the monthly one the
         yardstick. If the worker cannot be reached, it shows — see monthlyOnSale.
       */}
       {monthly ? (

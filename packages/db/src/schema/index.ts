@@ -6975,6 +6975,11 @@ export const foundingOffers = platform.table('founding_offers', {
   /** `once` is a founding seat, free or paid once. `monthly` is the plan: no seats, no applications (0092). */
   billing: text('billing').$type<'once' | 'monthly'>().notNull().default('once'),
   /**
+   * A seat paid each year, renewed on its own (20261027009500). Its `billing` stays `once`; the app calls it `yearly`
+   * (`private.founding_offer_billing`).
+   */
+  paidYearly: boolean('paid_yearly').notNull().default(false),
+  /**
    * The offer this one opens after, and how many of that one's seats must be out first — null meaning "when
    * it is full". Opened by a trigger at the seat that crosses the line, only ever from `draft`.
    */
@@ -7075,6 +7080,8 @@ export const foundingCheckouts = platform.table('founding_checkouts', {
   openedAt: ts('opened_at'),
   paidAt: ts('paid_at'),
   closedAt: ts('closed_at'),
+  /** Set on a page paying a refused renewal: the `current_period_end` it renews. Null on a first payment. */
+  renewalFor: ts('renewal_for'),
   ...timestamps(),
 });
 
@@ -7096,7 +7103,17 @@ export const workspacePlans = app.table('workspace_plans', {
   canceledAt: ts('canceled_at'),
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),
+  /** The end of the year paid for, on a yearly founding seat. Null on a plan nobody is billed for. */
   currentPeriodEnd: ts('current_period_end'),
+  /** The card the yearly renewal is charged to (Stripe's `pm_…`). */
+  stripeCardId: text('stripe_card_id'),
+  /** Somebody in the business stopped it renewing: the seat goes back when the year is up. */
+  renewalStoppedAt: ts('renewal_stopped_at'),
+  renewalStoppedBy: uuid('renewal_stopped_by').references(() => users.id, { onDelete: 'set null' }),
+  renewalCount: integer('renewal_count').notNull().default(0),
+  /** The last renewal the card refused, until it is paid with another card. Nothing is charged while set. */
+  renewalProblem: text('renewal_problem'),
+  renewalFailedAt: ts('renewal_failed_at'),
   ...timestamps(),
 });
 

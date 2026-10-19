@@ -12,23 +12,26 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 > (§8, §11). Both offers ship `draft`, so nothing is live until somebody opens them.
 >
 > Building it changed three things in this plan; §3, §5 and §6 below say what and why.
+>
+> **Since then:** the $497 checkout is built (`20261003000500`), and the $497 seat is paid **by the year**, renewed
+> on its own (§1.2, `20261027009500`). Any business on **Admin → Businesses** can be given a seat from its own page.
 
 ---
 
 ## 1. The decisions this is built on
 
-| Question               | Decision                                                                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What is a spot?        | One **business — an `app.organizations` row**. Caps count organizations.                                                                                             |
-| When is it consumed?   | **When you approve or give it.** A free seat is on the business's workspace at once and stays until you revoke it (§1.1). No self-serve claiming.                    |
-| When it sells out      | Waitlist, and the next offer down is shown as the alternative.                                                                                                       |
-| The monthly plan       | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499.                            |
-| Revoking a spot        | **14-day grace**, warned in-app and by email, then the workspace converts to $97/month. The spot returns to the pool the moment you revoke, not when the grace ends. |
-| The $497               | **Stripe Checkout, in the app**, on the HandsFreeOS platform account.                                                                                                |
-| The website shows      | **Exact remaining count** and a progress bar. No countdown clock — quantity only.                                                                                    |
-| What "lifetime" covers | **The core platform, forever.** Usage (AI, calls, SMS, numbers) always comes out of the wallet. Future premium add-ons are sold separately, to lifetime holders too. |
-| Founding partner usage | **$10 starting credit.** A card is required before the balance runs out.                                                                                             |
-| A second workspace     | The founding deal covers **one workspace**. Every further workspace is $97/month.                                                                                    |
+| Question               | Decision                                                                                                                                                                                                                          |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is a spot?        | One **business — an `app.organizations` row**. Caps count organizations.                                                                                                                                                          |
+| When is it consumed?   | **When you approve or give it.** A free seat is on the business's workspace at once and stays until you revoke it (§1.1). No self-serve claiming.                                                                                 |
+| When it sells out      | Waitlist, and the next offer down is shown as the alternative.                                                                                                                                                                    |
+| The monthly plan       | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499.                                                                                         |
+| Revoking a spot        | **14-day grace**, warned in-app and by email, then the workspace converts to $97/month. The spot returns to the pool the moment you revoke, not when the grace ends.                                                              |
+| The $497               | **Stripe Checkout, in the app**, on the HandsFreeOS platform account.                                                                                                                                                             |
+| The website shows      | **Exact remaining count** and a progress bar. No countdown clock — quantity only.                                                                                                                                                 |
+| What "lifetime" covers | **The core platform, forever** on a free seat; **a year at a time** on the $497 seat (§1.2). Usage (AI, calls, SMS, numbers) always comes out of the wallet. Future premium add-ons are sold separately, to founding holders too. |
+| Founding partner usage | **$10 starting credit.** A card is required before the balance runs out.                                                                                                                                                          |
+| A second workspace     | The founding deal covers **one workspace**. Every further workspace is $97/month.                                                                                                                                                 |
 
 ### 1.1 Free seats are on until you take them back (decided 2026-10-15)
 
@@ -43,13 +46,28 @@ The owner's call, after three approved founding partners lapsed because nobody f
 - **The $497 seat keeps its claim link and its fourteen-day hold,** because it waits on a payment.
 - The cap and the open/closed switch still apply to every seat.
 
+### 1.2 The $497 seat is paid by the year (decided 2026-10-19)
+
+The owner's call: the Founding Customer seat is **$497 a year**, not $497 once.
+
+- **It renews on its own.** Checkout keeps the card, and the worker charges it when the year is up, the way RCS's
+  yearly renewal does. The year is `app.workspace_plans.current_period_end`.
+- **A refused card is not tried again.** The business is emailed and pays that year with another card from
+  Settings → Usage & balance. The seat stays on until staff decide.
+- **The business can stop it renewing,** and start it again while the year is paid for. A seat that was stopped
+  goes back when its year is over.
+- **A seat staff give is a gift** and is never charged.
+- The offer's id and plan kind keep the name `founding_lifetime`: ids are names, not promises. `paid_yearly` on the
+  offer says how it is paid; its `billing` stays `once`, so the cap and the chain treat it as the seat it is, and the
+  app calls it `yearly`.
+
 ### The two offers
 
-| Offer                         | Cap               | Price      | Wallet                                   |
-| ----------------------------- | ----------------- | ---------- | ---------------------------------------- |
-| `founding_partner` — Phase 1  | 25 organizations  | $0 forever | $10 credit, card before it runs out      |
-| `founding_lifetime` — Phase 2 | 100 organizations | $497 once  | Card at checkout, wallet funded normally |
-| `monthly` — the fallback      | uncapped          | $97/month  | Card at checkout                         |
+| Offer                         | Cap               | Price      | Wallet                                 |
+| ----------------------------- | ----------------- | ---------- | -------------------------------------- |
+| `founding_partner` — Phase 1  | 25 organizations  | $0 forever | $10 credit, card before it runs out    |
+| `founding_lifetime` — Phase 2 | 100 organizations | $497/year  | Card at checkout, kept for the renewal |
+| `monthly` — the fallback      | uncapped          | $97/month  | Card at checkout                       |
 
 ---
 
@@ -511,5 +529,5 @@ Each step is committable and leaves the tree green.
 5. ✅ The worker's two signed-out routes.
 6. ✅ `/admin/founding`.
 7. ✅ The website: one $97 plan, live counters, `/founding`, rewritten FAQs.
-8. ⬜ The $497 checkout — needs a Stripe account connected (§8).
+8. ✅ The $497 checkout (`20261003000500`), and since 2026-10-19 its yearly renewal (`20261027009500`, §1.2; `20261027009600` switches the offer).
 9. ⬜ The six emails (§11.4), and the nightly sweeps that expire a reservation and end a grace.

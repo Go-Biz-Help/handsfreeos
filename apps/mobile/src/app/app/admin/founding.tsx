@@ -398,7 +398,10 @@ function OfferCard({
 }) {
   const [cap, setCap] = React.useState(String(offer.seatCap));
   const [problem, setProblem] = React.useState<string | null>(null);
-  const { monthly, pct, opens, opened, replaced, paid, action } = foundingOfferCard(offer, offers);
+  const { monthly, pct, opens, opened, replaced, paid, yearly, action } = foundingOfferCard(
+    offer,
+    offers,
+  );
 
   const save = () => {
     const n = Number(cap.trim());
@@ -444,6 +447,11 @@ function OfferCard({
       ) : null}
       {paid ? (
         <Text className="text-[13.5px] leading-[19px] text-text-3">{FOUNDING_WORDS.paidNote}</Text>
+      ) : null}
+      {yearly ? (
+        <Text className="text-[13.5px] leading-[19px] text-text-3">
+          {FOUNDING_WORDS.yearlyNote}
+        </Text>
       ) : null}
 
       <View className="flex-row flex-wrap items-end gap-2 pt-1">

@@ -25,12 +25,15 @@ export interface ClaimWorkspace {
 export function ClaimSeat({
   token,
   paid,
+  yearly = false,
   priceLabel,
   workspaces,
   checkoutId,
 }: {
   token: string;
   paid: boolean;
+  /** Paid by the year: the card is charged again each year, until they stop it. */
+  yearly?: boolean;
   priceLabel: string;
   workspaces: readonly ClaimWorkspace[];
   /** A payment already under way on this seat: carry on with it rather than start another. */
@@ -111,9 +114,11 @@ export function ClaimSeat({
         {paid ? `Pay ${priceLabel}` : 'Take up my seat'}
       </Button>
       <p className="mt-3.5 text-center text-xs text-text-3">
-        {paid
-          ? 'You pay on Stripe’s secure page. Your seat is held while you do.'
-          : 'This link works once. The seat covers one workspace.'}
+        {paid && yearly
+          ? 'You pay on Stripe’s secure page, and it renews each year on the same card. Stop it any time in Settings → Usage & balance.'
+          : paid
+            ? 'You pay on Stripe’s secure page. Your seat is held while you do.'
+            : 'This link works once. The seat covers one workspace.'}
       </p>
     </>
   );

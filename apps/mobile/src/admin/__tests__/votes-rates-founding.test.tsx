@@ -245,6 +245,9 @@ const grant = (over: Partial<Queue['grants'][number]>): Queue['grants'][number] 
   graceEndsAt: null,
   checkoutStatus: null,
   checkoutProblem: '',
+  paidThrough: null,
+  renewing: false,
+  renewalProblem: null,
   ...over,
 });
 
@@ -259,6 +262,7 @@ const QUEUE: Queue = {
       claimed: 0,
       remaining: 100,
       priceCents: 49_700,
+      billing: 'yearly',
       opensAfterOfferId: 'founding_partner',
       openedAt: null,
     }),
@@ -537,7 +541,7 @@ describe('Founding', () => {
     expect(screen.getByTestId('founding-status-founding_partner')).toHaveTextContent('Close');
 
     const lifetime = screen.getByTestId('founding-offer-founding_lifetime');
-    expect(lifetime).toHaveTextContent('$497 · draft', { exact: false });
+    expect(lifetime).toHaveTextContent('$497/year · draft', { exact: false });
     expect(lifetime).toHaveTextContent(
       'Opens by itself when Founding partner is full — 24 of 25 now.',
       { exact: false },

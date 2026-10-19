@@ -6,6 +6,7 @@ import {
 } from '@hfos/core';
 import Link from 'next/link';
 import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
+import { FoundingSeatBlock } from '@/components/admin/founding-seat-block';
 import { SupportAccessAsk } from '@/components/admin/support-access-ask';
 import { ViewAsButton } from '@/components/admin/view-as';
 import { OwnBusinessBlock } from '@/components/admin/own-business-block';
@@ -31,6 +32,12 @@ export default async function BusinessPage({
       .then(unwrapPage),
   ]);
   const me = unwrap(await api.POST('/v1/queries/platform.me', { body: {} }));
+  // Only staff who give founding seats are asked about them; for anybody else the block isn't there.
+  const founding = me.staff?.permissions.includes('platform.founding.manage')
+    ? await api
+        .POST('/v1/queries/platform.founding.business', { body: { workspaceId } })
+        .then(unwrapPage)
+    : null;
   const b = detail.business;
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -103,6 +110,10 @@ export default async function BusinessPage({
           </ul>
         </section>
       </div>
+
+      {founding ? (
+        <FoundingSeatBlock workspaceId={workspaceId} businessName={b.name} founding={founding} />
+      ) : null}
 
       <WalletBlock
         workspaceId={workspaceId}

@@ -91,7 +91,11 @@ import {
 import { onTopUpPressed, onWalletLow } from '../money/recharge';
 import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
-import { onFoundingCheckoutRequested, onFoundingPaid } from '../founding/checkout';
+import {
+  onFoundingBilled,
+  onFoundingCheckoutRequested,
+  onFoundingPaid,
+} from '../founding/checkout';
 import { onBusinessCreated } from '../opinly';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
@@ -284,6 +288,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'founding.checkout_requested': onFoundingCheckoutRequested,
     // …and paid for: the website's analytics hears of it from a job, when it has a key (founding/checkout.ts).
     'founding.paid': onFoundingPaid,
+    // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
+    'founding.renewed': onFoundingBilled,
+    'founding.renewal_failed': onFoundingBilled,
     // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).
     'workspace.created': onBusinessCreated,
     // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job

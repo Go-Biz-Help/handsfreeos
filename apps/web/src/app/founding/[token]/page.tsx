@@ -67,15 +67,18 @@ export default async function FoundingClaimPage({
               {seat.offerName}
             </h1>
             <p className="mt-2 leading-relaxed text-text-2">
-              {paid
-                ? `HandsFreeOS for as long as it exists, for one business: ${priceLabel}, paid once. Texts, calls and AI are billed for what you use.`
-                : 'HandsFreeOS free for as long as it exists, for one business. Texts, calls and AI are billed for what you use.'}
+              {paid && seat.billing === 'yearly'
+                ? `HandsFreeOS for one business: ${priceLabel} a year, renewed on its own until you stop it. Texts, calls and AI are billed for what you use.`
+                : paid
+                  ? `HandsFreeOS for as long as it exists, for one business: ${priceLabel}, paid once. Texts, calls and AI are billed for what you use.`
+                  : 'HandsFreeOS free for as long as it exists, for one business. Texts, calls and AI are billed for what you use.'}
             </p>
 
             {seat.state === 'ready' && workspaces.length > 0 ? (
               <ClaimSeat
                 token={token}
                 paid={paid}
+                yearly={seat.billing === 'yearly'}
                 priceLabel={priceLabel}
                 workspaces={workspaces}
                 checkoutId={seat.checkoutId}
