@@ -8934,6 +8934,8 @@ What keeps the wait short:
   the time and what the caller just said. `readyTokens` of 0 on every turn means this isn't working.
 - **It talks while it writes.** A reply starts being said as soon as its first sentence is written and checked; a
   one-sentence answer, as soon as it ends.
+- **It stops for words.** Talking over it stops it as soon as the caller's first words are heard. A sound that
+  isn't words (a cough, a door, a fan) doesn't stop it.
 - **One voice connection a call.** Sentences go down one Deepgram connection opened at pickup. A sentence it can't
   take goes by a request of its own, as the greeting does; after three failures on one call it stops trying for
   that call.

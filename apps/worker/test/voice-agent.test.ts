@@ -491,10 +491,27 @@ describe('a call', () => {
     const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'), { play: false });
     await waitFor('the greeting to be sent', () => call.events.includes('mark'));
     call.speak('[talking]');
+    // More of their words while it stops: it stops once.
+    call.speak('[talking]');
     await waitFor('the teammate to stop', () => call.events.includes('clear'));
     call.hangUp();
     const done = await waitForRun(callSid, 'done');
     expect(done.transcript).toContain('How can I help? (interrupted)');
+    expect(done.transcript?.match(/\(interrupted\)/g)).toHaveLength(1);
+    expect(call.events.filter((e) => e === 'clear')).toHaveLength(1);
+  });
+
+  it('keeps talking through a sound that isn’t words', async () => {
+    const { xml, callSid } = await callIn();
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'), { play: false });
+    await waitFor('the greeting to be sent', () => call.events.includes('mark'));
+    // A cough or a door: the listener hears a sound start, and no words.
+    call.speak('[noise]');
+    call.hangUp();
+    const done = await waitForRun(callSid, 'done');
+    expect(done.transcript).toContain('How can I help?');
+    expect(done.transcript).not.toContain('(interrupted)');
+    expect(call.events).not.toContain('clear');
   });
 
   it('saves the call when they hang up', async () => {

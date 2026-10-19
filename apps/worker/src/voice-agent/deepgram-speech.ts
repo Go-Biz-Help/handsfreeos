@@ -5,7 +5,8 @@
  * Listening:
  * - `language=multi` hears English and Spanish (and switching between them) without being told which.
  * - `endpointing` marks the end of a turn after a short pause; `utterance_end_ms` catches the turns endpointing
- *   misses in noise. `vad_events` says when they start talking, so the teammate stops mid-sentence.
+ *   misses in noise. `vad_events` says when a sound starts, which may be them talking; interim results bring
+ *   their first words soon after, and those stop the teammate mid-sentence (session.ts).
  * - A call with nobody talking sends a keep-alive, or Deepgram closes the stream after ten seconds.
  *
  * Speaking: one request per sentence, answered with the audio as it's made (μ-law at 8 kHz, no container), so

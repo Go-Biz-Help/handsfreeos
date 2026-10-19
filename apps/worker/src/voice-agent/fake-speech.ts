@@ -4,7 +4,8 @@
  * comes back as its own words in UTF-8. A test reads a call's outgoing audio as text. Its open voice (a call's
  * VoiceLine) does the same, and notes what went down it.
  *
- * Words wrapped in `[es]…` are heard as Spanish; a frame of `[talking]` is them starting to talk over it.
+ * Words wrapped in `[es]…` are heard as Spanish; a frame of `[talking]` is them starting to talk over it (a sound,
+ * then their first word, not yet final), and `[noise]` is a sound that isn't words.
  *
  * A live test call from a browser (ai-team/test-call.ts) sends real audio instead, 8 kHz μ-law from the
  * microphone: nobody is here to hear it, so a stretch of talking and then a pause is heard as FAKE_HEARD, the way
@@ -27,6 +28,7 @@ import {
 } from './speech';
 
 export const FAKE_TALKING = '[talking]';
+export const FAKE_NOISE = '[noise]';
 /** What the stand-in hears in a real recording. */
 export const FAKE_HEARD = 'Hello, can you hear me?';
 
@@ -150,7 +152,16 @@ export function createFakeSpeech(): SpeechServices & {
           }
           const said = audio.toString('utf8').trim();
           if (!said) return;
-          if (said === FAKE_TALKING) return handlers.onSpeechStarted();
+          if (said === FAKE_NOISE) return handlers.onSpeechStarted();
+          if (said === FAKE_TALKING) {
+            handlers.onSpeechStarted();
+            return handlers.onWords({
+              text: 'Wait',
+              final: false,
+              endOfTurn: false,
+              language: 'en',
+            });
+          }
           const es = /^\[es\]\s*/.exec(said);
           handlers.onSpeechStarted();
           handlers.onWords({
