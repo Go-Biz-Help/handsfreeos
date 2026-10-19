@@ -6911,7 +6911,7 @@ Each extra million tokens a day can add up to $10 a day per workspace. Raise the
 Three settings choose the models:
 
 - `ASSISTANT_MODEL` is Ask HandsFreeOS, the team's own helper. It is Claude Opus 5.5 (`claude-opus-5-5`) unless set.
-- `VOICE_MODEL` is calls and the test console's calls. It is Claude Haiku 5.5 (`claude-haiku-5-5`) unless set. A caller hears every pause, so speed matters most here: calls think at low effort, so Claude can skip thinking on a simple turn (a model with no effort levels, such as Claude Haiku 4.5, ignores it). A support admin can still pick another model for one business in /admin.
+- `VOICE_MODEL` is calls and the test console's calls. It is Claude Haiku 5.5 (`claude-haiku-5-5`) unless set. A caller hears every pause, so speed matters most here: calls ask Claude to answer without thinking first, at low effort (a model that can't turn thinking off, such as Claude Sonnet 5.5, still thinks; one with no effort levels, such as Claude Haiku 4.5, ignores that). A support admin can still pick another model for one business in /admin.
 - `AI_MODEL` is everything else: the AI teammate, workflow AI steps, the builders and the knowledge base. It is Claude Sonnet 5 (`claude-sonnet-5`) unless set. Customers wait on these, so a faster model matters more here than a stronger one.
 
 Claude Sonnet 5 thinks before it answers, and its thinking counts toward each answer's token cap. So every structured ask (`askStructured` in `apps/worker/src/ai/ask.ts`, and support's drafts) gets 16,000 tokens of room to think on top of what its answer may take: an answer cut off can't be used. A model that doesn't think, such as Claude Haiku 4.5, never uses the room, and a finished answer costs only what it wrote.
@@ -8935,14 +8935,16 @@ What keeps the wait short:
 - **It talks while it writes.** A reply starts being said as soon as its first sentence is written and checked; a
   one-sentence answer, as soon as it ends.
 - **It stops for words.** Talking over it stops it as soon as the caller's first words are heard. A sound that
-  isn't words (a cough, a door, a fan) doesn't stop it.
+  isn't words (a cough, a door, a fan) doesn't stop it, and nor does its own voice coming back through their
+  microphone (a laptop's speakers on a test call, a phone on speaker): words heard while it talks, or just after,
+  that are its own aren't taken as theirs.
 - **One voice connection a call.** Sentences go down one Deepgram connection opened at pickup. A sentence it can't
   take goes by a request of its own, as the greeting does; after three failures on one call it stops trying for
   that call.
 
 When calls feel slow, the log line says where: a large `waitMs` with `thought: true` is the model thinking before
-it answers (Claude Haiku 5.5, the default, does at low effort, when a turn needs it; Claude Haiku 4.5 doesn't, which a support
-admin can pick per business in /admin), and a large `loadMs` is the database.
+it answers (calls ask it not to; a `VOICE_MODEL` that can't turn thinking off still does), and a large `loadMs` is
+the database.
 
 To hear it for yourself, use **Call live** in the test console: it runs on the same loop as a real call and shows
 each turn's `firstSoundMs` as **Where the time went**, so the timing you hear is a caller's.
@@ -10142,7 +10144,7 @@ the same way it refuses removing a business's last owner.
   data — customers, messages, money — is not readable from here.
   A support admin can also pick the model a business's AI teammate thinks with on calls, under **AI on their
   calls**: **Default** is the worker's `VOICE_MODEL` (Claude Haiku 5.5 unless set), or **Claude Haiku 4.5
-  (older)**, which doesn't think before it answers. Every business was put back on Default by
+  (older)**. Every business was put back on Default by
   `20261027009100_every_business_calls_on_haiku_5_5.sql`. It changes
   from the next call and the next test call, with no redeploy, so try it on your own business first.
 - **Health** is what has failed lately across every business: jobs, webhooks, bounced email, failed texts,

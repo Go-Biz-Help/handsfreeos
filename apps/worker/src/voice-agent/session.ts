@@ -9,7 +9,7 @@
  *   it. A reply starts while the model is still writing it: each checked sentence is said as it's ready
  *   (brain.ts, early-speech.ts), and the rest follows once the turn is done. The caller talking over it stops it
  *   as soon as their first words are heard (barge-in), except while it says goodbye or connects them; a sound
- *   that isn't words doesn't.
+ *   that isn't words doesn't, and nor does its own voice coming back through their microphone (echoOf).
  * - Sentences go down one voice connection opened while the greeting plays (VoiceLine), which saves each the
  *   time a request takes to start; one the connection can't take goes by request, as the greeting does.
  * - Quiet after it spoke: it asks whether they're still there, then says goodbye and hangs up.
@@ -192,6 +192,34 @@ interface Utterance {
   readonly began: number;
 }
 
+/** The words of `text`, lowercase and without punctuation, as the listener's words are compared with its own. */
+function wordsOf(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .split(/[^\p{L}\p{N}']+/u)
+    .filter(Boolean);
+}
+
+/**
+ * Words heard that are its own: nearly all of them are in what it said. Its voice reaching the caller's microphone
+ * (a laptop's speakers on a test call, a phone on speaker) is heard like their words are. A few words must all be
+ * its own; in a longer stretch one may be heard differently.
+ */
+export function echoOf(heard: string, said: string): boolean {
+  const words = wordsOf(heard);
+  if (!words.length) return false;
+  const saying = new Set(wordsOf(said));
+  const found = words.filter((w) => saying.has(w)).length;
+  return words.length < 5 ? found === words.length : found / words.length >= 0.8;
+}
+
+/**
+ * How long after it stops its own voice may still be heard: the listener's words come a moment after the sound.
+ * A caller's one-word answer is never taken for it then.
+ */
+const ECHO_TAIL_MS = 1_200;
+
 /** "Hi there. How can I help?" → two sentences, spoken one after the other. */
 export function sentencesOf(text: string): string[] {
   return text
@@ -215,6 +243,8 @@ export class CallSession {
   private clock: TurnClock | null = null;
   private clockTurn = 0;
   private speaking: Utterance | null = null;
+  /** What it said last, and until when the listener may still hear it coming back. */
+  private lastSaid: { readonly text: string; readonly until: number } | null = null;
   private readonly marks = new Map<string, () => void>();
   private markSeq = 0;
   private turn = 0;
@@ -349,12 +379,21 @@ export class CallSession {
 
   private onWords(w: HeardWords): void {
     if (this.closed) return;
+    // Its own voice coming back isn't them: it neither stops it nor is taken as what they said.
+    if (w.text && this.ownWords(w.text)) return;
     this.clearQuiet();
     if (w.text) this.talkedOver();
     this.mind.heard?.(w);
     if (w.language) this.language = w.language;
     if (w.final && w.text) this.heard.push(w.text);
     if (w.endOfTurn) this.maybeTurn();
+  }
+
+  /** Its own voice heard back: what it's saying, or (two words at least) what it just finished saying. */
+  private ownWords(text: string): boolean {
+    if (this.speaking && echoOf(text, this.speaking.text)) return true;
+    const last = this.lastSaid;
+    return !!last && Date.now() < last.until && wordsOf(text).length > 1 && echoOf(text, last.text);
   }
 
   /** Words while it's talking: they're talking over it, so it stops, once, and lets them finish. */
@@ -589,6 +628,7 @@ export class CallSession {
       }
     } finally {
       if (this.speaking === u) this.speaking = null;
+      this.lastSaid = { text: u.text, until: Date.now() + ECHO_TAIL_MS };
     }
     return u.abort.signal.aborted || this.closed ? 'cut' : 'done';
   }

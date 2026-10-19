@@ -21,7 +21,7 @@ import { agentTwiml, voiceUrls } from '../src/telephony/voice';
 import { heardOf, listenParams } from '../src/voice-agent/deepgram-speech';
 import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { greetingOf, phoneChannelLines } from '../src/voice-agent/prompt';
-import { sentencesOf } from '../src/voice-agent/session';
+import { echoOf, sentencesOf } from '../src/voice-agent/session';
 import { voiceModel } from '../src/voice-agent/speech';
 import { openTicket, sealTicket, TICKET_TTL_MS } from '../src/voice-agent/ticket';
 import { TEST_PUBLIC_URL } from './helpers';
@@ -501,6 +501,33 @@ describe('a call', () => {
     expect(call.events.filter((e) => e === 'clear')).toHaveLength(1);
   });
 
+  it('keeps talking when its own voice comes back, and doesn’t take it as theirs', async () => {
+    const { xml, callSid } = await callIn();
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'), { play: false });
+    await waitFor('the greeting to be sent', () => call.events.includes('mark'));
+    // A laptop's speakers into its microphone: the listener hears the greeting.
+    call.speak('How can I help?');
+    call.hangUp();
+    const done = await waitForRun(callSid, 'done');
+    expect(call.events).not.toContain('clear');
+    expect(done.transcript).not.toContain('(interrupted)');
+    expect(done.transcript).not.toContain('Caller:');
+  });
+
+  it('doesn’t take the last of its words, heard just after it stops, as theirs', async () => {
+    const { xml, callSid } = await callIn();
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    call.speak('How can I help?');
+    const before = call.said.length;
+    call.speak('What are your hours?');
+    await waitFor('an answer', () => call.said.length > before);
+    call.hangUp();
+    const done = await waitForRun(callSid, 'done');
+    expect(done.transcript).toContain('Caller: What are your hours?');
+    expect(done.transcript).not.toContain('Caller: How can I help?');
+  });
+
   it('keeps talking through a sound that isn’t words', async () => {
     const { xml, callSid } = await callIn();
     const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'), { play: false });
@@ -728,6 +755,17 @@ describe('the pieces', () => {
     expect(voiceModel('warm', 'en')).toBe('aura-2-thalia-en');
     expect(voiceModel('warm', 'es-419')).toBe('aura-2-celeste-es');
     expect(voiceModel('deep', null)).toBe('aura-2-apollo-en');
+  });
+
+  it('knows its own voice coming back from the caller’s words', () => {
+    const said = 'We’re open Monday through Friday, 10 AM to 4 PM. Anything else?';
+    expect(echoOf("we're open monday", said)).toBe(true);
+    expect(echoOf('Monday through Friday 10 AM to 4 PM', said)).toBe(true);
+    // A longer stretch may have a word heard differently; a few words may not.
+    expect(echoOf('open Monday through Friday ten AM', said)).toBe(true);
+    expect(echoOf('open Monday please', said)).toBe(false);
+    expect(echoOf('Wait', said)).toBe(false);
+    expect(echoOf('', said)).toBe(false);
   });
 
   it('reads Deepgram’s results as words heard', () => {
