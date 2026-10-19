@@ -3,6 +3,7 @@ import {
   FallbackProvider,
   OpenAiProvider,
   type AiProvider,
+  type AnthropicOptions,
   type OpenAiOptions,
 } from '@hfos/ai';
 import type { Db } from '@hfos/db/client';
@@ -48,7 +49,7 @@ export function createAiSwitch(
 export function claudeWithBackup(
   env: Pick<WorkerEnv, 'anthropicApiKey' | 'openAiApiKey'>,
   aiSwitch: AiSwitchboard | null,
-  claude: { readonly model: string; readonly toolSearch?: boolean },
+  claude: Pick<AnthropicOptions, 'model' | 'toolSearch' | 'effort'>,
   backup: Pick<OpenAiOptions, 'model' | 'reasoningEffort' | 'toolSearch'>,
 ): AiProvider {
   const apiKey = env.anthropicApiKey ?? '';

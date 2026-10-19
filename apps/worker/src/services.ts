@@ -69,7 +69,7 @@ export interface WorkerServices {
    * (production with no Deepgram key): every call rings the team and goes to voicemail, as before.
    */
   readonly speech: SpeechServices | null;
-  /** The model that thinks on a call, when it isn't the usual one (VOICE_MODEL); null uses `ai.provider`. */
+  /** The model that thinks on a call (VOICE_MODEL); null, when the AI isn't Claude, uses `ai.provider`. */
   readonly voiceAi: AiProvider | null;
   /**
    * The AI thinking with a model named at run time: a business's phone model, which support picks in /admin

@@ -43,6 +43,13 @@ export const AI_UNAVAILABLE_MESSAGE =
   'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
 export const AI_BUSY_MESSAGE = 'The AI is busy right now. Try again in a minute.';
 
+/**
+ * Room for the model's thinking, on top of what the answer itself may take. AI_MODEL thinks before it answers
+ * (docs/operations.md, "Change the model"), and its thinking counts toward the cap, so a cap sized for the answer
+ * alone cuts the answer off, and an answer cut off can't be used. A finished answer costs only what it wrote.
+ */
+export const THINKING_ROOM = 16_000;
+
 export interface AskStructuredInput<S extends z.ZodType> {
   /** Fixed instructions (cached by the provider). */
   readonly system: string;
@@ -53,6 +60,7 @@ export interface AskStructuredInput<S extends z.ZodType> {
   readonly schema: Record<string, unknown>;
   /** The same shape in zod: the answer is checked against it, limits the provider can't enforce included. */
   readonly zod: S;
+  /** The most the answer itself may take; the model gets THINKING_ROOM on top to think in. */
   readonly maxTokens?: number;
   /** Where the tokens are counted (app.ai_usage). */
   readonly usage: AiUsageRef;
@@ -94,7 +102,7 @@ export async function askStructured<S extends z.ZodType>(
         system: input.system,
         ...(input.context ? { context: input.context } : {}),
         messages: input.messages,
-        maxTokens: input.maxTokens ?? 2048,
+        maxTokens: (input.maxTokens ?? 2048) + THINKING_ROOM,
         responseFormat: { schema: input.schema },
       },
       input.signal ? { signal: input.signal } : {},

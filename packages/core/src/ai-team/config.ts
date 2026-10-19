@@ -437,7 +437,7 @@ export type PhoneAnswerMode = (typeof PHONE_ANSWER_MODES)[number];
 export const PHONE_MODELS = ['claude-haiku-4-5'] as const;
 export type PhoneModel = (typeof PHONE_MODELS)[number];
 export const PHONE_MODEL_LABELS: Readonly<Record<PhoneModel, string>> = {
-  'claude-haiku-4-5': 'Claude Haiku 4.5 (faster)',
+  'claude-haiku-4-5': 'Claude Haiku 4.5 (older)',
 };
 
 /** How it sounds on a call. Each has an English and a Spanish voice, so it can answer in the caller's language. */

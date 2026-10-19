@@ -266,7 +266,7 @@ export const DESK_WALLET_WORDS = {
 export const DESK_PHONE_MODEL_WORDS = {
   title: 'AI on their calls',
   explain:
-    'The model their AI teammate thinks with on phone calls and in test calls. Default is the worker’s VOICE_MODEL. It changes from the next call.',
+    'The model their AI teammate thinks with on phone calls and in test calls. Default is the worker’s VOICE_MODEL, Claude Haiku 5.5 unless it’s set. It changes from the next call.',
   label: 'Model on their calls',
   default: 'Default',
 } as const;

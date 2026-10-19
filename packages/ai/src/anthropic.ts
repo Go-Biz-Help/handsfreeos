@@ -26,7 +26,33 @@ export interface AnthropicOptions {
    * only with a long list of tools; see `searchesTools`.
    */
   readonly toolSearch?: boolean;
+  /**
+   * How much the model thinks before it answers (`output_config.effort`), on a model that takes it; see
+   * `takesEffort`. Less is faster. Unset leaves the model's own default.
+   */
+  readonly effort?: AnthropicEffort;
 }
+
+export type AnthropicEffort = NonNullable<Anthropic.OutputConfig['effort']>;
+
+/**
+ * The models that take an effort level (platform.claude.com, "Effort"). Claude Haiku 4.5 and Claude Sonnet 4.5
+ * refuse one, so they answer as they always did.
+ */
+const EFFORT_MODELS = [
+  'claude-fable-5',
+  'claude-mythos-5',
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+  'claude-opus-4-5',
+  'claude-sonnet-5',
+  'claude-sonnet-4-6',
+  'claude-haiku-5-5',
+];
+export const takesEffort = (model: string): boolean =>
+  EFFORT_MODELS.some((m) => model === m || model.startsWith(`${m}-`));
 
 /**
  * The models Anthropic's tool search runs on (platform.claude.com, "Tool search tool", Model compatibility).
@@ -62,11 +88,13 @@ export class AnthropicProvider implements AiProvider {
   readonly id = 'anthropic';
   readonly model: string;
   readonly toolSearch: boolean;
+  readonly effort: AnthropicEffort | null;
   private readonly client: Anthropic;
 
   constructor(options: AnthropicOptions) {
     this.model = options.model;
     this.toolSearch = options.toolSearch === true && searchesTools(options.model);
+    this.effort = options.effort && takesEffort(options.model) ? options.effort : null;
     this.client = new Anthropic({
       apiKey: options.apiKey,
       maxRetries: options.maxRetries ?? 2,
@@ -85,16 +113,7 @@ export class AnthropicProvider implements AiProvider {
           system: systemOf(request),
           messages: messagesOf(request.messages),
           ...(tools.length ? { tools } : {}),
-          ...(request.responseFormat
-            ? {
-                output_config: {
-                  format: {
-                    type: 'json_schema' as const,
-                    schema: structuredOutputSchema(request.responseFormat.schema),
-                  },
-                },
-              }
-            : {}),
+          ...outputConfigOf(request, this.effort),
         },
         { signal: options.signal },
       );
@@ -141,7 +160,7 @@ export class AnthropicProvider implements AiProvider {
 
   /**
    * `max_tokens: 0`: the API reads the instructions and tools, writing them to its cache, and answers nothing.
-   * The tools, `system` and `lasting` must be exactly what the next request sends for it to find them.
+   * The tools, `system`, `lasting` and effort must be exactly what the next request sends for it to find them.
    */
   async warm(request: AiRequest): Promise<AiUsage> {
     const tools = this.toolsOf(request);
@@ -155,6 +174,7 @@ export class AnthropicProvider implements AiProvider {
           ? request.messages.map(toAnthropic)
           : [{ role: 'user', content: 'Getting ready.' }],
         ...(tools.length ? { tools } : {}),
+        ...(this.effort ? { output_config: { effort: this.effort } } : {}),
       });
       return usageOf(message.usage);
     } catch (e) {
@@ -190,6 +210,27 @@ function systemOf(request: AiRequest): Anthropic.TextBlockParam[] {
     system.push({ type: 'text', text: request.lasting, cache_control: { type: 'ephemeral' } });
   if (request.context) system.push({ type: 'text', text: request.context });
   return system;
+}
+
+/** The effort and a `responseFormat`'s schema, when there is either; a plain request sends no output_config. */
+function outputConfigOf(
+  request: AiRequest,
+  effort: AnthropicEffort | null,
+): { output_config?: Anthropic.OutputConfig } {
+  if (!effort && !request.responseFormat) return {};
+  return {
+    output_config: {
+      ...(effort ? { effort } : {}),
+      ...(request.responseFormat
+        ? {
+            format: {
+              type: 'json_schema' as const,
+              schema: structuredOutputSchema(request.responseFormat.schema),
+            },
+          }
+        : {}),
+    },
+  };
 }
 
 function firstBlockOf(type: string): AiFirstBlock {

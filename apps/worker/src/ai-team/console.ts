@@ -124,7 +124,7 @@ import {
   TEAMMATE_SYSTEM,
 } from './prompt';
 import { coachingLines } from './turns';
-import { checkReply, closeRun, immediateHandOff } from './run';
+import { checkReply, closeRun, immediateHandOff, REWRITE_ONLY } from './run';
 import { newRunState, timeKey, toolDefinition, type RunState } from './tools';
 
 export { TestConsoleInput };
@@ -135,7 +135,7 @@ export type ConsoleEvent = TestEvent;
 export interface ConsoleDeps {
   readonly db: Db;
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
-  /** The model that thinks on a call (VOICE_MODEL), when it isn't the usual one. */
+  /** The model that thinks on a call (VOICE_MODEL). */
   readonly voiceAi?: AiProvider | null;
   /** The AI with a model named at run time: the business's phone model, when support picked one. */
   readonly aiFor?: ((model: string) => AiProvider) | null;
@@ -1762,6 +1762,7 @@ export async function runTest(
       : null;
 
     const said = t.input.messages[t.input.messages.length - 1]!.text;
+    const offered = tools.map((x) => (phone ? streamSpoken(toolDefinition(x)) : toolDefinition(x)));
     const loop = await runToolLoop({
       ...base,
       messages: [
@@ -1772,7 +1773,7 @@ export async function runTest(
             : conversationTurn(rc),
         },
       ],
-      tools: tools.map((x) => (phone ? streamSpoken(toolDefinition(x)) : toolDefinition(x))),
+      tools: offered,
       maxRounds: t.config.limits.toolRounds,
       ...(early ? { onToolInput: early.onToolInput } : {}),
       ...(clock ? { onAsked: clock.onAsked, onStarted: clock.onStarted } : {}),
@@ -1816,8 +1817,13 @@ export async function runTest(
       });
       if (!(await hasRoom())) return await budgetOut();
       state.end = null;
+      // The same tools as the turn, so its thinking and cache still hold; only the turn-ending ones run.
       const redo = await runToolLoop({
         ...base,
+        execute: (call) =>
+          enders.some((x) => x.name === call.name)
+            ? base.execute(call)
+            : Promise.resolve({ content: { error: REWRITE_ONLY }, isError: true }),
         messages: [
           ...loop.messages,
           {
@@ -1832,8 +1838,8 @@ export async function runTest(
             ],
           },
         ],
-        tools: enders.map(toolDefinition),
-        maxRounds: 1,
+        tools: offered,
+        maxRounds: 2,
       });
       steps += redo.rounds;
       if (redo.stoppedBy === 'aborted') return await close(null, 'stopped', null, true);

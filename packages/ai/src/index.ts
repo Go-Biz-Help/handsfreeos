@@ -6,7 +6,13 @@
 export * from './types';
 export { AiOutputError, parseStructured } from './structured';
 export { structuredOutputSchema } from './json-schema';
-export { AnthropicProvider, searchesTools, type AnthropicOptions } from './anthropic';
+export {
+  AnthropicProvider,
+  searchesTools,
+  takesEffort,
+  type AnthropicEffort,
+  type AnthropicOptions,
+} from './anthropic';
 export { OpenAiProvider, openAiSearchesTools, type OpenAiOptions } from './openai';
 export { FAILOVER_CODES, FallbackProvider, type AiRoute, type AiSwitch } from './fallback';
 export { ScriptedProvider, writeToolCalls, type ScriptRule } from './scripted';
