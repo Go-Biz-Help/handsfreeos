@@ -6,7 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { ALIGNABLE } from '../src/networks/alignable/site';
+import { ALIGNABLE, townOf } from '../src/networks/alignable/site';
 import { INSTAGRAM } from '../src/networks/instagram/site';
 import { outlineLooking, readLooking, readWarnings } from '../src/networks/looking/read';
 import type { LookingSite } from '../src/networks/looking/site';
@@ -411,5 +411,38 @@ describe('Alignable, as far as its public pages show it', () => {
     expect(recommend.seen).toEqual(expect.arrayContaining(['Connect', 'Like', 'Comment']));
     // A name on the page is never among what it says it saw.
     expect(recommend.seen).not.toContain('Dana Reyes');
+  });
+
+  it('knows a town’s forum question and a group’s discussion as posts, never as businesses', () => {
+    // As the owner's Check found them (0.62.0): /<town-st>/forum/<id>/<title>, and /biz/discussions/<id>.
+    const question = ALIGNABLE.url(`${AL}/austin-tx/forum/12345/need-a-plumber?cyattr=x`)!;
+    expect(ALIGNABLE.postOf(question)).toBe(`${AL}/austin-tx/forum/12345/need-a-plumber`);
+    expect(ALIGNABLE.profileOf(question)).toBeNull();
+    expect(ALIGNABLE.postOf(ALIGNABLE.url(`${AL}/biz/discussions/678`)!)).toBe(
+      `${AL}/biz/discussions/678`,
+    );
+    expect(ALIGNABLE.postOf(ALIGNABLE.url(`${AL}/austin-tx/acme-plumbing`)!)).toBeNull();
+    expect(townOf(`${AL}/austin-tx/acme-plumbing?user=9`)).toBe('austin-tx');
+    expect(townOf(`${AL}/biz/businesses/my_profile`)).toBeNull();
+  });
+
+  it('reads a page’s own links by Alignable’s words: My Network’s Requests and a connection’s Message', () => {
+    const doc = page(
+      `${AL}/biz/my_network`,
+      `<main>
+        <a href="/biz/my_network?_fat=a">My Connections</a>
+        <a href="/biz/my_network/received?_fat=a">Requests</a>
+        <div data-testid="connection-row">
+          <a data-testid="connection-row-profile-link" href="/biz/businesses/42" aria-label="Acme Plumbing"></a>
+          <a data-testid="connection-row-cta" href="/biz/conversations?with_business_id=42">Message</a>
+        </div>
+        <a href="/austin-tx/acme-plumbing">Acme Plumbing</a>
+        <a href="/biz/upgrade">Upgrade</a>
+      </main>`,
+    );
+    const read = readLooking(doc, `${AL}/biz/my_network`, ALIGNABLE, NOW);
+    // Words a person wrote are never among them, nor a link it never opens.
+    expect(read.links.map((l) => l.name)).toEqual(['Requests', 'Message']);
+    expect(read.links[1]!.url).toBe(`${AL}/biz/conversations?with_business_id=42`);
   });
 });

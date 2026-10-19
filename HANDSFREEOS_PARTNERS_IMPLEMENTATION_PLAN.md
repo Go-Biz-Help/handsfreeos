@@ -7,7 +7,8 @@ reaching out to our target audience we can take advantage of another user's audi
 **Where it stands (19 Oct 2026):** Chris answered every question below on 18 Oct 2026 and said to build it. Stages 1
 to 3 are built: finding and asking partners, partners in core with their page, and payouts (see "Build order").
 Stage 4, finding partners by search, is built too, and so is stage 5, the payout loose ends: 1099 fees passed on,
-a deleted partner's held line given back, and a refund that fails later.
+a deleted partner's held line given back, and a refund that fails later. Stage 6, partners on Alignable, is being
+built: its Check reads the last pages first (extension 0.66.0).
 
 Social Outreach today finds the people who might buy (docs/outreach.md). This adds a second kind of person to find:
 someone who already has your customers' attention, asked to send them your way for a share of what they pay.
@@ -527,6 +528,49 @@ and one-per-refund), so the Supabase connector asks a person to approve it.
    refund fails.
 3. **5c:** the statement's lines on the web and the phone, the partner's page, and docs/operations.md.
 
+## Stage 6: partners on Alignable, then Instagram
+
+Chris (19 Oct 2026) picked Instagram and Alignable for stage 6, over partners outside the US. Neither network takes a
+step yet: they're still looked at (docs/outreach.md decision 78), with no day, no likes, follows or messages, and no
+Find partners. Decision 15 has their partner steps run as soon as each network's own steps do, so Chris chose
+**Alignable first**: make it a working network with partners built in, then Instagram the same way. It follows the
+Instagram and Alignable plan's build order (HANDSFREEOS_INSTAGRAM_ALIGNABLE_IMPLEMENTATION_PLAN.md, steps 3 to 5),
+with partners part of each step rather than after it.
+
+**On Alignable, partners are where it's strongest.** It's made for local businesses to refer each other:
+
+- **Who:** businesses with the same customers, by town. There are no group admins or creators there (stage 1's
+  table): your town's businesses of the kinds a partner playbook names, found by its search, and those whose Ideal
+  Partner is you.
+- **The referral swap stays beside the commission** (decision 14): a partner on Alignable can earn commission and get
+  referrals back. Its business page's **Refer** is how a referral is sent, by hand.
+- **Warming up** is a like or a comment on their post or forum answer, then **Connect**, then the ask once they
+  accept, as LinkedIn's invitations go.
+- **A playbook says customers, referral partners or both** on Alignable (the Instagram and Alignable plan's decision
+  7). A partner playbook is the referral partners' side.
+
+**What the owner's Checks have read already** (0.59.0 to 0.63.0, kept as problem reports for 30 days): its home at
+/biz and its menus, notifications, the conversations list, groups, events, My Network, a business's page and a
+member's, the person's own profile and its forms. Its pages carry stable test ids (`connection-row`,
+`connection-row-profile-link`), each connection has a Message link to `/biz/conversations?with_business_id=…`, and
+each business page has **Connect**, **Recommend** and **Refer** links. Connect is a plain link that may send the
+request when opened, so no Check opens it: the first real request shows what it does.
+
+**Build order:**
+
+1. **6a, Check Alignable reads the rest** (extension 0.66.0): your town, a search for businesses, a forum question,
+   your connection requests (My Network's Requests) and a chat with one of your connections, nothing written. Forum
+   questions are read as posts, never as businesses, and the addresses keep more of Alignable's own words. Chris runs
+   it once.
+2. **6b, shared core** (the Instagram and Alignable plan's step 3): people found by a search become people to connect
+   with on any network, each network's runner says which steps it does, a playbook's networks count, and an Alignable
+   playbook says customers, referral partners or both.
+3. **6c, Alignable works** (its parts 1 to 6), built from what 6a sends back, with partners in it: reading its pages,
+   noting your steps, its day in the apps, its asks, the runner and Find partners (your town's businesses by the
+   playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage last.
+4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
+   its search, hashtags and the accounts it suggests.
+
 ## Build order
 
 1. **Stage 1, in core:** partner playbooks, the partners table, the partner check, the stages, the new message kinds,
@@ -548,4 +592,5 @@ and one-per-refund), so the Supabase connector asks a person to approve it.
 6. **Stage 4 (built):** finding partners by search on LinkedIn and Facebook.
 7. **Stage 5 (built):** the payout loose ends: 1099 fees, a deleted partner's held line, and a refund that fails
    later.
-8. **Chris tries each,** in Stripe's test mode first for payouts.
+8. **Stage 6:** partners on Alignable, then Instagram, as each network starts to work (6a to 6d above).
+9. **Chris tries each,** in Stripe's test mode first for payouts.

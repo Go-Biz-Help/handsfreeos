@@ -17,7 +17,9 @@
  *   first (never anything that signs out, pays or deletes), the person's own profile and a business's or a member's,
  *   looking for Connect, Message, Recommend, Like and a box to comment in on each until each is found. On their own
  *   profile (decision 80) it reads it as the AI's check would, opens its Elevator Pitch and My Ideal Customer and closes
- *   them with nothing written, and reads the pages About Us and their details are changed on, once they're drawn.
+ *   them with nothing written, and reads the pages About Us and their details are changed on, once they're drawn. Then
+ *   (0.66.0, partners stage 6) the pages Alignable's steps and Find partners are built from next: the person's town, a
+ *   search for businesses, a forum question, their connection requests and a chat with a connection, nothing written.
  */
 import type { AskTaken, AskTask } from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
@@ -25,6 +27,7 @@ import {
   PROFILE_CHECK_WORDS as P,
   type ProfileRead,
 } from '@hfos/core/addons/outreach/profile-check';
+import { townOf } from '../networks/alignable/site';
 import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
@@ -222,12 +225,14 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
       return true;
     });
   let people: readonly { readonly url: string }[] = home.people;
+  const posts = reads.flatMap((r) => r.posts);
   for (const place of places.slice(0, PLACES_MOST)) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const page = await c.open(place.url, 'a page from Alignable’s menus');
     if (isEnd(page)) return page;
     await c.note(place.name, null);
     if (!people.length) people = page.people;
+    posts.push(...page.posts);
     await lookHere();
   }
 
@@ -257,11 +262,77 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
     const theirs = await c.open(someone, 'someone’s profile');
     if (isEnd(theirs)) return theirs;
     await c.note('someone’s profile', null);
+    posts.push(...theirs.posts);
     await lookHere();
   }
 
+  const more = await nextPages(c, job, townOf(mine.url) ?? townOf(mine.own ?? ''), posts);
+  if (more) return more;
+
   await c.noteLooks();
   return c.end();
+}
+
+/**
+ * What its steps and Find partners are built from next (the plan's build order, step 4; partners stage 6): the
+ * person's town and its businesses, a search for businesses, a forum question, their connection requests, and a chat
+ * with one of their connections. Each is noted with its outline; nothing is pressed but the link that opens it, and
+ * nothing is written. A chat's box is only counted.
+ */
+async function nextPages(
+  c: Checkup<LookingRead>,
+  job: Job,
+  town: string | null,
+  posts: readonly { readonly url: string }[],
+): Promise<JobEnd | null> {
+  if (town) {
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    const page = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    if (isEnd(page)) return page;
+    await c.note('your town', page.people.length);
+  } else c.nothingOn.push('your town');
+
+  if (stoppedEnd(job)) return stoppedEnd(job);
+  const found = await c.open(
+    `${ALIGNABLE_IN}/search?q=${encodeURIComponent(SEARCH_WORDS)}`,
+    'a search for businesses',
+  );
+  if (isEnd(found)) return found;
+  await c.note('a search for businesses', found.people.length);
+
+  const question = posts.find((p) => /\/forum\//i.test(new URL(p.url).pathname)) ?? posts[0];
+  if (question) {
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    const opened = await c.open(question.url, 'a forum question');
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
+    if (isEnd(page)) return page;
+    await c.note('a forum question', null);
+    await c.look('comment');
+    await c.look('like');
+  } else c.nothingOn.push('a forum question');
+
+  if (stoppedEnd(job)) return stoppedEnd(job);
+  const network = await c.open(`${ALIGNABLE_IN}/my_network`, 'your network');
+  if (isEnd(network)) return network;
+  await c.note('your network', network.links.length);
+  const requests = network.links.find((l) => /^requests?$/i.test(l.name));
+  if (requests) {
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    const page = await c.open(requests.url, 'your connection requests');
+    if (isEnd(page)) return page;
+    await c.note('your connection requests', null);
+  } else c.nothingOn.push('your connection requests');
+  const chat = network.links.find((l) => /^message$/i.test(l.name));
+  if (chat) {
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    const opened = await c.open(chat.url, 'a chat with a connection');
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.boxes > 0);
+    if (isEnd(page)) return page;
+    await c.note('a chat with a connection', page.boxes);
+  } else c.nothingOn.push('a chat with a connection');
+  return null;
 }
 
 const ABOUT_FORM = 'your About Us’s page';
