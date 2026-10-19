@@ -11,6 +11,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   executeCommand,
+  foundingPayRenewal,
+  foundingSetRenewing,
   foundingStartCheckout,
   organizationCreate,
   type HumanActor,
@@ -20,11 +22,13 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
+import { planFoundingRenewals } from '../src/founding/checkout';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
-import { processJobs } from '../src/jobs';
+import { processJobs, type JobContext } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import {
+  FAKE_CARDS,
   FAKE_STRIPE_PLATFORM_WEBHOOK_SECRET,
   FAKE_STRIPE_WEBHOOK_SECRET,
 } from '../src/payments/fake';
@@ -482,5 +486,142 @@ describe('paying for a seat', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ ignored: true });
+  });
+});
+
+// ---------- the $497 seat, paid by the year ----------
+
+describe('a seat paid by the year', () => {
+  beforeEach(async () => {
+    await admin().execute(
+      sql`update platform.founding_offers set billing = 'yearly', starting_credit_cents = 0 where id = ${PAID}`,
+    );
+  });
+
+  const planNow = async () => {
+    const [p] = await rows<{
+      status: string;
+      price_cents: number;
+      current_period_end: string | null;
+      stripe_card_id: string | null;
+      renewal_count: number;
+      renewal_problem: string | null;
+      grant_id: string | null;
+    }>(
+      admin(),
+      sql`select status::text as status, price_cents, current_period_end::text as current_period_end,
+            stripe_card_id, renewal_count, renewal_problem, grant_id
+          from app.workspace_plans where workspace_id = ${workspaceId}`,
+    );
+    return p!;
+  };
+
+  /** The hourly sweep, run now, after the year is made to be up. */
+  const aYearLater = async () => {
+    await admin().execute(
+      sql`update app.workspace_plans set current_period_end = now() - interval '1 minute'
+          where workspace_id = ${workspaceId}`,
+    );
+    await sweep();
+  };
+  const sweep = async () => {
+    await planFoundingRenewals({
+      ...s,
+      job: { payload: {} },
+      scope: {},
+      attempt: 1,
+      now: Date.now(),
+    } as unknown as JobContext);
+    await drain();
+  };
+
+  async function buy(instrument?: string) {
+    const { checkoutId, grantId } = await startPaying();
+    const page = s.payments.fake.checkouts().find((p) => p.checkoutId === checkoutId)!;
+    // The page says what the money is for, and keeps the card for next year.
+    expect(page).toMatchObject({ amountCents: 49_700, saveCard: true });
+    expect(page.productName).toContain('the first year');
+    await s.payments.fake.payCheckout(page.sessionRef, instrument ? { instrument } : {});
+    await drain();
+    return { grantId, page };
+  }
+
+  it('keeps the card, and charges it once a year later however often the sweep runs', async () => {
+    const { page } = await buy();
+    const bought = await planNow();
+    expect(bought).toMatchObject({ status: 'active', price_cents: 49_700, renewal_count: 0 });
+    expect(bought.stripe_card_id).toBe(page.cardRef);
+    expect(new Date(bought.current_period_end!).getTime()).toBeGreaterThan(
+      Date.now() + 360 * 86_400_000,
+    );
+
+    const before = s.payments.fake.platformCharges().length;
+    await aYearLater();
+    const renewed = await planNow();
+    expect(renewed.renewal_count).toBe(1);
+    expect(new Date(renewed.current_period_end!).getTime()).toBeGreaterThan(Date.now());
+    expect(
+      s.payments.fake
+        .platformCharges()
+        .slice(before)
+        .map((c) => [c.amountCents, c.status]),
+    ).toEqual([[49_700, 'succeeded']]);
+    // The sweep again, with the new year not up: nothing more is charged.
+    await sweep();
+    expect(s.payments.fake.platformCharges().slice(before)).toHaveLength(1);
+  });
+
+  it('keeps the seat on when the card refuses, and renews on another card from Settings', async () => {
+    const { grantId } = await buy(FAKE_CARDS.failsOffSession);
+    await aYearLater();
+    const refused = await planNow();
+    expect(refused).toMatchObject({ status: 'past_due', renewal_count: 0 });
+    expect(refused.renewal_problem).toBeTruthy();
+    const [g] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from platform.founding_grants where id = ${grantId}::uuid`,
+    );
+    expect(g!.status).toBe('active');
+    // Never tried again on its own.
+    const charged = s.payments.fake.platformCharges().length;
+    await sweep();
+    expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+
+    const asked = await executeCommand(
+      api(),
+      foundingPayRenewal,
+      { workspaceId },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    const page = s.payments.fake.checkouts().find((p) => p.checkoutId === asked.output.checkoutId)!;
+    expect(page).toMatchObject({ amountCents: 49_700, saveCard: true });
+    expect(page.productName).toContain('another year');
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    const renewed = await planNow();
+    expect(renewed).toMatchObject({ status: 'active', renewal_count: 1, renewal_problem: null });
+    expect(renewed.stripe_card_id).toBe(page.cardRef);
+  });
+
+  it('gives the seat back when its year is up, once somebody stopped it renewing', async () => {
+    const { grantId } = await buy();
+    await executeCommand(
+      api(),
+      foundingSetRenewing,
+      { workspaceId, renewing: false },
+      actor(owner),
+      meta(),
+    );
+    const before = s.payments.fake.platformCharges().length;
+    await aYearLater();
+    expect(s.payments.fake.platformCharges()).toHaveLength(before);
+    const [g] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from platform.founding_grants where id = ${grantId}::uuid`,
+    );
+    expect(g!.status).toBe('revoked');
+    expect((await planNow()).status).toBe('canceled');
   });
 });

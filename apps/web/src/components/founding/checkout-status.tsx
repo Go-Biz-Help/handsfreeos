@@ -6,6 +6,9 @@
  * Two jobs. On the way out it waits for the worker to make Stripe's page and then sends them there. On the way
  * back it waits for **Stripe's own event** to turn the seat on — being sent back to this page proves nothing,
  * since anybody can type its address, so the page only ever reads what the database says.
+ *
+ * A yearly seat's refused renewal, paid with another card from Settings → Usage & balance, comes through here too:
+ * then "done" is the year having moved on.
  */
 import { CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -15,6 +18,17 @@ import type { Ok } from '@/lib/api/types';
 import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 
 type Status = Ok<'/v1/queries/founding.checkout_status'>;
+
+/** "Oct 19, 2027". */
+const longDay = (iso: string | null): string =>
+  iso
+    ? new Date(iso).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    : 'a year from today';
 
 /** How often, and for how long, before saying it is taking longer than it should. */
 const EVERY_MS = 1500;
@@ -102,8 +116,12 @@ export function CheckoutStatus({
           testId="checkout-done"
           icon={<CheckCircle2 className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />}
         >
-          Paid, and it’s yours: {s.offerName}, for as long as HandsFreeOS exists. A receipt is on
-          its way from Stripe.
+          {s.renewal
+            ? `Paid: your ${s.offerName} seat is renewed through ${longDay(s.paidThrough)}. This card is the one charged next year.`
+            : s.billing === 'yearly'
+              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each year on this card; you can stop that any time in Settings → Usage & balance.`
+              : `Paid, and it’s yours: ${s.offerName}, for as long as HandsFreeOS exists.`}{' '}
+          A receipt is on its way from Stripe.
         </Note>
         <ButtonLink
           href={`/app/w/${s.workspaceId}`}
@@ -127,15 +145,19 @@ export function CheckoutStatus({
       </Note>
     ) : (
       <Note tone="wait" testId="checkout-finishing" icon={spinner}>
-        Payment received. Turning your seat on…
+        {s.renewal
+          ? 'Payment received. Renewing your seat…'
+          : 'Payment received. Turning your seat on…'}
       </Note>
     );
 
   if (s.status === 'expired' || s.status === 'failed')
     return (
       <Note tone="warn" testId={`checkout-${s.status}`} icon={clock}>
-        {s.problem || 'This payment didn’t go through, and nothing was taken.'} Open your claim link
-        again to start over.
+        {s.problem || 'This payment didn’t go through, and nothing was taken.'}{' '}
+        {s.renewal
+          ? 'Press Pay with another card in Settings → Usage & balance to try again. Your seat stays on meanwhile.'
+          : 'Open your claim link again to start over.'}
       </Note>
     );
 
@@ -165,7 +187,8 @@ export function CheckoutStatus({
     return (
       <>
         <Note tone="warn" testId="checkout-cancelled" icon={clock}>
-          You didn’t finish paying, and nothing was taken. Your seat is still held for you.
+          You didn’t finish paying, and nothing was taken.{' '}
+          {s.renewal ? 'Your seat stays on meanwhile.' : 'Your seat is still held for you.'}
         </Note>
         {s.url ? (
           <ButtonLink href={s.url} variant="primary" size="lg" className="mt-5 w-full">

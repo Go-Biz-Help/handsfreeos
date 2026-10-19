@@ -644,6 +644,47 @@ export function rcsRenewalFailedEmail(input: {
   return { subject, text, html };
 }
 
+/** A yearly founding seat renewed (20261027009400): another year at the founding price. */
+export function foundingRenewedEmail(input: {
+  business: string;
+  offer: string;
+  paid: string;
+  until: string;
+  link: string;
+}): EmailContent {
+  const subject = `Your ${input.offer} seat is renewed for ${input.business}`;
+  const line = `We charged ${input.paid} for another year of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing any time in Settings → Usage & balance.`;
+  const text = `${line}\n\nSee it in Settings: ${input.link}`;
+  const html = shell(
+    para(escapeHtml(line)) +
+      button(input.link, 'See it in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** The card refused a yearly founding seat's renewal (20261027009400): pay it with another card; the seat stays on. */
+export function foundingRenewalFailedEmail(input: {
+  business: string;
+  offer: string;
+  amount: string;
+  reason: string;
+  link: string;
+}): EmailContent {
+  const subject = `Your ${input.offer} renewal for ${input.business} didn’t go through`;
+  const lines = [
+    `We couldn’t take the yearly ${input.amount} for your founding seat: ${input.reason}`,
+    'Your seat stays on meanwhile. Pay it with another card in Settings → Usage & balance to keep your founding price; that card is the one charged next year.',
+  ];
+  const text = `${lines.join('\n\n')}\n\nPay it in Settings: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Pay it in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
 /** The business's RCS sender stopped (0103): texts go as SMS and MMS until it is back. */
 export function rcsStoppedEmail(input: {
   business: string;

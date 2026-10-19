@@ -19,6 +19,8 @@ export interface BusinessRow {
   readonly lastActiveAt: string | null;
   readonly openTicketCount: number;
   readonly createdAt: string;
+  /** The founding offer whose seat is on this workspace, while it is. */
+  readonly foundingSeat: string | null;
 }
 
 /** Every business on HandsFreeOS. The three numbers at the top are the ones Chris will look at daily. */
@@ -113,6 +115,11 @@ export function Businesses({
               <span className="text-[13px] text-text-3">
                 · {DESK_BUSINESS_WORDS.lastActive(b.lastActiveAt)}
               </span>
+              {b.foundingSeat ? (
+                <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-text">
+                  {b.foundingSeat}
+                </span>
+              ) : null}
               {b.openTicketCount > 0 ? (
                 <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-text">
                   {DESK_BUSINESS_WORDS.openTickets(b.openTicketCount)}

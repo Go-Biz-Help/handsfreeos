@@ -9595,14 +9595,14 @@ faster and smaller answer to "this one business is having a bad time".
 
 ## Founding seats
 
-The founding offers are the first businesses on HandsFreeOS: twenty-five free seats, then a hundred at $497 paid
-once, and partway through those the $97 monthly plan goes on sale beside them. The sequence moves on by itself —
+The founding offers are the first businesses on HandsFreeOS: twenty-five free seats, then a hundred at $497 a
+year, and partway through those the $97 monthly plan goes on sale beside them. The sequence moves on by itself —
 the $497 seats open the moment the last free one goes — and the website follows it. Everything here happens
 in **Admin** → **Founding**.
 
 Founding needs the migrations `20261003000100_a_seat_at_the_founding_table.sql`,
-`20261003000200_one_offer_opens_the_next.sql` and `20261003000500_paying_for_a_seat.sql`. See "Apply new
-migrations".
+`20261003000200_one_offer_opens_the_next.sql`, `20261003000500_paying_for_a_seat.sql` and
+`20261027009400_a_founding_seat_by_the_year.sql`. See "Apply new migrations".
 
 ### Approving somebody
 
@@ -9625,9 +9625,17 @@ migrations".
 
 ### Giving a seat to any business
 
-A business does not have to apply. In **Admin** → **Founding**, press **Give a seat** beside **Seats out**,
-search for the business by name, pick its workspace, add a note on why if you like, and press **Give the seat**.
-It is on at once, the same as an approved free seat, and stays on until you revoke it.
+A business does not have to apply. Any business in **Admin** → **Businesses** can be given one:
+
+- **From the business's page.** Open it from **Admin** → **Businesses**. The **Founding seat** box says what it
+  holds. Press **Give a founding seat**, pick the offer, add a note on why if you like, and press **Give the
+  seat**. The seat goes on that workspace. **Revoke** is in the same box once it holds one, and rows on the
+  **Businesses** list show the seat's name.
+- **From Admin → Founding.** Press **Give a seat** beside **Seats out**, search for the business by name, pick
+  its workspace, and give it the same way.
+
+It is on at once, the same as an approved free seat, and stays on until you revoke it. A seat you give is never
+charged, even a $497-a-year one: it has no card and no renewal date.
 
 - **A seat held from before, or one that lapsed.** Seats approved before free seats turned on at once were held
   behind a claim link, and lapsed after fourteen days if nobody followed it ("never taken up · expired" under
@@ -9639,13 +9647,14 @@ It is on at once, the same as an approved free seat, and stays on until you revo
 
 ### What they do with the link
 
-Only a $497 seat has a link. They open it signed in as an owner or admin of the business the seat was approved
+Only a $497-a-year seat has a link. They open it signed in as an owner or admin of the business the seat was approved
 for. Signed in as anybody else, the page says so and offers to switch account — the link cannot put a seat on
 somebody else's business, whoever holds it.
 
-- **A $497 seat:** they press **Pay $497** and go to Stripe's own payment page. The seat turns on when Stripe
-  tells us the money is in, not when they arrive back — so it needs the webhook in "Paying for a seat: the
-  Stripe side" below. While they are paying, the seat stays held for them, and **Seats out** says "paying now".
+- **A $497-a-year seat:** they press **Pay $497** and go to Stripe's own payment page, which keeps the card for
+  next year. The seat turns on when Stripe tells us the money is in, not when they arrive back — so it needs the
+  webhook in "Paying for a seat: the Stripe side" below. While they are paying, the seat stays held for them, and
+  **Seats out** says "paying now".
 - **A free seat approved before this changed:** the link still works. They press **Take up my seat** and their
   workspace is on the founding plan at once. **Turn it on** does the same without them.
 
@@ -9693,6 +9702,24 @@ needed for this. **The worker refuses to start with a test key (`sk_test_…`) i
 You should see `STRIPE_PLATFORM_WEBHOOK_SECRET` in `fly secrets list --app handsfreeos-worker`, and the worker
 restart. Until it is there, pressing **Pay** tells the person that paying online isn't switched on yet and
 keeps their seat held — the worker will not make a page nobody would hear back from.
+
+### The yearly renewal
+
+The $497 seat is paid by the year (the owner's call on 2026-10-19; it was $497 once before). It works the way
+RCS's yearly renewal does:
+
+- **A year after they pay,** the worker charges $497 to the card the first payment kept, in our own Stripe
+  account, and moves the paid year on. The owners and admins of the business are emailed. **Seats out** shows
+  "paid through" the date, and whether it renews.
+- **A refused card is not tried again.** The business is emailed, and **Settings** → **Usage & balance** shows
+  the problem with **Pay with another card**, which opens a Stripe page for that year and keeps the new card
+  for the next one. The seat stays on meanwhile, and its row in **Admin** → **Founding** says so in red. Revoke
+  it if they never pay; nothing turns off by itself.
+- **They can stop it renewing** in **Settings** → **Usage & balance**, and start it again while the year is paid
+  for. A seat that was stopped goes back on its own the hour its year is over: it shows under **Seats given
+  back** as revoked, "They stopped it renewing", and the seat is free for somebody else.
+- **Each year is charged once,** however often the hourly sweep runs: the charge is keyed on the seat and the
+  year it is for.
 
 ### Paying for a seat: crediting the ad that brought them
 

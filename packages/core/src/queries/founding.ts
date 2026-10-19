@@ -9,6 +9,8 @@
  * - `platform.founding` is the **admin** page: the queue, the seats and the reasons. Staff only.
  * - `founding.mine` is what a **business** may know about itself: which plan it is on and, if its seat was
  *   taken back, the date that matters. Never why — the reason was written for us.
+ * - `platform.founding.business` is one business's seat, for its page under /admin/businesses, where a seat can
+ *   be given to any business on the list. Staff only, like the admin page.
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
@@ -19,6 +21,8 @@ import {
   FoundingCheckoutStatusOutput,
   FoundingClaimPreviewInput,
   FoundingClaimPreviewOutput,
+  FoundingBusinessInput,
+  FoundingBusinessOutput,
   FoundingCountsInput,
   FoundingCountsOutput,
   FoundingMineInput,
@@ -40,7 +44,7 @@ type CountRow = {
   seat_cap: number;
   claimed: number | string;
   remaining: number | string;
-  billing: 'once' | 'monthly';
+  billing: 'once' | 'yearly' | 'monthly';
 };
 
 export const foundingCounts = defineQuery({
@@ -174,16 +178,22 @@ export const platformFounding = defineQuery({
         grace_ends_at: Date | null;
         checkout_status: 'pending' | 'open' | 'paid' | 'expired' | 'failed' | null;
         checkout_problem: string | null;
+        paid_through: Date | null;
+        renewal_stopped_at: Date | null;
+        renewal_problem: string | null;
       }>(
         ctx.tx,
         // The plan is joined in for `grace_ends_at` alone: the page has to show how long a revoked business
         // has left, and that date lives with the plan rather than with the seat.
         // The latest checkout rides along too (0093): "paying now", and the one that matters most — paid, with
-        // no seat to turn on, which somebody has to refund or fix.
+        // no seat to turn on, which somebody has to refund or fix. A yearly seat's year comes from its plan.
         sql`select g.id, g.offer_id, g.organization_id, org.name as organization_name, g.workspace_id,
               g.status::text as status, g.reserved_at, g.expires_at, g.activated_at, g.revoked_at,
               g.revoke_reason, p.grace_ends_at,
-              c.status::text as checkout_status, c.problem as checkout_problem
+              c.status::text as checkout_status, c.problem as checkout_problem,
+              case when p.grant_id = g.id then p.current_period_end end as paid_through,
+              case when p.grant_id = g.id then p.renewal_stopped_at end as renewal_stopped_at,
+              case when p.grant_id = g.id then p.renewal_problem end as renewal_problem
             from platform.founding_grants g
             left join app.organizations org on org.id = g.organization_id
             left join app.workspace_plans p on p.workspace_id = g.workspace_id
@@ -250,6 +260,9 @@ export const platformFounding = defineQuery({
         graceEndsAt: iso(g.grace_ends_at),
         checkoutStatus: g.checkout_status,
         checkoutProblem: g.checkout_problem ?? '',
+        paidThrough: iso(g.paid_through),
+        renewing: g.paid_through !== null && g.renewal_stopped_at === null,
+        renewalProblem: g.renewal_problem,
       })),
     };
   },
@@ -274,10 +287,13 @@ export const foundingMine = defineQuery({
       price_cents: number | null;
       grace_ends_at: Date | null;
       offer_name: string | null;
+      current_period_end: Date | null;
+      renewal_stopped_at: Date | null;
+      renewal_problem: string | null;
     }>(
       ctx.tx,
       sql`select p.plan::text as plan, p.status::text as status, p.price_cents, p.grace_ends_at,
-            o.name as offer_name
+            o.name as offer_name, p.current_period_end, p.renewal_stopped_at, p.renewal_problem
           from app.workspace_plans p
           left join platform.founding_grants g on g.id = p.grant_id
           left join platform.founding_offers o on o.id = g.offer_id
@@ -290,6 +306,125 @@ export const foundingMine = defineQuery({
       priceCents: Number(found?.price_cents ?? 0),
       graceEndsAt: iso(found?.grace_ends_at ?? null),
       offerName: found?.offer_name ?? null,
+      paidThrough: iso(found?.current_period_end ?? null),
+      renewing: !!found?.current_period_end && !found.renewal_stopped_at,
+      renewalProblem: found?.renewal_problem ?? null,
+    };
+  },
+});
+
+export const platformFoundingBusiness = defineQuery({
+  name: 'platform.founding.business',
+  description:
+    'One business’s founding seat — the one it holds, or the last it held — and the offers a seat could come from. Staff only.',
+  input: FoundingBusinessInput,
+  output: FoundingBusinessOutput,
+  permission: 'platform.founding.manage',
+  scope: onPlatform,
+  async handler(ctx, input) {
+    const [ws] = await rows<{ organization_id: string }>(
+      ctx.tx,
+      sql`select organization_id from app.workspaces where id = ${input.workspaceId}::uuid`,
+    );
+    if (!ws)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Search for it again.',
+      );
+    const [offers, seats] = await Promise.all([
+      rows<
+        CountRow & {
+          opens_after_offer_id: string | null;
+          opens_after_count: number | null;
+          opened_at: Date | string | null;
+        }
+      >(
+        ctx.tx,
+        sql`select o.id, o.name, o.blurb, o.status::text as status, o.price_cents, o.seat_cap,
+              private.founding_seats_held(o.id) as claimed,
+              greatest(o.seat_cap - private.founding_seats_held(o.id), 0) as remaining,
+              o.billing, o.opens_after_offer_id, o.opens_after_count, o.opened_at
+            from platform.founding_offers o order by o.sort, o.id`,
+      ),
+      // A seat is the business's, so it is looked for across all its workspaces: the one it holds now, or else
+      // the last one it had.
+      rows<{
+        id: string;
+        offer_id: string;
+        offer_name: string;
+        status: 'reserved' | 'active' | 'revoked' | 'expired';
+        workspace_id: string | null;
+        workspace_name: string | null;
+        reserved_at: Date;
+        expires_at: Date | null;
+        activated_at: Date | null;
+        revoked_at: Date | null;
+        revoke_reason: string;
+        grace_ends_at: Date | null;
+        paid_through: Date | null;
+        renewal_stopped_at: Date | null;
+        renewal_problem: string | null;
+        checkout_status: 'pending' | 'open' | 'paid' | 'expired' | 'failed' | null;
+        checkout_problem: string | null;
+      }>(
+        ctx.tx,
+        sql`select g.id, g.offer_id, o.name as offer_name, g.status::text as status, g.workspace_id,
+              w.name as workspace_name, g.reserved_at, g.expires_at, g.activated_at, g.revoked_at,
+              g.revoke_reason, p.grace_ends_at,
+              c.status::text as checkout_status, c.problem as checkout_problem,
+              case when p.grant_id = g.id then p.current_period_end end as paid_through,
+              case when p.grant_id = g.id then p.renewal_stopped_at end as renewal_stopped_at,
+              case when p.grant_id = g.id then p.renewal_problem end as renewal_problem
+            from platform.founding_grants g
+            join platform.founding_offers o on o.id = g.offer_id
+            left join app.workspaces w on w.id = g.workspace_id
+            left join app.workspace_plans p on p.workspace_id = g.workspace_id
+            left join lateral (
+              select c.status, c.problem from platform.founding_checkouts c
+              where c.grant_id = g.id order by c.created_at desc limit 1
+            ) c on true
+            where g.organization_id = ${ws.organization_id}::uuid
+            order by (g.status in ('reserved', 'active')) desc, g.reserved_at desc
+            limit 1`,
+      ),
+    ]);
+    const g = seats[0];
+    return {
+      workspaceId: input.workspaceId,
+      organizationId: ws.organization_id,
+      seat: g
+        ? {
+            grantId: g.id,
+            offerId: g.offer_id,
+            offerName: g.offer_name,
+            status: g.status,
+            workspaceId: g.workspace_id,
+            workspaceName: g.workspace_name,
+            reservedAt: iso(g.reserved_at)!,
+            expiresAt: iso(g.expires_at),
+            activatedAt: iso(g.activated_at),
+            revokedAt: iso(g.revoked_at),
+            revokeReason: g.revoke_reason,
+            graceEndsAt: iso(g.grace_ends_at),
+            checkoutStatus: g.checkout_status,
+            checkoutProblem: g.checkout_problem ?? '',
+            paidThrough: iso(g.paid_through),
+            renewing: g.paid_through !== null && g.renewal_stopped_at === null,
+            renewalProblem: g.renewal_problem,
+          }
+        : null,
+      offers: offers.map((o) => ({
+        offerId: o.id,
+        name: o.name,
+        status: o.status,
+        seatCap: o.seat_cap,
+        claimed: Number(o.claimed),
+        remaining: Number(o.remaining),
+        priceCents: o.price_cents,
+        billing: o.billing,
+        opensAfterOfferId: o.opens_after_offer_id,
+        opensAfterCount: o.opens_after_count === null ? null : Number(o.opens_after_count),
+        openedAt: iso(o.opened_at),
+      })),
     };
   },
 });
@@ -321,6 +456,7 @@ export const foundingClaimPreview = defineQuery({
       expires_at: Date | string | null;
       checkout_id: string | null;
       checkout_workspace_id: string | null;
+      billing: 'once' | 'yearly' | 'monthly';
     }>(ctx.tx, sql`select * from private.founding_seat_by_token(${hashClaimToken(input.token)})`);
     if (!seat)
       throw HfosError.notFound(
@@ -336,6 +472,7 @@ export const foundingClaimPreview = defineQuery({
       expiresAt: iso(seat.expires_at),
       checkoutId: seat.checkout_id,
       checkoutWorkspaceId: seat.checkout_workspace_id,
+      billing: seat.billing,
     };
   },
 });
@@ -364,6 +501,9 @@ export const foundingCheckoutStatus = defineQuery({
       session_expires_at: Date | string | null;
       seat_active: boolean;
       problem: string;
+      renewal: boolean;
+      billing: 'once' | 'yearly' | 'monthly';
+      paid_through: Date | string | null;
     }>(ctx.tx, sql`select * from private.founding_checkout_view(${input.checkoutId}::uuid)`);
     if (!c)
       throw HfosError.notFound(
@@ -380,6 +520,9 @@ export const foundingCheckoutStatus = defineQuery({
       expiresAt: iso(c.session_expires_at),
       seatActive: c.seat_active,
       problem: c.problem,
+      renewal: c.renewal,
+      billing: c.billing,
+      paidThrough: iso(c.paid_through),
     };
   },
 });
@@ -388,6 +531,7 @@ export const foundingQueries = [
   foundingCounts,
   platformFounding,
   foundingMine,
+  platformFoundingBusiness,
   foundingClaimPreview,
   foundingCheckoutStatus,
 ];

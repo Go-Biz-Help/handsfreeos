@@ -34,8 +34,11 @@ export const applicationStatus = z.enum([
 export const offerStatus = z.enum(['draft', 'open', 'closed']);
 /** Where one attempt to pay for a seat has got to (0093). `pending` has no Stripe page yet. */
 export const checkoutStatus = z.enum(['pending', 'open', 'paid', 'expired', 'failed']);
-/** `once` is a founding seat, free or paid once. `monthly` is the plan: no seats, no applications (0092). */
-export const offerBilling = z.enum(['once', 'monthly']);
+/**
+ * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year, renewed on its own
+ * (20261027009400). `monthly` is the plan: no seats, no applications (0092).
+ */
+export const offerBilling = z.enum(['once', 'yearly', 'monthly']);
 export const planKind = z.enum(['founding_free', 'founding_lifetime', 'monthly']);
 export const planStatus = z.enum(['active', 'grace', 'past_due', 'canceled']);
 
@@ -175,6 +178,8 @@ export const FoundingClaimPreviewOutput = z.strictObject({
   /** A checkout already under way on this seat, to be picked up rather than started again. */
   checkoutId: uuid.nullable(),
   checkoutWorkspaceId: uuid.nullable(),
+  /** How the seat is paid: once, or each year, renewed on its own. */
+  billing: offerBilling,
 });
 
 export const FoundingStartCheckoutInput = z.strictObject({
@@ -205,6 +210,12 @@ export const FoundingCheckoutStatusOutput = z.strictObject({
   seatActive: z.boolean(),
   /** Why it did not go through, in words for the person who was paying. Empty when nothing went wrong. */
   problem: z.string(),
+  /** This page paid a refused yearly renewal rather than taking a seat up. */
+  renewal: z.boolean(),
+  /** How the seat is paid: `yearly` renews on its own. */
+  billing: offerBilling,
+  /** The end of the year paid for, on a seat paid by the year. Null otherwise. */
+  paidThrough: z.iso.datetime().nullable(),
 });
 
 /** The worker made Stripe's page. */
@@ -224,6 +235,9 @@ export const FoundingRecordCheckoutPaidInput = z.strictObject({
   /** The PaymentIntent, when Stripe named one: what a refund is made against. */
   paymentRef: z.string().trim().max(255).nullable(),
   paidCents: z.int().min(0),
+  /** Who paid, and the card the page kept for next year's renewal (`cus_…`, `pm_…`). Ids only. */
+  customerRef: z.string().trim().max(100).nullable().default(null),
+  cardRef: z.string().trim().max(100).nullable().default(null),
 });
 
 /** A checkout that will not be paid: the page lapsed, or it could not be made. */
@@ -237,10 +251,48 @@ export const FoundingRecordCheckoutClosedInput = z.strictObject({
 export const FoundingCheckoutRecordOutput = z.strictObject({
   checkoutId: uuid,
   /**
-   * `activated`: the seat is theirs. `already`: this was recorded before. `no_seat`: the money is in and the
-   * seat is not — written on the checkout for staff. `opened`, `closed` and `unchanged` for the other two.
+   * `activated`: the seat is theirs. `renewed`: a refused renewal paid with another card, so the year moved on.
+   * `already`: this was recorded before. `no_seat`: the money is in and the seat (or the year) is not — written on
+   * the checkout for staff. `opened`, `closed` and `unchanged` for the other two.
    */
-  outcome: z.enum(['activated', 'already', 'no_seat', 'opened', 'closed', 'unchanged']),
+  outcome: z.enum(['activated', 'renewed', 'already', 'no_seat', 'opened', 'closed', 'unchanged']),
+});
+
+// ---------- the yearly renewal ----------
+
+/** Stop a seat paid by the year renewing, or start it again while the year is still paid for. */
+export const FoundingSetRenewingInput = z.strictObject({
+  workspaceId: uuid,
+  renewing: z.boolean(),
+});
+
+export const FoundingSetRenewingOutput = z.strictObject({
+  workspaceId: uuid,
+  renewing: z.boolean(),
+  /** The end of the year paid for: when it renews, or when the seat goes back if it doesn't. */
+  paidThrough: z.iso.datetime(),
+});
+
+/** Pay a refused renewal with another card. */
+export const FoundingPayRenewalInput = z.strictObject({ workspaceId: uuid });
+
+/** What the worker's yearly charge did, for one seat and one year. */
+export const FoundingRecordRenewalInput = z.strictObject({
+  workspaceId: uuid,
+  grantId: uuid,
+  /** The `current_period_end` the charge was for. An answer about a year that already moved on changes nothing. */
+  forPaidThrough: z.iso.datetime(),
+  outcome: z.enum(['renewed', 'failed']),
+  paymentRef: z.string().trim().max(255).nullable().default(null),
+  paidCents: z.int().min(0).nullable().default(null),
+  /** Why the card refused it, in the card company's words. */
+  problem: z.string().trim().max(1000).nullable().default(null),
+});
+
+export const FoundingRecordRenewalOutput = z.strictObject({
+  grantId: uuid,
+  /** `recorded`, `already` (that year was answered before), or `unchanged` (no seat paid by the year there). */
+  outcome: z.enum(['recorded', 'already', 'unchanged']),
 });
 
 // ---------- taking a seat back ----------
@@ -374,6 +426,12 @@ export const FoundingQueueOutput = z.strictObject({
       checkoutStatus: checkoutStatus.nullable(),
       /** Set when a payment needs a person: paid, but the seat could not be turned on. */
       checkoutProblem: z.string(),
+      /** On a seat paid by the year: the end of the year paid for. Null on any other seat. */
+      paidThrough: z.iso.datetime().nullable(),
+      /** False once the business stopped it renewing: the seat goes back when the year is up. */
+      renewing: z.boolean(),
+      /** The last renewal the card refused, until it is paid with another card. Null when nothing is owed. */
+      renewalProblem: z.string().nullable(),
     }),
   ),
 });
@@ -389,4 +447,46 @@ export const FoundingMineOutput = z.strictObject({
   /** Set only while a revoked founding deal is working out its notice. */
   graceEndsAt: z.iso.datetime().nullable(),
   offerName: z.string().nullable(),
+  /** On a seat paid by the year: the end of the year paid for. Null on a plan nobody is billed for. */
+  paidThrough: z.iso.datetime().nullable(),
+  /** False once somebody stopped it renewing. */
+  renewing: z.boolean(),
+  /** The last renewal the card refused, until it is paid with another card. Null when nothing is owed. */
+  renewalProblem: z.string().nullable(),
+});
+
+// ---------- one business, for the support desk ----------
+
+export const FoundingBusinessInput = z.strictObject({ workspaceId: uuid });
+
+/** One business's founding seat, for its page under /admin/businesses: what it holds, and what it could be given. */
+export const FoundingBusinessOutput = z.strictObject({
+  workspaceId: uuid,
+  organizationId: uuid,
+  /** The business's live seat, or the last one it held. Null when it never had one. */
+  seat: z
+    .strictObject({
+      grantId: uuid,
+      offerId,
+      offerName: z.string(),
+      status: grantStatus,
+      /** The workspace the seat covers. A seat is the business's, and covers one of its workspaces. */
+      workspaceId: uuid.nullable(),
+      workspaceName: z.string().nullable(),
+      reservedAt: z.iso.datetime(),
+      expiresAt: z.iso.datetime().nullable(),
+      activatedAt: z.iso.datetime().nullable(),
+      revokedAt: z.iso.datetime().nullable(),
+      revokeReason: z.string(),
+      graceEndsAt: z.iso.datetime().nullable(),
+      /** The latest attempt to pay for it, and what went wrong with a paid one that has no seat to show for it. */
+      checkoutStatus: checkoutStatus.nullable(),
+      checkoutProblem: z.string(),
+      paidThrough: z.iso.datetime().nullable(),
+      renewing: z.boolean(),
+      renewalProblem: z.string().nullable(),
+    })
+    .nullable(),
+  /** Every founding offer, so the page can say which can be given today and why the others can't. */
+  offers: z.array(FoundingOfferOutput),
 });

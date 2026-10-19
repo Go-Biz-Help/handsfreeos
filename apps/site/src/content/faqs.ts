@@ -64,12 +64,12 @@ export const pricingFaqs: readonly Faq[] = [
     a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account, and they are the same on every offer, founding seats included.',
   },
   {
-    q: 'What does a founding seat "for life" actually cover?',
-    a: 'The software, for as long as HandsFreeOS exists, with no monthly bill — whether the seat was free or paid for once, and including the features we add to it later. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $30–$60 a month on that.',
+    q: 'What does a founding seat actually cover?',
+    a: 'The software, including the features we add to it later, with no monthly bill: free for as long as HandsFreeOS exists on a founding partner seat, and $497 a year on a founding customer seat, renewed each year until you stop it. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $30–$60 a month on that.',
   },
   {
     q: 'What happens when the founding seats run out?',
-    a: 'The next offer opens by itself the moment the last seat goes: the twenty-five free seats give way to a hundred pay-once seats at $497, and partway through those HandsFreeOS goes on sale month to month at $97. The counter is read live from our database, so when it says none are left, none are. Apply anyway and you go on the waitlist — seats do come back, and the waitlist is where we look first.',
+    a: 'The next offer opens by itself the moment the last seat goes: the twenty-five free seats give way to a hundred seats at $497 a year, and partway through those HandsFreeOS goes on sale month to month at $97. The counter is read live from our database, so when it says none are left, none are. Apply anyway and you go on the waitlist — seats do come back, and the waitlist is where we look first.',
   },
   {
     q: 'Could you take a founding seat back?',

@@ -59,6 +59,13 @@ const openTickets = dsql<number>`(
 const memberCount = dsql<number>`(
   select count(*)::int from app.workspace_memberships m where m.workspace_id = ${workspaces.id}
 )`;
+// Read through the founding tables' own policy: staff who don't manage founding seats see none.
+const foundingSeat = dsql<string | null>`(
+  select o.name from platform.founding_grants g
+  join platform.founding_offers o on o.id = g.offer_id
+  where g.workspace_id = ${workspaces.id} and g.status = 'active'
+  limit 1
+)`;
 
 export const platformBusinessList = defineQuery({
   name: 'platform.business.list',
@@ -92,6 +99,7 @@ export const platformBusinessList = defineQuery({
         members: memberCount,
         open: openTickets,
         lastActiveAt: lastActive,
+        foundingSeat,
       })
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
@@ -106,18 +114,21 @@ export const platformBusinessList = defineQuery({
       active_this_week: string;
     }>(ctx.tx, sql`select * from private.admin_business_totals()`);
     return {
-      businesses: page.map(({ w, organizationName, members, open, lastActiveAt }) => ({
-        workspaceId: w.id,
-        name: w.name,
-        organizationId: w.organizationId,
-        organizationName: organizationName ?? '',
-        industry: w.industry,
-        timezone: w.timezone,
-        memberCount: members,
-        lastActiveAt: lastActiveAt ? new Date(lastActiveAt).toISOString() : null,
-        openTicketCount: open,
-        createdAt: w.createdAt.toISOString(),
-      })),
+      businesses: page.map(
+        ({ w, organizationName, members, open, lastActiveAt, foundingSeat }) => ({
+          workspaceId: w.id,
+          name: w.name,
+          organizationId: w.organizationId,
+          organizationName: organizationName ?? '',
+          industry: w.industry,
+          timezone: w.timezone,
+          memberCount: members,
+          lastActiveAt: lastActiveAt ? new Date(lastActiveAt).toISOString() : null,
+          openTicketCount: open,
+          createdAt: w.createdAt.toISOString(),
+          foundingSeat,
+        }),
+      ),
       nextCursor:
         list.length > input.limit && last && input.sort === 'newest'
           ? last.w.createdAt.toISOString()
@@ -146,6 +157,7 @@ export const platformBusinessGet = defineQuery({
         members: memberCount,
         open: openTickets,
         lastActiveAt: lastActive,
+        foundingSeat,
       })
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
@@ -219,6 +231,7 @@ export const platformBusinessGet = defineQuery({
         lastActiveAt: row.lastActiveAt ? new Date(row.lastActiveAt).toISOString() : null,
         openTicketCount: row.open,
         createdAt: row.w.createdAt.toISOString(),
+        foundingSeat: row.foundingSeat,
       },
       people: people.map((p) => ({
         userId: p.userId,

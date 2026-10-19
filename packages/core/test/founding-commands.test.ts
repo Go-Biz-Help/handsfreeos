@@ -20,11 +20,18 @@ import {
   foundingClaim,
   foundingClaimPreview,
   foundingGive,
+  foundingMine,
+  foundingPayRenewal,
   foundingRecordCheckoutOpened,
   foundingRecordCheckoutPaid,
+  foundingRecordRenewal,
+  foundingRestore,
+  foundingSetRenewing,
   foundingStartCheckout,
   organizationCreate,
+  platformBusinessList,
   platformFounding,
+  platformFoundingBusiness,
   workspaceCreate,
 } from '../src/server';
 
@@ -57,6 +64,7 @@ async function refusal(fn: () => Promise<unknown>): Promise<HfosError> {
 
 const FREE = 'test_cmd_free';
 const PAID = 'test_cmd_paid';
+const YEARLY = 'test_cmd_yearly';
 
 let owner: TestUser;
 let member: TestUser;
@@ -85,7 +93,7 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 beforeEach(async () => {
-  for (const offer of [FREE, PAID]) {
+  for (const offer of [FREE, PAID, YEARLY]) {
     await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${offer}`);
     await admin().execute(
       sql`delete from platform.founding_applications where offer_id = ${offer}`,
@@ -481,5 +489,252 @@ describe('giving a seat', () => {
     );
     expect(e.status).toBe(404);
     expect(await seatsOf(FREE)).toHaveLength(0);
+  });
+});
+
+describe('the $497 seat, paid by the year', () => {
+  const system = (): SystemActor => ({ type: 'system', workspaceId: wsId, organizationId: orgId });
+
+  beforeEach(async () => {
+    await admin().execute(
+      sql`insert into platform.founding_offers
+            (id, name, seat_cap, price_cents, status, billing, starting_credit_cents, show_counter)
+          values (${YEARLY}, 'Founding Customer', 5, 49700, 'open', 'yearly', 0, false)`,
+    );
+  });
+
+  /** Paid at Checkout with a card kept, the way the worker records it. */
+  async function bought(): Promise<{ grantId: string; paidThrough: string }> {
+    const { token, grantId } = await approve(YEARLY);
+    const started = await run(foundingStartCheckout, { token, workspaceId: wsId }, owner);
+    const paid = await executeCommand(
+      worker(),
+      foundingRecordCheckoutPaid,
+      {
+        workspaceId: wsId,
+        checkoutId: started.checkoutId,
+        sessionRef: `cs_test_${randomUUID()}`,
+        paymentRef: 'pi_first',
+        paidCents: 49700,
+        customerRef: 'cus_first',
+        cardRef: 'pm_first',
+      },
+      system(),
+      meta(),
+    );
+    expect(paid.output.outcome).toBe('activated');
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(mine).toMatchObject({ plan: 'founding_lifetime', priceCents: 49700, renewing: true });
+    return { grantId, paidThrough: mine.paidThrough! };
+  }
+
+  const renewal = (grantId: string, forPaidThrough: string, input: object) =>
+    executeCommand(
+      worker(),
+      foundingRecordRenewal,
+      { workspaceId: wsId, grantId, forPaidThrough, ...input },
+      system(),
+      meta(),
+    ).then((r) => r.output);
+
+  it('moves the year on when the charge goes through, once', async () => {
+    const { grantId, paidThrough } = await bought();
+    const out = await renewal(grantId, paidThrough, {
+      outcome: 'renewed',
+      paymentRef: 'pi_two',
+      paidCents: 49700,
+    });
+    expect(out.outcome).toBe('recorded');
+    const next = new Date(paidThrough);
+    next.setUTCFullYear(next.getUTCFullYear() + 1);
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(mine.paidThrough).toBe(next.toISOString());
+    expect(await eventsOf('founding.renewed', grantId)).toHaveLength(1);
+    // The same answer again is about a year that already moved on.
+    expect((await renewal(grantId, paidThrough, { outcome: 'renewed' })).outcome).toBe('already');
+  });
+
+  it('keeps a refused card for the business to fix, and the seat stays on', async () => {
+    const { grantId, paidThrough } = await bought();
+    const out = await renewal(grantId, paidThrough, {
+      outcome: 'failed',
+      problem: 'Your card was declined.',
+    });
+    expect(out.outcome).toBe('recorded');
+    expect(await seatOf(grantId)).toMatchObject({ status: 'active' });
+    expect(await planOf(wsId)).toMatchObject({ status: 'past_due' });
+    expect(await eventsOf('founding.renewal_failed', grantId)).toHaveLength(1);
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(mine.renewalProblem).toBe('Your card was declined.');
+
+    // Paid with another card: a founding checkout of its own, asked for by somebody who manages the money.
+    const refused = await refusal(() => run(foundingPayRenewal, { workspaceId: wsId }, member));
+    expect(refused.status).toBe(403);
+    const page = await run(foundingPayRenewal, { workspaceId: wsId }, owner);
+    expect(page).toMatchObject({ status: 'pending', created: true });
+    expect(await eventsOf('founding.checkout_requested', page.checkoutId)).toHaveLength(1);
+    const paid = await executeCommand(
+      worker(),
+      foundingRecordCheckoutPaid,
+      {
+        workspaceId: wsId,
+        checkoutId: page.checkoutId,
+        sessionRef: `cs_test_${randomUUID()}`,
+        paymentRef: 'pi_again',
+        paidCents: 49700,
+        customerRef: 'cus_first',
+        cardRef: 'pm_second',
+      },
+      system(),
+      meta(),
+    );
+    expect(paid.output.outcome).toBe('renewed');
+    expect(await eventsOf('founding.renewed', grantId)).toHaveLength(1);
+    expect(await planOf(wsId)).toMatchObject({ status: 'active' });
+    const status = await executeQuery(
+      api(),
+      foundingCheckoutStatus,
+      { checkoutId: page.checkoutId },
+      human(owner),
+      meta(),
+    );
+    expect(status).toMatchObject({ renewal: true, seatActive: true, billing: 'yearly' });
+  });
+
+  it('can be stopped renewing and started again, by somebody who manages the money', async () => {
+    const { paidThrough } = await bought();
+    const refused = await refusal(() =>
+      run(foundingSetRenewing, { workspaceId: wsId, renewing: false }, member),
+    );
+    expect(refused.status).toBe(403);
+    const stopped = await run(foundingSetRenewing, { workspaceId: wsId, renewing: false }, owner);
+    expect(stopped).toMatchObject({ renewing: false, paidThrough });
+    expect(await eventsOf('founding.renewal_stopped', wsId)).toHaveLength(1);
+    const again = await run(foundingSetRenewing, { workspaceId: wsId, renewing: true }, owner);
+    expect(again.renewing).toBe(true);
+    expect(await eventsOf('founding.renewal_resumed', wsId)).toHaveLength(1);
+  });
+
+  it('goes back when a stopped year is over, and comes back from Undo as a gift, never charged', async () => {
+    const { grantId } = await bought();
+    await run(foundingSetRenewing, { workspaceId: wsId, renewing: false }, owner);
+    await admin().execute(
+      sql`update app.workspace_plans set current_period_end = now() - interval '1 minute'
+          where workspace_id = ${wsId}::uuid`,
+    );
+    await admin().execute(sql`select private.founding_end_stopped_years()`);
+    expect(await seatOf(grantId)).toMatchObject({ status: 'revoked' });
+    expect(await planOf(wsId)).toMatchObject({ status: 'canceled' });
+
+    await run(foundingRestore, { grantId }, staff);
+    expect(await seatOf(grantId)).toMatchObject({ status: 'active' });
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(mine).toMatchObject({ status: 'active', priceCents: 0, paidThrough: null });
+  });
+
+  it('says so in words when a seat is not paid by the year', async () => {
+    const e = await refusal(() =>
+      run(foundingSetRenewing, { workspaceId: wsId, renewing: false }, owner),
+    );
+    expect(e.rule).toBe('founding_not_yearly');
+    expect(e.message).toContain('Settings → Usage & balance');
+  });
+
+  it('is a gift when staff give it: nothing is left on the plan to charge', async () => {
+    await bought();
+    // Taken back, then given: the yearly seat's year and card do not survive onto the gift.
+    const [g] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from platform.founding_grants where offer_id = ${YEARLY} and status = 'active'`,
+    );
+    await admin().execute(
+      sql`update platform.founding_grants set status = 'revoked', revoked_at = now(), revoke_reason = 'test'
+          where id = ${g!.id}::uuid`,
+    );
+    await run(foundingGive, { offerId: YEARLY, organizationId: orgId, workspaceId: wsId }, staff);
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(mine).toMatchObject({ priceCents: 0, paidThrough: null, renewing: false });
+  });
+});
+
+describe('a business’s seat, on its page under /admin/businesses', () => {
+  it('says what the business holds, and the list names it', async () => {
+    const before = await executeQuery(
+      api(),
+      platformFoundingBusiness,
+      { workspaceId: wsId },
+      human(staff),
+      meta(),
+    );
+    expect(before).toMatchObject({ organizationId: orgId, seat: null });
+    expect(before.offers.map((o) => o.offerId)).toContain(FREE);
+
+    const given = await run(
+      foundingGive,
+      { offerId: FREE, organizationId: orgId, workspaceId: wsId },
+      staff,
+    );
+    const after = await executeQuery(
+      api(),
+      platformFoundingBusiness,
+      { workspaceId: wsId },
+      human(staff),
+      meta(),
+    );
+    expect(after.seat).toMatchObject({
+      grantId: given.grantId,
+      offerName: 'Founding Partner',
+      status: 'active',
+      workspaceId: wsId,
+      paidThrough: null,
+    });
+
+    const list = await executeQuery(
+      api(),
+      platformBusinessList,
+      { search: 'Founding Plumbing', sort: 'name', limit: 20 },
+      human(staff),
+      meta(),
+    );
+    expect(list.businesses.find((b) => b.workspaceId === wsId)?.foundingSeat).toBe(
+      'Founding Partner',
+    );
+  });
+
+  it('is told nothing to anybody without the founding permission', async () => {
+    const e = await refusal(() =>
+      executeQuery(api(), platformFoundingBusiness, { workspaceId: wsId }, human(owner), meta()),
+    );
+    expect(e.status).toBe(404);
   });
 });

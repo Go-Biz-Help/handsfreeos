@@ -8,7 +8,13 @@
  *
  * **A free seat is on the moment staff say so,** by approving an application or by giving one to any business, and
  * it stays on until somebody revokes it. Only a paid seat is held behind a link, because it waits on a payment.
+ *
+ * **The $497 seat is paid by the year** (20261027009400): renewed on its own, charged to the card it was paid with.
+ * A refused card is not tried again; the business pays that year with another card, and the seat stays on until
+ * staff decide. A seat staff give is a gift and is never charged.
  */
+
+import { formatUtcDate } from '../crm/format';
 
 export type FoundingOfferStatus = 'draft' | 'open' | 'closed';
 
@@ -21,7 +27,7 @@ export interface FoundingOfferFacts {
   readonly claimed: number;
   readonly remaining: number;
   readonly priceCents: number;
-  readonly billing: 'once' | 'monthly';
+  readonly billing: 'once' | 'yearly' | 'monthly';
   readonly opensAfterOfferId: string | null;
   readonly opensAfterCount: number | null;
   readonly openedAt: string | null;
@@ -49,15 +55,29 @@ export interface FoundingSeatFacts {
   readonly graceEndsAt: string | null;
   readonly checkoutStatus: string | null;
   readonly checkoutProblem: string;
+  /** A seat paid by the year: the end of the year paid for. */
+  readonly paidThrough?: string | null;
+  /** False once the business stopped it renewing. */
+  readonly renewing?: boolean;
+  /** The last renewal the card refused, until it is paid with another card. */
+  readonly renewalProblem?: string | null;
 }
 
 /** "Oct 3", in the reader's own zone; a dash for a date that isn't there. */
 export const foundingDay = (iso: string | null): string =>
   iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—';
 
+/** "Oct 19, 2027": a year away needs its year. In UTC, the way the renewal is charged. */
+export const foundingLongDay = (iso: string | null): string =>
+  iso ? formatUtcDate(new Date(iso)) : '—';
+
 /** "Free", "$497". */
 export const foundingPrice = (cents: number): string =>
   cents === 0 ? 'Free' : `$${(cents / 100).toFixed(0)}`;
+
+/** "/month", "/year", or nothing for a seat paid once. */
+export const foundingPer = (billing: FoundingOfferFacts['billing']): string =>
+  billing === 'monthly' ? '/month' : billing === 'yearly' ? '/year' : '';
 
 export const FOUNDING_WORDS = {
   title: 'Founding offers',
@@ -71,6 +91,8 @@ export const FOUNDING_WORDS = {
     `Off the website since ${name} opened. A seat that frees up here is for somebody already waiting — approve them below.`,
   paidNote:
     'Paid for at Stripe Checkout from the claim link. The seat turns on when Stripe says the money is in.',
+  yearlyNote:
+    'Renews each year on its own, charged to the card they paid with. They can stop it renewing. A seat you give is never charged.',
   seats: 'Seats',
   save: 'Save',
   capHint: (claimed: number) =>
@@ -151,7 +173,7 @@ export const FOUNDING_WORDS = {
 /** The offers a seat can be given from: founding seats that have opened, never the monthly plan. */
 export const foundingGivableOffers = <O extends Pick<FoundingOfferFacts, 'billing' | 'status'>>(
   offers: readonly O[],
-): O[] => offers.filter((o) => o.billing === 'once' && o.status !== 'draft');
+): O[] => offers.filter((o) => o.billing !== 'monthly' && o.status !== 'draft');
 
 /** Which offer Give starts on: the first one taking people, else the first there is. */
 export const foundingFirstOffer = (
@@ -167,9 +189,10 @@ export const foundingOfferIsPaid = (
   offers: readonly Pick<FoundingOfferFacts, 'offerId' | 'priceCents'>[],
 ): boolean => (offers.find((o) => o.offerId === offerId)?.priceCents ?? 0) > 0;
 
-/** "Free · open", "$97/month · draft": an offer's price and where it stands. */
-export const foundingOfferPriceLine = (offer: FoundingOfferFacts): string =>
-  `${foundingPrice(offer.priceCents)}${offer.billing === 'monthly' ? '/month' : ''} · ${offer.status}`;
+/** "Free · open", "$497/year · draft", "$97/month · draft": an offer's price and where it stands. */
+export const foundingOfferPriceLine = (
+  offer: Pick<FoundingOfferFacts, 'priceCents' | 'billing' | 'status'>,
+): string => `${foundingPrice(offer.priceCents)}${foundingPer(offer.billing)} · ${offer.status}`;
 
 /** What an offer's card says about it, beyond its name and price. */
 export function foundingOfferCard(
@@ -188,6 +211,8 @@ export function foundingOfferCard(
   readonly replaced: string | null;
   /** A paid seat is paid for from the claim link. */
   readonly paid: boolean;
+  /** A seat paid by the year renews on its own. */
+  readonly yearly: boolean;
   /** The one button that moves it: Close, or Open (Open now for one that would open by itself). */
   readonly action: { readonly status: 'open' | 'closed'; readonly label: string };
 } {
@@ -195,7 +220,7 @@ export function foundingOfferCard(
   const after = offers.find((o) => o.offerId === offer.opensAfterOfferId);
   // The same rule as the view's `superseded`: a later founding offer is open, so this one is off the website.
   const replacedBy = offers.find(
-    (o) => o.opensAfterOfferId === offer.offerId && o.billing === 'once' && o.status !== 'draft',
+    (o) => o.opensAfterOfferId === offer.offerId && o.billing !== 'monthly' && o.status !== 'draft',
   );
   const line = after ? (offer.opensAfterCount ?? after.seatCap) : null;
   return {
@@ -215,6 +240,7 @@ export function foundingOfferCard(
           : null,
     replaced: replacedBy ? FOUNDING_WORDS.replaced(replacedBy.name) : null,
     paid: !monthly && offer.priceCents > 0,
+    yearly: offer.billing === 'yearly' && offer.priceCents > 0,
     action:
       offer.status === 'open'
         ? { status: 'closed', label: 'Close' }
@@ -253,7 +279,13 @@ export const foundingSeatLine = (g: FoundingSeatFacts): string =>
     g.status === 'reserved' && (g.checkoutStatus === 'pending' || g.checkoutStatus === 'open')
       ? ' · paying now'
       : ''
-  }`;
+  }${foundingYearLine(g)}`;
+
+/** " · paid through Oct 19, 2027, renews": a seat paid by the year, and whether it goes on. Empty otherwise. */
+export const foundingYearLine = (g: Pick<FoundingSeatFacts, 'paidThrough' | 'renewing'>): string =>
+  g.paidThrough
+    ? ` · paid through ${foundingLongDay(g.paidThrough)}${g.renewing ? ', renews' : ', not renewing'}`
+    : '';
 
 /** A seat given back: never taken up, or taken back, and how long they keep working. */
 export const foundingGivenBackLine = (g: FoundingSeatFacts): string =>
@@ -263,9 +295,16 @@ export const foundingGivenBackLine = (g: FoundingSeatFacts): string =>
       : `revoked ${foundingDay(g.revokedAt)} · ${g.revokeReason}`
   }${g.graceEndsAt ? ` · still working until ${foundingDay(g.graceEndsAt)}` : ''}`;
 
-/** Money in, no seat on: somebody has to refund it at Stripe or find them a seat. Null when nothing's wrong. */
+/**
+ * What needs a person on a seat, or null: money in with no seat on (refund it at Stripe or find them a seat), or a
+ * yearly renewal the card refused (they pay it with another card; the seat stays on until you decide).
+ */
 export const foundingSeatProblem = (g: FoundingSeatFacts): string | null =>
-  g.checkoutStatus === 'paid' && g.checkoutProblem ? g.checkoutProblem : null;
+  g.checkoutStatus === 'paid' && g.checkoutProblem
+    ? g.checkoutProblem
+    : g.renewalProblem && (g.status === 'active' || g.status === 'reserved')
+      ? `The yearly renewal was refused: ${g.renewalProblem} They can pay it with another card from Settings → Usage & balance. The seat stays on until you revoke it.`
+      : null;
 
 /** Where a seat can go: a workspace, standing for the business it belongs to. A seat is the business's. */
 export interface FoundingPickable {
@@ -303,3 +342,107 @@ export const foundingFirstChoice = (theirs: readonly FoundingPickable[]): string
 
 /** Where a claim link opens, on the web. Its token is shown once and kept only as a hash. */
 export const foundingClaimPath = (claimToken: string): string => `/founding/${claimToken}`;
+
+// ---------- one business's seat, on its page under /admin/businesses ----------
+
+/** What the block needs of the seat a business holds, or held last (`platform.founding.business`'s `seat`). */
+export interface FoundingBusinessSeatFacts extends FoundingSeatFacts {
+  readonly offerName: string;
+  readonly workspaceId: string | null;
+  readonly workspaceName: string | null;
+}
+
+export const FOUNDING_BUSINESS_WORDS = {
+  title: 'Founding seat',
+  explain:
+    'Any business here can be given a founding seat, whether or not it applied. It covers one workspace, and stays until you revoke it.',
+  none: 'No founding seat.',
+  give: 'Give a founding seat',
+  giveTitle: (business: string) => `Give ${business} a founding seat`,
+  giveDescription:
+    'It goes on this workspace straight away, with the starting credit, and stays until you revoke it. A seat you give is never charged, even a yearly one.',
+  offer: 'Offer',
+  whyThem: FOUNDING_WORDS.whyThem,
+  whyThemHint: FOUNDING_WORDS.whyThemHint,
+  cancel: FOUNDING_WORDS.cancel,
+  giving: FOUNDING_WORDS.giving,
+  giveSeat: FOUNDING_WORDS.giveSeat,
+  revoke: FOUNDING_WORDS.revoke,
+  undo: FOUNDING_WORDS.undo,
+  allSeats: 'All founding seats',
+  /** No offer has opened, so there is nothing to give from yet. */
+  noneOpen: 'No founding offer is open yet. Open one under Founding offers first.',
+} as const;
+
+/** The offers a seat can be given from today, with why the others can't. */
+export function foundingBusinessGivable<O extends FoundingOfferFacts>(
+  offers: readonly O[],
+): { readonly offers: O[]; readonly first: string } {
+  const open = foundingGivableOffers(offers).filter((o) => o.status === 'open');
+  return { offers: open, first: open[0]?.offerId ?? '' };
+}
+
+/**
+ * The block's one line about the seat: "Founding Partner · on Lone Star HVAC since Oct 3", "on Bayou Plumbing, this
+ * business's other workspace", "revoked Oct 3 · …". Null when the business never had one.
+ */
+export function foundingBusinessSeatLine(
+  seat: FoundingBusinessSeatFacts | null,
+  workspaceId: string,
+): string | null {
+  if (!seat) return null;
+  const where =
+    seat.workspaceId && seat.workspaceId !== workspaceId
+      ? ` · on ${seat.workspaceName ?? 'another workspace'}, this business’s other workspace`
+      : '';
+  const state =
+    seat.status === 'active'
+      ? `since ${foundingDay(seat.activatedAt)}${foundingYearLine(seat)}`
+      : seat.status === 'reserved'
+        ? `approved ${foundingDay(seat.reservedAt)}, not taken up — expires ${foundingDay(seat.expiresAt)}`
+        : foundingGivenBackLine(seat);
+  return `${seat.offerName} · ${state}${where}`;
+}
+
+/** Whether the business holds a seat now: then it can be revoked, not given another. */
+export const foundingBusinessHolds = (seat: Pick<FoundingSeatFacts, 'status'> | null): boolean =>
+  seat?.status === 'active' || seat?.status === 'reserved';
+
+// ---------- the business's own plan, on Settings → Usage & balance ----------
+
+/** What the card needs of `founding.mine`. */
+export interface FoundingPlanFacts {
+  readonly plan: string | null;
+  readonly status: string | null;
+  readonly priceCents: number;
+  readonly paidThrough: string | null;
+  readonly renewing: boolean;
+  readonly renewalProblem: string | null;
+}
+
+/** Only a seat paid by the year has anything to show or change here. */
+export const foundingPlanIsYearly = (p: FoundingPlanFacts): boolean =>
+  p.paidThrough !== null && p.priceCents > 0 && p.status !== 'canceled';
+
+export const FOUNDING_PLAN_WORDS = {
+  title: 'Your founding seat',
+  /** "$497 a year, for HandsFreeOS itself. Texts, calls and AI are paid from your balance above." */
+  price: (cents: number) =>
+    `${foundingPrice(cents)} a year for HandsFreeOS itself. Texts, calls and AI come out of your balance.`,
+  renews: (iso: string, cents: number) =>
+    `Paid through ${foundingLongDay(iso)}. It renews then for ${foundingPrice(cents)}, charged to the card you paid with.`,
+  stopped: (iso: string) =>
+    `Paid through ${foundingLongDay(iso)}, and set not to renew. Your seat goes back then, and nothing more is charged.`,
+  refused: (problem: string) =>
+    `Your renewal didn’t go through: ${problem} Pay it with another card to keep your founding price. Your seat stays on meanwhile.`,
+  stop: 'Stop renewing',
+  stopTitle: 'Stop your founding seat renewing?',
+  stopDescription: (iso: string) =>
+    `It stays on until ${foundingLongDay(iso)}, and then the seat goes back. Nothing more is charged. You can change your mind until then.`,
+  stopConfirm: 'Stop renewing',
+  stopping: 'Stopping…',
+  keep: 'Keep it renewing',
+  cancel: 'Cancel',
+  pay: 'Pay with another card',
+  paying: 'Getting the payment page ready…',
+} as const;

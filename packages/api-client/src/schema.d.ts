@@ -3537,6 +3537,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/founding.pay_renewal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay the founding seat’s yearly renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.
+         * @description Risk level 3. Requires money.manage. Emits founding.checkout_requested.
+         */
+        post: operations["command_founding_pay_renewal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/founding.restore": {
         parameters: {
             query?: never;
@@ -3591,6 +3611,26 @@ export interface paths {
          * @description Risk level 4. Requires platform.founding.manage. Emits founding.cap_changed.
          */
         post: operations["command_founding_set_cap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.set_renewing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop this business’s founding seat renewing each year, or start it again while the year is still paid for. Stopped, the seat stays until the year paid for is over, then goes back.
+         * @description Risk level 3. Requires money.manage. Emits founding.renewal_stopped, founding.renewal_resumed.
+         */
+        post: operations["command_founding_set_renewing"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18477,6 +18517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.founding.business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business’s founding seat — the one it holds, or the last it held — and the offers a seat could come from. Staff only.
+         * @description Requires platform.founding.manage.
+         */
+        post: operations["query_platform_founding_business"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.health.summary": {
         parameters: {
             query?: never;
@@ -28998,6 +29058,40 @@ export interface operations {
             };
         };
     };
+    command_founding_pay_renewal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkoutId: string;
+                        created: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed";
+                        url: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_founding_restore: {
         parameters: {
             query?: never;
@@ -29097,7 +29191,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        billing: "once" | "monthly";
+                        billing: "once" | "yearly" | "monthly";
                         claimed: number;
                         name: string;
                         offerId: string;
@@ -29109,6 +29203,40 @@ export interface operations {
                         seatCap: number;
                         /** @enum {string} */
                         status: "draft" | "open" | "closed";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_set_renewing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    renewing: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        paidThrough: string;
+                        renewing: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -29139,7 +29267,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        billing: "once" | "monthly";
+                        billing: "once" | "yearly" | "monthly";
                         claimed: number;
                         name: string;
                         offerId: string;
@@ -61637,11 +61765,15 @@ export interface operations {
                 content: {
                     "application/json": {
                         amountCents: number;
+                        /** @enum {string} */
+                        billing: "once" | "yearly" | "monthly";
                         /** Format: uuid */
                         checkoutId: string;
                         expiresAt: string | null;
                         offerName: string;
+                        paidThrough: string | null;
                         problem: string;
+                        renewal: boolean;
                         seatActive: boolean;
                         /** @enum {string} */
                         status: "pending" | "open" | "paid" | "expired" | "failed";
@@ -61675,6 +61807,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        billing: "once" | "yearly" | "monthly";
                         businessName: string;
                         checkoutId: string | null;
                         checkoutWorkspaceId: string | null;
@@ -61715,7 +61849,7 @@ export interface operations {
                         generatedAt: string;
                         offers: {
                             /** @enum {string} */
-                            billing: "once" | "monthly";
+                            billing: "once" | "yearly" | "monthly";
                             blurb: string;
                             claimed: number;
                             name: string;
@@ -61758,8 +61892,11 @@ export interface operations {
                     "application/json": {
                         graceEndsAt: string | null;
                         offerName: string | null;
+                        paidThrough: string | null;
                         plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
                         priceCents: number;
+                        renewalProblem: string | null;
+                        renewing: boolean;
                         status: ("active" | "grace" | "past_due" | "canceled") | null;
                         /** Format: uuid */
                         workspaceId: string;
@@ -70687,6 +70824,7 @@ export interface operations {
                         business: {
                             /** Format: date-time */
                             createdAt: string;
+                            foundingSeat: string | null;
                             industry: string;
                             lastActiveAt: string | null;
                             memberCount: number;
@@ -70771,6 +70909,7 @@ export interface operations {
                         businesses: {
                             /** Format: date-time */
                             createdAt: string;
+                            foundingSeat: string | null;
                             industry: string;
                             lastActiveAt: string | null;
                             memberCount: number;
@@ -70862,6 +71001,9 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string | null;
+                            paidThrough: string | null;
+                            renewalProblem: string | null;
+                            renewing: boolean;
                             /** Format: date-time */
                             reservedAt: string;
                             revokedAt: string | null;
@@ -70872,7 +71014,7 @@ export interface operations {
                         }[];
                         offers: {
                             /** @enum {string} */
-                            billing: "once" | "monthly";
+                            billing: "once" | "yearly" | "monthly";
                             claimed: number;
                             name: string;
                             offerId: string;
@@ -70885,6 +71027,75 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "open" | "closed";
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_platform_founding_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            /** @enum {string} */
+                            billing: "once" | "yearly" | "monthly";
+                            claimed: number;
+                            name: string;
+                            offerId: string;
+                            openedAt: string | null;
+                            opensAfterCount: number | null;
+                            opensAfterOfferId: string | null;
+                            priceCents: number;
+                            remaining: number;
+                            seatCap: number;
+                            /** @enum {string} */
+                            status: "draft" | "open" | "closed";
+                        }[];
+                        /** Format: uuid */
+                        organizationId: string;
+                        seat: {
+                            activatedAt: string | null;
+                            checkoutProblem: string;
+                            checkoutStatus: ("pending" | "open" | "paid" | "expired" | "failed") | null;
+                            expiresAt: string | null;
+                            graceEndsAt: string | null;
+                            /** Format: uuid */
+                            grantId: string;
+                            offerId: string;
+                            offerName: string;
+                            paidThrough: string | null;
+                            renewalProblem: string | null;
+                            renewing: boolean;
+                            /** Format: date-time */
+                            reservedAt: string;
+                            revokedAt: string | null;
+                            revokeReason: string;
+                            /** @enum {string} */
+                            status: "reserved" | "active" | "revoked" | "expired";
+                            workspaceId: string | null;
+                            workspaceName: string | null;
+                        } | null;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };

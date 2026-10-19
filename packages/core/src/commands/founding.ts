@@ -26,6 +26,11 @@
  * up at once and the next applicant can be approved this afternoon — and the workspace's plan goes to `grace`
  * with a date. Until that date nothing about their account changes. Those are two facts and they are written
  * as two.
+ *
+ * **The $497 seat is paid by the year** (20261027009400). The first year is paid at Checkout, which keeps the card;
+ * the worker charges it when the year is up (`founding.record_renewal`). A refused card is not tried again: the
+ * business pays that year with another card (`founding.pay_renewal`), and the seat stays on meanwhile. A business
+ * may stop it renewing (`founding.set_renewing`), and the seat goes back when the year it paid for is over.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, isNull, sql as dsql } from 'drizzle-orm';
@@ -39,6 +44,7 @@ import {
   workspacePlans,
   workspaces,
 } from '@hfos/db/schema';
+import { formatUtcDate } from '../crm/format';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import {
@@ -54,6 +60,11 @@ import {
   FoundingRecordCheckoutClosedInput,
   FoundingRecordCheckoutOpenedInput,
   FoundingRecordCheckoutPaidInput,
+  FoundingRecordRenewalInput,
+  FoundingRecordRenewalOutput,
+  FoundingPayRenewalInput,
+  FoundingSetRenewingInput,
+  FoundingSetRenewingOutput,
   FoundingStartCheckoutInput,
   FoundingStartCheckoutOutput,
   FoundingGrantOutput,
@@ -157,6 +168,31 @@ function asRefusal(err: unknown): never {
     );
   if (detail === 'founding_checkout_missing')
     throw HfosError.notFound('There is no checkout by that id.');
+  // The yearly seat (20261027009400): a business stopping it renewing, or paying a refused renewal.
+  if (detail === 'founding_renewal_not_yours')
+    throw HfosError.rule(
+      'founding_renewal_not_yours',
+      403,
+      'Only somebody who manages money for this business can change how its founding seat is paid. Ask an owner of the business.',
+    );
+  if (detail === 'founding_not_yearly')
+    throw HfosError.rule(
+      'founding_not_yearly',
+      409,
+      'This business’s founding seat isn’t paid by the year, so there’s nothing to renew. Refresh Settings → Usage & balance to see where it stands.',
+    );
+  if (detail === 'founding_year_over')
+    throw HfosError.rule(
+      'founding_year_over',
+      409,
+      'The year you paid for is already over, so it can’t be set to renew. Ask us about getting the seat back.',
+    );
+  if (detail === 'founding_renewal_not_due')
+    throw HfosError.rule(
+      'founding_renewal_not_due',
+      409,
+      'There’s no renewal waiting to be paid. Refresh Settings → Usage & balance to see where your founding seat stands.',
+    );
   // Approve checks the business first (aBusiness); this is one deleted in between.
   if (constraint === 'founding_grants_organization_id_fkey')
     throw HfosError.rule(
@@ -386,7 +422,8 @@ async function turnOn(
   }
 
   const plan = found.priceCents === 0 ? ('founding_free' as const) : ('founding_lifetime' as const);
-  // A workspace that already had a plan is moved onto the founding one, as private.founding_activate does.
+  // A workspace that already had a plan is moved onto the founding one, as private.founding_activate does. A seat
+  // staff give is a gift, even a yearly one: no year, no price and no card, so nothing ever renews or is charged.
   await ctx.tx
     .insert(workspacePlans)
     .values({
@@ -399,7 +436,21 @@ async function turnOn(
     })
     .onConflictDoUpdate({
       target: workspacePlans.workspaceId,
-      set: { plan, status: 'active', grantId, priceCents: 0, graceEndsAt: null, canceledAt: null },
+      set: {
+        plan,
+        status: 'active',
+        grantId,
+        priceCents: 0,
+        graceEndsAt: null,
+        canceledAt: null,
+        currentPeriodEnd: null,
+        stripeCardId: null,
+        renewalStoppedAt: null,
+        renewalStoppedBy: null,
+        renewalCount: 0,
+        renewalProblem: null,
+        renewalFailedAt: null,
+      },
     });
 
   // Keyed on the seat in the ledger, so a seat turned on, taken back and turned on again credits once.
@@ -764,24 +815,24 @@ export const foundingRecordCheckoutOpened = defineCommand({
 export const foundingRecordCheckoutPaid = defineCommand({
   name: 'founding.record_checkout_paid',
   description:
-    'Worker: Stripe says a founding seat was paid for. The seat goes active on its workspace, with its plan and its credit; a payment that finds no seat to turn on is kept and flagged for staff.',
+    'Worker: Stripe says a founding seat was paid for. The seat goes active on its workspace, with its plan and its credit (and, paid by the year, the card for next year); a refused renewal paid with another card moves the year on. A payment that finds no seat to turn on is kept and flagged for staff.',
   risk: 3,
   input: FoundingRecordCheckoutPaidInput,
   output: FoundingCheckoutRecordOutput,
   permission: null,
   scope: inWorkspace,
   actors: ['system'],
-  emits: ['founding.paid', 'founding.claimed', 'founding.payment_stranded'],
+  emits: ['founding.paid', 'founding.claimed', 'founding.renewed', 'founding.payment_stranded'],
   async handler(ctx, input) {
     const [done] = await rows<{
-      outcome: 'activated' | 'already' | 'no_seat';
+      outcome: 'activated' | 'renewed' | 'already' | 'no_seat';
       grant_id: string;
       offer_id: string;
       plan: 'founding_free' | 'founding_lifetime' | null;
     }>(
       ctx.tx,
       sql`select * from private.founding_checkout_paid(${input.checkoutId}::uuid, ${input.sessionRef},
-            ${input.paymentRef}, ${input.paidCents})`,
+            ${input.paymentRef}, ${input.paidCents}, ${input.customerRef}, ${input.cardRef})`,
     ).catch(asRefusal);
     if (!done) throw HfosError.internal();
     if (done.outcome === 'already')
@@ -807,7 +858,22 @@ export const foundingRecordCheckoutPaid = defineCommand({
         payload: { offerId: done.offer_id, workspaceId: input.workspaceId, plan: done.plan },
         after: { plan: done.plan },
       });
-    else
+    else if (done.outcome === 'renewed') {
+      const until = await paidThroughOf(ctx, input.workspaceId);
+      await ctx.emit({
+        type: 'founding.renewed',
+        entityType: 'founding_grant',
+        entityId: done.grant_id,
+        payload: {
+          offerId: done.offer_id,
+          paidCents: input.paidCents,
+          paymentRef: input.paymentRef,
+          paidThrough: until?.toISOString() ?? null,
+          withAnotherCard: true,
+        },
+        after: { paid: `${(input.paidCents / 100).toFixed(2)}`, until: until ? day(until) : '' },
+      });
+    } else
       // Paid, and no seat to turn on: somebody has to refund it or find one. Said as an event of its own so it
       // can be noticed rather than read out of a column.
       await ctx.emit({
@@ -841,6 +907,178 @@ export const foundingRecordCheckoutClosed = defineCommand({
       checkoutId: input.checkoutId,
       outcome: row?.closed ? ('closed' as const) : ('unchanged' as const),
     };
+  },
+});
+
+// ---------- the yearly renewal ----------
+
+/** "Oct 19, 2027": a renewal is a year away, so it needs its year. */
+const day = formatUtcDate;
+
+async function paidThroughOf(ctx: CommandContext, workspaceId: string): Promise<Date | null> {
+  const [plan] = await ctx.tx
+    .select({ until: workspacePlans.currentPeriodEnd })
+    .from(workspacePlans)
+    .where(eq(workspacePlans.workspaceId, workspaceId));
+  return plan?.until ?? null;
+}
+
+export const foundingSetRenewing = defineCommand({
+  name: 'founding.set_renewing',
+  description:
+    'Stop this business’s founding seat renewing each year, or start it again while the year is still paid for. Stopped, the seat stays until the year paid for is over, then goes back.',
+  risk: 3,
+  input: FoundingSetRenewingInput,
+  output: FoundingSetRenewingOutput,
+  // Whoever manages what the business pays us: the people on Settings → Usage & balance, where this is.
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['founding.renewal_stopped', 'founding.renewal_resumed'],
+  async handler(ctx, input) {
+    // In one function, because nobody in a business writes its plan: it checks money.manage for itself.
+    const [done] = await rows<{
+      paid_through: Date | string;
+      renewing: boolean;
+      changed: boolean;
+    }>(
+      ctx.tx,
+      sql`select * from private.founding_set_renewing(${input.workspaceId}::uuid, ${input.renewing})`,
+    ).catch(asRefusal);
+    if (!done) throw HfosError.internal();
+    const paidThrough = new Date(done.paid_through);
+    if (done.changed)
+      await ctx.emit({
+        type: done.renewing ? 'founding.renewal_resumed' : 'founding.renewal_stopped',
+        entityType: 'workspace_plan',
+        entityId: input.workspaceId,
+        payload: { workspaceId: input.workspaceId, paidThrough: paidThrough.toISOString() },
+        before: { renews: done.renewing ? 'no' : 'yes' },
+        after: { renews: done.renewing ? 'yes' : 'no', until: day(paidThrough) },
+      });
+    return {
+      workspaceId: input.workspaceId,
+      renewing: done.renewing,
+      paidThrough: paidThrough.toISOString(),
+    };
+  },
+});
+
+export const foundingPayRenewal = defineCommand({
+  name: 'founding.pay_renewal',
+  description:
+    'Pay the founding seat’s yearly renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.',
+  risk: 3,
+  input: FoundingPayRenewalInput,
+  output: FoundingStartCheckoutOutput,
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['founding.checkout_requested'],
+  async handler(ctx, input) {
+    const [started] = await rows<{
+      checkout_id: string;
+      status: 'pending' | 'open';
+      session_url: string | null;
+      created: boolean;
+    }>(
+      ctx.tx,
+      sql`select * from private.founding_open_renewal_checkout(${input.workspaceId}::uuid)`,
+    ).catch(asRefusal);
+    if (!started) throw HfosError.internal();
+    // The same page a first payment gets, made by the same job.
+    if (started.created)
+      await ctx.emit({
+        type: 'founding.checkout_requested',
+        entityType: 'founding_checkout',
+        entityId: started.checkout_id,
+        payload: { checkoutId: started.checkout_id, renewal: true },
+        after: { status: 'pending' },
+      });
+    return {
+      checkoutId: started.checkout_id,
+      status: started.status,
+      url: started.session_url,
+      created: started.created,
+    };
+  },
+});
+
+export const foundingRecordRenewal = defineCommand({
+  name: 'founding.record_renewal',
+  description:
+    'Worker: what the yearly charge for a founding seat did. Renewed moves the paid year on; a refused card is written down for the business to pay with another card, and nothing is charged again until it does. The seat stays on either way.',
+  risk: 3,
+  input: FoundingRecordRenewalInput,
+  output: FoundingRecordRenewalOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['founding.renewed', 'founding.renewal_failed'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    // Locked, so a retry arriving beside the first answer waits and then finds the year already moved.
+    const [plan] = await rows<{
+      grant_id: string | null;
+      current_period_end: Date | string | null;
+      renewal_failed_at: Date | string | null;
+      renewal_count: number;
+      price_cents: number;
+    }>(
+      ctx.tx,
+      sql`select grant_id, current_period_end, renewal_failed_at, renewal_count, price_cents
+          from app.workspace_plans where workspace_id = ${workspaceId}::uuid for update`,
+    );
+    if (!plan || plan.grant_id !== input.grantId || !plan.current_period_end)
+      return { grantId: input.grantId, outcome: 'unchanged' as const };
+    const paidThrough = new Date(plan.current_period_end);
+    // The year this answer is about has already moved on: a retry, or an answer arriving twice.
+    if (paidThrough.toISOString() !== new Date(input.forPaidThrough).toISOString())
+      return { grantId: input.grantId, outcome: 'already' as const };
+
+    if (input.outcome === 'renewed') {
+      // A year on in the database's own arithmetic, the same as a renewal paid on a page of its own.
+      const [moved] = await rows<{ current_period_end: Date | string }>(
+        ctx.tx,
+        sql`update app.workspace_plans
+               set current_period_end = current_period_end + interval '1 year',
+                   renewal_count = renewal_count + 1, renewal_problem = null, renewal_failed_at = null,
+                   status = 'active'
+             where workspace_id = ${workspaceId}::uuid
+            returning current_period_end`,
+      );
+      const next = new Date(moved!.current_period_end);
+      await ctx.emit({
+        type: 'founding.renewed',
+        entityType: 'founding_grant',
+        entityId: input.grantId,
+        payload: {
+          paidCents: input.paidCents,
+          paymentRef: input.paymentRef,
+          paidThrough: next.toISOString(),
+          withAnotherCard: false,
+        },
+        after: {
+          paid: `${((input.paidCents ?? plan.price_cents) / 100).toFixed(2)}`,
+          until: day(next),
+        },
+      });
+      return { grantId: input.grantId, outcome: 'recorded' as const };
+    }
+
+    if (plan.renewal_failed_at) return { grantId: input.grantId, outcome: 'already' as const };
+    const problem = input.problem ?? 'The card was declined.';
+    // Past due, not off: the seat stays on until staff decide, as the owner asked.
+    await ctx.tx
+      .update(workspacePlans)
+      .set({ renewalProblem: problem, renewalFailedAt: new Date(), status: 'past_due' })
+      .where(eq(workspacePlans.workspaceId, workspaceId));
+    await ctx.emit({
+      type: 'founding.renewal_failed',
+      entityType: 'founding_grant',
+      entityId: input.grantId,
+      payload: { problem, paidThrough: paidThrough.toISOString(), amountCents: plan.price_cents },
+      after: { renewal: 'refused', reason: problem.slice(0, 200) },
+    });
+    return { grantId: input.grantId, outcome: 'recorded' as const };
   },
 });
 
@@ -978,11 +1216,33 @@ export const foundingRestore = defineCommand({
       .where(eq(foundingGrants.id, grant.id))
       .catch(asRefusal);
 
-    if (grant.workspaceId)
+    if (grant.workspaceId) {
       await ctx.tx
         .update(workspacePlans)
-        .set({ status: 'active', graceEndsAt: null })
+        .set({ status: 'active', graceEndsAt: null, canceledAt: null })
         .where(eq(workspacePlans.workspaceId, grant.workspaceId));
+      // A yearly seat that went back because they stopped it renewing comes back as a gift: charging the card they
+      // asked us to stop charging is not ours to do, and a year that is over with renewing stopped would only be
+      // taken back again by the next sweep.
+      await ctx.tx
+        .update(workspacePlans)
+        .set({
+          priceCents: 0,
+          currentPeriodEnd: null,
+          stripeCardId: null,
+          renewalStoppedAt: null,
+          renewalStoppedBy: null,
+          renewalProblem: null,
+          renewalFailedAt: null,
+        })
+        .where(
+          and(
+            eq(workspacePlans.workspaceId, grant.workspaceId),
+            dsql`${workspacePlans.renewalStoppedAt} is not null`,
+            dsql`${workspacePlans.currentPeriodEnd} <= now()`,
+          ),
+        );
+    }
 
     await ctx.emit({
       type: 'founding.restored',
@@ -1082,6 +1342,9 @@ export const foundingCommands = [
   foundingRecordCheckoutOpened,
   foundingRecordCheckoutPaid,
   foundingRecordCheckoutClosed,
+  foundingSetRenewing,
+  foundingPayRenewal,
+  foundingRecordRenewal,
   foundingRevoke,
   foundingRestore,
   foundingSetCap,

@@ -274,6 +274,11 @@ export const BusinessRow = z.object({
   lastActiveAt: isoDateTime.nullable(),
   openTicketCount: z.int(),
   createdAt: isoDateTime,
+  /**
+   * The founding offer whose seat is on this workspace ("Founding Partner"), while it is. Null without one, and for
+   * staff who don't manage founding seats.
+   */
+  foundingSeat: z.string().nullable(),
 });
 export const BusinessListInput = z.object({
   search: z.string().trim().max(200).optional(),
