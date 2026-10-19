@@ -46,9 +46,11 @@ type VoiceEnv = Pick<
 
 /**
  * On a call every pause is heard, so Claude answers without thinking first, at low effort, and so does the backup.
- * A model that can't turn thinking off, or has no effort levels (Claude Haiku 4.5), answers as it always did.
+ * Without thinking every turn is a tool call (each ends with reply, end_call or hand_off anyway): Claude Haiku 5.5
+ * wrote some of its replies out as text instead. A model that can't turn thinking off answers as it always did, and
+ * one with no effort levels (Claude Haiku 4.5) gets none.
  */
-const CALL_THINKING = { thinkingOff: true, effort: 'low' } as const;
+const CALL_THINKING = { thinkingOff: true, toolEachTurn: true, effort: 'low' } as const;
 
 const voiceBackup = (env: VoiceEnv) => ({
   model: env.openAiVoiceModel,

@@ -575,6 +575,7 @@ describe('AnthropicProvider', () => {
         maxRetries: 0,
         effort: 'low',
         thinkingOff: true,
+        toolEachTurn: true,
       });
       await provider.warm(REQUEST);
       await provider.stream(REQUEST);
@@ -588,6 +589,9 @@ describe('AnthropicProvider', () => {
     expect(haiku.turn['output_config']).toEqual({ effort: 'low' });
     expect(haiku.warm['thinking']).toEqual({ type: 'disabled' });
     expect(haiku.turn['thinking']).toEqual({ type: 'disabled' });
+    // Without thinking it calls a tool every turn, rather than writing one out as text; the warm-up refuses that.
+    expect(haiku.turn['tool_choice']).toEqual({ type: 'any' });
+    expect(haiku.warm).not.toHaveProperty('tool_choice');
 
     // Claude Haiku 4.5 refuses an effort level, so none is sent.
     const older = await bodiesFor('claude-haiku-4-5');
@@ -603,6 +607,7 @@ describe('AnthropicProvider', () => {
     expect(sonnet.provider.thinkingOff).toBe(false);
     expect(sonnet.warm).not.toHaveProperty('thinking');
     expect(sonnet.turn).not.toHaveProperty('thinking');
+    expect(sonnet.turn).not.toHaveProperty('tool_choice');
     expect(turnsThinkingOff('claude-opus-5-5')).toBe(false);
     expect(turnsThinkingOff('claude-opus-5')).toBe(true);
     expect(turnsThinkingOff('claude-haiku-4-5-20251001')).toBe(true);
