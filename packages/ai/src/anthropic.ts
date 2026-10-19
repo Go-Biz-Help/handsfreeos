@@ -36,6 +36,12 @@ export interface AnthropicOptions {
    * `turnsThinkingOff`. Others think as they always do.
    */
   readonly thinkingOff?: boolean;
+  /**
+   * Every turn calls a tool (`tool_choice: {type: 'any'}`), when thinking is off: without thinking, a model can
+   * write a tool call out as text instead of making it. Only with thinking off, since most models refuse a forced
+   * tool alongside thinking; never in a warm-up, which refuses it too.
+   */
+  readonly toolEachTurn?: boolean;
 }
 
 export type AnthropicEffort = NonNullable<Anthropic.OutputConfig['effort']>;
@@ -99,6 +105,7 @@ export const searchesTools = (model: string): boolean =>
   TOOL_SEARCH_MODELS.some((m) => model === m || model.startsWith(`${m}-`));
 
 const THINKING_OFF = { type: 'disabled' } as const satisfies Anthropic.ThinkingConfigDisabled;
+const ANY_TOOL = { type: 'any' } as const satisfies Anthropic.ToolChoiceAny;
 
 /** BM25: the model searches in plain words, which is how the tools here are described. */
 const TOOL_SEARCH = {
@@ -117,6 +124,7 @@ export class AnthropicProvider implements AiProvider {
   readonly toolSearch: boolean;
   readonly effort: AnthropicEffort | null;
   readonly thinkingOff: boolean;
+  readonly toolEachTurn: boolean;
   private readonly client: Anthropic;
 
   constructor(options: AnthropicOptions) {
@@ -124,6 +132,7 @@ export class AnthropicProvider implements AiProvider {
     this.toolSearch = options.toolSearch === true && searchesTools(options.model);
     this.effort = options.effort && takesEffort(options.model) ? options.effort : null;
     this.thinkingOff = options.thinkingOff === true && turnsThinkingOff(options.model);
+    this.toolEachTurn = options.toolEachTurn === true && this.thinkingOff;
     this.client = new Anthropic({
       apiKey: options.apiKey,
       maxRetries: options.maxRetries ?? 2,
@@ -142,6 +151,7 @@ export class AnthropicProvider implements AiProvider {
           system: systemOf(request),
           messages: messagesOf(request.messages),
           ...(tools.length ? { tools } : {}),
+          ...(tools.length && this.toolEachTurn ? { tool_choice: ANY_TOOL } : {}),
           ...(this.thinkingOff ? { thinking: THINKING_OFF } : {}),
           ...outputConfigOf(request, this.effort),
         },
