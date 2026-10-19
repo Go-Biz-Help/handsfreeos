@@ -1,5 +1,5 @@
 /**
- * The $497 founding seat, paid by the year (20261027009400).
+ * The $497 founding seat, paid by the year (20261027009500).
  *
  * A yearly seat is still a seat: the cap and the chain treat it as one. Its first payment keeps the card and starts
  * the year; the worker's sweep finds whose year is up; a refused renewal is paid on a founding checkout of its own,

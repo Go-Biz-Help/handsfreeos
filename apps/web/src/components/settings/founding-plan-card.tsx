@@ -8,7 +8,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 /**
- * A founding seat paid by the year (20261027009400), on Settings → Usage & balance: when it renews and for how much,
+ * A founding seat paid by the year (20261027009500), on Settings → Usage & balance: when it renews and for how much,
  * stopping it renewing (or starting it again while the year is paid for), and paying a refused renewal with another
  * card. That payment is a founding checkout like the first one, so it goes through the same page that waits for
  * Stripe and sends them there.

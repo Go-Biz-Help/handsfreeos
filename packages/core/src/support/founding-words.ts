@@ -9,7 +9,7 @@
  * **A free seat is on the moment staff say so,** by approving an application or by giving one to any business, and
  * it stays on until somebody revokes it. Only a paid seat is held behind a link, because it waits on a payment.
  *
- * **The $497 seat is paid by the year** (20261027009400): renewed on its own, charged to the card it was paid with.
+ * **The $497 seat is paid by the year** (20261027009500): renewed on its own, charged to the card it was paid with.
  * A refused card is not tried again; the business pays that year with another card, and the seat stays on until
  * staff decide. A seat staff give is a gift and is never charged.
  */

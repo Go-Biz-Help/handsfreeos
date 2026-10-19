@@ -9605,8 +9605,10 @@ the $497 seats open the moment the last free one goes — and the website follow
 in **Admin** → **Founding**.
 
 Founding needs the migrations `20261003000100_a_seat_at_the_founding_table.sql`,
-`20261003000200_one_offer_opens_the_next.sql`, `20261003000500_paying_for_a_seat.sql` and
-`20261027009400_a_founding_seat_by_the_year.sql`. See "Apply new migrations".
+`20261003000200_one_offer_opens_the_next.sql`, `20261003000500_paying_for_a_seat.sql`,
+`20261027009500_a_founding_seat_by_the_year.sql` and `20261027009600_the_497_seat_goes_yearly.sql`. See "Apply
+new migrations". The last one switches the $497 offer to yearly: apply it only after the code that knows "yearly"
+is deployed, or the API refuses to show the founding page.
 
 ### Approving somebody
 

@@ -6973,7 +6973,7 @@ export const foundingOffers = platform.table('founding_offers', {
   sort: integer('sort').notNull().default(0),
   blurb: text('blurb').notNull().default(''),
   /**
-   * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year (20261027009400).
+   * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year (20261027009500).
    * `monthly` is the plan: no seats, no applications (0092).
    */
   billing: text('billing').$type<'once' | 'yearly' | 'monthly'>().notNull().default('once'),

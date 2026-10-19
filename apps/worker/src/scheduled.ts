@@ -790,7 +790,7 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       workspaceId: null,
       organizationId: null,
     });
-    // The $497 founding seat (20261027009400), hourly: a paid year that is up is renewed, charged to the card its
+    // The $497 founding seat (20261027009500), hourly: a paid year that is up is renewed, charged to the card its
     // first payment kept, and a seat somebody stopped renewing goes back once its year is over.
     await scheduleJob(tx, {
       kind: FOUNDING_JOBS.renewals,

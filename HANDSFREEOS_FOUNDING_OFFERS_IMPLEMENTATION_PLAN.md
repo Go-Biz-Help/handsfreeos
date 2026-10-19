@@ -14,7 +14,7 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 > Building it changed three things in this plan; §3, §5 and §6 below say what and why.
 >
 > **Since then:** the $497 checkout is built (`20261003000500`), and the $497 seat is paid **by the year**, renewed
-> on its own (§1.2, `20261027009400`). Any business on **Admin → Businesses** can be given a seat from its own page.
+> on its own (§1.2, `20261027009500`). Any business on **Admin → Businesses** can be given a seat from its own page.
 
 ---
 
@@ -528,5 +528,5 @@ Each step is committable and leaves the tree green.
 5. ✅ The worker's two signed-out routes.
 6. ✅ `/admin/founding`.
 7. ✅ The website: one $97 plan, live counters, `/founding`, rewritten FAQs.
-8. ✅ The $497 checkout (`20261003000500`), and since 2026-10-19 its yearly renewal (`20261027009400`, §1.2).
+8. ✅ The $497 checkout (`20261003000500`), and since 2026-10-19 its yearly renewal (`20261027009500`, §1.2; `20261027009600` switches the offer).
 9. ⬜ The six emails (§11.4), and the nightly sweeps that expire a reservation and end a grace.

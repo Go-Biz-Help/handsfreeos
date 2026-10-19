@@ -35,7 +35,9 @@
 --
 --        Old workers keep working until they are replaced: the four-argument
 --        `private.founding_checkout_paid` still answers, by asking the new one
---        with no card. It goes in a later migration.
+--        with no card. It goes in a later migration. Nothing here changes an
+--        offer yet: `20261027009600_the_497_seat_goes_yearly.sql` does, after
+--        the code that reads `yearly` has shipped.
 -- =============================================================================
 
 -- ---------- how a seat is paid ----------
@@ -44,13 +46,12 @@ alter table platform.founding_offers
   add constraint founding_offers_billing_check check (billing in ('once', 'yearly', 'monthly'));
 
 comment on column platform.founding_offers.billing is
-  '`once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year (20261027009400). `monthly` is '
+  '`once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year (20261027009500). `monthly` is '
   'the plan: no seats, no applications (0092).';
 
-update platform.founding_offers
-   set billing = 'yearly',
-       blurb = '$497 a year, for one business, at a price that stays a founding price. Texts, calls and AI are billed for what you use.'
- where id = 'founding_lifetime';
+-- The $497 offer itself moves to `yearly` in 20261027009600, once the code that knows the word is running: the
+-- API checks every answer against its own list of billings, and one it has never heard of would refuse to show
+-- the founding page at all.
 
 -- ---------- the paid year, on the plan ----------
 alter table app.workspace_plans
@@ -65,7 +66,7 @@ alter table app.workspace_plans
   add column renewal_failed_at timestamptz;
 
 comment on column app.workspace_plans.current_period_end is
-  'The end of the year paid for, on a yearly founding seat (20261027009400). The renewal is charged then and moves it on a '
+  'The end of the year paid for, on a yearly founding seat (20261027009500). The renewal is charged then and moves it on a '
   'year. Null on a plan nobody is billed for.';
 
 -- What the renewal sweep reads.

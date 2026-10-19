@@ -36,7 +36,7 @@ export const offerStatus = z.enum(['draft', 'open', 'closed']);
 export const checkoutStatus = z.enum(['pending', 'open', 'paid', 'expired', 'failed']);
 /**
  * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year, renewed on its own
- * (20261027009400). `monthly` is the plan: no seats, no applications (0092).
+ * (20261027009500). `monthly` is the plan: no seats, no applications (0092).
  */
 export const offerBilling = z.enum(['once', 'yearly', 'monthly']);
 export const planKind = z.enum(['founding_free', 'founding_lifetime', 'monthly']);

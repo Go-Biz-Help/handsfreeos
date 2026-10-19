@@ -644,7 +644,7 @@ export function rcsRenewalFailedEmail(input: {
   return { subject, text, html };
 }
 
-/** A yearly founding seat renewed (20261027009400): another year at the founding price. */
+/** A yearly founding seat renewed (20261027009500): another year at the founding price. */
 export function foundingRenewedEmail(input: {
   business: string;
   offer: string;
@@ -663,7 +663,7 @@ export function foundingRenewedEmail(input: {
   return { subject, text, html };
 }
 
-/** The card refused a yearly founding seat's renewal (20261027009400): pay it with another card; the seat stays on. */
+/** The card refused a yearly founding seat's renewal (20261027009500): pay it with another card; the seat stays on. */
 export function foundingRenewalFailedEmail(input: {
   business: string;
   offer: string;

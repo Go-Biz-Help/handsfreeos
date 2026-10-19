@@ -288,7 +288,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'founding.checkout_requested': onFoundingCheckoutRequested,
     // …and paid for: the website's analytics hears of it from a job, when it has a key (founding/checkout.ts).
     'founding.paid': onFoundingPaid,
-    // A yearly seat renewed, or the card refused it (20261027009400): the owners and admins are emailed.
+    // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
     'founding.renewed': onFoundingBilled,
     'founding.renewal_failed': onFoundingBilled,
     // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).

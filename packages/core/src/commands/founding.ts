@@ -27,7 +27,7 @@
  * with a date. Until that date nothing about their account changes. Those are two facts and they are written
  * as two.
  *
- * **The $497 seat is paid by the year** (20261027009400). The first year is paid at Checkout, which keeps the card;
+ * **The $497 seat is paid by the year** (20261027009500). The first year is paid at Checkout, which keeps the card;
  * the worker charges it when the year is up (`founding.record_renewal`). A refused card is not tried again: the
  * business pays that year with another card (`founding.pay_renewal`), and the seat stays on meanwhile. A business
  * may stop it renewing (`founding.set_renewing`), and the seat goes back when the year it paid for is over.
@@ -168,7 +168,7 @@ function asRefusal(err: unknown): never {
     );
   if (detail === 'founding_checkout_missing')
     throw HfosError.notFound('There is no checkout by that id.');
-  // The yearly seat (20261027009400): a business stopping it renewing, or paying a refused renewal.
+  // The yearly seat (20261027009500): a business stopping it renewing, or paying a refused renewal.
   if (detail === 'founding_renewal_not_yours')
     throw HfosError.rule(
       'founding_renewal_not_yours',

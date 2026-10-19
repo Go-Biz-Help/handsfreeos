@@ -16,7 +16,7 @@
  * a secret of their own, because the Connect endpoint routes by the business an event happened in and ours
  * happen in nobody's.
  *
- * **The $497 seat is paid by the year** (20261027009400), the way RCS is (telephony/rcs-billing.ts). The page keeps
+ * **The $497 seat is paid by the year** (20261027009500), the way RCS is (telephony/rcs-billing.ts). The page keeps
  * the card; an hourly sweep finds whose year is up (`private.founding_renewals_due`) and queues one job each, which
  * charges it and records what the card said (`founding.record_renewal`). A refused card is not tried again: the
  * business is told, and pays that year on a founding checkout of its own with another card. The seat stays on

@@ -32,7 +32,7 @@ export default async function UsageSettingsPage({
     api.POST('/v1/queries/usage.statement', { body: { workspaceId, limit: 50 } }).then(unwrapPage),
     api.POST('/v1/queries/founding.mine', body).then(unwrapPage),
   ]);
-  // A founding seat paid by the year (20261027009400) is what the business pays us too, so it sits here.
+  // A founding seat paid by the year (20261027009500) is what the business pays us too, so it sits here.
   const paidThrough = plan.paidThrough;
   return (
     <>
