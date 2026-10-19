@@ -6,7 +6,7 @@ reaching out to our target audience we can take advantage of another user's audi
 
 **Where it stands (19 Oct 2026):** Chris answered every question below on 18 Oct 2026 and said to build it. Stages 1
 to 3 are built: finding and asking partners, partners in core with their page, and payouts (see "Build order").
-Stage 4, finding partners by search, is being built.
+Stage 4, finding partners by search, is built too.
 
 Social Outreach today finds the people who might buy (docs/outreach.md). This adds a second kind of person to find:
 someone who already has your customers' attention, asked to send them your way for a share of what they pay.
@@ -464,10 +464,11 @@ screen at a time.
 
 **Build order:**
 
-1. **4a:** the tables, the words, the commands and the partner check's fact, in core and the worker.
-2. **4b:** the searches in the extension's Find partners, on LinkedIn and Facebook.
-3. **4c:** the builder's label on partner playbooks (web and phone), docs/outreach.md, the extension's README and
-   docs/operations.md.
+1. **4a (built):** the tables, the words, the commands and the partner check's fact, in core and the worker.
+2. **4b (built):** the searches in the extension's Find partners, on LinkedIn and Facebook (0.65.0).
+3. **4c (built):** the builder's label on partner playbooks (web and phone, `playbookSectionTitle`),
+   docs/outreach.md (decision 81) and the extension's README. Nothing changes in hosting, so docs/operations.md has
+   nothing new.
 
 ## Build order
 
@@ -487,5 +488,5 @@ screen at a time.
    partner steps.
 4. **Stage 2:** partners, referrals and commissions in core, and the partner's page.
 5. **Stage 3:** payouts, after the open questions.
-6. **Stage 4:** finding partners by search on LinkedIn and Facebook.
+6. **Stage 4 (built):** finding partners by search on LinkedIn and Facebook.
 7. **Chris tries each,** in Stripe's test mode first for payouts.

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.64.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.65.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -465,7 +465,12 @@ groups (the ones with fewest saved first), read to the end, then a few screens o
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
 my chats, up to 60 a day; Check my friends, the day's 40; Find partners (0.64.0, decision 81), up to 15 people who
 could partner with you, read as the checks read friends with how many follow them, for the AI's partner check
-(`src/jobs/partners.ts`), while your business has a playbook whose goal is Find partners; and, last, it asks for
+(`src/jobs/partners.ts`), while your business has a playbook whose goal is Find partners. Before it reads anyone,
+Find partners does today's searches for partners (0.65.0, stage 4 of the partners plan, `src/jobs/partner-search.ts`):
+up to two a day, with the partner playbooks' words, each the same way once a week at most: Facebook's post search,
+whose writers may be creators your customers follow, and its people search, who may run businesses with the same
+customers, three screens of each. It sends everyone each showed, with the lines under their names, to HandsFreeOS,
+which keeps the ones not found already to read next. And, last, it asks for
 today's helpful post and reads who commented on and reacted to yours up in the last fortnight (`helpfulDaily` in
 `src/jobs/helpful.ts`): each a warm lead on your list. Its line says what each found. They only read and save, as the
 same asks from HandsFreeOS do, but for asking to join.
@@ -512,7 +517,10 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   connections weekly.
 - **Once a day,** with **Once a day** on for LinkedIn: your invitations, your connections checked (40 profiles a day:
   each look is seen), your chats read for the AI (60 a day), posts found with LinkedIn's post search, with your
-  playbooks' words (`outreach.posts.words`), and, last, today's helpful post for your feed asked for
+  playbooks' words (`outreach.posts.words`), Find partners (0.64.0), which first does today's searches for partners
+  (0.65.0, `src/jobs/linkedin/partner-search.ts`): post search, the latest first, keeping whoever wrote the posts
+  (never a company's page) with the headline under their name, and people search, two pages of it by its address, as
+  LinkedIn limits a free account's people searches; and, last, today's helpful post for your feed asked for
   (`outreach.helpful.ask` with `platform: 'linkedin'`) and who commented on or reacted to those up in the last
   fortnight read (each a warm lead on LinkedIn's Today, `outreach.helpful.engaged`).
 - **Today's helpful post,** when your LinkedIn posting choice is **On its own**: put up on your own feed once the AI

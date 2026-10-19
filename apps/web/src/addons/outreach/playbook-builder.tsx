@@ -19,6 +19,7 @@ import {
   ANSWER_NEXTS,
   answerNextLabel,
   blankPlaybook,
+  forPartners,
   nextQuestionId,
   followUpGapsFor,
   PACE_LIMITS,
@@ -48,7 +49,7 @@ import {
   type VideoPart,
   type VideoScript,
 } from '@hfos/core/addons/outreach/video';
-import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { OUTREACH_WORDS as W, playbookSectionTitle } from '@hfos/core/addons/outreach/words';
 import {
   ArrowDown,
   ArrowLeft,
@@ -1004,8 +1005,12 @@ export function PlaybookBuilder({
           <ListField
             id="pb-groups"
             {...typed('groupWords')}
-            label={W.playbookSections.groupWords}
-            hint="Like “small business owners”, or your town’s name with what they do."
+            label={playbookSectionTitle('groupWords', draft)}
+            hint={
+              forPartners(draft)
+                ? W.partnerGroupWordsHint
+                : 'Like “small business owners”, or your town’s name with what they do.'
+            }
             items={draft.groupWords}
             onChange={(v) => set('groupWords', v)}
             limits={PLAYBOOK_LIMITS.groupWords}

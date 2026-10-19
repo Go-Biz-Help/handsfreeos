@@ -1442,14 +1442,19 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     the commission. Social Outreach finds and asks; partners, commissions and payouts are core's, as money is: **Make
     partner** on the Partners list takes Manage partners (`partners.manage`), since it promises the business's money,
     and makes the contact a partner in core too (`partner.add`), with a link of their own. Group admins and moderators are still never approached
-    as customers; this is the one way they're approached, as Chris asked.
+    as customers; this is the one way they're approached, as Chris asked. **Searches** (the plan's stage 4, Chris, 19
+    Oct 2026): Find partners also searches each network with the partner playbooks' own words, their signs' quoted
+    words and their words to search for groups. Post search finds creators, whoever wrote the posts, and people search
+    finds businesses with the same customers. Two searches a day on a network, the same words for the same kind once
+    a week, none while three days of reads wait. Who they find is kept to read for the partner check
+    (`partner_leads`, `outreach.partner.leads`), nobody added to Contacts, and let go once the AI has answered.
 
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
   extension notes (decision 8); while it works on its own (decision 26), the runner's own steps from Today's list and
   its once-a-day jobs, which save the friend requests the person got, their best groups' admins and members, posts
-  worth a look and their chats (decision 32, `src/auto/daily.ts`); and what two switches send as the person goes, in the Facebook tab in front of them,
+  worth a look, their chats (decision 32, `src/auto/daily.ts`) and who a search for partners found (decision 81); and what two switches send as the person goes, in the Facebook tab in front of them,
   panel open or not, each on by default and turned off in their settings in HandsFreeOS (decision 37): the chats they
   open in Messenger (**Read chats as I open them**), and the posts worth a look in a group's feed (**Look for posts
   as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way.

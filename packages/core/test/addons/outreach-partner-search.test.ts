@@ -16,6 +16,7 @@ import {
   partnerSearchWords,
 } from '../../src/addons/outreach/partners';
 import { blankPlaybook, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { playbookSectionTitle } from '../../src/addons/outreach/words';
 import { outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -47,6 +48,14 @@ describe('the words a partner search uses', () => {
       'Roofers',
     ]);
     expect(partnerSearchWords([{ details: partnerPlaybook }], 'instagram')).toEqual([]);
+  });
+
+  it('are what a partner playbook calls its words for groups', () => {
+    expect(playbookSectionTitle('groupWords', partnerPlaybook)).toBe(
+      'Words to search for groups and partners',
+    );
+    expect(playbookSectionTitle('groupWords', blankPlaybook())).toBe('Words to search for groups');
+    expect(playbookSectionTitle('signs', partnerPlaybook)).toBe('Signs they fit');
   });
 
   it('tells the AI how someone was found', () => {
