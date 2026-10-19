@@ -12,6 +12,7 @@ import {
   onPartnerDispute,
   onPartnerPayment,
   onPartnerRefund,
+  onPartnerRefundFailed,
 } from '../partners/handlers';
 import {
   onPartnerPayoutCardSaved,
@@ -308,6 +309,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment.updated': onInvoiceChanged,
     'payment.failed': [onPaymentFailed, onInvoiceChanged],
     'refund.recorded': [onInvoiceChanged, onPartnerRefund],
+    // A refund the client's bank turned down after it went through counts as the business's money again, and the
+    // partner's share it took back is theirs again.
+    'refund.failed': [onInvoiceChanged, onPartnerRefundFailed],
     // A dispute the business lost takes back what a partner earned on the payment (partners/handlers.ts).
     'dispute.closed': onPartnerDispute,
     // Paying partners (partners/payouts.ts): a new card is tried at once; the owners hear when the card is

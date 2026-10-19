@@ -11,7 +11,8 @@
  * when a declined card is tried again. **A decline is an answer, not an exception**, as the wallet's top-ups have
  * it: only a Stripe that didn't answer throws, and the job's own retries try the same key again.
  * `partner_payouts.pay` then sends each partner their part by a transfer tied to the charge, once per line and
- * account by its key; one Stripe won't take for them yet is held, and sent once their account can take it.
+ * account by its key; one Stripe won't take for them yet is held, and sent once their account can take it. A line
+ * for a partner deleted for good that Stripe won't take is given back to the business's card instead (stage 5).
  *
  * Nothing is charged for a business staff haven't opened payouts for: the build refuses, and a payout whose
  * business was closed since, or whose card was taken off, stops at its next try.
@@ -19,8 +20,10 @@
 import {
   executeCommand,
   formatUtcDate,
+  givenBackCents,
   money,
   partnerPayoutBuild,
+  partnerPayoutGiveBack,
   partnerPayoutRecordAccount,
   partnerPayoutRecordCharge,
   partnerPayoutRecordTransfer,
@@ -237,8 +240,12 @@ export const chargePartnerPayout: JobHandler = async (ctx) => {
 
 type LineRow = {
   id: string;
+  /** Null once the partner was deleted for good. */
+  partner_id: string | null;
   account_ref: string;
   amount_cents: string | number;
+  account_fee_cents: string | number;
+  payout_fee_cents: string | number;
   status: string;
   /** Their account as it is now, which a held line is sent to. Null once the partner was deleted for good. */
   current_ref: string | null;
@@ -268,7 +275,8 @@ export const payPartnerPayout: JobHandler = async (ctx) => {
   const lines = await asWorker(ctx.db, scope, (tx) =>
     rows<LineRow>(
       tx,
-      sql`select l.id, l.account_ref, l.amount_cents, l.status, a.account_ref as current_ref,
+      sql`select l.id, l.partner_id, l.account_ref, l.amount_cents, l.account_fee_cents, l.payout_fee_cents,
+            l.status, a.account_ref as current_ref,
             a.payouts_enabled and a.transfers_active as ready
           from app.partner_payout_lines l
           left join app.partner_payout_accounts a on a.partner_id = l.partner_id
@@ -285,7 +293,51 @@ export const payPartnerPayout: JobHandler = async (ctx) => {
       systemActor(scope),
       workerMeta(),
     );
+  // A partner deleted for good can't get back to their page to fix their account: a line Stripe won't take for them
+  // is given back to the business's card instead of held (stage 5), the line and its two fees, from the charge.
+  const giveBack = async (l: LineRow) => {
+    const amountCents = givenBackCents({
+      amountCents: Number(l.amount_cents),
+      accountFeeCents: Number(l.account_fee_cents),
+      payoutFeeCents: Number(l.payout_fee_cents),
+    });
+    try {
+      const back = await platform.payouts.giveBack({
+        chargeRef: p.charge_ref!,
+        amountCents,
+        metadata: {
+          workspace_id: scope.workspaceId,
+          partner_payout_id: payoutId,
+          partner_payout_line_id: l.id,
+        },
+        idempotencyKey: `partner-payout-giveback:${l.id}`,
+      });
+      await executeCommand(
+        ctx.db,
+        partnerPayoutGiveBack,
+        { workspaceId: scope.workspaceId, lineId: l.id, refundRef: back.refundRef, amountCents },
+        systemActor(scope),
+        workerMeta(),
+      );
+    } catch (e) {
+      if (e instanceof PaymentError && e.permanent) {
+        // Nothing a retry fixes: staff look at the charge in Stripe. The line stays held, and the plan tries again.
+        ctx.log.error(
+          { payoutId, lineId: l.id, code: e.code, err: e.message },
+          'a deleted partner’s payout line couldn’t be given back: Stripe refused the refund',
+        );
+        if (l.status === 'pending')
+          await record({ lineId: l.id, outcome: 'held', heldReason: PAYOUT_WORDS.heldReason });
+        return;
+      }
+      throw e;
+    }
+  };
   for (const l of lines) {
+    if (l.partner_id === null && l.status === 'held') {
+      await giveBack(l);
+      continue;
+    }
     const accountRef = l.current_ref ?? l.account_ref;
     // Their account can't take it yet: held, and sent once Stripe says it can (the plan arms this job again).
     if (l.current_ref && !l.ready) {
@@ -315,6 +367,11 @@ export const payPartnerPayout: JobHandler = async (ctx) => {
       });
     } catch (e) {
       if (e instanceof PaymentError && e.permanent) {
+        // Sent if their account could take it, as they earned it; given back if not.
+        if (l.partner_id === null) {
+          await giveBack(l);
+          continue;
+        }
         // Stripe wouldn't take it for them: in plain words on the statement, and Stripe's own in the log.
         ctx.log.warn(
           { payoutId, lineId: l.id, code: e.code, err: e.message },

@@ -337,6 +337,26 @@ describe('paying partners', () => {
     });
   });
 
+  it('gives a deleted partner’s line back from the month’s charge, once by its key', async () => {
+    const { provider, calls } = stripeWatching({ id: 're_back' });
+    const back = await provider.platform.payouts.giveBack({
+      chargeRef: 'ch_month',
+      amountCents: 10_250,
+      metadata: { partner_payout_line_id: 'l1' },
+      idempotencyKey: 'partner-payout-giveback:l1',
+    });
+    expect(back).toEqual({ refundRef: 're_back' });
+    const call = calls[0]!;
+    expect(call.url).toBe('https://api.stripe.com/v1/refunds');
+    expect(call.headers['stripe-account']).toBeUndefined();
+    expect(call.headers['idempotency-key']).toBeTruthy();
+    expect(Object.fromEntries(call.body)).toMatchObject({
+      charge: 'ch_month',
+      amount: '10250',
+      'metadata[partner_payout_line_id]': 'l1',
+    });
+  });
+
   it('keeps the charge behind our own charge, for the transfers to come from', async () => {
     const { provider } = stripeWatching({
       id: 'pi_month',

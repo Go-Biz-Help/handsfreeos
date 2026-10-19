@@ -750,6 +750,50 @@ describe('a payment’s status only moves forward', () => {
     expect(inv!.status).toBe('paid');
   });
 
+  it('a refund moves forward, and back from succeeded to failed when the bank turns it down', async () => {
+    const id = await invoice(A, a, {}, 45000);
+    await send(A, 'invoices', id, `INV-${uniq()}`);
+    const [pay] = await worker(A)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.payments (workspace_id, invoice_id, amount_cents, method, provider, status,
+              provider_payment_id, idempotency_key, received_at)
+            values (${A.ws}, ${id}, 45000, 'card', 'stripe', 'succeeded', ${`pi_${uniq()}`}, ${`key-${uniq()}`},
+              now())
+            returning id`,
+      ),
+    );
+    const [refund] = await worker(A)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.refunds (workspace_id, payment_id, invoice_id, amount_cents, status, refunded_at)
+            values (${A.ws}, ${pay!.id}, ${id}, 45000, 'succeeded', now()) returning id`,
+      ),
+    );
+    const now = async () =>
+      (
+        await as(owner)((tx) =>
+          rows<{ refund: string; refunded: string }>(
+            tx,
+            sql`select r.status as refund, i.amount_refunded_cents as refunded
+                from app.refunds r join app.invoices i on i.id = r.invoice_id where r.id = ${refund!.id}`,
+          ),
+        )
+      )[0];
+    expect(await now()).toEqual({ refund: 'succeeded', refunded: '45000' });
+    // A late "pending" is kept quietly.
+    await worker(A)((tx) =>
+      tx.execute(sql`update app.refunds set status = 'pending' where id = ${refund!.id}`),
+    );
+    expect((await now())!.refund).toBe('succeeded');
+    await worker(A)((tx) =>
+      tx.execute(
+        sql`update app.refunds set status = 'failed', refunded_at = null where id = ${refund!.id}`,
+      ),
+    );
+    expect(await now()).toEqual({ refund: 'failed', refunded: '0' });
+  });
+
   it('one idempotency key charges once', async () => {
     const id = await invoice(A, a, {}, 45000);
     const key = `key-${uniq()}`;

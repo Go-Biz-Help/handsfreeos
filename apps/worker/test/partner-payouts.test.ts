@@ -9,6 +9,7 @@
  * - Each month the card is charged on our own account for what's owed and Stripe's fees, and each partner is paid by
  *   a transfer tied to that charge; they hear they were paid.
  * - A declined card is tried again later, and the owners hear.
+ * - A line held for a partner deleted for good is given back to the business's card (stage 5).
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -355,5 +356,63 @@ describe('paying partners', () => {
     expect((await addCard({ sessionRef: nextSession })).statusCode).toBe(200);
     await drain(w);
     expect((await payoutsHere()).at(-1)).toMatchObject({ status: 'paid', attempts: 2 });
+  });
+
+  it('gives a line held for a partner deleted for good back to the business’s card', async () => {
+    const dee = await partnerOwed('Dee', 100_000);
+    // Stripe said their account was ready, then won't take the transfer.
+    await rows(
+      admin(),
+      sql`insert into app.partner_payout_accounts (workspace_id, partner_id, account_ref, livemode,
+            details_submitted, payouts_enabled, transfers_active)
+          values (${w.workspaceId}, ${dee.partnerId}, 'acct_fake_gone', true, true, true, true)`,
+    );
+    await asBusiness(
+      sql`update app.partner_payout_billing set last_month = last_month - interval '1 month'
+          where workspace_id = ${w.workspaceId}`,
+    );
+    await rows(
+      admin(),
+      sql`update app.partner_payouts set month = month - interval '12 months' where workspace_id = ${w.workspaceId}`,
+    );
+    await plan();
+    await drain(w);
+    const payout = (await payoutsHere()).at(-1)!;
+    expect(payout.status).toBe('paying');
+    const lineOf = async () =>
+      (
+        await rows<{
+          id: string;
+          status: string;
+          given_back_cents: number | null;
+          refund_ref: string | null;
+        }>(
+          admin(),
+          sql`select id, status, given_back_cents::int as given_back_cents, refund_ref
+              from app.partner_payout_lines where payout_id = ${payout.id}`,
+        )
+      )[0]!;
+    expect(await lineOf()).toMatchObject({ status: 'held', given_back_cents: null });
+
+    // Kept while they're kept; once they're deleted for good, given back: the line and its two fees.
+    await rows(admin(), sql`delete from app.partners where id = ${dee.partnerId}`);
+    await plan();
+    await drain(w);
+    const back = fake()
+      .givenBack()
+      .filter((g) => g.metadata['partner_payout_id'] === payout.id);
+    expect(back).toEqual([
+      expect.objectContaining({ amountCents: 10_000 + 200 + 50, chargeRef: expect.any(String) }),
+    ]);
+    expect(await lineOf()).toMatchObject({
+      status: 'cancelled',
+      given_back_cents: 10_250,
+      refund_ref: back[0]!.id,
+    });
+    expect((await payoutsHere()).at(-1)).toMatchObject({ status: 'paid' });
+    // Once.
+    await plan();
+    await drain(w);
+    expect(fake().givenBack()).toHaveLength(1);
   });
 });

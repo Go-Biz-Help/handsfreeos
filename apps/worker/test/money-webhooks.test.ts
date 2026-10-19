@@ -670,6 +670,18 @@ describe('a refund made in the provider’s own dashboard (the partners plan, de
     await drain(w);
     expect(await refundByProviderId(made.id)).toHaveLength(1);
     expect(await commissionsFor(partnerId)).toHaveLength(2);
+
+    // Days later the client's bank turns it down: the money is the business's again, and the share the partner's.
+    await w.s.payments.fake.settleRefund(made.id, 'failed');
+    await drain(w);
+    expect(await refundByProviderId(made.id)).toMatchObject([{ status: 'failed' }]);
+    expect((await invoiceRow(inv.id)).amount_refunded_cents).toBe(0);
+    expect(await commissionsFor(partnerId)).toEqual([
+      share,
+      -commissionCents(half, 1_000),
+      commissionCents(half, 1_000),
+    ]);
+    expect((await partnerCommissions(partnerId)).map((c) => c.kind)).toContain('given_back');
   });
 
   it('is kept from Square’s while it waits, and counted once it goes through', async () => {

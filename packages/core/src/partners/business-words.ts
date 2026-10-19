@@ -9,6 +9,15 @@ import type { PartnerEarnings, PartnerStatus } from '../schemas/partners';
 
 const clients = (n: number) => (n === 1 ? '1 client' : `${n} clients`);
 
+type CommissionKind = 'earned' | 'taken_back' | 'given_back';
+
+/** What a commission is for, by its kind: a payment's share, a refund's or a lost dispute's, or a failed refund's. */
+const COMMISSION_WHAT: Record<CommissionKind, (rate: string, base: string) => string> = {
+  earned: (rate, base) => `${rate} of ${base} paid`,
+  taken_back: (rate, base) => `${rate} of ${base} refunded or lost to a dispute`,
+  given_back: (rate, base) => `${rate} of ${base} back: the client’s bank turned the refund down`,
+};
+
 export const PARTNERS_WORDS = {
   menu: 'Partners',
   about:
@@ -127,8 +136,9 @@ export const PARTNERS_WORDS = {
     commissions: {
       title: 'What they’ve earned',
       empty: 'Nothing yet. Each payment from a client of theirs earns them their share.',
-      earned: (rate: string, base: string) => `${rate} of ${base} paid`,
-      takenBack: (rate: string, base: string) => `${rate} of ${base} refunded or lost to a dispute`,
+      /** A commission's line, by its kind. */
+      what: (kind: CommissionKind, rate: string, base: string): string =>
+        COMMISSION_WHAT[kind](rate, base),
       invoice: (n: string) => `Invoice ${n}`,
       freeOn: (date: string) => `Free to pay out ${date}`,
       free: 'Free to pay out',
