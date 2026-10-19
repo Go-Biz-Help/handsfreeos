@@ -311,11 +311,15 @@ describe('a Zoom meeting heard live', () => {
         return c && c.state !== 'live' ? c : null;
       });
       expect(done.lines.map((l) => l.speaker)).toEqual(['team', 'customer', 'team']);
-      const [lm] = await rows<{ state: string }>(
-        admin(),
-        sql`select state from app.live_meetings where id = ${liveMeetingId}`,
-      );
-      expect(lm!.state).toBe('ended');
+      // The add-ons hear the end first, then the meeting is marked ended: wait for that too.
+      const lm = await waitFor('the meeting ended', async () => {
+        const [m] = await rows<{ state: string }>(
+          admin(),
+          sql`select state from app.live_meetings where id = ${liveMeetingId}`,
+        );
+        return m?.state === 'ended' ? m : null;
+      });
+      expect(lm.state).toBe('ended');
       // Zoom's transcript is on the balance on its own line, not as Deepgram's listening.
       const used = await waitFor('the minutes noted', async () => {
         const r = await rows<{ rate_key: string }>(
