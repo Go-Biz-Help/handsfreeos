@@ -10,6 +10,7 @@ export {
   AnthropicProvider,
   searchesTools,
   takesEffort,
+  turnsThinkingOff,
   type AnthropicEffort,
   type AnthropicOptions,
 } from './anthropic';

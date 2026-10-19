@@ -31,9 +31,34 @@ export interface AnthropicOptions {
    * `takesEffort`. Less is faster. Unset leaves the model's own default.
    */
   readonly effort?: AnthropicEffort;
+  /**
+   * Answer without thinking first (`thinking: {type: 'disabled'}`), on a model that lets it be turned off; see
+   * `turnsThinkingOff`. Others think as they always do.
+   */
+  readonly thinkingOff?: boolean;
 }
 
 export type AnthropicEffort = NonNullable<Anthropic.OutputConfig['effort']>;
+
+/**
+ * The models that take `thinking: {type: 'disabled'}` at low effort (platform.claude.com, "Extended thinking").
+ * Claude Opus 5.5, Claude Sonnet 5.5 and the Fable models refuse it, so they're matched exactly, with a date at
+ * most: `claude-opus-5` isn't `claude-opus-5-5`.
+ */
+const THINKING_OFF_MODELS = [
+  'claude-haiku-5-5',
+  'claude-haiku-4-5',
+  'claude-sonnet-5',
+  'claude-sonnet-4-6',
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+];
+export const turnsThinkingOff = (model: string): boolean =>
+  THINKING_OFF_MODELS.some(
+    (m) => model === m || (model.startsWith(`${m}-`) && /^\d{8}$/.test(model.slice(m.length + 1))),
+  );
 
 /**
  * The models that take an effort level (platform.claude.com, "Effort"). Claude Haiku 4.5 and Claude Sonnet 4.5
@@ -73,6 +98,8 @@ const TOOL_SEARCH_MODELS = [
 export const searchesTools = (model: string): boolean =>
   TOOL_SEARCH_MODELS.some((m) => model === m || model.startsWith(`${m}-`));
 
+const THINKING_OFF = { type: 'disabled' } as const satisfies Anthropic.ThinkingConfigDisabled;
+
 /** BM25: the model searches in plain words, which is how the tools here are described. */
 const TOOL_SEARCH = {
   type: 'tool_search_tool_bm25_20251119',
@@ -89,12 +116,14 @@ export class AnthropicProvider implements AiProvider {
   readonly model: string;
   readonly toolSearch: boolean;
   readonly effort: AnthropicEffort | null;
+  readonly thinkingOff: boolean;
   private readonly client: Anthropic;
 
   constructor(options: AnthropicOptions) {
     this.model = options.model;
     this.toolSearch = options.toolSearch === true && searchesTools(options.model);
     this.effort = options.effort && takesEffort(options.model) ? options.effort : null;
+    this.thinkingOff = options.thinkingOff === true && turnsThinkingOff(options.model);
     this.client = new Anthropic({
       apiKey: options.apiKey,
       maxRetries: options.maxRetries ?? 2,
@@ -113,6 +142,7 @@ export class AnthropicProvider implements AiProvider {
           system: systemOf(request),
           messages: messagesOf(request.messages),
           ...(tools.length ? { tools } : {}),
+          ...(this.thinkingOff ? { thinking: THINKING_OFF } : {}),
           ...outputConfigOf(request, this.effort),
         },
         { signal: options.signal },
@@ -160,7 +190,8 @@ export class AnthropicProvider implements AiProvider {
 
   /**
    * `max_tokens: 0`: the API reads the instructions and tools, writing them to its cache, and answers nothing.
-   * The tools, `system`, `lasting` and effort must be exactly what the next request sends for it to find them.
+   * The tools, `system`, `lasting`, thinking and effort must be exactly what the next request sends for it to find
+   * them.
    */
   async warm(request: AiRequest): Promise<AiUsage> {
     const tools = this.toolsOf(request);
@@ -174,6 +205,7 @@ export class AnthropicProvider implements AiProvider {
           ? request.messages.map(toAnthropic)
           : [{ role: 'user', content: 'Getting ready.' }],
         ...(tools.length ? { tools } : {}),
+        ...(this.thinkingOff ? { thinking: THINKING_OFF } : {}),
         ...(this.effort ? { output_config: { effort: this.effort } } : {}),
       });
       return usageOf(message.usage);

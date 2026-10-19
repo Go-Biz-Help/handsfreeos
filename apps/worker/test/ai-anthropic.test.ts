@@ -8,6 +8,7 @@ import {
   searchesTools,
   structuredOutputSchema,
   takesEffort,
+  turnsThinkingOff,
   type AiRequest,
   type AiToolInput,
   type AiTurn,
@@ -544,7 +545,7 @@ describe('AnthropicProvider', () => {
     expect(searchesTools('claude-haiku-4-5-20251001')).toBe(true);
   });
 
-  it('thinks at the effort it was given, warming the same way, only on a model that takes one', async () => {
+  it('thinks as it was told (effort, or not at all), warming the same way, only on a model that takes it', async () => {
     const warmed = () =>
       new Response(
         JSON.stringify({
@@ -573,6 +574,7 @@ describe('AnthropicProvider', () => {
         fetch,
         maxRetries: 0,
         effort: 'low',
+        thinkingOff: true,
       });
       await provider.warm(REQUEST);
       await provider.stream(REQUEST);
@@ -584,14 +586,26 @@ describe('AnthropicProvider', () => {
     expect(haiku.provider.effort).toBe('low');
     expect(haiku.warm['output_config']).toEqual({ effort: 'low' });
     expect(haiku.turn['output_config']).toEqual({ effort: 'low' });
+    expect(haiku.warm['thinking']).toEqual({ type: 'disabled' });
+    expect(haiku.turn['thinking']).toEqual({ type: 'disabled' });
 
     // Claude Haiku 4.5 refuses an effort level, so none is sent.
     const older = await bodiesFor('claude-haiku-4-5');
     expect(older.provider.effort).toBeNull();
     expect(older.warm).not.toHaveProperty('output_config');
     expect(older.turn).not.toHaveProperty('output_config');
+    expect(older.turn['thinking']).toEqual({ type: 'disabled' });
     expect(takesEffort('claude-opus-5-5')).toBe(true);
     expect(takesEffort('claude-sonnet-4-5-20250929')).toBe(false);
+
+    // Claude Sonnet 5.5 refuses to turn thinking off, so it thinks as it always does.
+    const sonnet = await bodiesFor('claude-sonnet-5-5');
+    expect(sonnet.provider.thinkingOff).toBe(false);
+    expect(sonnet.warm).not.toHaveProperty('thinking');
+    expect(sonnet.turn).not.toHaveProperty('thinking');
+    expect(turnsThinkingOff('claude-opus-5-5')).toBe(false);
+    expect(turnsThinkingOff('claude-opus-5')).toBe(true);
+    expect(turnsThinkingOff('claude-haiku-4-5-20251001')).toBe(true);
   });
 
   it('keeps a tool search in the turn, hands it back as it came, and reports a paused turn', async () => {
