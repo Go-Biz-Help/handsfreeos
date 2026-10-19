@@ -33,7 +33,13 @@ import {
 } from '../friends';
 import { outreachAddon } from '../manifest';
 import { NETWORKS } from '../networks';
-import { forPartners, PlaybookDetails, upgradePlaybookDetails, type Platform } from '../playbooks';
+import {
+  forPartners,
+  PlaybookDetails,
+  runsOn,
+  upgradePlaybookDetails,
+  type Platform,
+} from '../playbooks';
 import type { Friendship } from '../saves';
 import { friends, imports, playbooks, profiles, sends } from '../tables';
 import {
@@ -482,12 +488,16 @@ async function playbooksKept(
 
 /**
  * The business's playbooks in use for customers, as much as fit reads: never a partner playbook (decision 81), whose
- * people are reached through partners. One that doesn't read is left out.
+ * people are reached through partners. One that doesn't read is left out. On a network, only those that run on it
+ * (data version 7).
  */
 export async function playbooksInUse(
   ctx: QueryContext | CommandContext,
+  platform?: Platform,
 ): Promise<(FitPlaybook & { readonly details: PlaybookDetails })[]> {
-  return (await playbooksKept(ctx)).filter((p) => !forPartners(p.details));
+  return (await playbooksKept(ctx)).filter(
+    (p) => !forPartners(p.details) && (!platform || runsOn(p.details, platform)),
+  );
 }
 
 /** The business's partner playbooks in use (decision 81): who its partners should have the attention of. */

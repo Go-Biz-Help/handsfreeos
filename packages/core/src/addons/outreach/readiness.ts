@@ -160,8 +160,9 @@ export function readinessOf(f: ReadyFacts): Readiness {
   const withNiche = f.playbooks.find(
     (p) => filled(p.niche) && filled(p.problem) && (!offerHasProof || p.proof.some(filled)),
   );
+  const on = f.platform ?? 'facebook';
   const playbookLeft = (): string => {
-    if (!f.playbooks.length) return W.playbookNone;
+    if (!f.playbooks.length) return on === 'facebook' ? W.playbookNone : W.playbookNoneOn(on);
     const p = f.playbooks.find((x) => filled(x.niche)) ?? f.playbooks[0]!;
     if (!filled(p.niche)) return W.playbookNiche(p.name);
     if (!filled(p.problem)) return W.playbookProblem(p.name);
@@ -171,7 +172,13 @@ export function readinessOf(f: ReadyFacts): Readiness {
     ? { item: 'playbook', state: 'done', whose: 'business', left: null }
     : f.canPlaybooks
       ? { item: 'playbook', state: 'todo', whose: 'business', left: playbookLeft() }
-      : { item: 'playbook', state: 'waiting', whose: 'business', left: W.playbookWaiting };
+      : {
+          item: 'playbook',
+          state: 'waiting',
+          whose: 'business',
+          left:
+            !f.playbooks.length && on !== 'facebook' ? W.playbookWaitingOn(on) : W.playbookWaiting,
+        };
 
   // Read since the live version, each item right by the AI's check or ticked done; a read or ticks from an older
   // version want a look again.
@@ -483,12 +490,17 @@ export const READY_WORDS = {
     offerWaiting:
       'Waiting on your business’s main offer. Ask an owner of this business to finish it under Settings → Main offer.',
     playbookNone: 'Write a playbook and pick its niche on the Playbooks tab.',
+    /** On a network none of the playbooks runs on (data version 7): each runs on the networks its Where says. */
+    playbookNoneOn: (platform: Platform) =>
+      `None of your playbooks runs on ${NETWORKS[platform].name} yet. Turn ${NETWORKS[platform].name} on under Where in one on the Playbooks tab, or write one for it.`,
     playbookNiche: (name: string) => `Pick a niche for ${name} on the Playbooks tab.`,
     playbookProblem: (name: string) => `Write the niche’s biggest problem in ${name}.`,
     playbookProof: (name: string) =>
       `Add proof to ${name}: a real result from your main offer, or one of its own.`,
     playbookWaiting:
       'Waiting on a playbook with a niche. Ask an owner or admin of this business to pick one on the Playbooks tab.',
+    playbookWaitingOn: (platform: Platform) =>
+      `Waiting on a playbook that runs on ${NETWORKS[platform].name}. Ask an owner or admin of this business to turn ${NETWORKS[platform].name} on in one on the Playbooks tab.`,
     profile: (n: number, platform: Platform = 'facebook') =>
       `${plural(n, 'thing')} left to change on your ${NETWORKS[platform].name} profile.`,
     profileReadOn: (platform: Platform) =>

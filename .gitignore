@@ -17,6 +17,8 @@ dist/
 coverage/
 # the browser extension the web app hands out, zipped by its build (apps/extension/scripts/download.mjs)
 apps/web/public/downloads/hfos-social.zip
+# a production build of it, zipped at the root to hand to the owner by hand
+/hfos-social-*.zip
 playwright-report/
 test-results/
 

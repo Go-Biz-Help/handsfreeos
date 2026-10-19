@@ -212,6 +212,16 @@ minutes between steps.
 3. **A playbook's steps and networks do nothing.** They're saved, but nothing reads them: every playbook in use runs
    on every network (`playbooks.ts`).
 
+All three are fixed (stage 6b of the partners plan, 19 Oct 2026):
+
+1. Someone whose post your search found is on Today to connect with, on any network, once you've liked or commented
+   on the post (or the warm-up wait has passed), by the playbook they fit best (`ops/today.ts`).
+2. Each network's kit says what its runner does (`NETWORKS[p].runs`): its page in Settings shows only those switches
+   (`ticksShownOn`), and Today marks only those done on its own (`autoKinds`).
+3. A playbook runs only on its own networks (`runsOn`, data version 7). Every customers' playbook saved before then
+   gets Facebook and LinkedIn ticked, as it ran on both; a new one starts with every network that works. A playbook's
+   steps still run as they did.
+
 ## Instagram
 
 A follow network: there's no friend list to work. People are found through hashtags, places and the accounts like
@@ -430,7 +440,8 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
    Alignable's reader and writer, with **Your profile** on each network's page of Settings (docs/outreach.md,
    decision 80).
 3. **Shared work in core:** people found by a search, steps per network, a playbook's networks. This closes
-   LinkedIn's gaps first: invitations for people found by post search, and only its own switches in Settings.
+   LinkedIn's gaps first: invitations for people found by post search, and only its own switches in Settings. Done,
+   19 Oct 2026 ("Three gaps found while writing this").
 4. **The next Checks** read what's left: Alignable's profile form, its Connect box (is there a note?), a conversation,
    a forum question, a town page. Instagram's followers list, a hashtag page, a place page, its notifications, a chat.
    Alignable's is in extension 0.66.0 (stage 6 of the partners plan, Chris, 19 Oct 2026, which builds Alignable next

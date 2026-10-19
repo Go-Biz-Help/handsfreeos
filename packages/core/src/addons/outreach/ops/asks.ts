@@ -158,7 +158,7 @@ async function taskOf(
           task: {
             kind: 'posts',
             groups: null,
-            words: postSearchWords(await playbooksInUse(ctx), platform),
+            words: postSearchWords(await playbooksInUse(ctx, platform), platform),
           },
           target,
           about: askAbout(ask),

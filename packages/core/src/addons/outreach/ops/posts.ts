@@ -45,7 +45,7 @@ export const postsSave = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     return once(async () => {
       const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
-      const playbooks = await playbooksInUse(ctx);
+      const playbooks = await playbooksInUse(ctx, input.platform);
       const urls = [...new Set(input.posts.map((p) => p.url))];
       const kept = await ctx.tx
         .select()
@@ -229,7 +229,7 @@ export const postWords = defineAddonQuery(outreachAddon, {
   permission: 'outreach.use',
   scope: inWorkspace,
   async handler(ctx, input) {
-    return { words: postSearchWords(await playbooksInUse(ctx), input.platform) };
+    return { words: postSearchWords(await playbooksInUse(ctx, input.platform), input.platform) };
   },
 });
 

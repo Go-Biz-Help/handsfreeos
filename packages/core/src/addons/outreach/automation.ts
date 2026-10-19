@@ -376,16 +376,20 @@ type DoesChoices = Pick<NetworkChoices, 'sending' | 'confirmRequests' | 'warmUp'
 /**
  * The kinds on the list for today the extension does on its own for someone, in the order it does them: requests
  * to confirm first, then likes, friend requests and comments. Messages go their own way (`MESSAGE_KINDS`). None on a
- * network the person doesn't work.
+ * network the person doesn't work, and only what the network's runner does (its kit's `runs`): LinkedIn's accepts no
+ * invitations, so its Accept rows stay the person's.
  */
-export function autoKinds(settings: DoesChoices): TodayKind[] {
+export function autoKinds(settings: DoesChoices, platform: Platform = 'facebook'): TodayKind[] {
   if (settings.sending === 'off' || settings.on === false) return [];
-  return [
-    ...(settings.confirmRequests ? (['confirm'] as const) : []),
-    ...(settings.warmUp ? (['warm_up'] as const) : []),
-    'friend_request',
-    'comment',
-  ];
+  const runs: readonly TodayKind[] = NETWORKS[platform].runs.auto;
+  return (
+    [
+      ...(settings.confirmRequests ? (['confirm'] as const) : []),
+      ...(settings.warmUp ? (['warm_up'] as const) : []),
+      'friend_request',
+      'comment',
+    ] as const
+  ).filter((kind) => runs.includes(kind));
 }
 
 /**

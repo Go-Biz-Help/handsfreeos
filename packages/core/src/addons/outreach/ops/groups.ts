@@ -216,7 +216,7 @@ export const groupsList = defineAddonQuery(outreachAddon, {
           order by g.seen_at desc nulls last, g.created_at desc
           limit ${GROUPS_MOST}`,
     );
-    const playbooks = await playbooksInUse(ctx);
+    const playbooks = await playbooksInUse(ctx, 'facebook');
     const results = resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }));
     // The AI's read of a group goes over what its name says (decision 48).
     const fitted = listed.map((g) => ({ g, fit: groupFitOf(playbooks, g) }));

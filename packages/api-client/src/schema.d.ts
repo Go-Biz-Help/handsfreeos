@@ -37656,6 +37656,8 @@ export interface operations {
                             link: string | null;
                             niche?: string | null;
                             offer: string | null;
+                            /** @enum {boolean} */
+                            onItsNetworks?: true;
                             /** @default [] */
                             openerStyles: string[];
                             /** @default [] */
@@ -37732,6 +37734,8 @@ export interface operations {
                         link: string | null;
                         niche?: string | null;
                         offer: string | null;
+                        /** @enum {boolean} */
+                        onItsNetworks?: true;
                         /** @default [] */
                         openerStyles?: string[];
                         /** @default [] */
@@ -37807,6 +37811,8 @@ export interface operations {
                             link: string | null;
                             niche?: string | null;
                             offer: string | null;
+                            /** @enum {boolean} */
+                            onItsNetworks?: true;
                             /** @default [] */
                             openerStyles: string[];
                             /** @default [] */
@@ -68516,6 +68522,8 @@ export interface operations {
                                 link: string | null;
                                 niche?: string | null;
                                 offer: string | null;
+                                /** @enum {boolean} */
+                                onItsNetworks?: true;
                                 /** @default [] */
                                 openerStyles: string[];
                                 /** @default [] */

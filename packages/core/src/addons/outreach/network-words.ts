@@ -27,6 +27,7 @@ import {
   PLATFORMS,
   WORKING_PLATFORMS,
   type Platform,
+  type RunnerTick,
 } from './networks';
 import { TODAY_KINDS, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
@@ -126,7 +127,7 @@ export const ALONG_TICKS = [
   'collect',
   'joinGroups',
   'watchPosts',
-] as const satisfies readonly (keyof NetworkChoices)[];
+] as const satisfies readonly (keyof NetworkChoices & RunnerTick)[];
 export type AlongTick = (typeof ALONG_TICKS)[number];
 
 const MORE: Readonly<Record<Platform, MoreWords>> = {
@@ -344,6 +345,10 @@ export const networkOfUrl = (url: string | null | undefined): Platform =>
 export const ticksOn = (
   platform: Platform,
 ): Readonly<Record<AlongTick, readonly [string, string]>> => MORE[platform].ticks;
+
+/** The switches along the way Settings show on a network: only those its runner reads (its kit's `runs`). */
+export const ticksShownOn = (platform: Platform): readonly AlongTick[] =>
+  ALONG_TICKS.filter((tick) => NETWORKS[platform].runs.ticks.includes(tick));
 
 /** A chat's page on its network, from its id: Messenger's on Facebook, LinkedIn messaging's on LinkedIn. */
 export const chatUrlOn = (platform: Platform, threadKey: string | null): string | null =>

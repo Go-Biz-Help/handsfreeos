@@ -23,7 +23,9 @@ export const outreachAddon = defineAddon({
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
   // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
   // 5: a playbook has its short video's script. 6: a partner playbook says which kinds of partner it looks for.
-  dataVersion: 6,
+  // 7: a playbook runs on its own networks only; a customers' playbook saved before gets Facebook and LinkedIn, as it
+  // ran on both.
+  dataVersion: 7,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.

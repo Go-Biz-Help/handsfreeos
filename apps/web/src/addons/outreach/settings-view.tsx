@@ -44,7 +44,6 @@ import { settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
-  ALONG_TICKS,
   dailyWordsOn,
   NETWORK_WORDS as NW,
   networksOn,
@@ -52,6 +51,7 @@ import {
   postingAboutOn,
   sendingModesOn,
   ticksOn,
+  ticksShownOn,
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import {
@@ -284,7 +284,7 @@ export function NetworkTicks({
   const ticks = ticksOn(platform);
   return (
     <Part title={W.sections.along} card={card}>
-      {ALONG_TICKS.map((key) => (
+      {ticksShownOn(platform).map((key) => (
         <Tick
           key={key}
           words={ticks[key]}

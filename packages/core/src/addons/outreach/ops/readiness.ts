@@ -109,7 +109,7 @@ export async function readinessFor(
 ): Promise<ReadinessOutput> {
   const [offer, playbooks, row, auto] = await Promise.all([
     liveOffer(ctx),
-    playbooksInUse(ctx),
+    playbooksInUse(ctx, platform),
     setupRow(ctx, me),
     automationOf(ctx, me),
   ]);

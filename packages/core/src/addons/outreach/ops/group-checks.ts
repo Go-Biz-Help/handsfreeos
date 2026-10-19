@@ -174,7 +174,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
                 and g.about_at < ${ago(now, GROUP_CHECK_RETRY_DAYS)}::timestamptz))
           order by g.seen_at desc nulls last limit 500`,
     );
-    const playbooks = await playbooksInUse(ctx);
+    const playbooks = await playbooksInUse(ctx, 'facebook');
     const ranked = found
       .map((g) => ({ g, fit: bestGroupFit(playbooks, { ...g, joined: g.joined }) }))
       // The person's own groups first; then groups found that fit by name, never one its name skips.
@@ -332,7 +332,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
             and asked_at >= ${todayStart.toISOString()}::timestamptz`,
     );
     const today = done?.n ?? 0;
-    const playbooks = await playbooksInUse(ctx);
+    const playbooks = await playbooksInUse(ctx, 'facebook');
     const prospects = await prospectsOf(ctx, await peopleLeft(ctx, me, playbooks));
     const words = [
       ...new Set(

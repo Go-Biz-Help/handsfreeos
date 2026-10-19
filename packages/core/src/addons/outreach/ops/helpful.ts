@@ -168,7 +168,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
         );
       // Off Facebook it goes on the person's own feed: no group to pick, the playbook in use first.
       if (input.platform !== 'facebook') {
-        const playbooks = await playbooksInUse(ctx);
+        const playbooks = await playbooksInUse(ctx, input.platform);
         const { choices } = await automationOf(ctx, me, now, input.platform);
         const [row] = await ctx.tx
           .insert(helpful)
@@ -232,7 +232,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
           409,
           `You posted in ${named.name ?? 'that group'} in the last week. Pick another group: one post a week in each keeps its people glad to see you.`,
         );
-      const playbooks = await playbooksInUse(ctx);
+      const playbooks = await playbooksInUse(ctx, 'facebook');
       const ranked = candidates
         .filter((g) => !g.posted_lately)
         .map((g) => ({

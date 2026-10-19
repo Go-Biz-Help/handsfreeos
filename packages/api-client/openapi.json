@@ -79062,6 +79062,12 @@
                           ]
                         }
                       },
+                      "onItsNetworks": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      },
                       "audience": {
                         "anyOf": [
                           {
@@ -79559,6 +79565,12 @@
                               "business"
                             ]
                           }
+                        },
+                        "onItsNetworks": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
                         },
                         "audience": {
                           "anyOf": [
@@ -80131,6 +80143,12 @@
                               "business"
                             ]
                           }
+                        },
+                        "onItsNetworks": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
                         },
                         "audience": {
                           "anyOf": [
@@ -175861,6 +175879,12 @@
                                     "business"
                                   ]
                                 }
+                              },
+                              "onItsNetworks": {
+                                "type": "boolean",
+                                "enum": [
+                                  true
+                                ]
                               },
                               "audience": {
                                 "anyOf": [

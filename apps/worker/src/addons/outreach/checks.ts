@@ -22,7 +22,11 @@ import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { checkSave } from '@hfos/core/addons/outreach/ops/checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
-import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
+import {
+  PlaybookDetails,
+  runsOn,
+  upgradePlaybookDetails,
+} from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
@@ -101,13 +105,17 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
   });
-  const told: CheckPlaybook[] = playbooks.map((p) => ({
-    name: p.name,
-    offer: p.details.offer,
-    audience: p.details.audience,
-    signs: p.details.signs,
-    skip: p.details.skip,
-  }));
+  // Each person is checked against the playbooks that run on their network (data version 7).
+  const toldOn = (platform: Platform): CheckPlaybook[] =>
+    playbooks
+      .filter((p) => runsOn(p.details, platform))
+      .map((p) => ({
+        name: p.name,
+        offer: p.details.offer,
+        audience: p.details.audience,
+        signs: p.details.signs,
+        skip: p.details.skip,
+      }));
 
   for (const person of found.waiting.slice(0, CHECK_PEOPLE_BATCH)) {
     let answer: ReturnType<typeof checkedAnswer> | null;
@@ -135,7 +143,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
                 person.summary || person.recent?.length
                   ? { summary: person.summary, recent: person.recent ?? [] }
                   : null,
-              playbooks: told,
+              playbooks: toldOn(person.platform),
               platform: person.platform,
             }),
           },

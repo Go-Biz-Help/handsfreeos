@@ -5,7 +5,7 @@
  * the web's editor, the extension and the server all read it.
  */
 import { z } from 'zod';
-import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
 import { VideoLink, VideoScript } from './video';
 
 /** The social networks it knows, each with its kit in ./networks.ts. */
@@ -46,7 +46,10 @@ export const PARTNER_KIND_KEYS = Object.keys(PARTNER_KINDS) as [PartnerKind, ...
 
 /** The steps a playbook takes with people, in the order it takes them. */
 export const PLAYBOOK_STEPS = {
-  connect: { label: 'Send friend requests', hint: 'To people who fit, found in your groups.' },
+  connect: {
+    label: 'Send friend requests',
+    hint: 'To people who fit, found in your groups or by a search.',
+  },
   engage: { label: 'Warm up', hint: 'Like and comment on their posts before writing to them.' },
   message: {
     label: 'Open a chat',
@@ -234,6 +237,12 @@ export const PlaybookDetails = z
       .min(1, 'Pick at least one kind of partner.')
       .refine(distinct, 'Each kind once.')
       .optional(),
+    /**
+     * That it runs on its own networks only (data version 7, the Instagram and Alignable plan's "a playbook's networks
+     * count"). One saved before ran on every network that worked then, so the upgrade puts Facebook and LinkedIn on a
+     * customers' playbook, as it ran. Left out of a save, it keeps what's saved.
+     */
+    onItsNetworks: z.literal(true).optional(),
     /** Who it's for, in plain words. */
     audience: words(PLAYBOOK_LIMITS.audience),
     /** What says someone fits: "Owner" in their intro, posts about missed calls. */
@@ -360,11 +369,13 @@ export const blankPlaybook = (): PlaybookDetails => ({
   videoLink: null,
   videoScript: null,
   partnerKinds: [...PARTNER_KIND_KEYS],
+  onItsNetworks: true,
   audience: null,
   signs: [],
   skip: [],
   area: null,
-  platforms: ['facebook'],
+  // Every network that works, as every playbook ran before data version 7; the person unticks any.
+  platforms: [...WORKING_PLATFORMS],
   groupWords: [],
   steps: ['connect', 'engage', 'message', 'follow_up'],
   pace: {
@@ -479,13 +490,22 @@ export const PLAYBOOK_V3_KEYS = ['niche', 'problem', 'proof', 'usefulWhat', 'use
 export const PLAYBOOK_V4_KEYS = ['videoLink'] as const;
 export const PLAYBOOK_V5_KEYS = ['videoScript'] as const;
 export const PLAYBOOK_V6_KEYS = ['partnerKinds'] as const;
+export const PLAYBOOK_V7_KEYS = ['onItsNetworks'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
   ...PLAYBOOK_V4_KEYS,
   ...PLAYBOOK_V5_KEYS,
   ...PLAYBOOK_V6_KEYS,
+  ...PLAYBOOK_V7_KEYS,
 ] as const;
+
+/** The networks every customers' playbook ran on before data version 7: those that worked then. */
+const RAN_ON_BEFORE_7: readonly Platform[] = ['facebook', 'linkedin'];
+
+/** Whether a playbook runs on a network: one of its own (data version 7). */
+export const runsOn = (details: Pick<PlaybookDetails, 'platforms'>, platform: Platform): boolean =>
+  details.platforms.includes(platform);
 
 /** The days before follow-ups when they were one number (before data version 4) and the business changed it. */
 const OLD_FOLLOW_UP_START = 3;
@@ -521,7 +541,8 @@ export function paceOf(pace: unknown): Pace {
  * A playbook's details as an earlier version saved them, in today's shape. Before data version 2 its questions were
  * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send;
  * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link; before 5, no
- * video script; before 6, no kinds of partner (every kind). Anything else passes through for the schema to judge.
+ * video script; before 6, no kinds of partner (every kind); before 7, a customers' playbook ran on every network that
+ * worked (Facebook and LinkedIn), so those are put on it. Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
@@ -532,9 +553,19 @@ export function upgradePlaybookDetails(stored: unknown): unknown {
   const before4 = pace === undefined || pace['followUps'] === undefined;
   if (!old && !before4 && !beforeKeys) return stored;
   const blank = blankPlaybook();
+  const platforms = Array.isArray(d['platforms']) ? (d['platforms'] as unknown[]) : null;
+  const before7 = d['onItsNetworks'] === undefined && d['goal'] !== PARTNER_GOAL && !!platforms;
   return {
     ...Object.fromEntries(PLAYBOOK_KEPT_KEYS.map((k) => [k, blank[k]])),
     ...d,
+    ...(before7
+      ? {
+          platforms: PLATFORM_KEYS.filter(
+            (p) => platforms.includes(p) || RAN_ON_BEFORE_7.includes(p),
+          ),
+          onItsNetworks: true,
+        }
+      : {}),
     questions: old
       ? (d['questions'] as unknown[]).map((q, i) =>
           typeof q === 'string' ? { id: `q${i + 1}`, text: q, answers: [] } : q,

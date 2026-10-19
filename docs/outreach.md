@@ -399,8 +399,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   `use-autosave.ts`, the extension's `src/hfos/follow.ts`): every setting the extension follows is set here, never in
   the extension, a page for each part, each change saved as it's made. **General** holds the person's own on every
   network: how the AI writes for them, the working hours and how the phone hears about messages waiting (`pushes`).
-  **Each network's page** holds On for you, what it does there on its own, Replies, helpful posts and along the way,
-  and on Facebook the three switches the extension used to keep (**Note my steps on Facebook**, **Read chats as I open
+  **Each network's page** holds On for you, what it does there on its own, Replies, helpful posts and along the way
+  (only the switches its runner does, `ticksShownOn`), and on Facebook the three switches the extension used to keep (**Note my steps on Facebook**, **Read chats as I open
   them**, **Look for posts as I scroll a group**). For owners and admins, **For your team** on General holds the
   choices people may pick, where a new person starts (`rules` in the business's Social Outreach settings), and the
   business's other Social Outreach settings (`business-settings.tsx`), which used to be on the Add-ons page: that page
@@ -1624,7 +1624,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     count's network, from the profile reached (20261027007400).
   - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
     on each; **the setup has a step to pick networks** (`networks`, between the team's rules and the person's own
-    settings, 20261027007400).
+    settings, 20261027007400). **A playbook runs only on its networks** (`runsOn`, data version 7): Today, posts,
+    checks, asks and Get ready read the playbooks on the network shown. Every customers' playbook saved before then
+    gets Facebook and LinkedIn, as it ran on both (`onItsNetworks` marks it done); a new one starts with every network
+    that works. Get ready says when no playbook runs on the network shown (`playbookNoneOn`).
   - **Screens say a network's own words** from its kit, or a word for all of them: an invitation to connect or a
     friend request (`dailyWordsOn`, `todayKindsOn`, `sendingModesOn`, `ticksOn`), LinkedIn messaging or Messenger
     (`chatUrlOn`, `openChatWords`), an ask by its name there (`askNameOn`: Withdraw old invitations, Put your new
@@ -1641,7 +1644,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       and **Open LinkedIn** in place of Open the group (`helpfulWordsOn`, `helpfulWhere`, `helpfulOpenUrl`), by
       LinkedIn's own posting choice (`postingAboutOn` under it on LinkedIn's page in Settings).
     - **Today's comments on a post with no group** (LinkedIn's post search) say "On LinkedIn", and open the post; a
-      warm lead from the person's own feed says "on LinkedIn" too.
+      warm lead from the person's own feed says "on LinkedIn" too. **The post's writer is someone to connect with:**
+      a good post found in the last fortnight puts its writer on Today's invitations, once the person has liked or
+      commented on it (or the warm-up wait has passed), by the playbook they fit best, counted with the day's other
+      requests.
     - **Friends narrowed to LinkedIn tidies LinkedIn alone:** its card offers withdrawing old invitations, never
       removing a connection (`tidyWordsOn`'s `kinds`, from the kit's `tidyLimits`). `outreach.friends.tidy` counts
       each network's withdrawals, friends and download file on its own.
