@@ -69535,7 +69535,7 @@ export interface operations {
                             held: boolean;
                             invoiceNumber: string | null;
                             /** @enum {string} */
-                            kind: "earned" | "taken_back";
+                            kind: "earned" | "taken_back" | "given_back";
                             /** Format: date-time */
                             payableAt: string;
                             rateBp: number;
@@ -69576,6 +69576,8 @@ export interface operations {
                             lines: {
                                 accountFeeCents: number;
                                 amountCents: number;
+                                givenBackAt: string | null;
+                                givenBackCents: number | null;
                                 heldReason: string | null;
                                 /** Format: uuid */
                                 lineId: string;
@@ -69727,6 +69729,8 @@ export interface operations {
                         lines: {
                             accountFeeCents: number;
                             amountCents: number;
+                            givenBackAt: string | null;
+                            givenBackCents: number | null;
                             heldReason: string | null;
                             /** Format: uuid */
                             lineId: string;
@@ -69763,8 +69767,15 @@ export interface operations {
                                 chargeCents: number;
                                 owedCents: number;
                                 payoutFeesCents: number;
+                                taxFormsCents: number;
                             };
                         };
+                        taxForms: {
+                            feeCents: number;
+                            name: string;
+                            paidCents: number;
+                            taxYear: number;
+                        }[];
                     };
                 };
             };
@@ -69808,12 +69819,19 @@ export interface operations {
                             }[];
                             month: string;
                             soon: boolean;
+                            taxForms: {
+                                feeCents: number;
+                                name: string;
+                                paidCents: number;
+                                taxYear: number;
+                            }[];
                             totals: {
                                 accountFeesCents: number;
                                 cardFeeCents: number;
                                 chargeCents: number;
                                 owedCents: number;
                                 payoutFeesCents: number;
+                                taxFormsCents: number;
                             };
                             waiting: {
                                 name: string;
@@ -69851,6 +69869,7 @@ export interface operations {
                                 chargeCents: number;
                                 owedCents: number;
                                 payoutFeesCents: number;
+                                taxFormsCents: number;
                             };
                         }[];
                     };

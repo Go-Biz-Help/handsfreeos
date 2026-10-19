@@ -5,7 +5,14 @@
  *
  * Browser-safe.
  */
-import type { PayoutLineStatus, PayoutStatus } from '../schemas/partner-payouts';
+import { money } from '../money/format';
+import type {
+  PartnerPayoutLineOut,
+  PartnerTaxFormOut,
+  PayoutLineStatus,
+  PayoutStatus,
+} from '../schemas/partner-payouts';
+import { TAX_FORM_FEE_CENTS } from './payouts';
 
 const partners = (n: number) => (n === 1 ? '1 partner' : `${n} partners`);
 
@@ -36,6 +43,14 @@ const MONTHS = [
 export function payoutMonthWords(month: string): string {
   const [y, m] = month.split('-').map(Number);
   return y && m ? `${MONTHS[m - 1] ?? ''} ${y}` : month;
+}
+
+/** "2026", or "2025 and 2026": the years a payout's 1099s are for. */
+export function taxFormYears(forms: readonly Pick<PartnerTaxFormOut, 'taxYear'>[]): string {
+  const years = [...new Set(forms.map((f) => f.taxYear))].sort((a, b) => a - b).map(String);
+  return years.length <= 1
+    ? (years[0] ?? '')
+    : `${years.slice(0, -1).join(', ')} and ${years.at(-1)}`;
 }
 
 export const PAYOUT_WORDS = {
@@ -82,6 +97,7 @@ export const PAYOUT_WORDS = {
     owed: 'Your partners',
     accountFees: 'Stripe’s account fee ($2 for each partner paid)',
     payoutFees: 'Stripe’s payout fee (0.25% + 25¢ for each)',
+    taxForms: `Stripe’s tax form fee (${money(TAX_FORM_FEE_CENTS)} for each partner’s 1099)`,
     cardFee: 'Card fee (2.9% + 30¢)',
     charge: 'Charged to your card',
   },
@@ -114,7 +130,22 @@ export const PAYOUT_WORDS = {
     held: 'Held: Stripe needs something from them before it can pay them. It’s sent once Stripe can.',
     cancelled: 'In next month’s payout',
     deleted: 'A deleted partner',
-  } satisfies Record<PayoutLineStatus, unknown> & { deleted: string },
+    givenBack: (amount: string) =>
+      `Given back to your card: ${amount} with its fees. They were deleted, so it can’t be paid to them.`,
+  } satisfies Record<PayoutLineStatus, unknown> & {
+    deleted: string;
+    givenBack: (amount: string) => string;
+  },
+
+  /** Stripe's fee for each partner's 1099, on the first payout after the year ends (stage 5). */
+  taxForms: {
+    title: (years: string) => `Tax forms for ${years}`,
+    about:
+      'Stripe files a 1099-NEC with the IRS and the partner’s state for each partner you paid enough in a year, and charges a fee for each form.',
+    paid: (amount: string, year: number) => `Paid ${amount} in ${year}`,
+    next: (n: number, years: string) =>
+      `Includes Stripe’s fee for ${n === 1 ? '1 partner’s 1099' : `${n} partners’ 1099s`} for ${years}.`,
+  },
 
   /** A partner's page, under Settings → Partners. */
   partner: {
@@ -184,3 +215,15 @@ export const PAYOUT_WORDS = {
     back: 'Back from Stripe. It can take a minute for Stripe to finish checking your details.',
   },
 } as const;
+
+/** What a statement says under a partner's line: where their money is. */
+export function payoutLineWords(
+  l: Pick<PartnerPayoutLineOut, 'status' | 'paidAt' | 'givenBackCents'>,
+  date: (iso: string) => string,
+): string {
+  if (l.status === 'paid' && l.paidAt) return PAYOUT_WORDS.line.paid(date(l.paidAt));
+  if (l.givenBackCents !== null) return PAYOUT_WORDS.line.givenBack(money(l.givenBackCents));
+  if (l.status === 'held') return PAYOUT_WORDS.line.held;
+  if (l.status === 'cancelled') return PAYOUT_WORDS.line.cancelled;
+  return PAYOUT_WORDS.line.pending;
+}

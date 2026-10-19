@@ -13,7 +13,9 @@ import {
   formatDate,
   formatDateOnly,
   money,
+  payoutLineWords,
   PAYOUT_WORDS as P,
+  taxFormYears,
   type PayoutStatus,
 } from '@hfos/core';
 import { Banknote, ChevronDown, ChevronRight } from 'lucide-react';
@@ -39,12 +41,18 @@ const STATUS_TONE: Record<PayoutStatus, BadgeVariant> = {
 
 type Totals = PartnerPayoutsOut['next']['totals'];
 
-/** What the partners are owed, then each of Stripe's fees on its own line, then what the card is charged. */
+/**
+ * What the partners are owed, then each of Stripe's fees on its own line, then what the card is charged. The 1099s'
+ * fee shows only on a payout that carries it.
+ */
 function TotalsTable({ totals, testId }: { totals: Totals; testId?: string }) {
   const rows: [string, number][] = [
     [P.totals.owed, totals.owedCents],
     [P.totals.accountFees, totals.accountFeesCents],
     [P.totals.payoutFees, totals.payoutFeesCents],
+    ...(totals.taxFormsCents
+      ? [[P.totals.taxForms, totals.taxFormsCents] as [string, number]]
+      : []),
     [P.totals.cardFee, totals.cardFeeCents],
   ];
   return (
@@ -239,6 +247,14 @@ function NextPayout({ next }: { next: PartnerPayoutsOut['next'] }) {
             ))}
           </ul>
           <TotalsTable totals={next.totals} testId="partner-payouts-next-totals" />
+          {next.taxForms.length ? (
+            <p
+              className="mt-2 text-[12.5px] text-text-2"
+              data-testid="partner-payouts-next-tax-forms"
+            >
+              {P.taxForms.next(next.taxForms.length, taxFormYears(next.taxForms))}
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="mt-2 text-[13px] text-text-2">{P.next.none}</p>
@@ -366,19 +382,37 @@ function PayoutRow({ workspaceId, payout: p }: { workspaceId: string; payout: Pa
                           l.status === 'held' ? 'text-warning-text' : 'text-text-3',
                         )}
                       >
-                        {l.status === 'paid' && l.paidAt
-                          ? P.line.paid(formatDate(l.paidAt))
-                          : l.status === 'held'
-                            ? P.line.held
-                            : l.status === 'cancelled'
-                              ? P.line.cancelled
-                              : P.line.pending}
+                        {payoutLineWords(l, formatDate)}
                       </p>
                     </div>
                     <span className="text-[13.5px] tabular-nums">{money(l.amountCents)}</span>
                   </li>
                 ))}
               </ul>
+              {statement.taxForms.length ? (
+                <div className="mt-3" data-testid="partner-payout-tax-forms">
+                  <p className="text-[13px] font-medium">
+                    {P.taxForms.title(taxFormYears(statement.taxForms))}
+                  </p>
+                  <p className="text-[12px] text-text-3">{P.taxForms.about}</p>
+                  <ul className="mt-1 divide-y divide-border">
+                    {statement.taxForms.map((f, i) => (
+                      <li
+                        key={`${f.taxYear}-${i}`}
+                        className="flex items-start justify-between gap-3 py-1.5"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[13.5px]">{f.name}</p>
+                          <p className="text-[12px] text-text-3">
+                            {P.taxForms.paid(money(f.paidCents), f.taxYear)}
+                          </p>
+                        </div>
+                        <span className="text-[13.5px] tabular-nums">{money(f.feeCents)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <TotalsTable totals={p.totals} />
             </>
           ) : null}

@@ -17,15 +17,22 @@
 import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
-import type { CommandContext } from '../kernel/types';
+import type { CommandContext, QueryContext } from '../kernel/types';
 import { afterDecline } from '../money/wallet-ladders';
-import { planPayout, payoutTotals } from '../partners/payouts';
+import {
+  planPayout,
+  payoutTotals,
+  TAX_FORM_FEE_CENTS,
+  taxFormThresholdCents,
+} from '../partners/payouts';
 import { PAYOUT_WORDS } from '../partners/payout-words';
 import {
   PartnerPayoutBuildInput,
   PartnerPayoutBuildOutput,
   PartnerPayoutCardOutput,
   PartnerPayoutForgetCardInput,
+  PartnerPayoutGiveBackInput,
+  PartnerPayoutGiveBackOutput,
   PartnerPayoutRecordAccountInput,
   PartnerPayoutRecordAccountOutput,
   PartnerPayoutRecordCardInput,
@@ -93,6 +100,57 @@ export const COMMISSION_NOT_IN_PAYOUT = sql.raw(
 export const COMMISSION_DISPUTED = sql.raw(
   `exists (select 1 from app.payment_disputes d where d.payment_id = c.payment_id and d.status = 'open')`,
 );
+
+/** A partner's 1099 for a year that ended, that no payout has charged Stripe's fee for yet. */
+export interface TaxFormDue {
+  readonly accountRef: string;
+  readonly partnerId: string | null;
+  readonly taxYear: number;
+  readonly paidCents: number;
+}
+
+/**
+ * The 1099s a payout in this month charges Stripe's fees for (stage 5): each partner account the business paid at
+ * least the year's threshold in a calendar year before this month's, by when each transfer was paid, and that no
+ * payout has charged for yet. Live money only: a payout made with a test key files nothing.
+ */
+export async function taxFormsDue(
+  ctx: Pick<CommandContext | QueryContext, 'tx'>,
+  workspaceId: string,
+  month: string,
+  livemode: boolean,
+): Promise<TaxFormDue[]> {
+  if (!livemode) return [];
+  const yearStarts = `${month.slice(0, 4)}-01-01T00:00:00Z`;
+  const paid = await rows<{
+    account_ref: string;
+    tax_year: number;
+    paid_cents: string | number;
+    partner_id: string | null;
+  }>(
+    ctx.tx,
+    sql`select l.account_ref, extract(year from l.paid_at at time zone 'UTC')::int as tax_year,
+          sum(l.amount_cents) as paid_cents,
+          (array_agg(l.partner_id order by l.paid_at desc) filter (where l.partner_id is not null))[1]
+            as partner_id
+        from app.partner_payout_lines l join app.partner_payouts p on p.id = l.payout_id
+        where l.workspace_id = ${workspaceId} and l.status = 'paid' and p.livemode
+          and l.paid_at >= '2026-01-01T00:00:00Z'::timestamptz and l.paid_at < ${yearStarts}::timestamptz
+          and not exists (select 1 from app.partner_tax_forms f
+            where f.workspace_id = l.workspace_id and f.account_ref = l.account_ref
+              and f.tax_year = extract(year from l.paid_at at time zone 'UTC')::int)
+        group by l.account_ref, extract(year from l.paid_at at time zone 'UTC')
+        order by tax_year, l.account_ref`,
+  );
+  return paid
+    .map((r) => ({
+      accountRef: r.account_ref,
+      partnerId: r.partner_id,
+      taxYear: Number(r.tax_year),
+      paidCents: Number(r.paid_cents),
+    }))
+    .filter((f) => f.paidCents >= taxFormThresholdCents(f.taxYear));
+}
 
 // ---------- what a person does ----------
 
@@ -355,16 +413,29 @@ export const partnerPayoutBuild = defineCommand({
     });
     if (!plan.paid.length) return none('nothing');
 
-    const totals = payoutTotals(plan.paid.map((p) => p.owedCents));
+    // Stripe's fees for the partners' 1099s of a year that ended ride on the first payout after it.
+    const forms = await taxFormsDue(ctx, ws, input.month, input.livemode);
+    const totals = payoutTotals(
+      plan.paid.map((p) => p.owedCents),
+      forms.length,
+    );
     const [payout] = await rows<{ id: string }>(
       ctx.tx,
       sql`insert into app.partner_payouts (workspace_id, organization_id, month, livemode, owed_cents,
-            account_fees_cents, payout_fees_cents, card_fee_cents, charge_cents, card_brand, card_last4)
+            account_fees_cents, payout_fees_cents, tax_forms_cents, card_fee_cents, charge_cents, card_brand,
+            card_last4)
           values (${ws}, ${ctx.scope.organizationId}, ${input.month}::date, ${input.livemode}, ${totals.owedCents},
-            ${totals.accountFeesCents}, ${totals.payoutFeesCents}, ${totals.cardFeeCents}, ${totals.chargeCents},
-            ${billing.card_brand}, ${billing.card_last4})
+            ${totals.accountFeesCents}, ${totals.payoutFeesCents}, ${totals.taxFormsCents}, ${totals.cardFeeCents},
+            ${totals.chargeCents}, ${billing.card_brand}, ${billing.card_last4})
           returning id`,
     );
+    for (const f of forms)
+      await ctx.tx.execute(
+        sql`insert into app.partner_tax_forms (workspace_id, account_ref, partner_id, tax_year, paid_cents,
+              fee_cents, payout_id)
+            values (${ws}, ${f.accountRef}, ${f.partnerId}, ${f.taxYear}, ${f.paidCents}, ${TAX_FORM_FEE_CENTS},
+              ${payout!.id})`,
+      );
     for (const [i, p] of plan.paid.entries()) {
       const mine = byPartner.get(p.partnerId)!;
       const fees = totals.lines[i]!;
@@ -390,8 +461,13 @@ export const partnerPayoutBuild = defineCommand({
         month: input.month,
         chargeCents: totals.chargeCents,
         partners: plan.paid.length,
+        taxForms: forms.length,
       },
-      after: { charge: `${(totals.chargeCents / 100).toFixed(2)}`, partners: plan.paid.length },
+      after: {
+        charge: `${(totals.chargeCents / 100).toFixed(2)}`,
+        partners: plan.paid.length,
+        taxForms: forms.length,
+      },
     });
     return {
       payoutId: payout!.id,
@@ -519,6 +595,8 @@ export const partnerPayoutRecordCharge = defineCommand({
           from app.partner_payout_lines l
           where l.id = c.payout_line_id and l.payout_id = ${p.id} and c.workspace_id = ${ws}`,
     );
+    // Nothing was charged for its 1099s either: the next payout charges for them.
+    await ctx.tx.execute(sql`delete from app.partner_tax_forms where payout_id = ${p.id}`);
     await ctx.emit({
       type: 'partner.payout_failed',
       entityType: 'partner_payout',
@@ -604,24 +682,86 @@ export const partnerPayoutRecordTransfer = defineCommand({
       },
       after: { status: 'paid' },
     });
-    const [left] = await rows<{ n: number }>(
+    const paid = await paidWhenDone(ctx, line.payout_id);
+    return {
+      status: 'paid' as const,
+      payoutStatus: paid ? ('paid' as const) : ('paying' as const),
+      recorded: true,
+    };
+  },
+});
+
+/** Marks the payout paid once nothing on it waits: every partner paid, or their line given back. */
+async function paidWhenDone(ctx: CommandContext, payoutId: string): Promise<boolean> {
+  const [left] = await rows<{ n: number }>(
+    ctx.tx,
+    sql`select count(*)::int as n from app.partner_payout_lines
+        where payout_id = ${payoutId} and status in ('pending', 'held')`,
+  );
+  if (left?.n) return false;
+  await ctx.tx.execute(
+    sql`update app.partner_payouts set status = 'paid', paid_at = now() where id = ${payoutId}`,
+  );
+  await ctx.emit({
+    type: 'partner.payout_paid',
+    entityType: 'partner_payout',
+    entityId: payoutId,
+    payload: { payoutId },
+    after: { status: 'paid' },
+  });
+  return true;
+}
+
+export const partnerPayoutGiveBack = defineCommand({
+  name: 'partner.payout_give_back',
+  description:
+    'Worker: a line held for a partner deleted for good was given back to the business’s card, refunded from the month’s charge: the line and its two Stripe fees. The line is cancelled, and the payout is paid once nothing else on it waits.',
+  risk: 1,
+  input: PartnerPayoutGiveBackInput,
+  output: PartnerPayoutGiveBackOutput,
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['partner.payout_line_given_back', 'partner.payout_paid'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [line] = await rows<{
+      id: string;
+      payout_id: string;
+      partner_id: string | null;
+      status: PayoutLineStatus;
+      given_back_at: Date | string | null;
+      payout_status: PayoutStatus;
+    }>(
       ctx.tx,
-      sql`select count(*)::int as n from app.partner_payout_lines
-          where payout_id = ${line.payout_id} and status in ('pending', 'held')`,
+      sql`select l.id, l.payout_id, l.partner_id, l.status, l.given_back_at, p.status as payout_status
+          from app.partner_payout_lines l join app.partner_payouts p on p.id = l.payout_id
+          where l.workspace_id = ${ws} and l.id = ${input.lineId}
+          for update of l, p`,
     );
-    if (left?.n)
-      return { status: 'paid' as const, payoutStatus: 'paying' as const, recorded: true };
+    if (!line) throw HfosError.notFound('That payout line isn’t there anymore.');
+    // Given back already, or not one to give back: a partner still kept, or a line paid or cancelled.
+    if (
+      line.given_back_at ||
+      line.partner_id !== null ||
+      line.payout_status !== 'paying' ||
+      (line.status !== 'held' && line.status !== 'pending')
+    )
+      return { given: false, payoutStatus: line.payout_status };
     await ctx.tx.execute(
-      sql`update app.partner_payouts set status = 'paid', paid_at = now() where id = ${line.payout_id}`,
+      sql`update app.partner_payout_lines set status = 'cancelled', held_reason = null, given_back_at = now(),
+            given_back_cents = ${input.amountCents}, refund_ref = ${input.refundRef}
+          where id = ${line.id}`,
     );
     await ctx.emit({
-      type: 'partner.payout_paid',
-      entityType: 'partner_payout',
-      entityId: line.payout_id,
-      payload: { payoutId: line.payout_id },
-      after: { status: 'paid' },
+      type: 'partner.payout_line_given_back',
+      entityType: 'partner_payout_line',
+      entityId: line.id,
+      payload: { lineId: line.id, payoutId: line.payout_id, amountCents: input.amountCents },
+      after: { status: 'cancelled', givenBack: `${(input.amountCents / 100).toFixed(2)}` },
     });
-    return { status: 'paid' as const, payoutStatus: 'paid' as const, recorded: true };
+    const paid = await paidWhenDone(ctx, line.payout_id);
+    return { given: true, payoutStatus: paid ? ('paid' as const) : line.payout_status };
   },
 });
 
@@ -633,4 +773,5 @@ export const partnerPayoutCommands = [
   partnerPayoutBuild,
   partnerPayoutRecordCharge,
   partnerPayoutRecordTransfer,
+  partnerPayoutGiveBack,
 ];
