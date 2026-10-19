@@ -17,6 +17,19 @@ export const ACCOUNT_FEE_CENTS = 200;
 /** Stripe's fee for each payout to a partner's bank: 0.25% + 25¢. */
 export const PAYOUT_FEE_BP = 25;
 export const PAYOUT_FEE_FIXED_CENTS = 25;
+/**
+ * Stripe's fees for each partner's 1099 (stage 5): $2.99 to e-file it with the IRS and $1.49 to e-file it with their
+ * state. Mailing a paper copy ($2.99) when a partner hasn't taken e-delivery stays HandsFreeOS's.
+ */
+export const TAX_FORM_FEE_CENTS = 448;
+
+/**
+ * What a business must have paid a partner in a calendar year for Stripe to file their 1099-NEC: $2,000 for payments
+ * from 2026 (the One Big Beautiful Bill Act raised it from $600). It moves with inflation from 2027: check the IRS's
+ * figure each year.
+ */
+export const taxFormThresholdCents = (taxYear: number): number =>
+  taxYear >= 2026 ? 200_000 : 60_000;
 
 /** A share of an amount in basis points, rounded up to the cent so a fee is always covered. */
 const bpUp = (cents: number, bp: number): number =>
@@ -54,14 +67,22 @@ export interface PayoutTotals {
   readonly accountFeesCents: number;
   /** Stripe's 0.25% + 25¢ for each payout to a partner's bank. */
   readonly payoutFeesCents: number;
+  /** Stripe's fees for the partners' 1099s of a year that ended. */
+  readonly taxFormsCents: number;
   /** Stripe's 2.9% + 30¢ on the charge itself. */
   readonly cardFeeCents: number;
   /** All of it: what the business's card is charged. */
   readonly chargeCents: number;
 }
 
-/** What a month's payout charges for paying each of these amounts, with each line's own fees. */
-export function payoutTotals(amounts: readonly number[]): PayoutTotals & {
+/**
+ * What a month's payout charges for paying each of these amounts, with each line's own fees, and Stripe's fees for
+ * this many 1099s of a year that ended.
+ */
+export function payoutTotals(
+  amounts: readonly number[],
+  taxForms = 0,
+): PayoutTotals & {
   readonly lines: readonly PayoutLineAmounts[];
 } {
   const lines = amounts.map((amountCents) => ({
@@ -72,16 +93,23 @@ export function payoutTotals(amounts: readonly number[]): PayoutTotals & {
   const owedCents = lines.reduce((a, l) => a + l.amountCents, 0);
   const accountFeesCents = lines.reduce((a, l) => a + l.accountFeeCents, 0);
   const payoutFeesCents = lines.reduce((a, l) => a + l.payoutFeeCents, 0);
-  const chargeCents = grossUpCents(owedCents + accountFeesCents + payoutFeesCents);
+  const taxFormsCents = taxForms * TAX_FORM_FEE_CENTS;
+  const fees = accountFeesCents + payoutFeesCents + taxFormsCents;
+  const chargeCents = grossUpCents(owedCents + fees);
   return {
     lines,
     owedCents,
     accountFeesCents,
     payoutFeesCents,
-    cardFeeCents: chargeCents - owedCents - accountFeesCents - payoutFeesCents,
+    taxFormsCents,
+    cardFeeCents: chargeCents - owedCents - fees,
     chargeCents,
   };
 }
+
+/** What's given back to a business's card for a line it was charged for and never paid out: it and its two fees. */
+export const givenBackCents = (line: PayoutLineAmounts): number =>
+  line.amountCents + line.accountFeeCents + line.payoutFeeCents;
 
 /** Why a partner who's owed something isn't paid this month. */
 export type PayoutWait = 'below_smallest' | 'no_bank';

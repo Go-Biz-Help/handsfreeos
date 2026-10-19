@@ -11,6 +11,7 @@
 import {
   executeCommandIn,
   partnerCommissionDisputeNote,
+  partnerCommissionGiveBack,
   partnerCommissionNote,
   partnerCommissionTakeBack,
   partnerReferralNote,
@@ -88,6 +89,29 @@ export const onPartnerRefund: EventHandler = async (ctx) => {
   await executeCommandIn(
     ctx.tx,
     partnerCommissionTakeBack,
+    { workspaceId: scope.workspaceId, refundId },
+    systemActor(scope),
+    metaOf(ctx),
+  );
+};
+
+/**
+ * `refund.failed`: the client's bank turned down a refund, maybe days after it went through (stage 5). The share it
+ * took back from the partner is theirs again. One that never went through took nothing, and costs one look.
+ */
+export const onPartnerRefundFailed: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const refundId = idIn(payloadOf(ctx), 'refundId', ctx.event.entityId);
+  if (!refundId) return;
+  const [taken] = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select c.id from app.partner_commissions c
+        where c.workspace_id = ${scope.workspaceId} and c.refund_id = ${refundId} and c.kind = 'taken_back'`,
+  );
+  if (!taken) return;
+  await executeCommandIn(
+    ctx.tx,
+    partnerCommissionGiveBack,
     { workspaceId: scope.workspaceId, refundId },
     systemActor(scope),
     metaOf(ctx),

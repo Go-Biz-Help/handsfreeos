@@ -6911,7 +6911,7 @@ Each extra million tokens a day can add up to $10 a day per workspace. Raise the
 Three settings choose the models:
 
 - `ASSISTANT_MODEL` is Ask HandsFreeOS, the team's own helper. It is Claude Opus 5.5 (`claude-opus-5-5`) unless set.
-- `VOICE_MODEL` is calls and the test console's calls. It is Claude Haiku 5.5 (`claude-haiku-5-5`) unless set. A caller hears every pause, so speed matters most here: calls think at low effort, so Claude can skip thinking on a simple turn (a model with no effort levels, such as Claude Haiku 4.5, ignores it). A support admin can still pick another model for one business in /admin.
+- `VOICE_MODEL` is calls and the test console's calls. It is Claude Haiku 5.5 (`claude-haiku-5-5`) unless set. A caller hears every pause, so speed matters most here: calls ask Claude to answer without thinking first, at low effort (a model that can't turn thinking off, such as Claude Sonnet 5.5, still thinks; one with no effort levels, such as Claude Haiku 4.5, ignores that). A support admin can still pick another model for one business in /admin.
 - `AI_MODEL` is everything else: the AI teammate, workflow AI steps, the builders and the knowledge base. It is Claude Sonnet 5 (`claude-sonnet-5`) unless set. Customers wait on these, so a faster model matters more here than a stronger one.
 
 Claude Sonnet 5 thinks before it answers, and its thinking counts toward each answer's token cap. So every structured ask (`askStructured` in `apps/worker/src/ai/ask.ts`, and support's drafts) gets 16,000 tokens of room to think on top of what its answer may take: an answer cut off can't be used. A model that doesn't think, such as Claude Haiku 4.5, never uses the room, and a finished answer costs only what it wrote.
@@ -8934,13 +8934,17 @@ What keeps the wait short:
   the time and what the caller just said. `readyTokens` of 0 on every turn means this isn't working.
 - **It talks while it writes.** A reply starts being said as soon as its first sentence is written and checked; a
   one-sentence answer, as soon as it ends.
+- **It stops for words.** Talking over it stops it as soon as the caller's first words are heard. A sound that
+  isn't words (a cough, a door, a fan) doesn't stop it, and nor does its own voice coming back through their
+  microphone (a laptop's speakers on a test call, a phone on speaker): words heard while it talks, or just after,
+  that are its own aren't taken as theirs.
 - **One voice connection a call.** Sentences go down one Deepgram connection opened at pickup. A sentence it can't
   take goes by a request of its own, as the greeting does; after three failures on one call it stops trying for
   that call.
 
 When calls feel slow, the log line says where: a large `waitMs` with `thought: true` is the model thinking before
-it answers (Claude Haiku 5.5, the default, does at low effort, when a turn needs it; Claude Haiku 4.5 doesn't, which a support
-admin can pick per business in /admin), and a large `loadMs` is the database.
+it answers (calls ask it not to; a `VOICE_MODEL` that can't turn thinking off still does), and a large `loadMs` is
+the database.
 
 To hear it for yourself, use **Call live** in the test console: it runs on the same loop as a real call and shows
 each turn's `firstSoundMs` as **Where the time went**, so the timing you hear is a caller's.
@@ -9765,14 +9769,15 @@ People who send a business its customers earn a share of what those customers pa
 partners for payments at least 30 days old, charges the business's card for it on **HandsFreeOS's own Stripe
 account**, and pays each partner to their bank through Stripe. Stripe's fees are the business's, each on its own
 line of the month's statement: $2 for each partner's account paid that month, 0.25% + 25¢ for each payout to a
-partner's bank, and 2.9% + 30¢ on the charge itself.
+partner's bank, 2.9% + 30¢ on the charge itself, and, on the first payout after a year ends, $4.48 for each
+partner's 1099.
 
 Each partner's bank is a **Stripe Express account** of HandsFreeOS's platform. The partner fills in Stripe's own
 form from their page in the business's portal: their bank, tax and identity details go to Stripe, never to
 HandsFreeOS or the business. Stripe holds and moves the money, and files each partner's 1099.
 
 It runs on the same Stripe account, keys and Connect webhook as "Money: Stripe and Square", and needs the
-migration `20261027009000_partner_payouts.sql`. Nothing is charged or paid for a business until **you open payouts
+migrations `20261027009000_partner_payouts.sql` and `20261027009400_payout_loose_ends.sql`. Nothing is charged or paid for a business until **you open payouts
 for it in /admin**, one business at a time.
 
 ### Before you open payouts for anyone
@@ -9804,8 +9809,20 @@ You should see Express listed as on. A partner's account only ever receives tran
 4. Leave Stripe to collect each partner's tax id: Stripe's form asks for everything it may need up front, so a
    partner isn't stopped later for it.
 
-Stripe charges a fee for each form it files and sends (see Stripe's pricing page for today's). That isn't on the
-business's statement yet: it's HandsFreeOS's until Chris decides otherwise.
+Stripe charges a fee for each form it files (the plan's stage 5): $2.99 to e-file it with the IRS and $1.49 with
+the partner's state. Those two are passed on to the business, $4.48 a form (`TAX_FORM_FEE_CENTS`), on its first
+payout after the year ends, on a line of their own ("Tax forms for 2026"):
+
+- **Who gets one:** each partner account a business paid at least the IRS's threshold in a calendar year, by when
+  each transfer was paid. It's $2,000 for payments from 2026 (`taxFormThresholdCents`). It moves with inflation
+  from 2027: check the IRS's figure each January and change `taxFormThresholdCents` if it moved.
+- **Each form once,** in `app.partner_tax_forms` by the partner's account and year. A payout that's given up on lets
+  its forms go to the next one. Test payouts file nothing.
+- **What stays HandsFreeOS's:** Stripe's $2.99 for mailing a paper copy when a partner hasn't taken e-delivery, and
+  the forms of a business with no payout after the year ends.
+
+Check Stripe's pricing page each year. If its fees change, change `TAX_FORM_FEE_CENTS` in
+`packages/core/src/partners/payouts.ts` before January's payouts.
 
 ### Part 3: The webhook
 
@@ -9864,9 +9881,19 @@ pays its partners.
   they finish Stripe's form includes it.
 - **"Worked out with the other kind of Stripe key"** in the worker log. A payout made with a test key is never
   charged with a live one, nor the other way round. It only happens when a server's key was swapped mid-month.
-- **A partner deleted for good with a held line.** The line keeps the account it was going to; staff sort it out
-  in Stripe (send it, or refund the business that part of the charge). The statement keeps the line as "A deleted
-  partner".
+- **A partner deleted for good with a held line.** Nobody can fix their account now, so within the hour the line
+  and its two Stripe fees are refunded to the business's card from the month's charge (`partner-payout-giveback:`
+  and the line's id, in Stripe's dashboard under **Payments** → the charge → **Refunds**). Stripe keeps its card
+  fee on what's refunded. The statement says "Given back to your card" on the line, named "A deleted partner". A
+  line not yet sent when they were deleted is still sent if their Stripe account can take it; only one Stripe
+  refuses is given back.
+- **"A deleted partner’s payout line couldn’t be given back"** in the worker log. Stripe refused the refund (the
+  charge was refunded some other way, or disputed). The line stays held and it's tried again each hour: look at the
+  charge in Stripe's dashboard, and refund the business by hand if it's right to.
+- **A client's refund failed after it went through.** The client's bank can turn a refund down days later
+  (Stripe's `refund.failed`). The refund shows as failed, the invoice counts the money as the business's again, and
+  the partner's share it took back is given back to them as a commission of its own, paid with the next payout.
+  The business sorts out the refund with the client.
 
 ## A business's own web address
 
@@ -10144,7 +10171,7 @@ the same way it refuses removing a business's last owner.
   data — customers, messages, money — is not readable from here.
   A support admin can also pick the model a business's AI teammate thinks with on calls, under **AI on their
   calls**: **Default** is the worker's `VOICE_MODEL` (Claude Haiku 5.5 unless set), or **Claude Haiku 4.5
-  (older)**, which doesn't think before it answers. Every business was put back on Default by
+  (older)**. Every business was put back on Default by
   `20261027009100_every_business_calls_on_haiku_5_5.sql`. It changes
   from the next call and the next test call, with no redeploy, so try it on your own business first.
 - **Health** is what has failed lately across every business: jobs, webhooks, bounced email, failed texts,

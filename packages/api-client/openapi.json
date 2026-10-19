@@ -129242,7 +129242,8 @@
                             "type": "string",
                             "enum": [
                               "earned",
-                              "taken_back"
+                              "taken_back",
+                              "given_back"
                             ]
                           },
                           "amountCents": {
@@ -129399,6 +129400,30 @@
                                   }
                                 ]
                               },
+                              "givenBackCents": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "givenBackAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "payoutId": {
                                 "type": "string",
                                 "format": "uuid",
@@ -129421,6 +129446,8 @@
                               "status",
                               "heldReason",
                               "paidAt",
+                              "givenBackCents",
+                              "givenBackAt",
                               "payoutId",
                               "month",
                               "livemode"
@@ -129749,6 +129776,39 @@
                             "additionalProperties": false
                           }
                         },
+                        "taxForms": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "taxYear": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "paidCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "feeCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "taxYear",
+                              "paidCents",
+                              "feeCents"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "totals": {
                           "type": "object",
                           "properties": {
@@ -129763,6 +129823,11 @@
                               "maximum": 9007199254740991
                             },
                             "payoutFeesCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "taxFormsCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -129782,6 +129847,7 @@
                             "owedCents",
                             "accountFeesCents",
                             "payoutFeesCents",
+                            "taxFormsCents",
                             "cardFeeCents",
                             "chargeCents"
                           ],
@@ -129793,6 +129859,7 @@
                         "soon",
                         "lines",
                         "waiting",
+                        "taxForms",
                         "totals"
                       ],
                       "additionalProperties": false
@@ -129840,6 +129907,11 @@
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991
                               },
+                              "taxFormsCents": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
                               "cardFeeCents": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
@@ -129855,6 +129927,7 @@
                               "owedCents",
                               "accountFeesCents",
                               "payoutFeesCents",
+                              "taxFormsCents",
                               "cardFeeCents",
                               "chargeCents"
                             ],
@@ -130070,6 +130143,11 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "taxFormsCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "cardFeeCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -130085,6 +130163,7 @@
                             "owedCents",
                             "accountFeesCents",
                             "payoutFeesCents",
+                            "taxFormsCents",
                             "cardFeeCents",
                             "chargeCents"
                           ],
@@ -130267,6 +130346,30 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "givenBackCents": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "givenBackAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -130278,7 +130381,42 @@
                           "payoutFeeCents",
                           "status",
                           "heldReason",
-                          "paidAt"
+                          "paidAt",
+                          "givenBackCents",
+                          "givenBackAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "taxForms": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "taxYear": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "paidCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "feeCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "taxYear",
+                          "paidCents",
+                          "feeCents"
                         ],
                         "additionalProperties": false
                       }
@@ -130286,7 +130424,8 @@
                   },
                   "required": [
                     "payout",
-                    "lines"
+                    "lines",
+                    "taxForms"
                   ],
                   "additionalProperties": false
                 }

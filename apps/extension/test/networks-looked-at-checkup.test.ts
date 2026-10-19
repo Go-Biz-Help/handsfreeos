@@ -90,7 +90,9 @@ const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/network`]: html(`${ALIGNABLE_MENU}<main>
     <div><a href="/austin-tx/acme-plumbing/dana-reyes">Dana Reyes</a><button>Connect</button></div></main>`),
   [`${AL}/inbox`]: html(`${ALIGNABLE_MENU}<main><button>New Message</button></main>`),
-  [`${AL}/forum`]: html(`${ALIGNABLE_MENU}<main><h1>Forum</h1></main>`),
+  [`${AL}/forum`]: html(
+    `${ALIGNABLE_MENU}<main><h1>Forum</h1><a href="/austin-tx/forum/12/need-a-plumber">Need a plumber?</a></main>`,
+  ),
   [`${AL}/me`]: html(`${ALIGNABLE_MENU}<main><h1>My Profile</h1></main>`),
   [`${AL}/austin-tx/acme-plumbing/dana-reyes`]: html(
     `${ALIGNABLE_MENU}<main><button>Connect</button><button>Message</button><button>Recommend</button></main>`,
@@ -109,6 +111,28 @@ const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/biz/users/77/edit`]: html(
     `<main><form><label for="f">First Name</label><input id="f" type="text" value="Casey" /><button>Save</button></form></main>`,
   ),
+  // The pages its steps and Find partners are built from next (0.66.0): their town, a search, a forum question, their
+  // connection requests and a chat with a connection.
+  [`${AL}/austin-tx`]: html(`${ALIGNABLE_MENU}<main>
+    <a href="/austin-tx/acme-plumbing">Acme Plumbing</a><a href="/austin-tx/best-bakery">Best Bakery</a></main>`),
+  [`${AL}/biz/search?q=small%20business`]: html(
+    `${ALIGNABLE_MENU}<main><a href="/austin-tx/acme-plumbing">Acme Plumbing</a></main>`,
+  ),
+  [`${AL}/austin-tx/forum/12/need-a-plumber`]: html(`${ALIGNABLE_MENU}<main>
+    <h1>Need a plumber?</h1><button>Like</button><textarea placeholder="Write an answer"></textarea></main>`),
+  [`${AL}/biz/my_network`]: html(`${ALIGNABLE_MENU}<main>
+    <a href="/biz/my_network/received?_fat=a">Requests</a>
+    <div data-testid="connection-row"><a href="/biz/conversations?with_business_id=42">Message</a></div></main>`),
+  [`${AL}/biz/my_network/received?_fat=a`]: html(`${ALIGNABLE_MENU}<main>
+    <a href="/austin-tx/best-bakery">Best Bakery</a><button>Accept</button><button>Ignore</button></main>`),
+  [`${AL}/biz/conversations?with_business_id=42`]: html(
+    `${ALIGNABLE_MENU}<main><textarea placeholder="Write a message"></textarea><button>Send</button></main>`,
+  ),
+};
+
+/** Where Alignable sends an address: their own profile, to their business's page in its town. */
+const ALIGNABLE_REDIRECTS: Record<string, string> = {
+  [`${AL}/biz/businesses/my_profile`]: `${AL}/austin-tx/acme-roofing?user=7`,
 };
 
 /** What Alignable's pages draw a moment after they open, on the second read. */
@@ -138,7 +162,11 @@ function alignableDoes(doc: Document) {
 }
 
 /** A tab on a network still looked at, opening the pages above by address; it reads and looks as the tab does. */
-function fakeTab(pages: Record<string, string>, platform: 'instagram' | 'alignable') {
+function fakeTab(
+  pages: Record<string, string>,
+  platform: 'instagram' | 'alignable',
+  redirects: Record<string, string> = platform === 'alignable' ? ALIGNABLE_REDIRECTS : {},
+) {
   const kit = KITS[platform];
   let doc: Document | null = null;
   let at = '';
@@ -151,9 +179,9 @@ function fakeTab(pages: Record<string, string>, platform: 'instagram' | 'alignab
       const page = pages[url];
       if (!page) throw new Error(`Not expected: ${url}`);
       opened.push(url);
-      at = url;
+      at = redirects[url] ?? url;
       reads = 0;
-      doc = new JSDOM(page, { url }).window.document;
+      doc = new JSDOM(page, { url: at }).window.document;
       if (platform === 'instagram') instagramDoes(doc);
       else alignableDoes(doc);
       return 1;
@@ -322,8 +350,18 @@ describe('Check Alignable', () => {
       `${AL}/biz/profile/about_us`,
       `${AL}/biz/users/77/edit`,
       `${AL}/austin-tx/acme-plumbing/dana-reyes`,
+      // Then what its steps and Find partners are built from (0.66.0): their town, from their business's address, a
+      // search, the forum question a page linked to, their connection requests, and a chat with a connection.
+      `${AL}/austin-tx`,
+      `${AL}/biz/search?q=small%20business`,
+      `${AL}/austin-tx/forum/12/need-a-plumber`,
+      `${AL}/biz/my_network`,
+      `${AL}/biz/my_network/received?_fat=a`,
+      `${AL}/biz/conversations?with_business_id=42`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
+    // Nothing is written in the chat or the answer's box, and nothing's pressed there.
+    expect(notes.find((n) => n.job === 'checkup.summary')?.found).not.toHaveProperty('nothingRead');
     // One note of each step, its best: found on the page it was first found on.
     const steps = notes.filter((n) => n.job?.startsWith('checkup.') && n.job !== 'checkup.summary');
     expect(steps.map((n) => [n.job, n.found?.works])).toEqual([
@@ -347,7 +385,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 9 Alignable pages and tried 8 steps up to their last press. Everything works.',
+      'Read 15 Alignable pages and tried 8 steps up to their last press. Everything works.',
     );
   });
 
@@ -396,7 +434,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 9 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
+      'Read 15 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
     );
   });
 });

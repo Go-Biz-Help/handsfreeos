@@ -6,7 +6,9 @@ reaching out to our target audience we can take advantage of another user's audi
 
 **Where it stands (19 Oct 2026):** Chris answered every question below on 18 Oct 2026 and said to build it. Stages 1
 to 3 are built: finding and asking partners, partners in core with their page, and payouts (see "Build order").
-Stage 4, finding partners by search, is built too.
+Stage 4, finding partners by search, is built too, and so is stage 5, the payout loose ends: 1099 fees passed on,
+a deleted partner's held line given back, and a refund that fails later. Stage 6, partners on Alignable, is being
+built: its Check reads the last pages first (extension 0.66.0).
 
 Social Outreach today finds the people who might buy (docs/outreach.md). This adds a second kind of person to find:
 someone who already has your customers' attention, asked to send them your way for a share of what they pay.
@@ -470,6 +472,105 @@ screen at a time.
    docs/outreach.md (decision 81) and the extension's README. Nothing changes in hosting, so docs/operations.md has
    nothing new.
 
+## Stage 5: payout loose ends
+
+Chris (19 Oct 2026) picked this as stage 5, over Instagram and Alignable and partners outside the US: the three
+things stages 2 and 3 left open, finished before payouts go live.
+
+**Stripe's fee for each partner's 1099.** Stripe files a 1099-NEC for each partner account paid enough in a year, and
+charges HandsFreeOS for each form. Those are Stripe's fees, so they're the business's (decision 16), on the statement
+like the others:
+
+- **Who gets one:** a partner account a business paid at least the IRS's threshold in a calendar year, counted by when
+  each transfer was paid: $2,000 for payments from 2026 (the One Big Beautiful Bill Act raised it from $600; it moves
+  with inflation from 2027, so `taxFormThresholdCents` is checked each year). Live money only: test payouts file
+  nothing.
+- **What it costs:** $4.48 a form (`TAX_FORM_FEE_CENTS`): Stripe's $2.99 to e-file it with the IRS and $1.49 to
+  e-file it with the partner's state. Stripe's $2.99 for mailing a paper copy, when a partner hasn't taken e-delivery,
+  stays HandsFreeOS's, as does a state that needs no filing of its own.
+- **When:** on the business's first payout after the year ends, on a line of its own ("Tax forms for 2026"), each
+  form once (`app.partner_tax_forms`, by the partner's account and year). A payout that fails lets its forms go to the
+  next one. A business with no payout after the year ends never pays for them, and HandsFreeOS does.
+
+**Money held for a partner deleted for good.** A partner's line is held when Stripe won't take the transfer yet, and
+it's sent once their account can take it. A partner deleted for good can't get back to their page to fix it, so their
+held line is given back to the business instead: the line's amount and its two Stripe fees (never charged, since
+nothing was paid out) are refunded to the business's card from the month's charge. Stripe keeps its card fee on what's
+refunded. The statement says so on the line ("Given back to your card"). A line not yet sent when they were deleted is
+still sent to their Stripe account if it can take it: they earned it. Only one Stripe refuses is given back.
+
+**A refund that fails after it went through.** A refund can succeed, then fail when the client's bank turns it down
+days later. It was kept as succeeded, since a refund's status only moved forward:
+
+- **The refund** moves from succeeded to failed (`REFUND_TRANSITIONS`, and `private.guard_refund_update` beside it),
+  so the invoice counts the money as the business's again.
+- **The partner's share it took back is theirs again.** Commissions are kept as they happened, so the take-back
+  stays and a commission of its own (`given_back`) gives it back, once: free to pay out when the take-back was, or at
+  once if a payout took it already, so the next payout pays it. `partner.commission_give_back`, the worker's on
+  `refund.failed`.
+
+**What's kept** (migration 20261027009400):
+
+- `app.partner_tax_forms`, and `partner_payouts.tax_forms_cents`, with the payout's charge counting it.
+- `partner_payout_lines.given_back_at`, `given_back_cents` and `refund_ref`. A given-back line is cancelled, so
+  nothing waits on it.
+- `partner_commissions.kind` takes `given_back`: positive, tied to the refund that failed, once per refund.
+- `private.guard_refund_update` lets a refund go from succeeded to failed, and nowhere else backwards.
+- `private.partner_payouts_unfinished` finds a held line whose partner was deleted, for the worker to give back.
+
+This migration removes and remakes three checks and an index (the payout's charge, and the commission's kind, sign
+and one-per-refund), so the Supabase connector asks a person to approve it.
+
+**Build order:**
+
+1. **5a:** the rules, the migration, the commands and the statement's lines, in core.
+2. **5b:** the worker: the refund that gives back a deleted partner's held line, and the share given back when a
+   refund fails.
+3. **5c:** the statement's lines on the web and the phone, the partner's page, and docs/operations.md.
+
+## Stage 6: partners on Alignable, then Instagram
+
+Chris (19 Oct 2026) picked Instagram and Alignable for stage 6, over partners outside the US. Neither network takes a
+step yet: they're still looked at (docs/outreach.md decision 78), with no day, no likes, follows or messages, and no
+Find partners. Decision 15 has their partner steps run as soon as each network's own steps do, so Chris chose
+**Alignable first**: make it a working network with partners built in, then Instagram the same way. It follows the
+Instagram and Alignable plan's build order (HANDSFREEOS_INSTAGRAM_ALIGNABLE_IMPLEMENTATION_PLAN.md, steps 3 to 5),
+with partners part of each step rather than after it.
+
+**On Alignable, partners are where it's strongest.** It's made for local businesses to refer each other:
+
+- **Who:** businesses with the same customers, by town. There are no group admins or creators there (stage 1's
+  table): your town's businesses of the kinds a partner playbook names, found by its search, and those whose Ideal
+  Partner is you.
+- **The referral swap stays beside the commission** (decision 14): a partner on Alignable can earn commission and get
+  referrals back. Its business page's **Refer** is how a referral is sent, by hand.
+- **Warming up** is a like or a comment on their post or forum answer, then **Connect**, then the ask once they
+  accept, as LinkedIn's invitations go.
+- **A playbook says customers, referral partners or both** on Alignable (the Instagram and Alignable plan's decision
+  7). A partner playbook is the referral partners' side.
+
+**What the owner's Checks have read already** (0.59.0 to 0.63.0, kept as problem reports for 30 days): its home at
+/biz and its menus, notifications, the conversations list, groups, events, My Network, a business's page and a
+member's, the person's own profile and its forms. Its pages carry stable test ids (`connection-row`,
+`connection-row-profile-link`), each connection has a Message link to `/biz/conversations?with_business_id=…`, and
+each business page has **Connect**, **Recommend** and **Refer** links. Connect is a plain link that may send the
+request when opened, so no Check opens it: the first real request shows what it does.
+
+**Build order:**
+
+1. **6a, Check Alignable reads the rest** (extension 0.66.0): your town, a search for businesses, a forum question,
+   your connection requests (My Network's Requests) and a chat with one of your connections, nothing written. Forum
+   questions are read as posts, never as businesses, and the addresses keep more of Alignable's own words. Chris runs
+   it once.
+2. **6b, shared core** (the Instagram and Alignable plan's step 3): people found by a search become people to connect
+   with on any network, each network's runner says which steps it does, a playbook's networks count, and an Alignable
+   playbook says customers, referral partners or both.
+3. **6c, Alignable works** (its parts 1 to 6), built from what 6a sends back, with partners in it: reading its pages,
+   noting your steps, its day in the apps, its asks, the runner and Find partners (your town's businesses by the
+   playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage last.
+4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
+   its search, hashtags and the accounts it suggests.
+
 ## Build order
 
 1. **Stage 1, in core:** partner playbooks, the partners table, the partner check, the stages, the new message kinds,
@@ -489,4 +590,7 @@ screen at a time.
 4. **Stage 2:** partners, referrals and commissions in core, and the partner's page.
 5. **Stage 3:** payouts, after the open questions.
 6. **Stage 4 (built):** finding partners by search on LinkedIn and Facebook.
-7. **Chris tries each,** in Stripe's test mode first for payouts.
+7. **Stage 5 (built):** the payout loose ends: 1099 fees, a deleted partner's held line, and a refund that fails
+   later.
+8. **Stage 6:** partners on Alignable, then Instagram, as each network starts to work (6a to 6d above).
+9. **Chris tries each,** in Stripe's test mode first for payouts.

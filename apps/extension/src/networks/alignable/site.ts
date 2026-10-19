@@ -129,10 +129,20 @@ function placeOpening(name: string, url: URL): PlaceOpening {
   return 'maybe';
 }
 
+/** A town's own pages under its address, never a business: its forum (the owner's Check, 0.62.0: /<town-st>/forum/…). */
+const TOWN_PAGES = new Set(['forum', 'questions', 'events', 'groups']);
+
+/** The town a business's address is in: "austin-tx" in /austin-tx/acme-plumbing. */
+export function townOf(href: string): string | null {
+  const url = alignableUrl(href);
+  const [first = ''] = url ? partsOf(url) : [];
+  return TOWN.test(first) ? first.toLowerCase() : null;
+}
+
 function profileOf(url: URL): { username: string; url: string } | null {
   const [first = '', second = '', third] = partsOf(url);
   // A business in its town, and a person on it: /<town-st>/<business>/ and /<town-st>/<business>/<person>.
-  if (!TOWN.test(first) || !SLUG.test(second)) return null;
+  if (!TOWN.test(first) || !SLUG.test(second) || TOWN_PAGES.has(second.toLowerCase())) return null;
   const who = third && SLUG.test(third) ? third : null;
   const path = who ? `${first}/${second}/${who}` : `${first}/${second}`;
   return {
@@ -142,8 +152,14 @@ function profileOf(url: URL): { username: string; url: string } | null {
 }
 
 function postOf(url: URL): string | null {
-  const [first = '', second] = partsOf(url).map((p) => p.toLowerCase());
-  if (!second || !['forum', 'questions', 'discussions', 'posts'].includes(first)) return null;
+  const parts = partsOf(url).map((p) => p.toLowerCase());
+  const [first = '', second, third] = parts;
+  // A town's forum question (/<town-st>/forum/<id>/<title>, the owner's Check, 0.62.0), and a group's discussion
+  // (/biz/discussions/<id>).
+  const question = TOWN.test(first) && second === 'forum' && !!third;
+  const discussion = first === 'biz' && second === 'discussions' && !!third;
+  const older = !!second && ['forum', 'questions', 'discussions', 'posts'].includes(first);
+  if (!question && !discussion && !older) return null;
   return `https://${HOST}${url.pathname}`;
 }
 
@@ -481,7 +497,38 @@ const PATH_WORDS = new Set([
   'tags',
   'preview',
   'dashboard',
+  // Where the owner's Check went on 0.62.0, kept so the next Check's outlines say where each link leads: searches,
+  // forums, discussions, businesses, recommendations, and the likeliest words for a connection request's link.
+  'search',
+  'forum',
+  'discussions',
+  'groups',
+  'events',
+  'notifications',
+  'businesses',
+  'my_profile',
+  'profile',
+  'recommendations',
+  'profile_recommendations',
+  'referrals',
+  'refer',
+  'requests',
+  'request',
+  'connection_requests',
+  'connection_request',
+  'connections_requests',
+  'connect',
+  'create',
+  'accept',
+  'ignore',
+  'decline',
+  'invitations',
+  'invitation',
+  'messages',
 ]);
+
+/** Its own words in an address's query: what kind of search, and from where (the owner's Check, 0.62.0). */
+const QUERY_KEPT = new Set(['doc_type', 'source', 'request_source', 'from', 'size']);
 
 /** Alignable's warnings: what any site says when it holds an account back, till Check reads its own. */
 const WARNINGS: readonly RegExp[] = [
@@ -511,6 +558,7 @@ export const ALIGNABLE: LookingSite = {
   profileOf,
   postOf,
   pathWords: PATH_WORDS,
+  queryKept: QUERY_KEPT,
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,

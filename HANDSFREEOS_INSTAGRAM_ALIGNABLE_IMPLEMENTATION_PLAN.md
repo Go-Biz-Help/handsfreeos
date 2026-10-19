@@ -433,6 +433,9 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
    LinkedIn's gaps first: invitations for people found by post search, and only its own switches in Settings.
 4. **The next Checks** read what's left: Alignable's profile form, its Connect box (is there a note?), a conversation,
    a forum question, a town page. Instagram's followers list, a hashtag page, a place page, its notifications, a chat.
+   Alignable's is in extension 0.66.0 (stage 6 of the partners plan, Chris, 19 Oct 2026, which builds Alignable next
+   with partners in it): its town, a search, a forum question, connection requests and a chat. Its Connect is a link
+   that may send the request, so the first real one shows its box.
 5. **The first network:** Alignable, parts 1 to 6.
 6. **The second:** Instagram, parts 1 to 6.
 7. **Chris tries each** on his own account, as he did LinkedIn, and the readers are tuned from what its Check sends

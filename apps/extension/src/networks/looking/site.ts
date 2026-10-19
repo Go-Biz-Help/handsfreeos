@@ -36,6 +36,11 @@ export interface LookingRead {
     readonly url: string;
     readonly worth: boolean;
   }[];
+  /**
+   * The page's other links whose words are all the site's own (Alignable's Requests tab, a connection's Message), each
+   * once, in page order: never a menu's, a profile's or a post's. What Check opens next is found by their words.
+   */
+  readonly links: readonly { readonly name: string; readonly url: string }[];
   /** The person's own profile, from the menu's link to it, when the page has one. */
   readonly own: string | null;
   /** The page's links to a form the person edits their own profile on, in page order (`editLink`). */
@@ -80,6 +85,8 @@ export interface LookingSite {
   readonly pathWords: ReadonlySet<string>;
   /** Its own words on its pages, lower case: kept in an outline, as everything else a person wrote is hidden. */
   readonly words: ReadonlySet<string>;
+  /** Its own words in an address's query, kept in an outline beside every network's (tab, type, filter, sort). */
+  readonly queryKept?: ReadonlySet<string>;
   /** Its warnings, as its pages word them. */
   readonly warnings: readonly RegExp[];
   /** The addresses that are themselves a warning: a check of the account before going on. */

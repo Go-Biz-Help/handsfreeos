@@ -9,6 +9,7 @@ import {
   COMMISSION_DISPUTED,
   COMMISSION_NOT_IN_PAYOUT,
   payoutCardOf,
+  taxFormsDue,
   type BillingRow,
 } from '../commands/partner-payouts';
 import { loadPartnerSettings, PERSON_NAME } from '../commands/partners';
@@ -16,7 +17,7 @@ import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
 import { PAYOUT_WORDS } from '../partners/payout-words';
-import { nextPayoutMonth, payoutTotals, planPayout } from '../partners/payouts';
+import { nextPayoutMonth, payoutTotals, planPayout, TAX_FORM_FEE_CENTS } from '../partners/payouts';
 import {
   PartnerPayoutGetInput,
   PartnerPayoutGetOutput,
@@ -26,6 +27,7 @@ import {
   PlatformPartnerPayoutsGetOutput,
   type PartnerPayoutLineOut,
   type PartnerPayoutOut,
+  type PartnerTaxFormOut,
   type PayoutLineStatus,
   type PayoutStatus,
 } from '../schemas/partner-payouts';
@@ -48,6 +50,7 @@ type PayoutRow = {
   owed_cents: string | number;
   account_fees_cents: string | number;
   payout_fees_cents: string | number;
+  tax_forms_cents: string | number;
   card_fee_cents: string | number;
   charge_cents: string | number;
   card_brand: string | null;
@@ -64,7 +67,7 @@ type PayoutRow = {
 
 const PAYOUT_COLUMNS = sql.raw(
   `p.id, p.month::text as month, p.livemode, p.status, p.owed_cents, p.account_fees_cents, p.payout_fees_cents,
-   p.card_fee_cents, p.charge_cents, p.card_brand, p.card_last4,
+   p.tax_forms_cents, p.card_fee_cents, p.charge_cents, p.card_brand, p.card_last4,
    (select count(*)::int from app.partner_payout_lines l where l.payout_id = p.id) as partners,
    p.attempts, p.next_try_at, p.failure_message, p.charged_at, p.paid_at, p.failed_at, p.created_at`,
 );
@@ -79,6 +82,7 @@ function payoutOut(r: PayoutRow): PartnerPayoutOut {
       owedCents: Number(r.owed_cents),
       accountFeesCents: Number(r.account_fees_cents),
       payoutFeesCents: Number(r.payout_fees_cents),
+      taxFormsCents: Number(r.tax_forms_cents),
       cardFeeCents: Number(r.card_fee_cents),
       chargeCents: Number(r.charge_cents),
     },
@@ -104,7 +108,14 @@ type LineRow = {
   status: PayoutLineStatus;
   held_reason: string | null;
   paid_at: Date | string | null;
+  given_back_cents: string | number | null;
+  given_back_at: Date | string | null;
 };
+
+const LINE_COLUMNS = sql.raw(
+  `l.id, l.partner_id, l.amount_cents, l.account_fee_cents, l.payout_fee_cents, l.status, l.held_reason, l.paid_at,
+   l.given_back_cents, l.given_back_at`,
+);
 
 const lineOut = (l: LineRow): PartnerPayoutLineOut => ({
   lineId: l.id,
@@ -116,6 +127,31 @@ const lineOut = (l: LineRow): PartnerPayoutLineOut => ({
   status: l.status,
   heldReason: l.held_reason,
   paidAt: isoOrNull(l.paid_at),
+  givenBackCents: l.given_back_cents === null ? null : Number(l.given_back_cents),
+  givenBackAt: isoOrNull(l.given_back_at),
+});
+
+/** Partners' names by id, for their 1099s; one deleted for good reads as such. */
+async function namesOf(ctx: QueryContext, partnerIds: readonly (string | null)[]) {
+  const ids = [...new Set(partnerIds.filter((id): id is string => !!id))];
+  if (!ids.length) return new Map<string, string>();
+  const found = await rows<{ id: string; name: string }>(
+    ctx.tx,
+    sql`select pa.id, ${PERSON_NAME} as name
+        from app.partners pa join app.people pp on pp.id = pa.person_id
+        where pa.workspace_id = ${ctx.scope.workspaceId!} and pa.id = any(${`{${ids.join(',')}}`}::uuid[])`,
+  );
+  return new Map(found.map((f) => [f.id, f.name]));
+}
+
+const taxFormOut = (
+  names: ReadonlyMap<string, string>,
+  f: { partnerId: string | null; taxYear: number; paidCents: number; feeCents: number },
+): PartnerTaxFormOut => ({
+  name: (f.partnerId && names.get(f.partnerId)) || PAYOUT_WORDS.line.deleted,
+  taxYear: f.taxYear,
+  paidCents: f.paidCents,
+  feeCents: f.feeCents,
 });
 
 /** A partner's bank at Stripe, as the screens show it. */
@@ -151,8 +187,7 @@ export async function payoutsOfPartner(
   );
   const lines = await rows<LineRow & { payout_id: string; month: string; livemode: boolean }>(
     ctx.tx,
-    sql`select l.id, l.partner_id, null::text as name, l.amount_cents, l.account_fee_cents, l.payout_fee_cents,
-          l.status, l.held_reason, l.paid_at, l.payout_id, p.month::text as month, p.livemode
+    sql`select ${LINE_COLUMNS}, null::text as name, l.payout_id, p.month::text as month, p.livemode
         from app.partner_payout_lines l join app.partner_payouts p on p.id = l.payout_id
         where l.workspace_id = ${ws} and l.partner_id = ${partnerId}
         order by p.month desc, l.created_at desc
@@ -201,7 +236,6 @@ async function nextPayoutOf(ctx: QueryContext, billing: BillingRow | null) {
     })),
     smallestPayoutCents: settings.smallestPayoutCents,
   });
-  const totals = payoutTotals(plan.paid.map((p) => p.owedCents));
   const [ws_] = await rows<{ timezone: string | null }>(
     ctx.tx,
     sql`select timezone from app.workspaces where id = ${ws}`,
@@ -211,6 +245,16 @@ async function nextPayoutOf(ctx: QueryContext, billing: BillingRow | null) {
     timeZone: ws_?.timezone,
     lastMonth: billing?.last_month ?? null,
   });
+  // A payout that pays nobody isn't made, so it charges for no 1099s either.
+  const forms = plan.paid.length ? await taxFormsDue(ctx, ws, when.month, true) : [];
+  const formNames = await namesOf(
+    ctx,
+    forms.map((f) => f.partnerId),
+  );
+  const totals = payoutTotals(
+    plan.paid.map((p) => p.owedCents),
+    forms.length,
+  );
   return {
     month: when.month,
     soon: when.soon,
@@ -225,10 +269,12 @@ async function nextPayoutOf(ctx: QueryContext, billing: BillingRow | null) {
       owedCents: p.owedCents,
       why: p.why,
     })),
+    taxForms: forms.map((f) => taxFormOut(formNames, { ...f, feeCents: TAX_FORM_FEE_CENTS })),
     totals: {
       owedCents: totals.owedCents,
       accountFeesCents: totals.accountFeesCents,
       payoutFeesCents: totals.payoutFeesCents,
+      taxFormsCents: totals.taxFormsCents,
       cardFeeCents: totals.cardFeeCents,
       chargeCents: totals.chargeCents,
     },
@@ -286,15 +332,40 @@ export const partnerPayoutGet = defineQuery({
       throw HfosError.notFound('That payout isn’t there anymore. Refresh Settings → Partners.');
     const lines = await rows<LineRow>(
       ctx.tx,
-      sql`select l.id, l.partner_id, case when pp.id is null then null else ${PERSON_NAME} end as name,
-            l.amount_cents, l.account_fee_cents, l.payout_fee_cents, l.status, l.held_reason, l.paid_at
+      sql`select ${LINE_COLUMNS}, case when pp.id is null then null else ${PERSON_NAME} end as name
           from app.partner_payout_lines l
           left join app.partners pa on pa.id = l.partner_id
           left join app.people pp on pp.id = pa.person_id
           where l.workspace_id = ${ws} and l.payout_id = ${payout.id}
           order by l.amount_cents desc, l.created_at, l.id`,
     );
-    return { payout: payoutOut(payout), lines: lines.map(lineOut) };
+    const forms = await rows<{
+      partner_id: string | null;
+      tax_year: number;
+      paid_cents: string | number;
+      fee_cents: string | number;
+    }>(
+      ctx.tx,
+      sql`select partner_id, tax_year, paid_cents, fee_cents from app.partner_tax_forms
+          where workspace_id = ${ws} and payout_id = ${payout.id}
+          order by tax_year, paid_cents desc, id`,
+    );
+    const names = await namesOf(
+      ctx,
+      forms.map((f) => f.partner_id),
+    );
+    return {
+      payout: payoutOut(payout),
+      lines: lines.map(lineOut),
+      taxForms: forms.map((f) =>
+        taxFormOut(names, {
+          partnerId: f.partner_id,
+          taxYear: f.tax_year,
+          paidCents: Number(f.paid_cents),
+          feeCents: Number(f.fee_cents),
+        }),
+      ),
+    };
   },
 });
 

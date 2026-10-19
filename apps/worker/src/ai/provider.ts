@@ -49,7 +49,7 @@ export function createAiSwitch(
 export function claudeWithBackup(
   env: Pick<WorkerEnv, 'anthropicApiKey' | 'openAiApiKey'>,
   aiSwitch: AiSwitchboard | null,
-  claude: Pick<AnthropicOptions, 'model' | 'toolSearch' | 'effort'>,
+  claude: Pick<AnthropicOptions, 'model' | 'toolSearch' | 'effort' | 'thinkingOff'>,
   backup: Pick<OpenAiOptions, 'model' | 'reasoningEffort' | 'toolSearch'>,
 ): AiProvider {
   const apiKey = env.anthropicApiKey ?? '';

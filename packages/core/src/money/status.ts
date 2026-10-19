@@ -113,9 +113,14 @@ export const PAYMENT_TRANSITIONS: Readonly<Record<PaymentStatus, readonly Paymen
   failed: ['succeeded'],
 };
 
+/**
+ * A refund moves forward too, with one way back: the client's bank can turn a refund down days after it succeeded,
+ * so `succeeded → failed` is allowed and the invoice counts the money as the business's again. Matches
+ * `private.guard_refund_update`.
+ */
 export const REFUND_TRANSITIONS: Readonly<Record<RefundStatus, readonly RefundStatus[]>> = {
   pending: ['succeeded', 'failed'],
-  succeeded: [],
+  succeeded: ['failed'],
   failed: [],
 };
 

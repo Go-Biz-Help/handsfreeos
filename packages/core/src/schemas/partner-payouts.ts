@@ -32,9 +32,22 @@ export const PartnerPayoutTotals = z.object({
   owedCents: cents,
   accountFeesCents: cents,
   payoutFeesCents: cents,
+  /** Stripe's fees for the partners' 1099s of a year that ended (stage 5): 0 on most payouts. */
+  taxFormsCents: cents,
   cardFeeCents: cents,
   chargeCents: cents,
 });
+
+/** One partner's 1099 for a year, on the payout that charges Stripe's fee for it. */
+export const PartnerTaxFormOut = z.object({
+  /** "A deleted partner" once they were deleted for good. */
+  name: z.string(),
+  taxYear: z.int(),
+  /** What the business paid them that year. */
+  paidCents: cents,
+  feeCents: cents,
+});
+export type PartnerTaxFormOut = z.infer<typeof PartnerTaxFormOut>;
 
 export const PartnerPayoutOut = z.object({
   payoutId: uuid,
@@ -72,6 +85,12 @@ export const PartnerPayoutLineOut = z.object({
   /** Why Stripe wouldn't take it for them yet. */
   heldReason: z.string().nullable(),
   paidAt: isoDateTime.nullable(),
+  /**
+   * A line held for a partner deleted for good, given back to the business's card (stage 5): how much (the line and
+   * its two Stripe fees), and when. The line is cancelled.
+   */
+  givenBackCents: cents.nullable(),
+  givenBackAt: isoDateTime.nullable(),
 });
 export type PartnerPayoutLineOut = z.infer<typeof PartnerPayoutLineOut>;
 
@@ -97,6 +116,8 @@ export const PartnerPayoutsOutput = z.object({
         why: z.enum(PAYOUT_WAITS),
       }),
     ),
+    /** The 1099s of a year that ended it would charge Stripe's fees for. */
+    taxForms: z.array(PartnerTaxFormOut),
     totals: PartnerPayoutTotals,
   }),
   /** The latest 24, the newest first. */
@@ -107,6 +128,8 @@ export const PartnerPayoutGetInput = z.object({ ...inWorkspace, payoutId: uuid }
 export const PartnerPayoutGetOutput = z.object({
   payout: PartnerPayoutOut,
   lines: z.array(PartnerPayoutLineOut),
+  /** The 1099s it charged Stripe's fees for. */
+  taxForms: z.array(PartnerTaxFormOut),
 });
 
 /** A partner's bank at Stripe, as their page under Settings → Partners shows it. */
@@ -253,4 +276,18 @@ export const PartnerPayoutRecordTransferOutput = z.object({
   status: z.enum(PAYOUT_LINE_STATUSES),
   payoutStatus: z.enum(PAYOUT_STATUSES),
   recorded: z.boolean(),
+});
+
+/** A deleted partner's held line, given back to the business's card from the month's charge (stage 5). */
+export const PartnerPayoutGiveBackInput = z.strictObject({
+  ...inWorkspace,
+  lineId: uuid,
+  /** Stripe's refund that gave it back. */
+  refundRef: providerId,
+  /** The line and its two Stripe fees. */
+  amountCents: cents.positive(),
+});
+export const PartnerPayoutGiveBackOutput = z.object({
+  given: z.boolean(),
+  payoutStatus: z.enum(PAYOUT_STATUSES),
 });

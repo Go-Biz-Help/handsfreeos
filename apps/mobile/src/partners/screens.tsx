@@ -5,6 +5,7 @@ import {
   holds,
   money,
   PARTNERS_WORDS as W,
+  payoutLineWords,
   PAYOUT_WORDS as P,
   rateWords,
   type PartnerEarnings,
@@ -489,15 +490,7 @@ export function PartnerBody({
             <ListRow
               key={l.lineId}
               label={P.history.month(l.month)}
-              detail={
-                l.status === 'paid' && l.paidAt
-                  ? P.line.paid(formatDate(l.paidAt))
-                  : l.status === 'held'
-                    ? P.line.held
-                    : l.status === 'cancelled'
-                      ? P.line.cancelled
-                      : P.line.pending
-              }
+              detail={payoutLineWords(l, formatDate)}
               end={money(l.amountCents)}
               chevron={false}
             />
@@ -626,10 +619,7 @@ export function PartnerBody({
 function CommissionRow({ c }: { c: PartnerCommissionRow }) {
   const C = W.partner.commissions;
   const rate = rateWords(c.rateBp);
-  const what =
-    c.kind === 'earned'
-      ? C.earned(rate, money(c.baseCents))
-      : C.takenBack(rate, money(c.baseCents));
+  const what = C.what(c.kind, rate, money(c.baseCents));
   const when = c.test
     ? C.test
     : c.held

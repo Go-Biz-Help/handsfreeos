@@ -93,6 +93,7 @@ export const PartnerCommissionNoteOutput = z.object({ earned: z.boolean() });
 /** Worker: a refund went back (`refund.recorded`). */
 export const PartnerCommissionTakeBackInput = z.object({ workspaceId: uuid, refundId: uuid });
 export const PartnerCommissionTakeBackOutput = z.object({ takenBack: z.boolean() });
+export const PartnerCommissionGiveBackOutput = z.object({ givenBack: z.boolean() });
 
 /** Worker: a dispute on a payment closed (`dispute.closed`). */
 export const PartnerCommissionDisputeNoteInput = z.object({ workspaceId: uuid, disputeId: uuid });
@@ -155,7 +156,7 @@ export const PartnerClientOut = z.object({
 });
 export const PartnerCommissionOut = z.object({
   commissionId: uuid,
-  kind: z.enum(['earned', 'taken_back']),
+  kind: z.enum(['earned', 'taken_back', 'given_back']),
   amountCents: cents,
   baseCents: cents,
   rateBp: z.int(),

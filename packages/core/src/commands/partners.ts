@@ -32,6 +32,7 @@ import {
   PartnerAddInput,
   PartnerAddOutput,
   PartnerCommissionDisputeNoteInput,
+  PartnerCommissionGiveBackOutput,
   PartnerCommissionNoteInput,
   PartnerCommissionNoteOutput,
   PartnerCommissionTakeBackInput,
@@ -610,7 +611,7 @@ async function takeBack(ctx: CommandContext, by: TakenBy): Promise<boolean> {
   const [taken] = await rows<{ cents: string | number | null }>(
     ctx.tx,
     sql`select coalesce(sum(amount_cents), 0) as cents from app.partner_commissions
-        where payment_id = ${by.paymentId} and kind = 'taken_back'`,
+        where payment_id = ${by.paymentId} and kind in ('taken_back', 'given_back')`,
   );
   const left = Number(earned.amount_cents) + Number(taken?.cents ?? 0);
   const back = Math.min(commissionCents(by.baseCents, earned.rate_bp), left);
@@ -690,6 +691,67 @@ async function disputeLostOn(ctx: CommandContext, disputeId: string): Promise<bo
   });
 }
 
+/**
+ * A refund that failed after it went through (stage 5): the client's bank turned it down, so the money is the
+ * business's again and so is the partner's share of it. Commissions are kept as they happened, so the take-back
+ * stays and a commission of its own gives it back, once: free to pay out when the take-back was, or now if a payout
+ * took it already.
+ */
+async function giveBackOn(ctx: CommandContext, refundId: string): Promise<boolean> {
+  const ws = ctx.scope.workspaceId!;
+  const [refund] = await rows<{ status: string }>(
+    ctx.tx,
+    sql`select r.status::text as status from app.refunds r where r.workspace_id = ${ws} and r.id = ${refundId}`,
+  );
+  if (refund?.status !== 'failed') return false;
+  const [taken] = await rows<{
+    partner_id: string;
+    referral_id: string;
+    payment_id: string;
+    base_cents: string | number;
+    rate_bp: number;
+    amount_cents: string | number;
+    payable_at: Date | string;
+    test: boolean;
+  }>(
+    ctx.tx,
+    sql`select c.partner_id, c.referral_id, c.payment_id, c.base_cents, c.rate_bp, c.amount_cents, c.payable_at,
+          c.test
+        from app.partner_commissions c
+        where c.workspace_id = ${ws} and c.refund_id = ${refundId} and c.kind = 'taken_back'`,
+  );
+  if (!taken) return false;
+  const amountCents = -Number(taken.amount_cents);
+  const at = changeMoment(ctx.meta);
+  const payable = new Date(Math.max(at.getTime(), new Date(taken.payable_at).getTime()));
+  const [row] = await rows<{ id: string }>(
+    ctx.tx,
+    sql`insert into app.partner_commissions
+          (workspace_id, partner_id, referral_id, payment_id, refund_id, kind, base_cents, rate_bp, amount_cents,
+           earned_at, payable_at, test)
+        values (${ws}, ${taken.partner_id}, ${taken.referral_id}, ${taken.payment_id}, ${refundId}, 'given_back',
+          ${taken.base_cents}, ${taken.rate_bp}, ${amountCents}, ${at.toISOString()}::timestamptz,
+          ${payable.toISOString()}::timestamptz, ${taken.test})
+        on conflict do nothing
+        returning id`,
+  );
+  if (!row) return false;
+  await ctx.emit({
+    type: 'partner.commission_given_back',
+    entityType: 'partner',
+    entityId: taken.partner_id,
+    payload: {
+      commissionId: row.id,
+      partnerId: taken.partner_id,
+      referralId: taken.referral_id,
+      paymentId: taken.payment_id,
+      refundId,
+      amountCents,
+    },
+  });
+  return true;
+}
+
 export const partnerCommissionNote = defineCommand({
   name: 'partner.commission_note',
   description:
@@ -719,6 +781,22 @@ export const partnerCommissionTakeBack = defineCommand({
   emits: ['partner.commission_taken_back'],
   async handler(ctx, input) {
     return { takenBack: await takeBackOn(ctx, input.refundId) };
+  },
+});
+
+export const partnerCommissionGiveBack = defineCommand({
+  name: 'partner.commission_give_back',
+  description:
+    'Worker: a refund failed after it went through. The partner’s share it took back is theirs again, given back as a commission of its own, once.',
+  risk: 0,
+  input: PartnerCommissionTakeBackInput,
+  output: PartnerCommissionGiveBackOutput,
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['partner.commission_given_back'],
+  async handler(ctx, input) {
+    return { givenBack: await giveBackOn(ctx, input.refundId) };
   },
 });
 

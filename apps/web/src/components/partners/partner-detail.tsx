@@ -10,6 +10,7 @@ import {
   formatDate,
   money,
   PARTNERS_WORDS as W,
+  payoutLineWords,
   PAYOUT_WORDS as P,
   rateWords,
   type PartnerStatus,
@@ -331,13 +332,7 @@ export function PartnerDetail({
                       l.status === 'held' ? 'text-warning-text' : 'text-text-2',
                     )}
                   >
-                    {l.status === 'paid' && l.paidAt
-                      ? P.line.paid(formatDate(l.paidAt))
-                      : l.status === 'held'
-                        ? P.line.held
-                        : l.status === 'cancelled'
-                          ? P.line.cancelled
-                          : P.line.pending}
+                    {payoutLineWords(l, formatDate)}
                   </p>
                 </div>
                 <span
@@ -420,10 +415,7 @@ export function PartnerDetail({
 function CommissionRow({ c }: { c: PartnerCommissionRow }) {
   const C = W.partner.commissions;
   const rate = rateWords(c.rateBp);
-  const what =
-    c.kind === 'earned'
-      ? C.earned(rate, money(c.baseCents))
-      : C.takenBack(rate, money(c.baseCents));
+  const what = C.what(c.kind, rate, money(c.baseCents));
   const when = c.test
     ? C.test
     : c.held

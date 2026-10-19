@@ -214,7 +214,7 @@ export const partnerGet = defineQuery({
     );
     const commissions = await rows<{
       id: string;
-      kind: 'earned' | 'taken_back';
+      kind: 'earned' | 'taken_back' | 'given_back';
       amount_cents: string | number;
       base_cents: string | number;
       rate_bp: number;
