@@ -766,6 +766,21 @@ export function createStripePayments(opts: {
             throw new PaymentError('Stripe didn’t say which transfer it made.', null);
           return { transferRef };
         },
+
+        /** Back to the business's card from the payout's charge. Stripe keeps its card fee on what's refunded. */
+        async giveBack(input) {
+          const made = await api<Json>(null, '/refunds', {
+            body: {
+              charge: input.chargeRef,
+              amount: requireAmount(input.amountCents),
+              metadata: cleanMetadata(input.metadata),
+            },
+            idempotencyKey: input.idempotencyKey,
+          });
+          const refundRef = str(made['id']);
+          if (!refundRef) throw new PaymentError('Stripe didn’t say which refund it made.', null);
+          return { refundRef };
+        },
       },
 
       async ensureCustomer(input: CustomerInput) {

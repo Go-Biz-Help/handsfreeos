@@ -4250,7 +4250,8 @@ export const partnerCommissions = app.table('partner_commissions', {
   refundId: uuid('refund_id').references(() => refunds.id, { onDelete: 'cascade' }),
   /** For one taken back by a lost dispute (20261027008700). */
   disputeId: uuid('dispute_id').references(() => paymentDisputes.id, { onDelete: 'cascade' }),
-  kind: text('kind').$type<'earned' | 'taken_back'>().notNull(),
+  /** given_back (20261027009400): a refund's share taken back that a payout had taken, back when the refund failed. */
+  kind: text('kind').$type<'earned' | 'taken_back' | 'given_back'>().notNull(),
   baseCents: cents('base_cents').notNull(),
   rateBp: integer('rate_bp').notNull(),
   amountCents: cents('amount_cents').notNull(),
@@ -4330,6 +4331,8 @@ export const partnerPayouts = app.table('partner_payouts', {
   owedCents: cents('owed_cents').notNull(),
   accountFeesCents: cents('account_fees_cents').notNull(),
   payoutFeesCents: cents('payout_fees_cents').notNull(),
+  /** Stripe's fees for the partners' 1099s of a year that ended (20261027009400). */
+  taxFormsCents: cents('tax_forms_cents').notNull().default(0),
   cardFeeCents: cents('card_fee_cents').notNull(),
   chargeCents: cents('charge_cents').notNull(),
   cardBrand: text('card_brand'),
@@ -4366,7 +4369,26 @@ export const partnerPayoutLines = app.table('partner_payout_lines', {
   transferRef: text('transfer_ref'),
   heldReason: text('held_reason'),
   paidAt: ts('paid_at'),
+  /** A deleted partner's held line, refunded to the business's card (20261027009400): when, how much, the refund. */
+  givenBackAt: ts('given_back_at'),
+  givenBackCents: cents('given_back_cents'),
+  refundRef: text('refund_ref'),
   ...timestamps(),
+});
+
+/** A partner's 1099 for a year, and the payout that charged the business Stripe's fee for it (20261027009400). */
+export const partnerTaxForms = app.table('partner_tax_forms', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountRef: text('account_ref').notNull(),
+  partnerId: uuid('partner_id').references(() => partners.id, { onDelete: 'set null' }),
+  taxYear: integer('tax_year').notNull(),
+  paidCents: cents('paid_cents').notNull(),
+  feeCents: cents('fee_cents').notNull(),
+  payoutId: uuid('payout_id')
+    .notNull()
+    .references(() => partnerPayouts.id, { onDelete: 'cascade' }),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 /** Our mirror of a plan billing at the provider. 'unmanaged' is one whose account was disconnected. */

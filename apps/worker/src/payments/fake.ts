@@ -197,6 +197,15 @@ export interface FakeTransfer {
   readonly metadata: Readonly<Record<string, string>>;
 }
 
+/** Part of a business's payout charge we refunded to its card: a deleted partner's line, never paid out. */
+export interface FakeGiveBack {
+  readonly id: string;
+  readonly chargeRef: string;
+  readonly amountCents: number;
+  readonly idempotencyKey: string;
+  readonly metadata: Readonly<Record<string, string>>;
+}
+
 /** One webhook the stand-in posted back to us, kept so a spec can assert on it or replay it. */
 export interface FakeWebhookPost {
   readonly provider: PaymentProviderName;
@@ -239,7 +248,10 @@ export interface FakePayments {
     amountCents: number,
     opts?: { status?: 'pending' | 'succeeded' },
   ): Promise<FakeRefund | null>;
-  /** A refund that was waiting goes through, or the bank refuses it. */
+  /**
+   * A refund that was waiting goes through, or the bank refuses it; or one that went through is refused days later,
+   * as a client's bank can (Stripe's `refund.failed`).
+   */
   settleRefund(
     providerRefundId: string,
     outcome: 'succeeded' | 'failed',
@@ -256,6 +268,8 @@ export interface FakePayments {
   payoutAccounts(): readonly FakePayoutAccount[];
   /** What we sent partners, oldest first. */
   transfers(): readonly FakeTransfer[];
+  /** What we refunded businesses from their payout charges, oldest first. */
+  givenBack(): readonly FakeGiveBack[];
   /**
    * A partner finishes Stripe's form (or Stripe stops their account, with `ready: false`): `account.updated`,
    * posted to our Connect endpoint as Stripe would.
@@ -395,6 +409,7 @@ export function createFakePayments(opts: {
   const charges = new Map<string, FakeCharge>();
   const payoutAccounts = new Map<string, FakePayoutAccount>();
   const transfers: FakeTransfer[] = [];
+  const givenBack: FakeGiveBack[] = [];
   const refundRows: FakeRefund[] = [];
   const subs = new Map<string, FakeSubscription>();
   const posts: FakeWebhookPost[] = [];
@@ -1168,6 +1183,38 @@ export function createFakePayments(opts: {
             transfers.push(t);
             return { transferRef: t.id };
           },
+
+          /** Refused, as Stripe refuses, past what's left of the charge or on one that never landed. */
+          async giveBack(input) {
+            requirePlatform(name);
+            const again = givenBack.find((g) => g.idempotencyKey === input.idempotencyKey);
+            if (again) return { refundRef: again.id };
+            const source = [...charges.values()].find(
+              (c) => c.accountId === '' && chargeRefOf(c) === input.chargeRef,
+            );
+            if (source?.status !== 'succeeded')
+              throw new PaymentError('No such charge.', 400, true, null, 'resource_missing');
+            const back = givenBack
+              .filter((g) => g.chargeRef === input.chargeRef)
+              .reduce((a, g) => a + g.amountCents, 0);
+            if (back + input.amountCents > source.amountCents)
+              throw new PaymentError(
+                'Refund amount is greater than the unrefunded amount on the charge.',
+                400,
+                true,
+                null,
+                'amount_too_large',
+              );
+            const g: FakeGiveBack = {
+              id: nextId('re'),
+              chargeRef: input.chargeRef,
+              amountCents: requireAmount(input.amountCents),
+              idempotencyKey: input.idempotencyKey,
+              metadata: { ...input.metadata },
+            };
+            givenBack.push(g);
+            return { refundRef: g.id };
+          },
         },
 
         async ensureCustomer(input) {
@@ -1538,7 +1585,8 @@ export function createFakePayments(opts: {
     async settleRefund(providerRefundId, outcome) {
       const row = refundRows.find((r) => r.id === providerRefundId);
       const c = row ? charges.get(row.paymentId) : undefined;
-      if (!row || !c || row.status !== 'pending') return null;
+      const lateFail = row?.status === 'succeeded' && outcome === 'failed';
+      if (!row || !c || (row.status !== 'pending' && !lateFail)) return null;
       row.status = outcome;
       if (outcome === 'failed') c.refundedCents -= row.amountCents;
       await sendRefund(
@@ -1623,6 +1671,7 @@ export function createFakePayments(opts: {
 
     payoutAccounts: () => [...payoutAccounts.values()],
     transfers: () => [...transfers],
+    givenBack: () => [...givenBack],
 
     async finishPayoutAccount(accountRef, finishOpts = {}) {
       const a = payoutAccounts.get(accountRef);

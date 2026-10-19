@@ -525,6 +525,14 @@ export interface PayoutTransferInput {
   readonly idempotencyKey: string;
 }
 
+export interface PayoutGiveBackInput {
+  /** The business's charge (`ch_…`) the payout came in on. */
+  readonly chargeRef: string;
+  readonly amountCents: number;
+  readonly metadata: Readonly<Record<string, string>>;
+  readonly idempotencyKey: string;
+}
+
 /**
  * Paying partners for the businesses they send customers to (the partners plan's stage 3): each partner's bank is
  * a Stripe Express account of HandsFreeOS's platform, set up on Stripe's own form, and paid by transfers from what
@@ -549,6 +557,11 @@ export interface PayoutAccounts {
   loginLink(accountRef: string): Promise<{ url: string }>;
   /** A refusal (an account that can't take it) is a permanent `PaymentError`; a provider that's down retries. */
   transfer(input: PayoutTransferInput): Promise<{ transferRef: string }>;
+  /**
+   * Part of a business's payout charge refunded to its card (stage 5): a line that was never paid out, for a partner
+   * deleted for good. Once per line by its key.
+   */
+  giveBack(input: PayoutGiveBackInput): Promise<{ refundRef: string }>;
 }
 
 export interface PlatformPayments {

@@ -304,6 +304,7 @@ import {
   partnerAdd,
   partnerCommissionNote,
   partnerCommissionTakeBack,
+  partnerCommissionGiveBack,
   partnerCommissionDisputeNote,
   portalPartnerAcceptTerms,
   partnerReferralNote,
@@ -953,6 +954,7 @@ export const commands: readonly CommandDef[] = [
   partnerReferralNote,
   partnerCommissionNote,
   partnerCommissionTakeBack,
+  partnerCommissionGiveBack,
   partnerCommissionDisputeNote,
   portalPartnerAcceptTerms,
   // Paying partners (stage 3).

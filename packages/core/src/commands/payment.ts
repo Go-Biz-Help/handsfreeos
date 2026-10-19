@@ -228,8 +228,8 @@ async function lockedRefund(ctx: CommandContext, refundId: string): Promise<Refu
 }
 
 /**
- * Moves a refund on as the provider says, forward only, and says so when it settles. Hearing the same thing again
- * changes nothing that was kept: not when it went through, nor the provider's id for it.
+ * Moves a refund on as the provider says, forward only or from succeeded to failed, and says so when it settles.
+ * Hearing the same thing again changes nothing that was kept: not when it went through, nor the provider's id for it.
  */
 async function recordRefundStatus(ctx: CommandContext, r: RefundRow, news: RefundNews) {
   const from = r.status as RefundStatus;
@@ -300,7 +300,7 @@ async function recordRefundStatus(ctx: CommandContext, r: RefundRow, news: Refun
 export const paymentRecordRefund = defineCommand({
   name: 'payment.record_refund',
   description:
-    'Worker: what the provider said about a refund (and, for cash or a cheque, that it was handed back). Its status only moves forward, and the invoice recounts itself once it succeeds.',
+    'Worker: what the provider said about a refund (and, for cash or a cheque, that it was handed back). Its status only moves forward, or from succeeded to failed when the client’s bank turns it down later, and the invoice recounts itself.',
   risk: 1,
   input: PaymentRecordRefundInput,
   output: RefundStateOutput,
@@ -324,7 +324,7 @@ export const paymentRecordRefund = defineCommand({
 export const paymentRecordDashboardRefund = defineCommand({
   name: 'payment.record_dashboard_refund',
   description:
-    'Worker: a refund made in the provider’s own dashboard, kept as one of the payment’s refunds so the invoice counts it and a partner’s share of it comes back. Its status only moves forward.',
+    'Worker: a refund made in the provider’s own dashboard, kept as one of the payment’s refunds so the invoice counts it and a partner’s share of it comes back. Its status only moves forward, or from succeeded to failed when the client’s bank turns it down later.',
   risk: 1,
   input: PaymentRecordDashboardRefundInput,
   output: PaymentRecordDashboardRefundOutput,

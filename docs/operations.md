@@ -9738,14 +9738,15 @@ People who send a business its customers earn a share of what those customers pa
 partners for payments at least 30 days old, charges the business's card for it on **HandsFreeOS's own Stripe
 account**, and pays each partner to their bank through Stripe. Stripe's fees are the business's, each on its own
 line of the month's statement: $2 for each partner's account paid that month, 0.25% + 25¢ for each payout to a
-partner's bank, and 2.9% + 30¢ on the charge itself.
+partner's bank, 2.9% + 30¢ on the charge itself, and, on the first payout after a year ends, $4.48 for each
+partner's 1099.
 
 Each partner's bank is a **Stripe Express account** of HandsFreeOS's platform. The partner fills in Stripe's own
 form from their page in the business's portal: their bank, tax and identity details go to Stripe, never to
 HandsFreeOS or the business. Stripe holds and moves the money, and files each partner's 1099.
 
 It runs on the same Stripe account, keys and Connect webhook as "Money: Stripe and Square", and needs the
-migration `20261027009000_partner_payouts.sql`. Nothing is charged or paid for a business until **you open payouts
+migrations `20261027009000_partner_payouts.sql` and `20261027009400_payout_loose_ends.sql`. Nothing is charged or paid for a business until **you open payouts
 for it in /admin**, one business at a time.
 
 ### Before you open payouts for anyone
@@ -9777,8 +9778,20 @@ You should see Express listed as on. A partner's account only ever receives tran
 4. Leave Stripe to collect each partner's tax id: Stripe's form asks for everything it may need up front, so a
    partner isn't stopped later for it.
 
-Stripe charges a fee for each form it files and sends (see Stripe's pricing page for today's). That isn't on the
-business's statement yet: it's HandsFreeOS's until Chris decides otherwise.
+Stripe charges a fee for each form it files (the plan's stage 5): $2.99 to e-file it with the IRS and $1.49 with
+the partner's state. Those two are passed on to the business, $4.48 a form (`TAX_FORM_FEE_CENTS`), on its first
+payout after the year ends, on a line of their own ("Tax forms for 2026"):
+
+- **Who gets one:** each partner account a business paid at least the IRS's threshold in a calendar year, by when
+  each transfer was paid. It's $2,000 for payments from 2026 (`taxFormThresholdCents`). It moves with inflation
+  from 2027: check the IRS's figure each January and change `taxFormThresholdCents` if it moved.
+- **Each form once,** in `app.partner_tax_forms` by the partner's account and year. A payout that's given up on lets
+  its forms go to the next one. Test payouts file nothing.
+- **What stays HandsFreeOS's:** Stripe's $2.99 for mailing a paper copy when a partner hasn't taken e-delivery, and
+  the forms of a business with no payout after the year ends.
+
+Check Stripe's pricing page each year. If its fees change, change `TAX_FORM_FEE_CENTS` in
+`packages/core/src/partners/payouts.ts` before January's payouts.
 
 ### Part 3: The webhook
 
@@ -9837,9 +9850,19 @@ pays its partners.
   they finish Stripe's form includes it.
 - **"Worked out with the other kind of Stripe key"** in the worker log. A payout made with a test key is never
   charged with a live one, nor the other way round. It only happens when a server's key was swapped mid-month.
-- **A partner deleted for good with a held line.** The line keeps the account it was going to; staff sort it out
-  in Stripe (send it, or refund the business that part of the charge). The statement keeps the line as "A deleted
-  partner".
+- **A partner deleted for good with a held line.** Nobody can fix their account now, so within the hour the line
+  and its two Stripe fees are refunded to the business's card from the month's charge (`partner-payout-giveback:`
+  and the line's id, in Stripe's dashboard under **Payments** → the charge → **Refunds**). Stripe keeps its card
+  fee on what's refunded. The statement says "Given back to your card" on the line, named "A deleted partner". A
+  line not yet sent when they were deleted is still sent if their Stripe account can take it; only one Stripe
+  refuses is given back.
+- **"A deleted partner’s payout line couldn’t be given back"** in the worker log. Stripe refused the refund (the
+  charge was refunded some other way, or disputed). The line stays held and it's tried again each hour: look at the
+  charge in Stripe's dashboard, and refund the business by hand if it's right to.
+- **A client's refund failed after it went through.** The client's bank can turn a refund down days later
+  (Stripe's `refund.failed`). The refund shows as failed, the invoice counts the money as the business's again, and
+  the partner's share it took back is given back to them as a commission of its own, paid with the next payout.
+  The business sorts out the refund with the client.
 
 ## A business's own web address
 

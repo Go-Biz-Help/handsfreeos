@@ -680,6 +680,7 @@ export function createSquarePayments(opts: {
         onboardingLink: () => Promise.reject(new PlatformUnsupportedError('square')),
         loginLink: () => Promise.reject(new PlatformUnsupportedError('square')),
         transfer: () => Promise.reject(new PlatformUnsupportedError('square')),
+        giveBack: () => Promise.reject(new PlatformUnsupportedError('square')),
       },
       ensureCustomer: () => Promise.reject(new PlatformUnsupportedError('square')),
       startCardSession: () => Promise.reject(new PlatformUnsupportedError('square')),

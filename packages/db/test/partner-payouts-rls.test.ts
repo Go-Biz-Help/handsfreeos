@@ -1,7 +1,7 @@
 /**
- * Paying partners (20261027009000): asked of the database rather than trusted.
- *   1. The business's payout card, its partners' banks at Stripe, its payouts and their lines are seen only with
- *      Manage partners (the card with Manage money too), never outside the business.
+ * Paying partners (20261027009000, and the 1099s of 20261027009400): asked of the database rather than trusted.
+ *   1. The business's payout card, its partners' banks at Stripe, its payouts, their lines and the 1099s they charged
+ *      for are seen only with Manage partners (the card with Manage money too), never outside the business.
  *   2. Only the worker writes them, for the business it works for. A person with Manage money may take the card off,
  *      and nothing else: not put one on, not open payouts.
  *   3. Only staff admins open payouts, one business at a time.
@@ -144,6 +144,11 @@ beforeAll(async () => {
             values (${A.ws}, ${payoutId}, ${paulaPartner}, 'acct_line', 10000, 200, 50) returning id`,
       ),
     );
+    await tx.execute(
+      sql`insert into app.partner_tax_forms (workspace_id, account_ref, partner_id, tax_year, paid_cents, fee_cents,
+            payout_id)
+          values (${A.ws}, 'acct_line', ${paulaPartner}, 2026, 250000, 448, ${payoutId})`,
+    );
   });
   // Paula's share of a client's payment, on its way to her in that line.
   const client = await person('Maria');
@@ -182,6 +187,7 @@ const TABLES = [
   'partner_payout_accounts',
   'partner_payouts',
   'partner_payout_lines',
+  'partner_tax_forms',
 ];
 
 describe('partner payouts', () => {
@@ -212,6 +218,13 @@ describe('partner payouts', () => {
           tx.execute(
             sql`update app.partner_payout_lines set status = 'paid' where workspace_id = ${A.ws}`,
           ),
+        ),
+      ),
+    ).toBe('42501');
+    expect(
+      await code(() =>
+        as(owner)((tx) =>
+          tx.execute(sql`delete from app.partner_tax_forms where workspace_id = ${A.ws}`),
         ),
       ),
     ).toBe('42501');

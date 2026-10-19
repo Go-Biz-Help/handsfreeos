@@ -6,7 +6,8 @@ reaching out to our target audience we can take advantage of another user's audi
 
 **Where it stands (19 Oct 2026):** Chris answered every question below on 18 Oct 2026 and said to build it. Stages 1
 to 3 are built: finding and asking partners, partners in core with their page, and payouts (see "Build order").
-Stage 4, finding partners by search, is built too.
+Stage 4, finding partners by search, is built too, and so is stage 5, the payout loose ends: 1099 fees passed on,
+a deleted partner's held line given back, and a refund that fails later.
 
 Social Outreach today finds the people who might buy (docs/outreach.md). This adds a second kind of person to find:
 someone who already has your customers' attention, asked to send them your way for a share of what they pay.
@@ -470,6 +471,62 @@ screen at a time.
    docs/outreach.md (decision 81) and the extension's README. Nothing changes in hosting, so docs/operations.md has
    nothing new.
 
+## Stage 5: payout loose ends
+
+Chris (19 Oct 2026) picked this as stage 5, over Instagram and Alignable and partners outside the US: the three
+things stages 2 and 3 left open, finished before payouts go live.
+
+**Stripe's fee for each partner's 1099.** Stripe files a 1099-NEC for each partner account paid enough in a year, and
+charges HandsFreeOS for each form. Those are Stripe's fees, so they're the business's (decision 16), on the statement
+like the others:
+
+- **Who gets one:** a partner account a business paid at least the IRS's threshold in a calendar year, counted by when
+  each transfer was paid: $2,000 for payments from 2026 (the One Big Beautiful Bill Act raised it from $600; it moves
+  with inflation from 2027, so `taxFormThresholdCents` is checked each year). Live money only: test payouts file
+  nothing.
+- **What it costs:** $4.48 a form (`TAX_FORM_FEE_CENTS`): Stripe's $2.99 to e-file it with the IRS and $1.49 to
+  e-file it with the partner's state. Stripe's $2.99 for mailing a paper copy, when a partner hasn't taken e-delivery,
+  stays HandsFreeOS's, as does a state that needs no filing of its own.
+- **When:** on the business's first payout after the year ends, on a line of its own ("Tax forms for 2026"), each
+  form once (`app.partner_tax_forms`, by the partner's account and year). A payout that fails lets its forms go to the
+  next one. A business with no payout after the year ends never pays for them, and HandsFreeOS does.
+
+**Money held for a partner deleted for good.** A partner's line is held when Stripe won't take the transfer yet, and
+it's sent once their account can take it. A partner deleted for good can't get back to their page to fix it, so their
+held line is given back to the business instead: the line's amount and its two Stripe fees (never charged, since
+nothing was paid out) are refunded to the business's card from the month's charge. Stripe keeps its card fee on what's
+refunded. The statement says so on the line ("Given back to your card"). A line not yet sent when they were deleted is
+still sent to their Stripe account if it can take it: they earned it. Only one Stripe refuses is given back.
+
+**A refund that fails after it went through.** A refund can succeed, then fail when the client's bank turns it down
+days later. It was kept as succeeded, since a refund's status only moved forward:
+
+- **The refund** moves from succeeded to failed (`REFUND_TRANSITIONS`, and `private.guard_refund_update` beside it),
+  so the invoice counts the money as the business's again.
+- **The partner's share it took back is theirs again.** Commissions are kept as they happened, so the take-back
+  stays and a commission of its own (`given_back`) gives it back, once: free to pay out when the take-back was, or at
+  once if a payout took it already, so the next payout pays it. `partner.commission_give_back`, the worker's on
+  `refund.failed`.
+
+**What's kept** (migration 20261027009400):
+
+- `app.partner_tax_forms`, and `partner_payouts.tax_forms_cents`, with the payout's charge counting it.
+- `partner_payout_lines.given_back_at`, `given_back_cents` and `refund_ref`. A given-back line is cancelled, so
+  nothing waits on it.
+- `partner_commissions.kind` takes `given_back`: positive, tied to the refund that failed, once per refund.
+- `private.guard_refund_update` lets a refund go from succeeded to failed, and nowhere else backwards.
+- `private.partner_payouts_unfinished` finds a held line whose partner was deleted, for the worker to give back.
+
+This migration removes and remakes three checks and an index (the payout's charge, and the commission's kind, sign
+and one-per-refund), so the Supabase connector asks a person to approve it.
+
+**Build order:**
+
+1. **5a:** the rules, the migration, the commands and the statement's lines, in core.
+2. **5b:** the worker: the refund that gives back a deleted partner's held line, and the share given back when a
+   refund fails.
+3. **5c:** the statement's lines on the web and the phone, the partner's page, and docs/operations.md.
+
 ## Build order
 
 1. **Stage 1, in core:** partner playbooks, the partners table, the partner check, the stages, the new message kinds,
@@ -489,4 +546,6 @@ screen at a time.
 4. **Stage 2:** partners, referrals and commissions in core, and the partner's page.
 5. **Stage 3:** payouts, after the open questions.
 6. **Stage 4 (built):** finding partners by search on LinkedIn and Facebook.
-7. **Chris tries each,** in Stripe's test mode first for payouts.
+7. **Stage 5 (built):** the payout loose ends: 1099 fees, a deleted partner's held line, and a refund that fails
+   later.
+8. **Chris tries each,** in Stripe's test mode first for payouts.
