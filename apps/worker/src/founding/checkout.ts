@@ -104,7 +104,8 @@ const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
     rows<CheckoutRow>(
       tx,
       sql`select c.id, c.status::text as status, c.amount_cents, o.id as offer_id, o.name as offer_name,
-            o.billing, c.renewal_for, c.requested_by::text as requested_by, u.email::text as email
+            case when o.paid_yearly then 'yearly' else o.billing end as billing, c.renewal_for,
+            c.requested_by::text as requested_by, u.email::text as email
           from platform.founding_checkouts c
           join platform.founding_offers o on o.id = c.offer_id
           left join app.users u on u.id = c.requested_by

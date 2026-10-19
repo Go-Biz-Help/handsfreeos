@@ -6972,11 +6972,13 @@ export const foundingOffers = platform.table('founding_offers', {
   graceDays: integer('grace_days').notNull().default(14),
   sort: integer('sort').notNull().default(0),
   blurb: text('blurb').notNull().default(''),
+  /** `once` is a founding seat, free or paid once. `monthly` is the plan: no seats, no applications (0092). */
+  billing: text('billing').$type<'once' | 'monthly'>().notNull().default('once'),
   /**
-   * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year (20261027009500).
-   * `monthly` is the plan: no seats, no applications (0092).
+   * A seat paid each year, renewed on its own (20261027009500). Its `billing` stays `once`; the app calls it `yearly`
+   * (`private.founding_offer_billing`).
    */
-  billing: text('billing').$type<'once' | 'yearly' | 'monthly'>().notNull().default('once'),
+  paidYearly: boolean('paid_yearly').notNull().default(false),
   /**
    * The offer this one opens after, and how many of that one's seats must be out first — null meaning "when
    * it is full". Opened by a trigger at the seat that crosses the line, only ever from `draft`.

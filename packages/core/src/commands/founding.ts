@@ -236,7 +236,8 @@ const offerOut = (o: OfferRow, claimed: number) => ({
   claimed,
   remaining: Math.max(o.seatCap - claimed, 0),
   priceCents: o.priceCents,
-  billing: o.billing,
+  // A seat paid each year is still billed `once` in the table; the app calls it `yearly` (20261027009500).
+  billing: o.paidYearly ? ('yearly' as const) : o.billing,
   opensAfterOfferId: o.opensAfterOfferId,
   opensAfterCount: o.opensAfterCount,
   openedAt: o.openedAt?.toISOString() ?? null,

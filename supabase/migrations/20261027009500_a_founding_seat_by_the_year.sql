@@ -8,7 +8,13 @@
 --        money comes round again. The offer's id and its plan kind keep the
 --        names they were born with (`founding_lifetime`): ids are names, not
 --        promises, and every link, event and analytics row already carries
---        them. `billing = 'yearly'` is what says how it is paid.
+--        them.
+--
+--        **`paid_yearly` says how it is paid.** A yearly seat is still a
+--        seat paid at Checkout, so its `billing` stays `once` and everything
+--        that tells a seat from the monthly plan (the cap, applications, the
+--        chain) treats it exactly as before. What the app calls its billing is
+--        `yearly` when `paid_yearly` is set (`private.founding_offer_billing`).
 --
 --        **Shaped like RCS's yearly renewal** (0104). The first year is paid
 --        at Stripe Checkout, which keeps the card; a year on, the worker's
@@ -33,25 +39,32 @@
 --        **A seat staff give is a gift.** `founding.give` puts no date and no
 --        card on the plan, so there is nothing to renew and nothing charged.
 --
---        Old workers keep working until they are replaced: the four-argument
---        `private.founding_checkout_paid` still answers, by asking the new one
---        with no card. It goes in a later migration. Nothing here changes an
---        offer yet: `20261027009600_the_497_seat_goes_yearly.sql` does, after
---        the code that reads `yearly` has shipped.
+--        **Only adds.** Nothing is removed, so the code running now keeps
+--        working: the four-argument `private.founding_checkout_paid` still
+--        answers (by asking the new one with no card), and the two functions
+--        whose answers grew have successors beside them rather than new
+--        shapes (`founding_checkout_state` beside `founding_checkout_view`,
+--        `founding_offer_billing` beside `founding_seat_by_token`). The old
+--        ones go in a later migration. Nothing here changes an offer either:
+--        `20261027009600_the_497_seat_goes_yearly.sql` does, once the code
+--        that knows the word `yearly` has shipped.
 -- =============================================================================
 
 -- ---------- how a seat is paid ----------
-alter table platform.founding_offers drop constraint founding_offers_billing_check;
 alter table platform.founding_offers
-  add constraint founding_offers_billing_check check (billing in ('once', 'yearly', 'monthly'));
+  /** A seat paid each year, renewed on its own, rather than once. Its `billing` stays `once`: it is a seat. */
+  add column paid_yearly boolean not null default false;
 
-comment on column platform.founding_offers.billing is
-  '`once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year (20261027009500). `monthly` is '
-  'the plan: no seats, no applications (0092).';
+/** How an offer is paid, in the app's words: `once`, `yearly` or `monthly`. Nothing secret, so anybody may ask. */
+create or replace function private.founding_offer_billing(p_offer text)
+returns text
+language sql stable security definer set search_path = '' as $$
+  select case when o.paid_yearly then 'yearly' else o.billing end
+  from platform.founding_offers o where o.id = p_offer
+$$;
 
--- The $497 offer itself moves to `yearly` in 20261027009600, once the code that knows the word is running: the
--- API checks every answer against its own list of billings, and one it has never heard of would refuse to show
--- the founding page at all.
+revoke all on function private.founding_offer_billing(text) from public;
+grant execute on function private.founding_offer_billing(text) to authenticated, service_actor;
 
 -- ---------- the paid year, on the plan ----------
 alter table app.workspace_plans
@@ -78,110 +91,17 @@ alter table platform.founding_checkouts
   /** Set on a page paying a refused renewal: the `current_period_end` it renews. Null on a first payment. */
   add column renewal_for timestamptz;
 
--- ---------- a yearly seat is still a seat ----------
--- 0092's guard said "anything but `once` is the monthly plan". A yearly seat is a seat: only `monthly` has none.
-create or replace function private.guard_founding_seat()
-returns trigger language plpgsql security definer set search_path = '' as $$
-declare
-  v_cap integer;
-  v_status platform.founding_offer_status;
-  v_billing text;
-  v_held integer;
-  v_was_held boolean := tg_op = 'UPDATE' and old.status in ('reserved', 'active');
-begin
-  if new.status not in ('reserved', 'active') or v_was_held then
-    return new;
-  end if;
-
-  select o.seat_cap, o.status, o.billing into v_cap, v_status, v_billing
-  from platform.founding_offers o where o.id = new.offer_id for update;
-
-  if v_cap is null then
-    raise exception 'There is no offer called %', new.offer_id
-      using errcode = '23503', detail = 'founding_offer_missing';
-  end if;
-  if v_billing = 'monthly' then
-    raise exception 'The % plan is paid month to month; there is no seat in it to hold', new.offer_id
-      using errcode = '23514', detail = 'founding_offer_not_seats';
-  end if;
-  if v_status <> 'open' then
-    raise exception 'The % offer is not taking anybody new', new.offer_id
-      using errcode = '23514', detail = 'founding_offer_closed';
-  end if;
-
-  v_held := private.founding_seats_held(new.offer_id);
-  if v_held >= v_cap then
-    raise exception 'Every seat in % is taken (% of %)', new.offer_id, v_held, v_cap
-      using errcode = '23514', detail = 'founding_offer_full';
-  end if;
-  return new;
-end $$;
-
--- 0092's application, the same change: a yearly seat can be applied for.
-create or replace function private.founding_apply(
-  p_offer text,
-  p_business_name text,
-  p_contact_name text,
-  p_email text,
-  p_phone text,
-  p_website text,
-  p_industry text,
-  p_team_size text,
-  p_note text,
-  p_source text
-)
-returns table (application_id uuid, status text, created boolean)
-language plpgsql security definer set search_path = '' as $$
-declare
-  v_status platform.founding_application_status;
-  v_open boolean;
-  v_room boolean;
-  v_id uuid;
-begin
-  select o.status = 'open', private.founding_seats_held(o.id) < o.seat_cap
-    into v_open, v_room
-  from platform.founding_offers o
-  where o.id = p_offer and o.status <> 'draft' and o.billing <> 'monthly';
-
-  if v_open is null then
-    raise exception 'There is no offer called %', p_offer
-      using errcode = '23503', detail = 'founding_offer_missing';
-  end if;
-
-  v_status := case when v_open and v_room then 'pending' else 'waitlisted' end;
-
-  insert into platform.founding_applications
-    (offer_id, business_name, contact_name, email, phone, website, industry, team_size, note, source, status)
-  values
-    (p_offer, p_business_name, p_contact_name, p_email::extensions.citext,
-     nullif(p_phone, ''), nullif(p_website, ''), nullif(p_industry, ''), nullif(p_team_size, ''),
-     coalesce(p_note, ''), coalesce(p_source, ''), v_status)
-  on conflict do nothing
-  returning id into v_id;
-
-  if v_id is not null then
-    return query select v_id, v_status::text, true;
-    return;
-  end if;
-
-  return query
-    select a.id, a.status::text, false
-    from platform.founding_applications a
-    where a.offer_id = p_offer and a.email operator(extensions.=) p_email::extensions.citext
-      and a.status in ('pending', 'approved', 'waitlisted')
-    limit 1;
-end $$;
-
--- 0092's view, the same change: a later yearly offer supersedes an earlier seat offer. Same columns, same order.
+-- ---------- what the website reads ----------
+-- 0092's view, saying `yearly` for a seat paid each year. Same columns, same order; nothing else changes.
 create or replace view platform.founding_counts as
   select o.id, o.name, o.blurb, o.status, o.price_cents, o.seat_cap,
          private.founding_seats_held(o.id) as claimed,
          greatest(o.seat_cap - private.founding_seats_held(o.id), 0) as remaining,
          o.sort,
-         o.billing,
+         case when o.paid_yearly then 'yearly' else o.billing end as billing,
          o.show_counter,
          exists (select 1 from platform.founding_offers n
-                  where n.opens_after_offer_id = o.id and n.status <> 'draft' and n.billing <> 'monthly')
+                  where n.opens_after_offer_id = o.id and n.status <> 'draft' and n.billing = 'once')
            as superseded
   from platform.founding_offers o
   where o.status <> 'draft';
@@ -255,7 +175,7 @@ returns table (outcome text, grant_id uuid, offer_id text, plan app.plan_kind, c
 language plpgsql security definer set search_path = '' as $$
 declare
   v_c record;
-  v_billing text;
+  v_yearly boolean;
   v_done record;
   v_plan record;
 begin
@@ -327,8 +247,8 @@ begin
   end;
 
   -- A seat paid by the year carries its year, its price and its card from the first payment.
-  select o.billing into v_billing from platform.founding_offers o where o.id = v_c.offer_id;
-  if v_billing = 'yearly' then
+  select o.paid_yearly into v_yearly from platform.founding_offers o where o.id = v_c.offer_id;
+  if v_yearly then
     update app.workspace_plans
        set price_cents = v_c.amount_cents,
            current_period_end = now() + interval '1 year',
@@ -358,10 +278,13 @@ language sql security definer set search_path = '' as $$
 $$;
 
 -- ---------- the page somebody comes back to ----------
--- 0093's view of one checkout, saying whether it paid a renewal and the date the seat is paid through. For a
--- renewal, `seat_active` is the year having moved on, which is what the page waits for.
-drop function private.founding_checkout_view(uuid);
-create function private.founding_checkout_view(p_checkout uuid)
+/**
+ * 0093's view of one checkout (`private.founding_checkout_view`), with three more facts: whether it pays a refused
+ * renewal, how the seat is paid, and the date it is paid through. For a renewal, `seat_active` is the year having
+ * moved on — the seat was on all along, so that is what the page waits for. The old function stays for the code
+ * running before this; a later migration removes it.
+ */
+create or replace function private.founding_checkout_state(p_checkout uuid)
 returns table (
   checkout_id uuid,
   workspace_id uuid,
@@ -382,7 +305,7 @@ language sql stable security definer set search_path = '' as $$
            and (c.renewal_for is null or coalesce(p.current_period_end > c.renewal_for, false)),
          c.problem,
          c.renewal_for is not null,
-         o.billing,
+         case when o.paid_yearly then 'yearly' else o.billing end,
          p.current_period_end
   from platform.founding_checkouts c
   join platform.founding_offers o on o.id = c.offer_id
@@ -391,44 +314,8 @@ language sql stable security definer set search_path = '' as $$
   where c.id = p_checkout and private.has_permission(c.workspace_id, 'workspace.update')
 $$;
 
-grant execute on function private.founding_checkout_view(uuid) to authenticated;
-
--- ---------- the page a claim link opens ----------
--- 0093's seat by its link, saying how the seat is paid, so the page can say "$497 a year" rather than "paid once".
-drop function private.founding_seat_by_token(bytea);
-create function private.founding_seat_by_token(p_token_hash bytea)
-returns table (
-  grant_id uuid,
-  offer_id text,
-  offer_name text,
-  price_cents integer,
-  organization_id uuid,
-  business_name text,
-  state text,
-  expires_at timestamptz,
-  checkout_id uuid,
-  checkout_workspace_id uuid,
-  billing text
-)
-language sql stable security definer set search_path = '' as $$
-  select g.id, o.id, o.name, o.price_cents, g.organization_id, a.business_name,
-         case
-           when g.status = 'active' then 'claimed'
-           when g.status <> 'reserved' then 'gone'
-           when a.claim_expires_at is not null and a.claim_expires_at < now() then 'expired'
-           else 'ready'
-         end,
-         a.claim_expires_at,
-         c.id, c.workspace_id,
-         o.billing
-  from platform.founding_applications a
-  join platform.founding_grants g on g.id = a.grant_id
-  join platform.founding_offers o on o.id = g.offer_id
-  left join platform.founding_checkouts c on c.grant_id = g.id and c.status in ('pending', 'open')
-  where a.claim_token_hash = p_token_hash
-$$;
-
-grant execute on function private.founding_seat_by_token(bytea) to authenticated;
+revoke all on function private.founding_checkout_state(uuid) from public;
+grant execute on function private.founding_checkout_state(uuid) to authenticated;
 
 -- ---------- what a business may do about its year ----------
 /**

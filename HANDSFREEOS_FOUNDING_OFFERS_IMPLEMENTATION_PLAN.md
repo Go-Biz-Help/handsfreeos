@@ -57,8 +57,9 @@ The owner's call: the Founding Customer seat is **$497 a year**, not $497 once.
 - **The business can stop it renewing,** and start it again while the year is paid for. A seat that was stopped
   goes back when its year is over.
 - **A seat staff give is a gift** and is never charged.
-- The offer's id and plan kind keep the name `founding_lifetime`: ids are names, not promises. `billing = 'yearly'`
-  says how it is paid.
+- The offer's id and plan kind keep the name `founding_lifetime`: ids are names, not promises. `paid_yearly` on the
+  offer says how it is paid; its `billing` stays `once`, so the cap and the chain treat it as the seat it is, and the
+  app calls it `yearly`.
 
 ### The two offers
 

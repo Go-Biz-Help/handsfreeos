@@ -112,7 +112,8 @@ export const platformFounding = defineQuery({
         sql`select o.id, o.name, o.blurb, o.status::text as status, o.price_cents, o.seat_cap,
               private.founding_seats_held(o.id) as claimed,
               greatest(o.seat_cap - private.founding_seats_held(o.id), 0) as remaining,
-              o.billing, o.opens_after_offer_id, o.opens_after_count, o.opened_at
+              case when o.paid_yearly then 'yearly' else o.billing end as billing,
+              o.opens_after_offer_id, o.opens_after_count, o.opened_at
             from platform.founding_offers o order by o.sort, o.id`,
       ),
       rows<{
@@ -342,7 +343,8 @@ export const platformFoundingBusiness = defineQuery({
         sql`select o.id, o.name, o.blurb, o.status::text as status, o.price_cents, o.seat_cap,
               private.founding_seats_held(o.id) as claimed,
               greatest(o.seat_cap - private.founding_seats_held(o.id), 0) as remaining,
-              o.billing, o.opens_after_offer_id, o.opens_after_count, o.opened_at
+              case when o.paid_yearly then 'yearly' else o.billing end as billing,
+              o.opens_after_offer_id, o.opens_after_count, o.opened_at
             from platform.founding_offers o order by o.sort, o.id`,
       ),
       // A seat is the business's, so it is looked for across all its workspaces: the one it holds now, or else
@@ -457,7 +459,11 @@ export const foundingClaimPreview = defineQuery({
       checkout_id: string | null;
       checkout_workspace_id: string | null;
       billing: 'once' | 'yearly' | 'monthly';
-    }>(ctx.tx, sql`select * from private.founding_seat_by_token(${hashClaimToken(input.token)})`);
+    }>(
+      ctx.tx,
+      sql`select s.*, private.founding_offer_billing(s.offer_id) as billing
+          from private.founding_seat_by_token(${hashClaimToken(input.token)}) s`,
+    );
     if (!seat)
       throw HfosError.notFound(
         'That link doesn’t work. It may have been copied wrong or replaced. Ask us for a new one.',
@@ -504,7 +510,7 @@ export const foundingCheckoutStatus = defineQuery({
       renewal: boolean;
       billing: 'once' | 'yearly' | 'monthly';
       paid_through: Date | string | null;
-    }>(ctx.tx, sql`select * from private.founding_checkout_view(${input.checkoutId}::uuid)`);
+    }>(ctx.tx, sql`select * from private.founding_checkout_state(${input.checkoutId}::uuid)`);
     if (!c)
       throw HfosError.notFound(
         'We can’t find that payment. Sign in with the account that started it, or ask us for a new link.',

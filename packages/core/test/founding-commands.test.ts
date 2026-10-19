@@ -498,8 +498,8 @@ describe('the $497 seat, paid by the year', () => {
   beforeEach(async () => {
     await admin().execute(
       sql`insert into platform.founding_offers
-            (id, name, seat_cap, price_cents, status, billing, starting_credit_cents, show_counter)
-          values (${YEARLY}, 'Founding Customer', 5, 49700, 'open', 'yearly', 0, false)`,
+            (id, name, seat_cap, price_cents, status, paid_yearly, starting_credit_cents, show_counter)
+          values (${YEARLY}, 'Founding Customer', 5, 49700, 'open', true, 0, false)`,
     );
   });
 

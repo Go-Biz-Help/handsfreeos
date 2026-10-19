@@ -54,8 +54,8 @@ beforeEach(async () => {
   await admin.execute(sql`delete from platform.founding_offers where id = ${YEARLY}`);
   await admin.execute(
     sql`insert into platform.founding_offers
-          (id, name, seat_cap, price_cents, status, billing, starting_credit_cents, show_counter)
-        values (${YEARLY}, 'Yearly test', 5, 49700, 'open', 'yearly', 0, false)`,
+          (id, name, seat_cap, price_cents, status, paid_yearly, starting_credit_cents, show_counter)
+        values (${YEARLY}, 'Yearly test', 5, 49700, 'open', true, 0, false)`,
   );
 });
 
@@ -162,6 +162,14 @@ describe('a yearly seat', () => {
       sql`select private.founding_seats_held(${YEARLY}) as n`,
     );
     expect(Number(held!.n)).toBe(1);
+    // A seat in its own right, billed `once` like any seat; the app is told it is paid yearly.
+    const [billing] = await as(owner)((tx) =>
+      rows<{ billing: string }>(
+        tx,
+        sql`select private.founding_offer_billing(${YEARLY}) as billing`,
+      ),
+    );
+    expect(billing!.billing).toBe('yearly');
   });
 
   it('keeps its price, a year from today and the card from its first payment', async () => {
@@ -298,7 +306,7 @@ describe('a refused renewal, paid with another card', () => {
       as(owner)((tx) =>
         rows<{ renewal: boolean; seat_active: boolean; billing: string }>(
           tx,
-          sql`select * from private.founding_checkout_view(${first!.checkout_id}::uuid)`,
+          sql`select * from private.founding_checkout_state(${first!.checkout_id}::uuid)`,
         ),
       );
     expect((await view())[0]).toMatchObject({

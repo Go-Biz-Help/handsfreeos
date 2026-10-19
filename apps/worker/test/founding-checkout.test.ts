@@ -494,7 +494,7 @@ describe('paying for a seat', () => {
 describe('a seat paid by the year', () => {
   beforeEach(async () => {
     await admin().execute(
-      sql`update platform.founding_offers set billing = 'yearly', starting_credit_cents = 0 where id = ${PAID}`,
+      sql`update platform.founding_offers set paid_yearly = true, starting_credit_cents = 0 where id = ${PAID}`,
     );
   });
 
