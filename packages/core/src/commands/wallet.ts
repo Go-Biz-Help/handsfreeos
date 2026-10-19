@@ -237,22 +237,17 @@ export const walletTopUp = defineCommand({
       );
     const amount = input.amountCents ?? w.topupCents;
     const id = crypto.randomUUID();
-    const [made] = await ctx.tx
-      .insert(walletRecharges)
-      .values({
-        id,
-        workspaceId: w.workspaceId,
-        organizationId: ctx.scope.organizationId!,
-        amountCents: amount,
-        // Deliberately step 0: somebody pressing the button is not the runaway the ladder exists for.
-        escalationStep: 0,
-        requestedBy: ctx.actor.type === 'human' ? ctx.actor.userId : null,
-        idempotencyKey: topUpUsageKey(id),
-      })
-      .onConflictDoNothing()
-      .returning();
+    // A top-up is HandsFreeOS's to write, and a person's own session may not insert one at all: written straight
+    // from here, every press was refused. `private.request_wallet_top_up` checks money.manage for itself and
+    // writes it as HandsFreeOS does, at step 0 (somebody pressing the button is not the runaway the ladder exists
+    // for) and requested by whoever pressed.
+    const [made] = await rows<{ id: string | null }>(
+      ctx.tx,
+      sql`select private.request_wallet_top_up(${w.workspaceId}::uuid, ${amount}::bigint, ${id}::uuid,
+            ${topUpUsageKey(id)}) as id`,
+    );
     // The one-pending-per-business index refused it: one is already on its way, which is the right answer.
-    if (!made)
+    if (!made?.id)
       throw HfosError.rule(
         'wallet_recharge_pending',
         409,
@@ -279,7 +274,7 @@ export const walletTopUp = defineCommand({
 export const walletRecordCard = defineCommand({
   name: 'wallet.record_card',
   description:
-    'Worker: a card was put on the wallet. What the provider handed back is written down — their customer, their token, and the brand, last four and expiry. Never a card number.',
+    'Worker: a card was put on the wallet. What the provider handed back is written down — their customer, their token, and the brand, last four and expiry. Never a card number. A card going on where there was none turns automatic top-up on.',
   risk: 1,
   input: WalletRecordCardInput,
   output: WalletCardOutput,
@@ -305,6 +300,10 @@ export const walletRecordCard = defineCommand({
         pausedUntil: null,
         suspendedAt: null,
         suspendedReason: null,
+        // Automatic top-up is on by default, and only taking the card off turned it off. So a card going on where
+        // there was none turns it back on, as "Automatic top-up can run now" says; a card replacing another keeps
+        // whatever the business chose.
+        ...(w.methodToken ? {} : { autoTopup: true }),
       })
       .where(eq(usageWallets.workspaceId, w.workspaceId));
     const after = await wallet(ctx);
@@ -313,8 +312,8 @@ export const walletRecordCard = defineCommand({
       entityType: 'usage_wallet',
       entityId: after.workspaceId,
       payload: { provider: input.provider },
-      before: { card: w.cardLast4, suspended: w.suspendedAt !== null },
-      after: { card: after.cardLast4, suspended: false },
+      before: { card: w.cardLast4, suspended: w.suspendedAt !== null, autoTopup: w.autoTopup },
+      after: { card: after.cardLast4, suspended: false, autoTopup: after.autoTopup },
     });
     return cardOf(after);
   },

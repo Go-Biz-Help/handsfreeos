@@ -12,7 +12,7 @@
  * us, or treat a network blip as a dead card and suspend a business that was fine.
  *
  * **Nothing here runs unless `WALLET_MODE=on`.** In shadow the ledger fills up and no card is ever touched,
- * which is the whole point of a shadow week.
+ * which is the whole point of a shadow week. A top-up somebody pressed then is cancelled, not left waiting.
  */
 import {
   afterDecline,
@@ -134,6 +134,28 @@ export const onWalletLow: EventHandler = async (ctx) => {
   await startRecharge(ctx, scope, Date.now());
 };
 
+/**
+ * Somebody pressed Top up now (`wallet.top_up`): the charge is queued as a job, as a top-up the balance starts
+ * itself is, for the same reason a refund is. Before this nothing picked the press up, so the card was never
+ * charged, and the waiting top-up refused every one after it, automatic ones too (one may wait per business).
+ * The balance's own top-ups are queued where they start, with the notice a raised amount needs, so only a press
+ * is queued here.
+ */
+export const onTopUpPressed: EventHandler = async (ctx) => {
+  const { workspaceId, organizationId } = ctx.scope;
+  const rechargeId = ctx.event.entityId;
+  if (!workspaceId || !organizationId || !rechargeId) return;
+  if ((ctx.event.payload as { manual?: unknown } | null)?.manual !== true) return;
+  await scheduleJob(ctx.tx, {
+    kind: RECHARGE_JOBS.charge,
+    dedupeKey: rechargeJobKey(rechargeId),
+    runAt: new Date(),
+    payload: { rechargeId, warnFirst: false },
+    workspaceId,
+    organizationId,
+  });
+};
+
 /** Writes the `pending` row and arms the job that will call the provider. Returns what it started, if anything. */
 async function startRecharge(
   ctx: Parameters<EventHandler>[0] | Parameters<JobHandler>[0],
@@ -196,7 +218,7 @@ type RechargeRow = {
 export const runRecharge: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const rechargeId = String(ctx.job.payload['rechargeId'] ?? '');
-  if (!rechargeId || ctx.wallet.mode !== 'on') return;
+  if (!rechargeId) return;
 
   const [row] = await asWorker(ctx.db, scope, (tx) =>
     rows<RechargeRow>(
@@ -208,6 +230,16 @@ export const runRecharge: JobHandler = async (ctx) => {
     ),
   );
   if (!row || row.status !== 'pending') return;
+
+  // With the wallet not on, no card is charged. The top-up is cancelled rather than left waiting, because a
+  // waiting one refuses every top-up after it.
+  if (ctx.wallet.mode !== 'on') {
+    await record(ctx, scope, rechargeId, {
+      status: 'cancelled',
+      failureMessage: 'Top-ups are switched off right now, so the card wasn’t charged.',
+    });
+    return;
+  }
 
   if (!row.method_token || !row.provider) {
     await record(ctx, scope, rechargeId, {
@@ -359,12 +391,12 @@ export const planWallets: JobHandler = async (ctx) => {
   if (ctx.wallet.mode !== 'on') return { rescheduleAt: new Date(ctx.now + HOUR_MS) };
   const from = new Date(ctx.now).toISOString();
   await asWorker(ctx.db, {}, async (tx) => {
+    // Through a function: the worker's own policy on usage_wallets shows only the business in scope, and here
+    // there is none, so reading the table found no wallet and no sweep was ever armed. It lists only the wallets
+    // that could need a top-up: with a card, switched on, not suspended, and not paid for by the agency.
     const list = await rows<{ workspace_id: string; organization_id: string }>(
       tx,
-      // Only the wallets that could possibly need one: with a card, switched on, not suspended, and not paid
-      // for by the agency.
-      sql`select workspace_id, organization_id from app.usage_wallets
-          where auto_topup and method_token is not null and suspended_at is null and stage <> 'agency'`,
+      sql`select workspace_id, organization_id from private.wallets_to_top_up()`,
     );
     for (let i = 0; i < list.length; i += PLAN_CHUNK)
       for (const b of list.slice(i, i + PLAN_CHUNK))

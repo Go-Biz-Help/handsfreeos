@@ -22,12 +22,13 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
-import type { HumanActor, RequestMeta } from '../src/kernel/types';
+import type { HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
 import {
   organizationCreate,
   usageStatement,
   walletForgetCard,
   walletGet,
+  walletRecordCard,
   walletSetAutoTopup,
   walletTopUp,
 } from '../src/server';
@@ -222,5 +223,51 @@ describe('a business HandsFreeOS has put on `enforce`', () => {
   it('may still take its overdraft to zero, and change the other settings', async () => {
     const { output } = await settings(owner, { overdraftCents: 0, floorCents: 1500 });
     expect(output).toMatchObject({ overdraftCents: 0, floorCents: 1500 });
+  });
+});
+
+describe('a card going on', () => {
+  // Automatic top-up is on by default, and only taking the card off turns it off. A card put back on used to leave
+  // it off, under a toast that said "Automatic top-up can run now".
+  const recordCard = async (last4: string) => {
+    const [org] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${workspaceId}`,
+    );
+    const system: SystemActor = {
+      type: 'system',
+      workspaceId,
+      organizationId: org!.organization_id,
+    };
+    await executeCommand(
+      testDbs().worker.db,
+      walletRecordCard,
+      {
+        workspaceId,
+        provider: 'stripe',
+        customerRef: 'cus_wallet_settings',
+        methodToken: `pm_card_${last4}`,
+        cardBrand: 'Visa',
+        cardLast4: last4,
+        cardExpiryMonth: 12,
+        cardExpiryYear: 2030,
+      },
+      system,
+      meta(),
+    );
+  };
+
+  it('turns automatic top-up back on where the card had been taken off', async () => {
+    await recordCard('4242');
+    await executeCommand(api(), walletForgetCard, { workspaceId }, human(owner), meta());
+    expect(await walletRow()).toMatchObject({ auto_topup: false, method_token: null });
+    await recordCard('1881');
+    expect(await walletRow()).toMatchObject({ auto_topup: true, method_token: 'pm_card_1881' });
+  });
+
+  it('keeps what the business chose when one card replaces another', async () => {
+    await settings(owner, { autoTopup: false });
+    await recordCard('0005');
+    expect(await walletRow()).toMatchObject({ auto_topup: false, method_token: 'pm_card_0005' });
   });
 });
