@@ -154,6 +154,69 @@ describe('the AI’s partner check', () => {
       'Realtor in Austin',
       '3 mutual friends',
     ]);
+    // Found by a search (stage 4): said first.
+    expect(
+      partnerFacts({
+        platform: 'linkedin',
+        intro: [],
+        followers: null,
+        mutual_friends: null,
+        groups: [],
+        lead: { kind: 'creator', words: 'Austin homeowners' },
+      }),
+    ).toEqual(['Wrote a post LinkedIn’s post search found for “Austin homeowners”']);
+  });
+
+  it('tells the AI how a search found someone, and lets them go from those found once it has answered', async () => {
+    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const ws = await outreachBusiness(owner, 'Outreach Partner Search Worker Co');
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Partners',
+      template: null,
+      details: {
+        ...blankPlaybook(),
+        goal: 'partner',
+        offer: 'A share of what each customer you send pays',
+        audience: 'Homeowners in Austin',
+        groupWords: ['Austin homeowners'],
+      },
+    });
+    expect(
+      await runAs(owner, ws, 'outreach.partner.leads', {
+        kind: 'business',
+        words: 'Austin homeowners',
+        people: [
+          {
+            profile: fb('rae.realtor.9'),
+            name: 'Rae Realtor',
+            lines: ['Realtor at Hill Homes'],
+            followers: null,
+          },
+        ],
+      }),
+    ).toEqual({ kept: 1 });
+    const next = await runAs(owner, ws, 'outreach.partners.next', {});
+    expect(next.people).toMatchObject([{ name: 'Rae Realtor', kind: 'business' }]);
+    await runAs(owner, ws, 'outreach.partner.look', {
+      profileId: next.people[0].profileId,
+      kind: 'business',
+      lines: ['Realtor at Hill Homes', 'Helping Austin homeowners buy and sell'],
+    });
+    await drain(s, ws);
+    const [rae] = await rows<{ fit: string; stage: string | null; why: string[] }>(
+      admin(),
+      sql`select fit, stage, why from addon_outreach.partners where workspace_id = ${ws}`,
+    );
+    expect(rae).toEqual({
+      fit: 'maybe',
+      stage: 'found',
+      why: ['Found searching for “Austin homeowners”'],
+    });
+    const [left] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from addon_outreach.partner_leads where workspace_id = ${ws}`,
+    );
+    expect(left!.n).toBe(0);
   });
 
   it('puts a good partner and a maybe on the list, and lets their profiles go', async () => {

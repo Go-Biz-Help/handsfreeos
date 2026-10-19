@@ -1817,14 +1817,15 @@ function scriptedFitCheck(message: string) {
 
 /**
  * Social Outreach's partner check (decision 81): a good partner when the facts say they run a group, its members their
- * audience; might be one with followers; else not.
+ * audience; might be one with followers, or one a search found (stage 4), saying the words it searched; else not.
  */
 function scriptedPartnerCheck(message: string) {
   const facts = /<facts>\n?([\s\S]*?)\n?<\/facts>/.exec(message)?.[1] ?? '';
   const playbook = /^Name: (.*)$/m.exec(message)?.[1] ?? null;
   const group = /Runs the group (.*?) \(([\d,]+) members\)/.exec(facts);
   const followers = /([\d,]+) followers/.exec(facts);
-  const fit = group ? 'good' : followers ? 'maybe' : 'not';
+  const searched = /(?:post search found|people search) for “(.+?)”/.exec(facts);
+  const fit = group ? 'good' : followers || searched ? 'maybe' : 'not';
   const size = (n: string | undefined) => (n ? Number(n.replace(/,/g, '')) : null);
   return {
     fit,
@@ -1832,7 +1833,13 @@ function scriptedPartnerCheck(message: string) {
     kind: group ? 'group_admin' : followers ? 'creator' : 'business',
     audience: group ? `Members of ${unquote(group[1]!)}` : null,
     audienceSize: size(group?.[2] ?? followers?.[1]),
-    why: group ? ['Runs a busy group of the customers'] : followers ? ['Has a following'] : [],
+    why: group
+      ? ['Runs a busy group of the customers']
+      : followers
+        ? ['Has a following']
+        : searched
+          ? [`Found searching for “${searched[1]}”`]
+          : [],
     nextStep: group ? 'Comment on their latest post' : null,
   };
 }

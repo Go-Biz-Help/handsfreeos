@@ -20,6 +20,10 @@ import { NETWORKS, type Platform } from '../networks';
 import {
   PARTNER_AGAIN_DAYS,
   PARTNER_ASKS_PER_DAY,
+  PARTNER_LEADS_WAITING_MOST,
+  PARTNER_SEARCH_AGAIN_DAYS,
+  PARTNER_SEARCH_KIND_KEYS,
+  PARTNER_SEARCHES_PER_DAY,
   PARTNER_FOLLOW_UP_DAYS,
   PARTNER_FOLLOW_UPS,
   PARTNER_REPLY_DAYS,
@@ -35,6 +39,8 @@ import {
   PARTNER_RETRY_DAYS,
   PARTNER_STAGE_KEYS,
   PARTNERS_PAGE,
+  PartnerLeadsInput,
+  PartnerLeadsOutput,
   PartnerLookInput,
   PartnerLookOutput,
   PartnerMarkInput,
@@ -45,7 +51,10 @@ import {
   PartnersNextInput,
   PartnersNextOutput,
   PartnersOutput,
+  PartnerSearchesInput,
+  PartnerSearchesOutput,
   partnerKindsOf,
+  partnerSearchWords,
   partnerReadsPerDay,
   type PartnerFit,
   type PartnerKind,
@@ -61,9 +70,17 @@ import {
   type PartnerTodayKind,
   type TodayItem,
 } from '../today';
-import { partners, playbooks, profiles } from '../tables';
+import { partnerLeads, partners, partnerSearches, playbooks, profiles } from '../tables';
 import { readsPerDay, readToday } from './checks';
-import { inWorkspace, notNever, partnered, saveProfile, type Ctx } from './common';
+import {
+  inWorkspace,
+  keptProfile,
+  notNever,
+  once,
+  partnered,
+  saveProfile,
+  type Ctx,
+} from './common';
 import { partnerPlaybooksInUse } from './friends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
@@ -118,11 +135,15 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
       ctx.tx,
       sql`select x.id, x.name, x.url, x.kind from (
             select p.id, p.name, p.url, p.followers, p.mutual_friends, p.updated_at, gr.members, gr.good,
+              l.found_at as lead_at,
               case
                 when ${looks('group_admin')} and gr.members is not null then 'group_admin'
                 when ${looks('creator')} and coalesce(p.followers, 0) >= ${PARTNER_MIN_FOLLOWERS} then 'creator'
+                -- Found by a search for creators: read to learn their following, unless it's known to be small.
+                when ${looks('creator')} and l.kind = 'creator' and p.followers is null then 'creator'
                 when ${looks('business')}
-                  and (p.platform = 'alignable' or array_to_string(p.intro, ' ') ~* ${BUSINESS_WORDS})
+                  and (p.platform = 'alignable' or array_to_string(p.intro, ' ') ~* ${BUSINESS_WORDS}
+                    or l.kind = 'business')
                   -- Someone the AI found could be a customer is left to the customer steps.
                   and not exists (select 1 from addon_outreach.checks ch
                     where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict in ('good', 'maybe'))
@@ -130,6 +151,8 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
               end as kind
             from addon_outreach.profiles p
             left join addon_outreach.partners pa on pa.profile_id = p.id and pa.user_id = ${me}
+            left join addon_outreach.partner_leads l
+              on l.workspace_id = p.workspace_id and l.user_id = ${me} and l.profile_id = p.id
             -- The groups they run with room for an audience, and whether the AI called one the business's people.
             left join lateral (
               select sum(g.members)::int as members, bool_or(g.check_state = 'good') as good
@@ -152,7 +175,8 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
           where x.kind is not null
           order by array_position(array['group_admin', 'creator', 'business'], x.kind),
             coalesce(x.good, false) desc, coalesce(x.members, x.followers, 0) desc,
-            x.mutual_friends desc nulls last, x.updated_at desc, x.id
+            -- Then those a search found, the newest first.
+            x.lead_at desc nulls last, x.mutual_friends desc nulls last, x.updated_at desc, x.id
           limit ${room}`,
     );
     return {
@@ -160,6 +184,169 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
       today,
       perDay,
     };
+  },
+});
+
+export const partnerSearchesNext = defineAddonQuery(outreachAddon, {
+  name: 'outreach.partners.searches',
+  description:
+    'The searches the person’s computer does today on a network to find people who could partner with the business, each with a Find partners playbook’s words: for creators, the network’s post search (whoever wrote the posts); for businesses with the same customers, its people search. Two a day, the same words for the same kind once a week at most, the longest unsearched first; none while plenty found by search wait to be read, nor without a Find partners playbook in use on the network.',
+  input: PartnerSearchesInput,
+  output: PartnerSearchesOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const now = Date.now();
+    const todayStart = await startOfToday(ctx, now);
+    const here = (await partnerPlaybooksInUse(ctx)).filter((p) =>
+      p.details.platforms.includes(input.platform),
+    );
+    const kinds = PARTNER_SEARCH_KIND_KEYS.filter((k) =>
+      here.some((p) => partnerKindsOf(p.details).includes(k)),
+    );
+    const [counts] = await rows<{ today: number; waiting: number }>(
+      ctx.tx,
+      sql`select
+            (select count(*)::int from addon_outreach.partner_searches s
+              where s.workspace_id = ${ws} and s.user_id = ${me} and s.platform = ${input.platform}
+                and s.searched_at >= ${todayStart.toISOString()}::timestamptz) as today,
+            -- Found lately and not read yet: one left alone for a while (Don't pitch, say) stops counting.
+            (select count(*)::int from addon_outreach.partner_leads l
+              where l.workspace_id = ${ws} and l.user_id = ${me} and l.platform = ${input.platform}
+                and l.found_at >= ${new Date(now - PARTNER_SEARCH_AGAIN_DAYS * DAY).toISOString()}::timestamptz
+                and not exists (select 1 from addon_outreach.partners pa
+                  where pa.workspace_id = l.workspace_id and pa.user_id = l.user_id
+                    and pa.profile_id = l.profile_id)) as waiting`,
+    );
+    const today = counts?.today ?? 0;
+    const waiting = counts?.waiting ?? 0;
+    const perDay = PARTNER_SEARCHES_PER_DAY;
+    const room = Math.max(0, perDay - today);
+    const words = partnerSearchWords(here, input.platform);
+    if (!room || !kinds.length || !words.length || waiting >= PARTNER_LEADS_WAITING_MOST)
+      return { searches: [], today, perDay, waiting };
+    const last = new Map(
+      (
+        await ctx.tx
+          .select({
+            kind: partnerSearches.kind,
+            words: partnerSearches.words,
+            at: partnerSearches.searchedAt,
+          })
+          .from(partnerSearches)
+          .where(
+            and(
+              eq(partnerSearches.workspaceId, ws),
+              eq(partnerSearches.userId, me),
+              eq(partnerSearches.platform, input.platform),
+            ),
+          )
+      ).map((s) => [`${s.kind}\n${s.words}`, s.at.getTime()]),
+    );
+    const again = now - PARTNER_SEARCH_AGAIN_DAYS * DAY;
+    // Each of the words for each kind wanted, never searched first, then the longest ago; in the words' order.
+    const due = words
+      .flatMap((w, i) =>
+        kinds.map((kind) => ({ kind, words: w, i, at: last.get(`${kind}\n${w}`) ?? null })),
+      )
+      .filter((s) => s.at === null || s.at < again)
+      .sort((a, b) => (a.at ?? 0) - (b.at ?? 0) || a.i - b.i);
+    return {
+      searches: due.slice(0, room).map(({ kind, words }) => ({ kind, words })),
+      today,
+      perDay,
+      waiting,
+    };
+  },
+});
+
+export const partnerLeadsSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.partner.leads',
+  description:
+    'Who one of the network’s searches found that could partner with the business, as the person’s computer read the results: creators whose posts said a Find partners playbook’s words, or people matching them who may run a business with the same customers. Each is kept to read for the AI’s partner check, nobody added to Contacts. Leaves out the person themselves, anyone on Don’t pitch or Never contact, and anyone on the Partners list or checked lately. The search counts as done today, even when it found nobody.',
+  risk: 1,
+  input: PartnerLeadsInput,
+  output: PartnerLeadsOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    return once(async () => {
+      const seen = new Set<string>();
+      let kept = 0;
+      for (const person of input.people) {
+        const key = person.profile.id ?? person.profile.username ?? person.profile.url;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const told = {
+          ...(person.followers !== null ? { followers: person.followers, followersAt: at } : {}),
+        };
+        const profile = await keptProfile(
+          ctx,
+          { platform: input.platform, profile: person.profile, name: person.name },
+          me,
+          at,
+          { intro: [...person.lines], ...told },
+          // What the result shows of someone kept already only fills in what their profile hasn't said.
+          (had) => ({ ...(had.intro.length ? {} : { intro: [...person.lines] }), ...told }),
+        );
+        // The person themselves, anyone left alone, and anyone on the Partners list or checked lately.
+        const [left] = await rows<{ out: boolean }>(
+          ctx.tx,
+          sql`select (p.friendship = 'self' or not ${notNever('p')}
+                or exists (select 1 from addon_outreach.partners pa
+                  where pa.workspace_id = p.workspace_id and pa.user_id = ${me} and pa.profile_id = p.id
+                    and (pa.stage is not null or pa.fit = 'waiting'
+                      or pa.checked_at >= ${new Date(at.getTime() - PARTNER_AGAIN_DAYS * DAY).toISOString()}::timestamptz
+                      or (pa.fit = 'failed'
+                        and pa.looked_at >= ${new Date(at.getTime() - PARTNER_RETRY_DAYS * DAY).toISOString()}::timestamptz)))
+              ) as out
+              from addon_outreach.profiles p where p.workspace_id = ${ws} and p.id = ${profile.id}`,
+        );
+        if (left?.out) continue;
+        const [row] = await ctx.tx
+          .insert(partnerLeads)
+          .values({
+            workspaceId: ws,
+            userId: me,
+            profileId: profile.id,
+            platform: input.platform,
+            kind: input.kind,
+            words: input.words,
+            foundAt: at,
+          })
+          .onConflictDoNothing()
+          .returning({ id: partnerLeads.id });
+        if (row) kept++;
+      }
+      await ctx.tx
+        .insert(partnerSearches)
+        .values({
+          workspaceId: ws,
+          userId: me,
+          platform: input.platform,
+          kind: input.kind,
+          words: input.words,
+          searchedAt: at,
+          found: kept,
+        })
+        .onConflictDoUpdate({
+          target: [
+            partnerSearches.workspaceId,
+            partnerSearches.userId,
+            partnerSearches.platform,
+            partnerSearches.kind,
+            partnerSearches.words,
+          ],
+          set: { searchedAt: at, found: kept },
+        });
+      return { kept };
+    });
   },
 });
 
@@ -296,6 +483,17 @@ export const partnerSave = defineAddonCommand(outreachAddon, {
         ...(found ? { stage: 'found' as const, foundAt: at } : {}),
       })
       .where(eq(partners.id, row.id));
+    // Answered: someone a search found is read now, and stops counting as waiting for the next searches.
+    if (a)
+      await ctx.tx
+        .delete(partnerLeads)
+        .where(
+          and(
+            eq(partnerLeads.workspaceId, ws),
+            eq(partnerLeads.userId, row.userId),
+            eq(partnerLeads.profileId, row.profileId),
+          ),
+        );
     // Found as a partner: never pitched as a customer from now, by anyone here, nor are their twins.
     if (found)
       await ctx.tx
@@ -850,10 +1048,11 @@ export function partnerRoom(
 }
 
 export const partnerCommands = [
+  partnerLeadsSave,
   partnerLook,
   partnerSave,
   partnerMark,
   partnerAnswer,
   partnerCall,
 ] as const;
-export const partnerQueries = [partnersNext, partnersList] as const;
+export const partnerQueries = [partnersNext, partnerSearchesNext, partnersList] as const;

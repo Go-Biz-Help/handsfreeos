@@ -18,9 +18,11 @@ import {
   PARTNER_SCHEMA,
   PartnerAnswer,
   partnerKindsOf,
+  partnerLeadFact,
   partnerPrompt,
   partnerSystem,
   type PartnerPlaybook,
+  type PartnerSearchKind,
 } from '@hfos/core/addons/outreach/partners';
 import {
   forPartners,
@@ -63,15 +65,20 @@ export async function partnerLooked(ctx: AddonEventContext): Promise<void> {
 
 const count = (n: number) => n.toLocaleString('en-US');
 
-/** What HandsFreeOS knows of someone, as the partner check is told it: their groups, their following, their lines. */
+/**
+ * What HandsFreeOS knows of someone, as the partner check is told it: how a search found them, their groups, their
+ * following, their lines.
+ */
 export function partnerFacts(person: {
   readonly platform: Platform;
   readonly intro: readonly string[];
   readonly followers: number | null;
   readonly mutual_friends: number | null;
   readonly groups: readonly { name: string | null; members: number | null; who: string | null }[];
+  readonly lead?: { readonly kind: PartnerSearchKind; readonly words: string } | null;
 }): string[] {
   return [
+    ...(person.lead ? [partnerLeadFact(person.platform, person.lead.kind, person.lead.words)] : []),
     ...person.groups.map((g) =>
       [
         `Runs the group ${g.name ?? 'with no name shown'}`,
@@ -104,9 +111,13 @@ export async function checkPartnersJob(ctx: AddonJobContext): Promise<JobResult>
       followers: number | null;
       mutual_friends: number | null;
       groups: { name: string | null; members: number | null; who: string | null }[] | null;
+      lead: { kind: PartnerSearchKind; words: string } | null;
     }>(
       tx,
       sql`select pa.id, pa.looked_at, pa.lines, p.name, p.platform, p.intro, p.followers, p.mutual_friends,
+            (select json_build_object('kind', l.kind, 'words', l.words) from addon_outreach.partner_leads l
+              where l.workspace_id = pa.workspace_id and l.user_id = pa.user_id and l.profile_id = pa.profile_id)
+              as lead,
             (select json_agg(json_build_object('name', g.name, 'members', g.members, 'who', g.check_who)
                 order by g.members desc nulls last)
               from (select g.* from addon_outreach.group_people gp

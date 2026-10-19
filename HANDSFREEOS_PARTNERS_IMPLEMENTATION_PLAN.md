@@ -4,8 +4,9 @@ Chris (18 Oct 2026): "add a feature where we can also identify people with large
 or admins and moderators of fb groups and ask them if they'd be interested in a partnership so instead of only
 reaching out to our target audience we can take advantage of another user's audience."
 
-**Where it stands (18 Oct 2026):** Chris answered every question below the same day and said to build it. Stage 1 is
-built: in core, the extension (0.64.0) and the apps (see "Build order"). Stage 2, partners in core, is next.
+**Where it stands (19 Oct 2026):** Chris answered every question below on 18 Oct 2026 and said to build it. Stages 1
+to 3 are built: finding and asking partners, partners in core with their page, and payouts (see "Build order").
+Stage 4, finding partners by search, is being built.
 
 Social Outreach today finds the people who might buy (docs/outreach.md). This adds a second kind of person to find:
 someone who already has your customers' attention, asked to send them your way for a share of what they pay.
@@ -403,6 +404,71 @@ look-ups; a cancelled line isn't theirs to see. The words are core's (`partners/
   added to its monthly charge; the smallest payout is $25 unless the business sets a lower one; and partners outside
   the US come later.
 
+## Stage 4: finding partners by search
+
+Chris (19 Oct 2026) picked this as stage 4, over Instagram and Alignable, partners outside the US and the payout
+loose ends: "Find partners by search". Until now partners were found only among the people the person's computer had
+already saved: who runs their groups, who has a following among their friends and groups, and who says they run a
+business. Stage 1's table above names the searches that were left for later; this builds them on LinkedIn and
+Facebook.
+
+**What it does.** Find partners, the once-a-day job on each network, first searches the network for people who could
+partner, then reads the next people for the AI's partner check as it does now, those found by search among them.
+Nothing is pressed: it opens a search, reads what it shows a screen at a time at a person's pace, and stops on any
+warning.
+
+- **Creators: post search.** Posts saying the playbook's words, the latest first, a few screens. Each post's author
+  is kept as a creator to read: people on LinkedIn (never a company's page, as Find posts has it); people and Pages
+  on Facebook. How many follow them is read off their profile when they're read, as now.
+- **Businesses: people search.** People matching the words, a couple of pages. Each is kept with what the result
+  shows (their headline, place and the lines under their name) as a business to read.
+- **Group admins** aren't searched for. Who runs a group is read from the groups the person is in, as now.
+
+**The words** are the partner playbooks' own, on the network: the quoted words in their signs, then their words to
+search for groups, as Find posts takes a customer playbook's. Those already describe the customers, and people
+posting about them, or saying they serve them, are who has their attention. On a partner playbook the builder calls
+them **Words to search for groups and partners**. There's no new part to fill in.
+
+**How much.** Two searches a day on each network (`PARTNER_SEARCHES_PER_DAY`), each word and kind once a week at most
+(`PARTNER_SEARCH_AGAIN_DAYS`), the one searched longest ago first. None while the person already has three days of
+partner reads waiting from searches (`PARTNER_LEADS_WAITING_MOST`), so it searches only when it needs more. LinkedIn
+limits how much a free account searches for people, so its people search reads two pages. Search pages aren't
+profiles, so they don't count against the day's profile reads; reading someone found does.
+
+**What's kept** (migration 20261027009300):
+
+- `addon_outreach.partner_leads`: someone a search found, for the person whose computer searched. The kind it looked
+  for, the words, the network, and when. Nobody goes in Contacts: each is a profile with no customer, as a post's
+  author is. It's let go once the AI has answered for them.
+- `addon_outreach.partner_searches`: each word searched on a network for a kind, when it was last searched, and how
+  many new people it found. Today's count and the weekly turn come from it.
+
+**The commands:**
+
+- `outreach.partners.searches`: the searches to do today on a network, each a kind and its words. None with no
+  partner playbook in use there, or none wanting creators or businesses.
+- `outreach.partner.leads`: a search's results as the computer read them, and that the search was done (it's sent
+  even when nothing was found). It keeps the people not found already. It leaves out the person themselves, anyone on
+  Don't pitch or Never contact, and anyone on the Partners list or checked lately.
+- `outreach.partners.next` reads them too. A creator found by search needs no following known yet, but one known
+  under 1,000 isn't read. A business found by search is left alone when the AI found they could be a customer, as now.
+  Group admins come first, then creators and then businesses, as now. Within each, the biggest audiences known come
+  first, then those found by search, newest first.
+- **The AI's partner check** is told how they were found: "Found searching LinkedIn’s posts for “Austin
+  homeowners”".
+
+**The extension (0.65.0):** Find partners asks for today's searches, does each and sends what it found, pausing
+between searches as a person typing the next would, then reads the next people. On LinkedIn: people search a page
+at a time by its address, and post search, the latest first. On Facebook: people search and post search, scrolled a
+screen at a time.
+
+**Build order:**
+
+1. **4a:** the tables, the words, the commands and the partner check's fact, in core and the worker.
+2. **4b:** the searches in the extension's Find partners, on LinkedIn and Facebook.
+3. **4c:** the builder's label on partner playbooks (web and phone), docs/outreach.md, the extension's README and
+   docs/operations.md.
+
 ## Build order
 
 1. **Stage 1, in core:** partner playbooks, the partners table, the partner check, the stages, the new message kinds,
@@ -421,4 +487,5 @@ look-ups; a cancelled line isn't theirs to see. The words are core's (`partners/
    partner steps.
 4. **Stage 2:** partners, referrals and commissions in core, and the partner's page.
 5. **Stage 3:** payouts, after the open questions.
-6. **Chris tries each,** in Stripe's test mode first for payouts.
+6. **Stage 4:** finding partners by search on LinkedIn and Facebook.
+7. **Chris tries each,** in Stripe's test mode first for payouts.
