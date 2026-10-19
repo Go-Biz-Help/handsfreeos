@@ -23,7 +23,14 @@ import {
   TOUCH_WHY_MOST,
 } from '@hfos/core/addons/outreach/activity';
 import { GROUP_PEOPLE_MOST, GROUPS_SAVE_MOST } from '@hfos/core/addons/outreach/groups';
+import {
+  PARTNER_LEAD_LINES,
+  PARTNER_LEADS_SAVE_MOST,
+  PARTNER_SEARCH_WORDS_MOST,
+  type PartnerSearchKind,
+} from '@hfos/core/addons/outreach/partners';
 import { POST_TEXT_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
+import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../networks/facebook/friends';
 import { runsGroup } from '../networks/facebook/people';
@@ -50,6 +57,7 @@ import type {
   GroupSaveInput,
   GroupsSaveInput,
   Me,
+  PartnerLeadsInput,
   PostsSaveInput,
   ProfileInput,
   TouchInput,
@@ -562,5 +570,50 @@ export function linkedInPostsSave(
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found,
     },
+  };
+}
+
+/** Someone a partner search showed (../jobs/partner-search.ts): their profile, the lines under their name, followers. */
+export interface Found {
+  readonly name: string;
+  readonly profile: ProfileRef;
+  readonly lines: readonly string[];
+  readonly followers: number | null;
+}
+
+/**
+ * Who a partner search found, as HandsFreeOS keeps them to read for the AI's partner check (stage 4 of the partners
+ * plan): each once, with the lines their result showed, at most a save's worth. Anyone whose profile or name the page
+ * didn't show is left out. Sent even when it found nobody: the search still counts as done.
+ */
+export function partnerLeadsSave(
+  found: readonly Found[],
+  platform: Platform,
+  kind: PartnerSearchKind,
+  words: string,
+  workspaceId: string,
+): PartnerLeadsInput {
+  const seen = new Set<string>();
+  const people = found.flatMap((f) => {
+    const who = whom({ name: f.name, profile: f.profile }, platform);
+    if (!who) return [];
+    const key = who.profile.id ?? who.profile.username ?? who.profile.url;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const lines = [...new Set(f.lines.map((l) => clip(l, LOOKUP_LINE_MOST)).filter(Boolean))];
+    return [
+      {
+        ...who,
+        lines: lines.slice(0, PARTNER_LEAD_LINES),
+        followers: f.followers !== null && f.followers <= 1_000_000_000 ? f.followers : null,
+      },
+    ];
+  });
+  return {
+    workspaceId,
+    platform,
+    kind,
+    words: clip(words, PARTNER_SEARCH_WORDS_MOST),
+    people: people.slice(0, PARTNER_LEADS_SAVE_MOST),
   };
 }

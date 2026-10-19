@@ -75,6 +75,9 @@ describe('reading people who could partner', () => {
   const hfosWith = (people: unknown[], sent: HfosAsk[]) =>
     (async (ask: HfosAsk) => {
       sent.push(ask);
+      // No searches today: only the reading (../test/partner-search.test.ts has the searches).
+      if (ask.type === 'hfos-partner-searches')
+        return { ok: true, value: { searches: [], today: 2, perDay: 2, waiting: 0 } };
       if (ask.type === 'hfos-partners-next')
         return { ok: true, value: { people, today: 0, perDay: 15 } };
       if (ask.type === 'hfos-partner-look')
@@ -101,7 +104,8 @@ describe('reading people who could partner', () => {
       15,
     );
     expect(opened).toEqual([DANA]);
-    const [next, look] = sent as [
+    const [, next, look] = sent as [
+      Extract<HfosAsk, { type: 'hfos-partner-searches' }>,
       Extract<HfosAsk, { type: 'hfos-partners-next' }>,
       Extract<HfosAsk, { type: 'hfos-partner-look' }>,
     ];

@@ -52,6 +52,7 @@ import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
 import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
 import { checkInvitations } from '../jobs/linkedin/people';
 import { findPostsBySearch } from '../jobs/linkedin/posts';
+import { searchLinkedIn } from '../jobs/linkedin/partner-search';
 import { LINKEDIN, readLinkedIn } from '../jobs/linkedin/read';
 import { linkedin, type LinkedInRead } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
@@ -108,7 +109,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
   posts: 'Finding posts with LinkedIn’s post search…',
-  partners: 'Reading people on LinkedIn who could partner with you…',
+  partners: 'Searching LinkedIn for people who could partner with you, then reading them…',
   helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
@@ -698,6 +699,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
         platform: PLATFORM,
         read: readThemOnLinkedIn,
+        search: searchLinkedIn,
       });
     case 'chats':
       return readChats(job, {

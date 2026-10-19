@@ -12,6 +12,7 @@ import type { PushMode } from './automation';
 import { READ_CHATS_WORDS } from './asks';
 import type { ChatView } from './chat-read';
 import type { GroupView } from './groups';
+import { forPartners, type PlaybookDetails } from './playbooks';
 
 /** An empty list's title and what fills it. */
 interface Empty {
@@ -498,6 +499,13 @@ export const OUTREACH_WORDS = {
     disclaimer: 'Disclaimer',
     tags: 'Tags',
   },
+  /**
+   * On a partner playbook its words for groups find partners too (stage 4 of the partners plan): the computer searches
+   * posts and people with them (`playbookSectionTitle`).
+   */
+  partnerGroupWords: 'Words to search for groups and partners',
+  partnerGroupWordsHint:
+    'Like “Austin homeowners”. Your computer searches posts and people with these to find partners, and groups too.',
   offerLabel: 'What you offer',
   linkLabel: 'Its link',
   openerStyles: 'Styles the AI opens with',
@@ -620,6 +628,16 @@ export const OUTREACH_WORDS = {
   save: 'Save',
   savedFollows: 'Saved. The extension follows it in a few seconds.',
 } as const;
+
+/** A playbook part's title, as the web and the phone show it: on a partner playbook its words for groups find partners. */
+export function playbookSectionTitle(
+  section: keyof typeof OUTREACH_WORDS.playbookSections,
+  details: Pick<PlaybookDetails, 'goal'>,
+): string {
+  return section === 'groupWords' && forPartners(details)
+    ? OUTREACH_WORDS.partnerGroupWords
+    : OUTREACH_WORDS.playbookSections[section];
+}
 
 /** A customer Add to Contacts offers first, from `outreach.lookup`'s `sameName`. */
 export interface SameNamePerson {

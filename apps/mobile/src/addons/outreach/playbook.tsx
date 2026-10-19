@@ -1,7 +1,7 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
-import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { OUTREACH_WORDS as W, playbookSectionTitle } from '@hfos/core/addons/outreach/words';
 import {
   ANSWER_NEXT_KEYS,
   answerNextLabel,
@@ -288,7 +288,11 @@ export function PlaybookBody({
         />
       </List>
       {SECTIONS.map((section) => (
-        <Part key={section} title={W.playbookSections[section]} testID={`playbook-${section}`}>
+        <Part
+          key={section}
+          title={playbookSectionTitle(section, playbook.details)}
+          testID={`playbook-${section}`}
+        >
           <Card className="gap-2 px-4 py-3">
             <Text className="text-[14px] leading-[20px]">
               {sectionWords(playbook.details, section)}
@@ -362,7 +366,11 @@ function SectionSheet({
     if (wrong) setProblem(wrong);
     else onClose();
   };
-  const title = section ? (section === 'name' ? W.name : W.playbookSections[section]) : undefined;
+  const title = section
+    ? section === 'name'
+      ? W.name
+      : playbookSectionTitle(section, playbook.details)
+    : undefined;
   return (
     <Sheet open={section !== null} onClose={onClose} title={title} scroll testID="playbook-sheet">
       <View className="gap-3">

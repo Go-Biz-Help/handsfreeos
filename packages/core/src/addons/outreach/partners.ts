@@ -29,6 +29,8 @@ import {
 } from './playbooks';
 import { ANSWER_KEYS, type Answer } from './conversation';
 import type { DownloadMessage } from './download';
+import { postSearchWords } from './posts';
+import { PersonName, ProfileRef } from './saves';
 import {
   ANSWER_ASK,
   chatLines,
@@ -149,6 +151,105 @@ export const PartnerLookOutput = z.object({
   fit: z.enum(PARTNER_FIT_KEYS),
 });
 export type PartnerLookOutput = z.output<typeof PartnerLookOutput>;
+
+// ------------------------------------------------------------------------------------------------- searching
+
+/**
+ * What a partner search looks for (stage 4 of the partners plan): creators, through the network's post search (whoever
+ * wrote the posts), and businesses with the same customers, through its people search. Who runs a group is read from
+ * the person's own groups, never searched for.
+ */
+export const PARTNER_SEARCH_KINDS = {
+  creator: 'posts',
+  business: 'people',
+} as const satisfies Partial<Record<PartnerKind, 'posts' | 'people'>>;
+export type PartnerSearchKind = keyof typeof PARTNER_SEARCH_KINDS;
+export const PARTNER_SEARCH_KIND_KEYS = Object.keys(PARTNER_SEARCH_KINDS) as [
+  PartnerSearchKind,
+  ...PartnerSearchKind[],
+];
+
+/** Searches a day on each network, and the days before the same words are searched for the same kind again. */
+export const PARTNER_SEARCHES_PER_DAY = 2;
+export const PARTNER_SEARCH_AGAIN_DAYS = 7;
+/** No searching while this many found by search wait to be read: three days of a network's partner reads. */
+export const PARTNER_LEADS_WAITING_MOST = 3 * PARTNER_CHECKS_PER_DAY;
+/** The most people a search's results send, and the most lines kept of what each result showed. */
+export const PARTNER_LEADS_SAVE_MOST = 50;
+export const PARTNER_LEAD_LINES = 4;
+/** A search's words: a sign's quoted words, or a playbook's words to search for groups. */
+export const PARTNER_SEARCH_WORDS_MOST = 160;
+
+/**
+ * The words a person's computer searches a network with for partners: the partner playbooks' on that network, the
+ * quoted words in their signs, then their words to search for groups, each once, as Find posts takes a customer
+ * playbook's (`postSearchWords`). They describe the customers, and people posting about them, or saying they serve
+ * them, are who has their attention.
+ */
+export function partnerSearchWords(
+  playbooks: readonly {
+    readonly details: Pick<PlaybookDetails, 'signs' | 'groupWords' | 'platforms'>;
+  }[],
+  platform: Platform,
+): string[] {
+  const here = playbooks.filter((p) => p.details.platforms.includes(platform));
+  return here.length
+    ? postSearchWords(here, platform).filter((w) => w.length <= PARTNER_SEARCH_WORDS_MOST)
+    : [];
+}
+
+export const PartnerSearchesInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
+export type PartnerSearchesInput = z.input<typeof PartnerSearchesInput>;
+
+export const PartnerSearchesOutput = z.object({
+  /** Today's searches, in order: what each looks for, and its words. None when there's nothing to search today. */
+  searches: z.array(z.object({ kind: z.enum(PARTNER_SEARCH_KIND_KEYS), words: z.string().min(1) })),
+  /** Searches done on the network today, and a day's. */
+  today: z.number().int().min(0),
+  perDay: z.number().int().min(0),
+  /** People found by search on the network still to be read. */
+  waiting: z.number().int().min(0),
+});
+export type PartnerSearchesOutput = z.output<typeof PartnerSearchesOutput>;
+
+/** Someone a search's results showed. */
+export const PartnerLeadIn = z.object({
+  profile: ProfileRef,
+  name: PersonName,
+  /** What the result showed under their name: their headline, where they are, a line about them. */
+  lines: z
+    .array(z.string().trim().min(1).max(LOOKUP_LINE_MOST))
+    .max(PARTNER_LEAD_LINES)
+    .default([]),
+  /** How many follow them, when the result said. */
+  followers: z.number().int().min(0).max(1_000_000_000).nullable().default(null),
+});
+export type PartnerLeadIn = z.input<typeof PartnerLeadIn>;
+
+export const PartnerLeadsInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  kind: z.enum(PARTNER_SEARCH_KIND_KEYS),
+  words: z.string().trim().min(1).max(PARTNER_SEARCH_WORDS_MOST),
+  /** Everyone the search showed, once: none when it found nobody, which still counts the search as done. */
+  people: z.array(PartnerLeadIn).max(PARTNER_LEADS_SAVE_MOST).default([]),
+});
+export type PartnerLeadsInput = z.input<typeof PartnerLeadsInput>;
+
+export const PartnerLeadsOutput = z.object({
+  /** The people it found who weren't found already, kept to read. */
+  kept: z.number().int().min(0),
+});
+export type PartnerLeadsOutput = z.output<typeof PartnerLeadsOutput>;
+
+/** How someone was found by search, as the AI's partner check is told it. */
+export const partnerLeadFact = (platform: Platform, kind: PartnerSearchKind, words: string) =>
+  kind === 'creator'
+    ? `Wrote a post ${NETWORKS[platform].name}’s post search found for “${words}”`
+    : `Found by ${NETWORKS[platform].name}’s people search for “${words}”`;
 
 // ------------------------------------------------------------------------------------------------- the AI
 

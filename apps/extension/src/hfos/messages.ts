@@ -89,6 +89,10 @@ export type PartnersNextInput = Body<'/v1/queries/outreach.partners.next'>;
 export type PartnersNext = Ok<'/v1/queries/outreach.partners.next'>;
 export type PartnerLookInput = Body<'/v1/commands/outreach.partner.look'>;
 export type PartnerLooked = Ok<'/v1/commands/outreach.partner.look'>;
+export type PartnerSearchesInput = Body<'/v1/queries/outreach.partners.searches'>;
+export type PartnerSearches = Ok<'/v1/queries/outreach.partners.searches'>;
+export type PartnerLeadsInput = Body<'/v1/commands/outreach.partner.leads'>;
+export type PartnerLeadsKept = Ok<'/v1/commands/outreach.partner.leads'>;
 /** Groups to check and to join, what a group's About page said, and how an ask to join went (decision 48). */
 export type GroupsToCheckInput = Body<'/v1/queries/outreach.groups.to_check'>;
 export type GroupsToCheck = Ok<'/v1/queries/outreach.groups.to_check'>;
@@ -274,6 +278,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
   | { readonly type: 'hfos-partners-next'; readonly input: PartnersNextInput }
   | { readonly type: 'hfos-partner-look'; readonly input: PartnerLookInput }
+  /** Today's searches for partners on a network, and who one found (stage 4 of the partners plan). */
+  | { readonly type: 'hfos-partner-searches'; readonly input: PartnerSearchesInput }
+  | { readonly type: 'hfos-partner-leads'; readonly input: PartnerLeadsInput }
   | { readonly type: 'hfos-groups-to-check'; readonly input: GroupsToCheckInput }
   | { readonly type: 'hfos-group-look'; readonly input: GroupLookInput }
   | { readonly type: 'hfos-joins-next'; readonly input: JoinsNextInput }
@@ -332,6 +339,8 @@ export interface HfosValues {
   readonly 'hfos-check-look': CheckLooked;
   readonly 'hfos-partners-next': PartnersNext;
   readonly 'hfos-partner-look': PartnerLooked;
+  readonly 'hfos-partner-searches': PartnerSearches;
+  readonly 'hfos-partner-leads': PartnerLeadsKept;
   readonly 'hfos-groups-to-check': GroupsToCheck;
   readonly 'hfos-group-look': GroupLooked;
   readonly 'hfos-joins-next': JoinsNext;

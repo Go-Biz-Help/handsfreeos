@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, and 20261027008400 for partners):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, and 20261027009300 for finding partners by search):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -47,7 +47,7 @@ import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { ProfileCheck } from './profile-check';
 import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
-import type { PartnerFit, PartnerKind, PartnerStage } from './partners';
+import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
@@ -1124,6 +1124,59 @@ export const partners = addonOutreach.table(
 );
 
 /**
+ * Someone a partner search found (stage 4 of the partners plan, 20261027009300), for the person whose computer
+ * searched, until the AI has answered for them: the kind it looked for, its words, and when. Each person's own.
+ */
+export const partnerLeads = addonOutreach.table(
+  'partner_leads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    platform: text('platform').notNull().$type<Platform>(),
+    kind: text('kind').notNull().$type<PartnerSearchKind>(),
+    words: text('words').notNull(),
+    foundAt: ts('found_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Each word a person's computer searched a network with for a kind of partner: when last, and how many it found. */
+export const partnerSearches = addonOutreach.table(
+  'partner_searches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    kind: text('kind').notNull().$type<PartnerSearchKind>(),
+    words: text('words').notNull(),
+    searchedAt: ts('searched_at').notNull(),
+    found: integer('found').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.platform, t.kind, t.words),
+  ],
+);
+
+/**
  * What a person or the AI said about where someone stands beyond what's worked out (decision 47): ready to pitch or not
  * a fit, and when the pitch went. Each person's own.
  */
@@ -1374,6 +1427,8 @@ export const OUTREACH_TABLES = {
   liveSteps,
   needs,
   openerUses,
+  partnerLeads,
+  partnerSearches,
   partners,
   playbooks,
   posts,

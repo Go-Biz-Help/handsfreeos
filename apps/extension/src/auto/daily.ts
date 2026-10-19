@@ -5,8 +5,8 @@
  * saves the members of their good groups, finds posts in those groups, reads their chats, and checks their friends for
  * good fits (decision 46), each in the window it works in, at a person's pace (src/jobs/). Those fill the list it
  * then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the AI, and
- * friends to reconnect with. Then it reads people who could partner with the business for the AI's partner check
- * (decision 81). Last, it asks for today's helpful post and reads who engaged with those up lately
+ * friends to reconnect with. Then it searches for people who could partner with the business and reads them for the
+ * AI's partner check (decision 81). Last, it asks for today's helpful post and reads who engaged with those up lately
  * (decision 50). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
  * only while the person lets it join on its own; and on the person's own posts, See who reacted to this. They run while the person lets it work on its own and leaves **Once
  * a day** ticked.
@@ -39,7 +39,7 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   posts: 'Finding posts in your groups…',
   chats: 'Reading your chats for the AI…',
   checks: 'Checking your friends for good fits…',
-  partners: 'Reading people who could partner with you…',
+  partners: 'Searching for people who could partner with you, then reading them…',
   helpful: 'Asking for today’s helpful post, and reading who engaged…',
 };
 

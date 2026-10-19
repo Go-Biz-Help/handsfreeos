@@ -220,6 +220,8 @@ export const outreachAddon = defineAddon({
     'my_groups',
     'needs',
     'opener_uses',
+    'partner_leads',
+    'partner_searches',
     'partners',
     'playbooks',
     'posts',

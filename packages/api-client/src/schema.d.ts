@@ -6877,6 +6877,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.partner.leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who one of the network’s searches found that could partner with the business, as the person’s computer read the results: creators whose posts said a Find partners playbook’s words, or people matching them who may run a business with the same customers. Each is kept to read for the AI’s partner check, nobody added to Contacts. Leaves out the person themselves, anyone on Don’t pitch or Never contact, and anyone on the Partners list or checked lately. The search counts as done today, even when it found nobody.
+         * @description Risk level 1. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_partner_leads"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.partner.look": {
         parameters: {
             query?: never;
@@ -17851,6 +17871,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_partners_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.partners.searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The searches the person’s computer does today on a network to find people who could partner with the business, each with a Find partners playbook’s words: for creators, the network’s post search (whoever wrote the posts); for businesses with the same customers, its people search. Two a day, the same words for the same kind once a week at most, the longest unsearched first; none while plenty found by search wait to be read, nor without a Find partners playbook in use on the network.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_partners_searches"];
         delete?: never;
         options?: never;
         head?: never;
@@ -37446,6 +37486,56 @@ export interface operations {
                 content: {
                     "application/json": {
                         noted: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_partner_leads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    kind: "creator" | "business";
+                    /** @default [] */
+                    people?: {
+                        /** @default null */
+                        followers?: number | null;
+                        /** @default [] */
+                        lines?: string[];
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    words: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kept: number;
                     };
                 };
             };
@@ -68279,6 +68369,47 @@ export interface operations {
                         }[];
                         perDay: number;
                         today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_partners_searches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        perDay: number;
+                        searches: {
+                            /** @enum {string} */
+                            kind: "creator" | "business";
+                            words: string;
+                        }[];
+                        today: number;
+                        waiting: number;
                     };
                 };
             };
