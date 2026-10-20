@@ -66,3 +66,18 @@ export function fold(text: string): string {
   for (const ch of text) out += (FOLD.get(ch) ?? ch).toLowerCase();
   return out;
 }
+
+/**
+ * A regular expression for Postgres that finds a word in text as `fold` would, without folding the text: each letter
+ * a bracket of itself and every letter that folds to it ("jose" finds José and JOSÉ, with the case-blind flag `i`).
+ * Folding a long text with an accent in it costs about 2.4 µs a character, so the Files snippet finds where a word sits
+ * in a file's words this way instead (Search 5). Anything but a letter or a digit is matched as itself.
+ */
+export function foldPattern(word: string): string {
+  let out = '';
+  for (const ch of fold(word)) {
+    const from = FOLDS_TO[ch];
+    out += from ? `[${ch}${from}]` : /[\p{L}\p{Nd}]/u.test(ch) ? ch : `\\${ch}`;
+  }
+  return out;
+}

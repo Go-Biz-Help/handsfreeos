@@ -21,7 +21,8 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3 and 6 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3, 5 and 6 built (Build order), the rest still to
+build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2180,6 +2181,91 @@ its step **Built** here with what changed while building.
      `searchWords` half), `packages/core/test/commands.test.ts`, `packages/core/test/search/kinds.test.ts`.
    - Docs: docs/operations.md (the file reader, its caps, the sweep and `files:read-backlog`), docs/deleting.md (a
      file's words follow it), docs/search.md.
+   - **Built** (2026-10-20). Migration B is `20261027009800_file_texts.sql`, applied locally; it still has to go on the
+     hosted database ("Apply new migrations", docs/operations.md) before this reaches `main`. No API change:
+     `file.save_text` is the worker's alone and never a route, so `pnpm openapi` leaves `packages/api-client` as it
+     was. What changed while building:
+     - **`file_texts_select` is a correlated `exists`** on `f.id = file_texts.file_id`, not `file_id in (select …)`,
+       for stage 1's reason (`form_answers_follow_response`): the `in` form reads every file the person can see, in
+       every business, before any statement reading words.
+     - **`file.save_text` counts the characters itself.** Its input has no `chars`, only `workspaceId`, `fileId`,
+       `state`, `text`, `pages` and `reader`: the command counts the text's characters as Postgres does (one for a
+       character outside the BMP), so a row's count can't disagree with its words, and keeps only page starts inside
+       the text, in order. It answers `{ fileId, state, chars }`. `FILE_TEXT_STATES` and `FILE_TEXT_CHARS` are in
+       `schemas/file.ts`.
+     - **`file.save_text` holds the file `for share`** while it keeps the words. A plain read let a `file.delete`
+       commit between the read and the insert: the foreign key's `key share` doesn't block an update of `deleted_at`,
+       so `private.forget_file_text` found nothing yet, and the words then stayed for a file deleted for good. Now the
+       delete waits and its trigger forgets them, or went first and the save answers "File not found.", which the job
+       lets be. Its audit row's `after` carries the file's name (never its words), and the Activity log says "read the
+       words in Inspection.pdf for search" (`apps/web/src/lib/audit-describe.ts`).
+     - **A database error saving the words is thrown again as `file.save_text failed: <SQLSTATE>`**, with no message,
+       cause or parameters, as search's `step` does (`sqlStateOf`, now exported from `@hfos/core/server`): Drizzle puts
+       a statement's parameters, the file's words, in its error, which the job's log and `last_error` would otherwise
+       keep after the file is gone.
+     - **`$tsq` is built from what was typed** (`tsq` on the probes, through `searchTerms`), not from the lower-cased
+       words: JavaScript lower-cases İ to i and a combining dot, which folding then splits, while the stored words fold
+       İ to i first. It's null whenever the probes have no words ("12"). A letter is what Postgres's `[:alnum:]` calls
+       one on the local stack's ICU database, a letter or a decimal digit (`[^\p{L}\p{Nd}]` in core), never a
+       superscript or a fraction; `fold.test.ts` checks every character of Latin to Latin Extended-B, Greek, Cyrillic,
+       Latin Extended Additional, punctuation and number forms one at a time, and that core's query finds the words the
+       database keeps. A libc database may class a few rare characters differently; both sides still go through the
+       same text parser.
+     - **Every `<->` in the query is made `&`** (`wordsQuery` in `kinds/files.ts`). Postgres's parser splits a few
+       words further than core does, "65e8m" into the number 65e8 and m, and `to_tsquery` makes those a phrase, which
+       never matches the stored words, kept without their places (`strip`): model numbers and serials like 65E8M or
+       4E2A1B were never found inside a file. A lexeme holds only letters and digits, so `<->` is only the operator.
+     - **The snippet finds its word with `foldPattern`**, not `strpos(private.search_fold(t.text), $firstWord)`, as
+       stage 1's note asked: `regexp_instr` with each letter a bracket of the letters that fold to it, and the
+       case-blind flag, gives the same place (`fold.test.ts`) in about 1.6 ms over 100,000 characters with an accent,
+       against about 280 ms to fold them. It looks for the longest of the search's terms, not the first, and only where
+       a word starts, a number past its leading zeros (`termPattern`: `(?<![[:alnum:]])`, then `0*` before a digit), as
+       the words matched: "test" inside "Latest" on page 1 put "test cock weeping" on the wrong page. It runs in the
+       facts step, for the files shown only.
+     - **A page only when there's more than one**: a one-page PDF or one-sheet workbook says no page. The link carries
+       `page` only for a PDF. "Sheet 2" against "page 3" is told by the file's `.xlsx` name (`filePlace` in
+       `search/words.ts`, used by `hitLines`), so `SearchFacts` and the phone contract don't change.
+     - **The file words window** is `fileWords` in `SEARCH_WINDOWS`, 1,000 / 10,000 by `extracted_at`, so a file read
+       again moves to the newest; Files is `windowed` in `SEARCH_KINDS` now. It counts only rows holding words
+       (`WITH_WORDS`, `t.chars > 0`): every photo, voice note and file too big has a row with none, and a business's
+       job photos would otherwise push its documents out. So `file_texts_recent_idx` is partial, `where chars > 0`,
+       against Migration B's sketch above, and the searcher repeats the condition word for word, as `NOTE_LINES` does. A file its name and its words both found
+       shows once, as its name found it. Look further back on the Files page reads on only through the words: every name
+       was read the first time.
+     - **Who a file is on is read by key**, in `offset 0` laterals shared by the names and the words statements, as
+       stage 3 did for threads and notes. `plans.test.ts` checks the words are read through `file_texts_recent_idx` with
+       the window's edge in the index condition.
+     - **The reader:** a declared video is skipped like a photo, a voice note or a zip. A scan (`no_text`) keeps what
+       little text was read, so it's still found by it. Word also breaks a line at `<w:br/>` and `<w:cr/>`, and ignores
+       the tab stops a paragraph lists (`<w:tabs>`). Excel reads the sheets in the workbook's order through its
+       relationships, falling back to the parts' numbers, and leaves out phonetic guides, true or false and errors. A
+       zip it won't open (split, zip64, encrypted, another method, too many entries, a part too big or growing too
+       much, cut short) is `unreadable`; a zip that's neither Word nor Excel, or a file that's no PDF, zip or declared
+       text, is `unsupported`. 2,000 page starts at most: a longer PDF is cut at its 2,000th page, `truncated`.
+     - **No reader builds more than twice the characters kept.** A cell repeats the shared string it points at, so a
+       1.5 MB workbook could make 200 million characters and kill the worker, and with it every business's jobs, again
+       on each claim. Word and Excel stop at 200,000 characters across a file's parts as they read
+       (`OFFICE_LIMITS.chars`), reading no sheet past it; `pdfPages` reads a PDF one page at a time and stops once
+       100,000 are read (a PDF cut there is never taken for a scan); and `joinPages` cuts each page to twice the room
+       left before tidying it, never after. Any of these cuts makes the file `truncated`.
+     - **The job reads the file's row first** (its declared type and record type, as the worker in its business), so a
+       knowledge file or port papers asked for anyway are let be, and a photo is saved `unsupported` without a download.
+       A file deleted or put in the bin before its words are kept ("File not found.") is let be. `onFileText` reads the
+       record type from the table, since `file.attached`'s payload doesn't carry it.
+     - **`files:read-backlog`** is `apps/worker/scripts/files-read-backlog.ts`. It counts from
+       `private.files_without_text` alone, by business (500 at most, "500 or more" past it), in a read-only transaction:
+       outside a business the worker reads no file, so it can't join `app.files` for more.
+     - **Tests:** the sweep's spreading and coming back are `sweepPlan`, pure, so "stops" (a day after less than a full
+       batch) is tested on it: on a shared database other businesses' files always fill a batch. The worker's and the
+       database's finder tests write their files as of 1971 and 1972, so the finder, oldest first across every business,
+       reaches them first, and remove them after. A turned-off add-on hiding a file's words is in `search-rls.test.ts`;
+       deleting the business is `private.purge_workspace`, as `workspace-delete.test.ts` does it. Beyond the files
+       listed: `search/fold.ts` (`foldPattern`), `search/server/sql.ts` (`fileWords`, `stretchAt`), `search/kinds.ts`,
+       `search/words.ts` and `search/lines.ts` (`filePlace`), `test/search/{probes,kinds.unit,plans,limits}.test.ts`,
+       `packages/core/src/server.ts` (`sqlStateOf`), `apps/web/src/lib/audit-describe.ts`, and
+       `apps/worker/scripts/files-read-backlog.ts`.
+     - **For stage 4a:** `SearchProbes` gains `tsq`, which `AddonSearchInput` passes to add-ons with the rest of the
+       probes.
 
 6. **Search 6: Settings search, on the web and the phone together.**
    - Ships: the Settings menu's pages and every setting in core's catalogue; `searchSettings` and `settingValueText`;

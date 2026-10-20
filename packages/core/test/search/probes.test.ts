@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { documentNumberMatches, documentNumberProbe } from '../../src/money/numbering';
-import { escapeLike, searchProbes } from '../../src/search/probes';
+import { foldPattern } from '../../src/search/fold';
+import { escapeLike, searchProbes, searchWords } from '../../src/search/probes';
 
 describe('phones', () => {
   it('reads a phone typed four ways as one E.164 number', () => {
@@ -155,5 +156,44 @@ describe('words', () => {
 
   it('escapes a backslash too', () => {
     expect(escapeLike('a\\b%c_d')).toBe('a\\\\b\\%c\\_d');
+  });
+});
+
+describe('the words inside a file (Search 5)', () => {
+  it('splits a text as a file’s words are kept: folded, punctuation a space, digits without leading zeros', () => {
+    expect(searchWords('INV-001042')).toBe('inv 1042');
+    expect(searchWords('(504) 555-0142')).toBe(' 504 555 142');
+    expect(searchWords('dana.smith@gmail.com')).toBe('dana smith gmail com');
+    expect(searchWords('www.GulfCoastRealty.com')).toBe('www gulfcoastrealty com');
+    expect(searchWords('José’s 007 0 00 x²')).toBe('jose s 7 0 0 x ');
+  });
+
+  it('asks a file for every word as a prefix, split the same way, and never holds an operator', () => {
+    expect(searchProbes('dana smith').tsq).toBe('dana:* & smith:*');
+    expect(searchProbes('INV-001042').tsq).toBe('inv:* & 1042:*');
+    expect(searchProbes('555-0142').tsq).toBe('555:* & 142:*');
+    expect(searchProbes('José').tsq).toBe('jose:*');
+    // A word twice, or twice once split, is asked for once.
+    expect(searchProbes('smith smith.smith').tsq).toBe('smith:*');
+    for (const typed of [
+      "o'brien & (co) | !x <-> y:* 'z'",
+      '50%_off \\ "quoted" a:b',
+      '«résumé» — ½ ¼',
+    ]) {
+      const tsq = searchProbes(typed).tsq!;
+      expect(tsq, typed).toMatch(/^[\p{L}\p{Nd}]+:\*( & [\p{L}\p{Nd}]+:\*)*$/u);
+    }
+    // Nothing to ask for: no words, or a digit or two alone.
+    expect(searchProbes('--').tsq).toBeNull();
+    expect(searchProbes('12').tsq).toBeNull();
+  });
+
+  it('finds a word in a file’s words as fold would, without folding them', () => {
+    // Each letter a bracket of itself and every letter that folds to it; the database runs it (fold.test.ts).
+    expect(foldPattern('jose')).toMatch(
+      /^\[jĴĵǰ\]\[o[^\]]*Ö[^\]]*\]\[s[^\]]*\]\[e[^\]]*é[^\]]*\]$/,
+    );
+    expect(foldPattern('1042')).toBe('1042');
+    expect(foldPattern('a.b')).toMatch(/\\\.\[b/);
   });
 });

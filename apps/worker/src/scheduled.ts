@@ -76,6 +76,7 @@ import { rcsJobs } from './telephony/rcs';
 import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
 import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
+import { FILE_TEXT_JOBS, FILE_TEXT_SWEEP_KEY, fileTextJobs } from './files/file-text';
 import { knowledgeScanJob } from './knowledge/scan';
 import { READ_SITE_JOB, readSiteJob } from './ai-setup/read-site';
 import { FIND_LOGO_JOB, findLogoJob, MAKE_LOGO_JOB, makeLogoJob } from './look/jobs';
@@ -548,6 +549,8 @@ export const jobs: JobMap = {
   [WINDOW_END_JOB]: waitlistOfferExpire,
   'knowledge.scan': knowledgeScanJob,
   'knowledge.document': knowledgeDocumentJob,
+  // The words inside a file people added, read for search; and the sweep that catches up (files/file-text.ts).
+  ...fileTextJobs,
   // Quick setup: what the business's website says, for its screens to start from.
   [READ_SITE_JOB]: readSiteJob,
   // The business's logo: made from an upload, or found on its website.
@@ -689,6 +692,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: BIN_JOBS.sweep,
       dedupeKey: BIN_SWEEP_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Files whose words haven't been read for search, or were read by an older reader, daily (files/file-text.ts).
+    await scheduleJob(tx, {
+      kind: FILE_TEXT_JOBS.sweep,
+      dedupeKey: FILE_TEXT_SWEEP_KEY,
       runAt,
       payload: {},
       workspaceId: null,

@@ -7,16 +7,16 @@ business's own kinds. An add-on's records stay archive-only.
 
 ## Where things are
 
-| What                       | Where                                                                                                                                                                                                                   |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027009700` hides a binned response's answers                   |
-| Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `bin.restore` and `bin.empty`                               |
-| Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                          |
-| What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                       |
-| Emptying, and calendars    | `apps/worker/src/bin/index.ts` (`bin.sweep` daily, `bin.purge`), and `apps/worker/src/calendar/sync.ts`                                                                                                                 |
-| The web                    | `apps/web/src/components/bin/`, Settings → Deleted bin, and Delete on Contacts, the Inbox, a booking's sheet, a lead, a company and a record                                                                            |
-| The phone                  | `apps/mobile/src/bin/calls.ts` and `apps/mobile/src/components/bin/delete-sheet.tsx`                                                                                                                                    |
-| Tests                      | `deleted-bin.test.ts` and `deleted-bin-more.test.ts` in `packages/db/test` and `packages/core/test`; `packages/core/test/bin-words.test.ts`; `apps/worker/test/deleted-bin.test.ts`; `apps/web/e2e/deleted-bin.spec.ts` |
+| What                       | Where                                                                                                                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027009700` hides a binned response's answers; `20261027009800` a file's words |
+| Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `bin.restore` and `bin.empty`                                              |
+| Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                                         |
+| What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                                      |
+| Emptying, and calendars    | `apps/worker/src/bin/index.ts` (`bin.sweep` daily, `bin.purge`), and `apps/worker/src/calendar/sync.ts`                                                                                                                                |
+| The web                    | `apps/web/src/components/bin/`, Settings → Deleted bin, and Delete on Contacts, the Inbox, a booking's sheet, a lead, a company and a record                                                                                           |
+| The phone                  | `apps/mobile/src/bin/calls.ts` and `apps/mobile/src/components/bin/delete-sheet.tsx`                                                                                                                                                   |
+| Tests                      | `deleted-bin.test.ts` and `deleted-bin-more.test.ts` in `packages/db/test` and `packages/core/test`; `packages/core/test/bin-words.test.ts`; `apps/worker/test/deleted-bin.test.ts`; `apps/web/e2e/deleted-bin.spec.ts`                |
 
 ## The owner's decisions (2026-10-08)
 
@@ -59,6 +59,14 @@ so a bill that names them still shows the name.
 `form_answers_follow_response` hides them from people whenever their response is hidden: in the bin, they're gone
 from Forms → Results and from anything else that reads answers by form or by business, and Bring back shows them
 again. They go with the response when the bin is emptied. The worker's own policies don't change.
+
+**A file's words follow it** (20261027009800). The words the worker read inside a file for search, in
+`app.file_texts`, have no `bin_item_id` of their own either: `file_texts_select` reads them only while their file
+reads, so they're hidden while it's in the bin and back with Bring back. Deleting a file for good forgets them at once
+(`private.forget_file_text`, a trigger, since a person may only read them), and emptying the bin or deleting the
+business takes them with the file. `file.save_text` holds the file while it keeps them, so a delete meanwhile waits
+and then forgets them. No event, audit row, log line or job row holds them (a failed save says only its SQLSTATE), so
+nothing of them outlives the file.
 
 **The box always asks first.** `bin.preview` says what goes with each thing and refuses what can't go yet: a plan
 still billing, a signed file, a hold, a message still going out or a call still going on. Clients branch on its

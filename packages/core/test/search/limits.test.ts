@@ -19,6 +19,7 @@ import type { SearchEverythingOutput, SearchKindOutput } from '../../src/schemas
 import { contactsSearcher } from '../../src/search/server/kinds/contacts';
 import { companiesSearcher } from '../../src/search/server/kinds/companies';
 import { closeSearcher } from '../../src/search/server/kinds/close';
+import { filesSearcher } from '../../src/search/server/kinds/files';
 import { formsSearcher } from '../../src/search/server/kinds/forms';
 import { messagesSearcher } from '../../src/search/server/kinds/messages';
 import { notesSearcher } from '../../src/search/server/kinds/notes';
@@ -361,15 +362,16 @@ describe('a failure never carries what was typed', () => {
   });
 
   it('the windowed kinds too: every statement through a step, skipped with no budget left', async () => {
-    const windowed = [messagesSearcher, notesSearcher, formsSearcher];
+    const windowed = [messagesSearcher, notesSearcher, formsSearcher, filesSearcher];
     const timeouts: number[] = [];
     const a = await everythingAs(`${SECRET} smith`, {
       searchers: windowed,
       onStatement: (_kind, ms) => timeouts.push(ms),
     });
     expect(nothingButQ(a)).not.toContain(SECRET);
-    // Threads, messages and calls; notes; forms by name and their answers: one step each.
-    expect(timeouts).toHaveLength(6);
+    // Threads, messages and calls; notes; forms by name and their answers; files by name and by their words: one step
+    // each.
+    expect(timeouts).toHaveLength(8);
     const e = await thrown(() =>
       everythingAs('smith', { searchers: windowed, budget: { requestMs: 30, statementMs: 1_000 } }),
     );

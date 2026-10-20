@@ -6,8 +6,9 @@
  * A small business picks a Seq Scan, or a bitmap scan on another index and a sort, whatever indexes exist, so both
  * are turned off first (stage 1's Built note): what's left is whether an index can serve the statement at all. And a
  * row's name is folded once, not once an arm: an accented name costs about 40 µs a fold. Long text is read in
- * windows of the newest rows (messages, threads, calls, notes, form answers), each through its btree on (business,
- * time): `activities_notes_idx` is partial, and is used because `NOTE_LINES` repeats its condition word for word.
+ * windows of the newest rows (messages, threads, calls, notes, form answers, the words read inside files), each
+ * through its btree on (business, time): `activities_notes_idx` is partial, and is used because `NOTE_LINES` repeats
+ * its condition word for word.
  */
 import { randomUUID } from 'node:crypto';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -178,6 +179,10 @@ describe('the statements search runs', () => {
     const files = await plansOf('files', 'smith');
     expect(files).toMatch(indexScan('files', 'files_record_idx'));
     expect(files).not.toMatch(/Seq Scan on files\b/);
+    // The words inside them (Search 5), in a window of the files read most recently.
+    expect(files).toMatch(indexScan('file_texts', 'file_texts_recent_idx'));
+    expect(files).toMatch(windowBound('extracted_at'));
+    expect(files).not.toMatch(/Seq Scan on file_texts\b/);
   });
 
   it('read the bin through bin_items_list_idx, and close matches through each table’s index', async () => {

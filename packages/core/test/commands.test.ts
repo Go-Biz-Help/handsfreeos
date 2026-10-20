@@ -169,6 +169,7 @@ describe('registry', () => {
       'file.delete',
       'file.lock',
       'file.store',
+      'file.save_text',
       'import.create',
       'import.start',
       'import.cancel',

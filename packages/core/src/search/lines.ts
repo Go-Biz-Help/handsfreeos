@@ -8,6 +8,7 @@ import { fmtDateShort, fmtMonthDay, fmtRange, localDayOf } from '../calendar/whe
 import { lastContactWords } from '../crm/pipeline-words';
 import { dueWording } from '../money/words';
 import type { SearchHit } from '../schemas/search';
+import { filePlace } from './words';
 
 export interface HitLines {
   /** The grey line under the title. */
@@ -221,7 +222,10 @@ export function hitLines(hit: SearchHit, w: When): HitLines {
       };
     case 'files':
       return {
-        line: joined([f.on ? `On ${f.on}` : null, hit.why.page ? `page ${hit.why.page}` : null]),
+        line: joined([
+          f.on ? `On ${f.on}` : null,
+          hit.why.page ? filePlace(hit.title, hit.why.page) : null,
+        ]),
         chip: null,
         under: null,
       };

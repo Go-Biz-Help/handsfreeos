@@ -6,7 +6,9 @@
  * Include archived, close matches kept to the chips, and `search.kind`'s pages, sorts, standing counts and duplicates.
  * Then Search 3's: messages and calls, one row a conversation; a chat visitor and an Instagram handle; Other mail and
  * Spam; archived threads; the calendar, tasks, notes, files and form answers; notes and answers found by who they're
- * on, after their words; and the windows, Look further back carrying on where one ended.
+ * on, after their words; and the windows, Look further back carrying on where one ended. Last, Search 5's words inside
+ * files: a PDF's page and a workbook's sheet, numbers and accents as elsewhere, never port papers or knowledge files,
+ * and a window that photos, which have no words, never crowd.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -14,6 +16,7 @@ import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodeCursor } from '../../src/kernel/pagination';
 import { personDelete } from '../../src/server';
+import { hitLines } from '../../src/search/lines';
 import {
   admin,
   allTitles,
@@ -923,5 +926,220 @@ describe('the remaining kinds (Search 3)', () => {
       before: first.group.searchedBack!,
     });
     expect(further.group.items.map((h) => h.id)).toEqual([old]);
+  });
+});
+
+// After every other kind, so the words these files hold are in no earlier search.
+describe('the words inside files (Search 5)', () => {
+  /** A ready file on a record, with the words the worker would have read from it. */
+  const fileWithWords = async (f: {
+    type: string;
+    record: string;
+    name: string;
+    mime?: string;
+    text: string;
+    pages?: number[];
+    by?: string;
+    /** When its words were read: now unless said. */
+    at?: string;
+  }): Promise<string> => {
+    const id = await one(
+      sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, status, created_by)
+          values (${w.wsId}, ${f.type}::app.record_type, ${f.record}, ${`${w.wsId}/${randomUUID()}`}, ${f.name},
+            ${f.mime ?? 'application/pdf'}, 'ready', ${f.by ?? w.owner.id})
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.file_texts (file_id, workspace_id, state, text, pages, chars, reader, extracted_at)
+          values (${id}, ${w.wsId}, 'done', ${f.text}, ${`{${(f.pages ?? []).join(',')}}`}::integer[],
+            ${[...f.text].length}, 1, coalesce(${f.at ?? null}::timestamptz, now()))`,
+    );
+    return id;
+  };
+  const pagesOf = (parts: string[]) => ({
+    text: parts.join('\n\n'),
+    pages: parts.map((_, i) => parts.slice(0, i).reduce((n, p) => n + p.length + 2, 0)),
+  });
+
+  let inspection: string;
+  let rates: string;
+  beforeAll(async () => {
+    inspection = await fileWithWords({
+      type: 'person',
+      record: w.ids.kim!,
+      name: 'Annual inspection.pdf',
+      ...pagesOf([
+        'Annual inspection for Gulf Coast Realty. Latest prices on the back.',
+        'Building 1 passed. Every valve holds. Samsung TV model 65E8M, serial 4E2A1B, in the lobby.',
+        'Building 2: the test cock is weeping. Billed on INV-001042; call (504) 555-0142 to book. Asked for José’s thermocouple.',
+      ]),
+    });
+    rates = await fileWithWords({
+      type: 'company',
+      record: w.ids.smithfield!,
+      name: 'Rates 2026.xlsx',
+      mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ...pagesOf(['Service\tRate\nDrain\t$150', 'Flapperword valve\t$80']),
+    });
+  });
+
+  it('finds a file by the words inside it, on the page they’re on, opening a PDF there', async () => {
+    const files = groupOf(await everything(w, w.owner, 'test cock weeping'), 'files')!;
+    expect(files).toMatchObject({ complete: true, searchedBack: null });
+    expect(files.items).toHaveLength(1);
+    const hit = files.items[0]!;
+    expect(hit).toMatchObject({
+      id: inspection,
+      title: 'Annual inspection.pdf',
+      tier: 4,
+      why: { field: 'file_text', page: 3 },
+      facts: { on: 'Kim Le' },
+      href: `/app/w/${w.wsId}/customers/people/${w.ids.kim}?tab=files&file=${inspection}&page=3`,
+    });
+    const snippet = hit.why.snippet!;
+    expect(snippet.text).toContain('the test cock is weeping');
+    const marked = snippet.marks.map(([a, b]) => snippet.text.slice(a, b).toLowerCase());
+    expect(marked).toEqual(expect.arrayContaining(['test', 'cock', 'weeping']));
+    expect(hitLines(hit, { timeZone: 'America/Chicago' }).line).toBe('On Kim Le · page 3');
+    // Its place is where a typed word starts a word: "test" on page 3, never inside "Latest" on page 1.
+    const test = groupOf(await everything(w, w.owner, 'test cock'), 'files')!.items[0]!;
+    expect(test).toMatchObject({ id: inspection, why: { field: 'file_text', page: 3 } });
+    expect(test.why.snippet!.text).toContain('the test cock is weeping');
+  });
+
+  it('finds numbers inside a file as everywhere else: a document number, part of a phone, a model', async () => {
+    for (const [q, page] of [
+      ['INV-001042', 3],
+      ['0142', 3],
+      ['555-0142', 3],
+      // Postgres's parser splits these in two (65e8 and m): both halves are asked for, not a phrase.
+      ['65E8M', 2],
+      ['4e2a1b', 2],
+    ] as const) {
+      const files = groupOf(await everything(w, w.owner, q), 'files');
+      expect(
+        files?.items.map((h) => [h.id, h.why.field, h.why.page]),
+        q,
+      ).toEqual([[inspection, 'file_text', page]]);
+    }
+  });
+
+  it('folds accents in a file’s words, and marks the accented word', async () => {
+    const hit = groupOf(await everything(w, w.owner, 'jose thermocouple'), 'files')!.items[0]!;
+    expect(hit).toMatchObject({ id: inspection, why: { field: 'file_text', page: 3 } });
+    const { text, marks } = hit.why.snippet!;
+    expect(marks.map(([a, b]) => text.slice(a, b))).toEqual(
+      expect.arrayContaining(['José', 'thermocouple']),
+    );
+  });
+
+  it('says a workbook’s sheet, and opens it without a page', async () => {
+    const hit = groupOf(await everything(w, w.owner, 'flapperword'), 'files')!.items[0]!;
+    expect(hit).toMatchObject({
+      id: rates,
+      why: { field: 'file_text', page: 2 },
+      href: `/app/w/${w.wsId}/customers/companies/${w.ids.smithfield}?tab=files&file=${rates}`,
+    });
+    expect(hitLines(hit, { timeZone: 'America/Chicago' }).line).toBe(
+      'On Smithfield Property Mgmt · Sheet 2',
+    );
+  });
+
+  it('shows a file its name and its words both found once, as its name found it', async () => {
+    const files = groupOf(await everything(w, w.owner, 'annual inspection'), 'files')!;
+    expect(files.items.map((h) => [h.id, h.why.field])).toEqual([[inspection, 'file_name']]);
+  });
+
+  it('never finds the words of port papers or a knowledge file, for anyone', async () => {
+    await fileWithWords({
+      type: 'port',
+      record: randomUUID(),
+      name: 'LOA.pdf',
+      text: 'Account 88812 PIN Portpinword',
+    });
+    await fileWithWords({
+      type: 'knowledge',
+      record: w.wsId,
+      name: 'Price sheet.pdf',
+      text: 'Kbfileword pricing',
+    });
+    for (const q of ['portpinword', 'kbfileword'])
+      for (const who of [w.owner, w.member]) {
+        const a = await everything(w, who, q);
+        expect(groupOf(a, 'files'), q).toBeUndefined();
+        expect((await oneKind(w, who, q, 'files')).group.items, q).toEqual([]);
+      }
+  });
+
+  it('keeps to the person’s own files with Only mine, and pages one kind of words alone', async () => {
+    const theirs = await fileWithWords({
+      type: 'person',
+      record: w.ids.marcus!,
+      name: 'Repipe photos list.pdf',
+      text: 'Innerword crawlspace',
+      by: w.member.id,
+    });
+    await fileWithWords({
+      type: 'person',
+      record: w.ids.marcus!,
+      name: 'Repipe notes.pdf',
+      text: 'Innerword attic',
+    });
+    const mine = groupOf(await everything(w, w.member, 'innerword', { onlyMine: true }), 'files')!;
+    expect(mine.items.map((h) => h.id)).toEqual([theirs]);
+    const page = await oneKind(w, w.owner, 'innerword', 'files', { limit: 1 });
+    expect(page.group).toMatchObject({ total: 2, complete: true });
+    expect(page.group.items).toHaveLength(1);
+    expect(page.nextCursor).not.toBeNull();
+    // Look further back reads on only through the words: every name was read the first time.
+    const named = await oneKind(w, w.owner, 'rates', 'files');
+    expect(named.group.items.map((h) => [h.id, h.why.field])).toEqual([[rates, 'file_name']]);
+    const further = await oneKind(w, w.owner, 'rates', 'files', {
+      before: new Date().toISOString(),
+    });
+    expect(further.group.items).toEqual([]);
+  });
+
+  it('looks further back through words read before where the window ended, and only those', async () => {
+    const older = await fileWithWords({
+      type: 'person',
+      record: w.ids.kim!,
+      name: 'Old estimate.pdf',
+      text: 'Furtherword boiler estimate',
+      at: '2020-03-01T00:00:00Z',
+    });
+    const newer = await fileWithWords({
+      type: 'person',
+      record: w.ids.kim!,
+      name: 'New estimate.pdf',
+      text: 'Furtherword boiler estimate, revised',
+    });
+    const all = await oneKind(w, w.owner, 'furtherword', 'files');
+    expect(all.group.items.map((h) => h.id).sort()).toEqual([older, newer].sort());
+    const further = await oneKind(w, w.owner, 'furtherword', 'files', {
+      before: '2021-01-01T00:00:00.000000Z',
+    });
+    expect(further.group.items.map((h) => [h.id, h.why.field])).toEqual([[older, 'file_text']]);
+  });
+
+  // Last: a thousand photos, which no later search may find by name.
+  it('never lets files with no words, photos and the like, crowd a document out of the window', async () => {
+    await rows(
+      admin(),
+      sql`with f as (
+            insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, status,
+              created_by)
+            select ${w.wsId}, 'person', ${w.ids.kim}, ${w.wsId} || '/' || gen_random_uuid(), 'IMG_' || n || '.jpg',
+              'image/jpeg', 'ready', ${w.owner.id}
+            from generate_series(1, 1001) n
+            returning id)
+          insert into app.file_texts (file_id, workspace_id, state, text, chars, reader)
+          select f.id, ${w.wsId}, 'unsupported', '', 0, 1 from f`,
+    );
+    // Each read after the inspection, and the box's window is 1,000 files.
+    const files = groupOf(await everything(w, w.owner, 'thermocouple'), 'files')!;
+    expect(files).toMatchObject({ complete: true, searchedBack: null });
+    expect(files.items.map((h) => h.id)).toEqual([inspection]);
   });
 });
