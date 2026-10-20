@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.69.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.70.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -89,7 +89,9 @@ reads My Network's Requests too, waits for your town's posts to load, and presse
 where Alignable opens its editor, closing it with nothing written. From 0.69.0 it notes your own steps on Alignable as
 you take them (`src/networks/alignable/actions.ts`), as on Facebook and LinkedIn: a Connect (which on Alignable makes
 the request at once), a post's or an answer's Like, Send in a forum question's box or a reply's, and a message, each
-to the business it's for by Alignable's id for it. It never keeps what a comment or a message says.
+to the business it's for by Alignable's id for it. It never keeps what a comment or a message says. From 0.70.0
+Check no longer presses About Us's Edit: Alignable emails you a code before it lets you change your profile, so
+each press sent you an email. It reads that code's box when it's open, for HandsFreeOS to ask you for the code.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script

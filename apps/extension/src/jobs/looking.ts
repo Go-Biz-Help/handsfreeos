@@ -247,9 +247,6 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
   await wholeProfile(job, true);
   await c.tryHere('pitch');
   await c.tryHere('ideal');
-  // About Us's Edit, pressed on the profile itself, where Alignable opens its editor (0.67.0): its page's address
-  // leads back here.
-  await c.tryHere('about');
   for (const [url, name] of formsOf(mine.edits)) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const opened = await c.open(url, name);
