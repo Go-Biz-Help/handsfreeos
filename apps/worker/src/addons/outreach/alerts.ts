@@ -23,7 +23,10 @@ import {
 } from '@hfos/core/addons/outreach/alerts';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { handOverPushWords } from '@hfos/core/addons/outreach/sends';
+import { automationGet } from '@hfos/core/addons/outreach/ops/automation';
 import { today } from '@hfos/core/addons/outreach/ops/today';
+import { networksShown } from '@hfos/core/addons/outreach/network-words';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { doneOnItsOwn, type TodayOutput } from '@hfos/core/addons/outreach/today';
 import { executeQuery, localDateOf, workspaceMessaging } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -180,15 +183,21 @@ export async function morningJob(ctx: AddonJobContext): Promise<JobResult> {
   if (due > ctx.now) return { rescheduleAt: nextMorning(ctx.now, tz, hour) };
   const day = localDateOf(ctx.now, tz);
   for (const userId of await morningPeople(ctx)) {
-    let list: TodayOutput;
+    const actor = { ...ctx.actor, onBehalfOf: userId };
+    const workspaceId = ctx.scope.workspaceId;
+    let theirs: { platform: Platform; items: TodayOutput['items'] }[];
     try {
-      list = await executeQuery(
-        ctx.db,
-        today,
-        { workspaceId: ctx.scope.workspaceId },
-        { ...ctx.actor, onBehalfOf: userId },
-        ctx.meta,
-      );
+      // Each network they work, as Today's strip shows them: Facebook's alone when they work none.
+      const mine = await executeQuery(ctx.db, automationGet, { workspaceId }, actor, ctx.meta);
+      theirs = [];
+      for (const platform of networksShown(mine.settings, mine.rules.networksAllowed)) {
+        const list = await executeQuery(ctx.db, today, { workspaceId, platform }, actor, ctx.meta);
+        // What the extension does on its own isn't theirs to do. A partner's steps are on the list too (decision 81).
+        const items = [...list.items, ...list.partners].filter(
+          (item) => !doneOnItsOwn(item.kind, list.auto),
+        );
+        if (items.length) theirs.push({ platform, items });
+      }
     } catch (e) {
       ctx.log.warn(
         { err: e instanceof Error ? e.message : String(e), userId },
@@ -196,9 +205,9 @@ export async function morningJob(ctx: AddonJobContext): Promise<JobResult> {
       );
       continue;
     }
-    // What the extension does on its own isn't theirs to do. A partner's steps are on the list too (decision 81).
     const words = morningPushWords(
-      [...list.items, ...list.partners].filter((item) => !doneOnItsOwn(item.kind, list.auto)),
+      theirs.flatMap((t) => t.items),
+      theirs.map((t) => t.platform),
     );
     if (!words) continue;
     await asWorker(ctx.db, ctx.scope, (tx) =>

@@ -17827,7 +17827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.
+         * For owners and admins: each person who uses Social Outreach on one network (Facebook when left out), with what their extension is doing (working, waiting, stopped for today, offline), today’s counts there against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_live_team"];
@@ -68264,6 +68264,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -68327,6 +68332,8 @@ export interface operations {
                             waiting: number;
                             warned: boolean;
                         }[];
+                        /** @enum {string} */
+                        platform: "facebook" | "linkedin" | "instagram" | "alignable";
                         timezone: string;
                     };
                 };

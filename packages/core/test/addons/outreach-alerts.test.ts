@@ -147,6 +147,16 @@ describe('the pushes', () => {
       title: '3 on your list for today',
       body: '1 reply and 2 friend requests. Open the extension on Facebook to start.',
     });
+    // One other network, in its words; several, named.
+    expect(morningPushWords([{ kind: 'friend_request' }], ['linkedin'])?.body).toBe(
+      '1 invitation to connect. Open the extension on LinkedIn to start.',
+    );
+    expect(
+      morningPushWords([{ kind: 'friend_request' }, { kind: 'reply' }], ['facebook', 'alignable']),
+    ).toEqual({
+      title: '2 on your list for today',
+      body: '1 reply and 1 friend request, on Facebook and Alignable. Open Today to start.',
+    });
   });
 
   it('come at the business’s hour, in its time zone, 8 to start', () => {

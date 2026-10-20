@@ -304,6 +304,18 @@ export const findPostsWordsOn = (
   body: `Your computer reads the posts and forum questions in your town on ${PLATFORMS[platform]}. The AI picks the ones worth an answer, and they come onto this list with a draft, their writers to connect with.`,
 });
 
+/** The team's part of the live view on a network: "Your team", and on another network "Your team on LinkedIn". */
+export const teamWordsOn = (
+  platform: Platform,
+): { readonly title: string; readonly noneTitle: string; readonly none: string } =>
+  platform === 'facebook'
+    ? { title: W.team, noneTitle: W.teamNoneTitle, none: W.teamNone }
+    : {
+        title: `${W.team} on ${PLATFORMS[platform]}`,
+        noneTitle: `Nobody here has ${PLATFORMS[platform]} on yet`,
+        none: `Nobody here has ${PLATFORMS[platform]} on yet.`,
+      };
+
 /** Under On its own on a network the extension doesn't work yet: what it does there instead. */
 export const noRunnerWords = (platform: Platform): string =>
   `Your computer doesn’t work on ${PLATFORMS[platform]} on its own yet. You take each step and send each message yourself, and it notes what you do.`;

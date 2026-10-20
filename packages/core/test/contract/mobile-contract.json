@@ -14426,6 +14426,11 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
           }
         },
         "required": ["workspaceId"]

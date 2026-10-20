@@ -184,7 +184,7 @@ export default async function OutreachPage({
       // Owners and admins see how each person's extension is doing: never their lines or messages.
       const team = canManage
         ? await api
-            .POST('/v1/queries/outreach.live.team', { body: { workspaceId } })
+            .POST('/v1/queries/outreach.live.team', { body: { workspaceId, platform: net } })
             .then(unwrapPage)
         : null;
       return (
