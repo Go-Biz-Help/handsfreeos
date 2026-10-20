@@ -1,12 +1,13 @@
 import {
   DESK_BUSINESS_SORTS,
   DESK_BUSINESS_WORDS,
+  DESK_PLAN_WORDS,
   deskBusinessSort,
   deskBusinessTotals,
   deskSectionLabel,
   type DeskBusinessSort,
 } from '@hfos/core';
-import { router, useLocalSearchParams, type Href } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
@@ -20,6 +21,7 @@ import {
   Stats,
   useSettled,
 } from '@/components/admin/bits';
+import { BusinessQuickLook } from '@/components/admin/business-quick-look';
 import { deskHref, useDeskCan } from '@/components/admin/staff-context';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -34,8 +36,9 @@ const PAGE = 25;
 
 /**
  * Every business on HandsFreeOS (the web's /admin/businesses): the three numbers looked at daily, then the directory,
- * searched by business or agency name and put in one of four orders. Only Newest pages, as on the web: it is the one
- * order that can't change under the reader's feet. A row opens the business.
+ * searched by business or agency name and put in one of its orders. Only Newest and Needs a look page, as on the web:
+ * they go by sign-up, the one order that can't change under the reader's feet. A row opens the business's quick look,
+ * and its own screen is a button away from there.
  */
 export default function Businesses() {
   const canRead = useDeskCan('platform.businesses.read');
@@ -63,6 +66,7 @@ function Directory() {
   const [sort, setSort] = React.useState<DeskBusinessSort>(() => deskBusinessSort(linked.sort));
   const [typed, setTyped] = React.useState(linked.q ?? '');
   const search = useSettled(typed);
+  const [looking, setLooking] = React.useState<string | null>(null);
 
   const list = usePaged<BusinessList>(
     (cursor) =>
@@ -112,7 +116,9 @@ function Directory() {
         <FlatList
           data={list.data.businesses}
           keyExtractor={(b) => b.workspaceId}
-          renderItem={({ item }) => <BusinessRowView business={item} />}
+          renderItem={({ item }) => (
+            <BusinessRowView business={item} onPress={() => setLooking(item.workspaceId)} />
+          )}
           contentContainerClassName="p-3 pb-8"
           ItemSeparatorComponent={() => <View className="h-2" />}
           keyboardShouldPersistTaps="handled"
@@ -149,15 +155,22 @@ function Directory() {
       ) : (
         <DeskWaiting live={list} testID="businesses" />
       )}
+
+      <BusinessQuickLook
+        rows={list.data?.businesses ?? []}
+        openId={looking}
+        onOpen={setLooking}
+        onClose={() => setLooking(null)}
+      />
     </Screen>
   );
 }
 
-function BusinessRowView({ business: b }: { business: BusinessRow }) {
+function BusinessRowView({ business: b, onPress }: { business: BusinessRow; onPress: () => void }) {
   return (
     <Pressable
       role="button"
-      onPress={() => router.push(deskHref(`businesses/${b.workspaceId}`) as Href)}
+      onPress={onPress}
       testID={`business-row-${b.workspaceId}`}
       className="gap-1 rounded-card border border-border bg-card px-4 py-3 active:bg-card-2"
     >
@@ -175,6 +188,22 @@ function BusinessRowView({ business: b }: { business: BusinessRow }) {
         {DESK_BUSINESS_WORDS.people(b.memberCount)} ·{' '}
         {DESK_BUSINESS_WORDS.lastActive(b.lastActiveAt)}
       </Text>
+      {b.attention.length || b.plan || b.foundingSeat ? (
+        <View className="flex-row flex-wrap gap-1.5 pt-0.5">
+          {b.attention.length ? (
+            <Badge variant="pending" testID={`business-needs-look-${b.workspaceId}`}>
+              {DESK_BUSINESS_WORDS.needsALook}
+            </Badge>
+          ) : null}
+          {b.foundingSeat ? (
+            <Badge variant="ok">{b.foundingSeat}</Badge>
+          ) : b.plan ? (
+            <Badge variant="gray" testID={`business-plan-${b.workspaceId}`}>
+              {DESK_PLAN_WORDS[b.plan]}
+            </Badge>
+          ) : null}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
