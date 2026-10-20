@@ -88,6 +88,8 @@ export type TestCallClientMessage = z.infer<typeof TestCallClientMessage>;
 export interface TestCallTiming {
   /** The whole wait: the end of their words to the first sound. */
   readonly firstSoundMs: number | null;
+  /** Their last word, until the listener said they'd finished (null: it didn't say when their words ended). */
+  readonly heardMs: number | null;
   /** Before the AI was asked: the knowledge that matches their words, and the budget. */
   readonly loadMs: number | null;
   /** Asked, until its answer started coming back. */
@@ -129,6 +131,7 @@ function timingOf(v: unknown): TestCallTiming | null {
   if (!isObj(v)) return null;
   return {
     firstSoundMs: msOf(v.firstSoundMs),
+    heardMs: msOf(v.heardMs),
     loadMs: msOf(v.loadMs),
     waitMs: msOf(v.waitMs),
     sentenceMs: msOf(v.sentenceMs),
@@ -188,12 +191,13 @@ export function parseTestCallMessage(raw: unknown): TestCallServerMessage | null
 }
 
 /**
- * "First sound 1.3 s after they stopped · the AI starts 0.6 s · first sentence 0.3 s · voice 0.2 s": a live
- * turn's timing, as the console shows it under the turn.
+ * "First sound 1.7 s after they stopped · heard they’d stopped 0.4 s · the AI starts 0.6 s · first sentence 0.3 s
+ * · voice 0.2 s": a live turn's timing, as the console shows it under the turn.
  */
 export function testCallTimingLine(t: TestCallTiming, seconds: (ms: number) => string): string {
   return [
     t.firstSoundMs !== null ? `first sound ${seconds(t.firstSoundMs)} after they stopped` : null,
+    t.heardMs !== null ? `heard they’d stopped ${seconds(t.heardMs)}` : null,
     t.loadMs !== null ? `loading ${seconds(t.loadMs)}` : null,
     t.waitMs !== null ? `the AI starts ${seconds(t.waitMs)}` : null,
     t.sentenceMs !== null ? `first sentence ${seconds(t.sentenceMs)}` : null,
