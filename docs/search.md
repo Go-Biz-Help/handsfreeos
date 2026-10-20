@@ -7,8 +7,9 @@ plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATIO
 `design/search`.
 
 **Where it stands:** Search 2 is built: core's search with its first kinds (contacts, companies, leads, money,
-knowledge, a business's own kinds, the Deleted bin and close matches), and the API's guards. Nothing on screen yet;
-the box and `/customers?q=` work as they did until Search 9 switches it on.
+knowledge, a business's own kinds, the Deleted bin and close matches), and the API's guards. Search 6 is built and on
+screen: **Search settings** at the top of the Settings menu on the web, and at the top of Settings on the phone
+(below). The main box and `/customers?q=` work as they did until Search 9 switches it on.
 
 ## Where things are
 
@@ -23,6 +24,10 @@ the box and `/customers?q=` work as they did until Search 9 switches it on.
 | The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                   |
 | The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                   |
 | Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, and the pure ones); `apps/api/test/search-slots.test.ts` and `search-guards.test.ts`; `packages/db/test/search-*.test.ts` |
+| Settings search                       | `packages/core/src/settings/`: `pages` (the Settings menu), `catalog` (every setting), `search` (`searchSettings`, links, grouping, the main search's Settings group), `words`                             |
+| Settings search on the web            | `apps/web/src/components/settings/`: `settings-search.tsx` (the box), `use-setting-highlight.ts` (the jump and its ring), `setting-anchor.tsx` (`SettingAnchor`, `settingAttrs`), `SetRow`'s `setting`     |
+| Settings search on the phone          | `apps/mobile/src/settings/`: `settings-search.tsx` (the results), `use-setting-flash.ts` (scrolling to a row and flashing it); `ListRow`'s `settingKey`                                                    |
+| Its tests                             | `packages/core/test/settings-catalog.test.ts`; `apps/mobile/src/settings/__tests__/settings-search.test.tsx`; `apps/web/e2e/settings-search.spec.ts`                                                       |
 
 ## How a search runs
 
@@ -87,3 +92,50 @@ kind). A kind's own page leaves them out unless asked, and the Archived page lis
 
 **The Deleted bin** is searched by each item's name only, for whoever holds `records.delete` (row security asks the
 same).
+
+## Settings search
+
+**Search settings** finds a setting by what it's called, where it sits or the other words people use for it, on the
+device as the person types, with nothing sent anywhere. On the web it's a box at the top of the Settings menu (and
+over the page picker on a phone-width screen): typing replaces the menu with what matched, grouped as the menu is
+("5 settings on 2 pages"), and choosing one opens its page at it and rings it for 4 seconds, from another page or the
+one already open. On the phone it's a box at the top of Settings: a setting the phone has opens its screen scrolled
+to the row and flashed (`?setting=<key>`), and one only the web changes says "Opens on the web" and opens the browser
+at it. The main search's Settings group (Search 7 and 8) is the same search, through `settingsSearchGroup`.
+
+**The catalogue is the one list.** `SETTINGS_GROUPS` (`settings/pages.ts`) is the Settings menu itself: the web draws
+its menu from it, settings search gates each page as the menu does (`settingsPageShown`: the page's permission, and a
+part of core only some add-ons use while one of them runs), and the Assistant's map is checked against it.
+`SETTINGS` (`settings/catalog.ts`) is every setting: each Settings page, a hand-written row for each setting row and
+card on them and each Account section, each Automations row (opened ringed on the page), a few Adjust fields (opening
+their automation's sheet with `?adjust=`), each notification row (from `account/notification-rows.ts`, which both
+apps' notification screens read), the phone's own settings (Face ID, the businesses and documents kept on it, its
+changes, the person's own safety contacts), and an add-on's switches and settings page, which show last under the
+add-on's own name and never as a Settings page. Each calendar's builder and the AI teammate's sections aren't in it
+yet (decision 13).
+
+**Each setting shows only to whoever its screen shows it to.** Beside the page's own gate, an entry can carry its own
+permission (`needs`, Delete this business needs `workspace.delete`), a part of core some add-ons use (`feature`), or
+`only`: New support tickets is listed only to people who answer HandsFreeOS support, and Daily agency digest only to an
+owner or admin of an organization with more than one business (`managesAnAgency`), as both apps' notification screens
+decide. The web's settings layout passes both from `platform.me` and the account; the phone passes what it already
+knows (`useKeptStaff`), so it works with no signal, and leaves the row out when it doesn't know.
+
+**How it matches.** Words are folded as search folds them, every apostrophe reads as one (the catalogue is written
+with curly ones, a keyboard types straight ones) and a typed hyphen splits words ("opt-out" finds "opt out"). With
+nothing found, a typo gets search's close-match check, but the main search's Settings group leaves such close settings
+out: there, close matches are names, and only a setting that really matched says the words were spelled right. On the
+web, ↵ with no row picked opens the best match.
+
+**`test/settings-catalog.test.ts` keeps it honest.** It reads the web's source: every setting is marked exactly once
+(`<SetRow setting="…">`, `<Block setting="…">`, `<SettingAnchor setting="…">`, `settingAttrs('…')` on a card, or the
+id it already had), every literal `SetRow` and `Block` title on the Settings pages carries `setting=` or sits on its
+`NOT_SEARCHABLE` list with a reason, every `settings…#anchor` link in the web, the worker and the phone resolves,
+every page and phone screen it names exists, and searching "quiet" gives what the real catalogue holds. TypeScript
+refuses a `setting=` key the catalogue doesn't have (`SettingKey`). So a new setting row adds its entry and marks
+itself, or the test says which one is missing.
+
+**Anchors that emails and tools link to keep their ids:** `quiet-hours` (Automations' "Edit quiet hours", and now
+the Quiet hours row itself rather than its card), `rcs` (the RCS emails and the composer), `founding` (the founding
+checkout) and `notifications` (the Assistant's tools). A new anchor is the key with hyphens
+(`texting.ring_for` is `#texting-ring-for`).

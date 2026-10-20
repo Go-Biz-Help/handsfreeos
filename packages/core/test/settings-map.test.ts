@@ -21,6 +21,7 @@ import {
   MONEY_TAB_LABELS,
   PHONE_APP,
   placesText,
+  SETTINGS_GROUPS,
   settingsAreas,
   settingsMapText,
   settingsWhere,
@@ -44,7 +45,8 @@ const labelsIn = (file: string): ReadonlySet<string> => {
 /** What may come next after each way so far: the side menu first, then each screen's own tabs. */
 const MENUS: Readonly<Record<string, ReadonlySet<string>>> = {
   '': labelsIn('components/shell/nav-links.tsx'),
-  Settings: labelsIn('components/settings/settings-nav.tsx'),
+  // The Settings menu is core's own list now (settings/pages.ts), which the web's menu draws.
+  Settings: new Set(SETTINGS_GROUPS.flatMap((g) => g.items.map((i) => i.label))),
   'Settings → Calendars': labelsIn('components/calendars/subnav.tsx'),
   Knowledge: labelsIn('components/knowledge/subnav.tsx'),
   Workflows: labelsIn('components/workflows/subnav.tsx'),

@@ -194,6 +194,10 @@ The menu down the left is each person's own. **Settings** → **Side menu** → 
 
 The arrangement is kept with the account (`users.settings.menu`), so every device you sign in on shows the same menu, and the long list scrolls on its own — **Add-ons** (for owners and admins), **Ideas**, **Get help** and your account stay at the foot of the sidebar, where nobody arranges them. A place you hid is not gone: search and links still open it, and the editor lists it under **Hidden**. A section that ships after you arranged your menu appears on its own, beside the neighbour it belongs next to (`packages/core/src/account/menu.ts`).
 
+## Settings
+
+**Settings** is your account, then the business's own pages, each shown to whoever may change what is on it. **Search settings** at the top of its menu finds any setting by its name or the words people use for it ("quiet", "service area", "dark mode") as you type, grouped as the menu is, and choosing one opens its page at it with the setting ringed; an add-on's own settings come last, under its name. The phone's Settings has the same box: a setting the phone has opens there, scrolled to and flashed, and one only the web changes opens the browser at it. Both read one list in core (`packages/core/src/settings/`), which `packages/core/test/settings-catalog.test.ts` checks against the web's pages; `docs/search.md` ("Settings search") covers how to add a setting to it.
+
 ## Relationships
 
 A business can keep its own kinds of records — pets, vehicles, properties, units, students, equipment, or anything it names — and connect any two records: a customer to their pets, a parent to a child, a tenant to a unit, a person to the businesses they work at, two spouses. **Settings** → **Relationships** makes them from starters in one press or from a short form, and **Settings** → **Fields** gives customers, companies and each kind their own fields.

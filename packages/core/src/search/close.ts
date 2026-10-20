@@ -36,6 +36,17 @@ export function closeAllowance(word: string): number {
   return n >= 8 ? 2 : n >= CLOSE_MIN_LETTERS ? 1 : 0;
 }
 
+/**
+ * Whether a typed word (folded) is close to a word: within its allowance. Lengths further apart than that can't be,
+ * so they're turned away before the distance is worked out, which keeps a long pasted word cheap.
+ */
+export function wordIsClose(typed: string, word: string): boolean {
+  const allowed = closeAllowance(typed);
+  return (
+    Math.abs([...typed].length - [...word].length) <= allowed && osaDistance(typed, word) <= allowed
+  );
+}
+
 /** Whether close matches are worth looking for: some typed word has 4 or more letters. */
 export function closeWorthTrying(folded: readonly string[]): boolean {
   return folded.some((w) => [...w].length >= CLOSE_MIN_LETTERS);
@@ -46,10 +57,7 @@ export function closeWords(name: string, folded: readonly string[]): number {
   const words = fold(name)
     .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean);
-  return folded.filter((typed) => {
-    const allowed = closeAllowance(typed);
-    return words.some((w) => osaDistance(typed, w) <= allowed);
-  }).length;
+  return folded.filter((typed) => words.some((w) => wordIsClose(typed, w))).length;
 }
 
 /**

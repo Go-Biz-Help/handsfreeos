@@ -8,7 +8,7 @@
  * Settings → Payments does. The terms wait for Save the terms: saving new terms asks every partner to accept them
  * again, so a half-typed sentence never goes out.
  */
-import { earningsTotals, money, PARTNERS_WORDS as W, rateWords } from '@hfos/core';
+import { earningsTotals, money, PARTNERS_WORDS as W, rateWords, type SettingKey } from '@hfos/core';
 import { ChevronRight, FileText, Handshake, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -30,6 +30,7 @@ import type {
   PartnersSettingsOut,
 } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { settingAttrs } from '@/components/settings/setting-anchor';
 
 type Change = Partial<
   Pick<PartnerSettingsValue, 'rateBp' | 'smallestPayoutCents' | 'calendarId' | 'terms'>
@@ -41,15 +42,18 @@ export function Section({
   icon: Icon,
   children,
   testId,
+  setting,
 }: {
   title: string;
   description?: ReactNode;
   icon: typeof Wallet;
   children?: ReactNode;
   testId?: string;
+  /** Its key in settings search. */
+  setting?: SettingKey;
 }) {
   return (
-    <Card className="px-[22px] py-5" data-testid={testId}>
+    <Card className="px-[22px] py-5" data-testid={testId} {...settingAttrs(setting)}>
       <div className="flex min-w-0 gap-2.5">
         <Icon className="mt-0.5 h-[18px] w-[18px] flex-none text-text-3" strokeWidth={1.75} />
         <div className="min-w-0">
@@ -134,7 +138,7 @@ export function PartnersSettings({
     <div className="flex flex-col gap-4" data-testid="partners-settings">
       <p className="max-w-[640px] text-[13.5px] text-text-2">{W.about}</p>
 
-      <Section title={W.settings.title} icon={Wallet} testId="partners-pay">
+      <Section title={W.settings.title} icon={Wallet} testId="partners-pay" setting="partners.pay">
         <div className="mt-3">
           <SetRow first center title={W.settings.share} description={W.settings.shareHint}>
             <div className="flex items-center gap-1.5">
@@ -210,6 +214,7 @@ export function PartnersSettings({
         description={W.terms.hint}
         icon={FileText}
         testId="partners-terms"
+        setting="partners.terms"
       >
         <Textarea
           value={terms}

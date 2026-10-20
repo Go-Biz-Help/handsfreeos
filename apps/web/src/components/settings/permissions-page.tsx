@@ -28,6 +28,7 @@ import {
   heldBack,
   type Choice,
 } from './permission-bits';
+import { settingAttrs } from './setting-anchor';
 
 type Settings = Record<string, boolean>;
 
@@ -103,7 +104,7 @@ export function PermissionsSettings({
 
   return (
     <div className="flex flex-col gap-5" data-testid="permissions-settings">
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('permissions.who_can')}>
         <h2 className="text-base font-semibold tracking-tight">Who can do what</h2>
         <p className="mt-1 max-w-[70ch] text-[13px] leading-[1.5] text-text-2">
           Owners can always do everything. Choose what admins and members can do here. To change it
@@ -173,7 +174,7 @@ export function PermissionsSettings({
         </Card>
       ))}
 
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('permissions.defaults')}>
         <h3 className="text-[15px] font-semibold tracking-tight">Back to the defaults</h3>
         <p className="mt-1 text-[13px] text-text-2">
           Clears every choice above for a role. People’s own settings stay as they are.
@@ -194,7 +195,7 @@ export function PermissionsSettings({
         </div>
       </Card>
 
-      <Card className="p-6" data-testid="permission-people">
+      <Card className="p-6" data-testid="permission-people" {...settingAttrs('permissions.people')}>
         <h3 className="text-[15px] font-semibold tracking-tight">People with their own settings</h3>
         {withOwn.length === 0 ? (
           <p className="mt-1 text-[13px] text-text-2">

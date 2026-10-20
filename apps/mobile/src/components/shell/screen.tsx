@@ -27,6 +27,7 @@ export function Screen({
   header,
   children,
   testID,
+  scrollRef,
 }: {
   title?: string;
   subtitle?: string;
@@ -40,6 +41,8 @@ export function Screen({
   header?: React.ReactNode;
   children?: React.ReactNode;
   testID?: string;
+  /** The scrolling content, for a screen that scrolls to a row (settings search's flash). */
+  scrollRef?: React.Ref<ScrollView>;
 }) {
   return (
     <View
@@ -63,6 +66,7 @@ export function Screen({
       <CheckInBanner />
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerClassName={cn('gap-3 p-3 pb-8', contentClassName)}
           keyboardShouldPersistTaps="handled"

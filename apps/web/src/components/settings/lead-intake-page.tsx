@@ -35,6 +35,7 @@ import { publicEnv } from '@/lib/env';
 import { cn, relativeTime } from '@/lib/utils';
 import { InstagramIcon, MessengerIcon } from '@/components/inbox/social-bits';
 import { SetRow } from './set-row';
+import { settingAttrs } from './setting-anchor';
 
 export type IntakeChannel = 'text' | 'call' | 'email' | 'messenger' | 'instagram';
 export type IntakeKind = IntakeChannel | 'website_form' | 'api';
@@ -223,7 +224,7 @@ export function LeadIntakeSettings({
 
   return (
     <div className="flex flex-col gap-5">
-      <Card className="px-4 py-1">
+      <Card className="px-4 py-1" {...settingAttrs('lead_intake.channels')}>
         {channels.map((s, i) => {
           const channel = CHANNELS[s.kind as IntakeChannel];
           const Icon = channel.icon;
@@ -259,7 +260,10 @@ export function LeadIntakeSettings({
         })}
       </Card>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div
+        className="flex flex-wrap items-end justify-between gap-3"
+        {...settingAttrs('lead_intake.sources')}
+      >
         <div>
           <h2 className="text-[15px] font-semibold">Forms and connected apps</h2>
           <p className="mt-1 max-w-[560px] text-xs text-text-3">

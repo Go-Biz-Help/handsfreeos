@@ -6,6 +6,7 @@ import { ChevronRight, ExternalLink } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
+import { useFlashRow } from '@/settings/use-setting-flash';
 
 /** A group of rows on a card, as More and Settings draw them. */
 export function List({ children, testID }: { children: React.ReactNode; testID?: string }) {
@@ -32,7 +33,8 @@ export function ListLabel({ children }: { children: string }) {
 
 /**
  * One row: an icon, the words (and a line under them), then what it shows at the end and a chevron, or an arrow out
- * for a page on the web. At least 56 px tall.
+ * for a page on the web. At least 56 px tall. A row that is a setting names its key in core's catalogue
+ * (`settingKey`), so settings search can scroll to it and flash it.
  */
 export function ListRow({
   icon,
@@ -46,6 +48,7 @@ export function ListRow({
   chevron = true,
   testID,
   disabled,
+  settingKey,
 }: {
   icon?: LucideIcon;
   label: string;
@@ -59,7 +62,9 @@ export function ListRow({
   chevron?: boolean;
   testID?: string;
   disabled?: boolean;
+  settingKey?: string;
 }) {
+  const flash = useFlashRow(settingKey);
   const content = (
     <>
       {icon ? (
@@ -78,10 +83,13 @@ export function ListRow({
       ) : null}
     </>
   );
-  const className = 'min-h-14 flex-row items-center gap-3.5 px-4';
+  const className = cn(
+    'min-h-14 flex-row items-center gap-3.5 px-4',
+    flash.lit && 'bg-accent-soft',
+  );
   if (!onPress)
     return (
-      <View className={className} testID={testID}>
+      <View ref={flash.ref} onLayout={flash.onLayout} className={className} testID={testID}>
         {content}
       </View>
     );
@@ -96,6 +104,8 @@ export function ListRow({
       disabled={disabled}
       onPress={onPress}
       testID={testID}
+      ref={flash.ref}
+      onLayout={flash.onLayout}
       className={cn(className, 'active:bg-card-2', disabled && 'opacity-50')}
     >
       {content}

@@ -898,6 +898,7 @@ export function RcsCard({
               <SetRow
                 first
                 center
+                setting="texting.rcs_send"
                 title="Send as RCS when the phone supports it"
                 description="Off sends every text as SMS or MMS. The sender stays connected."
               >
@@ -913,6 +914,7 @@ export function RcsCard({
               </SetRow>
               {lines.length > 1 ? (
                 <SetRow
+                  setting="texting.rcs_line"
                   title="New RCS conversations start on"
                   description="When a customer messages your RCS sender first, their conversation goes with this number."
                 >
