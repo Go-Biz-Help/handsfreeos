@@ -8,6 +8,7 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
 import { runAsk } from '../src/asks/run';
+import { readWarmLeads } from '../src/jobs/alignable/engaged';
 import { alignableListSave } from '../src/hfos/saves';
 import { KITS } from '../src/networks';
 import { openConversation, scrollList, showAllConnections } from '../src/networks/alignable/browse';
@@ -363,5 +364,45 @@ describe('Find posts in your town, on Alignable', () => {
       failed: true,
       line: expect.stringContaining('didn’t show your town'),
     });
+  });
+});
+
+describe('warm leads from Alignable’s notifications', () => {
+  /** A notification, drawn as the owner's Check outlined Notifications (0.68.0): its link, who, and what they did. */
+  const note = (n: number, who: string, at: string, did: string) => `<div>
+      <a href="/biz/notifications/${n}/9${n}?cyattr=a&cyfid=b"><img alt="${who}" /></a>
+      <div><div><div><a href="/${at}?cyattr=a&cyfid=b">${who}</a> ${did}
+        <a href="/biz/notifications/${n}/9${n}?cyattr=a&cyfid=b">your post about storm season</a></div>
+        <div>1w</div></div></div></div>`;
+  const notifications = () =>
+    new JSDOM(
+      `<!doctype html><html><body><main>
+        ${note(1, 'Dana Reyes', 'austin-tx/acme-plumbing', 'liked')}
+        ${note(2, 'Sam Lee', 'round-rock-tx/best-bakery', 'recommended you on')}
+        ${note(3, 'Kim Ng', 'austin-tx/ng-insurance', 'commented on')}
+        ${note(4, 'Pat Doe', 'austin-tx/doe-cleaning', 'wants to connect, from')}
+        ${note(5, 'Dana Reyes', 'austin-tx/acme-plumbing', 'also liked')}
+      </main></body></html>`,
+      { url: `${AL}/biz/notifications` },
+    ).window.document;
+
+  it('sends who liked, commented on or recommended them, once each, and nobody else', async () => {
+    const { tab, opened } = alignableTab({ '/biz/notifications': notifications });
+    const { job, sent } = alignableJob(tab, { 'hfos-engaged-save': () => ({ added: 3 }) });
+    const end = await readWarmLeads(job);
+    expect(opened).toEqual(['/biz/notifications']);
+    const save = sent.find((s) => s.type === 'hfos-engaged-save')!.input as {
+      platform: string;
+      engaged: { name: string; kind: string; profile: { username: string } }[];
+    };
+    expect(save.platform).toBe('alignable');
+    expect(save.engaged.map((e) => [e.name, e.kind, e.profile.username])).toEqual([
+      ['Dana Reyes', 'reaction', 'austin-tx-acme-plumbing'],
+      ['Sam Lee', 'recommend', 'round-rock-tx-best-bakery'],
+      ['Kim Ng', 'comment', 'austin-tx-ng-insurance'],
+    ]);
+    expect(end.line).toBe(
+      'Read your Alignable notifications: 3 new warm leads who liked, commented on or recommended you, on your list for today.',
+    );
   });
 });

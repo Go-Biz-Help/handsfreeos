@@ -1375,7 +1375,8 @@ export const engagements = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    helpfulId: uuid('helpful_id').notNull(),
+    // Null for one seen on the network itself (Alignable's notifications), off any helpful post.
+    helpfulId: uuid('helpful_id'),
     profileId: uuid('profile_id').notNull(),
     kind: text('kind').notNull().$type<EngagementKind>(),
     comment: text('comment'),

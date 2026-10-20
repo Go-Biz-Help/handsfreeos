@@ -138,6 +138,45 @@ describe('a business to recommend on Alignable', () => {
     expect(await refused(recommend(off.ref, 'Birch Cafe'))).toBe('outreach_never_contact');
   });
 
+  it('keeps who liked, commented on or recommended them on Alignable as warm leads, once each', async () => {
+    const lead = (id: string, name: string, kind: 'reaction' | 'comment' | 'recommend') => ({
+      profile: { id, username: null, url: `${AL}/biz/businesses/${id}` },
+      name,
+      kind,
+      comment: kind === 'comment' ? 'Great answer, thanks!' : null,
+    });
+    const saved = await runAs(owner, ws, 'outreach.engaged.save', {
+      platform: 'alignable',
+      engaged: [
+        lead('w1', 'Willow Bakery', 'recommend'),
+        lead('w2', 'Harbor Insurance', 'reaction'),
+        lead('w3', 'Cedar Realty', 'comment'),
+      ],
+    });
+    expect(saved).toEqual({ added: 3 });
+    // Seen again: kept fresh, not added twice.
+    expect(
+      await runAs(owner, ws, 'outreach.engaged.save', {
+        platform: 'alignable',
+        engaged: [lead('w1', 'Willow Bakery', 'recommend')],
+      }),
+    ).toEqual({ added: 0 });
+    const items = (
+      (await runAs(owner, ws, 'outreach.today', { platform: 'alignable' })).items as {
+        kind: string;
+        name: string;
+        why: string[];
+      }[]
+    ).filter((i) => ['Willow Bakery', 'Harbor Insurance', 'Cedar Realty'].includes(i.name));
+    // Each a warm lead to connect with (a like of theirs first), never a comment to answer: there's no post to open.
+    expect(items.map((i) => [i.name, i.why[0]]).sort()).toEqual([
+      ['Cedar Realty', 'Commented on your post on Alignable'],
+      ['Harbor Insurance', 'Reacted to your post on Alignable'],
+      ['Willow Bakery', 'Recommended you on Alignable'],
+    ]);
+    expect(items.every((i) => i.kind === 'warm_up' || i.kind === 'friend_request')).toBe(true);
+  });
+
   it('notes recommendations on Alignable only', async () => {
     expect(
       await refused(

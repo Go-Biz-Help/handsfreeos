@@ -126,9 +126,20 @@ export interface ChatOpen {
   readonly send: boolean;
 }
 
+/**
+ * Someone their notifications say engaged with them (the plan's "whoever likes, comments on or recommends you"): who,
+ * by their business's address, and how. A like is a reaction.
+ */
+export interface Engaged extends Named {
+  readonly profile: ProfileRef;
+  readonly kind: 'reaction' | 'comment' | 'recommend';
+}
+
 /** Everything Alignable's readers found on a page. Plain data: it crosses from the tab as JSON. */
 export type AlignableFound = {
   readonly businesses: readonly Business[];
+  /** On Notifications: who liked, commented on or recommended them. */
+  readonly engaged: readonly Engaged[];
   readonly requests: readonly Request[];
   readonly threads: readonly Thread[];
   readonly answers: readonly Answer[];
@@ -578,9 +589,53 @@ function answerBoxOn(doc: Document): boolean {
 }
 
 /** Everything Alignable's readers find on a page. */
+/** What a notification says someone did: recommended them, commented or answered, or liked; anything else, nothing. */
+const ENGAGED: readonly (readonly [Engaged['kind'], RegExp])[] = [
+  ['recommend', /\brecommend(ed|s)? you\b|\b(wrote|left|gave) you a recommendation\b/i],
+  ['comment', /\b(commented|replied|answered|responded)\b/i],
+  ['reaction', /\b(liked?|likes|reacted)\b/i],
+];
+
+/**
+ * Who Notifications say engaged with them (/biz/notifications, the owner's Check, 0.68.0): each notification is drawn
+ * around its own link (/biz/notifications/<kind>/<id>), with the business it's from linked by its address and what they
+ * did in words between. Read from the newest down; one row a business and kind.
+ */
+function engagedOn(doc: Document, base: string): Engaged[] {
+  const url = urlOf(base, base);
+  if (!url || parts(url)[0] !== 'biz' || parts(url)[1] !== 'notifications') return [];
+  const main = doc.querySelector('main, [role="main"]') ?? doc.body;
+  const found = new Map<string, Engaged>();
+  const seen = new Set<Element>();
+  for (const { a, url: link } of linksIn(main, base)) {
+    const [, kind, id] = parts(link);
+    if (parts(link)[1] !== 'notifications' || !kind || !id) continue;
+    // The notification: the nearest part around its link that names a business.
+    for (let up = a.parentElement, steps = 0; up && steps < 5; up = up.parentElement, steps++) {
+      const from = linksIn(up, base)
+        .map(({ a: by, url: u }) => ({
+          name: clean(by.textContent),
+          profile: businessRef(u, idIn(u)),
+        }))
+        .find((b) => b.name && b.profile);
+      if (!from?.profile) continue;
+      if (seen.has(up)) break;
+      seen.add(up);
+      const words = clean(up.textContent);
+      const did = ENGAGED.find(([, says]) => says.test(words))?.[0];
+      const key = `${from.profile.username ?? from.profile.id}:${did}`;
+      if (did && !found.has(key))
+        found.set(key, { name: from.name, profile: from.profile, kind: did });
+      break;
+    }
+  }
+  return [...found.values()].slice(0, MOST);
+}
+
 export function readAlignable(doc: Document, href: string): AlignableFound {
   return {
     businesses: [...searchResults(doc, href).slice(0, MOST), ...connectionRows(doc, href)],
+    engaged: engagedOn(doc, href),
     requests: requestRows(doc, href),
     threads: postsOn(doc, href),
     answers: answersOn(doc, href),

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.76.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.78.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -111,6 +111,8 @@ reads a few screens of its posts and forum questions, and sends them for the AI'
 From 0.75.0 it notes a recommendation you write on Alignable, once its page sends what you wrote, to the business it's
 for (`src/networks/alignable/actions.ts`), and Check Alignable opens a recommendation's page, never sending it.
 From 0.76.0 reading your Alignable profile counts the recommendations it shows, for Get ready's "at least 5".
+From 0.78.0 it reads your Alignable notifications once a day for who liked, commented on or recommended you, and sends
+them as warm leads (`src/jobs/alignable/engaged.ts`). It presses nothing there.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script

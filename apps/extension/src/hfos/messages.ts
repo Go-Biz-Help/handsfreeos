@@ -111,6 +111,8 @@ export type HelpfulPostedInput = Body<'/v1/commands/outreach.helpful.posted'>;
 export type HelpfulPosted = Ok<'/v1/commands/outreach.helpful.posted'>;
 export type HelpfulEngagedInput = Body<'/v1/commands/outreach.helpful.engaged'>;
 export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
+export type NetworkEngagedInput = Body<'/v1/commands/outreach.engaged.save'>;
+export type NetworkEngaged = Ok<'/v1/commands/outreach.engaged.save'>;
 export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -289,6 +291,7 @@ export type HfosAsk =
   | { readonly type: 'hfos-helpful-next'; readonly input: HelpfulNextInput }
   | { readonly type: 'hfos-helpful-posted'; readonly input: HelpfulPostedInput }
   | { readonly type: 'hfos-helpful-engaged'; readonly input: HelpfulEngagedInput }
+  | { readonly type: 'hfos-engaged-save'; readonly input: NetworkEngagedInput }
   | {
       readonly type: 'hfos-join-answers';
       readonly workspaceId: string;
@@ -349,6 +352,7 @@ export interface HfosValues {
   readonly 'hfos-helpful-next': HelpfulNext;
   readonly 'hfos-helpful-posted': HelpfulPosted;
   readonly 'hfos-helpful-engaged': HelpfulEngaged;
+  readonly 'hfos-engaged-save': NetworkEngaged;
   readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-like-pick': LikePickOutput;
   readonly 'hfos-auto': AutoStatus;

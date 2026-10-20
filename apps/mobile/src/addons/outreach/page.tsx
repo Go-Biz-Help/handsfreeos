@@ -108,7 +108,7 @@ function OutreachView({
     case 'code':
       return <CodeScreen askId={ask ?? null} />;
     default:
-      return webTab ? <WebOnlyScreen tab={webTab} /> : <TodayHub />;
+      return webTab ? <WebOnlyScreen tab={webTab} /> : <TodayHub net={readNetwork(net)} />;
   }
 }
 

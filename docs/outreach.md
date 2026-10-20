@@ -1382,6 +1382,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       writes a short note asking happy customers for one (`recommendNote`). Get ready shows "2 of 5 on your profile"
       and the note to copy into Alignable's Ask for Recommendations, which it opens. It's a tip: it doesn't hold the
       list back.
+    - **Warm leads from Alignable's notifications** (the plan's "whoever likes, comments on or recommends you";
+      extension 0.78.0, a migration: `engagements.helpful_id` may be empty and `kind` takes `recommend`): the
+      extension reads Notifications once a day for who liked or commented on the person's posts and answers and who
+      recommended them, and sends them (`outreach.engaged.save`), one row a person and kind, kept to the latest. Each
+      is a warm lead on Today ("Recommended you on Alignable"): a like of theirs back, then a connection request. A
+      comment off any helpful post isn't answered from Today, as there's no post to open.
+    - **A forum question asking for what the business offers** pushes as a strong post does (decision 49), saying
+      "On Alignable." and opening Today on Alignable (`?net=alignable`, on the phone too).
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
       `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
       drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's

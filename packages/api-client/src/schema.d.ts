@@ -6577,6 +6577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.engaged.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who liked or commented on the person’s posts and answers, or recommended them, on a network itself, as the extension read its notifications (Alignable’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.engaged.saved.
+         */
+        post: operations["command_outreach_engaged_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friend.end": {
         parameters: {
             query?: never;
@@ -36858,6 +36878,52 @@ export interface operations {
                         } | null;
                         /** Format: uuid */
                         importId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_engaged_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    engaged?: {
+                        /** @default null */
+                        comment?: string | null;
+                        /** @enum {string} */
+                        kind: "comment" | "reaction" | "recommend";
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
                     };
                 };
             };

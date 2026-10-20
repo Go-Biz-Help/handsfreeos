@@ -622,6 +622,9 @@ request when opened, so no Check opens it: the first real request shows what it 
      person writes it on Alignable, and the extension notes it once it's sent.
    - **Part 7, recommendations on Get ready** (extension 0.76.0): how many the profile shows, of the 5 it wants, and
      the AI's note asking happy customers for one, to paste in Alignable's own Ask for Recommendations.
+   - **Part 6, growing** (extension 0.78.0, a migration): warm leads from Alignable's notifications (who liked,
+     commented on or recommended them), read once a day by its runner; a strong forum question's push names Alignable
+     and opens Today there; and Find partners on Alignable, with its business search, in the runner's daily work.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,
