@@ -81069,7 +81069,7 @@
     "/v1/commands/outreach.touch.save": {
       "post": {
         "operationId": "command_outreach_touch_save",
-        "summary": "Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment or a message, to whom and from which group. Adds nobody to Contacts.",
+        "summary": "Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment, a message or a recommendation on Alignable, to whom and from which group. Adds nobody to Contacts.",
         "tags": [
           "commands"
         ],
@@ -81102,7 +81102,8 @@
                       "friend_request",
                       "like",
                       "comment",
-                      "message"
+                      "message",
+                      "recommend"
                     ]
                   },
                   "profile": {
@@ -180788,6 +180789,7 @@
                               "warm_up",
                               "friend_request",
                               "confirm",
+                              "recommend",
                               "partner_reply",
                               "partner_details",
                               "partner_follow_up",
@@ -181048,6 +181050,7 @@
                               "warm_up",
                               "friend_request",
                               "confirm",
+                              "recommend",
                               "partner_reply",
                               "partner_details",
                               "partner_follow_up",
@@ -181376,6 +181379,7 @@
                           "warm_up",
                           "friend_request",
                           "confirm",
+                          "recommend",
                           "partner_reply",
                           "partner_details",
                           "partner_follow_up",

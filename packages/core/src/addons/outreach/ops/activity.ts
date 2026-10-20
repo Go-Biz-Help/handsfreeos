@@ -31,6 +31,7 @@ import {
 import { DONT_PITCH_TAG } from '../limits';
 import { byResults } from '../results';
 import { outreachAddon } from '../manifest';
+import { NETWORKS } from '../networks';
 import type { Platform } from '../playbooks';
 import type { NeedStep } from '../waiting-words';
 import { groups, threads, touches } from '../tables';
@@ -131,8 +132,9 @@ function reachedProfile(
 }
 
 /**
- * The same step noted already, which isn't counted twice: the same post liked again, or another friend request to
- * them within a day (sent, cancelled and sent again). Comments and messages each count.
+ * The same step noted already, which isn't counted twice: the same post liked again, another friend request to them
+ * within a day (sent, cancelled and sent again), or a recommendation of a business already recommended (Alignable
+ * keeps one each). Comments and messages each count.
  */
 async function notedAlready(
   ctx: CommandContext,
@@ -146,7 +148,9 @@ async function notedAlready(
       ? eq(touches.postUrl, input.postUrl)
       : input.kind === 'friend_request'
         ? between(touches.at, new Date(at.getTime() - DAY), new Date(at.getTime() + DAY))
-        : null;
+        : input.kind === 'recommend'
+          ? eq(touches.kind, 'recommend')
+          : null;
   if (!same) return null;
   const [had] = await ctx.tx
     .select({ id: touches.id })
@@ -226,12 +230,13 @@ const NEED_FOR: Readonly<Record<TouchKind, readonly NeedStep[]>> = {
   like: ['warm_up'],
   comment: ['comment'],
   message: ['message'],
+  recommend: [],
 };
 
 export const touchSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.touch.save',
   description:
-    'Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment or a message, to whom and from which group. Adds nobody to Contacts.',
+    'Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment, a message or a recommendation on Alignable, to whom and from which group. Adds nobody to Contacts.',
   risk: 1,
   input: TouchSaveInput,
   output: TouchSaveOutput,
@@ -243,6 +248,12 @@ export const touchSave = defineAddonCommand(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
+    if (input.kind === 'recommend' && !NETWORKS[input.platform].recommends)
+      throw HfosError.rule(
+        'outreach_no_recommendations',
+        422,
+        `${NETWORKS[input.platform].name} has no recommendations to note. Only Alignable’s are noted.`,
+      );
     return once(async () => {
       const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
       const profile = await reachedProfile(
@@ -264,7 +275,8 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           422,
           `${input.name} is on the Never contact list, so steps to them aren’t counted as outreach. To count them, take them off it in Social Outreach → People → Friends.`,
         );
-      const never = await dontPitchOf(ctx, profile);
+      // Vouching for a customer isn't pitching them: Don't pitch holds back the outreach, never a recommendation.
+      const never = input.kind === 'recommend' ? null : await dontPitchOf(ctx, profile);
       if (never)
         throw HfosError.rule(
           'outreach_dont_pitch',

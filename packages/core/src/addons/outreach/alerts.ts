@@ -93,6 +93,7 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   reply: ['reply', 'replies'],
   comment: ['post to comment on', 'posts to comment on'],
   warm_lead: ['comment to answer', 'comments to answer'],
+  recommend: ['business to recommend', 'businesses to recommend'],
   partner_reply: ['reply to a partner', 'replies to partners'],
   partner_details: ['partner to send the details to', 'partners to send the details to'],
   partner_follow_up: ['partner to follow up with', 'partners to follow up with'],

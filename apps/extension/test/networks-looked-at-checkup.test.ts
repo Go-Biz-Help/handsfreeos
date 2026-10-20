@@ -135,6 +135,10 @@ const ALIGNABLE_PAGES: Record<string, string> = {
           <span>Plumbing</span></div><div>Austin, TX</div></div></div>
       <a data-testid="react-connect-button" href="/biz/connection_requests/quick?business_id=42&result_id=42">Connect</a></div></div>
   </ul></div></section>`),
+  // The page a business's Recommend opens (0.75.0), for the one the search found: opened, never sent.
+  [`${AL}/biz/recommendations/new?id=42`]:
+    html(`${ALIGNABLE_MENU}<main><h1>Recommend Acme Plumbing</h1>
+    <form><textarea aria-label="Your recommendation"></textarea><button type="submit">Submit</button></form></main>`),
   [`${AL}/austin-tx/forum/12/need-a-plumber`]: html(`${ALIGNABLE_MENU}<section>
     <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a>
       <span>4h</span></div>
@@ -396,6 +400,8 @@ describe('Check Alignable', () => {
       // search, the forum question a page linked to, their connection requests, and a chat with a connection.
       `${AL}/austin-tx`,
       `${AL}/biz/search?q=small%20business`,
+      // The page its first business's Recommend opens, to outline its form (0.75.0).
+      `${AL}/biz/recommendations/new?id=42`,
       `${AL}/austin-tx/forum/12/need-a-plumber`,
       `${AL}/biz/my_network`,
       `${AL}/biz/my_network/received?_fat=a`,
@@ -428,7 +434,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 15 Alignable pages and tried 8 steps up to their last press. Everything works.',
+      'Read 16 Alignable pages and tried 8 steps up to their last press. Everything works.',
     );
   });
 
@@ -477,7 +483,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 15 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
+      'Read 16 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
     );
   });
 });

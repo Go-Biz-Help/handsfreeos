@@ -180,6 +180,55 @@ describe('noting a message on Alignable', () => {
   });
 });
 
+describe('noting a recommendation on Alignable', () => {
+  /** The page Recommend opens, for Pine Street Bakery (id 77), with something written or not. */
+  const recommending = (written: string, heading = 'Recommend Pine Street Bakery') => {
+    const doc = page(
+      `${AL}/biz/recommendations/new?id=77`,
+      `<main><h1>${heading}</h1><a href="/round-rock-tx/pine-street-bakery?user=9">Pine Street Bakery</a>
+        <form><textarea aria-label="Your recommendation"></textarea>
+          <button type="button" id="cancel">Cancel</button><button type="submit" id="send">Submit</button></form></main>`,
+    );
+    doc.querySelector('textarea')!.value = written;
+    return doc;
+  };
+
+  it('notes Submit with something written as a recommendation of the business, by Alignable’s id', () => {
+    const step = click(recommending('They fixed our oven the same day.'), '#send');
+    expect(step).toEqual({
+      kind: 'recommend',
+      to: {
+        name: 'Pine Street Bakery',
+        profile: { id: '77', username: null, url: `${AL}/biz/businesses/77` },
+      },
+      group: null,
+      postUrl: null,
+      thread: null,
+      replying: null,
+    });
+    expect(
+      touchSave(step!, '00000000-0000-4000-8000-000000000001', null, 'alignable'),
+    ).toMatchObject({ ok: true, input: { kind: 'recommend', platform: 'alignable' } });
+  });
+
+  it('names the business from its link when the heading doesn’t', () => {
+    expect(click(recommending('Great work.', 'Write a review'), '#send')).toMatchObject({
+      to: { name: 'Pine Street Bakery', profile: { id: '77' } },
+    });
+  });
+
+  it('notes nothing with nothing written, for Cancel, or for Recommend’s link itself', () => {
+    expect(click(recommending(''), '#send')).toBeNull();
+    expect(click(recommending('Great work.'), '#cancel')).toBeNull();
+    const profile = page(
+      `${AL}/round-rock-tx/pine-street-bakery`,
+      `<section><h1 title="Pine Street Bakery">Pine Street Bakery</h1>
+        <a id="recommend" href="/biz/recommendations/new?id=77">Recommend</a></section>`,
+    );
+    expect(click(profile, '#recommend')).toBeNull();
+  });
+});
+
 describe('what’s noted on Alignable, as HandsFreeOS takes it', () => {
   it('is a save on Alignable, by its business’s id and address', () => {
     const doc = page(`${AL}/groups/austin-tx`, `<section>${POST}</section>`);

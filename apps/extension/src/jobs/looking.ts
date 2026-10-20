@@ -311,6 +311,24 @@ async function nextPages(
   );
   if (isEnd(found)) return found;
   await c.note('a search for businesses', countOf(found, 'businesses'));
+  // The page a business's Recommend opens, for one found (0.75.0): the recommendation's noticer is checked against
+  // its outline. Opened only: nothing is written, and its Submit is never pressed.
+  const recommendable = (
+    found.found?.['businesses'] as readonly { profile?: { id?: string | null } }[] | undefined
+  )
+    ?.map((b) => b.profile?.id)
+    .find((id): id is string => !!id);
+  if (recommendable) {
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    const opened = await c.open(
+      `${ALIGNABLE}/biz/recommendations/new?id=${encodeURIComponent(recommendable)}`,
+      'a recommendation’s page',
+    );
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
+    if (isEnd(page)) return page;
+    await c.note('a recommendation’s page', page.boxes);
+  } else c.nothingOn.push('a recommendation’s page');
 
   const question = posts.find((p) => /\/forum\//i.test(new URL(p.url).pathname)) ?? posts[0];
   if (question) {

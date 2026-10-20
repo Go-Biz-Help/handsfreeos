@@ -117,6 +117,7 @@ const KIND_BADGE = {
   reply: 'pending',
   comment: 'accent',
   warm_lead: 'ok',
+  recommend: 'ok',
   partner_reply: 'pending',
   partner_details: 'accent',
   partner_follow_up: 'gray',

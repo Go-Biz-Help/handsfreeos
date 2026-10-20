@@ -34,6 +34,8 @@ import {
 import { paceOf, type Platform } from '../playbooks';
 import {
   leftToday,
+  RECOMMEND_PER_DAY,
+  RECOMMEND_WORDS,
   TODAY_KIND_KEYS,
   TODAY_MOST,
   TODAY_WINDOW_DAYS,
@@ -1054,6 +1056,50 @@ export const today = defineAddonQuery(outreachAddon, {
                   : [`On ${NETWORKS[input.platform].name}`]),
             ],
             playbookName: po.playbook_name,
+          }),
+        );
+    }
+
+    // A business to recommend (the Instagram and Alignable plan's question 8), on a network with recommendations, one a
+    // day and by hand only: a partner of theirs, or a customer they've done work for (a paid invoice or a job done),
+    // never recommended by them before and never on Never contact. A different one each day, so one they'd rather not
+    // waits. Vouching isn't pitching, so Don't pitch doesn't hold it back.
+    if (NETWORKS[input.platform].recommends) {
+      const [recommended] = await rows<{ n: number }>(
+        ctx.tx,
+        sql`select count(*)::int as n from addon_outreach.touches t
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'recommend'
+              and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz`,
+      );
+      const left = Math.max(0, RECOMMEND_PER_DAY - (recommended?.n ?? 0));
+      const partnerOf = sql`exists (select 1 from addon_outreach.partners pa
+        where pa.profile_id = p.id and pa.user_id = ${me} and pa.partner_at is not null)`;
+      const vouched = left
+        ? await rows<{ id: string; name: string; url: string; partner: boolean }>(
+            ctx.tx,
+            sql`select p.id, p.name, p.url, ${partnerOf} as partner
+                from addon_outreach.profiles p
+                where p.workspace_id = ${ws} and ${notNever('p')} and ${lets}
+                  and (${partnerOf} or (p.person_id is not null and (
+                    exists (select 1 from app.invoices i
+                      where i.person_id = p.person_id and i.status = 'paid')
+                    or exists (select 1 from app.jobs j
+                      where j.person_id = p.person_id and j.status = 'done'))))
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'recommend')
+                order by md5(p.id::text || ${todayFrom}) limit ${left}`,
+          )
+        : [];
+      for (const p of vouched)
+        items.push(
+          item({
+            kind: 'recommend',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            why: [p.partner ? RECOMMEND_WORDS.partner : RECOMMEND_WORDS.customer],
+            nextStep: RECOMMEND_WORDS.next,
           }),
         );
     }
