@@ -244,7 +244,11 @@ function fakeTab(
           outline: kit.outline(doc, at),
           shown: true,
         };
-      if (message.type === 'hfos-try' || message.type === 'hfos-own-profile') {
+      if (
+        message.type === 'hfos-try' ||
+        message.type === 'hfos-own-profile' ||
+        message.type === 'hfos-open-chat'
+      ) {
         // As the tab answers it (src/networks/looking/kit.ts), on this page.
         vi.stubGlobal('location', new URL(at));
         vi.stubGlobal('document', doc);

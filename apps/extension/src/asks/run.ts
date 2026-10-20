@@ -88,6 +88,7 @@ import { joinGroups } from '../jobs/join';
 import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { reporter, type Reporter, type ReportNote } from '../jobs/report';
+import { alignableAsk } from '../jobs/alignable';
 import { linkedInAsk } from '../jobs/linkedin';
 import { lookingAsk } from '../jobs/looking';
 import { lookupAndDraft } from '../jobs/lookup';
@@ -439,7 +440,7 @@ const JOBS_ON: Readonly<Record<Platform, (task: AskTaken['task'], job: Job) => P
   linkedin: linkedInAsk,
   // Still looked at (decision 78): their Check alone.
   instagram: lookingAsk('instagram'),
-  alignable: lookingAsk('alignable'),
+  alignable: alignableAsk,
 };
 
 /** Does the ask with the job that does it on its network (Facebook's unless said). */

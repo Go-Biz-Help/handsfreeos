@@ -7,6 +7,7 @@
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
+  BrowseAnswer,
   CodeAnswer,
   CodeAsk,
   OwnProfileAnswer,
@@ -54,6 +55,22 @@ async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
   return { ok: true, code: await put(document, ask.code) };
 }
 
+/** Its lists, for the person's asks: scrolled for more, or switched to their tab of them all. */
+async function browse(
+  site: LookingSite,
+  type: 'hfos-scroll-list' | 'hfos-show-all' | 'hfos-open-chat',
+): Promise<BrowseAnswer> {
+  const lists = site.lists;
+  if (!lists) return { ok: false };
+  const go =
+    type === 'hfos-scroll-list'
+      ? lists.scroll
+      : type === 'hfos-show-all'
+        ? lists.showAll
+        : lists.openChat;
+  return { ok: go ? await go(document, location.href) : false };
+}
+
 const OWN_PROFILE_ASKS = new Set(['hfos-own-profile', 'hfos-write-bio', 'hfos-write-about']);
 
 export function lookingKit(site: LookingSite): Kit {
@@ -84,6 +101,10 @@ export function lookingKit(site: LookingSite): Kit {
           ? ownProfile(site, ask as OwnProfileAsk)
           : ask.type === 'hfos-put-code'
             ? putCode(site, ask as CodeAsk)
-            : null,
+            : ask.type === 'hfos-scroll-list' ||
+                ask.type === 'hfos-show-all' ||
+                ask.type === 'hfos-open-chat'
+              ? browse(site, ask.type)
+              : null,
   };
 }

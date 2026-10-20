@@ -249,6 +249,9 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-scroll-list':
     case 'hfos-scroll-page':
       return Promise.resolve(browseStep(known));
+    // Another network's list (Alignable's My Network): Facebook's open on everything already.
+    case 'hfos-show-all':
+      return Promise.resolve({ ok: false });
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':
       return fetchStep(known);

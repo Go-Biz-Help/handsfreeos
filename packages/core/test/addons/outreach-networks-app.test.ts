@@ -240,6 +240,20 @@ describe('asks named by their network', () => {
       'Your computer can’t do that on LinkedIn yet. Ask it on Facebook, or from that network’s own buttons.',
     );
     expect(cantAskWhy({ computer, warnedToday: false }, 'chats', 'linkedin')).toBeNull();
+    // Alignable from its part 4: its connections, requests, checks and look-ups, from 0.73.0; not its chats yet.
+    const now = { ...computer, version: '0.73.0' };
+    for (const kind of ['friends', 'requests', 'checks', 'research', 'lookup'] as const)
+      expect(cantAskWhy({ computer: now, warnedToday: false }, kind, 'alignable')).toBeNull();
+    expect(cantAskWhy({ computer: now, warnedToday: false }, 'chats', 'alignable')).toContain(
+      'can’t do that on Alignable yet',
+    );
+    expect(
+      cantAskWhy(
+        { computer: { ...computer, version: '0.72.0' }, warnedToday: false },
+        'friends',
+        'alignable',
+      ),
+    ).not.toBeNull();
     expect(cantAskWhy({ computer, warnedToday: true }, 'chats')).not.toBeNull();
     expect(cantAskWhy({ computer, warnedToday: true }, 'chats', 'linkedin')).toBeNull();
     // A build from before LinkedIn can't be asked anything there.

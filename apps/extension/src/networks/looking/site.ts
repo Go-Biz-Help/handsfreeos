@@ -122,6 +122,17 @@ export interface LookingSite {
   };
   /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
   readonly noticer?: () => Noticer;
+  /**
+   * Going through one of its lists, for the person's asks (Alignable's connections and requests, partners stage 6c):
+   * scroll for more, its own Show more pressed where the list ends in one, and a list that opens on a few switched to
+   * its tab of them all. Each says whether it could.
+   */
+  readonly lists?: {
+    readonly scroll: (doc: Document, href: string) => boolean | Promise<boolean>;
+    readonly showAll?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    /** A chat with messages in it, opened from the side of its messages, for Check to outline. */
+    readonly openChat?: (doc: Document, href: string) => boolean | Promise<boolean>;
+  };
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */

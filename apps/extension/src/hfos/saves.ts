@@ -617,3 +617,60 @@ export function partnerLeadsSave(
     people: people.slice(0, PARTNER_LEADS_SAVE_MOST),
   };
 }
+
+// ------------------------------------------------------------------------------------------------- Alignable's
+
+const ALIGNABLE: Platform = 'alignable';
+
+/** What each of the person's Alignable lists is called, for "Saved 12 connection requests". */
+const ALIGNABLE_ITEM: Readonly<Record<FriendList, string>> = {
+  friends: 'connection',
+  requests: 'connection request',
+  sent: 'sent connection request',
+};
+export const alignableItem = (list: FriendList) => ALIGNABLE_ITEM[list];
+
+/** Someone on one of the person's Alignable lists: a business's owner, by their business's page. */
+export interface AlignableListed {
+  readonly name: string;
+  readonly profile: ProfileRef;
+}
+
+/**
+ * One of the person's Alignable lists, to save as Alignable's (partners stage 6c, part 4): their connections as their
+ * friends list and the requests they've got as requests. Each business once, by Alignable's id for it or its
+ * address in its town, in parts of FRIENDS_SAVE_MOST. A row without a business's page is left out.
+ */
+export function alignableListSave(
+  people: readonly AlignableListed[],
+  list: FriendList,
+  workspaceId: string,
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    const key = (person.profile.id ?? person.profile.username ?? person.profile.url).toLowerCase();
+    if (seen.has(key)) continue;
+    const who = whom({ name: person.name, profile: person.profile }, ALIGNABLE);
+    if (!who) continue;
+    seen.add(key);
+    kept.push({ ...who, mutualFriends: null });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why:
+        list === 'friends'
+          ? 'There are no connections on the page to save. Open My Network on Alignable, then try again.'
+          : `There are no ${alignableItem(list)}s on the page to save.`,
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({
+      workspaceId,
+      platform: ALIGNABLE,
+      list,
+      people: kept.slice(at, at + FRIENDS_SAVE_MOST),
+    });
+  return { ok: true, input: parts };
+}

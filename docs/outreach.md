@@ -1357,6 +1357,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       place on a playbook, its choices and limits in Settings, and its Check and profile as before. Until its runner
       (part 5) every step there is the person's own: Today lists them, they do them on Alignable, and the extension
       notes each (part 2). Start my day there says so (`sendingOffWords`). Instagram is still looked at.
+    - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
+      all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
+      fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
+      business looked up before drafting. Reading its chats waits for a reader built from a chat with messages in it,
+      which Check Alignable opens from Messages' side from 0.73.0.
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
       `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
       drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's
