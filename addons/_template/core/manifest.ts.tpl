@@ -44,4 +44,13 @@ export const __CONST__ = defineAddon({
   // there), only while it runs and to people who may open them.
   ui: { nav: [{ key: '__ID__', label: '__NAME__', icon: 'box', path: '' }] },
   ai: { directory: '__DIRECTORY__' },
+  // To answer Search everything (docs/addon-architecture.md, "Search"): one of its queries in server.ts, a
+  // defineAddonQuery with core's AddonSearchInput and AddonSearchOutput, no `ai` and `route: false`, which core runs
+  // inside every search; and the groups it adds, each with a record icon. `covers` names its own kinds of records it
+  // finds better itself, so core's group for them steps aside whenever it answered.
+  // search: {
+  //   query: '__ID__.search',
+  //   kinds: [{ key: 'things', singular: 'Thing', plural: 'Things', icon: 'box' }],
+  //   permission: '__ID__.use',
+  // },
 });

@@ -391,6 +391,34 @@ export interface AddonConnectorProvider {
   readonly webhooks?: boolean;
 }
 
+/**
+ * How an add-on answers Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "Add-ons answer searches"):
+ * one query of its own that core runs inside `search.everything` and `search.kind`, through the kernel, while it runs
+ * and for people holding `permission`. Its answer comes back as groups of the kinds it names here.
+ */
+export interface AddonSearchDeclaration {
+  /**
+   * `<id>.search`, one of its `defineAddonQuery`s: for people alone, with core's `AddonSearchInput` and
+   * `AddonSearchOutput` as its input and output, no `ai`, and `route: false`, so it only ever runs inside a search
+   * (`addonSearchIssues` checks).
+   */
+  readonly query: string;
+  /** Its groups, each `<id>.<key>` to the chips and `search.kind` (`realestate.listings`), with a record icon. */
+  readonly kinds: readonly {
+    readonly key: string;
+    readonly singular: string;
+    readonly plural: string;
+    readonly icon: string;
+  }[];
+  /**
+   * Its own kinds of records that it finds better itself: core's group for each is left out of a search whenever
+   * this answered, and kept whenever it didn't run for the person (they lack `permission`) or failed.
+   */
+  readonly covers?: readonly string[];
+  /** Who it runs for: one of its own permissions. */
+  readonly permission: string;
+}
+
 /** What an add-on costs is never here: only what it counts, so any pricing can be built on top later. */
 export interface AddonBilling {
   /** `free` installs on its own; `paid` needs billing, which does not exist yet, so only staff can grant it. */
@@ -483,6 +511,8 @@ export interface AddonManifest {
   readonly ai?: { readonly directory: string };
   /** What the AI teammate may look up and ask for in a customer's conversation (round seven). */
   readonly teammate?: AddonTeammate;
+  /** How it answers Search everything: its own query, and the groups it adds. */
+  readonly search?: AddonSearchDeclaration;
   /**
    * It hears the business's phone calls as they happen (Sales Coach). Once a call is answered, the worker streams
    * both sides to it, word by word, while the add-on runs, the number tells callers the call may be recorded, and the
@@ -721,6 +751,29 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     );
     if (!(m.relationshipTypes ?? []).some((r) => r.portal))
       say('teammate tools need a relationship type with "portal", so a customer has records');
+  }
+
+  if (m.search) {
+    const s = m.search;
+    if (!dotted.test(s.query)) say(`search runs "${s.query}", which must start with "${m.id}."`);
+    if (!permissionKeys.has(s.permission))
+      say(`search runs for "${s.permission}", which isn't one of its permissions`);
+    if (s.kinds.length === 0) say('search needs at least one kind');
+    for (const k of s.kinds) {
+      if (!/^[a-z][a-z0-9_]{1,30}$/.test(k.key))
+        say(`search kind "${k.key}" must be 2–31 lowercase letters, digits and underscores`);
+      label(`search kind "${k.key}"'s singular`, k.singular);
+      label(`search kind "${k.key}"'s plural`, k.plural);
+      if (!(RECORD_ICONS as readonly string[]).includes(k.icon))
+        say(`search kind "${k.key}"'s icon "${k.icon}" isn't one of the record icons`);
+    }
+    unique(
+      'search kind',
+      s.kinds.map((k) => k.key),
+    );
+    for (const c of s.covers ?? [])
+      if (!kinds.has(c)) say(`search covers "${c}", which isn't one of its kinds of records`);
+    unique('search covers', s.covers ?? []);
   }
 
   if (m.settings) {

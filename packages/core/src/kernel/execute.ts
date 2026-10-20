@@ -41,6 +41,7 @@ import type {
   HumanActor,
   MachineActor,
   PublicActor,
+  QueryContext,
   QueryDef,
   RequestMeta,
   ResolvedScope,
@@ -828,6 +829,55 @@ export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodT
  * doing things, and view-as is for seeing only. Nor does anyone viewing as a teammate: their chats are their own.
  */
 const VIEW_AS_BLOCKED: ReadonlySet<string> = new Set(['assistant.use']);
+
+/**
+ * Runs another query from inside a query's handler, as the same actor and in the same transaction: Search
+ * everything runs each add-on's answer to a search this way (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "Add-ons
+ * answer searches"). The inner query keeps all its own rules: who may run it, its input, the same business, its
+ * add-on being on (a turned-off add-on's data stays hidden), its permission for people (skipped under a staff
+ * view-as, where the read rules are the whole answer, as executeQuery skips it), and its output's shape. It runs in a
+ * savepoint, so a refusal or a database error leaves the outer query's transaction usable. Outside a business, or
+ * for another one, it doesn't exist.
+ */
+export async function executeQueryWithin<I extends z.ZodType, O extends z.ZodType>(
+  ctx: QueryContext,
+  query: QueryDef<I, O>,
+  rawInput: unknown,
+): Promise<z.output<O>> {
+  assertActorAllowed(query, ctx.actor);
+  const input = parseInput(query.input, rawInput);
+  const ref = query.scope(input);
+  const workspaceId = ctx.scope.workspaceId;
+  if (!workspaceId || ref.kind !== 'workspace' || ref.workspaceId !== workspaceId)
+    throw businessNotThere();
+  const actor = ctx.actor;
+  const scope = ctx.scope;
+  try {
+    return await ctx.tx.transaction(async (savepoint) => {
+      if (actor.type === 'customer' && query.addon) {
+        // The portal role reaches only its own schema, so it asks there, as executeQuery does.
+        const [on] = await rows<{ ok: boolean }>(
+          savepoint,
+          sql`select portal.addon_in_use(${query.addon.id}) as ok`,
+        );
+        if (!on?.ok) throw HfosError.addonInactive(query.addon);
+      } else await assertAddonRuns(savepoint, addonOf(query, actor), workspaceId, false);
+      // Machines are root within their tenant, and customers and visitors hold no permissions: people only.
+      if (actor.type === 'human') {
+        if (scope.viewAs) {
+          if (query.permission && VIEW_AS_BLOCKED.has(query.permission)) throw businessNotThere();
+        } else if (query.permission) {
+          if (scope.teammateView && VIEW_AS_BLOCKED.has(query.permission)) throw businessNotThere();
+          assertPermission(scope, query.permission);
+        }
+      }
+      const result = await query.handler({ ...ctx, tx: savepoint }, input);
+      return query.output.parse(result) as z.output<O>;
+    });
+  } catch (e) {
+    throw translateDbError(e);
+  }
+}
 
 export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
   db: Db,

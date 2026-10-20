@@ -60,6 +60,14 @@ export {
   type SearchPlan,
 } from './search/server/run';
 export { SEARCHERS } from './search/server/kinds/index';
+// Add-ons answering a search: the catalogue tests' check, and the add-ons that answer.
+export {
+  ADDON_COUNT_CAP,
+  addonSearchIssues,
+  CONTRIBUTOR_MS,
+  searchContributors,
+  type SearchContributor,
+} from './search/server/addons';
 import { ADDON_SERVER_MODULES } from './addons/modules';
 import { composeOperations } from './addons/server';
 import { commands } from './commands/index';

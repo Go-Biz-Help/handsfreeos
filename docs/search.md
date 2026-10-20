@@ -9,29 +9,32 @@ plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATIO
 **Where it stands:** Search 3 is built: core's search over every kind but add-ons' and settings (contacts,
 companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, file names, forms and their answers,
 knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
-and the API's guards. Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the
-web, and at the top of Settings on the phone (Settings search, below). The main box and `/customers?q=` work as they
-did until Search 9 switches it on.
+and the API's guards. Search 4a is built: core's contract for an add-on to answer searches with groups of its own
+(Rules worth knowing before changing anything, below), which no add-on uses yet; Real Estate answers in Search 4b.
+Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the web, and at the top of
+Settings on the phone (Settings search, below). The main box and `/customers?q=` work as they did until Search 9
+switches it on.
 
 ## Where things are
 
-| What                                  | Where                                                                                                                                                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The queries                           | `packages/core/src/queries/search.ts`: `search.everything` (the box and the Search page) and `search.kind` (one kind, a page at a time)                                                                 |
-| Their shapes                          | `packages/core/src/schemas/search.ts`                                                                                                                                                                   |
-| Running a search                      | `packages/core/src/search/server/run.ts`: which kinds run, `step`, the budgets, the archived split, close matches, paging                                                                               |
-| Each kind's SQL                       | `packages/core/src/search/server/kinds/<kind>.ts`, listed in `kinds/index.ts`; shared fragments (`LIVE_PERSON`, `RECORD_READS`, `numberMatches`, `archivedRule`, the windows) in `search/server/sql.ts` |
-| What results open onto                | `activity.get` (`queries/activity.get.ts`), `task.list`'s `taskId`, `conversation.thread`'s `upTo`                                                                                                      |
-| Shared logic, for the server and apps | `packages/core/src/search/`: `probes` (what was typed), `kinds` (each kind's gate), `rank`, `snippet` (marks), `close`, `href`, `dropdown`, `lines`, `words`, and `fold` (accents)                      |
-| Document numbers                      | `documentNumberProbe` and `documentNumberMatches` in `packages/core/src/money/numbering.ts`                                                                                                             |
-| The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                |
-| The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                |
-| Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, what results open, and the pure ones); `apps/api/test/search-*.test.ts`; `packages/db/test/search-*.test.ts`           |
-| The load check                        | `scripts/search-load.mjs`, local stack only (The load check, below)                                                                                                                                     |
-| Settings search                       | `packages/core/src/settings/`: `pages` (the Settings menu), `catalog` (every setting), `search` (`searchSettings`, links, grouping, the main search's Settings group), `words`                          |
-| Settings search on the web            | `apps/web/src/components/settings/`: `settings-search.tsx` (the box), `use-setting-highlight.ts` (the jump and its ring), `setting-anchor.tsx` (`SettingAnchor`, `settingAttrs`), `SetRow`'s `setting`  |
-| Settings search on the phone          | `apps/mobile/src/settings/`: `settings-search.tsx` (the results), `use-setting-flash.ts` (scrolling to a row and flashing it); `ListRow`'s `settingKey`                                                 |
-| Its tests                             | `packages/core/test/settings-catalog.test.ts`; `apps/mobile/src/settings/__tests__/settings-search.test.tsx`; `apps/web/e2e/settings-search.spec.ts`                                                    |
+| What                                  | Where                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The queries                           | `packages/core/src/queries/search.ts`: `search.everything` (the box and the Search page) and `search.kind` (one kind, a page at a time)                                                                                                                                                                                       |
+| Their shapes                          | `packages/core/src/schemas/search.ts`                                                                                                                                                                                                                                                                                         |
+| Running a search                      | `packages/core/src/search/server/run.ts`: which kinds run, `step`, the budgets, the archived split, close matches, paging                                                                                                                                                                                                     |
+| Each kind's SQL                       | `packages/core/src/search/server/kinds/<kind>.ts`, listed in `kinds/index.ts`; shared fragments (`LIVE_PERSON`, `RECORD_READS`, `numberMatches`, `archivedRule`, the windows) in `search/server/sql.ts`                                                                                                                       |
+| What results open onto                | `activity.get` (`queries/activity.get.ts`), `task.list`'s `taskId`, `conversation.thread`'s `upTo`                                                                                                                                                                                                                            |
+| Shared logic, for the server and apps | `packages/core/src/search/`: `probes` (what was typed), `kinds` (each kind's gate), `rank`, `snippet` (marks), `close`, `href`, `dropdown`, `lines`, `words`, and `fold` (accents)                                                                                                                                            |
+| Document numbers                      | `documentNumberProbe` and `documentNumberMatches` in `packages/core/src/money/numbering.ts`                                                                                                                                                                                                                                   |
+| Add-ons answering                     | `packages/core/src/search/addon.ts` (`AddonSearchInput`, `AddonSearchOutput`, an add-on's kinds and the links let through); `search/server/addons.ts` (which add-ons answer, asking each, holding its answer to core's rules, `addonSearchIssues`); `executeQueryWithin` in `kernel/execute.ts`; `route: false` on `QueryDef` |
+| The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                                                                                                                                      |
+| The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                                                                                                                                      |
+| Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, what results open, and the pure ones); `packages/core/test/addons/search-contract.test.ts` and `test/execute-query-within.test.ts` (add-ons answering); `apps/api/test/search-*.test.ts`; `packages/db/test/search-*.test.ts`                |
+| The load check                        | `scripts/search-load.mjs`, local stack only (The load check, below)                                                                                                                                                                                                                                                           |
+| Settings search                       | `packages/core/src/settings/`: `pages` (the Settings menu), `catalog` (every setting), `search` (`searchSettings`, links, grouping, the main search's Settings group), `words`                                                                                                                                                |
+| Settings search on the web            | `apps/web/src/components/settings/`: `settings-search.tsx` (the box), `use-setting-highlight.ts` (the jump and its ring), `setting-anchor.tsx` (`SettingAnchor`, `settingAttrs`), `SetRow`'s `setting`                                                                                                                        |
+| Settings search on the phone          | `apps/mobile/src/settings/`: `settings-search.tsx` (the results), `use-setting-flash.ts` (scrolling to a row and flashing it); `ListRow`'s `settingKey`                                                                                                                                                                       |
+| Its tests                             | `packages/core/test/settings-catalog.test.ts`; `apps/mobile/src/settings/__tests__/settings-search.test.tsx`; `apps/web/e2e/settings-search.spec.ts`                                                                                                                                                                          |
 
 ## How a search runs
 
@@ -48,13 +51,18 @@ did until Search 9 switches it on.
    cut to what's left of the budget (quick 2 s a request and 1.5 s a statement, full 6 s and 4 s, one kind 8 s and
    5 s; never under 50 ms). A kind reads up to 101 rows, enough to say "100+"; long text is read in a window of the
    business's newest rows (The kinds).
-6. **Core's JavaScript ranks** them (`rankHits`: tier, open before finished, newest), says why each matched, splits
+6. **Each add-on that answers searches** (its manifest's `search`) and runs here is asked next, for someone holding
+   its permission, in a step of its own held to 1.5 s (3 s on a page). Whatever it answers, or a line saying it
+   couldn't be searched, joins core's groups; a kind of records it covers leaves core's group only when it answered
+   for every kind it has, and that kind's archived records still go under Archived.
+7. **Core's JavaScript ranks** them (`rankHits`: tier, open before finished, newest), says why each matched, splits
    archived records out to Archived, and keeps the first few.
-7. **Close matches** run only when nothing matched (the Deleted bin and Archived included), every kind answered, no
-   setting matched on the device, and a word has 4 or more letters; with chips picked, only over those kinds.
-8. Only then are the winners' facts read, through `step` again: whether a contact is a client, their open lead, a
+8. **Close matches** run only when nothing matched (the Deleted bin, Archived and the add-ons included), every kind
+   and add-on answered, no setting matched on the device, and a word has 4 or more letters; with chips picked, only
+   over those kinds.
+9. Only then are the winners' facts read, through `step` again: whether a contact is a client, their open lead, a
    company's people, a record's own fields. A step that fails here marks its group, never the search.
-9. The groups are ordered (decision 33), the best match picked, and each hit given its link. Nothing is written.
+10. The groups are ordered (decision 33), the best match picked, and each hit given its link. Nothing is written.
 
 ## The kinds
 
@@ -78,6 +86,7 @@ Each kind's gate is in `SEARCH_KINDS` (`search/kinds.ts`); row security decides 
 | Archived      | the kind's       | archived contacts, companies, leads, threads, forms and records, by name or title only; the page says how far back the threads window looked                                                                                                                        | with the kind                                                                                               |
 | Deleted bin   | `records.delete` | each item's name                                                                                                                                                                                                                                                    | the whole business                                                                                          |
 | Close matches | `records.read`   | contact, company, lead and record names within an edit or two, only when nothing else matched                                                                                                                                                                       | 300 names that look alike                                                                                   |
+| Add-on groups | the add-on's own | whatever its own search query finds (`realestate.listings`), only while it runs                                                                                                                                                                                     | the add-on's                                                                                                |
 
 A window is the box's (quick) or the Search page's and a kind's own page's (full). A windowed group says whether it
 looked at everything (`complete`) and, when it didn't, how far back it went (`searchedBack`, to the microsecond).
@@ -157,6 +166,22 @@ kind). A kind's own page leaves them out unless asked, and the Archived page lis
 
 **Money follows the member rule** in its own SQL, through `estimateMemberClause` and `invoiceMemberClause` from
 `queries/money.ts`, as the money lists do. A bill whose customer isn't live keeps only the name, with `contact: null`.
+
+**Add-ons answer through core's contract, and nowhere else.** An add-on's manifest names one query of its own
+(`search`), a `defineAddonQuery` for people alone on core's `AddonSearchInput` and `AddonSearchOutput`, with no `ai` and
+`route: false`, so the API never mounts it and nobody calls it around search's rate limit and slot gate
+(`addonSearchIssues` checks; the API's `registerOperations` skips any query so marked). Core runs it with
+`executeQueryWithin` after its own kinds, as the person and inside a savepoint, so its add-on being on and its
+permission are checked again; it gets core's probes, never what was typed, and ranks on core's tiers. Its answer is
+held to core's rules (its own kinds, links only to its own pages or the record a hit is about, however `..` is written,
+archived hits only when asked for, short snippets, counts shown to 50 in the box and on the Search page), and any
+failure of its (turned off mid-search, a timeout, an error) drops its groups alone, in their place one line with its
+name ("Real Estate couldn’t be searched just now"), logged as its id and SQLSTATE at most. On one of its kinds' own
+pages a timeout refuses `search_took_too_long`, as a core kind's does. `covers` takes its kinds of records out of
+core's group only when it answered for every kind it has, and their archived ones still go under Archived: someone
+without its permission, or a search where it failed, still finds those records through core's group, opening the
+record page. Core never names an add-on: it reaches them
+only through `ADDON_SERVER_MODULES`. docs/addon-architecture.md ("Search") has the add-on's side.
 
 **The Deleted bin** is searched by each item's name only, for whoever holds `records.delete` (row security asks the
 same).

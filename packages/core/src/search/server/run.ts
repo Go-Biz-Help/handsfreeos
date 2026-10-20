@@ -1,6 +1,7 @@
 /**
  * Running a search (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "Running a search"): which kinds run, each kind's
- * candidates, close matches when nothing else matched, the facts of the winners, then core's ranking. Server only.
+ * candidates, the add-ons that answer searches (./addons.ts), close matches when nothing else matched, the facts of
+ * the winners, then core's ranking. Server only.
  *
  * **Every statement goes through `step`**, and nothing runs outside it: its own savepoint, a statement timeout cut to
  * what's left of the request's budget (never under 50 ms, since Postgres reads 0 as no limit at all), and its errors
@@ -12,6 +13,8 @@
  */
 import { sql, type SQL } from 'drizzle-orm';
 import { rows, type Tx } from '@hfos/db/client';
+import { loadActiveAddons } from '../../addons/load';
+import { addonRef, type AddonServerModule } from '../../addons/server';
 import { HfosError } from '../../errors';
 import { scopeCan } from '../../kernel/execute';
 import { decodeCursor, decodeTimeCursor, encodeCursor, listMovedOn } from '../../kernel/pagination';
@@ -31,6 +34,17 @@ import { SERVER_SEARCH_KINDS, searchKindEntry, searcherKeyOf, type SearchKind } 
 import { probesOut, searchProbes, type SearchProbes } from '../probes';
 import { bestOf, orderGroups, rankHits } from '../rank';
 import { SEARCH_WORDS } from '../words';
+import {
+  askContributor,
+  asksEveryKind,
+  contributorGroups,
+  contributorOfKind,
+  contributorsAsked,
+  CONTRIBUTOR_MS,
+  failedGroup,
+  searchContributors,
+  type SearchContributor,
+} from './addons';
 import { SEARCHERS } from './kinds/index';
 import { reachOfAll } from './sql';
 
@@ -71,8 +85,11 @@ export function sqlStateOf(e: unknown): string | null {
 
 /** A search that failed, saying only where and its SQLSTATE: no message, no cause, no parameters. */
 export class SearchFailed extends Error {
-  constructor(kind: string, code: string | null) {
-    super(`search ${kind} failed: ${code ?? 'unknown'}`);
+  constructor(
+    kind: string,
+    readonly sqlState: string | null,
+  ) {
+    super(`search ${kind} failed: ${sqlState ?? 'unknown'}`);
     this.name = 'SearchFailed';
   }
 }
@@ -125,6 +142,11 @@ export interface FoundGroup {
   readonly searchedBack?: string | null;
   /** The searcher read as many as it reads at most (knowledge's 20), so there may be more than it found. */
   readonly capped?: boolean;
+  /**
+   * The add-on whose kind of record the group is (the records searcher's), so a kind an add-on's search covers is
+   * left out when that search answered.
+   */
+  readonly addon?: string | null;
 }
 
 export interface KindSearcher {
@@ -143,16 +165,18 @@ export interface RunOptions {
   readonly budget?: SearchBudget;
   /** Sees each statement's timeout, for tests. */
   readonly onStatement?: (kind: string, timeoutMs: number) => void;
+  /** The add-ons whose searches may answer: every module by default; tests pass a test-only one. */
+  readonly addons?: readonly AddonServerModule[];
 }
 
 /** The guard every statement goes through. */
 function stepper(ctx: QueryContext, budget: SearchBudget, opts: RunOptions) {
   const deadline = Date.now() + budget.requestMs;
   const left = () => deadline - Date.now();
-  async function step<T>(kind: string, run: (sp: Tx) => Promise<T>): Promise<T> {
+  async function step<T>(kind: string, run: (sp: Tx) => Promise<T>, capMs: number): Promise<T> {
     const remaining = left();
     if (remaining < MIN_STATEMENT_MS) throw new SearchStopped('skipped');
-    const ms = Math.max(MIN_STATEMENT_MS, Math.min(budget.statementMs, Math.floor(remaining)));
+    const ms = Math.max(MIN_STATEMENT_MS, Math.min(capMs, Math.floor(remaining)));
     opts.onStatement?.(kind, ms);
     try {
       return await ctx.tx.transaction(async (sp) => {
@@ -166,9 +190,11 @@ function stepper(ctx: QueryContext, budget: SearchBudget, opts: RunOptions) {
       throw scrubbed(kind, e);
     }
   }
-  const dbFor = (kind: string): SearchDb => ({
-    rows: <T extends Record<string, unknown>>(query: SQL) => step(kind, (sp) => rows<T>(sp, query)),
-    run: <T>(fn: (sp: Tx) => Promise<T>) => step(kind, fn),
+  /** A kind's statements, each held to the budget's own cap or a smaller one (an add-on's search). */
+  const dbFor = (kind: string, capMs: number = budget.statementMs): SearchDb => ({
+    rows: <T extends Record<string, unknown>>(query: SQL) =>
+      step(kind, (sp) => rows<T>(sp, query), capMs),
+    run: <T>(fn: (sp: Tx) => Promise<T>) => step(kind, fn, capMs),
   });
   return { dbFor, left };
 }
@@ -260,6 +286,81 @@ const tooLong = () => HfosError.rule('search_took_too_long', 503, SEARCH_WORDS.t
 
 const isArchived = (h: SearchHit) => h.badges.includes('archived');
 
+/** What the add-ons answered a search: their groups (a failed one's line among them), and what they cover. */
+interface AddonAnswers {
+  readonly groups: SearchGroup[];
+  /** The kinds of records each add-on that answered covers, by add-on. */
+  readonly covered: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Every add-on asked answered: none failed, and which run here could be read. */
+  readonly answered: boolean;
+  readonly tried: number;
+  readonly stopped: number;
+}
+
+/**
+ * What an add-on's failure is logged as: why it stopped, a refusal's rule, or the SQLSTATE, and nothing more. Its
+ * message, and a database error's parameters, can hold what was typed.
+ */
+const failureCode = (e: unknown): string =>
+  e instanceof SearchStopped
+    ? e.why
+    : e instanceof HfosError
+      ? (e.rule ?? e.code)
+      : e instanceof SearchFailed
+        ? (e.sqlState ?? 'error')
+        : (sqlStateOf(e) ?? 'error');
+
+/**
+ * Asks each add-on that may answer, once the add-ons running here are read (one statement, and none at all when no
+ * add-on answers searches for this person). Each answers in its own step, its statement held to the smaller of
+ * CONTRIBUTOR_MS and what's left, through the kernel, which checks its add-on is on and its permission again.
+ */
+async function askContributors(
+  plan: SearchPlan,
+  asked: readonly SearchContributor[],
+  dbFor: (kind: string, capMs?: number) => SearchDb,
+): Promise<AddonAnswers> {
+  const answers = {
+    groups: [] as SearchGroup[],
+    covered: new Map<string, ReadonlySet<string>>(),
+    answered: true,
+    tried: 0,
+    stopped: 0,
+  };
+  if (!asked.length) return answers;
+  let running: readonly string[];
+  try {
+    running = await dbFor('addons').run((sp) => loadActiveAddons(sp, plan.workspaceId));
+  } catch (e) {
+    // Not one of them was searched: each says so, and counts as a kind tried, and stopped when time ran out.
+    console.warn(`search: the add-ons running here couldn’t be read (${failureCode(e)})`);
+    return {
+      ...answers,
+      groups: asked.map(failedGroup),
+      answered: false,
+      tried: asked.length,
+      stopped: e instanceof SearchStopped ? asked.length : 0,
+    };
+  }
+  for (const c of asked) {
+    if (!running.includes(c.manifest.id)) continue;
+    answers.tried++;
+    try {
+      const out = await askContributor(dbFor(c.manifest.id, CONTRIBUTOR_MS[plan.depth]), plan, c);
+      for (const { group } of contributorGroups(c, plan, out))
+        if (group.items.length) answers.groups.push(group);
+      if (asksEveryKind(c, plan))
+        answers.covered.set(c.manifest.id, new Set(c.search.covers ?? []));
+    } catch (e) {
+      if (e instanceof SearchStopped) answers.stopped++;
+      answers.answered = false;
+      answers.groups.push(failedGroup(c));
+      console.warn(`search: the ${c.manifest.id} add-on answered nothing (${failureCode(e)})`);
+    }
+  }
+  return answers;
+}
+
 /** `search.everything`: every kind the person may search, a few hits each. */
 export async function runSearchEverything(
   ctx: QueryContext,
@@ -298,41 +399,60 @@ export async function runSearchEverything(
   );
 
   // 3. Every kind's candidates, in kind order. A kind stopped for time is marked, and the rest still run.
-  const found: { searcher: KindSearcher; f: FoundGroup; active: SearchHit[] }[] = [];
+  const read: { searcher: KindSearcher; f: FoundGroup }[] = [];
   const stoppedGroups: SearchGroup[] = [];
-  const archived: SearchHit[] = [];
   let binStopped: SearchGroup | null = null;
   let tried = 0;
   let stopped = 0;
   for (const searcher of running) {
     tried++;
-    let groups: FoundGroup[];
     try {
-      groups = await searcher.find(dbFor(searcher.key), plan);
+      for (const f of await searcher.find(dbFor(searcher.key), plan)) read.push({ searcher, f });
     } catch (e) {
       if (!(e instanceof SearchStopped)) throw e;
       stopped++;
       if (searcher.key === 'bin') binStopped = unavailableGroup('bin', e.why);
       else stoppedGroups.push(unavailableGroup(searcher.key, e.why));
-      continue;
-    }
-    for (const f of groups) {
-      const ranked = rankHits(f.hits);
-      if (!input.includeArchived) archived.push(...ranked.filter(isArchived));
-      const active = input.includeArchived ? ranked : ranked.filter((h) => !isArchived(h));
-      found.push({ searcher, f, active });
     }
   }
 
-  // 5. Close matches, only when nothing at all matched (the bin and Archived included), every kind answered, no
-  // setting matched on the device, and a word is long enough.
+  // 4. The add-ons that answer searches, each through its own step. A failure of any kind is kept to its own groups,
+  // and the kinds of records one covers leave core's groups only when it answered for every kind it has.
+  const addons = await askContributors(
+    plan,
+    contributorsAsked(searchContributors(opts.addons), plan),
+    dbFor,
+  );
+  tried += addons.tried;
+  stopped += addons.stopped;
+  const found: { searcher: KindSearcher; f: FoundGroup; active: SearchHit[] }[] = [];
+  const archived: SearchHit[] = [];
+  for (const { searcher, f } of read) {
+    const ranked = rankHits(f.hits);
+    if (!input.includeArchived) archived.push(...ranked.filter(isArchived));
+    // A covered kind's archived records stay under Archived, which the add-on leaves to core; its active ones are the
+    // add-on's to answer.
+    if (
+      f.addon &&
+      f.kind.startsWith('record.') &&
+      addons.covered.get(f.addon)?.has(f.kind.slice(7))
+    )
+      continue;
+    const active = input.includeArchived ? ranked : ranked.filter((h) => !isArchived(h));
+    found.push({ searcher, f, active });
+  }
+
+  // 5. Close matches, only when nothing at all matched (the bin, Archived and the add-ons included), every kind
+  // answered, no setting matched on the device, and a word is long enough.
   let closeGroup: SearchGroup | null = null;
   const closeSearcher = all.find((s) => s.key === 'close');
   const nothing =
     found.every((x) => x.active.length === 0) &&
     archived.length === 0 &&
     stoppedGroups.length === 0 &&
-    !binStopped;
+    !binStopped &&
+    addons.groups.length === 0 &&
+    addons.answered;
   const closeKind = searchKindEntry('close');
   if (
     nothing &&
@@ -361,7 +481,11 @@ export async function runSearchEverything(
   if (tried > 0 && stopped === tried) throw tooLong();
 
   // 6. The facts of the hits that will be shown, last: a step that fails here marks its group, never the request.
-  const groups: SearchGroup[] = [...stoppedGroups, ...(closeGroup ? [closeGroup] : [])];
+  const groups: SearchGroup[] = [
+    ...stoppedGroups,
+    ...(closeGroup ? [closeGroup] : []),
+    ...addons.groups,
+  ];
   let bin: SearchGroup | null = binStopped;
   for (const { searcher, f, active } of found) {
     const shown = await withFacts(
@@ -394,7 +518,7 @@ export async function runSearchEverything(
   const total = answered.reduce((n, g) => n + g.total, 0);
   const close = !!closeGroup;
   // "No one active matches" only when every kind answered: a kind that wasn't searched may hold someone.
-  const everyKindAnswered = stoppedGroups.length === 0;
+  const everyKindAnswered = stoppedGroups.length === 0 && addons.answered;
   return {
     q: p.q,
     tooShort: false,
@@ -513,6 +637,12 @@ export async function runSearchKind(
   const all = opts.searchers ?? SEARCHERS;
   const can = gateOf(ctx);
   const archivedPage = input.kind === 'archived';
+  // An add-on's kind (`realestate.listings`) is its own search's to answer.
+  const ofAddon =
+    archivedPage || input.kind.startsWith('record.')
+      ? null
+      : contributorOfKind(searchContributors(opts.addons), input.kind);
+  if (ofAddon) return runAddonKind(ctx, input, ofAddon, opts);
   const key = archivedPage ? null : searcherKeyOf(input.kind);
   const entry = key ? searchKindEntry(key) : null;
   if (!archivedPage && (!entry || entry.where !== 'server')) throw kindGone();
@@ -642,6 +772,101 @@ export async function runSearchKind(
     standingCounts,
     duplicates: input.kind === 'contacts' ? duplicatesOf(items) : [],
   };
+}
+
+/** A refusal of a cursor the add-on can't read: core's own, so the list starts again from the top. */
+const cursorRefused = (e: unknown): boolean =>
+  e instanceof HfosError &&
+  e.code === 'validation' &&
+  Array.isArray(e.details) &&
+  e.details.some((d) => (d as { path?: unknown })?.path === 'cursor');
+
+/**
+ * `search.kind` for an add-on's kind, a page at a time in its own order. Refused while the add-on is off (the kernel's
+ * `addon_inactive`, as for any of its look-ups) and to someone without its permission; a failure of the add-on's own
+ * marks the page, never the request. As on core's kinds' pages, running out of time is `search_took_too_long`, and a
+ * cursor it can't read starts the list again.
+ */
+async function runAddonKind(
+  ctx: QueryContext,
+  input: SearchKindInput,
+  { c, kind }: NonNullable<ReturnType<typeof contributorOfKind>>,
+  opts: RunOptions,
+): Promise<SearchKindOutput> {
+  const can = gateOf(ctx);
+  const answer = (
+    group: Partial<SearchGroup> = {},
+    nextCursor: string | null = null,
+  ): SearchKindOutput => ({
+    group: {
+      kind: input.kind,
+      label: kind.plural,
+      icon: kind.icon,
+      total: 0,
+      capped: false,
+      complete: true,
+      searchedBack: null,
+      unavailable: null,
+      items: [],
+      ...group,
+    },
+    nextCursor,
+    standingCounts: null,
+    duplicates: [],
+  });
+  // Too short is an empty page with no SQL, as for core's kinds.
+  const p = searchProbes(input.q);
+  if (p.tooShort) return answer();
+  const { dbFor } = stepper(ctx, opts.budget ?? SEARCH_BUDGETS.kind, opts);
+  let running: readonly string[];
+  try {
+    running = await dbFor('addons').run((sp) => loadActiveAddons(sp, input.workspaceId));
+  } catch (e) {
+    if (e instanceof SearchStopped) throw tooLong();
+    throw e;
+  }
+  if (!running.includes(c.manifest.id)) throw HfosError.addonInactive(addonRef(c.manifest));
+  const permission = c.search.permission as WorkspacePermission;
+  if (!can(permission))
+    throw HfosError.forbidden(
+      missingPermissionMessage(
+        permission,
+        ctx.scope.workspaceRole,
+        c.manifest.permissions.find((x) => x.key === c.search.permission),
+      ),
+      'search_kind_not_allowed',
+    );
+  const plan: SearchPlan = {
+    ctx,
+    workspaceId: input.workspaceId,
+    me: ctx.actor.type === 'human' ? ctx.actor.userId : null,
+    p,
+    mode: 'kind',
+    depth: 'full',
+    perKind: input.limit,
+    limit: input.limit + 1,
+    sort: input.sort,
+    includeArchived: input.includeArchived,
+    archivedOnly: false,
+    onlyMine: input.onlyMine,
+    before: null,
+    kinds: new Set([input.kind]),
+    can,
+  };
+  try {
+    const out = await askContributor(dbFor(c.manifest.id, CONTRIBUTOR_MS.full), plan, c, {
+      sort: input.sort,
+      cursor: input.cursor,
+    });
+    const [mine] = contributorGroups(c, plan, out, KIND_ROWS);
+    return mine ? answer(mine.group, mine.nextCursor) : answer();
+  } catch (e) {
+    // Out of time is the request's, as when a core kind's page runs out.
+    if (e instanceof SearchStopped) throw tooLong();
+    if (input.cursor && cursorRefused(e)) throw listMovedOn();
+    console.warn(`search: the ${c.manifest.id} add-on answered nothing (${failureCode(e)})`);
+    return answer({ complete: false, unavailable: 'failed' });
+  }
 }
 
 /** Leads and clients among the contacts found: the contacts searcher marks each with its badge. */

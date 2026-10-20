@@ -5,7 +5,7 @@
  * draw them as text inside `<mark>`, never as HTML, so a body holding "<" can't inject anything.
  */
 import { fold } from './fold';
-import type { SearchProbes } from './probes';
+import type { SearchMatchProbes } from './probes';
 
 export type SearchMark = readonly [number, number];
 
@@ -52,7 +52,7 @@ function digitPlaces(text: string, digits: string): SearchMark[] {
 }
 
 /** The digit runs a probe looks for: what was typed, and a phone's national number. */
-function digitRuns(p: SearchProbes): string[] {
+function digitRuns(p: SearchMatchProbes): string[] {
   const runs = new Set<string>();
   if (p.digits) runs.add(p.digits);
   if (p.phoneE164) {
@@ -64,7 +64,7 @@ function digitRuns(p: SearchProbes): string[] {
 }
 
 /** Every place a search matched in a text: each folded word, digit runs, and the email or phone typed. */
-export function marksIn(text: string | null | undefined, p: SearchProbes): [number, number][] {
+export function marksIn(text: string | null | undefined, p: SearchMatchProbes): [number, number][] {
   if (!text) return [];
   const folded = fold(text);
   const ranges: SearchMark[] = [];
@@ -84,7 +84,7 @@ const SNIPPET_BEFORE = 70;
  */
 export function snippetOf(
   text: string | null | undefined,
-  p: SearchProbes,
+  p: SearchMatchProbes,
   opts: { length?: number; before?: number } = {},
 ): Snippet {
   const whole = (text ?? '').replace(/\s+/g, ' ').trim();

@@ -1,7 +1,11 @@
-import { registry } from '@hfos/core/server';
-import { closeTestDbs } from '@hfos/db/testing';
+import { defineQuery, registry } from '@hfos/core/server';
+import { closeTestDbs, testDbs } from '@hfos/db/testing';
+import Fastify from 'fastify';
+import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { readEnv } from '../src/env';
+import { registerOperations } from '../src/routes';
 import { testApp } from './helpers';
 
 describe('GET /healthz', () => {
@@ -43,10 +47,13 @@ describe('GET /healthz', () => {
     expect(res.statusCode).toBe(200);
     const paths = Object.keys(res.json().paths);
     const forPeople = registry.commands.filter((c) => (c.actors ?? ['human']).includes('human'));
-    // A customer's own look-ups (their portal, Real Estate round two) are the worker's, never the API's.
-    const queriesForPeople = registry.queries.filter((q) =>
-      (q.actors ?? ['human']).includes('human'),
+    // A customer's own look-ups (their portal, Real Estate round two) are the worker's, never the API's; and a query
+    // that only runs inside another (an add-on's answer to a search, `route: false`) is no one's to call.
+    const queriesForPeople = registry.queries.filter(
+      (q) => (q.actors ?? ['human']).includes('human') && q.route !== false,
     );
+    for (const q of registry.queries.filter((x) => x.route === false))
+      expect(paths, q.name).not.toContain(`/v1/queries/${q.name}`);
     const expected = [
       ...forPeople.map((c) => `/v1/commands/${c.name}`),
       ...queriesForPeople.map((q) => `/v1/queries/${q.name}`),
@@ -68,6 +75,35 @@ describe('GET /healthz', () => {
         paths.filter((p) => p.endsWith(`/${name}`)),
         name,
       ).toEqual([]);
+  });
+
+  it('never mounts a query marked route: false, so it only runs inside the one that runs it', async () => {
+    const shape = {
+      input: z.object({ workspaceId: z.uuid() }),
+      output: z.object({ ok: z.boolean() }),
+      permission: null,
+      scope: () => ({ kind: 'none' as const }),
+      handler: async () => ({ ok: true }),
+    };
+    const inside = defineQuery({
+      ...shape,
+      name: 'test.inside',
+      description: 'Inside.',
+      route: false,
+    });
+    const open = defineQuery({ ...shape, name: 'test.open', description: 'Open.' });
+    const bare = Fastify({ logger: false });
+    bare.setValidatorCompiler(validatorCompiler);
+    bare.setSerializerCompiler(serializerCompiler);
+    bare.decorateRequest('actor', null);
+    registerOperations(bare, testDbs().api.db, { commands: [], queries: [inside, open] });
+    await bare.ready();
+    const body = { workspaceId: '11111111-2222-4333-8444-555555555555' };
+    const at = (name: string) =>
+      bare.inject({ method: 'POST', url: `/v1/queries/${name}`, payload: body });
+    expect((await at('test.inside')).statusCode).toBe(404);
+    expect((await at('test.open')).statusCode).not.toBe(404);
+    await bare.close();
   });
 
   it('keeps worker-only commands (carrier answers, inbound texts) off the public API', async () => {

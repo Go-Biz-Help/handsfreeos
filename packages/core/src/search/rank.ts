@@ -14,7 +14,7 @@
 import type { SearchGroup, SearchHit } from '../schemas/search';
 import { fold } from './fold';
 import { kindRank } from './kinds';
-import type { SearchProbes } from './probes';
+import type { SearchMatchProbes } from './probes';
 
 export type SearchTier = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -22,7 +22,7 @@ export type SearchTier = 0 | 1 | 2 | 3 | 4 | 5;
 export const BEST_TIER = 2;
 
 /** Tier 1 or 2 for a name or a title the words match, or null when they don't all. */
-export function tierOf(name: string | null | undefined, p: SearchProbes): 1 | 2 | null {
+export function tierOf(name: string | null | undefined, p: SearchMatchProbes): 1 | 2 | null {
   if (!name || p.folded.length === 0) return null;
   const folded = fold(name);
   if (!p.folded.every((w) => folded.includes(w))) return null;

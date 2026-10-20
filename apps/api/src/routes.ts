@@ -5,6 +5,7 @@ import {
   registry,
   SEARCH_WORDS,
   type HumanActor,
+  type Registry,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -54,10 +55,17 @@ async function inSearchSlot<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Mounts one POST route per registry entry. Commands and queries share the same JSON envelope. */
-export function registerOperations(app: FastifyInstance, db: Db): void {
+/**
+ * Mounts one POST route per registry entry. Commands and queries share the same JSON envelope. `ops` is the composed
+ * registry; tests hand in their own.
+ */
+export function registerOperations(
+  app: FastifyInstance,
+  db: Db,
+  ops: Pick<Registry, 'commands' | 'queries'> = registry,
+): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
-  for (const cmd of registry.commands) {
+  for (const cmd of ops.commands) {
     // Commands only the worker or a workflow runs (the carrier's answers, inbound texts) never become routes.
     if (!(cmd.actors ?? ['human']).includes('human')) continue;
     const offline =
@@ -92,9 +100,10 @@ export function registerOperations(app: FastifyInstance, db: Db): void {
       },
     });
   }
-  for (const q of registry.queries) {
-    // Nor do queries only the worker or a workflow runs.
-    if (!(q.actors ?? ['human']).includes('human')) continue;
+  for (const q of ops.queries) {
+    // Nor do queries only the worker or a workflow runs, nor those that only ever run inside another (an add-on's
+    // answer to a search, `route: false`), so nobody calls one around the rate limit and slot gate of the one it's in.
+    if (!(q.actors ?? ['human']).includes('human') || q.route === false) continue;
     typed.route({
       method: 'POST',
       url: `/v1/queries/${q.name}`,

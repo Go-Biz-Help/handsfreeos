@@ -19,6 +19,7 @@ interface TypeRow extends Record<string, unknown> {
   key: string;
   plural: string;
   icon: string;
+  addon_id: string | null;
 }
 
 interface Row extends Record<string, unknown> {
@@ -58,7 +59,7 @@ export const recordsSearcher: KindSearcher = {
     const keys = keysAsked(plan);
     if (keys && keys.length === 0) return [];
     const types = await db.rows<TypeRow>(
-      sql`select t.id, t.key, t.plural, t.icon from app.custom_record_types t
+      sql`select t.id, t.key, t.plural, t.icon, t.addon_id from app.custom_record_types t
           where t.workspace_id = ${plan.workspaceId} and t.archived_at is null
             ${keys ? sql`and t.key = any(${textArray(keys)})` : sql``}
           order by t.position, t.plural`,
@@ -105,6 +106,7 @@ export const recordsSearcher: KindSearcher = {
         kind: `record.${t.key}`,
         label: t.plural,
         icon: t.icon,
+        addon: t.addon_id,
         hits: (byType.get(t.id) ?? []).map((r) => hitFrom(r, t, plan)),
       }));
   },

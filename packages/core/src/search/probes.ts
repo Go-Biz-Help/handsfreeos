@@ -54,6 +54,12 @@ export interface SearchProbes {
   readonly firstWord: string | null;
 }
 
+/**
+ * The probes without what was typed: all that `tierOf`, `marksIn` and `snippetOf` read, and what an add-on's search
+ * is handed, so it matches the way core does rather than reading the text its own way.
+ */
+export type SearchMatchProbes = Omit<SearchProbes, 'q'>;
+
 /** A text with LIKE's own characters escaped, so "50%_off" matches only itself. Backslash is LIKE's escape. */
 export function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (c) => `\\${c}`);

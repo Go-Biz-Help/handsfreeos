@@ -6,7 +6,9 @@
  *
  * A new kind adds its entry here, its searcher in `search/server/kinds`, and a case to `test/search/gaps.test.ts`.
  */
+import type { AddonManifest } from '../addons/manifest';
 import type { WorkspacePermission } from '../permissions';
+import { addonSearchKinds, type AddonSearchKind } from './addon';
 import { SEARCH_KIND_LABELS } from './words';
 
 export interface SearchKind {
@@ -120,12 +122,19 @@ export function searchKindEntry(key: string): SearchKind | undefined {
 }
 
 /**
- * The kinds this person may search, in kind order. Under a staff view-as nobody holds any permission, so the gates
- * are skipped and row security alone decides, as it does for every other look-up there.
+ * The kinds this person may search, in kind order: core's, and the kinds of each add-on running here that answers
+ * searches (`addons`, the running add-ons' manifests), in the add-ons' slot. Under a staff view-as nobody holds any
+ * permission, so the gates are skipped and row security alone decides, as it does for every other look-up there.
  */
 export function searchKindsFor(who: {
   readonly permissions: readonly string[];
   readonly viewAs?: boolean;
-}): readonly SearchKind[] {
-  return SEARCH_KINDS.filter((k) => who.viewAs || who.permissions.includes(k.needs));
+  readonly addons?: readonly Pick<AddonManifest, 'id' | 'name' | 'search'>[];
+}): readonly (SearchKind | AddonSearchKind)[] {
+  const may = (k: SearchKind) => !!who.viewAs || who.permissions.includes(k.needs);
+  const core = SEARCH_KINDS.filter(may);
+  const addons = (who.addons ?? []).flatMap(addonSearchKinds).filter(may);
+  const slot = SLOTS.indexOf('addon');
+  const at = core.findIndex((k) => kindRank(k.key) > slot);
+  return at < 0 ? [...core, ...addons] : [...core.slice(0, at), ...addons, ...core.slice(at)];
 }

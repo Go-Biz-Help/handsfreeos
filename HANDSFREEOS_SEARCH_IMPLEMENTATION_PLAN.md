@@ -21,7 +21,7 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3 and 6 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3, 4a and 6 built (Build order), the rest still to build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2156,6 +2156,83 @@ its step **Built** here with what changed while building.
      `packages/core/test/addons/search-contract.test.ts`, `packages/core/test/execute-query-within.test.ts` (new).
    - Docs: docs/addon-architecture.md ("Search" under "The pieces": the declaration, `route: false`, a failure kept to
      its own groups), docs/search.md.
+   - **Built** (2026-10-20). No migration, and no API client change: no real query is marked `route: false` until
+     4b, so `pnpm openapi` gives the same client. What changed while building:
+     - **More files than listed:** `search/kinds.ts` (`searchKindsFor` takes `addons`, the running add-ons'
+       manifests, and lists their kinds in the add-ons' slot, each an `AddonSearchKind` with its add-on and icon),
+       `search/index.ts` (exports `search/addon.ts`), `search/server/run.ts` (the add-ons asked after core's kinds,
+       `covers`, an add-on kind's own page), `search/server/kinds/records.ts` (each group names its kind's add-on,
+       `FoundGroup.addon`), `search/probes.ts`, `rank.ts` and `snippet.ts` (`SearchMatchProbes`, below),
+       `permissions.ts` (`missingPermissionMessage`'s `addon`, below), `server.ts` (exports), and
+       `addons/_template/core/test.ts.tpl`: a generated add-on's test checks `addonSearchIssues` too. `addon-new.mjs`
+       only points at the stub in its closing lines.
+     - **`addonSearchIssues` also checks the query asks for the declaration's permission:** core asks it for the
+       people holding that one, so a query asking for another would fail for some of them. The declaration's own rules
+       (its query's name, its kinds, `covers`, its permission) are `manifestIssues`', as the plan has them, so the
+       contract test meets a wrong name, a foreign permission and an unknown covered kind there.
+     - **A kind's icon is a record icon** (`RECORD_ICONS`, checked by `manifestIssues` as record kinds' are), since
+       both apps draw add-on kinds from the record-kind icon map. So 4b's Homes take `home` (drawn as a house), not
+       `house`, which isn't one. A declaration names at least one kind, its labels 1 to 40 characters.
+     - **`AddonSearchInput` carries core's probes without what was typed** (`AddonSearchProbes`, the `SearchProbes`
+       shape less `q`), as the plan says. `tierOf`, `marksIn` and `snippetOf` now take that shape
+       (`SearchMatchProbes`, which core's full probes still fit), since none of them reads `q`. `perKind` is 1 to 100,
+       since a kind's own page asks for its page's size. Its `cursor` and a group's `nextCursor` are 400 characters at
+       most, as `search.kind` takes a cursor back, and a hit's snippet 300, as `snippetOf` cuts one to about 200: a
+       row never carries a whole body.
+     - **`recordId` ties a link to its record:** a hit opening `/customers/records/<uuid>` is let through only when
+       the uuid is its `recordId`; one to its own pages (`/a/<id>`, `/a/<id>/…`, `/a/<id>?…`) passes, and none with a
+       backslash or a space, or a part that reads as `.` or `..` once decoded, since a browser takes `%2e%2e` for `..`
+       (`addonHrefOk`). An add-on hit's `why.field` is `name` for a tier 1 or
+       2 hit without a chip of its own, else `addon`, with its own chip as `label`.
+     - **A failed add-on is one group, not one a kind:** its id as the kind and its name as the label, so its line
+       reads "Real Estate couldn’t be searched just now. Try again in a minute." (`unavailableLine`'s words for
+       `failed`, the same as `addonFailed`). A timeout or a spent budget is `failed` too, as written, and counts
+       toward `search_took_too_long` as a core kind's would. When the add-ons running here can't be read (a spent
+       budget, most often), every add-on asked gets that line and counts as tried, and as stopped when time ran out,
+       so a search of add-on kinds alone refuses `search_took_too_long` as core's do. An add-on that failed, or a
+       search whose running add-ons couldn't be read, hasn't wholly answered: no close matches and no "No one active
+       matches".
+     - **`covers` is honoured after the add-ons answer:** the records searcher still runs before them, in the plan's
+       order, and core drops a covered kind's group once its add-on answered. The group knows its add-on from
+       `custom_record_types.addon_id`, so a business's own kind with the same key is never taken out, and an add-on
+       that failed leaves core's group standing. Two limits the plan didn't spell out: it counts only when the add-on
+       was asked for every kind it has, since chips naming only some (Trips and the places it covers) may leave out
+       the kinds that find those records; and only the group's active records go, its archived ones still going under
+       Archived, which an add-on leaves to core.
+     - **An archived add-on hit is dropped** unless archived ones were asked for (the add-on should leave it out
+       itself, and core holds it to that), rather than moved under Archived, which lists core's kinds.
+     - **Order:** in the box and on the Search page core ranks an add-on's hits with `rankHits`; on one of its kinds'
+       own pages it keeps the add-on's order, since the add-on pages with its own cursor, handed back as `nextCursor`.
+       A cursor the add-on refuses (a validation error on `cursor`) becomes core's `listMovedOn`, so the list starts
+       again rather than showing a failed page.
+     - **Which add-ons run** is read once a request (`loadActiveAddons`, its own step), and only when an add-on that
+       answers searches may answer for this person and the chips allow it, so core's own searches pay nothing.
+     - **`search.kind` for an add-on's kind** refuses a kind the add-on doesn't have (`search_kind_gone`), answers
+       too short with an empty page and no SQL, as core's kinds do, then refuses a turned-off add-on
+       (`addon_inactive`, before the permission, as `executeQuery` checks, and since an add-on's permissions aren't
+       held while it's off), then someone without its permission (`search_kind_not_allowed`). The words are
+       `missingPermissionMessage`'s, which takes the manifest's entry for an add-on's own permission (its new `addon`
+       argument), since it knew only core's labels: "You need the “Work on deals” permission for that…". Running out
+       of time refuses `search_took_too_long`, as a core kind's page does, and the count runs as far as theirs
+       (`KIND_ROWS`), the add-on paging with its own cursor; the box and the Search page count to 50.
+     - **`executeQueryWithin`** sits beside `executeQuery`, whose `VIEW_AS_BLOCKED` it shares, and also takes the
+       system, a customer and a visitor as `executeQuery` does: no permission for them, and a customer's add-on asked
+       through `portal.addon_in_use`.
+     - **A failure is logged with `console.warn`**, core having no logger: "search: the realestate add-on answered
+       nothing (too_slow)", the stop's reason, a refusal's rule or the SQLSTATE, never a message. `SearchFailed` keeps
+       its SQLSTATE as `sqlState` for this.
+     - **An add-on's cap is a statement's,** as every step's is: a query running several statements may take that
+       long for each, so docs/addon-architecture.md asks for one or two. **`registerOperations` takes the
+       operations** (the composed registry by default), so `healthz.test.ts` mounts a test-only `route: false` query
+       beside an ordinary one and finds it a 404, rather than checking a list that holds none yet.
+     - **Tests:** `search-contract.test.ts` runs a test-only add-on (`fxsearch`, registered in the local database as
+       the add-on fixtures are) through `runSearch`'s new `addons` option, and holds the contributor's forced
+       `DrizzleQueryError` and 57014 (Tests by package lists them under `limits.test.ts`), a refusal, a budget spent
+       before the running add-ons were read, its own statement cap on the box, the Search page and a kind's page, the
+       links (`%2e%2e` among them), the size of what it answers, the kinds asked for, archived hits, `covers` (with
+       an archived covered record, and chips asking for only some of its kinds), being off, the permission, and an
+       add-on kind's page with its cursor, its count, too short and out of time.
+       `execute-query-within.test.ts` runs a test-only add-on's look-up inside a query of its own.
 
    **Search 4b: Real Estate answers.**
    - Ships: `realestate.search` (Listings, Deals, Homes, and Properties no listing covers), `route: false`, and its
