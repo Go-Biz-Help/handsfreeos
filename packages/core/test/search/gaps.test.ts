@@ -267,14 +267,17 @@ describe('6. a turned-off add-on', () => {
     ] as const;
     for (const [q, kind] of hanging)
       expect(groupOf(await everything(w, w.owner, q), kind), q).toBeDefined();
+    // Real Estate answers for its own kinds of records while it's on (Search 4b), in place of core's group.
     const on = await everything(w, w.owner, 'bayou road');
-    expect(titles(groupOf(on, 'record.realestate_property'))).toEqual(['77 Bayou Road']);
+    expect(titles(groupOf(on, 'realestate.properties'))).toEqual(['77 Bayou Road']);
+    expect(groupOf(on, 'record.realestate_property')).toBeUndefined();
     await rows(
       admin(),
       sql`update app.addon_installations set state = 'disabled'
           where workspace_id = ${w.wsId} and addon_id = 'realestate'`,
     );
     try {
+      // Neither core's group nor Real Estate's: its search isn't asked while it's off, and nothing says it failed.
       const off = await everything(w, w.owner, 'bayou road');
       expect(off.groups).toEqual([]);
       expect(allTitles(off)).toEqual([]);
@@ -297,7 +300,7 @@ describe('6. a turned-off add-on', () => {
       );
     }
     const back = await everything(w, w.owner, 'bayou road');
-    expect(titles(groupOf(back, 'record.realestate_property'))).toEqual(['77 Bayou Road']);
+    expect(titles(groupOf(back, 'realestate.properties'))).toEqual(['77 Bayou Road']);
     for (const [q, kind] of hanging)
       expect(groupOf(await everything(w, w.owner, q), kind), q).toBeDefined();
   });

@@ -2,8 +2,9 @@
  * Search's guards on the API (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, How it works, 6 and 7), the wiring only:
  * both search routes carry their own rate limit, per person, 90 and 60 a minute, each counted on its own and refused
  * with `search_too_fast`; a search that can't get one of the machine's slots is refused `search_busy` while other
- * routes never wait; the invitations' own limit still answers as it did; both queries are in the OpenAPI export; and
- * when a search fails, neither the answer nor the API's error log holds what was typed.
+ * routes never wait; the invitations' own limit still answers as it did; both queries are in the OpenAPI export, and
+ * Real Estate's answer to them (`route: false`) is no route at all; and when a search fails, neither the answer nor
+ * the API's error log holds what was typed.
  */
 import type { Db, DbHandle } from '@hfos/db/client';
 import {
@@ -186,12 +187,23 @@ describe('the slot gate', () => {
 });
 
 describe('the OpenAPI export', () => {
-  it('has both search queries', async () => {
+  it('has both search queries, and no add-on’s answer to them', async () => {
     const res = await app.inject({ method: 'GET', url: '/openapi.json' });
     const paths = Object.keys(res.json().paths);
     expect(paths).toEqual(
       expect.arrayContaining(['/v1/queries/search.everything', '/v1/queries/search.kind']),
     );
+    // Real Estate's search runs only inside these two, under their limits (route: false).
+    expect(paths).not.toContain('/v1/queries/realestate.search');
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/v1/queries/realestate.search',
+          payload: {},
+        })
+      ).statusCode,
+    ).toBe(404);
   });
 });
 

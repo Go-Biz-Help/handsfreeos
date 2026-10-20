@@ -246,10 +246,12 @@ describe('a private deal', () => {
           select ${w.wsId}, t.id, 'Pelican Court purchase', true, ${w.priya.id}, array[${w.marco.id}]::uuid[]
           from app.custom_record_types t where t.workspace_id = ${w.wsId} and t.key = 'realestate_deal'`,
     );
-    for (const u of [w.priya, w.marco])
-      expect(titles(groupOf(await everything(w, u, 'pelican'), 'record.realestate_deal'))).toEqual([
-        'Pelican Court purchase',
-      ]);
+    // Real Estate answers for its deals (Search 4b), for its team only; core's group steps aside.
+    for (const u of [w.priya, w.marco]) {
+      const a = await everything(w, u, 'pelican');
+      expect(titles(groupOf(a, 'realestate.deals'))).toEqual(['Pelican Court purchase']);
+      expect(groupOf(a, 'record.realestate_deal')).toBeUndefined();
+    }
     expect((await everything(w, w.member, 'pelican')).groups).toEqual([]);
     expect(titles(groupOf(await everything(w, w.member, 'pelcian'), 'close'))).toEqual([]);
   });

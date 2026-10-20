@@ -10,7 +10,8 @@ plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATIO
 companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, file names, forms and their answers,
 knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
 and the API's guards. Search 4a is built: core's contract for an add-on to answer searches with groups of its own
-(Rules worth knowing before changing anything, below), which no add-on uses yet; Real Estate answers in Search 4b.
+(Rules worth knowing before changing anything, below). Search 4b is built: Real Estate answers through it, with its
+listings, deals, buyers' homes and properties (Real Estate's groups, below).
 Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the web, and at the top of
 Settings on the phone (Settings search, below). The main box and `/customers?q=` work as they did until Search 9
 switches it on.
@@ -86,7 +87,21 @@ Each kind's gate is in `SEARCH_KINDS` (`search/kinds.ts`); row security decides 
 | Archived      | the kind's       | archived contacts, companies, leads, threads, forms and records, by name or title only; the page says how far back the threads window looked                                                                                                                        | with the kind                                                                                               |
 | Deleted bin   | `records.delete` | each item's name                                                                                                                                                                                                                                                    | the whole business                                                                                          |
 | Close matches | `records.read`   | contact, company, lead and record names within an edit or two, only when nothing else matched                                                                                                                                                                       | 300 names that look alike                                                                                   |
-| Add-on groups | the add-on's own | whatever its own search query finds (`realestate.listings`), only while it runs                                                                                                                                                                                     | the add-on's                                                                                                |
+| Add-on groups | the add-on's own | whatever its own search query finds, only while it runs: Real Estate's Listings, Deals, Homes and Properties (below)                                                                                                                                                | the add-on's                                                                                                |
+
+**Real Estate's groups** (`realestate.search` in `packages/core/src/addons/realestate/ops/search.ts`, tested in
+`test/addons/realestate-search.test.ts`), for whoever holds Work on deals while it runs: **Listings**, a listing by its
+home's address (the property record's name) or by its MLS number exactly (tier 0, "MLS number"); **Deals**, a deal by
+its name or fields, its client's name ("Client") or its home's address ("Address"), as the Deals list searches;
+**Homes**, a home on a buyer deal by its address, opening the deal's Homes at it; and **Properties**, a property by its
+address or fields when no listing in the answer is on it. A deal or a property found by a field says which field, as
+core's group of records does. A listing's own deal and its property are left to the listing whenever the answer shows
+it, however they matched, so each shows once; a kind's own page of deals or properties leaves them out too, so it holds
+what its group counted, while chips naming Deals or Properties without Listings keep them. It reads all four in one
+statement, as the person: a private deal, its listing and its homes stay with its people, an archived deal and what
+hangs off it come back only with Include archived (core's Archived lists the record by name otherwise), and Only mine
+keeps to the deals the person is on (the Deals list's Mine) and the properties they added. Its `covers` takes core's
+groups of deals and properties out whenever it answered; someone without Work on deals still finds them there.
 
 A window is the box's (quick) or the Search page's and a kind's own page's (full). A windowed group says whether it
 looked at everything (`complete`) and, when it didn't, how far back it went (`searchedBack`, to the microsecond).

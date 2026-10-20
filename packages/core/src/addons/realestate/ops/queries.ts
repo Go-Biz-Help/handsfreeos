@@ -100,8 +100,8 @@ interface Row extends Record<string, unknown> {
 }
 
 const me = (ctx: Ctx) => (ctx.actor.type === 'human' ? ctx.actor.userId : null);
-/** The deals someone is on: its main agent or on its team. */
-const onDealSql = (userId: string | null) =>
+/** The deals someone is on: its main agent or on its team. The Deals list's Mine, and Search everything's Only mine. */
+export const onDealSql = (userId: string | null) =>
   userId
     ? sql`(r.owner_user_id = ${userId}::uuid or ${userId}::uuid = any(r.team_user_ids))`
     : sql`false`;

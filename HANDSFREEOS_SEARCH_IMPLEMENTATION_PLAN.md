@@ -21,7 +21,8 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3, 4a and 6 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3, 4a, 4b and 6 built (Build order), the rest still to
+build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2241,6 +2242,69 @@ its step **Built** here with what changed while building.
      `packages/core/src/addons/realestate/server.ts`, `packages/core/test/addons/realestate-search.test.ts`. No change
      to `packages/api-client`: the query is never a route.
    - Docs: docs/realestate.md (what search finds), docs/search.md.
+   - **Built** (2026-10-20). No migration, and no API client change: `pnpm openapi` leaves `packages/api-client` as it
+     was, since `realestate.search` is `route: false`. What changed while building:
+     - **More files than listed:** `addons/realestate/search-words.ts` (each row's line and the one chip core has no
+       word for, "Client", browser-safe, so the phone's offline search can say the same);
+       `addons/realestate/ops/queries.ts`, which exports `onDealSql` for Only mine; `test/search/gaps.test.ts` (case 6)
+       and `test/search/visibility.test.ts` (a private deal), where Real Estate's `realestate.properties` and
+       `realestate.deals` now stand in for core's `record.realestate_*` groups for anyone who may work on deals; and
+       `apps/api/test/search-guards.test.ts`, whose OpenAPI check (Tests by package) now has a real `route: false`
+       query to leave out: no `/v1/queries/realestate.search`, and posting to it is a 404.
+     - **One statement for all four kinds,** as docs/addon-architecture.md asks (each statement of an add-on's is held
+       to the contributor's cap, so it reads in one or two): each kind a CTE folding its name once in a lateral, as
+       core's searchers do, then one window ranks and counts each kind and keeps a page of it, and a listing's list
+       price and a property's count of deals are read for the kept rows only. Counts are exact (every match), so
+       `capped` is always false. A second, core's `fieldsByKind`, runs only when a kept deal or property was found by
+       its fields and not by its name, client or address, to say which field (below).
+     - **Deals aren't read through `dealRows`:** it reads each deal's duties, dates and waits, which a hit doesn't show,
+       can't fold accents or say which tier matched, and would be a second statement. The deals arm reads the same
+       three things `realestate.deal.list` searches (the deal's name, its first client, the property it was last put
+       on) through the same laterals as `dealRows`, its client held to `LIVE_PERSON`, and also the record's fields
+       (`search_text`) as core's group finds records, so `covers` taking that group away loses nothing. It reads the
+       deal records (`custom_records` of the kind) with their deal row joined, since core's `custom_record.create`
+       can make a record of the kind without one: such a record is found too, opening its record's page, not a deal
+       page that couldn't load.
+     - **A listing's own deal, and the property it's on, are left to the listing whenever the answer shows it**
+       (board 4's address search draws the Listing alone). The plan said this of properties; deals follow it too,
+       however the deal matched (by its name, which the web's Start a deal makes `Listing · <address>`, by its client,
+       whose name is often in the street, or by the address), since the listing opens the same deal. "Shows it" is
+       exact: a listing hidden from the person (a private deal they're off), archived without Include archived, or not
+       asked for (chips naming Deals or Properties without Listings) leaves its deal and its property in their own
+       groups, so nobody loses a record they could find before. Asked for Deals alone, the deal comes back by
+       "Address". **A kind's own page** of deals or properties reads the listings for this whichever kind it is, with
+       the same Include archived and Only mine, so it holds exactly what its group counted in the whole answer ("See
+       all 2" opens 2). Opened from chips naming Deals or Properties alone, it can hold fewer than they did: the page
+       has only its one kind to go on, and the whole answer is where "See all" and "Show more" start.
+     - **The MLS number** is matched against what was typed without the add-on seeing it: the one word typed, that
+       word without "MLS#" or "MLS:" written onto it ("MLS#4821937", as listing sheets print it), or the one after
+       "MLS" ("MLS 4821937", "mls# 4821937"), lower-cased against the listing's `mls_number`, exactly; part of a number
+       finds nothing. The whole number is marked, however it was typed. A listing's hit id is its deal's record id (a
+       listing's key is its deal), and it opens the deal.
+     - **Rows:** a listing reads "Active · $389,000 · 3 bd · 2 ba" (its deal's stage, the list price as `listPriceOf`
+       reads it, and the rooms from its confirmed facts); a deal "Buyer deal · Touring" (`RE_DEAL_WORDS`, as the phone's
+       Deals list); a home "Shortlisted · Lakefront purchase", opening `…/deals/<deal>/homes?home=<id>`; a property
+       "1 deal" or "No deals yet". A deal found by its client says "Client", by its home "Address", each with the
+       marked name or address as its snippet; "MLS number" and "Address" are core's words (`whyLabel`), so only
+       "Client" is Real Estate's. A deal or a property found by one of its fields says which, as core's group of
+       records did before `covers` took it away: the first field, in the business's order, the search marks something
+       in, with its value marked ("Parish", "Jefferson"); the line under it stays Real Estate's, not the fields'
+       summary. A closed deal carries `won`, one terminated, lost or ended `lost`, as the phone's offline Deals search
+       marks them, so finished ones rank after open ones; its listing and homes too.
+     - **What hangs off a deal follows it:** a listing or a home on an archived deal comes back only with Include
+       archived, and Only mine keeps to the deals the person is on (the Deals list's Mine, through `onDealSql`) for
+       listings and homes too. Properties are everyone's, so Only mine keeps those the person added (`created_by`), as core's records
+       search does. A home taken off its deal (`removed`) isn't found.
+     - **A kind's own page** pages by offset, its `nextCursor` the next row's place (under 500, as far as core's kinds'
+       pages read); any other cursor is `listMovedOn`, which core passes on. `nextCursor` is set only on a kind's own
+       page.
+     - **Tests:** `realestate-search.test.ts` holds each case Tests by package lists, plus a deal by its client, a
+       buyer's own home under Properties with its deal by "Address", a home opening the deal's Homes, a record of the
+       deal kind without its deal opening its record's page, Only mine, a listing hidden from someone off its deal
+       leaving its property under Properties, and a cursor it can't read; after review, "MLS#GS4821937", a listing
+       named the web's way whose seller's name is in its street (its deal never under Deals), a kind's own page of
+       deals and of properties holding what its group counted, and a property and a deal found by a field, each
+       saying which.
 
 5. **Search 5: words inside files.**
    - Ships: Migration B; `file.save_text`; the worker's `file.text` job with the PDF, text, CSV, Word and Excel readers
