@@ -690,7 +690,7 @@ export const askProgress = defineAddonCommand(outreachAddon, {
   },
 });
 
-/** The code typed for an ask, taken once: deleted as it's read, and none once it's past its 10 minutes. */
+/** The code typed for an ask, taken once: deleted as it's read, and none once it's past its `ASK_CODE_MINUTES`. */
 async function takeCode(ctx: Ctx, askId: string, now: Date): Promise<string | null> {
   const [taken] = await ctx.tx
     .delete(askCodes)
@@ -786,7 +786,7 @@ export const askReply = defineAddonCommand(outreachAddon, {
 export const askCode = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.code',
   description:
-    'The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 10 minutes at most, and taken once.',
+    'The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 30 minutes at most, and taken once.',
   risk: 0,
   input: AskCodeInput,
   output: AskChangedOutput,

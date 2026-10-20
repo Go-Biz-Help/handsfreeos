@@ -1,8 +1,9 @@
 /**
  * Asking the extension in the worker (docs/outreach.md, decision 43): an ask that first needs the person pushes to
  * them at once, once for each way it needs them, to them alone; a line alone pushes nothing; a code from their email
- * pushes each time one is asked for, and never says the code; and asks are kept a week, pruned with the feed, as are
- * needs done, let go or off the list a while, codes past their 10 minutes, and computers unseen for a month.
+ * keeps a notification up till it's typed, opening its own screen, and asks to try again once it ran out, never saying
+ * the code; and asks are kept a week, pruned with the feed, as are needs done, let go or off the list a while, codes
+ * past their time, and computers unseen for a month.
  */
 import { randomUUID } from 'node:crypto';
 import { pushDeviceRegister } from '@hfos/core/server';
@@ -11,7 +12,12 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { run } from '../../../packages/core/test/calendar-helpers';
-import { askCodeWords } from '@hfos/core/addons/outreach/asks';
+import {
+  askCodeAlertWords,
+  askCodeHref,
+  askCodeRanOutWords,
+  askCodeWords,
+} from '@hfos/core/addons/outreach/asks';
 import {
   outreachBusiness,
   runAs,
@@ -147,7 +153,7 @@ describe('asking the extension', () => {
     });
   });
 
-  it('says to look in their email each time a code is asked for, never the code, and prunes codes past their time', async () => {
+  it('keeps a notification up while a code is asked for, never the code, and asks to try again once it ran out', async () => {
     const s = testServices();
     const ws = await outreachBusiness(owner, 'Outreach Asks Code Co');
     const pc = randomUUID();
@@ -164,34 +170,45 @@ describe('asking the extension', () => {
       { channel: 'web' },
     );
     const { ask } = await runAs(owner, ws, 'outreach.ask.take', { installId: pc });
+    const askId = ask.askId as string;
     const progress = (state: string, line: string) =>
-      runAs(owner, ws, 'outreach.ask.progress', { askId: ask.askId, state, line });
+      runAs(owner, ws, 'outreach.ask.progress', { askId, state, line });
     const give = (code: string) =>
-      runWith(owner, ws, 'outreach.ask.code', { askId: ask.askId, code }, { channel: 'web' });
+      runWith(owner, ws, 'outreach.ask.code', { askId, code }, { channel: 'web' });
+    /** The ask's notifications still up, by their key. */
+    const up = async () =>
+      (
+        await rows<{ key: string; audience: string[] }>(
+          admin(),
+          sql`select key, array(select unnest(audience_user_ids)::text) as audience from app.addon_alerts
+              where workspace_id = ${ws} and cleared_at is null order by key`,
+        )
+      ).map((a) => ({ key: a.key, audience: a.audience }));
+    const words = askCodeAlertWords('facebook');
 
-    await progress('code', askCodeWords('alignable'));
+    await progress('code', askCodeWords('facebook'));
     await drain(s, ws);
+    // At once, opening the code's own screen, to them alone; and up till the code comes.
     expect(await pushes(ws)).toEqual([
       {
-        title: 'Look in your email',
-        body: askCodeWords('alignable'),
-        path: `/app/w/${ws}/a/outreach?view=live`,
+        title: words.title,
+        body: words.detail,
+        path: `/app/w/${ws}${askCodeHref(askId)}`,
         user_ids: [owner.id],
       },
     ]);
+    expect(await up()).toEqual([{ key: `ask-code:${askId}`, audience: [owner.id] }]);
     await give('482913');
     await drain(s, ws);
+    expect(await up()).toEqual([]);
     expect(await pushes(ws)).toHaveLength(1);
-    expect(await progress('code', askCodeWords('alignable'))).toMatchObject({ code: '482913' });
-    // It didn't work: they hear about the next one too, and no push ever has a code in it.
+    expect(await progress('code', askCodeWords('facebook'))).toMatchObject({ code: '482913' });
+    // It didn't work: the next one's asked for, and up again; no push ever has a code in it.
     await progress('working', 'Putting the code in…');
-    await progress('code', askCodeWords('alignable', true));
+    await progress('code', askCodeWords('facebook', true));
     await drain(s, ws);
-    const all = await pushes(ws);
-    expect(all.map((p) => p.body)).toEqual([
-      askCodeWords('alignable'),
-      askCodeWords('alignable', true),
-    ]);
+    expect((await pushes(ws)).map((p) => p.title)).toEqual([words.title, words.title]);
+    expect(await up()).toEqual([{ key: `ask-code:${askId}`, audience: [owner.id] }]);
     expect(
       await rows(
         admin(),
@@ -199,11 +216,28 @@ describe('asking the extension', () => {
       ),
     ).toEqual([]);
 
-    // A code typed and never taken goes once its 10 minutes are up.
-    await give('551177');
+    // None came in its 30 minutes: Try again's step is handed to them, and that's what stays up.
+    await progress('stuck', askCodeRanOutWords('facebook'));
+    await drain(s, ws);
+    expect(await up()).toEqual([{ key: `ask-again:${askId}`, audience: [owner.id] }]);
+    expect((await pushes(ws)).at(-1)).toMatchObject({
+      title: askCodeAlertWords('facebook', true).title,
+      path: `/app/w/${ws}${askCodeHref(askId)}`,
+    });
+    // Tried again: it waits on a new code; once the ask ends, nothing's up.
+    await progress('working', 'Asking for a new code…');
+    await progress('code', askCodeWords('facebook'));
+    await drain(s, ws);
+    expect(await up()).toEqual([{ key: `ask-code:${askId}`, audience: [owner.id] }]);
+    await runAs(owner, ws, 'outreach.ask.end', { askId, state: 'failed', line: 'Stopped.' });
+    await drain(s, ws);
+    expect(await up()).toEqual([]);
+
+    // A code typed and never taken goes once its time is up.
     await rows(
       admin(),
-      sql`update addon_outreach.ask_codes set expires_at = now() - interval '1 minute' where ask_id = ${ask.askId}`,
+      sql`insert into addon_outreach.ask_codes (ask_id, workspace_id, user_id, code, expires_at)
+          values (${askId}, ${ws}, ${owner.id}, '551177', now() - interval '1 minute')`,
     );
     await rows(
       admin(),

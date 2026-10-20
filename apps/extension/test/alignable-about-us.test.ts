@@ -5,12 +5,12 @@
  * Alignable found his (0.62.0 to 0.69.0), its code's box as he described it.
  */
 import { JSDOM } from 'jsdom';
-import { askCodeWords } from '@hfos/core/addons/outreach/asks';
+import { askCodeRanOutWords, askCodeWords } from '@hfos/core/addons/outreach/asks';
 import { describe, expect, it, vi } from 'vitest';
 import { runAsk } from '../src/asks/run';
 import { KITS } from '../src/networks';
 import { putCode, writeAboutUs } from '../src/networks/alignable/own-profile';
-import type { Hfos, Job, JobTab } from '../src/jobs/job';
+import type { HandOverReply, Hfos, Job, JobTab } from '../src/jobs/job';
 import type { ReportNote } from '../src/jobs/report';
 
 // A person's pace between pages, skipped.
@@ -120,6 +120,8 @@ function alignableTab(doc: Document) {
     async open(url: string) {
       if (url !== MINE) throw new Error(`Not expected: ${url}`);
       opened.push(url);
+      // Opened afresh: whatever was open over the page is gone.
+      for (const box of doc.querySelectorAll('[role="dialog"]')) box.remove();
       return 1;
     },
     async inFront<T>(work: () => Promise<T>) {
@@ -148,10 +150,11 @@ function alignableTab(doc: Document) {
   return { tab, opened, asked };
 }
 
-function alignableJob(tab: JobTab, codes: (string | null)[]) {
+function alignableJob(tab: JobTab, codes: (string | null)[], replies: HandOverReply[] = []) {
   const checked: unknown[] = [];
   const notes: ReportNote[] = [];
   const lines: string[] = [];
+  const handed: string[] = [];
   const job: Job = {
     tab,
     hfos: (async (ask: { readonly type: string; readonly input?: unknown }) => {
@@ -167,8 +170,16 @@ function alignableJob(tab: JobTab, codes: (string | null)[]) {
       lines.push(line);
       return codes.shift() ?? null;
     },
+    ...(replies.length
+      ? {
+          handOver: async (says: string) => {
+            handed.push(says);
+            return replies.shift() ?? 'stop';
+          },
+        }
+      : {}),
   };
-  return { job, checked, notes, lines };
+  return { job, checked, notes, lines, handed };
 }
 
 describe('Read my profile and Put this one in, on Alignable', () => {
@@ -204,6 +215,26 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     expect(doc.querySelector('#about')!.textContent).toBe(ABOUT);
     // Read again for a new check.
     expect(checked).toHaveLength(1);
+  }, 30_000);
+
+  it('asks them to try again when no code came in time, and Alignable emails a new one when they do', async () => {
+    const doc = profile();
+    const { tab, opened, asked } = alignableTab(doc);
+    const { job, lines, handed } = alignableJob(tab, [null, CODE], ['carry_on']);
+    vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
+    try {
+      const going = runAsk({ kind: 'profile_edit', bio: null, about: ABOUT }, job, 'alignable');
+      for (let i = 0; i < 40; i++) await vi.advanceTimersByTimeAsync(1_000);
+      expect(await going).toEqual({ line: 'Your About Us is in.', warned: false });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(handed).toEqual([askCodeRanOutWords('alignable')]);
+    // Their profile opened afresh, and its Edit pressed again for the new code.
+    expect(opened.slice(0, 2)).toEqual([MINE, MINE]);
+    expect(lines).toEqual([askCodeWords('alignable'), askCodeWords('alignable')]);
+    expect(asked.filter((t) => t === 'hfos-put-code')).toHaveLength(1);
+    expect(doc.querySelector('#about')!.textContent).toBe(ABOUT);
   }, 30_000);
 
   it('ends saying so when no code comes, with About Us as it was', async () => {
