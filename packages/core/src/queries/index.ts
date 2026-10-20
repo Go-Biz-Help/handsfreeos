@@ -101,6 +101,7 @@ import { personGet, personList } from './person';
 import { pipelineList } from './pipeline.list';
 import { taskList } from './task.list';
 import { timelineList } from './timeline.list';
+import { activityGet } from './activity.get';
 import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
@@ -197,6 +198,7 @@ export {
   tagList,
   taskList,
   timelineList,
+  activityGet,
   workspaceGet,
   workspaceInvitations,
   workspaceMembers,
@@ -287,6 +289,8 @@ export const queries: readonly QueryDef[] = [
   leadGet,
   taskList,
   timelineList,
+  // One timeline line, for a search result's ?activity= link.
+  activityGet,
   fileList,
   fileFingerprints,
   importGet,

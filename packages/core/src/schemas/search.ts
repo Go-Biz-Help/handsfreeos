@@ -90,7 +90,7 @@ export const SearchHit = z.object({
   subtitle: z.string().nullable(),
   /**
    * lead, client, archived, done, won, lost, cancelled, void, late, due, paid, draft, other_mail, spam, my_mail,
-   * voicemail, anonymous.
+   * voicemail, anonymous, automated (a campaign or automated send).
    */
   badges: z.array(z.string()),
   why: z.object({

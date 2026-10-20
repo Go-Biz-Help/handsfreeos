@@ -185,7 +185,8 @@ const phoneCanWait = (c: { name: string; offline: unknown; actors?: readonly str
 /**
  * What the phone asks the server for that its own copy can't answer: among them a form's answers (one at a time, and
  * all of them for a spreadsheet), and the business's link name and own domain for the form's link and QR code; and
- * Real Estate's buyer pages for a deal the phone keeps only as its summary (round six), loaded with signal.
+ * Real Estate's buyer pages for a deal the phone keeps only as its summary (round six), loaded with signal; and
+ * Search everything, whose inputs only ever grow (every field has a default, and kinds and badges are strings).
  */
 const QUERIES = [
   'account.me',
@@ -270,6 +271,9 @@ const QUERIES = [
   'partner.list',
   'partner.get',
   'partner.of_person',
+  // Search everything, with signal: the box, and one kind a page at a time (the search plan, stage 3).
+  'search.everything',
+  'search.kind',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

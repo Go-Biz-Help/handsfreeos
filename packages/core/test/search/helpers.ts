@@ -21,7 +21,7 @@ import type { RunOptions } from '../../src/search/server/run';
 import { runSearch } from '../../src/search/server/run';
 import { admin, ask, human, setupTeam, type Team } from '../calendar-helpers';
 
-export { admin, ask, expectHfos, run } from '../calendar-helpers';
+export { admin, ask, expectHfos, run, runSystem } from '../calendar-helpers';
 
 /** Search everything as someone. */
 export const everything = (
@@ -288,3 +288,335 @@ export async function searchWorld(label: string): Promise<World> {
     },
   };
 }
+
+/**
+ * The rows Search 3's kinds find, added to Bayou Plumbing (boards 1 to 4): threads with their messages and calls,
+ * a chat visitor and an Instagram handle, Other mail and Spam, the calendar, tasks, notes and the timeline lines that
+ * aren't notes, files with port papers and a knowledge file beside them, and a form with its answers.
+ */
+export async function moreOfTheBoards(w: World): Promise<Record<string, string>> {
+  const ws = w.wsId;
+  const ago = (days: number) => sql`now() - make_interval(secs => ${Math.round(days * 86_400)})`;
+  const thread = (f: Record<string, unknown>) =>
+    one(sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, last_message_at,
+              last_preview, folder, private_to, archived_at, assignee_user_id, custom_record_id, meta_account_id)
+            values (${ws}, ${f.channel as string}::app.channel, ${f.counterpart as string},
+              ${(f.person as string) ?? null}, ${ago((f.days as number) ?? 1)}, ${(f.preview as string) ?? null},
+              ${(f.folder as string) ?? 'inbox'}::app.conversation_folder, ${(f.privateTo as string) ?? null},
+              ${f.archived ? sql`now()` : sql`null`}, ${(f.assignee as string) ?? null},
+              ${(f.record as string) ?? null}, ${(f.metaAccount as string) ?? null})
+            returning id`);
+  const message = (conversation: string, f: Record<string, unknown>) =>
+    one(sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, subject, body_text,
+              occurred_at, error_code)
+            select ${ws}, c.id, c.channel, ${(f.direction as string) ?? 'inbound'}::app.direction,
+              ${f.direction === 'outbound' ? 'sent' : 'received'}::app.message_status, ${(f.subject as string) ?? null},
+              ${f.body as string}, ${ago((f.days as number) ?? 1)}, ${(f.error as string) ?? null}
+            from app.conversations c where c.id = ${conversation}
+            returning id`);
+  const call = (f: Record<string, unknown>) =>
+    one(sql`insert into app.calls (workspace_id, conversation_id, person_id, direction, from_e164, to_e164, status,
+              started_at, transcript, is_voicemail, answered_via, answered_by_user_id)
+            values (${ws}, ${(f.conversation as string) ?? null}, ${(f.person as string) ?? null}, 'inbound',
+              ${(f.from as string) ?? '+15045550142'}, '+15045550000', 'completed', ${ago((f.days as number) ?? 1)},
+              ${f.transcript as string}, ${!!f.voicemail}, ${(f.via as string) ?? null}::app.call_answered_via,
+              ${(f.answeredBy as string) ?? null})
+            returning id`);
+
+  // Dana's texts: the water heater, and a call about its pilot light.
+  const danaTexts = await thread({
+    channel: 'sms',
+    counterpart: '+15045550142',
+    person: w.ids.dana,
+    days: 2,
+    preview: 'Sure, we can come Thursday',
+    assignee: w.member.id,
+  });
+  const leak = await message(danaTexts, {
+    body: 'The water heater is leaking near the gas valve again',
+    days: 3,
+  });
+  await message(danaTexts, { body: 'Sure, we can come Thursday', direction: 'outbound', days: 2 });
+  // A held text that was cancelled never went: it's in no search.
+  await message(danaTexts, {
+    body: 'Heldback reminder',
+    direction: 'outbound',
+    error: 'cancelled',
+  });
+  const pilotCall = await call({
+    conversation: danaTexts,
+    person: w.ids.dana,
+    transcript: 'The pilot light on the water heater keeps going out',
+    days: 2.5,
+  });
+  // Through someone's own cell and never picked up: not part of the thread, so not found.
+  await call({
+    conversation: danaTexts,
+    person: w.ids.dana,
+    transcript: 'Unansweredbridge call',
+    via: 'bridge',
+  });
+
+  // Kim's email, in Other mail.
+  const kimMail = await thread({
+    channel: 'email',
+    counterpart: 'kim@gulfcoastrealty.com',
+    person: w.ids.kim,
+    folder: 'other',
+    days: 4,
+    preview: 'Backflow certificate',
+  });
+  await message(kimMail, {
+    subject: 'Backflow certificate',
+    body: 'Attached is the backflow certificate for building 2.',
+    days: 4,
+  });
+
+  // Spam, with a call in it.
+  const spam = await thread({
+    channel: 'email',
+    counterpart: 'deals@cheap-tanks.example',
+    folder: 'spam',
+    days: 5,
+  });
+  await message(spam, { subject: 'Cheap tanks', body: 'Tankless heaters at half price', days: 5 });
+  const spamCall = await call({ conversation: spam, transcript: 'Tankless heaters robocall' });
+
+  // An archived thread: found under Archived by who it's with, never by its words without Include archived.
+  const archivedThread = await thread({
+    channel: 'sms',
+    counterpart: '+15045553333',
+    person: w.ids.jose,
+    archived: true,
+    days: 6,
+  });
+  await message(archivedThread, { body: 'Shelvedword quote for the gate', days: 6 });
+  await call({ conversation: archivedThread, transcript: 'Shelvedcall about the gate' });
+
+  // A voicemail with no thread, from Marcus: it opens his timeline.
+  const voicemail = await call({
+    person: w.ids.marcus,
+    from: '+15045550199',
+    transcript: 'Marcus here about the repipe estimate, call me back',
+    voicemail: true,
+  });
+
+  // A website visitor and an Instagram customer, found by their names.
+  const widget = await one(
+    sql`insert into app.chat_widgets (workspace_id, allowed_origins)
+        values (${ws}, '{https://bayouplumbing.example}') returning id`,
+  );
+  // A visitor's conversation is named for it.
+  const visitor = randomUUID();
+  const chat = await thread({ channel: 'chat', counterpart: `chat:${visitor}`, days: 1 });
+  await rows(
+    admin(),
+    sql`insert into app.chat_visitors (id, workspace_id, widget_id, token_hash, conversation_id, name)
+        values (${visitor}, ${ws}, ${widget}, ${Buffer.from(randomUUID())}, ${chat}, 'Beatrice Fontaine')`,
+  );
+  await message(chat, { body: 'Do you service tankless units?' });
+  const igAccount = String(1_784_000_000_000 + Math.floor(Math.random() * 1e9));
+  const metaAccount = await one(
+    sql`insert into app.meta_accounts (workspace_id, platform, external_id, page_id, name)
+        values (${ws}, 'instagram', ${igAccount}, ${igAccount}, 'Bayou Plumbing') returning id`,
+  );
+  const insta = await thread({
+    channel: 'instagram',
+    counterpart: `instagram:${igAccount}:IGSID4471`,
+    metaAccount,
+    days: 1,
+  });
+  await rows(
+    admin(),
+    sql`insert into app.meta_contacts (workspace_id, account_id, platform, scoped_id, name, username,
+          conversation_id)
+        values (${ws}, ${metaAccount}, 'instagram', 'IGSID4471', 'Theo Lavergne', 'nolaplumbfan', ${insta})`,
+  );
+  await message(insta, { body: 'Saw your post about water heaters' });
+
+  // The calendar.
+  const calendar = await one(
+    sql`insert into app.calendars (workspace_id, name, slug)
+        values (${ws}, 'Service calls', ${`service-${randomUUID().slice(0, 8)}`}) returning id`,
+  );
+  const visit = (f: Record<string, unknown>) =>
+    one(sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at,
+              location, notes, status, owner_user_id)
+            values (${ws}, ${calendar}, 1, ${f.title as string}, ${ago(f.days as number)},
+              ${ago((f.days as number) - 0.08)}, ${JSON.stringify(f.location ?? {})}::jsonb,
+              ${(f.notes as string) ?? null}, ${(f.status as string) ?? 'scheduled'}::app.appointment_status,
+              ${(f.owner as string) ?? null})
+            returning id`);
+  const tankSwap = await visit({
+    title: 'Tank swap',
+    days: -3,
+    location: { kind: 'address', address: '77 Egret Ave, Metairie' },
+    notes: 'Bring the 50 gallon tank',
+    owner: w.member.id,
+  });
+  await rows(
+    admin(),
+    sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status, contact_phone_e164,
+          contact_email)
+        values (${ws}, ${tankSwap}, ${w.ids.jo}, 'booked', '+15045550177', 'jo@smithers.net')`,
+  );
+  const drain = await visit({ title: 'Drain cleaning', days: 1, status: 'cancelled' });
+
+  // Tasks.
+  const task = (f: Record<string, unknown>) =>
+    one(sql`insert into app.tasks (workspace_id, title, notes, person_id, company_id, due_at, done_at,
+              assignee_user_id, created_by)
+            values (${ws}, ${f.title as string}, ${(f.notes as string) ?? null}, ${(f.person as string) ?? null},
+              ${(f.company as string) ?? null}, ${f.due === undefined ? sql`null` : ago(f.due as number)},
+              ${f.done ? sql`now()` : sql`null`}, ${(f.assignee as string) ?? null}, ${w.owner.id})
+            returning id`);
+  const callBack = await task({
+    title: 'Call Dana back about the water heater',
+    person: w.ids.dana,
+    due: -1,
+    assignee: w.member.id,
+  });
+  const parts = await task({
+    title: 'Order backflow parts',
+    notes: 'Smithfield needs four valves',
+    company: w.ids.smithfield,
+    done: true,
+  });
+
+  // The timeline: notes, and the lines that aren't.
+  const line = (f: Record<string, unknown>) =>
+    one(sql`insert into app.activities (workspace_id, kind, subtype, body, person_id, occurred_at, actor_type,
+              author_user_id)
+            values (${ws}, ${f.kind as string}::app.activity_kind, ${(f.subtype as string) ?? null},
+              ${f.body as string}, ${(f.person as string) ?? w.ids.dana}, ${ago((f.days as number) ?? 2)},
+              ${(f.actor as string) ?? 'human'}::app.actor_type, ${(f.author as string) ?? null})
+            returning id`);
+  const gateNote = await line({
+    kind: 'note',
+    body: 'Gate code 4471, dog in the yard',
+    author: w.member.id,
+  });
+  const referred = await line({ kind: 'note', body: 'Referred by Jo Smithers', days: 1 });
+  const imported = await line({
+    kind: 'note',
+    subtype: 'gohighlevel',
+    actor: 'integration',
+    body: 'Imported: prefers morning visits',
+    person: w.ids.marcus,
+  });
+  const loggedCall = await line({
+    kind: 'call',
+    body: 'Called about the furnace filter',
+    person: w.ids.jo,
+  });
+  const summary = await line({
+    kind: 'note',
+    actor: 'system',
+    body: 'Call summary: Duct quote call\n\nThey want the duct quote by Friday.',
+    person: w.ids.jo,
+    days: 3,
+  });
+  await line({ kind: 'sms', subtype: 'inbound', body: 'Smscopyword about the leak' });
+  await line({ kind: 'call', subtype: 'answered', body: 'Callcopyword transcript' });
+  await line({ kind: 'system', subtype: 'file_added', body: 'Fileaddedword.pdf' });
+  await line({ kind: 'system', subtype: 'intake', body: 'Intakeword answers' });
+
+  // Files: one on Kim, port papers and a knowledge file beside it.
+  const file = (f: Record<string, unknown>) =>
+    one(sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, status, created_by)
+            values (${ws}, ${f.type as string}::app.record_type, ${f.record as string},
+              ${`${ws}/${randomUUID()}`}, ${f.name as string}, 'ready', ${w.owner.id})
+            returning id`);
+  const report = await file({ type: 'person', record: w.ids.kim, name: 'Backflow report.pdf' });
+  const port = await file({ type: 'port', record: randomUUID(), name: 'Backflow LOA signed.pdf' });
+  const priceList = await file({ type: 'knowledge', record: ws, name: 'Backflow price list.pdf' });
+
+  // A form, with Jo's answers, an anonymous one, and one still being filled in.
+  const form = await one(
+    sql`insert into app.forms (workspace_id, name, slug)
+        values (${ws}, 'Water heater survey', ${`survey-${randomUUID().slice(0, 8)}`}) returning id`,
+  );
+  // Question ids are random, so these sort against the form's order: a response's first answer is the form's.
+  const questions: Record<string, string> = {
+    'What tank do you have?': 'q_tank0009',
+    'Anything else?': 'q_else0005',
+    Deposit: 'q_depo0001',
+  };
+  const definition = {
+    pages: [{ id: 'p_survey01', questions: Object.values(questions).map((id) => ({ id })) }],
+  };
+  const version = await one(
+    sql`insert into app.form_versions (workspace_id, form_id, version, definition, definition_version, revision)
+        values (${ws}, ${form}, 1, ${JSON.stringify(definition)}::jsonb, 1, 1) returning id`,
+  );
+  const response = async (
+    person: string | null,
+    status: string,
+    answers: Record<string, unknown>[],
+  ) => {
+    const id = await one(
+      sql`insert into app.form_responses (workspace_id, form_id, version_id, status, person_id, completed_at)
+          values (${ws}, ${form}, ${version}, ${status}::app.form_response_status, ${person},
+            ${status === 'completed' ? sql`now()` : sql`null`})
+          returning id`,
+    );
+    for (const a of answers)
+      await rows(
+        admin(),
+        sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title,
+              question_type, text_value, choice_labels, answered_at)
+            values (${ws}, ${id}, ${form}, ${questions[a.question as string]!}, ${a.question as string},
+              ${(a.type as string) ?? 'short_text'}, ${(a.text as string) ?? null},
+              ${textArrayOf((a.choices as string[]) ?? [])}, now() - interval '1 day')`,
+      );
+    return id;
+  };
+  const joAnswers = await response(w.ids.jo!, 'completed', [
+    { question: 'What tank do you have?', text: '50 gallon, gas' },
+    { question: 'Anything else?', text: 'It smells like rotten eggs' },
+    { question: 'Deposit', type: 'payment', text: 'Depositword paid' },
+  ]);
+  // A choice, as forms/submit.ts keeps one: its labels, and the same words in text_value.
+  const anonymous = await response(null, 'completed', [
+    { question: 'What tank do you have?', type: 'choice', choices: ['Tankless'], text: 'Tankless' },
+  ]);
+  await response(w.ids.dana!, 'in_progress', [{ question: 'Anything else?', text: 'Halfwayword' }]);
+
+  return {
+    calendar,
+    danaTexts,
+    leak,
+    pilotCall,
+    kimMail,
+    spam,
+    spamCall,
+    archivedThread,
+    voicemail,
+    chat,
+    insta,
+    tankSwap,
+    drain,
+    callBack,
+    parts,
+    gateNote,
+    referred,
+    imported,
+    loggedCall,
+    summary,
+    report,
+    port,
+    priceList,
+    form,
+    joAnswers,
+    anonymous,
+  };
+}
+
+/** A text[] parameter. */
+const textArrayOf = (values: readonly string[]) =>
+  values.length
+    ? sql`array[${sql.join(
+        values.map((v) => sql`${v}`),
+        sql`, `,
+      )}]::text[]`
+    : sql`'{}'::text[]`;

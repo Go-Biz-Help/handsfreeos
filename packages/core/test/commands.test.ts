@@ -864,6 +864,7 @@ describe('registry', () => {
       'lead.get',
       'task.list',
       'timeline.list',
+      'activity.get',
       'file.list',
       'file.fingerprints',
       'import.get',

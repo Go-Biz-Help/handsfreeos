@@ -41,7 +41,7 @@ async function guarded<T>(name: string, fn: () => Promise<T>): Promise<T> {
 export const searchEverything = defineQuery({
   name: 'search.everything',
   description:
-    'Search everything in the business the person may see, a few results of each kind, best first: contacts, companies, leads, money, knowledge, the business’s own kinds of records, and the Deleted bin.',
+    'Search everything in the business the person may see, a few results of each kind, best first: contacts, companies, leads, money, messages and calls, the calendar, tasks, notes, files, forms and their answers, knowledge, the business’s own kinds of records, archived records and the Deleted bin.',
   input: SearchEverythingInput,
   output: SearchEverythingOutput,
   permission: 'workspace.read',
@@ -52,7 +52,7 @@ export const searchEverything = defineQuery({
 export const searchKind = defineQuery({
   name: 'search.kind',
   description:
-    'One kind of search result at a time, 50 to a page: best match, most recent or by name, with leads and clients counted for contacts and contacts who share a phone or an email.',
+    'One kind of search result at a time, 50 to a page: best match, most recent or by name, with leads and clients counted for contacts and contacts who share a phone or an email, Spam on its own, and messages, notes and answers further back.',
   input: SearchKindInput,
   output: SearchKindOutput,
   permission: 'workspace.read',

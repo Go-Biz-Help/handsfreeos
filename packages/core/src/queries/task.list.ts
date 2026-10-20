@@ -85,6 +85,7 @@ export const taskList = defineQuery({
             ${input.companyId ? sql`and t.company_id = ${input.companyId}` : sql``}
             ${input.leadId ? sql`and t.lead_id = ${input.leadId}` : sql``}
             ${input.customRecordId ? sql`and t.custom_record_id = ${input.customRecordId}` : sql``}
+            ${input.taskId ? sql`and t.id = ${input.taskId}` : sql``}
         ) x
         ${cursor ? (doneOrder ? sql`where (x.sort_at, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql`where (x.sort_at, x.id) > (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`) : sql``}
         order by ${doneOrder ? sql`x.sort_at desc, x.id desc` : sql`x.sort_at, x.id`}

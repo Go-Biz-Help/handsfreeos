@@ -32,6 +32,7 @@ import { probesOut, searchProbes, type SearchProbes } from '../probes';
 import { bestOf, orderGroups, rankHits } from '../rank';
 import { SEARCH_WORDS } from '../words';
 import { SEARCHERS } from './kinds/index';
+import { reachOfAll } from './sql';
 
 /** How long a search may take, and each statement in it (How it works, 6). */
 export const SEARCH_BUDGETS = {
@@ -96,6 +97,8 @@ export interface SearchPlan {
   readonly me: string | null;
   readonly p: SearchProbes;
   readonly mode: 'everything' | 'kind';
+  /** The windows' size: the box's (quick), or the Search page's and a kind's own page's (full). */
+  readonly depth: 'quick' | 'full';
   readonly perKind: number;
   /** Candidate rows to read. */
   readonly limit: number;
@@ -275,6 +278,7 @@ export async function runSearchEverything(
     me: ctx.actor.type === 'human' ? ctx.actor.userId : null,
     p,
     mode: 'everything',
+    depth: input.depth,
     perKind: input.perKind,
     limit: COUNT_ROWS,
     sort: 'best',
@@ -286,7 +290,12 @@ export async function runSearchEverything(
     can,
   };
   const keys = kinds ? new Set([...kinds].map(searcherKeyOf)) : null;
-  const running = searchersFor(all, (k) => can(k.needs) && k.key !== 'close', keys);
+  // Spam only when it's picked by name (decision 9).
+  const running = searchersFor(
+    all,
+    (k) => can(k.needs) && k.key !== 'close' && (!k.picked || !!keys?.has(k.key)),
+    keys,
+  );
 
   // 3. Every kind's candidates, in kind order. A kind stopped for time is marked, and the rest still run.
   const found: { searcher: KindSearcher; f: FoundGroup; active: SearchHit[] }[] = [];
@@ -401,8 +410,15 @@ export async function runSearchEverything(
   };
 }
 
-/** The kinds the Archived page looks in. */
-const ARCHIVED_KINDS: readonly string[] = ['contacts', 'companies', 'leads', 'records'];
+/** The kinds the Archived page looks in: whatever can be archived. */
+const ARCHIVED_KINDS: readonly string[] = [
+  'contacts',
+  'companies',
+  'leads',
+  'messages',
+  'forms',
+  'records',
+];
 
 const kindGone = () => HfosError.rule('search_kind_gone', 404, SEARCH_WORDS.kindGone);
 
@@ -538,6 +554,7 @@ export async function runSearchKind(
     me: ctx.actor.type === 'human' ? ctx.actor.userId : null,
     p,
     mode: 'kind',
+    depth: 'full',
     perKind: input.limit,
     limit: KIND_ROWS + 1,
     sort: input.sort,
@@ -570,7 +587,20 @@ export async function runSearchKind(
   // A kind of record that's gone, or hidden with its add-on, answers no group at all.
   if (!archivedPage && !mine) throw kindGone();
 
-  let hits = archivedPage ? found.flatMap((g) => g.hits).filter(isArchived) : mine!.hits;
+  // The Archived page's windowed kinds (threads) say how far back they looked, as a kind's page does; Look further
+  // back reads on only in those, since the rest showed everything the first time.
+  const archivedFrom = archivedPage
+    ? found.filter((g) => !plan.before || g.complete !== undefined)
+    : [];
+  const archivedReach = archivedPage
+    ? reachOfAll(
+        archivedFrom.map((g) => ({
+          complete: g.complete ?? true,
+          searchedBack: g.searchedBack ?? null,
+        })),
+      )
+    : null;
+  let hits = archivedPage ? archivedFrom.flatMap((g) => g.hits).filter(isArchived) : mine!.hits;
   let standingCounts: SearchKindOutput['standingCounts'] = null;
   if (input.kind === 'contacts') {
     const counts = standingOf(hits);
@@ -602,8 +632,8 @@ export async function runSearchKind(
       icon: mine?.icon ?? null,
       total: Math.min(ordered.length, KIND_ROWS),
       capped: ordered.length > KIND_ROWS || !!mine?.capped,
-      complete: firstStopped ? false : (mine?.complete ?? true),
-      searchedBack: mine?.searchedBack ?? null,
+      complete: firstStopped ? false : (archivedReach?.complete ?? mine?.complete ?? true),
+      searchedBack: archivedReach ? archivedReach.searchedBack : (mine?.searchedBack ?? null),
       unavailable,
       items,
     },

@@ -47,14 +47,26 @@ const isArchived = (hit: Pick<SearchHit, 'badges'>): boolean => hit.badges.inclu
 const time = (at: string | null): number => (at ? Date.parse(at) : 0);
 
 /**
+ * A hit that ranks after the others of its tier: a campaign or automated send (badge `automated`), and a note or a
+ * form answer found by who it's on rather than by its own words (decision 34).
+ */
+export function ranksLater(hit: Pick<SearchHit, 'kind' | 'badges' | 'why'>): boolean {
+  return (
+    hit.badges.includes('automated') ||
+    ((hit.kind === 'notes' || hit.kind === 'forms') && hit.why.field === 'customer')
+  );
+}
+
+/**
  * The order inside a kind: archived after the rest; then by tier; open before finished; one-to-one messages before
- * campaign and automated sends (`automated`); the newest; then the name.
+ * campaign and automated sends, and words before who it's on (`ranksLater`, or `automated` in its place); the newest;
+ * then the name.
  */
 export function rankHits<T extends SearchHit>(
   hits: readonly T[],
   opts: { automated?: (hit: T) => boolean } = {},
 ): T[] {
-  const automated = opts.automated ?? (() => false);
+  const automated = opts.automated ?? ranksLater;
   return [...hits].sort(
     (a, b) =>
       Number(isArchived(a)) - Number(isArchived(b)) ||

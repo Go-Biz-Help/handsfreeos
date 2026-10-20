@@ -52,6 +52,10 @@ export const TimelineEntry = z.object({
 });
 export type TimelineEntry = z.infer<typeof TimelineEntry>;
 
+/** One timeline line, for a search result's `?activity=` link. */
+export const ActivityGetInput = z.object({ workspaceId: uuid, activityId: uuid });
+export const ActivityGetOutput = z.object({ activity: TimelineEntry });
+
 export const TimelineListInput = ListInput.extend({
   workspaceId: uuid,
   recordType: attachableRecordType,

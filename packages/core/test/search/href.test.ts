@@ -41,6 +41,7 @@ describe('result links', () => {
     ).toBe(`${base}inbox/${ID}?message=${OTHER}&at=2026-10-01T10%3A00%3A00.000Z`);
     expect(searchHref(WS, { type: 'conversation', id: ID })).toBe(`${base}inbox/${ID}`);
     expect(searchHref(WS, { type: 'task', id: ID })).toBe(`${base}tasks?task=${ID}`);
+    expect(searchHref(WS, { type: 'form', id: ID })).toBe(`${base}forms/${ID}`);
     expect(searchHref(WS, { type: 'appointment', id: ID, day: '2026-10-23' })).toBe(
       `${base}calendar?appt=${ID}&date=2026-10-23`,
     );

@@ -4,7 +4,11 @@
  * own kinds, the Deleted bin and close matches. A phone typed four ways, a number with and without its prefix, an
  * amount, an address, a domain, a field the business invented, a typo and nothing at all; then counts, Only mine,
  * Include archived, close matches kept to the chips, and `search.kind`'s pages, sorts, standing counts and duplicates.
+ * Then Search 3's: messages and calls, one row a conversation; a chat visitor and an Instagram handle; Other mail and
+ * Spam; archived threads; the calendar, tasks, notes, files and form answers; notes and answers found by who they're
+ * on, after their words; and the windows, Look further back carrying on where one ended.
  */
+import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -12,9 +16,11 @@ import { encodeCursor } from '../../src/kernel/pagination';
 import { personDelete } from '../../src/server';
 import {
   admin,
+  allTitles,
   everything,
   expectHfos,
   groupOf,
+  moreOfTheBoards,
   oneKind,
   run,
   searchWorld,
@@ -27,6 +33,10 @@ beforeAll(async () => {
   w = await searchWorld('search-kinds');
 });
 afterAll(closeTestDbs);
+
+/** One row's id from an insert. */
+const one = async (query: ReturnType<typeof sql>): Promise<string> =>
+  (await rows<{ id: string }>(admin(), query))[0]!.id;
 
 describe('contacts', () => {
   it('finds a phone typed four ways as an exact match, the second Dana pointing at the first', async () => {
@@ -462,5 +472,456 @@ describe('one kind at a time', () => {
     const page = await oneKind(w, w.owner, 'smith', 'contacts');
     expect(page.standingCounts).toEqual({ leads: 2, clients: 2 });
     expect(page.duplicates).toEqual([]);
+  });
+});
+
+describe('the remaining kinds (Search 3)', () => {
+  let m: Record<string, string>;
+  beforeAll(async () => {
+    m = await moreOfTheBoards(w);
+  });
+
+  it('finds words in a message as one row for its conversation, its best message opening the thread there', async () => {
+    const messages = groupOf(await everything(w, w.owner, 'leaking'), 'messages')!;
+    expect(messages.items[0]).toMatchObject({
+      id: m.danaTexts,
+      title: 'Text from Dana Smith',
+      tier: 4,
+      why: { field: 'message' },
+    });
+    expect(messages.items[0]!.href).toContain(`/inbox/${m.danaTexts}?message=${m.leak}&at=`);
+    const snippet = messages.items[0]!.why.snippet!;
+    expect(snippet.marks.map(([a, b]) => snippet.text.slice(a, b))).toEqual(['leaking']);
+    // A message and a call in the same thread are one row, counting both.
+    const heater = groupOf(await everything(w, w.owner, 'water heater'), 'messages')!;
+    const dana = heater.items.find((h) => h.id === m.danaTexts)!;
+    expect(dana.facts.matches).toBe(2);
+    expect(heater.items.filter((h) => h.id === m.danaTexts)).toHaveLength(1);
+  });
+
+  it('finds a thread exactly by its number, and by a chat visitor’s name or an Instagram handle', async () => {
+    const phone = groupOf(await everything(w, w.owner, '(504) 555-0142'), 'messages')!;
+    expect(phone.items[0]).toMatchObject({
+      id: m.danaTexts,
+      title: 'Texts with Dana Smith',
+      tier: 0,
+      exact: true,
+      why: { field: 'phone' },
+    });
+    const page = await oneKind(w, w.owner, '(504) 555-0142', 'messages');
+    expect(page.group.items[0]!.facts.messages).toBe(2);
+    const chat = groupOf(await everything(w, w.owner, 'beatrice'), 'messages')!;
+    expect(chat.items[0]).toMatchObject({ id: m.chat, title: 'Chat with Beatrice Fontaine' });
+    const insta = groupOf(await everything(w, w.owner, 'nolaplumbfan'), 'messages')!;
+    expect(insta.items[0]).toMatchObject({ id: m.insta, title: 'Instagram with Theo Lavergne' });
+  });
+
+  it('badges Other mail, keeps Spam and its calls to the Spam kind, and finds a voicemail with no thread', async () => {
+    const kim = groupOf(await everything(w, w.owner, 'backflow certificate'), 'messages')!;
+    expect(kim.items[0]).toMatchObject({ id: m.kimMail, title: 'Email · Kim Le' });
+    expect(kim.items[0]!.badges).toContain('other_mail');
+    for (const q of ['tankless heaters', 'robocall']) {
+      expect(groupOf(await everything(w, w.owner, q), 'messages'), q).toBeUndefined();
+      const spam = groupOf(await everything(w, w.owner, q, { kinds: ['spam'] }), 'spam')!;
+      expect(spam.items[0], q).toMatchObject({ id: m.spam, badges: ['spam'] });
+    }
+    expect(titles((await oneKind(w, w.owner, 'robocall', 'spam')).group)).toHaveLength(1);
+    const voicemail = groupOf(await everything(w, w.owner, 'repipe estimate'), 'messages')!;
+    expect(voicemail.items[0]).toMatchObject({
+      id: m.voicemail,
+      title: 'Call · Marcus Smith',
+      why: { field: 'voicemail' },
+      href: `/app/w/${w.wsId}/customers/people/${w.ids.marcus}`,
+    });
+    expect(voicemail.items[0]!.badges).toContain('voicemail');
+  });
+
+  it('keeps an archived thread under Archived by who it’s with, and its words and calls to Include archived', async () => {
+    for (const q of ['shelvedword', 'shelvedcall']) {
+      const a = await everything(w, w.owner, q);
+      expect(allTitles(a), q).toEqual([]);
+      const included = groupOf(
+        await everything(w, w.owner, q, { includeArchived: true }),
+        'messages',
+      )!;
+      expect(included.items[0], q).toMatchObject({ id: m.archivedThread });
+      expect(included.items[0]!.badges, q).toContain('archived');
+    }
+    const byName = await everything(w, w.owner, 'garcia');
+    expect(byName.archived!.items.map((h) => [h.kind, h.title])).toEqual([
+      ['messages', 'Texts with José García'],
+    ]);
+    const archivedPage = await oneKind(w, w.owner, 'garcia', 'archived');
+    expect(titles(archivedPage.group)).toContain('Texts with José García');
+  });
+
+  it('keeps calls and messages to the person’s own threads with Only mine', async () => {
+    const mine = groupOf(
+      await everything(w, w.member, 'pilot light', { onlyMine: true }),
+      'messages',
+    );
+    expect(mine?.items[0]?.id).toBe(m.danaTexts);
+    expect(
+      groupOf(await everything(w, w.marco, 'pilot light', { onlyMine: true }), 'messages'),
+    ).toBeUndefined();
+  });
+
+  it('finds the calendar by who’s coming, exactly or by name, by the place and by the notes, cancelled ones last', async () => {
+    const exact = groupOf(await everything(w, w.owner, '(504) 555-0177'), 'calendar')!;
+    expect(exact.items[0]).toMatchObject({ id: m.tankSwap, tier: 0, exact: true });
+    const place = groupOf(await everything(w, w.owner, '77 egret'), 'calendar')!;
+    expect(place.items[0]).toMatchObject({
+      title: 'Tank swap',
+      tier: 3,
+      why: { field: 'address' },
+    });
+    expect(place.items[0]!.href).toMatch(
+      new RegExp(`/calendar\\?appt=${m.tankSwap}&date=\\d{4}-\\d{2}-\\d{2}$`),
+    );
+    const who = groupOf(await everything(w, w.owner, 'jo smithers'), 'calendar')!;
+    expect(who.items[0]).toMatchObject({ title: 'Tank swap', why: { field: 'customer' } });
+    expect(who.items[0]!.facts.who).toBe('Jo Smithers');
+    const notes = groupOf(await everything(w, w.owner, '50 gallon tank'), 'calendar')!;
+    expect(notes.items[0]).toMatchObject({ title: 'Tank swap', tier: 4, why: { field: 'note' } });
+    const drain = groupOf(await everything(w, w.owner, 'drain'), 'calendar')!;
+    expect(drain.items[0]).toMatchObject({ id: m.drain, badges: ['cancelled'] });
+  });
+
+  it('finds tasks by title and by their notes, done ones marked, opening over the Tasks page', async () => {
+    const task = groupOf(await everything(w, w.owner, 'water heater'), 'tasks')!;
+    expect(task.items[0]).toMatchObject({
+      id: m.callBack,
+      tier: 1,
+      href: `/app/w/${w.wsId}/tasks?task=${m.callBack}`,
+      facts: { owner: 'Mike Member', on: 'Dana Smith' },
+    });
+    const notes = groupOf(await everything(w, w.owner, 'four valves'), 'tasks')!;
+    expect(notes.items[0]).toMatchObject({
+      id: m.parts,
+      tier: 4,
+      why: { field: 'task_notes' },
+      badges: ['done'],
+    });
+  });
+
+  it('finds a note by its words, then notes found by who they’re on, after them', async () => {
+    const gate = groupOf(await everything(w, w.owner, 'gate code'), 'notes')!;
+    expect(gate.items[0]).toMatchObject({
+      id: m.gateNote,
+      title: 'Gate code 4471, dog in the yard',
+      tier: 4,
+      why: { field: 'note' },
+      facts: { on: 'Dana Smith' },
+      href: `/app/w/${w.wsId}/customers/people/${w.ids.dana}?activity=${m.gateNote}`,
+    });
+    const smithers = groupOf(await everything(w, w.owner, 'smithers', { perKind: 5 }), 'notes')!;
+    expect(smithers.items.map((h) => [h.id, h.why.field])).toEqual([
+      [m.referred, 'note'],
+      [m.loggedCall, 'customer'],
+      [m.summary, 'customer'],
+    ]);
+  });
+
+  it('finds files by name, saying what they’re on, never port papers or knowledge files', async () => {
+    const files = groupOf(await everything(w, w.owner, 'backflow'), 'files')!;
+    expect(files.items.map((h) => h.id)).toEqual([m.report]);
+    expect(files.items[0]).toMatchObject({
+      title: 'Backflow report.pdf',
+      why: { field: 'file_name' },
+      facts: { on: 'Kim Le' },
+      href: `/app/w/${w.wsId}/customers/people/${w.ids.kim}?tab=files&file=${m.report}`,
+    });
+  });
+
+  it('finds a form by name, and answers by their words, then by who answered, one row a response', async () => {
+    const form = groupOf(await everything(w, w.owner, 'heater survey'), 'forms')!;
+    expect(form.items[0]).toMatchObject({
+      id: m.form,
+      tier: 1,
+      why: { field: 'form_name' },
+      href: `/app/w/${w.wsId}/forms/${m.form}`,
+    });
+    const answer = groupOf(await everything(w, w.owner, '50 gallon'), 'forms')!;
+    expect(answer.items[0]).toMatchObject({
+      id: m.joAnswers,
+      title: 'Water heater survey',
+      tier: 4,
+      why: { field: 'answer' },
+      facts: { answeredBy: 'Jo Smithers', question: 'What tank do you have?' },
+      href: `/app/w/${w.wsId}/forms/${m.form}/answers/${m.joAnswers}`,
+    });
+    const anonymous = groupOf(await everything(w, w.owner, 'tankless'), 'forms')!;
+    expect(anonymous.items[0]).toMatchObject({
+      id: m.anonymous,
+      badges: ['anonymous'],
+      facts: { answeredBy: null },
+    });
+    // A choice is kept in its labels and in text_value alike: its words show once.
+    expect(anonymous.items[0]!.why.snippet!.text).toBe('Tankless');
+    // Smithers is in a note's words, and answered the survey: words first, then who answered, with the answer to
+    // the form's first question, though its id sorts last.
+    const byWho = groupOf(await everything(w, w.owner, 'smithers'), 'forms')!;
+    expect(byWho.items[0]).toMatchObject({ id: m.joAnswers, why: { field: 'customer' } });
+    expect(byWho.items[0]!.why.snippet!.text).toBe('50 gallon, gas');
+    expect(byWho.items.filter((h) => h.id === m.joAnswers)).toHaveLength(1);
+    // A response still being filled in isn't found.
+    expect(groupOf(await everything(w, w.owner, 'halfwayword'), 'forms')).toBeUndefined();
+  });
+
+  it('folds accents in the name a note, a visit or an answer is found by', async () => {
+    const note = await one(
+      sql`insert into app.activities (workspace_id, kind, body, person_id, occurred_at, actor_type)
+          values (${w.wsId}, 'note', 'Prefers mornings', ${w.ids.jose}, now() - interval '1 day', 'human')
+          returning id`,
+    );
+    const visit = await one(
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at)
+          values (${w.wsId}, ${m.calendar}, 1, 'Gutter install', now() + interval '2 days',
+            now() + interval '2 days 1 hour')
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${w.wsId}, ${visit}, ${w.ids.jose}, 'booked')`,
+    );
+    const answers = await one(
+      sql`insert into app.form_responses (workspace_id, form_id, version_id, status, person_id, completed_at)
+          select ${w.wsId}, ${m.form}, v.id, 'completed', ${w.ids.jose}, now()
+          from app.form_versions v where v.form_id = ${m.form}
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title,
+            question_type, text_value)
+          values (${w.wsId}, ${answers}, ${m.form}, 'q_else0005', 'Anything else?', 'long_text', 'Ring twice')`,
+    );
+    for (const q of ['jose garcia', 'josé garcía']) {
+      const a = await everything(w, w.owner, q);
+      expect(
+        groupOf(a, 'notes')?.items.find((h) => h.id === note),
+        q,
+      ).toMatchObject({
+        why: { field: 'customer' },
+      });
+      expect(
+        groupOf(a, 'calendar')?.items.find((h) => h.id === visit),
+        q,
+      ).toMatchObject({
+        why: { field: 'customer' },
+      });
+      expect(
+        groupOf(a, 'forms')?.items.find((h) => h.id === answers),
+        q,
+      ).toMatchObject({
+        why: { field: 'customer' },
+        facts: { answeredBy: 'José García' },
+      });
+    }
+  });
+
+  it('leaves who answered off a response whose customer was merged away, and doesn’t call it anonymous', async () => {
+    const shell = await one(
+      sql`insert into app.people (workspace_id, first_name, last_name) values (${w.wsId}, 'Nell', 'Shell')
+          returning id`,
+    );
+    const answers = await one(
+      sql`insert into app.form_responses (workspace_id, form_id, version_id, status, person_id, completed_at)
+          select ${w.wsId}, ${m.form}, v.id, 'completed', ${shell}, now()
+          from app.form_versions v where v.form_id = ${m.form}
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title,
+            question_type, text_value)
+          values (${w.wsId}, ${answers}, ${m.form}, 'q_else0005', 'Anything else?', 'long_text', 'Numbatword here')`,
+    );
+    await rows(
+      admin(),
+      sql`update app.people set merged_into_id = ${w.ids.dana}, merged_at = now() where id = ${shell}`,
+    );
+    const found = groupOf(await everything(w, w.owner, 'numbatword'), 'forms')!;
+    expect(found.items[0]).toMatchObject({
+      id: answers,
+      contact: null,
+      badges: [],
+      facts: { answeredBy: null },
+    });
+  });
+
+  it('never matches a thread by the letters or digits of our own keys for it', async () => {
+    const portal = await one(
+      sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, last_message_at)
+          values (${w.wsId}, 'portal', 'portal:5f1e0420-7c3b-4a9d-8e21-0b6c1042aa77', ${w.ids.dana}, now())
+          returning id`,
+    );
+    for (const q of ['1042', 'portal', 'chat', '0420']) {
+      const ids = (groupOf(await everything(w, w.owner, q), 'messages')?.items ?? []).map(
+        (h) => h.id,
+      );
+      expect(ids, q).not.toContain(portal);
+      expect(ids, q).not.toContain(m.chat);
+    }
+    // A text's number still is: "0142" is in Dana's.
+    const digits = groupOf(await everything(w, w.owner, '0142'), 'messages')!;
+    expect(digits.items.find((h) => h.id === m.danaTexts)).toMatchObject({
+      tier: 3,
+      why: { field: 'phone' },
+    });
+  });
+
+  it('reads notes whose words match before notes found by who they’re on, and caps a window’s count at 100', async () => {
+    const zephyr = await one(
+      sql`insert into app.people (workspace_id, first_name, last_name) values (${w.wsId}, 'Zephyr', 'Quayle')
+          returning id`,
+    );
+    const quote = await one(
+      sql`insert into app.activities (workspace_id, kind, body, person_id, occurred_at, actor_type)
+          values (${w.wsId}, 'note', 'Zephyr asked for a quote', ${zephyr}, now() - interval '10 days', 'human')
+          returning id`,
+    );
+    // Calls logged with no words, every one newer than the note: more than the box reads.
+    await rows(
+      admin(),
+      sql`insert into app.activities (workspace_id, kind, body, person_id, occurred_at, actor_type)
+          select ${w.wsId}, 'call', null, ${zephyr}, now() - make_interval(mins => n), 'human'
+          from generate_series(1, 105) n`,
+    );
+    const notes = groupOf(await everything(w, w.owner, 'zephyr'), 'notes')!;
+    expect(notes.items[0]).toMatchObject({ id: quote, why: { field: 'note' } });
+    expect(notes).toMatchObject({ total: 100, capped: true });
+  });
+
+  it('keeps each kind to the person’s own with Only mine', async () => {
+    const me = w.member.id;
+    const dale = w.owner.id;
+    const visit = (title: string) =>
+      one(sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at,
+                owner_user_id)
+              values (${w.wsId}, ${m.calendar}, 1, ${title}, now() + interval '3 days',
+                now() + interval '3 days 1 hour', ${dale})
+              returning id`);
+    const staffed = await visit('Minecalword staffed');
+    await visit('Minecalword not mine');
+    await rows(
+      admin(),
+      sql`insert into app.appointment_staff (workspace_id, appointment_id, user_id)
+          values (${w.wsId}, ${staffed}, ${me})`,
+    );
+    const task = (title: string, createdBy: string, assignee: string | null) =>
+      one(sql`insert into app.tasks (workspace_id, title, assignee_user_id, created_by)
+              values (${w.wsId}, ${title}, ${assignee}, ${createdBy}) returning id`);
+    const made = await task('Minetaskword made unassigned', me, null);
+    const given = await task('Minetaskword given to me', dale, me);
+    await task('Minetaskword made for Priya', me, w.priya.id);
+    await task('Minetaskword Dale’s unassigned', dale, null);
+    const note = (body: string, author: string) =>
+      one(sql`insert into app.activities (workspace_id, kind, body, person_id, occurred_at, actor_type,
+                author_user_id)
+              values (${w.wsId}, 'note', ${body}, ${w.ids.dana}, now() - interval '1 hour', 'human', ${author})
+              returning id`);
+    const myNote = await note('Minenoteword mine', me);
+    await note('Minenoteword Dale’s', dale);
+    const file = (name: string, createdBy: string) =>
+      one(sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, status, created_by)
+              values (${w.wsId}, 'person', ${w.ids.dana}, ${`${w.wsId}/${randomUUID()}`}, ${name}, 'ready',
+                ${createdBy})
+              returning id`);
+    const myFile = await file('Minefileword mine.pdf', me);
+    await file('Minefileword Dale’s.pdf', dale);
+    const form = (name: string, createdBy: string) =>
+      one(sql`insert into app.forms (workspace_id, name, slug, created_by)
+              values (${w.wsId}, ${name}, ${`mine-${randomUUID().slice(0, 8)}`}, ${createdBy})
+              returning id`);
+    const myForm = await form('Mineformword intake', me);
+    await form('Mineformword checklist', dale);
+    await rows(
+      admin(),
+      sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title,
+            question_type, text_value)
+          values (${w.wsId}, ${m.joAnswers}, ${m.form}, 'q_extra001', 'Where did you hear of us?', 'short_text',
+            'Mineformword flyer')`,
+    );
+
+    const ids = async (q: string, kind: string, onlyMine: boolean) =>
+      (groupOf(await everything(w, w.member, q, { onlyMine, perKind: 5 }), kind)?.items ?? [])
+        .map((h) => h.id)
+        .sort();
+    expect(await ids('minecalword', 'calendar', true)).toEqual([staffed]);
+    expect(await ids('minecalword', 'calendar', false)).toHaveLength(2);
+    expect(await ids('minetaskword', 'tasks', true)).toEqual([made, given].sort());
+    expect(await ids('minetaskword', 'tasks', false)).toHaveLength(4);
+    expect(await ids('minenoteword', 'notes', true)).toEqual([myNote]);
+    expect(await ids('minenoteword', 'notes', false)).toHaveLength(2);
+    expect(await ids('minefileword', 'files', true)).toEqual([myFile]);
+    expect(await ids('minefileword', 'files', false)).toHaveLength(2);
+    // Nobody owns an answer, so Only mine leaves them out.
+    expect(await ids('mineformword', 'forms', true)).toEqual([myForm]);
+    expect(await ids('mineformword', 'forms', false)).toHaveLength(3);
+  });
+
+  it('orders a search’s groups by the rule of decision 33 across every kind', async () => {
+    const a = await everything(w, w.owner, 'water heater');
+    // Tier 1 (a lead's, a task's, a form's and a knowledge item's title) in kind order, then tier 2 (a bill's title),
+    // then the rest (the messages) in kind order.
+    expect(a.groups.map((g) => [g.kind, Math.min(...g.items.map((h) => h.tier))])).toEqual([
+      ['leads', 1],
+      ['tasks', 1],
+      ['forms', 1],
+      ['knowledge', 1],
+      ['money', 2],
+      ['messages', 4],
+    ]);
+  });
+
+  it('says how far back a window looked, and Look further back carries on from there', async () => {
+    const [bulk] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.conversations (workspace_id, channel, counterpart, last_message_at)
+          values (${w.wsId}, 'sms', '+15045559999', now() - interval '300 days') returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, occurred_at)
+          select ${w.wsId}, ${bulk!.id}, 'sms', 'inbound', 'received',
+            case when n = 25001 then 'Oldestword in the pile' else 'Bulk ' || n end,
+            now() - interval '300 days' - make_interval(mins => n)
+          from generate_series(1, 25001) n`,
+    );
+    // The box's window is the newest 4,000 or 180 days: it says it didn't look that far.
+    const box = groupOf(await everything(w, w.owner, 'leaking'), 'messages')!;
+    expect(box).toMatchObject({ complete: false });
+    expect(Date.parse(box.searchedBack!)).toBeGreaterThan(Date.now() - 181 * 86_400_000);
+    // A kind's page reads 25,000 messages: the oldest is just past them.
+    const first = await oneKind(w, w.owner, 'oldestword', 'messages');
+    expect(first.group).toMatchObject({ complete: false, items: [] });
+    expect(first.group.searchedBack).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
+    const further = await oneKind(w, w.owner, 'oldestword', 'messages', {
+      before: first.group.searchedBack!,
+    });
+    expect(further.group).toMatchObject({ complete: true, searchedBack: null });
+    expect(further.group.items[0]).toMatchObject({ id: bulk!.id, why: { field: 'message' } });
+  });
+
+  // Last, since a thread older than every window leaves every later window incomplete.
+  it('says how far back the Archived page looked through threads, and Look further back finds an older one', async () => {
+    const ottoline = await one(
+      sql`insert into app.people (workspace_id, first_name, last_name) values (${w.wsId}, 'Ottoline', 'Farquhar')
+          returning id`,
+    );
+    const old = await one(
+      sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, last_message_at, archived_at)
+          values (${w.wsId}, 'sms', '+15045557788', ${ottoline}, now() - interval '4 years', now())
+          returning id`,
+    );
+    const first = await oneKind(w, w.owner, 'farquhar', 'archived');
+    expect(first.group).toMatchObject({ complete: false, items: [] });
+    expect(first.group.searchedBack).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    const further = await oneKind(w, w.owner, 'farquhar', 'archived', {
+      before: first.group.searchedBack!,
+    });
+    expect(further.group.items.map((h) => h.id)).toEqual([old]);
   });
 });

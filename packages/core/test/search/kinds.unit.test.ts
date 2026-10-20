@@ -43,11 +43,42 @@ describe('the kinds and their searchers', () => {
       companies: 'records.read',
       leads: 'records.read',
       money: 'money.read',
+      messages: 'inbox.use',
+      calendar: 'workspace.read',
+      tasks: 'records.read',
+      notes: 'records.read',
+      files: 'records.read',
+      forms: 'workspace.read',
       knowledge: 'workspace.read',
       records: 'records.read',
+      spam: 'inbox.use',
       bin: 'records.delete',
       close: 'records.read',
     });
+  });
+
+  it('searches Spam only when it’s picked, never as a chip, and windows the long text', () => {
+    const spam = SEARCH_KINDS.find((k) => k.key === 'spam')!;
+    expect(spam).toMatchObject({ picked: true, chip: false, windowed: true });
+    expect(SEARCH_KINDS.filter((k) => k.picked).map((k) => k.key)).toEqual(['spam']);
+    expect(SEARCH_KINDS.filter((k) => k.windowed).map((k) => k.key)).toEqual([
+      'messages',
+      'notes',
+      'forms',
+      'spam',
+    ]);
+    // What the phone searches with no signal (decision 11).
+    expect(SEARCH_KINDS.filter((k) => k.offline).map((k) => k.key)).toEqual([
+      'contacts',
+      'companies',
+      'leads',
+      'calendar',
+      'tasks',
+      'notes',
+      'forms',
+      'settings',
+      'close',
+    ]);
   });
 
   it('lists only the kinds a person may search, and every kind under a staff view-as', () => {
@@ -58,6 +89,11 @@ describe('the kinds and their searchers', () => {
       'contacts',
       'companies',
       'leads',
+      'calendar',
+      'tasks',
+      'notes',
+      'files',
+      'forms',
       'knowledge',
       'records',
       'settings',

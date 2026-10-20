@@ -4,7 +4,7 @@
 import type { SearchHit, SearchSnippet } from '../../schemas/search';
 import { fold } from '../fold';
 import type { SearchProbes } from '../probes';
-import { marksIn } from '../snippet';
+import { marksIn, snippetOf } from '../snippet';
 
 /** A hit with everything a searcher doesn't say left empty. */
 export function hitOf(
@@ -87,3 +87,22 @@ export const listedValues = (raw: unknown, key: 'phone' | 'email'): string[] =>
 
 /** Only the digits of a text. */
 export const digitsIn = (s: string | null | undefined): string => (s ?? '').replace(/\D/g, '');
+
+/**
+ * A snippet from a stretch SQL cut out of a long text (`stretchOf`): core's marks, and "…" where the text was cut, at
+ * either end.
+ */
+export function stretchSnippet(
+  stretch: string | null | undefined,
+  cut: { readonly before: boolean; readonly after: boolean },
+  p: SearchProbes,
+): SearchSnippet | null {
+  if (!stretch?.trim()) return null;
+  const s = snippetOf(stretch, p);
+  const lead = cut.before && !s.text.startsWith('…') ? '…' : '';
+  const tail = cut.after && !s.text.endsWith('…') ? '…' : '';
+  return {
+    text: `${lead}${s.text}${tail}`,
+    marks: s.marks.map(([a, b]) => [a + lead.length, b + lead.length] as [number, number]),
+  };
+}

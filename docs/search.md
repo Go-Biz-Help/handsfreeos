@@ -6,23 +6,27 @@ of records, add-on records, settings, archived records and the Deleted bin, each
 plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`; the boards are in
 `design/search`.
 
-**Where it stands:** Search 2 is built: core's search with its first kinds (contacts, companies, leads, money,
-knowledge, a business's own kinds, the Deleted bin and close matches), and the API's guards. Nothing on screen yet;
-the box and `/customers?q=` work as they did until Search 9 switches it on.
+**Where it stands:** Search 3 is built: core's search over every kind but add-ons' and settings (contacts,
+companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, file names, forms and their answers,
+knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
+and the API's guards. Nothing on screen yet; the box and `/customers?q=` work as they did until Search 9 switches it
+on.
 
 ## Where things are
 
-| What                                  | Where                                                                                                                                                                                                      |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The queries                           | `packages/core/src/queries/search.ts`: `search.everything` (the box and the Search page) and `search.kind` (one kind, a page at a time)                                                                    |
-| Their shapes                          | `packages/core/src/schemas/search.ts`                                                                                                                                                                      |
-| Running a search                      | `packages/core/src/search/server/run.ts`: which kinds run, `step`, the budgets, the archived split, close matches, paging                                                                                  |
-| Each kind's SQL                       | `packages/core/src/search/server/kinds/<kind>.ts`, listed in `kinds/index.ts`; shared fragments (`LIVE_PERSON`, `RECORD_READS`, `numberMatches`, `archivedRule`) in `search/server/sql.ts`                 |
-| Shared logic, for the server and apps | `packages/core/src/search/`: `probes` (what was typed), `kinds` (each kind's gate), `rank`, `snippet` (marks), `close`, `href`, `dropdown`, `lines`, `words`, and `fold` (accents)                         |
-| Document numbers                      | `documentNumberProbe` and `documentNumberMatches` in `packages/core/src/money/numbering.ts`                                                                                                                |
-| The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                   |
-| The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                   |
-| Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, and the pure ones); `apps/api/test/search-slots.test.ts` and `search-guards.test.ts`; `packages/db/test/search-*.test.ts` |
+| What                                  | Where                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The queries                           | `packages/core/src/queries/search.ts`: `search.everything` (the box and the Search page) and `search.kind` (one kind, a page at a time)                                                                 |
+| Their shapes                          | `packages/core/src/schemas/search.ts`                                                                                                                                                                   |
+| Running a search                      | `packages/core/src/search/server/run.ts`: which kinds run, `step`, the budgets, the archived split, close matches, paging                                                                               |
+| Each kind's SQL                       | `packages/core/src/search/server/kinds/<kind>.ts`, listed in `kinds/index.ts`; shared fragments (`LIVE_PERSON`, `RECORD_READS`, `numberMatches`, `archivedRule`, the windows) in `search/server/sql.ts` |
+| What results open onto                | `activity.get` (`queries/activity.get.ts`), `task.list`'s `taskId`, `conversation.thread`'s `upTo`                                                                                                      |
+| Shared logic, for the server and apps | `packages/core/src/search/`: `probes` (what was typed), `kinds` (each kind's gate), `rank`, `snippet` (marks), `close`, `href`, `dropdown`, `lines`, `words`, and `fold` (accents)                      |
+| Document numbers                      | `documentNumberProbe` and `documentNumberMatches` in `packages/core/src/money/numbering.ts`                                                                                                             |
+| The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                |
+| The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                |
+| Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, what results open, and the pure ones); `apps/api/test/search-*.test.ts`; `packages/db/test/search-*.test.ts`           |
+| The load check                        | `scripts/search-load.mjs`, local stack only (The load check, below)                                                                                                                                     |
 
 ## How a search runs
 
@@ -37,7 +41,8 @@ the box and `/customers?q=` work as they did until Search 9 switches it on.
    answers too short (under 2 characters, or nothing with a letter or a digit) with no SQL at all.
 5. Each kind the person may search runs its candidates through **`step`**: its own savepoint and a statement timeout
    cut to what's left of the budget (quick 2 s a request and 1.5 s a statement, full 6 s and 4 s, one kind 8 s and
-   5 s; never under 50 ms). A kind reads up to 101 rows, enough to say "100+".
+   5 s; never under 50 ms). A kind reads up to 101 rows, enough to say "100+"; long text is read in a window of the
+   business's newest rows (The kinds).
 6. **Core's JavaScript ranks** them (`rankHits`: tier, open before finished, newest), says why each matched, splits
    archived records out to Archived, and keeps the first few.
 7. **Close matches** run only when nothing matched (the Deleted bin and Archived included), every kind answered, no
@@ -45,6 +50,62 @@ the box and `/customers?q=` work as they did until Search 9 switches it on.
 8. Only then are the winners' facts read, through `step` again: whether a contact is a client, their open lead, a
    company's people, a record's own fields. A step that fails here marks its group, never the search.
 9. The groups are ordered (decision 33), the best match picked, and each hit given its link. Nothing is written.
+
+## The kinds
+
+Each kind's gate is in `SEARCH_KINDS` (`search/kinds.ts`); row security decides every row underneath it.
+
+| Kind          | Needs            | Finds                                                                                                                                                                                                                                                               | Reads                                                                                                       |
+| ------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Contacts      | `records.read`   | names (folded), every phone and email, the address, the company, the business's own fields                                                                                                                                                                          | the whole business                                                                                          |
+| Companies     | `records.read`   | name (folded), website, emails, phones, address                                                                                                                                                                                                                     | the whole business                                                                                          |
+| Leads         | `records.read`   | title (folded), the customer's or company's name                                                                                                                                                                                                                    | the whole business                                                                                          |
+| Money         | `money.read`     | estimates and invoices by number, amount, title, notes and customer; payments by amount, card, invoice or customer                                                                                                                                                  | the whole business                                                                                          |
+| Messages      | `inbox.use`      | a thread's counterpart exactly; who it's with (customer, chat visitor, Meta name and @handle), folded; a text's number, its digits, or an email's address (never our own keys for chat, portal and Meta threads); its last preview; message words; call transcripts | threads 3,000 or 180 days / 20,000 or 3 years; messages 4,000 / 25,000; calls 2,000 / 10,000, the same days |
+| Calendar      | `workspace.read` | an attendee's phone or email exactly; the title (folded); the address, who's coming (folded); the notes                                                                                                                                                             | the whole business                                                                                          |
+| Tasks         | `records.read`   | title (folded), notes                                                                                                                                                                                                                                               | the whole business                                                                                          |
+| Notes         | `records.read`   | the words of note lines (`NOTE_LINES`), then the name of who they're on (folded)                                                                                                                                                                                    | 3,000 / 20,000 note lines                                                                                   |
+| Files         | `records.read`   | names (folded); the words inside come with Search 5                                                                                                                                                                                                                 | the whole business                                                                                          |
+| Forms         | `workspace.read` | form names (folded); answers of completed responses, then who answered (folded)                                                                                                                                                                                     | names, the whole business; answers 3,000 / 20,000                                                           |
+| Knowledge     | `workspace.read` | knowledge items, through knowledge's own search                                                                                                                                                                                                                     | its own 20 at most                                                                                          |
+| Own kinds     | `records.read`   | a record's name (folded) and fields, a group per kind                                                                                                                                                                                                               | the whole business                                                                                          |
+| Spam          | `inbox.use`      | as Messages, in the Spam folder, only when picked                                                                                                                                                                                                                   | as Messages                                                                                                 |
+| Archived      | the kind's       | archived contacts, companies, leads, threads, forms and records, by name or title only; the page says how far back the threads window looked                                                                                                                        | with the kind                                                                                               |
+| Deleted bin   | `records.delete` | each item's name                                                                                                                                                                                                                                                    | the whole business                                                                                          |
+| Close matches | `records.read`   | contact, company, lead and record names within an edit or two, only when nothing else matched                                                                                                                                                                       | 300 names that look alike                                                                                   |
+
+A window is the box's (quick) or the Search page's and a kind's own page's (full). A windowed group says whether it
+looked at everything (`complete`) and, when it didn't, how far back it went (`searchedBack`, to the microsecond).
+**Look further back** passes that as `before`, and the next window reads what's at or before it: a window ends at the
+time of the first row it couldn't hold, so the rows sharing that time (a form response's answers) are read whole by
+the next one.
+
+## The load check
+
+`node scripts/search-load.mjs` seeds a business on the local stack with 300,000 messages, 50,000 notes and 20,000
+customers, and runs searches through the kernel as an owner, a member and a narrowed member: 200 from the box and 50
+from the Search page each. It refuses to start unless Supabase and every database it uses are on this machine. The
+plan asks for quick p95 under 400 ms and full under 2 s, and the script exits 1 past either.
+
+Measured on 2026-10-20, after Search 3's review, on the local stack in a shared cloud container (one search at a
+time):
+
+| Who             | Box (quick) p50 | p95    | Search page (full) p50 | p95      |
+| --------------- | --------------- | ------ | ---------------------- | -------- |
+| Owner           | 512 ms          | 616 ms | 1,180 ms               | 1,392 ms |
+| Member          | 466 ms          | 588 ms | 1,159 ms               | 1,436 ms |
+| Narrowed member | 530 ms          | 675 ms | 1,366 ms               | 1,620 ms |
+
+The Search page is inside its 2 s. **The box isn't inside its 400 ms** on a business this size, about 15 times the
+busiest one on the hosted database (17,810 messages): contacts, one statement over every customer of the business,
+take about 200 ms of it at 20,000 customers, and the rest is each kind's own statement and savepoint. No search
+timed out or was skipped. Two fixes found by this check are in the code: a window's matching rows are bounded by its
+edge in their index scan (it was a filter over every message of the business, 300 to 600 ms), and who a thread or a
+note is on is read by key, not by joining every customer.
+
+**The box's miss needs Chris's decision** before the screens ship (Search 6): either its target moves to what was
+measured, or contacts get faster first. The plan's Not yet (revisit the faster path when the box's p95 passes 1 s on a
+real business) is a different trigger and doesn't stand in for the 400 ms.
 
 ## Rules worth knowing before changing anything
 
@@ -62,6 +123,13 @@ newest rows, and exact identifiers use leakproof equality. `packages/core/test/s
 searcher's real statement and fails if one stops using its index, or folds a row's name more than once (an accented
 name costs about 40 µs a fold, so a searcher folds it in a lateral and every arm reads that). Don't add a GIN, trigram
 or `tsvector` index for search: it costs writes and buys nothing.
+
+**A window's edge reaches its rows as a bare parameter.** The same leakproof rule bounds a window: `at > $edge` is an
+index condition only when `$edge` is a plain parameter, since the planner counts `coalesce` and `greatest` as leaky,
+so `windowed` (`search/server/sql.ts`) works the edge out whole in a CTE and reads it as an init plan. Written any
+other way, the window is a filter over every row of the business (300 to 600 ms on 300,000 messages);
+`plans.test.ts` pins the index condition. Customers and records joined to a window's rows are read by key, in
+`offset 0` laterals, never joined over the whole business.
 
 **Nothing typed is kept or logged.** It travels in a POST body, the web keeps it after `#`, and nothing stores it. A
 database error carries its statement's parameters, and so what was typed, so `step` throws any error that isn't one
@@ -87,3 +155,27 @@ kind). A kind's own page leaves them out unless asked, and the Archived page lis
 
 **The Deleted bin** is searched by each item's name only, for whoever holds `records.delete` (row security asks the
 same).
+
+**Messages read only threads, messages and calls, never the timeline's copies of them**, and Notes read only
+`NOTE_LINES` (`search/server/kinds/notes.ts`): kind `note` with any subtype, or a call or visit with no subtype. A
+copy of a text, an email or a call always carries a subtype, so a member whose inbox is narrowed never finds a hidden
+thread's words through its copy. `NOTE_LINES` is written word for word as `activities_notes_idx`'s condition, so the
+planner can prove the partial index from it; change both together.
+
+**Long text is matched where it's stored, unfolded** (decision 23): a message's subject and plain text (never its
+HTML), a transcript, a note, a task's or visit's notes, an answer. Names and titles fold. A found row carries a
+stretch of its text cut in SQL around the first match (`stretchOf`), never the whole body.
+
+**Everything hanging off a record of the business's own kinds asks the record** (`RECORD_READS`): tasks, notes,
+files, appointments, threads and their calls. Their own policies check only sealing, so without it a turned-off
+add-on's tour or portal thread would stay findable.
+
+**Spam is searched only when picked** (`SEARCH_KINDS`' `picked`), Other mail is badged `other_mail`, a person's own
+mail `my_mail`; a cancelled held text and an unanswered bridge call are never found, as the thread never shows them.
+One row stands for a conversation, its best message as the snippet, one-to-one before campaign and automated sends.
+
+**A meeting's summary is found only as the note it already is**, sealed with the appointment's private record when it
+has one (`call_suggestion.record` passes the record to `activity.log`), and a task approved from the same call is
+sealed with it too (`call_suggestion.decide` passes the record to `task.create`, giving it to the host only while the
+host is on the record). A record in the Deleted bin reads for nobody, so the note then goes on the customer alone.
+`app.appointment_transcripts` is never read.

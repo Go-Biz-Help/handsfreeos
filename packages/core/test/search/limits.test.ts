@@ -19,6 +19,9 @@ import type { SearchEverythingOutput, SearchKindOutput } from '../../src/schemas
 import { contactsSearcher } from '../../src/search/server/kinds/contacts';
 import { companiesSearcher } from '../../src/search/server/kinds/companies';
 import { closeSearcher } from '../../src/search/server/kinds/close';
+import { formsSearcher } from '../../src/search/server/kinds/forms';
+import { messagesSearcher } from '../../src/search/server/kinds/messages';
+import { notesSearcher } from '../../src/search/server/kinds/notes';
 import { unavailableLine } from '../../src/search/dropdown';
 import { hitOf } from '../../src/search/server/hit';
 import {
@@ -355,5 +358,21 @@ describe('a failure never carries what was typed', () => {
   it('and the real searchers answer through the same guard', async () => {
     const a = await everythingAs('dnaa smtih', { searchers: [contactsSearcher, closeSearcher] });
     expect(a.close).toBe(true);
+  });
+
+  it('the windowed kinds too: every statement through a step, skipped with no budget left', async () => {
+    const windowed = [messagesSearcher, notesSearcher, formsSearcher];
+    const timeouts: number[] = [];
+    const a = await everythingAs(`${SECRET} smith`, {
+      searchers: windowed,
+      onStatement: (_kind, ms) => timeouts.push(ms),
+    });
+    expect(nothingButQ(a)).not.toContain(SECRET);
+    // Threads, messages and calls; notes; forms by name and their answers: one step each.
+    expect(timeouts).toHaveLength(6);
+    const e = await thrown(() =>
+      everythingAs('smith', { searchers: windowed, budget: { requestMs: 30, statementMs: 1_000 } }),
+    );
+    expect(e).toMatchObject({ rule: 'search_took_too_long', status: 503 });
   });
 });

@@ -21,7 +21,7 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1 and 2 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1 to 3 built (Build order), the rest still to build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2036,6 +2036,110 @@ its step **Built** here with what changed while building.
      `packages/core/test/contract/mobile-contract.json`, `packages/core/test/commands.test.ts`,
      `scripts/search-load.mjs`.
    - Docs: docs/search.md (each kind, its gate and window; the load numbers).
+   - **Built** (2026-10-20). No migration. `pnpm openapi` adds `activity.get`, `task.list`'s `taskId` and
+     `conversation.thread`'s `upTo` to `packages/api-client`; the phone contract records both search queries. What
+     changed while building:
+     - **More files than listed:** Spam is `spamSearcher` in `kinds/messages.ts`, the same reads in the Spam folder;
+       `search/kinds.ts` (the new kinds, and `picked`: Spam is searched only when a search names it, and is no
+       chip), `search/words.ts` (`messageTitle`, `threadTitle`, `callTitle`), `search/href.ts` (a form's own page),
+       `search/rank.ts` (`ranksLater`), `search/lines.ts` (an answer by someone with no name on file),
+       `search/server/hit.ts` (`stretchSnippet`), `search/server/sql.ts` (the windows,
+       `stretchOf`, `isoMicros`), `schemas/activity.ts` (`activity.get`'s shapes), `queries/timeline.list.ts`
+       (`activity.get` shares its row and its columns), `queries/search.ts` (the descriptions), and
+       `test/search/{helpers,opens,kinds.unit,rank,href,lines}.test.ts`: `moreOfTheBoards` holds Search 3's rows, and
+       `opens.test.ts` checks what results open onto (`activity.get`, `taskId`, `upTo`).
+     - **The windows** (`windowed` in `sql.ts`) are one statement each: a `win` read counts the newest rows' times, one
+       more than the window holds, through the (business, time) btree, and the matching rows are read over the range
+       it found, its edge reaching them as an init plan (The load check, below). A window ends at the time of the first row it couldn't hold, and keeps only rows newer than
+       that, so the rows sharing it (a form response's answers, which share `answered_at`) are left whole for the next
+       window, and no window holds more than its count. **`before` is inclusive** (`<=`, not the sketches' `<`) for
+       the same reason: Look further back passes `searchedBack` and reads what's at or before it. `searchedBack`
+       is ISO to the microsecond, worked out in SQL (a JavaScript date would cut it to the millisecond and skip rows
+       inside it), and null when the window looked at everything. Notes and answers are bounded by count alone, as
+       How it works, 3 gives them; calls take the messages' days, as sketch (iv) does. A kind with several windows
+       (Messages) is complete only when all of them are, and says the latest `searchedBack`. The one degenerate case:
+       more rows than a window holds all at one moment would leave every later window empty; nothing writes that.
+     - **Messages:** each read joins the thread's names itself (`THREAD_NAMES`, customers held to `LIVE_PERSON`), so
+       there is no separate display statement; only a whole thread's count of messages ("14 messages") is read for the
+       winners. Who a thread is with is folded (`$folds`), beside one lower-cased arm over names, counterpart and
+       preview together. A thread found by its last preview alone is tier 4 (`message`), words in content as the tier
+       table says, not tier 3. A call in a thread merges into the thread's row; one with no thread opens its customer's
+       page, and is dropped with no customer. A campaign or automated send gets the badge `automated` (new; old
+       builds skip it), which `ranksLater` puts after one-to-one sends; times in a result's link are to the
+       microsecond, so `conversation.thread`'s `upTo` includes the message. The exact counterpart read leaves a
+       thread that never had a message to core: asking for `last_message_at is not null` in SQL sent the planner down
+       the recency index rather than `conversations_one_per_line`. Who a thread or a note is on is read by key in
+       `offset 0` laterals, each only for a thread of its channel.
+     - **Snippets of long text** are cut in SQL around the first typed word (`stretchOf`: 320 characters from 100
+       before), then marked and cut again in core (`stretchSnippet`), with "…" where either cut fell.
+     - **Calendar:** the place is matched on `location->>'address'` and its postal code, not `location::text`, whose
+       keys ("kind", "zoom", "record") would match anything. The notes are tier 4 (`note`), as the tier table says,
+       not tier 3 as the sketch has it; an attendee's name is tier 3 (`customer`). The title is folded, and who's
+       coming read, in one lateral, so the plan folds a title once.
+     - **Notes:** a note's title is its first line, cut at 80 characters ("Note on Dana Smith · Oct 18" is its line);
+       found by who it's on, its opening is the snippet. A note on a customer who isn't live, and so on nothing that
+       opens, is dropped.
+     - **Files and forms:** a file whose customer isn't live is dropped, as it has nowhere to open. Answers are one row
+       a response through `distinct on`, its best answer the one whose words matched, else its first that says
+       something; the window's answers are read in a subquery ordered as `form_answers_recent_idx` is, so the planner
+       reads that index, bounded by the edge, rather than the business's every answer. Only mine keeps forms named by
+       their maker and leaves answers out. Archived threads and forms go under Archived, and the Archived page reads
+       them.
+     - **`activity.get`** answers `{ activity }`, a timeline entry as `timeline.list` shows it, with `RECORD_READS`.
+     - **Tests:** `gaps.test.ts` holds all eight cases (case 1 now with Messages and Spam, case 8 through
+       `call_suggestion.record` as the worker runs it, then `call_suggestion.decide` as a person, and a meeting on a
+       record in the bin); `apps/worker/test/calendar-connections.test.ts` checks a tour on a private deal leaves a
+       sealed note. `kinds.test.ts` holds Only mine for each new kind, a windowed kind's count capped at 100, names
+       folded in Notes, Calendar and Forms, and a response whose customer was merged away. Campaign sends are ranked
+       in `rank.test.ts` only: a fixture would need a campaign and its recipients. `search.kind`'s cursors are walked
+       for contacts, as before.
+     - **After review** (2026-10-20), what changed:
+       - **A task approved from a call** on a private record goes on the record too (`call_suggestion.decide` passes
+         it to `task.create`), so it is sealed with the deal as the summary note is. Decision 38 asked only for the
+         note, but the task is written from the same private call, and without the record it was every member's, and
+         found through Tasks. It goes to the host only while the host is on the record (`private.user_sees_record`),
+         and otherwise is left unassigned, since `tasks_sealed_assignee` refuses a sealed task to someone off it.
+       - **A record in the Deleted bin** keeps its appointments, and reads for nobody, the worker included, so passing
+         it to `activity.log` or `task.create` refused the whole review as gone. Both now pass the record only while it
+         reads; otherwise the note and the task go on the customer alone. A private record is never binned
+         (`bin_record_private`), but a sealed appointment whose record doesn't read leaves the note off (the summary
+         stays on the transcript) and refuses the task, rather than write a private deal's words unsealed.
+       - **Names fold everywhere** a row is found by who it's on (decision 23): Notes' and Forms' decision-34 arms and
+         Calendar's attendees match the folded name against `$folds`, as Contacts and Messages do. Calendar folds who's
+         coming once a row in its lateral (`fnames`).
+       - **Messages match a thread's counterpart** only where it's something a person types: a text's number (its
+         digits too) or an email's address. A chat's, the portal's and Meta's counterparts are keys of ours
+         ("portal:<id>"), whose letters and digits matched by chance and came back as a Phone match.
+       - **Forms:** an answer's words are its choices' labels, else its typed words, as `form.response` reads them
+         (`forms/submit.ts` writes a choice's labels into `text_value` too, so they showed twice). A response found by
+         who answered opens on its form's first question, by the question's place in the version answered
+         (`jsonb_path_query(definition, '$.pages[*].questions[*].id') with ordinality`), since question ids are random.
+         Who answered is the live customer (`LIVE_PERSON`): a response whose customer was merged away, deleted or
+         erased since has no contact and isn't badged anonymous, and its line says "Answered by someone with no name
+         on file" (new, in `search/lines.ts`), not "someone who didn't say who".
+       - **Notes:** a call or visit logged with no words matched null, not false, and `desc` put it first, so wordless
+         lines found by who they're on could crowd out notes whose words matched; `in_words` is now
+         `coalesce(…, false)`.
+       - **The Archived page** says how far back its threads window looked (`complete`, `searchedBack`), and its Look
+         further back reads on only in the kinds with a window, since the rest showed everything the first time.
+       - **The load check** refuses to start unless Supabase (whose Auth it makes its people in) and every database it
+         uses are on this machine: a value already in the shell wins over `.env.local`.
+     - **The load check** (`scripts/search-load.mjs`) loads core through the API's `tsx`, refuses to start unless
+       Supabase and every database it uses are on this machine, and narrows the inbox for its third person after the
+       owner's and the member's runs. The numbers are in docs/search.md, measured again after the review: the Search
+       page's p95 is 1.4 to 1.6 s, inside its 2 s, but **the box's p95 is 590 to 680 ms, past the 400 ms this plan asks
+       for**, on a business 15 times the busiest on hosted. Contacts (Search 2's statement over every customer of the business) are about 200 ms of it
+       at 20,000 customers; no search timed out or was skipped. **This needs Chris's decision** before the screens
+       ship (Search 6): either the box's target moves to what was measured (How it works, 6, Tests by package,
+       docs/search.md and `QUICK_P95_MS` then change together), or Contacts gets faster first. The Not yet entry
+       (revisit when the box's p95 passes 1 s on a real business) is a different trigger and doesn't stand in for the
+       400 ms; until Chris decides, the script exits 1 by design. The check found two real faults, both fixed: under
+       row security a window's edge reached the matching rows' index scan only as a bare parameter (`coalesce` and
+       `greatest` count as leaky, so the edge was a filter over all 300,000 messages, 300 to 600 ms; now an init
+       plan, about 100 ms, and `plans.test.ts` pins the index condition), and joining a thread's or a note's customer
+       scanned every customer, so each is now a lookup by key (`offset 0` laterals). Narrowing the inbox of a business
+       this size repaints for about two minutes, past a request's 15-second statement ceiling, so the script switches
+       it on directly, as is done by hand.
 
 4. **Search 4a: what core builds first, so add-ons can answer searches.** Core's own step, as CLAUDE.md asks for
    anything an add-on needs that core lacks (the Sales Coach plan's "Round 0: what core builds first" is the pattern),

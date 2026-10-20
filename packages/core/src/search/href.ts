@@ -27,6 +27,7 @@ export type SearchTarget =
       readonly at?: string;
     }
   | { readonly type: 'task'; readonly id: string }
+  | { readonly type: 'form'; readonly id: string }
   | { readonly type: 'appointment'; readonly id: string; readonly day: string }
   | { readonly type: 'form_response'; readonly formId: string; readonly id: string }
   | { readonly type: 'activity'; readonly id: string; readonly on: SearchRecordRef }
@@ -83,6 +84,8 @@ export function searchHref(workspaceId: string, t: SearchTarget): string {
     }
     case 'task':
       return `${base}tasks?${query({ task: t.id })}`;
+    case 'form':
+      return `${base}forms/${t.id}`;
     case 'appointment':
       return `${base}calendar?${query({ appt: t.id, date: t.day })}`;
     case 'form_response':

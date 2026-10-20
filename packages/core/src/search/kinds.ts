@@ -24,12 +24,14 @@ export interface SearchKind {
   readonly where: 'server' | 'device';
   /** Shown as a chip and in the Search page's kinds list. Close matches stand in for the others when nothing matched. */
   readonly chip: boolean;
+  /** Searched only when asked for by name: Spam, through the Messages page's Look in Spam (decision 9). */
+  readonly picked: boolean;
 }
 
 const kind = (
   key: keyof typeof SEARCH_KIND_LABELS | 'records',
   needs: WorkspacePermission,
-  more: Partial<Pick<SearchKind, 'offline' | 'windowed' | 'where' | 'chip'>> = {},
+  more: Partial<Pick<SearchKind, 'offline' | 'windowed' | 'where' | 'chip' | 'picked'>> = {},
 ): SearchKind => ({
   key,
   label: key === 'records' ? null : SEARCH_KIND_LABELS[key],
@@ -38,6 +40,7 @@ const kind = (
   windowed: more.windowed ?? false,
   where: more.where ?? 'server',
   chip: more.chip ?? true,
+  picked: more.picked ?? false,
 });
 
 /** Every kind, in kind order: the chips', the groups' after the best tiers (decision 33), and the kinds list's. */
@@ -46,10 +49,19 @@ export const SEARCH_KINDS: readonly SearchKind[] = [
   kind('companies', 'records.read', { offline: true }),
   kind('leads', 'records.read', { offline: true }),
   kind('money', 'money.read'),
+  // Row security never asks for Use the inbox on threads, messages or calls (gap 1): this gate does.
+  kind('messages', 'inbox.use', { windowed: true }),
+  kind('calendar', 'workspace.read', { offline: true }),
+  kind('tasks', 'records.read', { offline: true }),
+  kind('notes', 'records.read', { offline: true, windowed: true }),
+  kind('files', 'records.read'),
+  // Form names are on the phone too; their answers wait for signal.
+  kind('forms', 'workspace.read', { offline: true, windowed: true }),
   kind('knowledge', 'workspace.read'),
   kind('records', 'records.read'),
   // Each setting has its own needs as well; core's catalogue is searched on the device.
   kind('settings', 'workspace.read', { offline: true, where: 'device' }),
+  kind('spam', 'inbox.use', { windowed: true, chip: false, picked: true }),
   kind('bin', 'records.delete'),
   kind('close', 'records.read', { offline: true, chip: false }),
 ];

@@ -14957,6 +14957,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/activity.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One entry on a timeline: a note, a call, a visit or anything else that happened.
+         * @description Requires records.read.
+         */
+        post: operations["query_activity_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/addon_connection.list": {
         parameters: {
             query?: never;
@@ -20127,7 +20147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Search everything in the business the person may see, a few results of each kind, best first: contacts, companies, leads, money, knowledge, the business’s own kinds of records, and the Deleted bin.
+         * Search everything in the business the person may see, a few results of each kind, best first: contacts, companies, leads, money, messages and calls, the calendar, tasks, notes, files, forms and their answers, knowledge, the business’s own kinds of records, archived records and the Deleted bin.
          * @description Requires workspace.read.
          */
         post: operations["query_search_everything"];
@@ -20147,7 +20167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One kind of search result at a time, 50 to a page: best match, most recent or by name, with leads and clients counted for contacts and contacts who share a phone or an email.
+         * One kind of search result at a time, 50 to a page: best match, most recent or by name, with leads and clients counted for contacts and contacts who share a phone or an email, Spam on its own, and messages, notes and answers further back.
          * @description Requires workspace.read.
          */
         post: operations["query_search_kind"];
@@ -55065,6 +55085,60 @@ export interface operations {
             };
         };
     };
+    query_activity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    activityId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activity: {
+                            actor: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            actorType: string;
+                            body: string | null;
+                            companyId: string | null;
+                            customRecordId: string | null;
+                            /** @enum {string} */
+                            entry: "activity" | "task" | "file";
+                            /** Format: uuid */
+                            id: string;
+                            kind: string;
+                            leadId: string | null;
+                            meta: {
+                                [key: string]: unknown;
+                            };
+                            /** Format: date-time */
+                            occurredAt: string;
+                            personId: string | null;
+                            subtype: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_addon_connection_list: {
         parameters: {
             query?: never;
@@ -60209,6 +60283,8 @@ export interface operations {
                     limit?: number;
                     /** Format: date-time */
                     since?: string;
+                    /** Format: date-time */
+                    upTo?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -78023,6 +78099,8 @@ export interface operations {
                      * @enum {string}
                      */
                     status?: "open" | "done" | "all";
+                    /** Format: uuid */
+                    taskId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };

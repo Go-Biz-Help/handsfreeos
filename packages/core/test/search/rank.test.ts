@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { documentNumberMatches, documentNumberProbe } from '../../src/money/numbering';
 import type { SearchGroup, SearchHit } from '../../src/schemas/search';
 import { searchProbes } from '../../src/search/probes';
-import { bestOf, orderGroups, rankHits, tierOf } from '../../src/search/rank';
+import { bestOf, orderGroups, rankHits, ranksLater, tierOf } from '../../src/search/rank';
 
 let n = 0;
 const hit = (over: Partial<SearchHit> & Pick<SearchHit, 'kind' | 'title' | 'tier'>): SearchHit => ({
@@ -71,6 +71,39 @@ describe('the order inside a kind', () => {
     const own = hit({ kind: 'messages', title: 'Own', tier: 4, at: '2026-06-01T00:00:00.000Z' });
     const ranked = rankHits([campaign, own], { automated: (h) => h.title === 'Campaign' });
     expect(ranked.map((h) => h.title)).toEqual(['Own', 'Campaign']);
+    // On its own, a send marked automated ranks after.
+    const marked = { ...campaign, badges: ['automated'] };
+    expect(rankHits([marked, own]).map((h) => h.title)).toEqual(['Own', 'Campaign']);
+  });
+
+  it('puts notes and answers found by who they’re on after those found by their own words', () => {
+    const why = (field: string) => ({ field, label: null, snippet: null, page: null });
+    for (const kind of ['notes', 'forms']) {
+      const byWho = hit({
+        kind,
+        title: 'By who',
+        tier: 4,
+        why: why('customer'),
+        at: '2026-06-02T00:00:00.000Z',
+      });
+      const byWords = hit({
+        kind,
+        title: 'By words',
+        tier: 4,
+        why: why(kind === 'notes' ? 'note' : 'answer'),
+        at: '2026-06-01T00:00:00.000Z',
+      });
+      expect(
+        rankHits([byWho, byWords]).map((h) => h.title),
+        kind,
+      ).toEqual(['By words', 'By who']);
+      expect(ranksLater(byWho)).toBe(true);
+      expect(ranksLater(byWords)).toBe(false);
+    }
+    // A lead found by its customer is no later than any other tier 3 hit.
+    expect(ranksLater(hit({ kind: 'leads', title: 'L', tier: 3, why: why('customer') }))).toBe(
+      false,
+    );
   });
 });
 

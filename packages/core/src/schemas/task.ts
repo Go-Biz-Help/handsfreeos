@@ -111,6 +111,8 @@ export const TaskListInput = ListInput.extend({
   companyId: uuid.optional(),
   leadId: uuid.optional(),
   customRecordId: uuid.optional(),
+  /** Only this task: a search result's `/tasks?task=<id>`, asked for with scope and status "all". */
+  taskId: uuid.optional(),
 });
 export const TaskListOutput = z.object({
   items: z.array(TaskOut),

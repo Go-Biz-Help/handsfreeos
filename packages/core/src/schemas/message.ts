@@ -377,6 +377,11 @@ export const ConversationThreadInput = ListInput.extend({
   /** Only items after this moment (live refreshes fetch just what is new). */
   since: isoDateTime.optional(),
   /**
+   * Only items at or before this moment: a search result opens the thread at its message, and what came after it
+   * loads with `since`.
+   */
+  upTo: isoDateTime.optional(),
+  /**
    * Every lane this customer has, woven into one timeline, newest first (0089).
    *
    * What the inbox's "All" shows: the whole history with somebody, texts on either of the business's numbers

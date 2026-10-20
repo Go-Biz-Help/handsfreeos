@@ -232,7 +232,10 @@ export function hitLines(hit: SearchHit, w: When): HitLines {
             ? null
             : f.answeredBy
               ? `Answered by ${f.answeredBy}`
-              : 'Answered by someone who didn’t say who',
+              : hit.badges.includes('anonymous')
+                ? 'Answered by someone who didn’t say who'
+                : // Someone who said who, no longer a customer by name: merged away, deleted or erased.
+                  'Answered by someone with no name on file',
           hit.at ? day(hit.at, w) : null,
         ]),
         chip: null,

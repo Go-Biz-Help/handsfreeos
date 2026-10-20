@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { binLeftLine } from '../../src/bin-words';
 import type { SearchHit } from '../../src/schemas/search';
 import { CONTACT_LINES, countsAsContact, hitLines, lastContactLine } from '../../src/search/lines';
-import { whyLabel } from '../../src/search/words';
+import { callTitle, messageTitle, threadTitle, whyLabel } from '../../src/search/words';
 
 const TZ = 'America/Chicago';
 const NOW = Date.parse('2026-10-20T15:00:00.000Z');
@@ -196,6 +196,17 @@ describe('each kind’s line', () => {
       binLeftLine({ deletedAt: daysAgo(0), purgeAfter: daysAgo(-30), emptying: true }, NOW),
     ).toBe('Deleted today · Being deleted now');
   });
+
+  it('says who answered a form, that nobody said, or that who did has no name on file now', () => {
+    const answer = (facts: SearchHit['facts'], badges: string[] = []) =>
+      hitLines(hit('forms', { at: '2026-10-19T15:00:00.000Z', badges, facts }), w).line;
+    expect(answer({ answeredBy: 'Jo Smithers' })).toBe('Answered by Jo Smithers · Oct 19');
+    expect(answer({ answeredBy: null }, ['anonymous'])).toBe(
+      'Answered by someone who didn’t say who · Oct 19',
+    );
+    // Merged away, deleted or erased since: they said who, so they aren't anonymous.
+    expect(answer({ answeredBy: null })).toBe('Answered by someone with no name on file · Oct 19');
+  });
 });
 
 describe('why chips', () => {
@@ -206,5 +217,17 @@ describe('why chips', () => {
     expect(whyLabel({ field: 'name' })).toBeNull();
     expect(whyLabel({ field: 'customer' }, 'leads')).toBe('Customer');
     expect(whyLabel({ field: 'customer' }, 'notes')).toBeNull();
+  });
+});
+
+describe('titles of what the inbox found', () => {
+  it('names a message by its channel and direction, a thread by who it’s with, and a call', () => {
+    expect(messageTitle('sms', 'inbound', 'Dana Smith')).toBe('Text from Dana Smith');
+    expect(messageTitle('sms', 'outbound', 'Jo Smithers')).toBe('Text to Jo Smithers');
+    expect(messageTitle('email', 'inbound', 'Kim Le')).toBe('Email · Kim Le');
+    expect(messageTitle('instagram', 'inbound', 'Theo Lavergne')).toBe('Instagram · Theo Lavergne');
+    expect(threadTitle('sms', 'Dana Smith')).toBe('Texts with Dana Smith');
+    expect(threadTitle('chat', 'Beatrice Fontaine')).toBe('Chat with Beatrice Fontaine');
+    expect(callTitle('Marcus Smith')).toBe('Call · Marcus Smith');
   });
 });

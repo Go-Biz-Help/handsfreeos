@@ -1216,6 +1216,67 @@ describe('connecting Zoom', () => {
     expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
   });
 
+  it('seals the summary of a call on a private deal with the deal, so only its people read it', async () => {
+    const call = await book('Pelican Court tour', at(-5, 15), at(-5, 16), [tech.id], {
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
+    // A deal kept to its agent, as Real Estate's are.
+    const [deal] = await rows<{ id: string }>(
+      admin(),
+      sql`with kind as (
+            insert into app.custom_record_types (workspace_id, key, singular, plural, addon_id, write_permission,
+              kept_to_team, see_all_permission, position)
+            values (${workspaceId}, 'realestate_deal', 'Deal', 'Deals', 'realestate', 'realestate.use', true,
+              'realestate.all_deals', 900)
+            returning id)
+          insert into app.custom_records (workspace_id, type_id, name, owner_user_id)
+          select ${workspaceId}, kind.id, 'Pelican Court purchase', ${tech.id}::uuid from kind
+          returning id`,
+    );
+    const [person] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name)
+          values (${workspaceId}, 'Nora', 'Buyer') returning id`,
+    );
+    await rows(
+      admin(),
+      sql`update app.appointments set custom_record_id = ${deal!.id} where id = ${call}`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+          values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+    );
+    await executeCommand(
+      s.db,
+      appointmentAttachTranscript,
+      {
+        workspaceId,
+        appointmentId: call,
+        provider: 'zoom',
+        externalId: 'review-private-deal',
+        body: 'Priya: Shall we see it again Saturday?\nNora: Yes please.',
+      },
+      systemActor(scope()),
+      meta(),
+    );
+    await drain();
+    const notes = await rows<{ body: string; custom_record_id: string | null; sealed: boolean }>(
+      admin(),
+      sql`select body, custom_record_id, sealed from app.activities
+          where person_id = ${person!.id} and kind = 'note'`,
+    );
+    expect(notes).toEqual([
+      {
+        body: expect.stringContaining('Call summary: Pelican Court tour'),
+        custom_record_id: deal!.id,
+        sealed: true,
+      },
+    ]);
+  });
+
   it('suggests the new email the customer gave; approving updates their record, edited', async () => {
     const call = await book('Email change call', at(-3, 15), at(-3, 16), [tech.id], {
       kind: 'virtual',

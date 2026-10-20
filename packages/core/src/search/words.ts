@@ -110,6 +110,8 @@ export const SEARCH_WORDS = {
 
   /** A contact or a record saved with no name. */
   noName: 'No name',
+  /** A note with no words of its own: a call logged with nothing written. */
+  untitledNote: 'Note',
 
   // ---- The phone ----
   offline:
@@ -127,6 +129,37 @@ export const SEARCH_WORDS = {
   tooFast:
     'You’re searching faster than HandsFreeOS can keep up. Wait a few seconds and try again.',
 } as const;
+
+/** How a found message or thread is named, by its channel. */
+const CHANNEL_WORDS: Readonly<
+  Record<string, { readonly one: string; readonly thread: string; readonly from?: string }>
+> = {
+  sms: { one: 'Text', thread: 'Texts with', from: 'Text from' },
+  email: { one: 'Email', thread: 'Emails with' },
+  chat: { one: 'Chat', thread: 'Chat with' },
+  portal: { one: 'Portal message', thread: 'Portal messages with' },
+  messenger: { one: 'Messenger', thread: 'Messenger with' },
+  instagram: { one: 'Instagram', thread: 'Instagram with' },
+};
+const channelWords = (channel: string) => CHANNEL_WORDS[channel] ?? CHANNEL_WORDS.chat!;
+
+/** A message found by its words: "Text from Dana Smith", "Text to Jo Smithers", "Email · Kim Le". */
+export function messageTitle(
+  channel: string,
+  direction: 'inbound' | 'outbound',
+  who: string,
+): string {
+  const w = channelWords(channel);
+  if (w.from) return `${direction === 'inbound' ? w.from : `${w.one} to`} ${who}`;
+  return `${w.one} · ${who}`;
+}
+
+/** A thread found by who it's with, or by its number or address: "Texts with Dana Smith". */
+export const threadTitle = (channel: string, who: string): string =>
+  `${channelWords(channel).thread} ${who}`;
+
+/** A call found by what was said on it: "Call · Marcus Smith". */
+export const callTitle = (who: string): string => `Call · ${who}`;
 
 /** Why a hit matched, as its chip says it. */
 const WHY: Readonly<Record<string, string>> = {
