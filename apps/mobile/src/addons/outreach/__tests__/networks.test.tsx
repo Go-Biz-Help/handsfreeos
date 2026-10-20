@@ -115,6 +115,29 @@ describe('Today’s strip, a row for each network', () => {
     expect(onShow).toHaveBeenCalled();
   });
 
+  it('says Alignable’s list is the person’s own to do, with no Start my day or Settings to change it', async () => {
+    const h = handlers();
+    await render(
+      <LiveStrip
+        platform="alignable"
+        live={{ ...LIVE, sending: 'off', canSend: true }}
+        error={null}
+        online
+        now={NOW}
+        pressed={null}
+        many={false}
+        shown
+        onShow={jest.fn()}
+        {...h}
+      />,
+    );
+    expect(screen.getByTestId('live-sending-off')).toHaveTextContent(
+      /doesn’t work on Alignable on its own yet/,
+    );
+    expect(screen.queryByTestId('live-settings')).toBeNull();
+    expect(screen.queryByTestId('live-start')).toBeNull();
+  });
+
   it('says the network shown’s limits in its words, and its warning names it', async () => {
     await render(
       <LiveStrip

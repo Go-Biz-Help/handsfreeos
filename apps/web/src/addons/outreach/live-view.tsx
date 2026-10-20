@@ -28,9 +28,10 @@ import {
 import {
   dailyWordsOn,
   NETWORK_WORDS as NW,
+  noRunnerWords,
   teamWordsOn,
 } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
@@ -256,20 +257,26 @@ function RightNow({
           className="mt-3 rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
           data-testid="live-sending-off"
         >
-          {W.sendingOffNote}{' '}
-          {live.canSend ? (
-            <>
-              {W.changeThatIn}{' '}
-              <Link
-                className="font-medium text-accent-text underline-offset-2 hover:underline"
-                href={outreachHref(workspaceId, { view: 'settings', part: platform })}
-              >
-                {W.rows.settings}
-              </Link>
-              .
-            </>
+          {!runsOnItsOwn(platform) ? (
+            noRunnerWords(platform)
           ) : (
-            W.askToSend
+            <>
+              {W.sendingOffNote}{' '}
+              {live.canSend ? (
+                <>
+                  {W.changeThatIn}{' '}
+                  <Link
+                    className="font-medium text-accent-text underline-offset-2 hover:underline"
+                    href={outreachHref(workspaceId, { view: 'settings', part: platform })}
+                  >
+                    {W.rows.settings}
+                  </Link>
+                  .
+                </>
+              ) : (
+                W.askToSend
+              )}
+            </>
           )}
         </p>
       ) : null}

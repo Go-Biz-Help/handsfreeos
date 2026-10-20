@@ -1353,6 +1353,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       or training wheels show there yet.
     - **It has no day yet:** `outreach.day.start` refuses one (`outreach_network_looking`), and it isn't on Today's
       strip, the network filters, the setup's networks step or a playbook's (`WORKING_PLATFORMS`).
+    - **Alignable works from its part 3** (stage 6 of the partners plan, 20 Oct 2026), as LinkedIn did before its
+      runner: `stage: 'working'`, so it has a day, a row on Today's strip and the filters, a step in the setup and a
+      place on a playbook, its choices and limits in Settings, and its Check and profile as before. Until its runner
+      (part 5) every step there is the person's own: Today lists them, they do them on Alignable, and the extension
+      notes each (part 2). Start my day there says so (`sendingOffWords`). Instagram is still looked at.
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
       `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
       drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's
