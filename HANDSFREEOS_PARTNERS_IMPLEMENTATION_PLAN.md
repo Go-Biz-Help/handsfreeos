@@ -620,6 +620,8 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 3d, Recommend** (extension 0.75.0, a migration: `touches.kind` takes `recommend`): Today suggests one
      business a day to recommend, a partner or a customer they've done work for, never one recommended already; the
      person writes it on Alignable, and the extension notes it once it's sent.
+   - **Part 7, recommendations on Get ready** (extension 0.76.0): how many the profile shows, of the 5 it wants, and
+     the AI's note asking happy customers for one, to paste in Alignable's own Ask for Recommendations.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,
