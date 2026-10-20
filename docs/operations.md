@@ -10171,6 +10171,13 @@ the same way it refuses removing a business's last owner.
   a good one there improves every draft after it.
 - **Businesses** is the directory: who signed up, who works there, when they last did anything. Their actual
   data — customers, messages, money — is not readable from here.
+  Clicking a business opens its **quick look** over the list (`20261027009700_business_quick_look.sql`): what needs
+  a look and why, its numbers, 30 days of activity, its plan and balance, what its customers paid it, what is set up
+  and connected, its people and tickets. ← and → step to the next business; **Full page** opens the page that
+  changes things (balance, founding seat, add-ons in testing). **Needs a look** lists only the businesses with
+  something wrong: a declined card, a balance run out, a renewal that failed, a texting registration turned down or
+  stuck, a connection to sign in again, a thin margin, gone quiet, or Getting started stalled.
+  `private.admin_business_attention` holds those rules; core says them in words.
   A support admin can also pick the model a business's AI teammate thinks with on calls, under **AI on their
   calls**: **Default** is the worker's `VOICE_MODEL` (Claude Haiku 5.5 unless set), or **Claude Haiku 4.5
   (older)**. Every business was put back on Default by
@@ -10405,7 +10412,7 @@ one business try it, a staff admin (anyone with `platform.addons.manage`) hands 
 handed out this way (docs/realestate.md). Nothing needs setting up besides its migrations (see "Apply new
 migrations"): Real Estate Agent's are `20261013002200` to `20261013003000`.
 
-1. Open **/admin/businesses** and search for the business. Open it.
+1. Open **/admin/businesses** and search for the business. Open it, then press **Full page**.
 2. Under **Add-ons in testing**, press **Let them try it** beside the add-on. It now says "they can add it".
 3. Tell the business's owner. They open **Add-ons** (at the foot of the side menu), find it under **Available to
    add** marked **Testing**, and press **Install**. It says **Setting up** for a moment, then **On**.

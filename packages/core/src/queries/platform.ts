@@ -6,6 +6,7 @@
  * data itself is reached only by looking at a business, which says so in that business's own audit log.
  */
 import { and, asc, desc, eq, ilike, isNull, lt, or, sql as dsql } from 'drizzle-orm';
+import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import {
   aiProvider,
@@ -37,10 +38,14 @@ import {
   AiProviderModeValue,
   AiProviderReasonValue,
   AiProviderValue,
+  BusinessAttentionValue,
   BusinessGetInput,
   BusinessGetOutput,
+  BusinessGlanceInput,
+  BusinessGlanceOutput,
   BusinessListInput,
   BusinessListOutput,
+  BusinessPlanValue,
   RateCardGetInput,
   RateCardGetOutput,
   HealthSummaryInput,
@@ -66,6 +71,12 @@ const foundingSeat = dsql<string | null>`(
   where g.workspace_id = ${workspaces.id} and g.status = 'active'
   limit 1
 )`;
+// The plan and what needs a look (20261027009700): the rules are the database's, the words core's.
+const plan = dsql<string | null>`private.admin_business_plan(${workspaces.id})`;
+const attention = dsql<string[] | null>`private.admin_business_attention(${workspaces.id})`;
+const planOf = (value: string | null) => BusinessPlanValue.options.find((p) => p === value) ?? null;
+const attentionOf = (keys: readonly string[] | null) =>
+  BusinessAttentionValue.options.filter((k) => keys?.includes(k));
 
 export const platformBusinessList = defineQuery({
   name: 'platform.business.list',
@@ -81,9 +92,11 @@ export const platformBusinessList = defineQuery({
       const like = `%${input.search}%`;
       conditions.push(or(ilike(workspaces.name, like), ilike(organizations.name, like))!);
     }
-    // Only 'newest' pages, because it is the only order that cannot change under the reader's feet.
-    if (input.cursor && input.sort === 'newest')
-      conditions.push(lt(workspaces.createdAt, new Date(input.cursor)));
+    if (input.sort === 'attention')
+      conditions.push(dsql`cardinality(private.admin_business_attention(${workspaces.id})) > 0`);
+    // Only the orders by sign-up page, because they are the only ones that cannot change under the reader's feet.
+    const pages = input.sort === 'newest' || input.sort === 'attention';
+    if (input.cursor && pages) conditions.push(lt(workspaces.createdAt, new Date(input.cursor)));
     const order =
       input.sort === 'name'
         ? [asc(workspaces.name)]
@@ -100,6 +113,8 @@ export const platformBusinessList = defineQuery({
         open: openTickets,
         lastActiveAt: lastActive,
         foundingSeat,
+        plan,
+        attention,
       })
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
@@ -115,7 +130,7 @@ export const platformBusinessList = defineQuery({
     }>(ctx.tx, sql`select * from private.admin_business_totals()`);
     return {
       businesses: page.map(
-        ({ w, organizationName, members, open, lastActiveAt, foundingSeat }) => ({
+        ({ w, organizationName, members, open, lastActiveAt, foundingSeat, plan, attention }) => ({
           workspaceId: w.id,
           name: w.name,
           organizationId: w.organizationId,
@@ -127,12 +142,12 @@ export const platformBusinessList = defineQuery({
           openTicketCount: open,
           createdAt: w.createdAt.toISOString(),
           foundingSeat,
+          plan: planOf(plan),
+          attention: attentionOf(attention),
         }),
       ),
       nextCursor:
-        list.length > input.limit && last && input.sort === 'newest'
-          ? last.w.createdAt.toISOString()
-          : null,
+        list.length > input.limit && last && pages ? last.w.createdAt.toISOString() : null,
       totals: {
         businesses: Number(totals?.businesses ?? 0),
         newThisWeek: Number(totals?.new_this_week ?? 0),
@@ -158,6 +173,8 @@ export const platformBusinessGet = defineQuery({
         open: openTickets,
         lastActiveAt: lastActive,
         foundingSeat,
+        plan,
+        attention,
       })
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
@@ -232,6 +249,8 @@ export const platformBusinessGet = defineQuery({
         openTicketCount: row.open,
         createdAt: row.w.createdAt.toISOString(),
         foundingSeat: row.foundingSeat,
+        plan: planOf(row.plan),
+        attention: attentionOf(row.attention),
       },
       people: people.map((p) => ({
         userId: p.userId,
@@ -264,6 +283,112 @@ export const platformBusinessGet = defineQuery({
     };
   },
 });
+
+/**
+ * One business at a glance, for the directory's quick look: what needs a look, the plan, 30 days of activity, the
+ * money their customers paid them, what is connected, and where they came from. Read beside `platform.business.get`
+ * and `platform.wallet.get`, which say the rest. `private.admin_business_glance` checks the permission itself.
+ */
+export const platformBusinessGlance = defineQuery({
+  name: 'platform.business.glance',
+  description:
+    'One business at a glance: what needs a look, its plan, 30 days of activity, what its customers paid it, and what is connected.',
+  input: BusinessGlanceInput,
+  output: BusinessGlanceOutput,
+  permission: 'platform.businesses.read',
+  scope: onPlatform,
+  async handler(ctx, input) {
+    const [row] = await rows<{ glance: Glance | null }>(
+      ctx.tx,
+      sql`select private.admin_business_glance(${input.workspaceId}::uuid) as glance`,
+    );
+    const g = row?.glance;
+    if (!g)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Search for it again.',
+      );
+    const iso = (v: string | null | undefined) => (v ? new Date(v).toISOString() : null);
+    const int = (v: number | string | null | undefined) => Number(v ?? 0);
+    const setup = g.setup;
+    return {
+      attention: attentionOf(g.attention),
+      deletionRequestedAt: iso(g.deletionRequestedAt),
+      plan: g.plan
+        ? {
+            plan: g.plan.plan,
+            status: g.plan.status,
+            priceCents: int(g.plan.priceCents),
+            periodEnd: iso(g.plan.periodEnd),
+            graceEndsAt: iso(g.plan.graceEndsAt),
+            canceledAt: iso(g.plan.canceledAt),
+            renewalStoppedAt: iso(g.plan.renewalStoppedAt),
+            renewalProblem: g.plan.renewalProblem,
+            renewalFailedAt: iso(g.plan.renewalFailedAt),
+          }
+        : null,
+      activity: (g.activity ?? []).map(int),
+      traffic: {
+        texts: int(g.traffic.texts),
+        calls: int(g.traffic.calls),
+        emails: int(g.traffic.emails),
+        aiReplies: int(g.traffic.aiReplies),
+      },
+      theirMoney: {
+        collected30dCents: int(g.theirMoney.collected30dCents),
+        refunded30dCents: int(g.theirMoney.refunded30dCents),
+        openInvoices: int(g.theirMoney.openInvoices),
+        openInvoiceCents: int(g.theirMoney.openInvoiceCents),
+        overdueInvoices: int(g.theirMoney.overdueInvoices),
+        openDisputes: int(g.theirMoney.openDisputes),
+      },
+      setup: {
+        numbers: setup.numbers,
+        registration: setup.registration
+          ? {
+              state: setup.registration.state,
+              since: iso(setup.registration.since),
+              reason: setup.registration.reason,
+            }
+          : null,
+        emailDomain: setup.emailDomain,
+        emailAddresses: int(setup.emailAddresses),
+        mailboxes: setup.mailboxes,
+        payments: setup.payments,
+        calendarConnections: setup.calendarConnections,
+        calendars: int(setup.calendars),
+        bookingPage: setup.bookingPage,
+        aiTeammate: setup.aiTeammate,
+        meta: setup.meta,
+        gettingStarted: setup.gettingStarted,
+      },
+      more: {
+        cameFrom: g.more.cameFrom ? { ...g.more.cameFrom, at: iso(g.more.cameFrom.at) } : null,
+        addons: g.more.addons,
+        mainOffer: g.more.mainOffer
+          ? { liveVersion: g.more.mainOffer.liveVersion, revision: int(g.more.mainOffer.revision) }
+          : null,
+        supportAccess: g.more.supportAccess
+          ? { status: g.more.supportAccess.status, expiresAt: iso(g.more.supportAccess.expiresAt) }
+          : null,
+        lastViewedAs: iso(g.more.lastViewedAs),
+      },
+      problemReports: {
+        open: int(g.problemReports.open),
+        recent: g.problemReports.recent.map((r) => ({
+          id: r.id,
+          area: r.area,
+          note: r.note,
+          createdAt: iso(r.createdAt) ?? new Date(0).toISOString(),
+          handled: r.handled,
+        })),
+      },
+    };
+  },
+});
+
+/** What private.admin_business_glance returns, as postgres.js reads its jsonb: dates are strings with an offset. */
+type GlanceJson = z.input<typeof BusinessGlanceOutput>;
+type Glance = Omit<GlanceJson, 'attention'> & { attention: string[] | null };
 
 export const platformHealthSummary = defineQuery({
   name: 'platform.health.summary',
@@ -595,6 +720,7 @@ export const platformRateCard = defineQuery({
 export const platformQueries = [
   platformBusinessList,
   platformBusinessGet,
+  platformBusinessGlance,
   platformHealthSummary,
   platformAiProviderGet,
   platformViewAsCurrent,

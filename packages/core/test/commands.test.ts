@@ -827,6 +827,7 @@ describe('registry', () => {
       'platform.me',
       'platform.business.list',
       'platform.business.get',
+      'platform.business.glance',
       'platform.health.summary',
       'platform.ai_provider.get',
       'platform.view_as.current',

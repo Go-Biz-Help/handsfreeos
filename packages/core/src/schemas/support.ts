@@ -262,6 +262,29 @@ export const PlatformMeOutput = z.object({
 
 // ---------- the businesses ----------
 
+/** The plan a business is on (app.workspace_plans), or none yet. */
+export const BusinessPlanValue = z.enum(['founding_free', 'founding_lifetime', 'monthly']);
+export type BusinessPlanValue = z.infer<typeof BusinessPlanValue>;
+
+/**
+ * What needs a look, most serious first (private.admin_business_attention, where the rules live). The words are
+ * core's: `deskBusinessFlags`.
+ */
+export const BusinessAttentionValue = z.enum([
+  'being_deleted',
+  'wallet_suspended',
+  'card_declined',
+  'balance_out',
+  'plan_trouble',
+  'texting_rejected',
+  'connection_broken',
+  'texting_waiting',
+  'thin_margin',
+  'gone_quiet',
+  'setup_stalled',
+]);
+export type BusinessAttentionValue = z.infer<typeof BusinessAttentionValue>;
+
 export const BusinessRow = z.object({
   workspaceId: uuid,
   name: z.string(),
@@ -279,10 +302,14 @@ export const BusinessRow = z.object({
    * staff who don't manage founding seats.
    */
   foundingSeat: z.string().nullable(),
+  plan: BusinessPlanValue.nullable(),
+  /** What needs a look; empty when nothing does. */
+  attention: z.array(BusinessAttentionValue),
 });
 export const BusinessListInput = z.object({
   search: z.string().trim().max(200).optional(),
-  sort: z.enum(['newest', 'busiest', 'quietest', 'name']).default('newest'),
+  /** `attention` is only the businesses that need a look, newest first. */
+  sort: z.enum(['newest', 'busiest', 'quietest', 'attention', 'name']).default('newest'),
   limit,
   cursor,
 });
@@ -349,6 +376,102 @@ export const BusinessGetOutput = z.object({
     aiTeammate: z.boolean(),
   }),
 });
+
+// ---------- one business at a glance ----------
+
+export const BusinessGlanceInput = z.object({ workspaceId: uuid });
+
+const connection = z.object({ provider: z.string(), status: z.string() });
+
+/**
+ * Everything the quick look shows beyond `platform.business.get` and `platform.wallet.get`
+ * (private.admin_business_glance). Counts and states only: never a message, a customer's name or a card number.
+ */
+export const BusinessGlanceOutput = z.object({
+  attention: z.array(BusinessAttentionValue),
+  deletionRequestedAt: isoDateTime.nullable(),
+  plan: z
+    .object({
+      plan: BusinessPlanValue,
+      status: z.enum(['active', 'grace', 'past_due', 'canceled']),
+      priceCents: z.int(),
+      /** The end of the year paid for, on a yearly founding seat. */
+      periodEnd: isoDateTime.nullable(),
+      graceEndsAt: isoDateTime.nullable(),
+      canceledAt: isoDateTime.nullable(),
+      renewalStoppedAt: isoDateTime.nullable(),
+      renewalProblem: z.string().nullable(),
+      renewalFailedAt: isoDateTime.nullable(),
+    })
+    .nullable(),
+  /** Events a day for the last 30 days, oldest first, ending today in the business's own time zone. */
+  activity: z.array(z.int()),
+  /** The last 30 days. */
+  traffic: z.object({ texts: z.int(), calls: z.int(), emails: z.int(), aiReplies: z.int() }),
+  /** Money their own customers paid them, through their invoices. None of it is ours. */
+  theirMoney: z.object({
+    collected30dCents: z.int(),
+    refunded30dCents: z.int(),
+    openInvoices: z.int(),
+    openInvoiceCents: z.int(),
+    overdueInvoices: z.int(),
+    openDisputes: z.int(),
+  }),
+  setup: z.object({
+    /** Their numbers, the default first. */
+    numbers: z.array(z.string()),
+    /** Texting registration, summed over its parts. Null when they never started one. */
+    registration: z
+      .object({
+        state: z.enum(['approved', 'waiting', 'rejected', 'draft']),
+        /** When the oldest part still waiting went to the carriers. */
+        since: isoDateTime.nullable(),
+        reason: z.string().nullable(),
+      })
+      .nullable(),
+    emailDomain: z.object({ domain: z.string(), status: z.string() }).nullable(),
+    emailAddresses: z.int(),
+    mailboxes: z.array(connection),
+    payments: z.array(connection),
+    calendarConnections: z.array(connection),
+    calendars: z.int(),
+    bookingPage: z.object({ slug: z.string(), enabled: z.boolean() }).nullable(),
+    aiTeammate: z.enum(['off', 'training', 'automatic']).nullable(),
+    meta: z.string().nullable(),
+    gettingStarted: z.enum(['finished', 'started', 'not_started', 'off']),
+  }),
+  more: z.object({
+    /** The move from another system that made this business, if one did. */
+    cameFrom: z
+      .object({ source: z.string(), status: z.string(), at: isoDateTime.nullable() })
+      .nullable(),
+    /** Add-ons switched on. */
+    addons: z.array(z.string()),
+    mainOffer: z.object({ liveVersion: z.int().nullable(), revision: z.int() }).nullable(),
+    /** The last time they were asked to let support into their records, and what they said. */
+    supportAccess: z
+      .object({
+        status: z.enum(['requested', 'active', 'declined', 'ended']),
+        expiresAt: isoDateTime.nullable(),
+      })
+      .nullable(),
+    /** The last time somebody at HandsFreeOS looked at the business as one of its people. */
+    lastViewedAs: isoDateTime.nullable(),
+  }),
+  problemReports: z.object({
+    open: z.int(),
+    recent: z.array(
+      z.object({
+        id: uuid,
+        area: z.string().nullable(),
+        note: z.string().nullable(),
+        createdAt: isoDateTime,
+        handled: z.boolean(),
+      }),
+    ),
+  }),
+});
+export type BusinessGlance = z.infer<typeof BusinessGlanceOutput>;
 
 // ---------- one business's usage balance ----------
 
