@@ -21,7 +21,13 @@
  *   (0.66.0, partners stage 6) the pages Alignable's steps and Find partners are built from next: the person's town, a
  *   search for businesses, a forum question, their connection requests and a chat with a connection, nothing written.
  */
-import { askCodeWords, type AskTaken, type AskTask } from '@hfos/core/addons/outreach/asks';
+import {
+  ASK_CODE_MINUTES,
+  askCodeRanOutWords,
+  askCodeWords,
+  type AskTaken,
+  type AskTask,
+} from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import {
   PROFILE_CHECK_WORDS as P,
@@ -496,8 +502,9 @@ async function alignableProfileRead(job: Job): Promise<JobEnd> {
 /**
  * Put this one in, on Alignable: About Us, past the code Alignable emails (decision 82). Its Edit asks for the code;
  * HandsFreeOS asks the person for it (`job.code`), and it goes in where Alignable asks, then About Us is written and
- * saved. A code that didn't work asks for the newest; none in 10 minutes ends it. Anything else the person does by
- * hand, and presses Carry on. Then it's read again for a new check.
+ * saved. A code that didn't work asks for the newest. None in its 30 minutes hands them Try again: pressed, their
+ * profile is opened afresh and its Edit asks Alignable for a new one. Anything else the person does by hand, and
+ * presses Carry on. Then it's read again for a new check.
  */
 async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   const about = task.about;
@@ -508,20 +515,32 @@ async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   job.progress('Putting your About Us in…');
   let result: string = 'none';
   let again = false;
-  for (let tries = 0; tries <= CODE_TRIES; tries++) {
+  let wrong = 0;
+  for (;;) {
     if (job.stopped()) return { line: 'Stopped.', warned: false };
     const wrote = await job.tab.ask({ type: 'hfos-write-about', about });
     result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
-    if (result !== 'code') break;
-    if (tries === CODE_TRIES || !job.code) break;
+    if (result !== 'code' || !job.code) break;
     const code = await job.code(askCodeWords('alignable', again));
     if (job.stopped()) return { line: 'Stopped.', warned: false };
-    if (!code)
-      return {
-        line: 'No code came from your email in 10 minutes, so About Us wasn’t changed. Ask again, and Alignable emails a new one.',
-        warned: false,
-        failed: true,
-      };
+    if (!code) {
+      if (!job.handOver)
+        return {
+          line: `No code came from your email in ${ASK_CODE_MINUTES} minutes, so About Us wasn’t changed. Ask again, and Alignable emails a new one.`,
+          warned: false,
+          failed: true,
+        };
+      // None came in its time (Chris: "prompt the user to have the extension try again").
+      const reply = await job.handOver(askCodeRanOutWords('alignable'), {
+        note: `No code came in ${ASK_CODE_MINUTES} minutes.`,
+      });
+      if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+      // Their profile afresh: its Edit asks Alignable for a new code.
+      const reopened = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+      if (isEnd(reopened)) return reopened;
+      again = false;
+      continue;
+    }
     job.progress('Putting the code in…');
     const put = await job.tab.ask({ type: 'hfos-put-code', code });
     const taken = put.ok ? put.code : 'none';
@@ -529,6 +548,7 @@ async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
       result = 'none';
       break;
     }
+    if (taken === 'wrong' && ++wrong >= CODE_TRIES) break;
     again = taken === 'wrong';
     job.progress('Putting your About Us in…');
   }

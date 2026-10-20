@@ -88946,7 +88946,7 @@
     "/v1/commands/outreach.ask.code": {
       "post": {
         "operationId": "command_outreach_ask_code",
-        "summary": "The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 10 minutes at most, and taken once.",
+        "summary": "The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 30 minutes at most, and taken once.",
         "tags": [
           "commands"
         ],

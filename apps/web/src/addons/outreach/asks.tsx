@@ -15,9 +15,9 @@ import {
   askedWords,
   askOpen,
   askRepliesFor,
+  askReplyLabel,
   askWaitingWords,
   askNameOn,
-  ASK_REPLIES,
   ASK_SHOWN_STATES,
   ASK_TONES,
   ASK_CODE_SENT_WORDS,
@@ -30,6 +30,7 @@ import {
   latestAskOn,
   targetOf,
   type AskInput,
+  type AskReply,
   type AskShownState,
 } from '@hfos/core/addons/outreach/asks';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
@@ -147,7 +148,7 @@ export function AskLine({
   const open = askOpen(ask.state);
   const replies = ask.state === 'stuck' && ask.reply === null ? askRepliesFor(ask.kind) : [];
   const at = ask.endedAt ?? ask.startedAt ?? ask.askedAt;
-  const reply = (r: keyof typeof ASK_REPLIES) =>
+  const reply = (r: AskReply) =>
     void act(`reply:${r}`, async () =>
       unwrap(
         await apiBrowser().POST('/v1/commands/outreach.ask.reply', {
@@ -222,7 +223,7 @@ export function AskLine({
               disabled={busy !== null}
               data-testid={`ask-${r}`}
             >
-              {ASK_REPLIES[r]}
+              {askReplyLabel(ask, r)}
             </Button>
           ))}
           <Button

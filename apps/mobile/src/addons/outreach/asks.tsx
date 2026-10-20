@@ -1,7 +1,6 @@
 import {
   askNameOn,
   ASK_KINDS_FOR,
-  ASK_REPLIES,
   ASK_SHOWN_STATES,
   ASK_TONES,
   ASK_CODE_SENT_WORDS,
@@ -12,6 +11,7 @@ import {
   askNeedsYou,
   askOpen,
   askRepliesFor,
+  askReplyLabel,
   askWaitingWords,
   cantAskWhy,
   tooOldFor,
@@ -57,6 +57,7 @@ export function useAsks(
   tab: keyof typeof ASK_KINDS_FOR | null,
   screen: string,
   on = true,
+  everySeconds = ASKS_REFETCH_SECONDS,
 ): LiveAnswer<AsksOutput> {
   const ws = useOutreachContext().workspaceId;
   return useOutreachAnswer(
@@ -70,7 +71,7 @@ export function useAsks(
       : null,
     `asks:${ws}:${tab ?? 'all'}`,
     screen,
-    { everySeconds: ASKS_REFETCH_SECONDS },
+    { everySeconds },
   );
 }
 
@@ -231,6 +232,7 @@ export function AskLine({
   ask,
   actions,
   named = false,
+  focusCode = false,
 }: {
   /** The business's clock and the computer, for when and the words while it waits. */
   asks: Pick<AsksOutput, 'timezone' | 'computer' | 'now'>;
@@ -238,6 +240,8 @@ export function AskLine({
   actions: AskActions;
   /** Say what was asked first, for the Live screen's and Waiting for you's lists. */
   named?: boolean;
+  /** The code's box takes the keyboard at once: the code's own screen. */
+  focusCode?: boolean;
 }) {
   const open = askOpen(ask.state);
   const replies = ask.state === 'stuck' && ask.reply === null ? askRepliesFor(ask.kind) : [];
@@ -278,7 +282,9 @@ export function AskLine({
         </Text>
       ) : null}
       {ask.state === 'stuck' && ask.reply ? <Note>{ASK_WORDS.youSaid(ask.reply)}</Note> : null}
-      {ask.state === 'code' && actions.code ? <CodeBox ask={ask} actions={actions} /> : null}
+      {ask.state === 'code' && actions.code ? (
+        <CodeBox ask={ask} actions={actions} focus={focusCode} />
+      ) : null}
       {open ? (
         <View className="flex-row flex-wrap gap-2">
           {replies.map((r) => (
@@ -291,7 +297,7 @@ export function AskLine({
               disabled={actions.busy !== null}
               testID={`ask-${r}`}
             >
-              {ASK_REPLIES[r]}
+              {askReplyLabel(ask, r)}
             </Button>
           ))}
           <Button
@@ -314,7 +320,15 @@ export function AskLine({
  * The code a network emailed them, for their computer to put in: sent once, it says so till the computer takes it,
  * with a way to type it again (a typo, or a newer email).
  */
-function CodeBox({ ask, actions }: { ask: AskShown; actions: AskActions }) {
+function CodeBox({
+  ask,
+  actions,
+  focus = false,
+}: {
+  ask: AskShown;
+  actions: AskActions;
+  focus?: boolean;
+}) {
   const [code, setCode] = React.useState('');
   const [sent, setSent] = React.useState(false);
   const busy = actions.busy === `code:${ask.askId}`;
@@ -342,6 +356,7 @@ function CodeBox({ ask, actions }: { ask: AskShown; actions: AskActions }) {
         onChangeText={setCode}
         placeholder={ASK_WORDS.code}
         accessibilityLabel={ASK_WORDS.code}
+        autoFocus={focus}
         autoComplete="one-time-code"
         textContentType="oneTimeCode"
         autoCapitalize="characters"

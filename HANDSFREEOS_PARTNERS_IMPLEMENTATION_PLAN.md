@@ -600,10 +600,12 @@ request when opened, so no Check opens it: the first real request shows what it 
      extension reads the code's box when it's open. **The code relay** (docs/outreach.md decision 82): the extension
      asks HandsFreeOS for the code, the person is told on their phone to look in their email, types it in HandsFreeOS,
      and the extension puts it in the box once and forgets it. Only they can read it, and it's gone once used or after
-     10 minutes. With it, **Get ready on Alignable** (extension 0.71.0) reads their profile for the AI's check (its
+     30 minutes. With it, **Get ready on Alignable** (extension 0.71.0) reads their profile for the AI's check (its
      items: photo, About Us, Elevator Pitch, ideal customer and partner, services), the AI writes About Us whole, and
      **Put this one in** puts it in past the code. The Elevator Pitch is made with Alignable's own assistant, so it
-     stays theirs to tick.
+     stays theirs to tick. From 0.72.0 the code's notification stays up for its 30 minutes, on Home and under the
+     phone's bell beside Ask HandsFreeOS, and opens the code's own screen; with no code by then, it asks them to
+     **Try again**, and Alignable emails a new one.
    - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
      question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
      other networks (`src/networks/alignable/actions.ts`).
