@@ -15,4 +15,6 @@ export const DESK_BUSINESS_PHONE_WORDS = {
   creditPutOn: 'Credit put on',
   aiUnreadable: 'Couldn’t read which AI is answering. Pull down to try again in a minute.',
   aiReading: 'Reading which AI is answering…',
+  /** Under the quick look: the business's own screen, for its people, tickets and changes. */
+  openBusiness: 'Open the business',
 } as const;
