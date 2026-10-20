@@ -387,6 +387,10 @@ describe('what it does on Alignable’s list', () => {
     expect(nextAlignableDaily({ daily: { requests: 'x', checks: 'y', partners: 'z' } })).toBe(
       'posts',
     );
+    // Last, who engaged with them, from their notifications.
+    expect(
+      nextAlignableDaily({ daily: { requests: 'x', checks: 'y', partners: 'z', posts: 'w' } }),
+    ).toBe('helpful');
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {

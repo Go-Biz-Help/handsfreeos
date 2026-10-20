@@ -50,6 +50,7 @@ import { checkConnections, isTheirs, readThemOnAlignable } from '../jobs/alignab
 import { lookUpOnAlignable } from '../jobs/alignable/lookup';
 import { searchAlignable } from '../jobs/alignable/partner-search';
 import { checkRequests } from '../jobs/alignable/people';
+import { readWarmLeads } from '../jobs/alignable/engaged';
 import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
@@ -93,12 +94,16 @@ export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
  * person's OK each time, and requests they got are theirs to accept.
  */
 export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
-/** The once-a-day jobs on Alignable, in order: Find partners right after the connections are checked. */
+/**
+ * The once-a-day jobs on Alignable, in order: Find partners right after the connections are checked, and last who
+ * engaged with them, from their notifications (`helpful`: who engaged, here with no helpful post of their own).
+ */
 export const ALIGNABLE_DAILY = [
   'requests',
   'checks',
   'partners',
   'posts',
+  'helpful',
 ] as const satisfies readonly DailyJob[];
 type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
 
@@ -107,12 +112,14 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   checks: 'Checking your connections for good fits…',
   partners: 'Searching Alignable for businesses that could partner with you, then reading them…',
   posts: 'Reading your town’s posts and forum questions for the AI…',
+  helpful: 'Reading your notifications for who liked, commented on or recommended you…',
 };
 const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   requests: 'Connection requests',
   checks: 'Check my connections',
   partners: 'Find partners',
   posts: 'Find posts in your town',
+  helpful: 'Who engaged with you',
 };
 
 /** Alignable's pace between steps: LinkedIn's, a person's (the plan's "The risk, said plainly"). */
@@ -671,6 +678,8 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       });
     case 'posts':
       return findPostsInTown(job);
+    case 'helpful':
+      return readWarmLeads(job);
   }
 }
 
