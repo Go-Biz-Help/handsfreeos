@@ -1358,6 +1358,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       place on a playbook, its choices and limits in Settings, and its Check and profile as before. Until its runner
       (part 5) every step there is the person's own: Today lists them, they do them on Alignable, and the extension
       notes each (part 2). Start my day there says so (`sendingOffWords`). Instagram is still looked at.
+    - **Check Instagram's new reads** (extension 0.79.0; the Instagram plan's part 9): it also opens the person's
+      followers, a hashtag, a place, their notifications and a chat, so its readers of who follows, hashtag and
+      place posts, who engaged and a chat's messages are built from what those outlines show.
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
