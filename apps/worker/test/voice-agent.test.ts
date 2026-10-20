@@ -778,7 +778,7 @@ describe('the pieces', () => {
         speech_final: true,
         channel: { alternatives: [{ transcript: ' Hola ', languages: ['es'] }] },
       }),
-    ).toEqual({ text: 'Hola', final: true, endOfTurn: true, language: 'es' });
+    ).toEqual({ text: 'Hola', final: true, endOfTurn: true, language: 'es', endOfTurnMs: null });
     expect(heardOf({ type: 'Metadata' })).toBeNull();
   });
 

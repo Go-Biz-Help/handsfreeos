@@ -7,13 +7,20 @@ import { createDeepgramSpeech } from './deepgram-speech';
 import { createFakeSpeech } from './fake-speech';
 import type { SpeechServices } from './speech';
 
-/** Hearing and speaking on a live call, from VOICE_AGENT: Deepgram, the stand-in, or off (null). */
+/**
+ * Hearing and speaking on a live call, from VOICE_AGENT: Deepgram, the stand-in, or off (null). Deepgram listens
+ * with VOICE_LISTENER's model.
+ */
 export function createSpeech(
-  env: Pick<WorkerEnv, 'voiceAgent' | 'deepgramApiKey'>,
+  env: Pick<WorkerEnv, 'voiceAgent' | 'deepgramApiKey' | 'voiceListener'>,
   log: Logger,
 ): SpeechServices | null {
   if (env.voiceAgent === 'deepgram' && env.deepgramApiKey)
-    return createDeepgramSpeech({ apiKey: env.deepgramApiKey, log });
+    return createDeepgramSpeech({
+      apiKey: env.deepgramApiKey,
+      log,
+      listener: env.voiceListener,
+    });
   if (env.voiceAgent === 'fake') return createFakeSpeech();
   return null;
 }
