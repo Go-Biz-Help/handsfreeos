@@ -2,6 +2,7 @@
  * What Search everything says, on the web and the phone alike (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "Words in
  * core"). Browser-safe. Clients branch on a refusal's `rule`, never on these words, so they can always improve.
  */
+import { CONTACTS_WORDS } from '../crm/record-words';
 
 /** A kind's group heading, chip and line on the Search page, in the order the chips and groups use. */
 export const SEARCH_KIND_LABELS = {
@@ -31,6 +32,36 @@ const quoted = (q: string) => `“${q}”`;
 export const searchCount = (n: number, capped = false): string =>
   capped ? `${Math.min(n, 100)}+` : n > 100 ? '100+' : String(n);
 
+/** How one kind's results are counted, one and more: "1 contact", "9 contacts", "2 things in the Deleted bin". */
+const KIND_NOUNS: Readonly<Record<string, readonly [one: string, more: string]>> = {
+  contacts: ['contact', 'contacts'],
+  companies: ['company', 'companies'],
+  leads: ['lead', 'leads'],
+  money: ['bill or payment', 'bills and payments'],
+  messages: ['message', 'messages'],
+  calendar: ['appointment', 'appointments'],
+  tasks: ['task', 'tasks'],
+  notes: ['note', 'notes'],
+  files: ['file', 'files'],
+  forms: ['form or answer', 'forms and answers'],
+  knowledge: ['knowledge item', 'knowledge items'],
+  settings: ['setting', 'settings'],
+  spam: ['message in Spam', 'messages in Spam'],
+  archived: ['archived record', 'archived records'],
+  bin: ['thing in the Deleted bin', 'things in the Deleted bin'],
+  close: ['close match', 'close matches'],
+};
+
+/**
+ * What `n` of a kind's results are called: core's kinds by their own nouns; a business's own kinds and an add-on's
+ * carry only their plural, "3 pets", and one is "result in Pets".
+ */
+export function kindNoun(n: number, kind: string, plural: string): string {
+  const nouns = KIND_NOUNS[kind];
+  if (nouns) return n === 1 ? nouns[0] : nouns[1];
+  return n === 1 ? `result in ${plural}` : plural.toLowerCase();
+}
+
 /** "a", "a and b", "a, b and c". */
 const listed = (parts: readonly string[]): string =>
   parts.length <= 1
@@ -52,36 +83,58 @@ export const SEARCH_WORDS = {
   exact: 'Exact match',
   alsoHas: (q: string) => `Also has ${q} in it`,
   hints: { move: 'move', open: 'open', close: 'close' },
+  /** The best match's buttons, named for screen readers: "Call Dana Smith". */
+  call: (name: string) => `Call ${name}`,
+  text: (name: string) => `Text ${name}`,
 
   // ---- The Search page ----
+  page: 'Search',
+  /** The kinds list beside the results, for screen readers. */
+  kindsOfResults: 'Kinds of results',
   resultsFor: (n: number, q: string, capped = false) =>
     `${searchCount(n, capped)} ${n === 1 && !capped ? 'result' : 'results'} for ${quoted(q)}`,
   everythingIn: (business: string) => `Everything in ${business} you’re allowed to see.`,
   includeArchived: 'Include archived',
   onlyMine: 'Only mine',
   nothingIn: (labels: readonly string[]) => `Nothing in ${listed(labels)}.`,
-  showMore: (n: number, plural: string) => `Show ${n} more ${plural.toLowerCase()}`,
+  /** "Show 3 more contacts", "Show 1 more contact". */
+  showMore: (n: number, kind: string, plural: string) =>
+    `Show ${n} more ${kindNoun(n, kind, plural)}`,
   only: (plural: string) => `Only ${plural.toLowerCase()}`,
   tasksAndNotes: 'Tasks and notes',
 
   // ---- One kind ----
-  named: (n: number, plural: string, q: string) =>
-    `${n} ${plural.toLowerCase()} named ${quoted(q)}`,
-  kindFor: (n: number, plural: string, q: string) =>
-    `${n} ${plural.toLowerCase()} for ${quoted(q)}`,
+  /** "9 contacts named “dana”", when every hit matched on its name. */
+  named: (n: number, kind: string, plural: string, q: string) =>
+    `${n} ${kindNoun(n, kind, plural)} named ${quoted(q)}`,
+  /** "1 contact for “504”", "2 things in the Deleted bin for “tom becnel”". */
+  kindFor: (n: number, kind: string, plural: string, q: string) =>
+    `${n} ${kindNoun(n, kind, plural)} for ${quoted(q)}`,
   narrow: 'Add a last name, a phone number or a street to narrow it.',
   showingAll: (n: number) => `Showing all ${n}`,
   showingOf: (shown: number, total: number) => `Showing ${shown} of ${total}`,
   showMoreOf: (n: number) => `Show ${n} more`,
+  /** The table of one kind's contacts. */
+  columns: {
+    name: 'Name',
+    phone: 'Phone',
+    email: 'Email',
+    where: 'Where',
+    lastContact: 'Last contact',
+  },
+  sort: 'Sort',
   sorts: { best: 'Best match', recent: 'Most recent contact', name: 'Name A–Z' },
   twoShare: (name: string, phone: string) =>
     `Two ${name}s share the number ${phone}. They may be the same person.`,
   twoSharePhone: (name: string) => `Two ${name}s share a number. Same person?`,
+  twoShareEmail: (name: string, email: string) =>
+    `Two ${name}s share the email ${email}. They may be the same person.`,
   compareAndMerge: 'Compare and merge',
   compare: 'Compare',
   sameNumber: 'Same number, maybe the same person',
-  searchedBack: (plural: string, date: string) =>
-    `Searched ${plural.toLowerCase()} back to ${date}.`,
+  /** "Searched messages back to Mar 3, 2025." */
+  searchedBack: (kind: string, plural: string, date: string) =>
+    `Searched ${kindNoun(2, kind, plural)} back to ${date}.`,
   lookFurther: 'Look further back',
   lookInSpam: 'Look in Spam',
 
@@ -196,3 +249,26 @@ export function whyLabel(
   if (why.field === 'customer' && (kind === 'notes' || kind === 'forms')) return null;
   return WHY[why.field] ?? null;
 }
+
+/**
+ * A badge beside a hit's title, as both apps draw it: "Lead", "Client", "Archived", "Other mail". Null for a badge
+ * said another way: an invoice's late, due and paid are its line ("6 days overdue", "Paid Sep 30"), and an anonymous
+ * answer's is "Answered by someone who didn’t say who".
+ */
+const BADGES: Readonly<Record<string, string>> = {
+  lead: CONTACTS_WORDS.lead,
+  client: CONTACTS_WORDS.client,
+  archived: 'Archived',
+  done: 'Done',
+  won: 'Won',
+  lost: 'Lost',
+  cancelled: 'Cancelled',
+  void: 'Void',
+  draft: 'Draft',
+  other_mail: 'Other mail',
+  spam: 'Spam',
+  my_mail: 'My mail',
+  voicemail: 'Voicemail',
+  automated: 'Automated',
+};
+export const badgeLabel = (badge: string): string | null => BADGES[badge] ?? null;

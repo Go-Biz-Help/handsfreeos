@@ -114,7 +114,7 @@ import {
   TeammateLine,
   useDraftDecision,
 } from './draft-card';
-import { useConversationActions, useCustomerNotes, useThread } from './hooks';
+import { useConversationActions, useCustomerNotes, useOpenedMessage, useThread } from './hooks';
 import { useInbox } from './inbox-shell';
 import { LinkPersonDialog } from './link-person-dialog';
 import { MessageLog } from './message-log';
@@ -217,6 +217,8 @@ export function ConversationView({
   // Edit on an Assistant text or email card for a number that isn't in Contacts lands here.
   const handedDraft = useComposerDraft(c.id);
   const t = useThread(workspaceId, c.id, thread, allLanes);
+  // A search result's message (`?message=…&at=…`): the thread opens at it and rings it.
+  useOpenedMessage(t);
   // Thumbs on what the AI teammate wrote here, and what came of them.
   const aiMessageIds = t.items
     .filter(aiWroteIt)

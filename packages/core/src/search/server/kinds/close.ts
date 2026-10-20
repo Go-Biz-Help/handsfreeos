@@ -4,7 +4,7 @@
  * roughly alike (trigrams, `similarity` or `word_similarity` over the folded name); core's `closeMatches` keeps those
  * within an edit or two of the words, close on every word first. Contacts are held to `LIVE_PERSON`: row security still
  * shows a customer in the bin, and a misspelt name must not lead a member to them. With chips picked, only those kinds
- * are read.
+ * are read; their own page (`search.kind` with `close`) reads every one, a page at a time.
  */
 import { sql } from 'drizzle-orm';
 import { closeMatches } from '../../close';
@@ -54,14 +54,15 @@ function mineOf(plan: SearchPlan, kind: Row['kind']) {
 }
 
 /**
- * The kinds the chips asked for, as close matches read them: every one with no chips; otherwise only those picked,
- * and of the business's own kinds only the ones picked by name (`record.pets`), or all of them for `records`.
+ * The kinds the chips asked for, as close matches read them: every one with no chips, and on close matches' own page
+ * (`search.kind` with `close`, the Search page's "Show more" and "See all"); otherwise only those picked, and of the
+ * business's own kinds only the ones picked by name (`record.pets`), or all of them for `records`.
  */
 function askedOf(plan: SearchPlan): {
   kinds: ReadonlySet<Row['kind']>;
   recordKeys: string[] | null;
 } {
-  if (!plan.kinds)
+  if (!plan.kinds || plan.kinds.has('close'))
     return { kinds: new Set(['contacts', 'companies', 'leads', 'records']), recordKeys: null };
   const recordKeys = [...plan.kinds].filter((k) => k.startsWith('record.')).map((k) => k.slice(7));
   const kinds = new Set<Row['kind']>(

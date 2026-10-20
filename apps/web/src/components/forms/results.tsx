@@ -23,14 +23,17 @@ export function FormResults({
   results,
   canManage,
   timeZone,
+  openResponse = null,
 }: {
   workspaceId: string;
   form: FormSummary;
   results: FormResultsOut;
   canManage: boolean;
   timeZone: string;
+  /** A response a search result opens: One at a time shows, with it open. */
+  openResponse?: string | null;
 }) {
-  const [tab, setTab] = useState<'summary' | 'each'>('summary');
+  const [tab, setTab] = useState<'summary' | 'each'>(openResponse ? 'each' : 'summary');
   const [exporting, setExporting] = useState(false);
 
   async function exportCsv() {
@@ -119,7 +122,7 @@ export function FormResults({
           ))}
         </div>
       ) : (
-        <FormResponses workspaceId={workspaceId} formId={form.formId} />
+        <FormResponses workspaceId={workspaceId} formId={form.formId} opened={openResponse} />
       )}
     </div>
   );

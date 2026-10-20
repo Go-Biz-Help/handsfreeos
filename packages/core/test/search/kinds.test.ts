@@ -328,6 +328,26 @@ describe('the box', () => {
     expect(money).toMatchObject({ close: false, groups: [] });
   });
 
+  it('pages close matches on their own page, over every kind and in their own order, and answers their chip', async () => {
+    const a = await everything(w, w.owner, 'dnaa smtih');
+    const page = await oneKind(w, w.owner, 'dnaa smtih', 'close');
+    expect(page.group).toMatchObject({ kind: 'close', total: groupOf(a, 'close')!.total });
+    expect(titles(page.group).slice(0, 2)).toEqual(['Dana Smith', 'Dana Smith']);
+    expect(titles(page.group)).toEqual(expect.arrayContaining(['Marcus Smith', 'Rex Smith']));
+    expect(page.group.items.every((h) => h.tier === 5 && h.why.field === 'close')).toBe(true);
+    // Show more reads on from where a page ended.
+    const first = await oneKind(w, w.owner, 'dnaa smtih', 'close', { limit: 1 });
+    const second = await oneKind(w, w.owner, 'dnaa smtih', 'close', {
+      limit: 1,
+      cursor: first.nextCursor!,
+    });
+    expect(second.group.items[0]!.id).toBe(page.group.items[1]!.id);
+    // The box's Close matches chip asks for them alone.
+    const chip = await everything(w, w.owner, 'dnaa smtih', { kinds: ['close'] });
+    expect(chip.close).toBe(true);
+    expect(titles(groupOf(chip, 'close')).slice(0, 2)).toEqual(['Dana Smith', 'Dana Smith']);
+  });
+
   it('counts to 100 and says there are more', async () => {
     await rows(
       admin(),

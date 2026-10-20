@@ -10,8 +10,10 @@ plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATIO
 companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, file names, forms and their answers,
 knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
 and the API's guards. Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the
-web, and at the top of Settings on the phone (Settings search, below). The main box and `/customers?q=` work as they
-did until Search 9 switches it on.
+web, and at the top of Settings on the phone (Settings search, below). Search 7 is built but not linked: the web's
+Search page answers at `/search#q=…`, every result opens where it should, and the dropdown's components are ready for
+Search 9 to mount (The web's screens, below). The main box and `/customers?q=` work as they did until Search 9
+switches it on.
 
 ## Where things are
 
@@ -32,6 +34,10 @@ did until Search 9 switches it on.
 | Settings search on the web            | `apps/web/src/components/settings/`: `settings-search.tsx` (the box), `use-setting-highlight.ts` (the jump and its ring), `setting-anchor.tsx` (`SettingAnchor`, `settingAttrs`), `SetRow`'s `setting`  |
 | Settings search on the phone          | `apps/mobile/src/settings/`: `settings-search.tsx` (the results), `use-setting-flash.ts` (scrolling to a row and flashing it); `ListRow`'s `settingKey`                                                 |
 | Its tests                             | `packages/core/test/settings-catalog.test.ts`; `apps/mobile/src/settings/__tests__/settings-search.test.tsx`; `apps/web/e2e/settings-search.spec.ts`                                                    |
+| The web's Search page                 | `apps/web/src/app/app/w/[workspaceId]/search/page.tsx` (the frame), `components/search/search-page.tsx` (everything) and `kind-page.tsx` (one kind)                                                     |
+| The web's box and dropdown            | `apps/web/src/components/search/`: `search-provider.tsx` (⌘K, recent searches), `search-box.tsx`, `use-search.ts`, `panel.tsx`, `highlight.tsx`, `rows/` (a row per kind); `lib/keys.ts` (`isMac`)      |
+| Where results open on the web         | The pages themselves follow their own part of the address: the inbox's thread, Tasks, a form, the timeline, the Files grid, a contact's page, the Deleted bin and Contacts (The web's screens, below)   |
+| The web's tests                       | `apps/web/e2e/search.spec.ts`: the Search page by its address, and what each result opens onto                                                                                                          |
 
 ## How a search runs
 
@@ -84,6 +90,58 @@ looked at everything (`complete`) and, when it didn't, how far back it went (`se
 **Look further back** passes that as `before`, and the next window reads what's at or before it: a window ends at the
 time of the first row it couldn't hold, so the rows sharing that time (a form response's answers) are read whole by
 the next one.
+
+## The web's screens
+
+**The Search page** is `/search#q=…&kind=…&archived=1&mine=1&sort=…&show=leads|clients&before=…`. The route renders
+the frame only: it reads no `searchParams` and asks the API for no results (decision 37), only for what the Settings
+group needs (the business's name, clock and settings, and whether the person is staff or runs an agency) until Search
+9's provider hands those down. The page reads the
+fragment off `window.location.hash` when it opens and on `hashchange` and `popstate`, writes it back with
+`history.replaceState` 300 ms after typing stops (a new kind, or a new sort, is a `pushState`, so Back undoes it), and
+asks `search.everything` (the full window, 4 a kind) from the browser. A browser never sends what's after `#`, so
+what's typed never reaches the web's own server or its host's logs; `search.spec.ts` checks every request the page
+makes to it.
+
+- **Everything**: a card for each kind found, in core's order, the kinds list beside them with counts and "Nothing in
+  Knowledge." for the kinds that found nothing (never the Deleted bin when it found something, nor a kind that didn't
+  answer, which has its own line and Try again); tasks and notes share one card when together they have 4 or fewer.
+  Settings, Archived and the Deleted bin come last. "Show 3 more contacts" reads that kind's first page in place, for
+  that answer only; "Only contacts" opens the kind. Close matches have a page of their own too: `search.kind` with
+  `close` reads every kind's names, in close matches' own order, and the box's Close matches chip asks for them alone. The line at the top (close matches, nobody active, nothing at all) is core's
+  `dropdownOf`, decided after the device's Settings group is merged in, as in the box.
+- **One kind** (`kind=`): `search.kind` 50 at a time with Show 50 more; contacts get All · Leads · Clients, Sort and a
+  table (name, phone, email, where, last contact), and the banner when two share a number or an email, whose Compare
+  and merge (for `records.archive`) opens Merge with the other record chosen. A windowed kind, and Archived for its
+  threads, says how far back it looked, and Look further back adds the older window's results; Messages can Look in
+  Spam. Settings' own page is the device's whole answer. Counts read in each kind's own nouns: "1 contact named
+  “dana”", "2 things in the Deleted bin for “tom becnel”" (core's `kindNoun`).
+- **The box and its dropdown** (`search-box.tsx`, `panel.tsx`) are built and wait for Search 9 to mount them in the
+  side menu with `SearchProvider`: the chips, the best match with Call and Text, a few groups, Exact match and "Also
+  has 1042 in it", Also found, Archived and the bin when little else matched, ⌘K (Ctrl K) and the keys of "Keyboard"
+  in the plan. Recent searches stay in `localStorage` under the person and the business, at most 8; the provider and
+  the Search page remove anyone else's when they open, and signing out removes them all.
+- **Marks** are drawn by `highlight.tsx` as text inside `<mark>`, from the server's snippet ranges or core's `marksIn`,
+  never as HTML.
+
+**Where each result opens** (core's `searchHref`). Each page follows its own part of the address, so a result for the
+page already open works too, as the box will offer on every page: the thread, the timeline, the Files grid, a
+contact's page and the Deleted bin through `useSearchParams` (each renders per request, so none needs a Suspense
+boundary), Contacts on `hashchange`, and the form and Tasks pages from their `searchParams`. Each ask is acted on once,
+not again as the page refreshes. A note, Text, Merge and Add a contact take theirs off the address once open, and a
+task once its dialog closes, so a reload doesn't open them again:
+
+| Result              | Address                                            | What happens                                                                                                                                          |
+| ------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A message or a call | `inbox/<thread>?message=<id>&at=<when>`            | The thread reads up to that moment (`upTo`) when it isn't in the newest page, and on from it (`since`), then scrolls to it and rings it for 4 seconds |
+| A task              | `tasks?task=<id>`                                  | The page asks for that task on its own (`task.list`'s `taskId`, anyone's, done or not) and opens it in its dialog; closing it leaves the list         |
+| A form's answers    | `forms/<form>/answers/<response>`                  | Sends on to `forms/<form>?response=<id>`, which opens on Results, One at a time, with that response open                                              |
+| A note              | `customers/people/<id>?activity=<id>` (and others) | `activity.get`, in a dialog over the timeline, on a contact's, a company's, a lead's or a record's page                                               |
+| A file              | `…?tab=files&file=<id>&page=<n>`                   | The Files tab with the file's card ringed; a PDF opened from it opens at that page                                                                    |
+| Text, on a contact  | `customers/people/<id>?compose=sms`                | The record page's text sheet                                                                                                                          |
+| Compare and merge   | `customers/people/<a>?merge=<b>`                   | Merge, with the other record chosen                                                                                                                   |
+| The Deleted bin     | `settings/deleted-bin?item=<id>`                   | Reads further down the bin until the item shows, then rings it                                                                                        |
+| Add a contact       | `customers#add=person&name=…`                      | Add person with what was typed as the name, for `records.write`; the fragment is dropped once read                                                    |
 
 ## The load check
 

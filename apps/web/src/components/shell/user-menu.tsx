@@ -1,6 +1,7 @@
 'use client';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { forgetOthersSearches } from '@/components/search/search-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import type { Me } from '@/lib/api/types';
@@ -23,6 +24,8 @@ export function UserMenu({ user }: { user: Me['user'] }) {
         aria-label="Sign out"
         data-testid="sign-out"
         onClick={async () => {
+          // Recent searches stay with the person who typed them: none are left for whoever signs in next.
+          forgetOthersSearches(null);
           await supabaseBrowser().auth.signOut();
           router.replace('/sign-in');
           router.refresh();
