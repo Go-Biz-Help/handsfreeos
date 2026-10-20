@@ -59,6 +59,8 @@ import {
   admin,
   at,
   drain,
+  hh,
+  hourNow,
   iso,
   newCustomer,
   query,
@@ -355,8 +357,8 @@ describe('confirming tomorrow’s visit', () => {
 
     const cy = await newCustomer(w, 'Cy');
     const cySeat = await tomorrowsVisit(cy.id);
-    // Quiet all day but this hour's last minute: it waits.
-    await setQuietHours(w, { start: '00:00', end: '23:59' });
+    // Quiet from the hour before this one to two hours on, past midnight too: it waits.
+    await setQuietHours(w, { start: hh(hourNow() - 1), end: hh(hourNow() + 2) });
     try {
       await askedToConfirm(cySeat);
       await drain(w);

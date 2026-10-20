@@ -7,6 +7,7 @@ import { rows, sql } from '@hfos/db/client';
 import { testDbs, type TestUser } from '@hfos/db/testing';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
+import { addDays, localDateOf, localInstant } from '../../src/calendar/engine/zoned';
 import {
   commands,
   executeCommand,
@@ -45,16 +46,19 @@ export const fromExtension = () => ({
 const gettingReady = new Set<string>();
 const GATED = new Set(['outreach.today', 'outreach.day.start', 'outreach.helpful.next']);
 
-/** A new business owned by `u`, with the add-on on. Its id. */
+/** A new business owned by `u`, with the add-on on, in Chicago unless given its time zone. Its id. */
 export async function outreachBusiness(
   u: TestUser,
   name: string,
-  opts: { readonly ready?: boolean } = {},
+  opts: { readonly ready?: boolean; readonly timezone?: string } = {},
 ): Promise<string> {
-  const made = await executeCommand(api(), organizationCreate, { businessName: name }, human(u), {
-    correlationId: randomUUID(),
-    channel: 'test',
-  });
+  const made = await executeCommand(
+    api(),
+    organizationCreate,
+    { businessName: name, ...(opts.timezone ? { timezone: opts.timezone } : {}) },
+    human(u),
+    { correlationId: randomUUID(), channel: 'test' },
+  );
   const id = made.output.workspaceId;
   await rows(
     admin(),
@@ -64,6 +68,13 @@ export async function outreachBusiness(
   if (opts.ready !== false) gettingReady.add(id);
   return id;
 }
+
+/**
+ * Noon yesterday where a business is (Chicago unless given): the day before for sure, even late on the 25-hour day
+ * the clocks go back, when 24 hours ago is still today.
+ */
+export const yesterdayNoon = (timezone = 'America/Chicago'): Date =>
+  new Date(localInstant(addDays(localDateOf(Date.now(), timezone), -1), '12:00', timezone));
 
 /** The main offer the fixture puts live: version 1, with no proof, so a playbook needs none either. */
 const READY_OFFER = {

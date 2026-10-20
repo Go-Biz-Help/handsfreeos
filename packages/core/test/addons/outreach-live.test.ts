@@ -33,6 +33,7 @@ import {
   warningPushWords,
 } from '../../src/addons/outreach/live';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { zonedParts } from '../../src/calendar/engine/zoned';
 import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
 
 const crmPlaybook = {
@@ -49,6 +50,14 @@ const fb = (username: string) => ({
   username,
   url: `https://www.facebook.com/${username}`,
 });
+/**
+ * Where the business is: Chicago, or Tokyo (14 or 15 hours ahead) when it's within 3 hours of midnight in Chicago. The
+ * moments these tests set a few minutes back, and the whole run, then fall on the business's today at any hour.
+ */
+const awayFromMidnight = (now = Date.now()) => {
+  const { hour } = zonedParts(now, 'America/Chicago');
+  return hour >= 3 && hour < 21 ? 'America/Chicago' : 'Asia/Tokyo';
+};
 
 describe('the live view’s words', () => {
   // Friday 9 October 2026, 2:14 PM in Chicago.
@@ -227,7 +236,7 @@ describe('live status and control', () => {
       createTestUser('outl-owner', { fullName: 'Morgan Owner' }),
       createTestUser('outl-member', { fullName: 'Riley Member' }),
     ]);
-    ws = await outreachBusiness(owner, 'Outreach Live Co');
+    ws = await outreachBusiness(owner, 'Outreach Live Co', { timezone: awayFromMidnight() });
     await admin()
       .insert(workspaceMemberships)
       .values({ workspaceId: ws, userId: member.id, role: 'member' });
