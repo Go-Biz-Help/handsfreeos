@@ -38435,6 +38435,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -38572,6 +38574,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -38715,6 +38719,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -69006,6 +69012,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;

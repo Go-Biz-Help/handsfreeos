@@ -18,6 +18,8 @@ import {
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import { playbookOffer } from '../../src/addons/outreach/playbook-assist';
 import {
+  RECOMMENDATIONS_WANTED,
+  RECOMMENDATIONS_WORDS,
   ABOUT_DRAFT_MOST,
   ABOUT_MOST,
   ALIGNABLE_PROFILE_CHECK_SYSTEM,
@@ -283,17 +285,21 @@ describe('every network’s profile, optimized (decision 80)', () => {
       about: 'We fix roofs.',
       intro: ['Title: Owner', 'Ideal customer: Homeowners, Columbus, OH'],
       featured: ['Roof repair: leaks fixed in a day'],
+      recommendations: 2,
     });
     const prompt = profileCheckPrompt(al, offer);
     expect(prompt).toContain('Score this Alignable profile.');
     expect(prompt).toContain('about (About Us): We fix roofs.');
     expect(prompt).toContain('featured (services):');
+    expect(prompt).toContain('recommendations: 2');
+    expect(ALIGNABLE_PROFILE_CHECK_SYSTEM).toContain('Ask for Recommendations');
     const answer = {
       items: Object.fromEntries(
         PROFILE_ITEMS_ON.alignable.map((i) => [i, { ok: true, why: 'Looks right.', fix: 'x' }]),
       ),
       aboutDraft: 'We help Columbus homeowners keep the rain out. Book a call: [your link].',
       feature: ['Roof inspections'],
+      recommendNote: 'Thanks for having us out — would you recommend us on Alignable?',
     };
     expect(profileCheckAsk('alignable').zod.safeParse(answer).success).toBe(true);
     const check = checkedProfileCheck(answer as never, al, '2026-10-20T06:00:00.000Z', 1);
@@ -303,6 +309,16 @@ describe('every network’s profile, optimized (decision 80)', () => {
     expect(check.items.bio?.ok).toBe(false);
     expect(check.items.about?.ok).toBe(true);
     expect(check.aboutDraft).toBe(answer.aboutDraft);
+    // How many recommendations it showed, and the AI's note asking for more, with no long dashes.
+    expect(check.recommendations).toBe(2);
+    expect(check.recommendNote).toBe(
+      'Thanks for having us out, would you recommend us on Alignable?',
+    );
+    expect(RECOMMENDATIONS_WORDS.count(2)).toBe(
+      `2 of ${RECOMMENDATIONS_WANTED} on your profile. Ask a few happy customers for one.`,
+    );
+    expect(RECOMMENDATIONS_WORDS.count(7)).toBe('7 on your profile. That’s enough to start.');
+    expect(RECOMMENDATIONS_WORDS.count(null)).toContain('Read your profile again');
     // No bios: Alignable's pitch can't be put in, even were the AI to write some.
     expect(check.bios).toEqual([]);
     expect(

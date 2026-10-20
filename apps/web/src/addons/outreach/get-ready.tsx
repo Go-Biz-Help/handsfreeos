@@ -28,8 +28,10 @@ import {
 import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
 import {
   ABOUT_MOST,
+  ASK_RECOMMENDATIONS_URL,
   checkCounts,
   hasPlaceholder,
+  RECOMMENDATIONS_WORDS as RW,
   type AnyProfileItem,
 } from '@hfos/core/addons/outreach/profile-check';
 import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
@@ -476,6 +478,43 @@ export function ProfileSheet({
                 </Button>
               </div>
               <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
+            </div>
+          ) : null}
+          {platform === 'alignable' && check ? (
+            <div className="grid gap-1.5" data-testid="ready-recommendations">
+              <div>
+                <p className="font-semibold">{RW.title}</p>
+                <p className="text-[13px] text-text-2" data-testid="ready-recommendations-count">
+                  {RW.count(check.recommendations ?? null)}
+                </p>
+              </div>
+              {check.recommendNote ? (
+                <div className="grid gap-1">
+                  <p className="text-[13px] font-medium">{RW.note}</p>
+                  <p className="whitespace-pre-wrap text-[14px]" data-testid="ready-recommend-note">
+                    {check.recommendNote}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void copyText(check.recommendNote!, RW.copied)}
+                      data-testid="ready-recommend-copy"
+                    >
+                      Copy
+                    </Button>
+                    <a
+                      href={ASK_RECOMMENDATIONS_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[13px] font-medium text-accent-text hover:underline"
+                    >
+                      {RW.open}
+                    </a>
+                  </div>
+                  <p className="text-[12.5px] text-text-3">{RW.noteHint}</p>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {check?.aboutDraft && P.about ? (
