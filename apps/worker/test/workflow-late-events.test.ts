@@ -10,9 +10,13 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  addDays,
   executeCommand,
   leadCreate,
   leadMoveStage,
+  localDateOf,
+  localInstant,
+  zonedParts,
   type HumanActor,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -45,7 +49,8 @@ import {
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
-const DAY = 24 * HOUR;
+/** The test business's time zone: Chicago, where every business starts. */
+const CHI = 'America/Chicago';
 
 let w: World;
 beforeAll(async () => {
@@ -152,9 +157,13 @@ describe('a workflow started by an event that arrived late', () => {
       skipped: 'late_event',
       lateMinutes: 120,
     });
-    // A day counts from there too.
+    // A day counts from there too: the same time on the business's clock the day after, 23 or 25 hours on when the
+    // clocks change.
     const due = (await runJobAt(r!.id))!;
-    expect(Math.abs(due - (made + HOUR + DAY))).toBeLessThan(2 * 60_000);
+    const { hour, minute } = zonedParts(made + HOUR, CHI);
+    const clock = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    const dayOn = localInstant(addDays(localDateOf(made + HOUR, CHI), 1), clock, CHI);
+    expect(Math.abs(due - dayOn)).toBeLessThan(2 * 60_000);
     expect(textsTo(w, p.phone!)).toHaveLength(0);
 
     // The day passes: the run is on time again, and its text goes.
