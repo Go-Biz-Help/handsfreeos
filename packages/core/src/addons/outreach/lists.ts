@@ -14,7 +14,9 @@
  *
  * Each network has its own lists and its own first day (Chris: each network on its own). LinkedIn's are the person's
  * connections and their invitations either way, then the old invitations to withdraw and the good fits among their
- * connections; it has no groups to save first (`LIST_SAVES_ON`, `LIST_MARKS_ON`).
+ * connections; it has no groups to save first (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Alignable's (its runner, part 5) are
+ * the person's connections and the connection requests they've got, then the good fits among their connections: no
+ * reader of the requests they've sent is built, so there's nothing to work out for withdrawing.
  */
 import { z } from 'zod';
 import { businessDay } from './automation';
@@ -37,14 +39,14 @@ export const LIST_SAVES_ON: Readonly<Record<Platform, readonly ListSave[]>> = {
   linkedin: ['friends', 'requests', 'sent'],
   // Looked at first (decision 78): no day yet, so nothing saved before it.
   instagram: [],
-  alignable: [],
+  alignable: ['friends', 'requests'],
 };
 /** What each network notes as done before its first day, in order. */
 export const LIST_MARKS_ON: Readonly<Record<Platform, readonly ListMark[]>> = {
   facebook: LIST_MARK_KEYS,
   linkedin: ['friends', 'requests', 'sent', 'tidy', 'checks'],
   instagram: [],
-  alignable: [],
+  alignable: ['friends', 'requests', 'checks'],
 };
 
 /** The friends list, and the groups, are saved again once their last full save is this old. */
@@ -137,7 +139,7 @@ export function listsDue(
 
 /**
  * What's left once the first full save is done: check the groups, work out the Tidy up suggestions, then check
- * friends once.
+ * friends once; each only where the network does it (Alignable has nothing to tidy up first).
  */
 export function afterFirstSave(
   lists: ListsSaved,
@@ -146,8 +148,8 @@ export function afterFirstSave(
   if (!firstSaveDone(lists, platform)) return null;
   const marks = LIST_MARKS_ON[platform];
   if (marks.includes('group_checks') && lists.groupChecksAt === null) return 'group_checks';
-  if (lists.tidyAt === null) return 'tidy';
-  if (lists.checksAt === null) return 'checks';
+  if (marks.includes('tidy') && lists.tidyAt === null) return 'tidy';
+  if (marks.includes('checks') && lists.checksAt === null) return 'checks';
   return null;
 }
 

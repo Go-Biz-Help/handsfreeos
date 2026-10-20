@@ -115,7 +115,30 @@ describe('Today’s strip, a row for each network', () => {
     expect(onShow).toHaveBeenCalled();
   });
 
-  it('says Alignable’s list is the person’s own to do, with no Start my day or Settings to change it', async () => {
+  it('says a list with no runner is the person’s own to do, with no Start my day or Settings to change it', async () => {
+    const h = handlers();
+    await render(
+      <LiveStrip
+        platform="instagram"
+        live={{ ...LIVE, sending: 'off', canSend: true }}
+        error={null}
+        online
+        now={NOW}
+        pressed={null}
+        many={false}
+        shown
+        onShow={jest.fn()}
+        {...h}
+      />,
+    );
+    expect(screen.getByTestId('live-sending-off')).toHaveTextContent(
+      /doesn’t work on Instagram on its own yet/,
+    );
+    expect(screen.queryByTestId('live-settings')).toBeNull();
+    expect(screen.queryByTestId('live-start')).toBeNull();
+  });
+
+  it('offers Alignable’s Settings while its Sending is Off, now its runner works there', async () => {
     const h = handlers();
     await render(
       <LiveStrip
@@ -131,11 +154,8 @@ describe('Today’s strip, a row for each network', () => {
         {...h}
       />,
     );
-    expect(screen.getByTestId('live-sending-off')).toHaveTextContent(
-      /doesn’t work on Alignable on its own yet/,
-    );
-    expect(screen.queryByTestId('live-settings')).toBeNull();
-    expect(screen.queryByTestId('live-start')).toBeNull();
+    expect(screen.getByTestId('live-sending-off')).not.toHaveTextContent(/on its own yet/);
+    expect(screen.getByTestId('live-settings')).toBeTruthy();
   });
 
   it('says the network shown’s limits in its words, and its warning names it', async () => {
@@ -810,17 +830,17 @@ describe('For your team on a network, for owners and admins', () => {
 });
 
 /**
- * A network the extension doesn't work on its own yet (Alignable before its runner): its page says so instead of
+ * A network the extension doesn't work on its own yet (Instagram, still looked at): its page says so instead of
  * offering Sending and Replies, has no helpful post to choose, and no switches along the way, as nothing reads them.
  */
 describe('a network with no runner yet', () => {
-  const value: NetworkChoices = { ...NETWORKS_DEFAULTS.alignable, on: true };
+  const value: NetworkChoices = { ...NETWORKS_DEFAULTS.instagram, on: true };
 
   it('says every step there is the person’s own, with nothing to pick', async () => {
     await render(
       <>
         <NetworkModes
-          platform="alignable"
+          platform="instagram"
           value={value}
           onChange={jest.fn()}
           sendingAllowed={['off', 'steps', 'approve_all', 'everything']}
@@ -830,7 +850,7 @@ describe('a network with no runner yet', () => {
           testID="modes"
         />
         <NetworkTicks
-          platform="alignable"
+          platform="instagram"
           value={value}
           onChange={jest.fn()}
           boxed={false}
@@ -840,7 +860,7 @@ describe('a network with no runner yet', () => {
       </>,
     );
     expect(screen.getByTestId('modes-on-its-own')).toHaveTextContent(
-      /doesn’t work on Alignable on its own yet/,
+      /doesn’t work on Instagram on its own yet/,
     );
     expect(screen.queryByTestId('modes-sending-steps')).toBeNull();
     expect(screen.queryByTestId('modes-sending-off')).toBeNull();

@@ -22,7 +22,7 @@ import {
   PARTNER_ASKS_PER_DAY,
   PARTNER_LEADS_WAITING_MOST,
   PARTNER_SEARCH_AGAIN_DAYS,
-  PARTNER_SEARCH_KIND_KEYS,
+  PARTNER_SEARCH_KINDS_ON,
   PARTNER_SEARCHES_PER_DAY,
   PARTNER_FOLLOW_UP_DAYS,
   PARTNER_FOLLOW_UPS,
@@ -203,7 +203,8 @@ export const partnerSearchesNext = defineAddonQuery(outreachAddon, {
     const here = (await partnerPlaybooksInUse(ctx)).filter((p) =>
       p.details.platforms.includes(input.platform),
     );
-    const kinds = PARTNER_SEARCH_KIND_KEYS.filter((k) =>
+    // The kinds the playbooks want that the network's searches find: never creators on Alignable.
+    const kinds = PARTNER_SEARCH_KINDS_ON[input.platform].filter((k) =>
       here.some((p) => partnerKindsOf(p.details).includes(k)),
     );
     const [counts] = await rows<{ today: number; waiting: number }>(

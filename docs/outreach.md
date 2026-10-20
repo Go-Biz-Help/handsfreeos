@@ -1385,6 +1385,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       writes a short note asking happy customers for one (`recommendNote`). Get ready shows "2 of 5 on your profile"
       and the note to copy into Alignable's Ask for Recommendations, which it opens. It's a tip: it doesn't hold the
       list back.
+    - **Its runner from part 5** (extension 0.77.0, `src/auto/alignable.ts`; its kit's `runs`): Alignable works on its
+      own as LinkedIn does, so its Sending choices open on its page in Settings. It goes only while its day is started
+      and its Sending isn't Off, and stops for the day on an Alignable warning, there alone. Before its first day it
+      saves the connections and the connection requests they've got, then checks the connections once. Then, once a
+      day: the requests, the connections checked (30 business pages), Find partners, and the town's posts (so Today's
+      Find posts card goes). Find partners searches its businesses (`/biz/search`) and reads those found for the
+      partner check; businesses alone, as it has no creators (`PARTNER_SEARCH_KINDS_ON`). On Today's list it does the
+      warm-ups (a look at their business page and a like on a recent post of theirs, or the look alone when there's
+      none) and the connection requests (their page's own Connect, by Alignable's id for the business, then their
+      page again to see it went). It sends messages once OK'd, typed only into that conversation's box. **Comments
+      and forum answers stay by hand:** each waits for the person's OK, as it's public writing (the plan's question
+      9), so `comment` isn't in its `runs.auto`, and Sending's choices say so. **Recommendations stay by hand only.**
+      Withdrawing old requests stays the person's too: no reader of the requests they've sent is built, as their
+      markup isn't known, so nothing works out which to withdraw. Its chats aren't read yet, so a reply is drafted from
+      what HandsFreeOS knows.
     - **Warm leads from Alignable's notifications** (the plan's "whoever likes, comments on or recommends you";
       extension 0.78.0, a migration: `engagements.helpful_id` may be empty and `kind` takes `recommend`): the
       extension reads Notifications once a day for who liked or commented on the person's posts and answers and who
@@ -1394,10 +1409,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **A forum question asking for what the business offers** pushes as a strong post does (decision 49), saying
       "On Alignable." and opening Today on Alignable (`?net=alignable`, on the phone too).
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
-      `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
-      drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's
-      own (`noRunnerWords`), with no Replies, no helpful post where it has none (`helpfulOn`), and no switches along
-      the way till its runner reads them. An Alignable chat opens at `/biz/conversations?with_business_id=`, by the
+      `runs.auto`; Instagram, now Alignable has its runner), even once it has a day: its Sending is off whatever was
+      picked (`withinRules`), so nothing is drafted to wait for a sender that isn't there, and its page in Settings
+      says every step there is the person's own (`noRunnerWords`), with no Replies, no helpful post where it has none
+      (`helpfulOn`), and no switches along the way till its runner reads them. An Alignable chat opens at `/biz/conversations?with_business_id=`, by the
       other business's id, and Today's groups to read admins of are the list's own network's.
     - **In the extension** one reader serves both (`src/networks/looking/`), from each network's site
       (`src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`): its addresses, its own words, its

@@ -53,7 +53,7 @@ next is in its kit, never in an `if`.
 | Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                      |
 | LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                        |
 | Instagram | `src/networks/instagram/` | No: asked for | Still looked at (decision 78): reads only its warnings as you go, and its main pages for **Check Instagram** (0.58.0), trying each step up to its last press (0.59.0) |
-| Alignable | `src/networks/alignable/` | No: asked for | Still looked at (decision 78): the same, for **Check Alignable**, from its signed-in pages at /biz, following their menus by their words                              |
+| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, and works its list on its own once you let it (0.77.0); **Check Alignable** reads its pages at /biz             |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -111,6 +111,9 @@ reads a few screens of its posts and forum questions, and sends them for the AI'
 From 0.75.0 it notes a recommendation you write on Alignable, once its page sends what you wrote, to the business it's
 for (`src/networks/alignable/actions.ts`), and Check Alignable opens a recommendation's page, never sending it.
 From 0.76.0 reading your Alignable profile counts the recommendations it shows, for Get ready's "at least 5".
+From 0.77.0 it works your Alignable list on its own once you let it and start your day there (below, "On its own on
+Alignable"): warm-ups, connection requests and the messages you OK, with Find partners among its once-a-day jobs.
+Comments, forum answers and recommendations stay yours.
 From 0.78.0 it reads your Alignable notifications once a day for who liked, commented on or recommended you, and sends
 them as warm leads (`src/jobs/alignable/engaged.ts`). It presses nothing there.
 From 0.79.0 Check Instagram also opens your followers, a hashtag, a place, your notifications and a chat, and reads
@@ -580,6 +583,39 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
 Each step is noted as the extension's own (`auto`), as LinkedIn's. A step it couldn't do goes to your Needs you, as
 Facebook's do.
 
+### On its own on Alignable (0.77.0)
+
+Alignable's runner (`src/auto/alignable.ts`; partners stage 6c, part 5) is its own too, as LinkedIn's is: its own line
+and turn with Alignable's asks, its own window, alarm (`hfos-auto-alignable`) and state (`hfos.auto.alignable`, whose
+line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say what it does
+(`settings.networks.alignable`).
+
+- **Only while Alignable's day is started** (`days.alignable`), Alignable is on and Chrome allows it, noting is on,
+  this computer is the one that works, and your Alignable Sending choice isn't Off. Stop for today ends what it's
+  doing at its next page, and an Alignable ask under way too.
+- **Lists first:** before Alignable's first day it saves your connections and the connection requests you've got,
+  each to its end, then checks your connections once (`src/auto/lists.ts`); then the requests each morning and the
+  connections weekly.
+- **Once a day,** with **Once a day** on for Alignable: your connection requests, your connections checked (30
+  business pages a day to start), Find partners (Alignable's search for businesses, `/biz/search`, a few screens,
+  each business kept by Alignable's id, then those found read for the AI's partner check:
+  `src/jobs/alignable/partner-search.ts`), and your town's posts and forum questions read for the AI.
+- **Your Alignable list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own: a
+  look at their business page and a like on a recent post of theirs when the page shows one (never one weeks old,
+  never one about grief, illness or trouble), or the look alone when it doesn't; a connection request with their
+  page's own Connect, only the one carrying Alignable's id for their business, after which it opens their page again
+  to see the request went; and the messages, drafted after a look-up of their page and sent once OK'd in their
+  conversation (`/biz/conversations?with_business_id=…`), typed only into its own box and sent with its own Send
+  (`src/networks/alignable/auto.ts`). Comments and forum answers wait for your OK each time, and you post them;
+  recommendations are only ever yours. Requests they sent you are left for you to accept. Old requests are yours to
+  withdraw too: no reader of the requests you've sent is built yet, so nothing works out which to withdraw.
+- **At Alignable's pace:** 2 to 6 minutes between steps, inside Alignable's limits, which HandsFreeOS keeps.
+- **An Alignable warning** stops it for the day, and only it. If Alignable asks you to sign in, it stops for now and
+  tries again in a few minutes.
+
+Each step is noted as the extension's own (`auto`), as Alignable's. A step its page doesn't let it do goes to your
+Needs you; it never guesses.
+
 ## What it tells HandsFreeOS
 
 Signed in, the extension tells HandsFreeOS how things stand on your computer, so Social Outreach's **Live** tab on the
@@ -763,6 +799,13 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   (`dataPage`), it picks the data files, ticks only Connections, Invitations, Messages and Profile, and presses
   **Request archive** or **Download archive**; the password it leaves to you. `test/linkedin-file.test.ts` walks each,
   both ways.
+- **Pressing on Alignable on its own, only on its own page** (`src/networks/alignable/auto.ts`). Like only on a post
+  their business wrote, never its count or an answer's; Connect only on their business page, the link carrying
+  Alignable's id for it, and only while it says Connect; a message only in their conversation's own box
+  (`full-view-write-message`, on the page whose address names their business by its id), never one with writing in
+  it, sent with its own Send (`messaging-send-external`). It never comments, answers or recommends there. Each is
+  found by Alignable's test ids, its links' addresses and its words, never class names. `test/alignable-runner.test.ts`
+  walks each, both ways.
 - **Each network on its own.** A warning or a stop on one network never affects another: each network's warnings are
   kept apart (`hfos.warned`), each network's asks and runner have their own line, window and turn, and each runner
   looks only at its own network's.
@@ -885,7 +928,7 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 | `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks; LinkedIn's in `linkedin/`                                              |
 | `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                                                                                               |
 | `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                                                                                      |
-| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), Facebook's runner (`run.ts`) and LinkedIn's (`linkedin.ts`), the once-a-day jobs (`daily.ts`), the lists first (`lists.ts`), and taking turns with asks (`turns.ts`) |
+| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), each network's runner (`run.ts`, `linkedin.ts`, `alignable.ts`), the once-a-day jobs (`daily.ts`), lists first (`lists.ts`), and taking turns with asks (`turns.ts`) |
 | `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                                                                                     |
 | `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                                                                                          |
 | `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                     |

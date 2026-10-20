@@ -78,6 +78,7 @@ export const KEPT_FOR_BUSINESS = [
   'hfos.groups',
   'hfos.auto',
   'hfos.auto.linkedin',
+  'hfos.auto.alignable',
   'hfos.replies',
   'hfos.facebookFile',
   'hfos.linkedinFile',
