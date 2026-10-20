@@ -56,7 +56,7 @@ export function lookingKit(site: LookingSite): Kit {
     readWarnings: (doc, href) => readWarnings(doc, href, site),
     readReplies: () => [],
     lookFor: () => 'warnings',
-    noticer: () => ({ click: () => null, enter: () => null }),
+    noticer: () => site.noticer?.() ?? { click: () => null, enter: () => null },
     outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
     work: (ask) =>
       ask.type === 'hfos-try'
