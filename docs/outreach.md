@@ -1455,11 +1455,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     pops up, and the person's phone says **Look in your email**. They type the code under the ask's line on the web or
     the phone (`outreach.ask.code`), the live channel tells their computer at once, and it puts the code in. The code is
     theirs alone, on the database too (`ask_codes`, nobody else reads it, owners included), handed to their computer
-    once and deleted as it's taken, never in a push, an event, the audit or a receipt, and never handed over after 10
+    once and deleted as it's taken, never in a push, an event, the audit or a receipt, and never handed over after 30
     minutes (`ASK_CODE_MINUTES`); the daily prune clears what's left. A code that didn't work asks for the newest one,
-    which pushes again. With none in 10 minutes the job ends saying so, and asking again has the network send a new
-    one. Check never presses an Edit that emails a code (0.70.0). Its first use is Alignable's About Us, from Get
-    ready (extension 0.71.0): read, written by the AI whole, and put in past the code.
+    which pushes again. Check never presses an Edit that emails a code (0.70.0). Its first use is Alignable's About Us,
+    from Get ready (extension 0.71.0): read, written by the AI whole, and put in past the code.
+
+    **The code's notification stays up** (Chris, 20 Oct 2026: "the notification about entering the alignable code …
+    takes us to a screen that allows us to enter it and if we go away from it … there should be a notification button
+    … next to the Ask HandsFreeOS button … that notification should remain active for the 30 minutes that the code is
+    active until someone enters the code. also if the code is not entered in 30 minutes the system should then prompt
+    the user to have the extension try again"). Waiting on a code raises an add-on alert for the person alone
+    (critical, pushed at any hour, never emailed, due in 30 minutes), on Home and under the phone's **bell** beside
+    Ask HandsFreeOS, which counts the add-ons' alerts still open and lists them; each opens the code's own screen
+    (`?view=code&ask=`), its box ready to type in. It goes once the code's typed or the ask moves on or ends. With no
+    code in 30 minutes the extension hands the step over (`askCodeRanOutWords`) instead of failing it: the
+    notification becomes "Alignable's code ran out", and the step's Carry on reads **Try again**, which opens the
+    profile again and presses Edit, so the network emails a new code (extension 0.72.0).
 
 ## Rules worth knowing before changing anything
 
@@ -1736,7 +1747,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   person on the database too, as `needs` are: a person reads and writes only their own, owners and admins included,
   who count the team's through `private.outreach_asks_waiting` (`test/addons/outreach-own-rows.test.ts`). A step it can't find is handed to the person (**Carry on**, **Skip**), with one push per ask for
   each way it needs them (a step, or a password to type), on their add-ons switch, opening Live; half an hour with no answer stops it. A code the
-  network emailed them (decision 82) pushes each time one is asked for, and waits 10 minutes. Asks run outside working hours and after
+  network emailed them (decision 82) is a notification that stays up until it's typed, and waits 30 minutes, then
+  asks them to Try again. Asks run outside working hours and after
   Stop for today, since the person is asking now. They're kept a week, pruned with the feed.
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end

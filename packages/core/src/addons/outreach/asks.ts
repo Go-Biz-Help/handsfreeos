@@ -285,8 +285,12 @@ export const ASK_WAIT_HOURS = 24;
 export const ASK_LINE_SECONDS = 20;
 /** A step handed over that nobody carried on with stops after this. */
 export const ASK_STUCK_MINUTES = 30;
-/** A code from their email is kept this long for their computer to take, and their computer waits this long for one. */
-export const ASK_CODE_MINUTES = 10;
+/**
+ * A code from their email is kept this long for their computer to take, their computer waits this long for one, and
+ * the notification asking for it stays up this long (Chris: "that notification should remain active for the 30
+ * minutes that the code is active until someone enters the code").
+ */
+export const ASK_CODE_MINUTES = 30;
 /** A taken ask whose computer wasn't seen for this long, or that started this long ago, is lost. */
 export const ASK_LOST_MINUTES = 10;
 export const ASK_LOST_HOURS = 6;
@@ -877,6 +881,42 @@ export const askCodeWords = (platform: Platform, again = false): string =>
     : `${PLATFORMS[platform]} emailed you a code to check it’s you. Look in your email, and type the code here. Your computer puts it in.`;
 /** Under the code's box once it's sent, till the computer takes it. */
 export const ASK_CODE_SENT_WORDS = 'Sent. Your computer is putting it in.';
+/**
+ * The step handed to the person once no code came in `ASK_CODE_MINUTES` (Chris: "if the code is not entered in 30
+ * minutes the system should then prompt the user to have the extension try again"): answered Try again.
+ */
+export const askCodeRanOutWords = (platform: Platform): string =>
+  `No code came in ${ASK_CODE_MINUTES} minutes, so ${PLATFORMS[platform]}’s may have run out. Press Try again, and your computer asks ${PLATFORMS[platform]} for a new one.`;
+/** Whether a step handed over is the code that ran out: its Carry on reads Try again. */
+export const askCodeRanOut = (ask: {
+  readonly state: string;
+  readonly platform: Platform;
+  readonly line: string | null;
+}): boolean => ask.state === 'stuck' && ask.line === askCodeRanOutWords(ask.platform);
+/** What a reply's button says on an ask: Carry on, Skip, or Try again where the code ran out. */
+export const askReplyLabel = (
+  ask: Parameters<typeof askCodeRanOut>[0],
+  reply: AskReply,
+): string => (reply === 'carry_on' && askCodeRanOut(ask) ? 'Try again' : ASK_REPLIES[reply]);
+/**
+ * Where the notification about a code opens: Social Outreach's page for that ask's code, on the phone and the web. An
+ * add-on alert opens one of the add-on's pages by a path under `/a/<id>/`, so the query goes after its slash.
+ */
+export const askCodeHref = (askId: string): string => `/a/outreach/?view=code&ask=${askId}`;
+/** The notification that stays up while a code is asked for, and the one once it ran out (an add-on alert each). */
+export const askCodeAlertWords = (
+  platform: Platform,
+  ranOut = false,
+): { title: string; detail: string } =>
+  ranOut
+    ? {
+        title: `${PLATFORMS[platform]}’s code ran out`,
+        detail: `Press Try again, and your computer asks ${PLATFORMS[platform]} for a new one.`,
+      }
+    : {
+        title: `${PLATFORMS[platform]} emailed you a code`,
+        detail: `Type it in HandsFreeOS, and your computer puts it in. It works for ${ASK_CODE_MINUTES} minutes.`,
+      };
 
 /** The push, and the extension's pop-up, when an ask first needs the person. */
 export function askStuckPushWords(
@@ -933,8 +973,12 @@ export const ASK_WORDS = {
   stop: 'Stop',
   stopped: ASK_STOPPED_LINE,
   youSaid: (reply: AskReply) => `You said ${ASK_REPLIES[reply]}.`,
-  /** The box for a code from their email, while a step waits on one. */
+  /** The box for a code from their email, while a step waits on one, and the phone's screen for it. */
   code: 'Code from your email',
+  codeGone:
+    'Nothing’s waiting on a code now: your computer has gone on, or it ended. Here’s how it went.',
+  codeNone: 'Nothing’s waiting on a code now. What your computer does shows on the Live tab.',
+  openLive: 'Open the Live tab',
   sendCode: 'Send code',
   anotherCode: 'Type it again',
 } as const;

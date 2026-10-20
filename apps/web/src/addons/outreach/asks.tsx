@@ -15,6 +15,7 @@ import {
   askedWords,
   askOpen,
   askRepliesFor,
+  askReplyLabel,
   askWaitingWords,
   askNameOn,
   ASK_REPLIES,
@@ -222,7 +223,7 @@ export function AskLine({
               disabled={busy !== null}
               data-testid={`ask-${r}`}
             >
-              {ASK_REPLIES[r]}
+              {askReplyLabel(ask, r)}
             </Button>
           ))}
           <Button

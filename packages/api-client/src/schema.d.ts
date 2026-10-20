@@ -6187,7 +6187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 10 minutes at most, and taken once.
+         * The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 30 minutes at most, and taken once.
          * @description Risk level 0. Requires outreach.use. Emits outreach.ask.coded.
          */
         post: operations["command_outreach_ask_code"];

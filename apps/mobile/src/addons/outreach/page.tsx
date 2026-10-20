@@ -9,6 +9,7 @@ import { Text } from '@/components/ui/text';
 import { openWebPath } from '@/home/open';
 
 import { ChatsScreen } from './chats';
+import { CodeScreen } from './code';
 import { OutreachWorkspace } from './frame';
 import { GroupsScreen } from './groups';
 import { TodayHub } from './hub';
@@ -25,7 +26,8 @@ import { SettingsScreen } from './settings';
  * Social Outreach's page on the phone (decisions 44 and 59), by its address's `?view=`, as the web's: four tabs and
  * the gear. Today (no `?view=`, `today`, and the old `waiting`) has what the computer is doing, Needs you and the
  * list; People is the Pipeline, Chats, the Partners list and the Never contact list; then Groups and Results; the gear opens Settings, with Playbooks there.
- * Settings is a menu, and `?part=` one of its pages (General, or a network's). `live` is the computer's whole day. Friends, and the old Activity, have a lot to look through, so they stay on the
+ * Settings is a menu, and `?part=` one of its pages (General, or a network's). `live` is the computer's whole day.
+ * `code` is the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). Friends, and the old Activity, have a lot to look through, so they stay on the
  * web: a link to them opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here anyway.
  */
 
@@ -41,6 +43,7 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'results',
   'playbooks',
   'settings',
+  'code',
 ];
 const WEB_TABS: readonly WebTab[] = ['activity', 'friends'];
 
@@ -52,6 +55,7 @@ export function OutreachPage(props: {
   q?: string;
   net?: string;
   part?: string;
+  ask?: string;
 }) {
   const ctx = useOutreachContext();
   return (
@@ -69,6 +73,7 @@ function OutreachView({
   q,
   net,
   part,
+  ask,
 }: {
   view?: string;
   for?: string;
@@ -77,6 +82,7 @@ function OutreachView({
   q?: string;
   net?: string;
   part?: string;
+  ask?: string;
 }) {
   const tab = PHONE_TABS.find((t) => t === view);
   const webTab = WEB_TABS.find((t) => t === view);
@@ -99,6 +105,8 @@ function OutreachView({
       return <PlaybooksScreen />;
     case 'settings':
       return <SettingsScreen whose={whose} part={part} />;
+    case 'code':
+      return <CodeScreen askId={ask ?? null} />;
     default:
       return webTab ? <WebOnlyScreen tab={webTab} /> : <TodayHub />;
   }

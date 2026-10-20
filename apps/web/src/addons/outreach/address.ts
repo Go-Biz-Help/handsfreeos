@@ -62,6 +62,8 @@ const VIEWS: readonly OutreachView[] = [
 const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
   waiting: 'today',
   activity: 'results',
+  // A code a network emailed (the phone's own screen for it, decision 82): the Live tab, where its box is.
+  code: 'live',
 };
 
 /** The four tabs and the gear (decision 59). */
