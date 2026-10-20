@@ -194,6 +194,18 @@ describe('mail to support@ becomes a ticket', () => {
     const ticket = found.tickets[0]!;
     ticketId = ticket.id;
     number = ticket.number;
+    // Its number finds it too, and a search that only looks like a number to JavaScript is just words.
+    const byNumber = await executeQuery(
+      api(),
+      supportTicketList,
+      { search: `#${number}` },
+      actor(agent),
+      meta(),
+    );
+    expect(byNumber.tickets.map((t) => t.id)).toContain(ticketId);
+    await expect(
+      executeQuery(api(), supportTicketList, { search: '2798e143' }, actor(agent), meta()),
+    ).resolves.toBeDefined();
     expect(ticket.status).toBe('new');
     expect(ticket.channel).toBe('email');
     expect(ticket.requester.email).toBe(customer.email.toLowerCase());

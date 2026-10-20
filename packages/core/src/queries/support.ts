@@ -124,13 +124,16 @@ export const supportTicketList = defineQuery({
       conditions.push(or(isNull(tickets.snoozeUntil), lt(tickets.snoozeUntil, new Date()))!);
     if (input.search) {
       const like = `%${input.search}%`;
-      const asNumber = Number(input.search.replace('#', ''));
+      // A ticket number is digits, with or without its #. Number() alone would also read "1e5" or "2798e143" (a
+      // search for part of an id), and hand the database a number no bigint can hold.
+      const digits = /^#?(\d{1,15})$/.exec(input.search.trim())?.[1];
+      const asNumber = digits ? Number(digits) : 0;
       conditions.push(
         or(
           ilike(tickets.subject, like),
           ilike(dsql`${tickets.requesterEmail}::text`, like),
           ilike(tickets.requesterName, like),
-          ...(Number.isFinite(asNumber) && asNumber > 0 ? [eq(tickets.number, asNumber)] : []),
+          ...(asNumber > 0 ? [eq(tickets.number, asNumber)] : []),
         )!,
       );
     }
