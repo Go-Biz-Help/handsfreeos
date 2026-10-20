@@ -53,6 +53,14 @@ customer leaving the email box empty this time doesn't erase the address on file
 **Answers keep the version they were given on**, and each answer carries the question's wording as it read
 at the time. Rewording a question never rewrites what somebody already said.
 
+**A response in the Deleted bin takes its answers out of sight with it** (20261027009700). A response goes
+in the bin with its customer, their leads' responses included. A lead deleted on its own leaves the customer's
+responses and answers where they are (docs/deleting.md, "A lead, a company or a record takes only what's about
+it"). While a response is in the bin, `form_answers_follow_response` hides its answers from everyone in the
+business: they're a row each with no bin mark of their own, so until then Results still counted and quoted them.
+Results and anything else that reads answers by form or by business leave them out, Bring back brings them back,
+and the worker reads them as it always has.
+
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
 

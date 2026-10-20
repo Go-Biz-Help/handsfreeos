@@ -347,6 +347,35 @@ describe('forms: who reads and who writes', () => {
       ).code,
     ).toBe('42501');
   });
+
+  it('a sheet sent again writes its answers over the last ones, and reads them back (20261027009700)', async () => {
+    // Answers now read only through a response the person can read, and sending writes them with
+    // `on conflict do update`, which reads the answer already there. The phone's own sheet still can.
+    const form = await live(wsA, orgA);
+    const [sheet] = await as(member)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.form_responses (workspace_id, form_id, version_id, source)
+            values (${wsA}, ${form.formId}, ${form.versionId}, 'app') returning id`,
+      ),
+    );
+    const send = (name: string) =>
+      as(member)((tx) =>
+        rows<{ text_value: string }>(
+          tx,
+          sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title, question_type, value, text_value)
+              values (${wsA}, ${sheet!.id}, ${form.formId}, 'q_aaaaaaaa', 'Your name', 'short_text', ${JSON.stringify(name)}::jsonb, ${name})
+              on conflict (response_id, question_id) do update set value = excluded.value, text_value = excluded.text_value
+              returning text_value`,
+        ),
+      );
+    expect(await send('Lupe')).toEqual([{ text_value: 'Lupe' }]);
+    expect(await send('Lupe Garza')).toEqual([{ text_value: 'Lupe Garza' }]);
+    const read = await as(owner)((tx) =>
+      rows(tx, sql`select text_value from app.form_answers where response_id = ${sheet!.id}`),
+    );
+    expect(read).toEqual([{ text_value: 'Lupe Garza' }]);
+  });
 });
 
 describe('the fields a business invents', () => {

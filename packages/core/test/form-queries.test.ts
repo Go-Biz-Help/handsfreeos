@@ -1,11 +1,13 @@
 /**
  * Form reads on the local database: the list and what it counts, one form with its issues and versions,
- * the responses, and the results — four answers to one question becoming one bar chart.
+ * the responses, and the results — four answers to one question becoming one bar chart, with a customer's
+ * answers left out while they're in the Deleted bin.
  */
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  binRestore,
   formCatalogs,
   formCreate,
   formGet,
@@ -19,6 +21,7 @@ import {
   formResults,
   formSaveDraft,
   organizationCreate,
+  personDelete,
 } from '../src/server';
 import { admin, ask, expectHfos, run, runSystem, type Scope } from './calendar-helpers';
 
@@ -288,5 +291,55 @@ describe('the results', () => {
     // A survey isn't scored, so there is nothing to average.
     expect(results.averagePercent).toBe(0);
     expect(results.passRate).toBe(null);
+  });
+
+  it('leaves out the answers of a customer in the Deleted bin, until they’re brought back', async () => {
+    const started = await runSystem(
+      formResponseStart,
+      { workspaceId: wsId, formId, source: 'link' },
+      scope,
+    );
+    await runSystem(
+      formResponseSubmit,
+      {
+        workspaceId: wsId,
+        responseId: started.responseId,
+        token: started.token,
+        answers: {
+          [qid('name')]: 'Customer 0304',
+          [qid('phone')]: '(512) 555-0304',
+          [qid('rating')]: 1,
+          [qid('again')]: cid('maybe'),
+          [qid('notes')]: 'Never showed up',
+        },
+        smsConsent: false,
+      },
+      scope,
+    );
+    const [response] = await rows<{ person_id: string }>(
+      admin(),
+      sql`select person_id from app.form_responses where id = ${started.responseId}`,
+    );
+    const notes = async () =>
+      (await ask(formResults, { workspaceId: wsId, formId }, owner)).questions.find(
+        (q) => q.questionId === qid('notes'),
+      )!;
+    const before = await notes();
+    expect(before.answered).toBe(4);
+    expect(before.samples).toContain('Never showed up');
+
+    const { deleted } = await run(
+      personDelete,
+      { workspaceId: wsId, personIds: [response!.person_id] },
+      owner,
+    );
+    const binned = await notes();
+    expect(binned.answered).toBe(3);
+    expect(binned.samples).not.toContain('Never showed up');
+
+    await run(binRestore, { workspaceId: wsId, binItemId: deleted[0]!.binItemId }, owner);
+    const back = await notes();
+    expect(back.answered).toBe(4);
+    expect(back.samples).toContain('Never showed up');
   });
 });

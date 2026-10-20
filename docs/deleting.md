@@ -9,7 +9,7 @@ business's own kinds. An add-on's records stay archive-only.
 
 | What                       | Where                                                                                                                                                                                                                   |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records                                                                       |
+| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027009700` hides a binned response's answers                   |
 | Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `bin.restore` and `bin.empty`                               |
 | Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                          |
 | What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                       |
@@ -54,6 +54,11 @@ And the defaults kept:
 marked rows from people, customers and the worker. Code that needs to read the bin sets `app.read_bin`
 (`private.reading_bin()`); the worker does it through `readingBin`. A customer in the bin stays readable but frozen,
 so a bill that names them still shows the name.
+
+**A form response's answers follow it** (20261027009700). They're a row each with no `bin_item_id` of their own, so
+`form_answers_follow_response` hides them from people whenever their response is hidden: in the bin, they're gone
+from Forms → Results and from anything else that reads answers by form or by business, and Bring back shows them
+again. They go with the response when the bin is emptied. The worker's own policies don't change.
 
 **The box always asks first.** `bin.preview` says what goes with each thing and refuses what can't go yet: a plan
 still billing, a signed file, a hold, a message still going out or a call still going on. Clients branch on its

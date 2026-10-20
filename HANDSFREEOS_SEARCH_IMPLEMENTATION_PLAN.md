@@ -21,7 +21,7 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved, nothing built.
+**Where it stands (2026-10-20):** boards approved; stage 1 built (Build order), the rest still to build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -1029,7 +1029,7 @@ the largest entry of `pages` at or before it ("page 3", or "Sheet 2" for Excel).
 ```sql
 with w as (select fa.response_id, fa.form_id, fa.question_title, fa.question_type, fa.text_value, fa.choice_labels, fa.answered_at
            from app.form_answers fa where fa.workspace_id = $ws
-           order by fa.answered_at desc limit $answerRows)
+           order by fa.answered_at desc, fa.response_id desc limit $answerRows)
 select w.*, r.person_id, f.name,
        lower(coalesce(w.text_value, '') || ' ' || array_to_string(w.choice_labels, ' ')) like all ($likes) as in_words
 from w
@@ -1735,8 +1735,9 @@ only the web changes show "Opens on the web" with the `ExternalLink` icon and ca
   close matches, `search.kind`'s paging and a contributor each leave the request answering (the group marked) or
   refusing with a rule, and neither the answer nor any thrown error's message, cause or stack holds the typed words.
 - `search/plans.test.ts`, the capacity guard, moved here from `packages/db` because it runs core's own statements:
-  through `asUser` on a seeded business, after `set local enable_seqscan = off` (a small business picks a Seq Scan
-  whatever indexes exist), `EXPLAIN (costs off)` of each searcher's real statement names
+  through `asUser` on a seeded business, after `set local enable_seqscan = off` and `set local enable_bitmapscan = off`
+  (a small business picks a Seq Scan, or a bitmap scan on another index and a sort, whatever indexes exist; stage 1's
+  Built note), `EXPLAIN (costs off)` of each searcher's real statement names
   `messages_workspace_occurred_idx` for the messages window, `activities_notes_idx` for Notes (built from `NOTE_LINES`,
   so the partial condition is proved under row security), `conversations_recent_idx` for threads,
   `form_answers_recent_idx` for answers and `people_workspace_idx` for contacts.
@@ -1859,6 +1860,65 @@ its step **Built** here with what changed while building.
      copy of them in `packages/db`, which can't import core.
    - Docs: docs/forms.md (Results leaves out binned responses' answers), docs/deleting.md (form answers follow their
      response).
+   - **Built** (2026-10-20). Migration A is `20261027009700_search_windows.sql`, applied locally; it still has to go
+     on the hosted database ("Apply new migrations", docs/operations.md) before this reaches `main`. What changed
+     while building:
+     - **Σ and ς fold to σ.** Not an accent, but the local stack's database uses the ICU locale provider, whose
+       `lower()` turns a word-final Σ into ς by context, while one character at a time (core, and a libc database)
+       gives σ. With both in the map, nothing is left that depends on the letters around it, so core, the phone and
+       any database agree, and "οδος" still finds "ΟΔΟΣ". `fold()` still lower-cases each character on its own.
+     - **What the map holds** (518 letters, both cases): every letter of Latin-1 Supplement and Latin Extended-A,
+       and of Latin Extended-B and Latin Extended Additional (Vietnamese), that is a plain letter with accents; and,
+       besides the ones the plan names, ð, ħ, ı, ŀ, ŧ, ſ, ẞ, ǿ, ǽ and ǣ. `FOLDS_TO` in `search/fold.ts` groups them
+       by the letter they fold to, and `FOLD_FROM` and `FOLD_TO` are built from it; the migration holds the two
+       strings as written then.
+     - **`form.results` dropping a binned customer's answers is tested in core** (`test/form-queries.test.ts`, with
+       `person.delete` and `bin.restore`), since `packages/db` can't import core. `search-rls.test.ts` holds the
+       policy's own cases, and reads the form's answers the way Results does.
+     - **`forms-rls.test.ts`** gains the phone's sheet sending its answers again (`on conflict do update` with
+       `returning`), because that path now reads the answer already there through the new policy.
+     - **`search-leakproof.test.ts`** checks every function "How it works", 2 names, not only the five in Tests by
+       package, and that Supabase's `postgres` role isn't a superuser.
+     - **`fold.test.ts`** also compares every character from U+0001 to U+024F, Greek, Cyrillic and Latin Extended
+       Additional one at a time, and checks that `fold` keeps the length of every character in the Basic
+       Multilingual Plane. Run as a signed-in person, so it proves `authenticated` may call `private.search_fold`.
+     - **`private.search_fold` skips `translate` for ASCII text, and has no `set search_path`, so it's worked out
+       inline.** As the plan wrote it, it cost about 60 µs a 17-letter name, ASCII or not: `translate` checks every
+       character against all 518 letters of the map (about 2.4 µs a character), and a function with a search_path
+       set is never inlined (about 5 µs a call). 20,000 names folded twice, as Contacts' `$starts` and `$folds` arms
+       do, took about 2.4 s locally, past the quick search's 1.5 s a statement. Now text whose bytes equal its
+       characters (only ASCII, in UTF-8) is just lower-cased, which gives the same text since no ASCII letter is in
+       the map, and the same 20,000 names take 40 to 60 ms. Every name in the body is written out in full
+       (`pg_catalog.lower`, `operator(pg_catalog.=)` and so on), so a caller's search_path can't change it; it's
+       the one function here without a pinned search_path, which `rls.test.ts` requires only of definer functions,
+       and Supabase's advisor will list it as "search path mutable", which is expected. `fold.test.ts` checks the
+       plan works it out inline with the ASCII branch, so pinning a search_path later fails there.
+     - **Text with an accent still pays the map in full**: about 2.4 µs a character, so about 40 µs a 17-letter name,
+       and each call pays it again (Postgres doesn't share one fold between two arms). Stage 2's searchers can fold a
+       row's name once (a lateral, or a subquery) where the sketches fold it twice, and its `plans.test.ts` and stage
+       3's load check, whose 20,000 customers should include accented names, watch it. **Stage 5**: a file's words
+       (`private.search_words` in a stored column over up to 100,000 characters) and the Files snippet's
+       `strpos(private.search_fold(t.text), …)` take the slow path for any file with one accent, about 240 ms for
+       100,000 characters; the column is worked out once when the words are written, but the snippet runs per
+       search, so cut `t.text` to a stretch before folding it, or find the word in the unfolded text first.
+     - **`form_answers_recent_idx` ends with `response_id desc`**: it's on
+       `(workspace_id, answered_at desc, response_id desc)`. A response's answers share one `answered_at`
+       (`forms/submit.ts` writes them in one insert with `now()`, and an import gives them the response's time), so
+       without a tiebreaker a window cut at 3,000 rows splits a response, and "Look further back" on
+       `answered_at < $before` skips the rest of it. Stage 3 orders the window by
+       `answered_at desc, response_id desc` (the Forms sketch now does), and pages answers on
+       `(answered_at, response_id) < ($before, the last response)` so each response is read whole.
+     - **`form_answers_follow_response` is a correlated `exists`**, as the forms' own insert and update policies are:
+       `exists (select 1 from app.form_responses r where r.id = form_answers.response_id)`, not
+       `response_id in (select r.id …)`. It means the same, but the `in` form can only be a hashed subplan, which
+       reads every response the person can see, in every business they can open, before any statement reading
+       answers, even one form's. Now each answer probes `form_responses_pkey`.
+     - EXPLAIN as an owner under row security uses `activities_notes_idx`, `conversations_recent_idx` and
+       `form_answers_recent_idx` for the three windows, as How it works, 2 says, but only with **both
+       `enable_seqscan` and `enable_bitmapscan` off**. With only seqscan off, the seeded data picks a bitmap scan on
+       another index and a sort for threads (`conversations_one_per_line`, or `conversations_assignee_idx`) and for
+       answers (`form_answers_workspace_idx`); notes use their index either way. `plans.test.ts` (Tests by package)
+       now turns both off. The tests that pin this come with the statements, in stages 2 and 3.
 
 2. **Search 2: core's search, its first kinds, and the API's guards.**
    - Ships: `search.everything` and `search.kind` for Contacts, Companies, Leads, Money, Knowledge, a business's own
