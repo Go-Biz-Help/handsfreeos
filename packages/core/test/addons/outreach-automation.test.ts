@@ -15,11 +15,13 @@ import {
   BusinessRules,
   hoursWords,
   inWorkingHours,
+  messageKinds,
   settingsSummary,
   withinRules,
   workWindow,
 } from '../../src/addons/outreach/automation';
 import { dailyLimitsNow } from '../../src/addons/outreach/limits';
+import { runsOnItsOwn } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
 
@@ -262,6 +264,26 @@ describe('the business’s rules', () => {
       replies: 'simple' as const,
     };
     expect(withinRules(before, rules)).toMatchObject({ sending: 'steps', replies: 'draft' });
+  });
+
+  it('send nothing on their own on a network the extension doesn’t work yet, whatever was picked', () => {
+    const all = BusinessRules.parse({});
+    const picked = {
+      ...AUTOMATION_DEFAULTS.networks.alignable,
+      on: true,
+      sending: 'steps' as const,
+    };
+    const settings = {
+      ...AUTOMATION_DEFAULTS,
+      networks: { ...AUTOMATION_DEFAULTS.networks, alignable: picked, linkedin: picked },
+    };
+    expect(runsOnItsOwn('alignable')).toBe(false);
+    expect(runsOnItsOwn('linkedin')).toBe(true);
+    const within = withinRules(settings, { ...all, networksAllowed: ['linkedin', 'alignable'] });
+    expect(within.networks.alignable.sending).toBe('off');
+    expect(within.networks.linkedin.sending).toBe('steps');
+    expect(autoKinds(within.networks.alignable, 'alignable')).toEqual([]);
+    expect(messageKinds(within.networks.alignable)).toEqual([]);
   });
 
   it('keep the daily limits under the starting ones, halved on training wheels', () => {

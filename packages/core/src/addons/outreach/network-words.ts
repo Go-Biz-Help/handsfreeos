@@ -224,7 +224,9 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
   },
   alignable: {
     confirm: 'Accept their connection request',
-    chatUrl: (key) => `https://www.alignable.com/inbox/${encodeURIComponent(key)}`,
+    // A chat is kept by the other business's id, as Alignable's own Message link opens it.
+    chatUrl: (key) =>
+      `https://www.alignable.com/biz/conversations?with_business_id=${encodeURIComponent(key)}`,
     ticks: {
       warmUp: [
         'Look at their profile and like a post before each connection request',
@@ -290,6 +292,10 @@ export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode,
 /** Under what it does on its own on a network: its limits, its pace, and its warnings. */
 export const onItsOwnAbout = (platform: Platform): string =>
   `It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from ${PLATFORMS[platform]}.`;
+
+/** Under On its own on a network the extension doesn't work yet: what it does there instead. */
+export const noRunnerWords = (platform: Platform): string =>
+  `Your computer doesn’t work on ${PLATFORMS[platform]} on its own yet. You take each step and send each message yourself, and it notes what you do.`;
 
 /** Whether Today has its helpful post on a network. */
 export const helpfulOn = (platform: Platform): boolean => MORE[platform].helpful;

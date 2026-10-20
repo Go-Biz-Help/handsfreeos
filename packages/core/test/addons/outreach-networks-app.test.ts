@@ -102,6 +102,10 @@ describe('a network’s words on screen', () => {
       'https://www.linkedin.com/messaging/thread/2-abc%3D/',
     );
     expect(chatUrlOn('linkedin', null)).toBeNull();
+    // Alignable keeps a chat by the other business's id, as its own Message link opens it.
+    expect(chatUrlOn('alignable', '8kA2')).toBe(
+      'https://www.alignable.com/biz/conversations?with_business_id=8kA2',
+    );
     expect(shareWords(3, 4)).toBe('75% of first messages');
     expect(shareWords(0, 0)).toBe('');
   });

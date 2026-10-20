@@ -1044,7 +1044,7 @@ export const today = defineAddonQuery(outreachAddon, {
     const readAdmins = await rows<{ id: string; name: string | null; url: string }>(
       ctx.tx,
       sql`select g.id, g.name, g.url from addon_outreach.groups g
-          where g.workspace_id = ${ws} and g.admins_read_at is null
+          where g.workspace_id = ${ws} and g.platform = ${input.platform} and g.admins_read_at is null
             and exists (select 1 from addon_outreach.group_people gp
               where gp.group_id = g.id and not gp.runs_group)
           order by g.seen_at desc nulls last limit 10`,
