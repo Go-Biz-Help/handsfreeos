@@ -5,6 +5,7 @@
  */
 
 import { withAddonNames } from '../addons/catalog';
+import { fmtTime } from '../calendar/when';
 import { formatPhone } from '../crm/phone';
 import { industryLabel } from '../industries';
 import { intlTimeZone } from '../intl/engine-zones';
@@ -867,13 +868,7 @@ export function deskActivityBars(activity: readonly number[]): readonly number[]
 }
 
 /** The time where the business is, so a call isn't placed at 6am their time: "3:42 PM". */
-export function deskTheirTime(timezone: string, now = Date.now()): string {
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: intlTimeZone(timezone),
-  }).format(now);
-}
+export const deskTheirTime = (timezone: string, now = Date.now()): string => fmtTime(now, timezone);
 
 // ---- more about them ----
 
