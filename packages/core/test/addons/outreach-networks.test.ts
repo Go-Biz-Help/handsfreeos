@@ -106,7 +106,14 @@ describe('each network on its own', () => {
   it('slows and stops only LinkedIn on a LinkedIn warning', async () => {
     const dana = await teammate('Riley Stone');
     await runAs(dana, ws, 'outreach.automation.save', {
-      settings: { ...AUTOMATION_DEFAULTS, sending: 'everything' },
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        sending: 'everything',
+        networks: {
+          ...AUTOMATION_DEFAULTS.networks,
+          linkedin: { ...AUTOMATION_DEFAULTS.networks.linkedin, on: true },
+        },
+      },
     });
     // Their training wheels came off already.
     await rows(
@@ -159,10 +166,21 @@ describe('each network on its own', () => {
     expect((await runAs(dana, ws, 'outreach.asks', {})).warnedToday).toBe(false);
     expect((await runAs(dana, ws, 'outreach.friends.tidy', {})).warning).toBeNull();
     const team = await runAs(owner, ws, 'outreach.live.team', {});
+    expect(team.platform).toBe('facebook');
     expect(team.people.find((p: { userId: string }) => p.userId === dana.id)).toMatchObject({
       warned: false,
       day: { state: 'none' },
     });
+    // The team's view of LinkedIn: her day there stopped by its warning, at LinkedIn's halved limits.
+    const onLinkedIn = await runAs(owner, ws, 'outreach.live.team', { platform: 'linkedin' });
+    expect(onLinkedIn.platform).toBe('linkedin');
+    expect(onLinkedIn.people.find((p: { userId: string }) => p.userId === dana.id)).toMatchObject({
+      warned: true,
+      day: { state: 'stopped', why: 'warning' },
+      limits: { friend_request: { most: 7 } },
+    });
+    // Only those who have LinkedIn on are on its list.
+    expect(onLinkedIn.people.some((p: { userId: string }) => p.userId === owner.id)).toBe(false);
     const [wheels] = await rows<{ done: boolean }>(
       admin(),
       sql`select wheels_done_at is not null as done from addon_outreach.automation

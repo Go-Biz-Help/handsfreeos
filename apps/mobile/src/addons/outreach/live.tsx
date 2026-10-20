@@ -20,6 +20,7 @@ import {
   dailyWordsOn,
   networkShown,
   noRunnerWords,
+  teamWordsOn,
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -132,9 +133,13 @@ export function useLiveProps(
   const team = useOutreachAnswer(
     ctx.manages && full
       ? async () =>
-          unwrap(await api.POST('/v1/queries/outreach.live.team', { body: { workspaceId: ws } }))
+          unwrap(
+            await api.POST('/v1/queries/outreach.live.team', {
+              body: { workspaceId: ws, platform },
+            }),
+          )
       : null,
-    `live-team:${ws}`,
+    `live-team:${ws}:${platform}`,
     W.team,
     { everySeconds: LIVE_REFETCH_SECONDS },
   );
@@ -415,7 +420,7 @@ export function LiveBody({
 
 function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
   return (
-    <Part title={W.team} testID="live-team">
+    <Part title={teamWordsOn(team.platform).title} testID="live-team">
       {team.people.length ? (
         <List>
           {team.people.map((p) => {
@@ -447,7 +452,7 @@ function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
           })}
         </List>
       ) : (
-        <Note>{W.teamNone}</Note>
+        <Note>{teamWordsOn(team.platform).none}</Note>
       )}
     </Part>
   );

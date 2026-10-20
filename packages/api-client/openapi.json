@@ -184176,7 +184176,7 @@
     "/v1/queries/outreach.live.team": {
       "post": {
         "operationId": "query_outreach_live_team",
-        "summary": "For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.",
+        "summary": "For owners and admins: each person who uses Social Outreach on one network (Facebook when left out), with what their extension is doing (working, waiting, stopped for today, offline), today’s counts there against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.",
         "tags": [
           "queries"
         ],
@@ -184192,6 +184192,16 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
                   }
                 },
                 "required": [
@@ -184216,6 +184226,15 @@
                       "type": "string",
                       "format": "date-time",
                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin",
+                        "instagram",
+                        "alignable"
+                      ]
                     },
                     "people": {
                       "type": "array",
@@ -184498,6 +184517,7 @@
                   "required": [
                     "timezone",
                     "now",
+                    "platform",
                     "people"
                   ],
                   "additionalProperties": false
