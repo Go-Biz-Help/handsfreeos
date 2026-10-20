@@ -87404,6 +87404,7 @@
                             "working",
                             "stuck",
                             "typing",
+                            "code",
                             "done",
                             "failed",
                             "cancelled",
@@ -88359,7 +88360,7 @@
     "/v1/commands/outreach.ask.progress": {
       "post": {
         "operationId": "command_outreach_ask_progress",
-        "summary": "The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, or their password). Answers whether the person stopped it, and their answer to a step handed to them.",
+        "summary": "The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, their password, or a code from their email). Answers whether the person stopped it, their answer to a step handed to them, and the code they typed, once.",
         "tags": [
           "commands"
         ],
@@ -88386,7 +88387,8 @@
                     "enum": [
                       "working",
                       "stuck",
-                      "typing"
+                      "typing",
+                      "code"
                     ]
                   },
                   "line": {
@@ -88427,11 +88429,19 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "cancelled",
-                    "reply"
+                    "reply",
+                    "code"
                   ],
                   "additionalProperties": false
                 }
@@ -88599,6 +88609,7 @@
                         "working",
                         "stuck",
                         "typing",
+                        "code",
                         "done",
                         "failed",
                         "cancelled"
@@ -88735,6 +88746,319 @@
                             "working",
                             "stuck",
                             "typing",
+                            "code",
+                            "done",
+                            "failed",
+                            "cancelled",
+                            "expired",
+                            "lost"
+                          ]
+                        },
+                        "line": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "result": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "drafts": {
+                                  "maxItems": 5,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 2000
+                                  }
+                                },
+                                "kind": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "opener",
+                                        "reconnect",
+                                        "pitch",
+                                        "video",
+                                        "follow_up",
+                                        "check_in",
+                                        "reply",
+                                        "comment",
+                                        "warm_lead",
+                                        "partner_ask",
+                                        "partner_follow_up",
+                                        "partner_details",
+                                        "partner_reply"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "opener": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "playbookId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "style",
+                                            "own"
+                                          ]
+                                        },
+                                        "text": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 600
+                                        }
+                                      },
+                                      "required": [
+                                        "playbookId",
+                                        "kind",
+                                        "text"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "simple": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "lookedUp": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "queued": {
+                                  "default": false,
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "drafts",
+                                "kind",
+                                "opener",
+                                "simple",
+                                "lookedUp",
+                                "queued"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reply": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "carry_on",
+                                "skip"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "askedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "startedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "endedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "computerName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "askId",
+                        "platform",
+                        "kind",
+                        "target",
+                        "about",
+                        "via",
+                        "state",
+                        "line",
+                        "result",
+                        "reply",
+                        "askedAt",
+                        "startedAt",
+                        "endedAt",
+                        "computerName"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ask"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.ask.code": {
+      "post": {
+        "operationId": "command_outreach_ask_code",
+        "summary": "The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 10 minutes at most, and taken once.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.ask.coded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "askId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "askId",
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ask": {
+                      "type": "object",
+                      "properties": {
+                        "askId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "platform": {
+                          "default": "facebook",
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "linkedin",
+                            "instagram",
+                            "alignable"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "file_request",
+                            "file_download",
+                            "file_backup",
+                            "file_in",
+                            "requests",
+                            "friends",
+                            "groups",
+                            "group_search",
+                            "members",
+                            "posts",
+                            "chats",
+                            "checks",
+                            "group_checks",
+                            "join",
+                            "post",
+                            "cancel",
+                            "unfriend",
+                            "lookup",
+                            "research",
+                            "profile_read",
+                            "profile_edit",
+                            "checkup"
+                          ]
+                        },
+                        "target": {
+                          "type": "string"
+                        },
+                        "about": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "via": {
+                          "type": "string",
+                          "enum": [
+                            "web",
+                            "mobile",
+                            "extension"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "waiting",
+                            "working",
+                            "stuck",
+                            "typing",
+                            "code",
                             "done",
                             "failed",
                             "cancelled",
@@ -89042,6 +89366,7 @@
                             "working",
                             "stuck",
                             "typing",
+                            "code",
                             "done",
                             "failed",
                             "cancelled",
@@ -184613,6 +184938,7 @@
                                       "working",
                                       "stuck",
                                       "typing",
+                                      "code",
                                       "done",
                                       "failed",
                                       "cancelled",
@@ -185717,6 +186043,7 @@
                               "working",
                               "stuck",
                               "typing",
+                              "code",
                               "done",
                               "failed",
                               "cancelled",

@@ -235,6 +235,8 @@ export const ASK_STATES = {
   working: 'Working on it',
   stuck: 'Needs you',
   typing: 'Needs you',
+  /** Waiting on a code the network emailed them, typed in HandsFreeOS (`outreach.ask.code`). */
+  code: 'Needs you',
   done: 'Done',
   failed: 'Didn’t finish',
   cancelled: 'Stopped',
@@ -252,11 +254,11 @@ export const ASK_SHOWN_STATE_KEYS = Object.keys(ASK_SHOWN_STATES) as [
   AskShownState,
   ...AskShownState[],
 ];
-export const OPEN_ASK_STATES = ['waiting', 'working', 'stuck', 'typing'] as const;
+export const OPEN_ASK_STATES = ['waiting', 'working', 'stuck', 'typing', 'code'] as const;
 /** Taken by a computer and not ended. */
-export const TAKEN_ASK_STATES = ['working', 'stuck', 'typing'] as const;
-/** Waiting on the person, at their computer. */
-export const NEEDS_YOU_STATES = ['stuck', 'typing'] as const;
+export const TAKEN_ASK_STATES = ['working', 'stuck', 'typing', 'code'] as const;
+/** Waiting on the person: at their computer, or for a code from their email. */
+export const NEEDS_YOU_STATES = ['stuck', 'typing', 'code'] as const;
 export const ASK_REPLIES = { carry_on: 'Carry on', skip: 'Skip' } as const;
 export type AskReply = keyof typeof ASK_REPLIES;
 export const ASK_REPLY_KEYS = Object.keys(ASK_REPLIES) as [AskReply, ...AskReply[]];
@@ -269,6 +271,8 @@ export const ASK_WAIT_HOURS = 24;
 export const ASK_LINE_SECONDS = 20;
 /** A step handed over that nobody carried on with stops after this. */
 export const ASK_STUCK_MINUTES = 30;
+/** A code from their email is kept this long for their computer to take, and their computer waits this long for one. */
+export const ASK_CODE_MINUTES = 10;
 /** A taken ask whose computer wasn't seen for this long, or that started this long ago, is lost. */
 export const ASK_LOST_MINUTES = 10;
 export const ASK_LOST_HOURS = 6;
@@ -619,6 +623,11 @@ export const AskProgressOutput = z.object({
   cancelled: z.boolean(),
   /** Their answer to the step handed to them, until a `working` progress takes it. */
   reply: z.enum(ASK_REPLY_KEYS).nullable(),
+  /**
+   * The code from their email, while it waits on one (`code`): handed over once, the first time it's asked after they
+   * typed it, and never again. Null till then, and from a server before codes.
+   */
+  code: z.string().nullable().default(null),
 });
 export type AskProgressOutput = z.output<typeof AskProgressOutput>;
 
@@ -639,6 +648,23 @@ export const AskReplyInput = z.object({
   reply: z.enum(ASK_REPLY_KEYS),
 });
 export type AskReplyInput = z.input<typeof AskReplyInput>;
+/** A code as the email gives it: 4 to 12 letters or numbers, with any spaces or dashes taken out. */
+export const AskCodeInput = z.object({
+  workspaceId: z.uuid(),
+  askId: z.uuid(),
+  code: z
+    .string()
+    .transform((s) => s.replace(/[\s-]+/g, ''))
+    .pipe(
+      z
+        .string()
+        .regex(
+          /^[A-Za-z0-9]{4,12}$/,
+          'That doesn’t look like the code. Type the letters or numbers the email shows, as they are.',
+        ),
+    ),
+});
+export type AskCodeInput = z.input<typeof AskCodeInput>;
 export const AskCancelInput = z.object({ workspaceId: z.uuid(), askId: z.uuid() });
 export type AskCancelInput = z.input<typeof AskCancelInput>;
 export const AskChangedOutput = z.object({ ask: AskShown });
@@ -827,11 +853,27 @@ export const askWarnedLine = (words: string | null, platform: Platform = 'facebo
 export const ASK_TYPING_WORDS =
   'Facebook is asking for your password or PIN. Type it on your computer, in the Facebook tab it opened.';
 
+/**
+ * Under a step waiting on a code, and the extension's line for it: the network emailed one, and they type it here.
+ * A code that didn't work asks for the newest one.
+ */
+export const askCodeWords = (platform: Platform, again = false): string =>
+  again
+    ? `That code didn’t work on ${PLATFORMS[platform]}. Look for the newest email from ${PLATFORMS[platform]}, and type its code here.`
+    : `${PLATFORMS[platform]} emailed you a code to check it’s you. Look in your email, and type the code here. Your computer puts it in.`;
+/** Under the code's box once it's sent, till the computer takes it. */
+export const ASK_CODE_SENT_WORDS = 'Sent. Your computer is putting it in.';
+
 /** The push, and the extension's pop-up, when an ask first needs the person. */
 export function askStuckPushWords(
-  state: 'stuck' | 'typing',
+  state: 'stuck' | 'typing' | 'code',
   line: string | null,
 ): { title: string; body: string } {
+  if (state === 'code')
+    return {
+      title: 'Look in your email',
+      body: line || 'Your computer needs a code from your email. Type it in HandsFreeOS.',
+    };
   return {
     title: 'Your computer needs you',
     body:
@@ -850,6 +892,7 @@ export const ASK_TONES: Record<AskShownState, 'accent' | 'ok' | 'pending' | 'dan
   working: 'ok',
   stuck: 'pending',
   typing: 'pending',
+  code: 'pending',
   done: 'ok',
   failed: 'danger',
   lost: 'danger',
@@ -876,6 +919,10 @@ export const ASK_WORDS = {
   stop: 'Stop',
   stopped: ASK_STOPPED_LINE,
   youSaid: (reply: AskReply) => `You said ${ASK_REPLIES[reply]}.`,
+  /** The box for a code from their email, while a step waits on one. */
+  code: 'Code from your email',
+  sendCode: 'Send code',
+  anotherCode: 'Type it again',
 } as const;
 
 export const NO_COMPUTER_ASK_WORDS =

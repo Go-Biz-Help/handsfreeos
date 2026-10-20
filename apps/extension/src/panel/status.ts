@@ -98,13 +98,18 @@ async function stopAsk(askId: string): Promise<void> {
 
 /**
  * What the person asked from HandsFreeOS, while it goes: on a network but Facebook, named. A step handed to them says
- * what to do (its line), then to press Carry on in HandsFreeOS's Needs you, with a link there.
+ * what to do (its line), then to press Carry on in HandsFreeOS's Needs you, with a link there; a code from their email
+ * says where to look (its line), with the same link, where they type it.
  */
 function askView(a: KeptAsk): Child {
   const kind = a.kind as AskKind;
   const stuck = askNeedsYou(a.state);
   const carryOn = a.state === 'stuck' ? carryOnWords(askRepliesFor(kind)) : null;
-  const needsYou = carryOn && status?.webUrl ? needsYouUrl(status.webUrl, a.businessId) : null;
+  // A code from their email is typed in Needs you too: the link goes there.
+  const needsYou =
+    (carryOn || a.state === 'code') && status?.webUrl
+      ? needsYouUrl(status.webUrl, a.businessId)
+      : null;
   const on = a.platform && a.platform !== 'facebook' ? `, on ${PLATFORMS[a.platform]}` : '';
   return h(
     'div',
