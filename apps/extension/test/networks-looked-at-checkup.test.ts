@@ -51,12 +51,29 @@ const INSTAGRAM_PAGES: Record<string, string> = {
     '<a href="/dana.reyes/reel/R0aBc12XyZq/">a reel</a><a href="/p/',
   ),
   [`${IG}/p/E2bCd45EfGh/`]: html(`<main role="main"><article>
+    <a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a>
     <div role="button"><svg aria-label="Like"><title>Like</title></svg></div>
     <form><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></article></main>`),
   [`${IG}/explore/people/`]: html(`${IG_MENU}<main role="main"><h1>Suggested</h1>
     <div><a href="/lee.park/">lee.park</a><button>Follow</button></div></main>`),
   [`${IG}/lee.park/`]: igProfile('lee.park', 'Follow', 'F3cDe56FgHi'),
-  [`${IG}/direct/inbox/`]: html(`${IG_MENU}<main role="main"><h1>Messages</h1></main>`),
+  [`${IG}/direct/inbox/`]: html(
+    `${IG_MENU}<main role="main"><h1>Messages</h1><a href="/direct/t/340282366841710300/">dana.reyes</a></main>`,
+  ),
+  // What its steps are built from (0.79.0): their followers over their profile, a hashtag, a place, notifications, a chat.
+  [`${IG}/casey.owner/followers/`]: html(`${IG_MENU}<main role="main"><h2>casey.owner</h2></main>
+    <div role="dialog"><h1>Followers</h1><a href="/jo.baker/">jo.baker</a><button>Remove</button></div>`),
+  [`${IG}/explore/tags/smallbusiness/`]: html(
+    `${IG_MENU}<main role="main"><h1>#smallbusiness</h1><a href="/p/G4dEf67GhIj/">post</a></main>`,
+  ),
+  [`${IG}/explore/locations/212988663/austin-texas/`]: html(
+    `${IG_MENU}<main role="main"><h1>Austin, Texas</h1><a href="/p/H5eFg78HiJk/">post</a></main>`,
+  ),
+  [`${IG}/notifications/`]: html(
+    `${IG_MENU}<main role="main"><h1>Notifications</h1><a href="/sam.carter/">sam.carter</a> liked your post.</main>`,
+  ),
+  [`${IG}/direct/t/340282366841710300/`]: html(`${IG_MENU}<main role="main">
+    <div role="textbox" contenteditable="true" aria-label="Message"></div></main>`),
 };
 
 /** What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written. */
@@ -296,7 +313,13 @@ describe('Check Instagram', () => {
       `${IG}/explore/search/keyword/?q=small%20business`,
       `${IG}/dana.reyes/`,
       `${IG}/p/E2bCd45EfGh/`,
+      `${IG}/casey.owner/followers/`,
+      `${IG}/explore/tags/smallbusiness/`,
+      // The place its post was tagged at.
+      `${IG}/explore/locations/212988663/austin-texas/`,
+      `${IG}/notifications/`,
       `${IG}/direct/inbox/`,
+      `${IG}/direct/t/340282366841710300/`,
     ]);
     // It reads (their own account too, as the AI's check would), and tries: nothing else is asked of the tab.
     expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-own-profile', 'hfos-try']));
@@ -316,9 +339,9 @@ describe('Check Instagram', () => {
       post: 1,
       emptied: true,
     });
-    expect(notes.at(-1)!.found).toEqual({ pages: 7, steps: 5, working: 5 });
+    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 5, working: 5 });
     expect(end).toEqual({
-      line: 'Read 7 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      line: 'Read 12 Instagram pages and tried 5 steps up to their last press. Everything works.',
       warned: false,
     });
   });
@@ -338,17 +361,18 @@ describe('Check Instagram', () => {
       report: async (note: ReportNote = {}) => void notes.push(note),
     } satisfies Job;
     const end = await runAsk({ kind: 'checkup' }, job, 'instagram');
-    expect(opened.slice(-3)).toEqual([
+    // The accounts Instagram suggests and one of them, before what its steps are built from.
+    expect(opened.slice(-8, -5)).toEqual([
       `${IG}/explore/people/`,
       `${IG}/lee.park/`,
-      `${IG}/direct/inbox/`,
+      `${IG}/casey.owner/followers/`,
     ]);
     expect(notes.filter((n) => n.job === 'checkup.follow').map((n) => n.found?.works)).toEqual([
       false,
       true,
     ]);
     expect(end.line).toBe(
-      'Read 9 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
     );
   });
 

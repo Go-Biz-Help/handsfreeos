@@ -626,6 +626,11 @@ request when opened, so no Check opens it: the first real request shows what it 
      business there and its area narrows the person's own town.
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
+   - **Part 9, Check's new reads** (extension 0.79.0): Check Instagram also opens their followers, a hashtag
+     (#smallbusiness), a place a post was tagged at (or Instagram's list of places), their notifications and a chat
+     in Messages, reading each and pressing nothing. Its readers (part 10) are built from what those outlines show,
+     as Alignable's were; Instagram's own reader (`src/networks/instagram/read.ts`) starts with the links Check
+     follows: places, hashtags and chats.
 
 ## Build order
 

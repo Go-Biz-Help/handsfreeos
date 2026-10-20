@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.74.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.79.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -108,6 +108,8 @@ side, so its chat reader can be built from that next.
 From 0.74.0 **Find posts in your town** opens your town's page on Alignable (the town in your own profile's address),
 reads a few screens of its posts and forum questions, and sends them for the AI's check
 (`src/jobs/alignable/posts.ts`). It presses nothing there.
+From 0.79.0 Check Instagram also opens your followers, a hashtag, a place, your notifications and a chat, and reads
+each, pressing nothing, so Instagram's readers can be built from what they show (`src/networks/instagram/read.ts`).
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script
