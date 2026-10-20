@@ -77,6 +77,13 @@ describe('posts asking for what the business offers, fast', () => {
       title: 'Dana Reyes is asking for what you offer',
       body: 'In Austin Owners. Looking for a CRM now. Answer it first: it’s at the top of your list for today.',
     });
+    // Off a group, on Alignable's town or forum: that network.
+    expect(strongPostPushWords('Sam Lee', null, 'Needs a roofer this week', 'alignable').body).toBe(
+      'On Alignable. Needs a roofer this week. Answer it first: it’s at the top of your list for today.',
+    );
+    expect(strongPostPushWords('Sam Lee', null, null).body).toBe(
+      'Answer it first: it’s at the top of your list for today.',
+    );
   });
 });
 

@@ -23,6 +23,8 @@ import {
   HelpfulDraftOutput,
   HelpfulEngagedInput,
   HelpfulEngagedOutput,
+  NetworkEngagedInput,
+  NetworkEngagedOutput,
   HelpfulListInput,
   HelpfulListOutput,
   HelpfulNextInput,
@@ -637,6 +639,56 @@ export async function approvedHelpful(ctx: Ctx, me: string, helpfulId: string) {
   return row ?? null;
 }
 
+export const networkEngaged = defineAddonCommand(outreachAddon, {
+  name: 'outreach.engaged.save',
+  description:
+    'Who liked or commented on the person’s posts and answers, or recommended them, on a network itself, as the extension read its notifications (Alignable’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.',
+  risk: 1,
+  input: NetworkEngagedInput,
+  output: NetworkEngagedOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.engaged.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    return once(async () => {
+      let added = 0;
+      for (const e of input.engaged) {
+        const profile = await keptProfile(
+          ctx,
+          { platform: input.platform, profile: e.profile, name: e.name },
+          me,
+          at,
+        );
+        if ((profile.friendship as string) === 'self') continue;
+        // One a person and kind off any helpful post, kept to the latest seen.
+        const [kept] = await rows<{ added: boolean }>(
+          ctx.tx,
+          sql`insert into addon_outreach.engagements
+                (workspace_id, user_id, helpful_id, profile_id, kind, comment, seen_at)
+              values (${ws}, ${me}, null, ${profile.id}, ${e.kind},
+                ${e.kind === 'comment' ? e.comment : null}, ${at.toISOString()}::timestamptz)
+              on conflict (workspace_id, user_id, profile_id, kind) where helpful_id is null
+                do update set seen_at = greatest(engagements.seen_at, excluded.seen_at),
+                  comment = coalesce(excluded.comment, engagements.comment)
+              returning (xmax = 0) as added`,
+        );
+        if (kept?.added) added++;
+      }
+      if (added)
+        await ctx.emit({
+          type: 'outreach.engaged.saved',
+          entityType: 'workspace',
+          entityId: ws,
+          payload: { platform: input.platform, added },
+        });
+      return { added };
+    });
+  },
+});
+
 export const helpfulCommands = [
   helpfulAsk,
   helpfulDraft,
@@ -644,5 +696,6 @@ export const helpfulCommands = [
   helpfulSkip,
   helpfulPosted,
   helpfulEngaged,
+  networkEngaged,
 ] as const;
 export const helpfulQueries = [helpfulList, helpfulNext] as const;

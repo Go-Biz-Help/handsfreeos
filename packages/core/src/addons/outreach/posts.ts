@@ -79,11 +79,13 @@ export function strongPostPushWords(
   name: string,
   group: string | null,
   why: string | null,
+  platform: Platform = 'facebook',
 ): { title: string; body: string } {
   return {
     title: `${name} is asking for what you offer`,
     body: [
-      group ? `In ${group}.` : null,
+      // Off a group, on a network of its own (Alignable's town and forum, LinkedIn's search): that network.
+      group ? `In ${group}.` : platform === 'facebook' ? null : `On ${NETWORKS[platform].name}.`,
       why ? `${why.replace(/[.!?]?$/, '.')}` : null,
       'Answer it first: it’s at the top of your list for today.',
     ]

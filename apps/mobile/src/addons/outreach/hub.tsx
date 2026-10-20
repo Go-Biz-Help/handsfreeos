@@ -63,10 +63,11 @@ import { useWaitingProps, WaitingBody } from './waiting';
  * below is its own (`outreach.today` with its `platform`). Pressing a network's name shows its list. Get ready is the
  * network shown's (its own profile counts), and each other row's Start my day waits on its own readiness.
  */
-export function TodayHub() {
+export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) {
   const ctx = useOutreachContext();
   const nets = useNetworksOn();
-  const [asked, setAsked] = React.useState<Platform | null>(null);
+  // The network an address names (a push about a post there): its list first.
+  const [asked, setAsked] = React.useState<Platform | null>(start);
   const net = networkShown(nets, asked);
   const many = nets.length > 1;
   const waiting = useWaitingProps();

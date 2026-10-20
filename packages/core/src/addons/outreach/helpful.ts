@@ -56,7 +56,8 @@ export const OPEN_HELPFUL_STATES = [
   'approved',
 ] as const satisfies readonly HelpfulState[];
 
-export const ENGAGEMENT_KINDS = ['comment', 'reaction'] as const;
+/** How someone engaged: with a helpful post (a comment or a reaction), or on the network itself (a recommendation too). */
+export const ENGAGEMENT_KINDS = ['comment', 'reaction', 'recommend'] as const;
 export type EngagementKind = (typeof ENGAGEMENT_KINDS)[number];
 
 // ------------------------------------------------------------------------------------------------- shapes
@@ -234,6 +235,29 @@ export type HelpfulEngagedInput = z.input<typeof HelpfulEngagedInput>;
 export const HelpfulEngagedOutput = z.object({
   helpfulId: z.uuid(),
   /** People new to it: each a warm lead. */
+  added: n,
+});
+
+/**
+ * Who engaged with the person on the network itself, as its notifications say (Alignable's: a like or a comment on
+ * their posts and answers, or a recommendation of them): each a warm lead, off any helpful post.
+ */
+export const NetworkEngagedInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS),
+  engaged: z
+    .array(
+      Engager.extend({
+        /** A like is a reaction. */
+        kind: z.enum(ENGAGEMENT_KINDS),
+      }),
+    )
+    .max(ENGAGED_MOST)
+    .default([]),
+});
+export type NetworkEngagedInput = z.input<typeof NetworkEngagedInput>;
+export const NetworkEngagedOutput = z.object({
+  /** People and kinds new: each a warm lead. Seen again, a lead is only kept fresh. */
   added: n,
 });
 

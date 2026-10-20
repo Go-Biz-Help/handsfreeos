@@ -284,7 +284,7 @@ export const today = defineAddonQuery(outreachAddon, {
       name: string;
       url: string;
       friendship: string;
-      kind: 'comment' | 'reaction';
+      kind: 'comment' | 'reaction' | 'recommend';
       comment: string | null;
       post_url: string | null;
       group_name: string | null;
@@ -309,7 +309,7 @@ export const today = defineAddonQuery(outreachAddon, {
                 and t.post_url = h.post_url and t.at >= e.seen_at) as answered
           from addon_outreach.engagements e
           join addon_outreach.profiles p on p.id = e.profile_id
-          join addon_outreach.helpful h on h.id = e.helpful_id
+          left join addon_outreach.helpful h on h.id = e.helpful_id
           left join addon_outreach.groups g on g.id = h.group_id
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
           where e.workspace_id = ${ws} and e.user_id = ${me}
@@ -319,11 +319,21 @@ export const today = defineAddonQuery(outreachAddon, {
               where x.profile_id = p.id and x.runs_group)
           order by e.profile_id, e.kind, e.seen_at desc`,
     );
-    // Where the post is: its group on Facebook, and the person's own feed elsewhere ("on LinkedIn").
+    // Where the post is: its group on Facebook, and the person's own feed elsewhere ("on LinkedIn"). Off any helpful
+    // post, the network's own notifications said it (Alignable's): a recommendation, or their post or answer liked.
+    const on = (w: (typeof warm)[number]) =>
+      w.group_name
+        ? ` in ${w.group_name}`
+        : input.platform === 'facebook'
+          ? ''
+          : ` on ${NETWORKS[input.platform].name}`;
     const did = (w: (typeof warm)[number]) =>
-      `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${w.group_name ? ` in ${w.group_name}` : input.platform === 'facebook' ? '' : ` on ${NETWORKS[input.platform].name}`}`;
+      w.kind === 'recommend'
+        ? `Recommended you${on(w)}`
+        : `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${on(w)}`;
+    // Only a comment under a helpful post the extension can open again is answered there.
     const answers = warm
-      .filter((w) => w.kind === 'comment' && w.comment && !w.answered)
+      .filter((w) => w.kind === 'comment' && w.comment && w.post_url && !w.answered)
       .slice(0, leftToday(limits, 'warm_lead'));
     for (const w of answers)
       items.push(

@@ -28,6 +28,7 @@ export type AlignablePage = LookingRead & { readonly found: AlignableFound };
 
 const NOTHING: AlignableFound = {
   businesses: [],
+  engaged: [],
   requests: [],
   threads: [],
   answers: [],

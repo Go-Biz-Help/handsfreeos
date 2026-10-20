@@ -628,6 +628,9 @@ request when opened, so no Check opens it: the first real request shows what it 
      creators) and its town's posts; then warm-ups, connection requests and the messages OK'd. Comments and forum
      answers wait for an OK each time, Recommend stays by hand only, and withdrawing old requests stays the person's:
      no reader of the requests they've sent is built.
+   - **Part 6, growing** (extension 0.78.0, a migration): warm leads from Alignable's notifications (who liked,
+     commented on or recommended them), read once a day by its runner; a strong forum question's push names Alignable
+     and opens Today there; and Find partners on Alignable, with its business search, in the runner's daily work.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,
