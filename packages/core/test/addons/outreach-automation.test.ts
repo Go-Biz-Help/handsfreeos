@@ -269,21 +269,37 @@ describe('the business’s rules', () => {
   it('send nothing on their own on a network the extension doesn’t work yet, whatever was picked', () => {
     const all = BusinessRules.parse({});
     const picked = {
-      ...AUTOMATION_DEFAULTS.networks.alignable,
+      ...AUTOMATION_DEFAULTS.networks.instagram,
       on: true,
       sending: 'steps' as const,
     };
     const settings = {
       ...AUTOMATION_DEFAULTS,
-      networks: { ...AUTOMATION_DEFAULTS.networks, alignable: picked, linkedin: picked },
+      networks: {
+        ...AUTOMATION_DEFAULTS.networks,
+        instagram: picked,
+        alignable: picked,
+        linkedin: picked,
+      },
     };
-    expect(runsOnItsOwn('alignable')).toBe(false);
+    // Instagram is still looked at; Alignable has its runner from part 5.
+    expect(runsOnItsOwn('instagram')).toBe(false);
+    expect(runsOnItsOwn('alignable')).toBe(true);
     expect(runsOnItsOwn('linkedin')).toBe(true);
-    const within = withinRules(settings, { ...all, networksAllowed: ['linkedin', 'alignable'] });
-    expect(within.networks.alignable.sending).toBe('off');
+    const within = withinRules(settings, {
+      ...all,
+      networksAllowed: ['linkedin', 'instagram', 'alignable'],
+    });
+    expect(within.networks.instagram.sending).toBe('off');
     expect(within.networks.linkedin.sending).toBe('steps');
-    expect(autoKinds(within.networks.alignable, 'alignable')).toEqual([]);
-    expect(messageKinds(within.networks.alignable)).toEqual([]);
+    expect(within.networks.alignable.sending).toBe('steps');
+    expect(autoKinds(within.networks.instagram, 'instagram')).toEqual([]);
+    expect(messageKinds(within.networks.instagram)).toEqual([]);
+    // On Alignable, comments stay the person's: its runner warms up and connects.
+    expect(autoKinds(within.networks.alignable, 'alignable')).toEqual([
+      'warm_up',
+      'friend_request',
+    ]);
   });
 
   it('keep the daily limits under the starting ones, halved on training wheels', () => {

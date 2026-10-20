@@ -22,6 +22,8 @@ import type { TriedBefore } from './lists';
 export const AUTO_STATE_KEY = 'hfos.auto';
 /** Where LinkedIn's runner keeps its own (./linkedin.ts). */
 export const LINKEDIN_STATE_KEY = 'hfos.auto.linkedin';
+/** Where Alignable's runner keeps its own (./alignable.ts). */
+export const ALIGNABLE_STATE_KEY = 'hfos.auto.alignable';
 
 /** The kinds it does on its own, in the order it does them. */
 export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
