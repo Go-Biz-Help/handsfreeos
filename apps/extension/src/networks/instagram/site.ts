@@ -32,6 +32,7 @@ import {
 import type { LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { readOwnProfile, writeBio } from './own-profile';
+import { readInstagram } from './read';
 
 const HOST = 'www.instagram.com';
 const HOSTS = new Set(['www.instagram.com', 'instagram.com']);
@@ -389,6 +390,7 @@ export const INSTAGRAM: LookingSite = {
   platform: 'instagram',
   name: 'Instagram',
   hosts: ['https://www.instagram.com/*'],
+  readFound: readInstagram,
   host: HOST,
   url: instagramUrl,
   kindOf,

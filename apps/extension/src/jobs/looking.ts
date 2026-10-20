@@ -130,10 +130,12 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
   const posts = [...theirPosts, ...feed.posts, ...search.posts];
   const post =
     (posts.find((p) => new URL(p.url).pathname.startsWith('/p/')) ?? posts[0])?.url ?? null;
+  let postPage: LookingRead | null = null;
   if (post) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const page = await c.open(post, 'a post');
     if (isEnd(page)) return page;
+    postPage = page;
     await c.note('a post', null);
     await c.tryHere('like');
     await c.tryHere('comment');
@@ -177,14 +179,63 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
       );
   }
 
-  // Your messages.
+  // What its steps and Find partners are built from (the plan's part 9, 0.79.0): their followers, a hashtag, a place,
+  // their notifications and a chat. Each is opened and read; nothing is pressed or written.
+  if (feed.own) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    // Instagram draws the list over their profile, a moment after it opens.
+    const opened = await c.open(`${feed.own.replace(/\/?$/, '/')}followers/`, 'your followers');
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.people.length > 0, 2);
+    if (isEnd(page)) return page;
+    await c.note('your followers', page.people.length);
+  } else c.nothingOn.push('your followers');
+
+  if (stoppedEnd(job)) return stoppedEnd(job)!;
+  const tag = await c.open(`${INSTAGRAM}/explore/tags/${HASHTAG}/`, 'a hashtag');
+  if (isEnd(tag)) return tag;
+  await c.note('a hashtag', tag.posts.length);
+
+  // A place a post was tagged at, from the hashtag's posts or the post read before; else Instagram's list of places.
+  const place =
+    [tag, postPage].flatMap((p) => (p ? linksFound(p, 'locations') : []))[0] ??
+    `${INSTAGRAM}/explore/locations/`;
+  if (stoppedEnd(job)) return stoppedEnd(job)!;
+  const atPlace = await c.open(place, 'a place');
+  if (isEnd(atPlace)) return atPlace;
+  await c.note('a place', atPlace.posts.length);
+
+  if (stoppedEnd(job)) return stoppedEnd(job)!;
+  const notifications = await c.open(`${INSTAGRAM}/notifications/`, 'your notifications');
+  if (isEnd(notifications)) return notifications;
+  await c.note('your notifications', notifications.people.length);
+
+  // Your messages, and a chat in them: its box is only counted.
   if (stoppedEnd(job)) return stoppedEnd(job)!;
   const inbox = await c.open(`${INSTAGRAM}/direct/inbox/`, 'your messages');
   if (isEnd(inbox)) return inbox;
   await c.note('your messages', null);
+  const chat = linksFound(inbox, 'threads')[0];
+  if (chat) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const opened = await c.open(chat, 'a chat');
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
+    if (isEnd(page)) return page;
+    await c.note('a chat', page.boxes);
+  } else c.nothingOn.push('a chat');
 
   return c.end();
 }
+
+/** The hashtag Check opens: one every small business's posts are under. */
+const HASHTAG = 'smallbusiness';
+
+/** The addresses one of Instagram's own readers found on a page (`InstagramFound`): places, hashtags or chats. */
+const linksFound = (page: LookingRead, list: 'locations' | 'tags' | 'threads'): string[] => {
+  const links = page.found?.[list];
+  return Array.isArray(links) ? links.filter((l): l is string => typeof l === 'string') : [];
+};
 
 // ------------------------------------------------------------------------------------------------ Alignable
 
