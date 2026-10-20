@@ -1377,6 +1377,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       when the recommendation's page sends what's written (a touch of kind `recommend`, once a business). Don't pitch
       holds back the outreach, never a recommendation. Check Alignable opens a recommendation's page from 0.75.0 too,
       so its noticer is checked against Alignable's own form.
+    - **Recommendations on Get ready** (the plan's "at least 5"; extension 0.76.0): reading their own profile counts
+      the recommendations it shows (none beside Alignable's own ask for one, `/biz/word_of_mouth`), and the AI's check
+      writes a short note asking happy customers for one (`recommendNote`). Get ready shows "2 of 5 on your profile"
+      and the note to copy into Alignable's Ask for Recommendations, which it opens. It's a tip: it doesn't hold the
+      list back.
     - **Its runner from part 5** (extension 0.77.0, `src/auto/alignable.ts`; its kit's `runs`): Alignable works on its
       own as LinkedIn does, so its Sending choices open on its page in Settings. It goes only while its day is started
       and its Sending isn't Off, and stops for the day on an Alignable warning, there alone. Before its first day it

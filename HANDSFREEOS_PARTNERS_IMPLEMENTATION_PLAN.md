@@ -620,6 +620,8 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 3d, Recommend** (extension 0.75.0, a migration: `touches.kind` takes `recommend`): Today suggests one
      business a day to recommend, a partner or a customer they've done work for, never one recommended already; the
      person writes it on Alignable, and the extension notes it once it's sent.
+   - **Part 7, recommendations on Get ready** (extension 0.76.0): how many the profile shows, of the 5 it wants, and
+     the AI's note asking happy customers for one, to paste in Alignable's own Ask for Recommendations.
    - **Part 5, the runner** (extension 0.77.0, `src/auto/alignable.ts`): Alignable works on its own as LinkedIn does,
      so its Sending choices open. Its lists first; then once a day its requests, its connections checked, **Find
      partners** (its search for businesses, then each found read for the partner check; businesses alone, as it has no

@@ -96,6 +96,30 @@ function servicesOf(root: ParentNode): string[] {
   return [...new Set(services)];
 }
 
+/** "12 Recommendations", "1 recommendation", "Recommendations (12)": how many a line says. */
+const COUNTED = [/^(\d[\d,]*)\s+recommendations?$/i, /^recommendations?\s*\((\d[\d,]*)\)$/i];
+
+/**
+ * How many recommendations their profile shows (Get ready's "at least 5"): the number beside the word, wherever it's
+ * written; none when it shows only Alignable's ask for one (/biz/word_of_mouth), as a profile with none does; null when
+ * it shows neither.
+ */
+export function recommendationsOf(root: ParentNode): number | null {
+  for (const el of root.querySelectorAll('a, span, div, h2, h3, p, button')) {
+    if (el.children.length > 2) continue;
+    const words = clean(el.textContent);
+    for (const said of COUNTED) {
+      const n = said.exec(words)?.[1];
+      if (n) return Number(n.replace(/,/g, ''));
+    }
+  }
+  return root.querySelector(
+    'a[href^="/biz/word_of_mouth"], a[href*="alignable.com/biz/word_of_mouth"]',
+  )
+    ? 0
+    : null;
+}
+
 /** Their own profile as the AI's check reads it: Alignable's parts in core's shape. */
 export function readOwnProfile(doc: Document, href: string): ProfileRead {
   const main = mainOf(doc);
@@ -128,6 +152,7 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
     intro: intro.slice(0, PROFILE_READ_LIMITS.intro),
     featured: servicesOf(main).slice(0, PROFILE_READ_LIMITS.featured),
     posts: [],
+    recommendations: recommendationsOf(main),
   };
 }
 

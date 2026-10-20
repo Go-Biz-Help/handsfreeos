@@ -96,7 +96,24 @@ describe('their own Alignable profile', () => {
       ],
       featured: ['Storm inspections: A free roof check within two days of any storm.'],
       posts: [],
+      recommendations: null,
     });
+  });
+
+  it('counts the recommendations it shows, none beside Alignable’s ask for one, and doesn’t guess otherwise', () => {
+    const read = (extra: string) => {
+      const doc = ownProfile();
+      (doc.querySelector('main, [role="main"]') ?? doc.body).insertAdjacentHTML('beforeend', extra);
+      return ALIGNABLE.ownProfile!.read(doc, `${AL}/columbus-oh/summit-roofing?user=77`)
+        .recommendations;
+    };
+    expect(read('<section><h2>12 Recommendations</h2></section>')).toBe(12);
+    expect(
+      read('<section><a href="/biz/recs"><span>Recommendations (3)</span></a></section>'),
+    ).toBe(3);
+    expect(read('<section><span>1,204 recommendations</span></section>')).toBe(1204);
+    // A profile with none shows only the ask (the owner's own, 0.71.0).
+    expect(read('<span><a href="/biz/word_of_mouth">Ask for a recommendation</a></span>')).toBe(0);
   });
 
   it('lists the pages its Edit links open: About Us’s, their details’ and a service’s', () => {

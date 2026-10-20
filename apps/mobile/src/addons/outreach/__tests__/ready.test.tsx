@@ -419,6 +419,8 @@ describe('Get ready on the phone', () => {
         aboutDraft: about,
         coverLine: null,
         feature: [],
+        recommendations: 2,
+        recommendNote: 'Thanks for having us out. Would you recommend us on Alignable?',
         at: '2026-10-20T06:00:00.000Z',
         version: 1,
       },
@@ -473,6 +475,13 @@ describe('Get ready on the phone', () => {
     expect(
       within(list).getByText('An About Us that says who you help, where, and how to book'),
     ).toBeTruthy();
+    // Its recommendations, of the 5 it wants, and the AI's note to ask for more.
+    expect(screen.getByTestId('ready-recommendations-count')).toHaveTextContent(
+      '2 of 5 on your profile. Ask a few happy customers for one.',
+    );
+    expect(screen.getByTestId('ready-recommend-note')).toHaveTextContent(
+      'Thanks for having us out. Would you recommend us on Alignable?',
+    );
     // No bios: its pitch is Alignable's own. About Us goes in on its own.
     expect(screen.queryByTestId('ready-bios')).toBeNull();
     expect(screen.queryByTestId('ready-all')).toBeNull();

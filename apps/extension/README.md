@@ -110,6 +110,7 @@ reads a few screens of its posts and forum questions, and sends them for the AI'
 (`src/jobs/alignable/posts.ts`). It presses nothing there.
 From 0.75.0 it notes a recommendation you write on Alignable, once its page sends what you wrote, to the business it's
 for (`src/networks/alignable/actions.ts`), and Check Alignable opens a recommendation's page, never sending it.
+From 0.76.0 reading your Alignable profile counts the recommendations it shows, for Get ready's "at least 5".
 From 0.77.0 it works your Alignable list on its own once you let it and start your day there (below, "On its own on
 Alignable"): warm-ups, connection requests and the messages you OK, with Find partners among its once-a-day jobs.
 Comments, forum answers and recommendations stay yours.
