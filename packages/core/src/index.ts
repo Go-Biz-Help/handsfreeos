@@ -107,3 +107,5 @@ export * from './safety-phone';
 export * from './record-holds';
 // The Deleted bin (20261027000400): what deleting for good says, on both apps.
 export * from './bin-words';
+// Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md): probes, ranking, marks, links and words.
+export * from './search/index';

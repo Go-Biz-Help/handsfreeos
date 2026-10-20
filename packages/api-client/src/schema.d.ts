@@ -20117,6 +20117,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/search.everything": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search everything in the business the person may see, a few results of each kind, best first: contacts, companies, leads, money, knowledge, the business’s own kinds of records, and the Deleted bin.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_search_everything"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/search.kind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One kind of search result at a time, 50 to a page: best match, most recent or by name, with leads and clients counted for contacts and contacts who share a phone or an email.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_search_kind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/service.list": {
         parameters: {
             query?: never;
@@ -76687,6 +76727,638 @@ export interface operations {
                             }[];
                         }[];
                         timezone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_search_everything: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default quick
+                     * @enum {string}
+                     */
+                    depth?: "quick" | "full";
+                    /** @default false */
+                    includeArchived?: boolean;
+                    kinds?: string[];
+                    /** @default false */
+                    onlyMine?: boolean;
+                    /** @default 3 */
+                    perKind?: number;
+                    q: string;
+                    /** @default false */
+                    settingsMatched?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: {
+                            capped: boolean;
+                            complete: boolean;
+                            icon: string | null;
+                            items: {
+                                amount: {
+                                    cents: number;
+                                    currency: string;
+                                } | null;
+                                at: string | null;
+                                badges: string[];
+                                contact: {
+                                    email: string | null;
+                                    personId: string | null;
+                                    phoneE164: string | null;
+                                } | null;
+                                duplicateOf: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                exact: boolean;
+                                facts: {
+                                    answeredBy?: string | null;
+                                    /** Format: date-time */
+                                    archivedAt?: string;
+                                    channel?: string;
+                                    company?: string;
+                                    customer?: string;
+                                    /** Format: date-time */
+                                    deletedAt?: string;
+                                    /** @enum {string} */
+                                    direction?: "inbound" | "outbound";
+                                    /** @enum {string} */
+                                    docKind?: "invoice" | "estimate" | "payment";
+                                    /** Format: date-time */
+                                    doneAt?: string;
+                                    /** Format: date-time */
+                                    dueAt?: string;
+                                    /** Format: date */
+                                    dueOn?: string;
+                                    email?: string;
+                                    /** Format: date-time */
+                                    endsAt?: string;
+                                    invoiceNumber?: string;
+                                    lastContact?: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        kind: string;
+                                        subtype: string | null;
+                                    };
+                                    matches?: number;
+                                    messages?: number;
+                                    number?: string;
+                                    on?: string;
+                                    openedAt?: string | null;
+                                    openLead?: {
+                                        stage: string;
+                                        title: string;
+                                    };
+                                    openLeads?: number;
+                                    owner?: string;
+                                    /** Format: date-time */
+                                    paidAt?: string;
+                                    people?: number;
+                                    phone?: string;
+                                    pipeline?: string;
+                                    /** Format: date-time */
+                                    purgeAfter?: string;
+                                    question?: string;
+                                    /** Format: date-time */
+                                    sentAt?: string;
+                                    stage?: string;
+                                    /** Format: date-time */
+                                    startsAt?: string;
+                                    status?: string;
+                                    where?: string;
+                                    who?: string;
+                                };
+                                href: string;
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                subtitle: string | null;
+                                tier: number;
+                                title: string;
+                                why: {
+                                    field: string;
+                                    label: string | null;
+                                    page: number | null;
+                                    snippet: {
+                                        marks: [
+                                            number,
+                                            number
+                                        ][];
+                                        text: string;
+                                    } | null;
+                                };
+                            }[];
+                            kind: string;
+                            label: string | null;
+                            searchedBack: string | null;
+                            total: number;
+                            unavailable: ("too_slow" | "skipped" | "failed") | null;
+                        } | null;
+                        best: {
+                            amount: {
+                                cents: number;
+                                currency: string;
+                            } | null;
+                            at: string | null;
+                            badges: string[];
+                            contact: {
+                                email: string | null;
+                                personId: string | null;
+                                phoneE164: string | null;
+                            } | null;
+                            duplicateOf: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            exact: boolean;
+                            facts: {
+                                answeredBy?: string | null;
+                                /** Format: date-time */
+                                archivedAt?: string;
+                                channel?: string;
+                                company?: string;
+                                customer?: string;
+                                /** Format: date-time */
+                                deletedAt?: string;
+                                /** @enum {string} */
+                                direction?: "inbound" | "outbound";
+                                /** @enum {string} */
+                                docKind?: "invoice" | "estimate" | "payment";
+                                /** Format: date-time */
+                                doneAt?: string;
+                                /** Format: date-time */
+                                dueAt?: string;
+                                /** Format: date */
+                                dueOn?: string;
+                                email?: string;
+                                /** Format: date-time */
+                                endsAt?: string;
+                                invoiceNumber?: string;
+                                lastContact?: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    kind: string;
+                                    subtype: string | null;
+                                };
+                                matches?: number;
+                                messages?: number;
+                                number?: string;
+                                on?: string;
+                                openedAt?: string | null;
+                                openLead?: {
+                                    stage: string;
+                                    title: string;
+                                };
+                                openLeads?: number;
+                                owner?: string;
+                                /** Format: date-time */
+                                paidAt?: string;
+                                people?: number;
+                                phone?: string;
+                                pipeline?: string;
+                                /** Format: date-time */
+                                purgeAfter?: string;
+                                question?: string;
+                                /** Format: date-time */
+                                sentAt?: string;
+                                stage?: string;
+                                /** Format: date-time */
+                                startsAt?: string;
+                                status?: string;
+                                where?: string;
+                                who?: string;
+                            };
+                            href: string;
+                            /** Format: uuid */
+                            id: string;
+                            kind: string;
+                            subtitle: string | null;
+                            tier: number;
+                            title: string;
+                            why: {
+                                field: string;
+                                label: string | null;
+                                page: number | null;
+                                snippet: {
+                                    marks: [
+                                        number,
+                                        number
+                                    ][];
+                                    text: string;
+                                } | null;
+                            };
+                        } | null;
+                        bin: {
+                            capped: boolean;
+                            complete: boolean;
+                            icon: string | null;
+                            items: {
+                                amount: {
+                                    cents: number;
+                                    currency: string;
+                                } | null;
+                                at: string | null;
+                                badges: string[];
+                                contact: {
+                                    email: string | null;
+                                    personId: string | null;
+                                    phoneE164: string | null;
+                                } | null;
+                                duplicateOf: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                exact: boolean;
+                                facts: {
+                                    answeredBy?: string | null;
+                                    /** Format: date-time */
+                                    archivedAt?: string;
+                                    channel?: string;
+                                    company?: string;
+                                    customer?: string;
+                                    /** Format: date-time */
+                                    deletedAt?: string;
+                                    /** @enum {string} */
+                                    direction?: "inbound" | "outbound";
+                                    /** @enum {string} */
+                                    docKind?: "invoice" | "estimate" | "payment";
+                                    /** Format: date-time */
+                                    doneAt?: string;
+                                    /** Format: date-time */
+                                    dueAt?: string;
+                                    /** Format: date */
+                                    dueOn?: string;
+                                    email?: string;
+                                    /** Format: date-time */
+                                    endsAt?: string;
+                                    invoiceNumber?: string;
+                                    lastContact?: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        kind: string;
+                                        subtype: string | null;
+                                    };
+                                    matches?: number;
+                                    messages?: number;
+                                    number?: string;
+                                    on?: string;
+                                    openedAt?: string | null;
+                                    openLead?: {
+                                        stage: string;
+                                        title: string;
+                                    };
+                                    openLeads?: number;
+                                    owner?: string;
+                                    /** Format: date-time */
+                                    paidAt?: string;
+                                    people?: number;
+                                    phone?: string;
+                                    pipeline?: string;
+                                    /** Format: date-time */
+                                    purgeAfter?: string;
+                                    question?: string;
+                                    /** Format: date-time */
+                                    sentAt?: string;
+                                    stage?: string;
+                                    /** Format: date-time */
+                                    startsAt?: string;
+                                    status?: string;
+                                    where?: string;
+                                    who?: string;
+                                };
+                                href: string;
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                subtitle: string | null;
+                                tier: number;
+                                title: string;
+                                why: {
+                                    field: string;
+                                    label: string | null;
+                                    page: number | null;
+                                    snippet: {
+                                        marks: [
+                                            number,
+                                            number
+                                        ][];
+                                        text: string;
+                                    } | null;
+                                };
+                            }[];
+                            kind: string;
+                            label: string | null;
+                            searchedBack: string | null;
+                            total: number;
+                            unavailable: ("too_slow" | "skipped" | "failed") | null;
+                        } | null;
+                        capped: boolean;
+                        close: boolean;
+                        groups: {
+                            capped: boolean;
+                            complete: boolean;
+                            icon: string | null;
+                            items: {
+                                amount: {
+                                    cents: number;
+                                    currency: string;
+                                } | null;
+                                at: string | null;
+                                badges: string[];
+                                contact: {
+                                    email: string | null;
+                                    personId: string | null;
+                                    phoneE164: string | null;
+                                } | null;
+                                duplicateOf: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                exact: boolean;
+                                facts: {
+                                    answeredBy?: string | null;
+                                    /** Format: date-time */
+                                    archivedAt?: string;
+                                    channel?: string;
+                                    company?: string;
+                                    customer?: string;
+                                    /** Format: date-time */
+                                    deletedAt?: string;
+                                    /** @enum {string} */
+                                    direction?: "inbound" | "outbound";
+                                    /** @enum {string} */
+                                    docKind?: "invoice" | "estimate" | "payment";
+                                    /** Format: date-time */
+                                    doneAt?: string;
+                                    /** Format: date-time */
+                                    dueAt?: string;
+                                    /** Format: date */
+                                    dueOn?: string;
+                                    email?: string;
+                                    /** Format: date-time */
+                                    endsAt?: string;
+                                    invoiceNumber?: string;
+                                    lastContact?: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        kind: string;
+                                        subtype: string | null;
+                                    };
+                                    matches?: number;
+                                    messages?: number;
+                                    number?: string;
+                                    on?: string;
+                                    openedAt?: string | null;
+                                    openLead?: {
+                                        stage: string;
+                                        title: string;
+                                    };
+                                    openLeads?: number;
+                                    owner?: string;
+                                    /** Format: date-time */
+                                    paidAt?: string;
+                                    people?: number;
+                                    phone?: string;
+                                    pipeline?: string;
+                                    /** Format: date-time */
+                                    purgeAfter?: string;
+                                    question?: string;
+                                    /** Format: date-time */
+                                    sentAt?: string;
+                                    stage?: string;
+                                    /** Format: date-time */
+                                    startsAt?: string;
+                                    status?: string;
+                                    where?: string;
+                                    who?: string;
+                                };
+                                href: string;
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                subtitle: string | null;
+                                tier: number;
+                                title: string;
+                                why: {
+                                    field: string;
+                                    label: string | null;
+                                    page: number | null;
+                                    snippet: {
+                                        marks: [
+                                            number,
+                                            number
+                                        ][];
+                                        text: string;
+                                    } | null;
+                                };
+                            }[];
+                            kind: string;
+                            label: string | null;
+                            searchedBack: string | null;
+                            total: number;
+                            unavailable: ("too_slow" | "skipped" | "failed") | null;
+                        }[];
+                        noneActive: boolean;
+                        probes: {
+                            email: string | null;
+                            /** @enum {string} */
+                            looksLike: "phone" | "email" | "domain" | "number" | "amount" | "words";
+                            number: string | null;
+                            phoneE164: string | null;
+                        };
+                        q: string;
+                        tooShort: boolean;
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
+    query_search_kind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    cursor?: string;
+                    /** @default false */
+                    includeArchived?: boolean;
+                    kind: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** @default false */
+                    onlyMine?: boolean;
+                    q: string;
+                    /**
+                     * @default best
+                     * @enum {string}
+                     */
+                    sort?: "best" | "recent" | "name";
+                    /** @enum {string} */
+                    standing?: "lead" | "client";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        duplicates: {
+                            ids: [
+                                string,
+                                string
+                            ];
+                            name: string;
+                            /** @enum {string} */
+                            on: "phone" | "email";
+                            value: string;
+                        }[];
+                        group: {
+                            capped: boolean;
+                            complete: boolean;
+                            icon: string | null;
+                            items: {
+                                amount: {
+                                    cents: number;
+                                    currency: string;
+                                } | null;
+                                at: string | null;
+                                badges: string[];
+                                contact: {
+                                    email: string | null;
+                                    personId: string | null;
+                                    phoneE164: string | null;
+                                } | null;
+                                duplicateOf: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    name: string;
+                                } | null;
+                                exact: boolean;
+                                facts: {
+                                    answeredBy?: string | null;
+                                    /** Format: date-time */
+                                    archivedAt?: string;
+                                    channel?: string;
+                                    company?: string;
+                                    customer?: string;
+                                    /** Format: date-time */
+                                    deletedAt?: string;
+                                    /** @enum {string} */
+                                    direction?: "inbound" | "outbound";
+                                    /** @enum {string} */
+                                    docKind?: "invoice" | "estimate" | "payment";
+                                    /** Format: date-time */
+                                    doneAt?: string;
+                                    /** Format: date-time */
+                                    dueAt?: string;
+                                    /** Format: date */
+                                    dueOn?: string;
+                                    email?: string;
+                                    /** Format: date-time */
+                                    endsAt?: string;
+                                    invoiceNumber?: string;
+                                    lastContact?: {
+                                        /** Format: date-time */
+                                        at: string;
+                                        kind: string;
+                                        subtype: string | null;
+                                    };
+                                    matches?: number;
+                                    messages?: number;
+                                    number?: string;
+                                    on?: string;
+                                    openedAt?: string | null;
+                                    openLead?: {
+                                        stage: string;
+                                        title: string;
+                                    };
+                                    openLeads?: number;
+                                    owner?: string;
+                                    /** Format: date-time */
+                                    paidAt?: string;
+                                    people?: number;
+                                    phone?: string;
+                                    pipeline?: string;
+                                    /** Format: date-time */
+                                    purgeAfter?: string;
+                                    question?: string;
+                                    /** Format: date-time */
+                                    sentAt?: string;
+                                    stage?: string;
+                                    /** Format: date-time */
+                                    startsAt?: string;
+                                    status?: string;
+                                    where?: string;
+                                    who?: string;
+                                };
+                                href: string;
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                subtitle: string | null;
+                                tier: number;
+                                title: string;
+                                why: {
+                                    field: string;
+                                    label: string | null;
+                                    page: number | null;
+                                    snippet: {
+                                        marks: [
+                                            number,
+                                            number
+                                        ][];
+                                        text: string;
+                                    } | null;
+                                };
+                            }[];
+                            kind: string;
+                            label: string | null;
+                            searchedBack: string | null;
+                            total: number;
+                            unavailable: ("too_slow" | "skipped" | "failed") | null;
+                        };
+                        nextCursor: string | null;
+                        standingCounts: {
+                            clients: number;
+                            leads: number;
+                        } | null;
                     };
                 };
             };

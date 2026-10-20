@@ -44,6 +44,22 @@ export * from './addons/ai';
 export * from './addons/teammate';
 export * from './addons/roadmap-load';
 export { loadActiveAddons, loadOverrides } from './addons/load';
+// Search everything, server side: running a search, its budgets, and the searchers' shape (search/server).
+export {
+  MIN_STATEMENT_MS,
+  runSearch,
+  runSearchEverything,
+  runSearchKind,
+  SEARCH_BUDGETS,
+  SearchFailed,
+  SearchStopped,
+  type FoundGroup,
+  type KindSearcher,
+  type RunOptions,
+  type SearchDb,
+  type SearchPlan,
+} from './search/server/run';
+export { SEARCHERS } from './search/server/kinds/index';
 import { ADDON_SERVER_MODULES } from './addons/modules';
 import { composeOperations } from './addons/server';
 import { commands } from './commands/index';

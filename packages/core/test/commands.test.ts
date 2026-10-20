@@ -1022,6 +1022,8 @@ describe('registry', () => {
       'onboarding.clients',
       'platform.onboarding.counts',
       'onboarding_setup.get',
+      'search.everything',
+      'search.kind',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

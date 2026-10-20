@@ -13,6 +13,8 @@ import { supportAccessList } from './support-access';
 import { recordHoldQueries } from './record-hold';
 import { binQueries } from './bin';
 export { binList, binPreview } from './bin';
+import { searchEverything, searchKind } from './search';
+export { searchEverything, searchKind } from './search';
 import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
@@ -421,6 +423,9 @@ export const queries: readonly QueryDef[] = [
   platformOnboardingCounts,
   // The onboarding setup.
   onboardingSetupGet,
+  // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md).
+  searchEverything,
+  searchKind,
 ] as unknown as readonly QueryDef[];
 
 export {

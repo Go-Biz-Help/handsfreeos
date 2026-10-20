@@ -21,7 +21,7 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stage 1 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1 and 2 built (Build order), the rest still to build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -1940,6 +1940,83 @@ its step **Built** here with what changed while building.
    - Docs: a new docs/search.md with "Where things are", "How a search runs" and "Rules worth knowing before changing
      anything" (row security decides and core adds a gate for each gap; windows on btree indexes, never GIN; nothing
      typed is kept or logged; a new kind adds its gate to `kinds.ts` and a case to `gaps.test.ts`).
+   - **Built** (2026-10-20). No migration. `pnpm openapi` adds both queries to `packages/api-client`. What changed
+     while building:
+     - **More files than listed:** `search/index.ts` (the browser-safe barrel core's index exports),
+       `search/server/hit.ts` (building a hit, and which field a row matched in, shared by the searchers),
+       `search/server/kinds/index.ts` (`SEARCHERS`, in kind order), and `test/search/helpers.ts` (Bayou Plumbing and
+       the boards' rows).
+     - **A searcher has two halves**, `{ key, find(db, plan), facts?(db, plan, hits) }`, not `run(tx, plan)`: `find`
+       reads the candidates and core ranks them; `facts` reads only the winners' details (a contact's client badge,
+       open lead and paid date, a company's people, a record's own fields). Neither sees `ctx.tx`: each statement goes
+       through the `SearchDb` it's handed, which is `step`, and a statement stopped for time throws `SearchStopped`,
+       caught for that kind alone.
+     - **Errors:** a database error in a kind's candidates, close matches or a kind's page is thrown again as
+       `SearchFailed` ("search contacts failed: 42P01"), as How it works, 7 says, so the API answers 500 and logs that
+       line only; "answering or refusing with a rule" in Tests by package holds for timeouts and for the winners'
+       facts. A facts step that fails keeps its hits and marks the group `failed` or `too_slow`; `SEARCH_WORDS.failed`
+       words that line for core's own kinds.
+     - **Archived came now, not in stage 3,** for contacts, companies, leads and records: their SQL, as sketched,
+       returns archived rows, which had to go somewhere. They come back only by name or title (`archivedRule` in
+       `sql.ts`), go under Archived, fold into their kind with Include archived, are left out of a kind's own page, and
+       `search.kind('archived')` lists them; a kind that runs out of time there marks the page (`unavailable`,
+       `complete: false`) rather than leaving it quietly short. Stage 3 adds conversations and forms.
+     - **`search.kind` pages in core for every sort:** each searcher reads up to 500 candidates in that sort's own SQL
+       order (Best match by tier, Most recent by the hit's `at`, Name A–Z by the lower-cased name), then core pages by
+       offset for Best match (any offset under 500, rather than 0 to 450, since a page holds 1 to 100), by `(at, id)`
+       for Most recent and by `(folded title, id)` for Name A–Z, with `decodeTimeCursor` and `decodeCursor`; past 500
+       it says `capped`. A contact's `at`, and Most recent contact, is their last contact (decision 35's lines, through
+       `activities_person_idx`), else their last change; for Most recent that lateral runs before the cut, for every
+       candidate, so the 500 read are the 500 most recently in touch. Money's `at` is a bill's creation and a
+       payment's receipt; the rest use their last change.
+     - **Document numbers carry their prefix:** a counter matches under the same prefix, a bare number under any
+       (`documentNumberMatches`, and `numberMatches` in SQL), the prefixes compared by their letters and digits alone
+       (`barePrefix`). So "1042" finds `2026-1042` and `INV-001042`, "LS0042" finds `LS-0042`, while "LS-0042"
+       doesn't find `INV-0042` and "2026-1042" doesn't find `INV-1042`.
+     - **Probes:** digits only when nothing but digits and a phone's punctuation was typed (otherwise "dana 504"
+       matched every 504 number in the business); a card's last 4 only for exactly 4 digits typed; a document number
+       only for one word, or one word after "invoice", "estimate", "inv" or "est" ("Invoice #2026-1042", a result's
+       own title), and not when it was a whole phone number. A digit or two on their own ("+1", "15", "1 2") make no
+       words, since the records' `search_text` holds every phone in E.164 and they'd match nearly all of them; beside
+       a word ("12 oak") they still count, and "15" is still a document number.
+     - **The fold runs once a row:** each searcher folds a name in a `cross join lateral (… offset 0)`, as stage 1's
+       note asked, and every arm reads that `fname`: `startsAll` takes the folded name. `plans.test.ts` counts one
+       fold a name in each statement's verbose plan.
+     - **Close matches wait for everything else:** none when the Deleted bin found the name, Archived did, or a kind
+       didn't answer (it may hold the name); and with chips picked, only over those kinds (a record kind picked by
+       name, only that one). `noneActive`, and `dropdownOf`'s no-one-active and nothing-at-all lines, likewise only
+       when every kind answered.
+     - **Why it matched, at tier 3,** is the field holding the words the name or title doesn't (`fieldHolding` in
+       `hit.ts`): "dana metairie" is Dana's address, not her email; "repipe marcus" is the invoice's customer. A row
+       whose words sit in no named field says `phone` when its phones hold them.
+     - **`plans.test.ts`:** contacts read through `people_workspace_updated_idx` when the order by recency makes it
+       cheaper than `people_workspace_idx`; both lead with the business, so the test accepts either and checks the
+       index condition is the business.
+     - **Shapes:** `SearchFacts` gains `archivedAt`, `deletedAt` and `purgeAfter` (for "Archived Mar 3" and the bin's
+       line), and badges gain `draft`. The close-match group is one group, `close`, each hit keeping its own kind.
+       `dropdownOf` takes the device's Settings group as a `SearchGroup` (stage 6 builds it from `searchSettings`).
+       `searchKindsFor({ permissions, viewAs })` gains add-ons in stage 4a. When the business's own kinds run out of
+       time they answer one group, `records`, in the records' place (`kindRank`), named "Your own kinds of records";
+       `unavailableLine(group)` in `dropdown.ts` words every group that didn't answer, and theirs say only "Try
+       again", since no one chip picks them all.
+     - **Words:** an invoice's line uses core's own `dueWording` ("Marcus Smith · 6 days overdue"), not board 3's
+       "Was due Oct 14" with a "6 days late" chip; `CONTACT_LINES` and `countsAsContact` live in `search/lines.ts`,
+       and `lines.test.ts` reads core's source for every subtype a timeline line is written with. `SEARCH_WORDS`
+       gains `noName`, and `searchCount` says "20+" for a count cut at 20, as it says "100+" at 101 rows.
+     - **Names:** `runSearchEverything` and `runSearchKind` (with `runSearch` choosing between them),
+       `searchKindEntry` (the query is `searchKind`) and `searchCount` (core's migrations already export
+       `countWords`).
+     - **Knowledge** asks `searchKnowledge` with the probe's words for its most, 20, in the box and on its own page
+       alike, and a full read is marked `capped` (`FoundGroup.capped`): "Knowledge 20+", never 4 presented as all.
+       **The bin** reads 101 rows like the other kinds (not 21), so its count is right; Only mine keeps to what the
+       person deleted.
+     - **Tests:** `gaps.test.ts` holds cases 1 (with money and the bin; Messages' `inbox.use` comes with stage 3), 6
+       (the records group) and 7; `visibility.test.ts` the staff view-as, a teammate view, a money member and a
+       private deal; the rest arrive with their kinds. `limits.test.ts` checks an answer past the `q` it echoes back
+       to the person who typed it, and that the winners' facts are read after every kind's candidates.
+       `search-guards.test.ts` counts each route's own limit (90 and 60), forces a failure through a database that
+       fails any statement carrying the typed words, and captures the API's log. Not yet, by stage: the `searchWords` half of
+       `fold.test.ts` (5), `route: false` and the contributor's failure (4a), the phone contract (3).
 
 3. **Search 3: the remaining kinds, and what results open onto.**
    - Ships: Messages and Spam, Calendar, Tasks, Notes, file names, Forms and their answers, and Archived, each with its
