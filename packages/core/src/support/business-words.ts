@@ -346,6 +346,7 @@ export const DESK_QUICK_LOOK_WORDS = {
   thirtyDaysAgo: '30 days ago',
   today: 'Today',
   planAndBalance: 'Plan and balance',
+  theirPlan: 'Their plan',
   setUpScore: (done: number, of: number) => `${done} of ${of}`,
   seeAll: (n: number) => `See all ${n}`,
   moreAboutThem: 'More about them',

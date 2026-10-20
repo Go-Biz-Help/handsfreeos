@@ -10174,7 +10174,8 @@ the same way it refuses removing a business's last owner.
   Clicking a business opens its **quick look** over the list (`20261027009700_business_quick_look.sql`): what needs
   a look and why, its numbers, 30 days of activity, its plan and balance, what its customers paid it, what is set up
   and connected, its people and tickets. ← and → step to the next business; **Full page** opens the page that
-  changes things (balance, founding seat, add-ons in testing). **Needs a look** lists only the businesses with
+  changes things (balance, founding seat, add-ons in testing), which shows all of the same too, each warning linking
+  to the section that explains it. **Needs a look** lists only the businesses with
   something wrong: a declined card, a balance run out, a renewal that failed, a texting registration turned down or
   stuck, a connection to sign in again, a thin margin, gone quiet, or Getting started stalled.
   `private.admin_business_attention` holds those rules; core says them in words.

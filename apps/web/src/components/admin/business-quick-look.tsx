@@ -1,50 +1,47 @@
 'use client';
 import {
   DESK_BUSINESS_WORDS,
-  DESK_FLAG_ACTIONS,
   DESK_QUICK_LOOK_TABS,
   DESK_QUICK_LOOK_WORDS,
-  DESK_SETUP_STATE_WORDS,
   DESK_WALLET_WORDS,
-  deskActiveAgo,
-  deskActivityBars,
   deskBusinessFlags,
   deskLastActive,
   deskMoreLines,
   deskPlanAndBalanceShort,
   deskPlanLabel,
   deskPlanLines,
-  deskProblemReportLine,
   deskQuickLookCounts,
   deskSetupRows,
   deskSetupScore,
-  deskTheirMoneyLines,
-  deskTrafficLines,
   deskWalletLines,
-  type DeskFlagTone,
   type DeskQuickLookTab,
-  type DeskSetupState,
 } from '@hfos/core';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, ExternalLink, X } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+  ActivitySection,
+  FLAG_ACTION_CLASS,
+  FlagList,
+  GlanceCounts,
+  GlanceLines,
+  GlanceSection,
+  initials,
+  MoreAboutThem,
+  ProblemReportsSection,
+  SetupDots,
+  SetupRows,
+  TheirMoneySection,
+} from '@/components/admin/business-glance';
 import { STATUS_WORD, whenWords } from '@/components/admin/ticket-bits';
 import { ViewAsButton } from '@/components/admin/view-as';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { copyText } from '@/components/ui/copy-field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Ok } from '@/lib/api/types';
-import { cn } from '@/lib/utils';
 
 /** A business on the directory's page, as far as the quick look needs it before its details arrive. */
 export interface QuickLookRow {
@@ -116,34 +113,6 @@ function useLook(workspaceId: string | null, ahead: string | null) {
   };
   return { loaded: current ?? null, retry };
 }
-
-const TONE: Readonly<Record<DeskFlagTone, { box: string; dot: string }>> = {
-  danger: { box: 'bg-danger-soft text-danger-text', dot: 'bg-danger' },
-  warning: { box: 'bg-warning-soft text-warning-text', dot: 'bg-warning' },
-  accent: { box: 'bg-accent-soft text-accent-text', dot: 'bg-accent' },
-};
-
-const SETUP_BADGE: Readonly<Record<DeskSetupState, BadgeVariant>> = {
-  yes: 'ok',
-  no: 'gray',
-  waiting: 'pending',
-  problem: 'danger',
-};
-
-const SETUP_DOT: Readonly<Record<DeskSetupState, string>> = {
-  yes: 'bg-success',
-  no: 'border-[1.5px] border-text-3',
-  waiting: 'bg-warning',
-  problem: 'bg-danger',
-};
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter((w) => /^[\p{L}\p{N}]/u.test(w))
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('');
 
 /**
  * A business opened from the directory in a window instead of a page (/admin/businesses): what needs a look, the
@@ -366,140 +335,29 @@ function TabCount({ tab, look }: { tab: DeskQuickLookTab; look: Look | null }) {
   );
 }
 
-function Section({
-  title,
-  aside,
-  children,
-  className,
-}: {
-  title: string;
-  aside?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={cn('rounded-card border border-border p-4', className)}>
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {aside ? <span className="text-xs text-text-3">{aside}</span> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Lines({
-  lines,
-}: {
-  lines: readonly { label: string; value: string; tone?: 'danger' | null }[];
-}) {
-  return (
-    <dl className="mt-3 flex flex-col gap-2 text-[13px]">
-      {lines.map((l) => (
-        <div key={l.label} className="flex justify-between gap-3">
-          <dt className="text-text-3">{l.label}</dt>
-          <dd className={cn('text-right', l.tone === 'danger' && 'font-semibold text-danger-text')}>
-            {l.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
 function Overview({ look, onTab }: { look: Look; onTab: (tab: DeskQuickLookTab) => void }) {
   const { detail, wallet, glance } = look;
-  const flags = deskBusinessFlags({ ...detail.business, tickets: detail.tickets }, glance, wallet);
   const setup = deskSetupRows(glance.setup);
-  const total = glance.activity.reduce((a, n) => a + n, 0);
-  const bars = deskActivityBars(glance.activity);
   const people = detail.people.slice(0, 3);
   return (
     <div className="flex flex-col gap-5">
-      {flags.length ? (
-        <ul aria-label={DESK_BUSINESS_WORDS.needsALook} className="flex flex-col gap-1.5">
-          {flags.map((f) => (
-            <li
-              key={f.key}
-              className={cn(
-                'flex items-center gap-3 rounded-menu py-1.5 pl-3 pr-1.5 text-[13px]',
-                TONE[f.tone].box,
-              )}
-            >
-              <span
-                aria-hidden
-                className={cn('h-2 w-2 flex-none rounded-full', TONE[f.tone].dot)}
-              />
-              <span className="min-w-0 flex-1 py-1">{f.text}</span>
-              {f.tab ? (
-                <button
-                  type="button"
-                  onClick={() => onTab(f.tab!)}
-                  className="h-8 flex-none rounded-control bg-card/60 px-2.5 text-xs font-semibold hover:bg-card"
-                >
-                  {DESK_FLAG_ACTIONS[f.tab]}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="flex items-center gap-2.5 rounded-menu bg-success-soft px-3 py-2.5 text-[13px] text-success-text">
-          <Check className="h-4 w-4" />
-          {DESK_QUICK_LOOK_WORDS.nothingNeedsALook}
-        </p>
-      )}
+      <FlagList
+        flags={deskBusinessFlags({ ...detail.business, tickets: detail.tickets }, glance, wallet)}
+        action={(tab, label) => (
+          <button type="button" onClick={() => onTab(tab)} className={FLAG_ACTION_CLASS}>
+            {label}
+          </button>
+        )}
+      />
 
-      <dl className="grid grid-cols-3 gap-2.5 sm:grid-cols-6">
-        {deskQuickLookCounts(detail.counts, glance).map((c) => (
-          <div key={c.label} className="rounded-card border border-border px-3 py-2.5">
-            <dt className="text-xs leading-tight text-text-3">{c.label}</dt>
-            <dd className="mt-0.5 text-lg font-semibold tabular-nums">{c.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <GlanceCounts items={deskQuickLookCounts(detail.counts, glance)} />
 
       <div className="grid items-start gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-4">
-          <Section
-            title={DESK_QUICK_LOOK_WORDS.lastThirtyDays}
-            aside={DESK_QUICK_LOOK_WORDS.activityTotal(total)}
-          >
-            <div
-              role="img"
-              aria-label={DESK_QUICK_LOOK_WORDS.activityChart(total)}
-              className="mt-3 flex h-14 items-end gap-[3px]"
-            >
-              {bars.map((share, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    'flex-1 rounded-[2px]',
-                    share === 0
-                      ? 'bg-card-3'
-                      : i === bars.length - 1
-                        ? 'bg-accent'
-                        : 'bg-accent-soft-2',
-                  )}
-                  style={{ height: `${Math.max(4, Math.round(share * 100))}%` }}
-                />
-              ))}
-            </div>
-            <div className="mt-1.5 flex justify-between text-[11px] text-text-3">
-              <span>{DESK_QUICK_LOOK_WORDS.thirtyDaysAgo}</span>
-              <span>{DESK_QUICK_LOOK_WORDS.today}</span>
-            </div>
-            <dl className="mt-3 grid grid-cols-4 gap-2">
-              {deskTrafficLines(glance.traffic).map((t) => (
-                <div key={t.label}>
-                  <dt className="text-xs text-text-3">{t.label}</dt>
-                  <dd className="text-[15px] font-semibold tabular-nums">{t.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </Section>
+          <ActivitySection glance={glance} heading="h3" />
 
-          <Section
+          <GlanceSection
+            heading="h3"
             title={DESK_BUSINESS_WORDS.theirPeople}
             aside={
               detail.people.length > people.length ? (
@@ -530,47 +388,26 @@ function Overview({ look, onTab }: { look: Look; onTab: (tab: DeskQuickLookTab) 
                 </li>
               ))}
             </ul>
-          </Section>
+          </GlanceSection>
         </div>
 
         <div className="flex flex-col gap-4">
-          <Section title={DESK_QUICK_LOOK_WORDS.planAndBalance}>
-            <Lines lines={deskPlanAndBalanceShort(glance.plan, wallet)} />
-          </Section>
-          <Section title={DESK_BUSINESS_WORDS.whatIsSetUp} aside={deskSetupScore(setup)}>
-            <ul className="mt-3 flex flex-col gap-2 text-[13px]">
-              {setup.map((s) => (
-                <li key={s.key} className="flex items-center gap-2">
-                  <span
-                    aria-hidden
-                    className={cn('h-2 w-2 flex-none rounded-full', SETUP_DOT[s.state])}
-                  />
-                  <span className="flex-none">{s.label}</span>
-                  <span
-                    className={cn(
-                      'min-w-0 flex-1 truncate text-right',
-                      s.state === 'problem' ? 'text-danger-text' : 'text-text-3',
-                    )}
-                  >
-                    {s.detail}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Section>
+          <GlanceSection heading="h3" title={DESK_QUICK_LOOK_WORDS.planAndBalance}>
+            <GlanceLines lines={deskPlanAndBalanceShort(glance.plan, wallet)} />
+          </GlanceSection>
+          <GlanceSection
+            heading="h3"
+            title={DESK_BUSINESS_WORDS.whatIsSetUp}
+            aside={deskSetupScore(setup)}
+          >
+            <SetupDots setup={setup} />
+          </GlanceSection>
         </div>
       </div>
 
       <section>
         <h3 className="text-sm font-semibold">{DESK_QUICK_LOOK_WORDS.moreAboutThem}</h3>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-          {deskMoreLines(detail.business, glance, detail.phoneModel).map((m) => (
-            <div key={m.label}>
-              <dt className="text-xs text-text-3">{m.label}</dt>
-              <dd className="mt-0.5 text-[13px]">{m.value}</dd>
-            </div>
-          ))}
-        </dl>
+        <MoreAboutThem lines={deskMoreLines(detail.business, glance, detail.phoneModel)} />
       </section>
     </div>
   );
@@ -620,21 +457,16 @@ function Money({ look }: { look: Look }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid items-start gap-4 md:grid-cols-2">
-        <Section title={DESK_QUICK_LOOK_WORDS.whatTheyPayUs}>
+        <GlanceSection heading="h3" title={DESK_QUICK_LOOK_WORDS.whatTheyPayUs}>
           <p className="mt-1 text-xs text-text-3">{DESK_QUICK_LOOK_WORDS.whatTheyPayUsExplain}</p>
-          <Lines lines={deskPlanLines(glance.plan)} />
+          <GlanceLines lines={deskPlanLines(glance.plan)} />
           {wallet.opened ? (
-            <Lines lines={deskWalletLines(wallet)} />
+            <GlanceLines lines={deskWalletLines(wallet)} />
           ) : (
             <p className="mt-3 text-[13px] text-text-3">{DESK_WALLET_WORDS.notOpened}</p>
           )}
-        </Section>
-        <Section title={DESK_QUICK_LOOK_WORDS.whatCustomersPayThem}>
-          <p className="mt-1 text-xs text-text-3">
-            {DESK_QUICK_LOOK_WORDS.whatCustomersPayThemExplain}
-          </p>
-          <Lines lines={deskTheirMoneyLines(glance)} />
-        </Section>
+        </GlanceSection>
+        <TheirMoneySection glance={glance} heading="h3" />
       </div>
       <p className="text-[13px] text-text-3">
         {DESK_QUICK_LOOK_WORDS.changeOnFullPage}{' '}
@@ -650,28 +482,14 @@ function Money({ look }: { look: Look }) {
 }
 
 function SetUp({ look }: { look: Look }) {
-  return (
-    <ul className="divide-y divide-border overflow-hidden rounded-card border border-border">
-      {deskSetupRows(look.glance.setup).map((s) => (
-        <li
-          key={s.key}
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-[13px]"
-        >
-          <span className="w-48 flex-none font-semibold">{s.label}</span>
-          <span className="min-w-0 flex-1 basis-40 text-text-2">{s.detail}</span>
-          <Badge variant={SETUP_BADGE[s.state]}>{DESK_SETUP_STATE_WORDS[s.state]}</Badge>
-        </li>
-      ))}
-    </ul>
-  );
+  return <SetupRows setup={deskSetupRows(look.glance.setup)} />;
 }
 
 function Tickets({ look }: { look: Look }) {
   const { tickets } = look.detail;
-  const reports = look.glance.problemReports.recent;
   return (
     <div className="flex flex-col gap-4">
-      <Section title={DESK_BUSINESS_WORDS.theirTickets}>
+      <GlanceSection heading="h3" title={DESK_BUSINESS_WORDS.theirTickets}>
         {tickets.length === 0 ? (
           <p className="mt-2 text-[13px] text-text-3">{DESK_BUSINESS_WORDS.neverWrittenIn}</p>
         ) : (
@@ -689,29 +507,8 @@ function Tickets({ look }: { look: Look }) {
             ))}
           </ul>
         )}
-      </Section>
-      <Section title={DESK_QUICK_LOOK_WORDS.problemReports}>
-        {reports.length === 0 ? (
-          <p className="mt-2 text-[13px] text-text-3">{DESK_QUICK_LOOK_WORDS.noProblemReports}</p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-2 text-[13px]">
-            {reports.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-baseline gap-x-2">
-                <Link
-                  href={`/admin/problems/${r.id}`}
-                  className="min-w-0 flex-1 hover:text-accent-text"
-                >
-                  {deskProblemReportLine(r)}
-                </Link>
-                <span className="text-xs text-text-3">{deskActiveAgo(r.createdAt)}</span>
-                <Badge variant={r.handled ? 'ok' : 'pending'}>
-                  {r.handled ? DESK_QUICK_LOOK_WORDS.handled : DESK_QUICK_LOOK_WORDS.notHandled}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      </GlanceSection>
+      <ProblemReportsSection glance={look.glance} heading="h3" />
     </div>
   );
 }
