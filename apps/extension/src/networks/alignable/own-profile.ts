@@ -126,6 +126,13 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
   };
 }
 
+/** About Us's Edit on their own profile, by the address its link says it came from. */
+const ABOUT_EDIT = 'a[href*="source=about_us_section"]';
+
+/** A box in the gallery's form, for a picture's title and its few words: never About Us (the owner's Check, 0.67.0). */
+const inGallery = (box: Element): boolean =>
+  box.closest('form')?.querySelector('[data-testid^="gallery-uploader"]') != null;
+
 /** The boxes in sight. */
 const boxesIn = (doc: Document): HTMLElement[] =>
   [...doc.querySelectorAll<HTMLElement>(BOXES)].filter(
@@ -155,24 +162,26 @@ function closerOf(opened: Element): HTMLElement | null {
 async function openAndClose(
   doc: Document,
   site: LookingSite,
-  step: 'pitch' | 'ideal',
+  step: 'pitch' | 'ideal' | 'about',
   opener: HTMLElement | null,
   name: string,
+  /** It's a link Alignable opens its editor from in its own page: About Us's Edit. */
+  inPage = false,
 ): Promise<StepTry> {
   const main = mainOf(doc);
   if (!opener) return went(step, { button: false }, [`no ${name} button`], namesIn(main, site));
   // A link leads off the page, and the script with it: it's said, for Check to open as a page.
-  if (opener.closest('a[href]'))
+  if (!inPage && opener.closest('a[href]'))
     return went(step, { button: true, link: true }, [`${name} is a link, not an editor`], []);
   const boxes = new Set(boxesIn(doc));
   const dialogs = new Set(dialogsIn(doc));
   opener.click();
   const opened = await waitFor(
     () =>
-      boxesIn(doc).find((box) => !boxes.has(box)) ??
+      boxesIn(doc).find((box) => !boxes.has(box) && !inGallery(box)) ??
       dialogsIn(doc).find((dialog) => !dialogs.has(dialog)) ??
       null,
-    5_000,
+    inPage ? 8_000 : 5_000,
   );
   if (!opened)
     return {
@@ -243,9 +252,14 @@ export const idealLook = (doc: Document, site: LookingSite): Promise<StepTry> =>
  * About Us on its own page (its Edit link's): its box, and its Save, found and never pressed. Nothing is written: a
  * page left with something changed asks the person before it goes.
  */
-export function aboutLook(doc: Document, site: LookingSite): StepTry {
+export function aboutLook(doc: Document, site: LookingSite): StepTry | Promise<StepTry> {
   const main = mainOf(doc);
-  const boxes = boxesIn(doc).filter((box) => main.contains(box));
+  const boxes = boxesIn(doc).filter((box) => main.contains(box) && !inGallery(box));
+  // On their own profile About Us's box isn't there till its Edit opens it in the page: opening its address leads
+  // back to the profile, with only the gallery's form there (the owner's Check, 0.67.0). Its Edit is pressed, and its
+  // editor closed again with nothing written or saved.
+  const edit = main.querySelector<HTMLElement>(ABOUT_EDIT);
+  if (!boxes.length && edit) return openAndClose(doc, site, 'about', edit, 'About Us’s Edit', true);
   const about =
     boxes.find((box) => /\b(about|description|describe|tell)\b/i.test(boxName(box))) ??
     boxes.find((box) => box.tagName === 'TEXTAREA') ??

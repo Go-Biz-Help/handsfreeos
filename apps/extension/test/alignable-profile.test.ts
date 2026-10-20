@@ -217,6 +217,33 @@ describe('their own Alignable profile', () => {
     expect(readLooking(doc, doc.location.href, ALIGNABLE).boxes).toBe(2);
   });
 
+  it('presses About Us’s Edit on their profile, where its editor opens, never taking the gallery’s form for it', async () => {
+    // The owner's Check (0.67.0): About Us's page leads back to the profile, where only the gallery's form was.
+    const doc = page(
+      `${AL}/austin-tx/acme-roofing?user=7`,
+      `<main><div><div>About Us</div><a href="/biz/profile/about_us?source=about_us_section"><div>Edit</div></a></div>
+        <form><div data-testid="gallery-uploader-picker-dropzone"><input type="file" /></div>
+          <label for="t">Title</label><input id="t" type="text" /><label for="d">Description</label>
+          <textarea id="d" placeholder="Add description"></textarea><a>Cancel</a><input type="submit" /></form></main>`,
+    );
+    doc.querySelector('a[href*="about_us_section"]')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      const dialog = doc.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.innerHTML = `<label for="about">About Us</label><textarea id="about">We fix roofs.</textarea>
+        <input type="submit" value="Save" /><button>Cancel</button>`;
+      dialog.querySelector('button')!.addEventListener('click', () => dialog.remove());
+      doc.body.append(dialog);
+    });
+    expect(await ALIGNABLE.looks.about!.look(doc, doc.location.href)).toMatchObject({
+      step: 'about',
+      works: true,
+      found: { opened: true, box: true, save: 1, cancel: true, closed: true },
+    });
+    // Closed again, with nothing written or saved.
+    expect(doc.querySelector('[role="dialog"]')).toBeNull();
+  });
+
   it('finds About Us’s Save drawn as the form’s own submit, as the owner’s Check found it (0.66.0)', () => {
     const doc = page(
       `${AL}/biz/profile/about_us`,
