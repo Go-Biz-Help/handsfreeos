@@ -41,6 +41,7 @@ import {
   checkedDrafts,
   draftOfferOf,
   DRAFTS_FOR,
+  fitsRequests,
   isPartnerKind,
   TODAY_DRAFT_SCHEMA,
   todayDraftSystem,
@@ -52,7 +53,7 @@ import {
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
 import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import {
   AI_BUDGET_MESSAGE,
@@ -178,6 +179,15 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
           )
         : [];
+      // Where the person stands with them on their network: on a follow network, someone who hasn't followed back gets
+      // their first message in their Requests (core's `TodayItem.requests`).
+      const [friend] = profileId
+        ? await rows<{ state: string }>(
+            tx,
+            sql`select state from addon_outreach.friends
+                where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
+          )
+        : [];
       const [offer] = await rows<{ version: number; parts: unknown }>(
         tx,
         sql`select v.version, v.parts from app.main_offer_versions v
@@ -197,6 +207,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         lastAt: last?.at ?? null,
         conversation: conversation ?? null,
         offer: offer ?? null,
+        friendState: friend?.state ?? null,
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -246,9 +257,23 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
     const offer: DraftOffer | null =
       found.offer && parts?.success ? draftOfferOf(found.offer.version, parts.data) : null;
+    // A first message on a follow network (Instagram's) to someone who hasn't followed the person back lands in their
+    // Requests: one short text, with no link and no video (core's `REQUESTS_TASK`).
+    const toRequests =
+      input.kind === 'opener' &&
+      found.profile !== undefined &&
+      NETWORKS[found.profile.platform].requestsMessageAfterDays !== null &&
+      found.friendState !== 'friends';
     // One of the business's own openers goes as written, with their first name and the offer's words in: no AI. One
-    // that names the offer's words when there are none is written by the AI instead.
+    // that names the offer's words when there are none is written by the AI instead, and so is one too long for their
+    // Requests, or with a link.
     if (opener?.kind === 'own' && !ownOpenerFits(opener.text, offer)) opener = null;
+    if (
+      opener?.kind === 'own' &&
+      toRequests &&
+      !fitsRequests(ownOpenerText(opener.text, name, offer))
+    )
+      opener = null;
     const drafted = opener && playbook ? { playbookId: playbook.id, ...opener } : null;
     if (opener?.kind === 'own')
       return {
@@ -310,6 +335,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               voice: found.voice,
               lastAt: found.lastAt,
               platform,
+              requests: toRequests,
             }),
           },
         ],
@@ -318,12 +344,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         maxTokens: 800,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      const drafts = checkedDrafts(
+      const checked = checkedDrafts(
         value,
         playbook?.details.avoid ?? [],
         DRAFTS_FOR[kind],
-        found.voice.split && kind !== 'comment' && kind !== 'warm_lead',
+        found.voice.split && kind !== 'comment' && kind !== 'warm_lead' && !toRequests,
       );
+      // To their Requests: only one short text with no link goes.
+      const drafts = toRequests && kind === 'opener' ? checked.filter(fitsRequests) : checked;
       // The link always goes with the link and the video with the video (decisions 47 and 66): one the AI left out
       // goes on the end.
       const must = kind === 'pitch' ? link : kind === 'video' ? videoLink : null;

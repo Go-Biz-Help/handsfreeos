@@ -14,6 +14,7 @@ import type {
   OwnProfileAsk,
   TryAnswer,
   TryAsk,
+  UnfollowAnswer,
 } from '../../messages';
 import { isWholeAddress, type Kit } from '../kit';
 import { outlineLooking, readLooking, readWarnings } from './read';
@@ -71,6 +72,13 @@ async function browse(
   return { ok: go ? await go(document, location.href) : false };
 }
 
+/** Unfollows the account whose page the tab shows, where the site does (Instagram's tidying). */
+async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
+  if (!site.unfollow)
+    return { ok: false, error: `The extension doesn’t unfollow on ${site.name}.` };
+  return { ok: true, result: await site.unfollow(document) };
+}
+
 const OWN_PROFILE_ASKS = new Set(['hfos-own-profile', 'hfos-write-bio', 'hfos-write-about']);
 
 export function lookingKit(site: LookingSite): Kit {
@@ -105,6 +113,8 @@ export function lookingKit(site: LookingSite): Kit {
                 ask.type === 'hfos-show-all' ||
                 ask.type === 'hfos-open-chat'
               ? browse(site, ask.type)
-              : null,
+              : ask.type === 'hfos-unfollow'
+                ? unfollowHere(site)
+                : null,
   };
 }

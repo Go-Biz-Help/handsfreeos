@@ -1357,10 +1357,53 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       runner: `stage: 'working'`, so it has a day, a row on Today's strip and the filters, a step in the setup and a
       place on a playbook, its choices and limits in Settings, and its Check and profile as before. Until its runner
       (part 5) every step there is the person's own: Today lists them, they do them on Alignable, and the extension
-      notes each (part 2). Start my day there says so (`sendingOffWords`). Instagram is still looked at.
+      notes each (part 2). Start my day there says so (`sendingOffWords`). Instagram follows from its part 12 (below).
     - **Check Instagram's new reads** (extension 0.79.0; the Instagram plan's part 9): it also opens the person's
       followers, a hashtag, a place, their notifications and a chat, so its readers of who follows, hashtag and
-      place posts, who engaged and a chat's messages are built from what those outlines show.
+      place posts, who engaged and a chat's messages are built from what those outlines show. Its chats in Messages
+      are buttons, not links (his Check, 0.62.0), so from 0.80.0 Check opens the first with words by its row.
+    - **Instagram's readers** (extension 0.80.0; the Instagram plan's part 10; `src/networks/instagram/read.ts`), as
+      Alignable's are, each plain data, each counted in Check's notes and never said: someone's profile (their name
+      and username, whether the person follows them by Follow, Follow Back, Following or Requested, whether they follow
+      the person by Follow Back or "Follows you", their followers and latest posts); the person's followers in the box
+      over /<you>/followers/ (each one's username, name and link, and whether the person follows them back: Follow
+      beside them says not); a post (who posted it, by its own link /<name>/p/<code>/, its caption, its likes, its
+      comments by who and what, and its place); a hashtag's and a place's posts; notifications (who followed, liked or
+      commented, the kind only); Messages (each chat's name, whose its last line is, when, and which box: Primary,
+      General or Requests); and a chat (who it's with, its messages as the person's or theirs, its box, and whether
+      it's a request waiting for Accept). The profile and the post are built from his outlines of 18 Oct 2026; the
+      followers, a hashtag, a place, notifications and a chat from Instagram's usual markup, by its own words, labels,
+      roles and link addresses, and they're tuned from his next Check, which opens each.
+    - **Noting the person's own steps on Instagram** (extension 0.80.0; part 11; `src/networks/instagram/actions.ts`):
+      Follow or Follow Back on a profile or a list's row is a follow, kept as a request (`friend_request`) to that
+      account, noted once the button says Following or Requested, so one Instagram blocked notes nothing; a post's
+      Like (never a comment's) with the post's link; a comment sent from a post's box with something written, to whoever
+      posted it or to the one it starts by naming (@name); and a message sent in a chat, with its id from
+      /direct/t/<id>/. Each is to the account by its name in Instagram's address, never to the person themselves, and
+      nothing anyone wrote is kept.
+    - **Instagram works from its part 12** (extension 0.80.0, no migration), as Alignable did before its runner:
+      `stage: 'working'` with `runs: RUNS_NOTHING`, so it has a day, a row on Today's strip and the filters, a step in
+      the setup and a place on a playbook, its limits in Settings, and every step there is the person's own; Sending
+      stays off. Today says **Follow them** there.
+    - **A follow-back counts as accepting** on Instagram: its "friends" are the person's followers. **Save my
+      followers** (`friends`, from 0.80.0, `src/jobs/instagram/`) opens their account from Instagram's menu, then their
+      followers, reads the box a screen at a time at a person's pace to its end, pressing nothing, and saves everyone as
+      Instagram's friends list (`outreach.friends.save`). Someone they followed who's among them is a friend, and
+      their first message comes as on the other networks ("Followed you back today").
+    - **No follow-back in 3 days: one short message** (the plan's "The steps"): someone followed 3 or more days ago who
+      hasn't followed back and has had no message gets one first message on Today, marked as going to their Requests
+      (`TodayItem.requests`, with no demo link): one text with no link, no video and no price, as Instagram passes only
+      one till they accept. At most 5 of the day's 10 first messages go there, those sent there today counted (its
+      kit's `requestsMessageAfterDays` and `requestsMessagesPerDay`, null on every other network). The AI's draft for
+      it follows the rule (`REQUESTS_TASK`; drafts with a link or a second text are dropped, `fitsRequests`), and so
+      does one of the business's own openers, or the AI writes it instead. No follow-up or check-in goes in a chat they
+      haven't answered or accepted: one waiting in their Requests waits there.
+    - **Unfollowing** on Instagram (the plan's question 5) is its tidying (`cancel_request`): people followed more than
+      the business's wait ago (3 weeks to start) who didn't follow back, 20 a day at most, never anyone who wrote back,
+      a customer, someone kept, or anyone followed before HandsFreeOS saw it. The Friends tab says **Not following you
+      back** and **Unfollow the ticked**; the person ticks who, and the extension unfollows them in a tab they can see,
+      pressing Following, then Unfollow in its box, each by its own words (`cancel`, from 0.80.0). Nothing is
+      unfollowed on its own.
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a

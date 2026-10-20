@@ -167,14 +167,14 @@ describe('the networks a person works', () => {
     expect(readNetwork('myspace')).toBeNull();
   });
 
-  it('keeps a network still looked at off Today and the filters, while it can be turned on (decision 78)', () => {
-    // Alignable works from its part 3, by hand till its runner (`runsOnItsOwn`); Instagram is still looked at.
-    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'alignable']);
-    expect(PLATFORM_KEYS.filter(isLooking)).toEqual(['instagram']);
+  it('puts every network past its look on Today and the filters, once it’s turned on (decision 78)', () => {
+    // Alignable works from its part 3 and Instagram from its part 12, each by hand till its runner (`runsOnItsOwn`).
+    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(PLATFORM_KEYS.filter(isLooking)).toEqual([]);
     const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });
     expect(networksOn(instagram)).toEqual(['facebook', 'instagram']);
-    expect(networksShown(instagram)).toEqual(['facebook']);
-    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin', 'alignable']);
+    expect(networksShown(instagram)).toEqual(['facebook', 'instagram']);
+    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin', 'instagram', 'alignable']);
     expect(networkOfLink('https://www.instagram.com/dana.reyes/')).toBe('instagram');
     expect(networkOfLink('https://www.alignable.com/austin-tx/acme-plumbing')).toBe('alignable');
     expect(NETWORK_WORDS.looking('Instagram')).toContain('press Check Instagram below once');
@@ -182,7 +182,7 @@ describe('the networks a person works', () => {
       'on an Instagram page',
     );
     expect(SETUP_WORDS.stepAbout.networks).toBe(
-      'Where you reach people: Facebook, LinkedIn or Alignable',
+      'Where you reach people: Facebook, LinkedIn, Instagram or Alignable',
     );
   });
 
@@ -217,7 +217,7 @@ describe('the setup’s step to pick networks', () => {
       'groups',
     ]);
     expect(SETUP_WORDS.stepAbout.networks).toBe(
-      'Where you reach people: Facebook, LinkedIn or Alignable',
+      'Where you reach people: Facebook, LinkedIn, Instagram or Alignable',
     );
     const got = { playbooks: [], extensionAt: null, groups: { mine: 0, business: 0, latest: [] } };
     expect(setupSummary(got, withLinkedIn(true))[1]).toBe('Networks: Facebook, LinkedIn');

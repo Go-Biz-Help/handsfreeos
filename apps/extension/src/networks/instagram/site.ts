@@ -1,15 +1,13 @@
 /**
- * Instagram, still looked at (../looking/site.ts; docs/outreach.md decision 78): a follow network, where people are
- * found by hashtags, places and the followers of accounts like the business's (the plan's "The networks after
- * LinkedIn"). Check Instagram reads its pages and looks for Follow, Message, Like, the box to comment in and the bio's
- * box, pressing none of them; its steps are built from what that reads. Instagram's terms forbid automated collection
- * and it blocks fast ("Action blocked"), so the extension reads only what the person asks, at a person's pace, and
- * stops on any warning there.
+ * Instagram (../looking/site.ts; docs/outreach.md decision 78): a follow network, where people are found by hashtags,
+ * places and the followers of accounts like the business's (the plan's "The networks after LinkedIn"). Check Instagram
+ * reads its pages and looks for Follow, Message, Like, the box to comment in and the bio's box, pressing none of them.
+ * From the plan's part 10 its own readers read its pages (./read.ts), from part 11 the person's own steps there are
+ * noted (./actions.ts), and from part 12 it works in the app, every step the person's own till its runner. Instagram's
+ * terms forbid automated collection and it blocks fast ("Action blocked"), so the extension reads only what the person
+ * asks, at a person's pace, and stops on any warning there.
  *
- * Its addresses as they've long been: instagram.com/<name>/ for an account (its followers and following under it),
- * /p/<code>/ and /reel/<code>/ for a post (newer links put the account's name first), /explore/tags/<tag>/ for a
- * hashtag, /explore/search/keyword/?q= for a search, /explore/people/ for the accounts it suggests, /direct/inbox/ and
- * /direct/t/<id>/ for messages, and /accounts/edit/ for the person's own profile's form.
+ * Its addresses are in ./urls.ts.
  *
  * From the owner's Check Instagram (17 Oct 2026): an account's Following is its word beside an arrow labelled "Down
  * chevron icon" (so a control's own words come before its picture's label, ../looking/read.ts), and a post's box to
@@ -31,118 +29,12 @@ import {
 } from '../looking/looks';
 import type { LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, went, untried } from '../tries';
+import { instagramNoticer } from './actions';
 import { readOwnProfile, writeBio } from './own-profile';
 import { readInstagram } from './read';
-
-const HOST = 'www.instagram.com';
-const HOSTS = new Set(['www.instagram.com', 'instagram.com']);
-
-/** First parts of its addresses that are Instagram's own places, never an account's name. */
-const NOT_NAMES = new Set([
-  'about',
-  'accounts',
-  'api',
-  'challenge',
-  'developer',
-  'direct',
-  'emails',
-  'explore',
-  'graphql',
-  'legal',
-  'lite',
-  'locations',
-  'login',
-  'logout',
-  'meta-verified',
-  'nametag',
-  'notifications',
-  'oauth',
-  'p',
-  'press',
-  'privacy',
-  'reel',
-  'reels',
-  'session',
-  'static',
-  'stories',
-  'terms',
-  'threads',
-  'topics',
-  'tv',
-  'web',
-  'your_activity',
-]);
-/** An account's name: letters, numbers, dots and underscores, 30 at most. */
-const NAME = /^[A-Za-z0-9._]{1,30}$/;
-/** The tabs under an account: its own page still. */
-const ACCOUNT_TABS = new Set(['', 'reels', 'tagged', 'saved', 'guides', 'igtv', 'featured']);
-
-const partsOf = (url: URL) => url.pathname.split('/').filter(Boolean);
-
-function instagramUrl(href: string, base?: string): URL | null {
-  let url: URL;
-  try {
-    url = new URL(href, base);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== 'https:' || !HOSTS.has(url.hostname.toLowerCase())) return null;
-  url.hostname = HOST;
-  url.hash = '';
-  return url;
-}
-
-function kindOf(url: URL): string {
-  const [first = '', second = ''] = partsOf(url).map((p) => p.toLowerCase());
-  if (!first) return 'feed';
-  if (first === 'explore')
-    return second === 'tags'
-      ? 'tag'
-      : second === 'search'
-        ? 'search'
-        : second === 'locations'
-          ? 'place'
-          : second === 'people'
-            ? 'suggested'
-            : 'explore';
-  if (first === 'p' || first === 'reel' || first === 'tv') return 'post';
-  // A reel opens in the reels player, at /reels/<code>/: its own page still.
-  if (first === 'reels') return second ? 'post' : 'reels';
-  if (first === 'direct') return second === 't' ? 'chat' : 'inbox';
-  if (first === 'accounts')
-    return second === 'edit'
-      ? 'edit-profile'
-      : second === 'activity'
-        ? 'notifications'
-        : 'settings';
-  if (first === 'stories') return 'story';
-  if (first === 'challenge') return 'check';
-  if (NOT_NAMES.has(first) || !NAME.test(first)) return 'other';
-  if (second === 'p' || second === 'reel') return 'post';
-  if (second === 'followers' || second === 'following') return second;
-  return 'profile';
-}
-
-function profileOf(url: URL): { username: string; url: string } | null {
-  const [first = '', second = ''] = partsOf(url);
-  if (!first || NOT_NAMES.has(first.toLowerCase()) || !NAME.test(first)) return null;
-  if (!ACCOUNT_TABS.has(second.toLowerCase())) return null;
-  return { username: first, url: `https://${HOST}/${first}/` };
-}
-
-function postOf(url: URL): string | null {
-  const parts = partsOf(url);
-  // /p/<code>/, /reel/<code>/, and newer links with the account's name first: /<name>/p/<code>/.
-  const at =
-    parts[0] === 'p' || parts[0] === 'reel' || parts[0] === 'reels' || parts[0] === 'tv'
-      ? 0
-      : parts[1] === 'p' || parts[1] === 'reel'
-        ? 1
-        : -1;
-  const code = at >= 0 ? parts[at + 1] : undefined;
-  if (!code || !/^[A-Za-z0-9_-]{5,64}$/.test(code)) return null;
-  return `https://${HOST}/${parts[at] === 'reel' || parts[at] === 'reels' ? 'reel' : 'p'}/${code}/`;
-}
+import { openChat, scrollDialog } from './browse';
+import { unfollow } from './unfollow';
+import { HOST, instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
 
 /** Instagram's own words on its pages, as the outline keeps them. */
 const WORDS = new Set(
@@ -270,6 +162,25 @@ const WORDS = new Set(
     'Message…',
     'Write a message...',
     'Write a message…',
+    'Follows you',
+    'Accept',
+    'Decline',
+    'Block',
+    'Delete',
+    'likes',
+    'You sent',
+    'This week',
+    'This month',
+    'Earlier',
+    'Today',
+    'Yesterday',
+    'Hidden requests',
+    'started following you.',
+    'liked your post.',
+    'liked your photo.',
+    'liked your reel.',
+    'liked your comment:',
+    'commented:',
     'Close chat',
     'Minimize chat',
     'Conversation information',
@@ -321,6 +232,8 @@ const PATH_WORDS = new Set([
   'comments',
   'people',
   'reposts',
+  // A comment's own link: /p/<code>/c/<id>/.
+  'c',
 ]);
 
 /** Instagram's warnings, as its pages word them. */
@@ -390,7 +303,18 @@ export const INSTAGRAM: LookingSite = {
   platform: 'instagram',
   name: 'Instagram',
   hosts: ['https://www.instagram.com/*'],
+  // Its own readers (part 10): a profile, the person's followers, a post, a hashtag's and a place's posts, notifications,
+  // messages and a chat, each counted in Check's notes so the next Check shows what they find on the real pages.
   readFound: readInstagram,
+  // The person's own steps, noted as they take them (part 11): Follow, Like, a comment and a message.
+  noticer: instagramNoticer,
+  // Unfollowing those the person ticked who didn't follow back (part 12), by Following and Unfollow's own words.
+  unfollow,
+  // Its lists, for the person's asks (part 12): their followers' box scrolled, and a chat opened for Check.
+  lists: {
+    scroll: (doc) => scrollDialog(doc),
+    openChat: (doc) => openChat(doc),
+  },
   host: HOST,
   url: instagramUrl,
   kindOf,

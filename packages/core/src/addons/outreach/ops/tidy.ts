@@ -144,6 +144,18 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const slower = await slowerFor(ctx, me, slowsNow(warning, now), now, input.platform);
     const kit = NETWORKS[input.platform];
     const done = await endsToday(ctx, me, todayFrom, input.platform);
+    // On a follow network (Instagram's) tidying unfollows (the Instagram and Alignable plan's question 5): never anyone
+    // who wrote back, a customer, someone kept, or anyone the person followed before HandsFreeOS saw it.
+    const unfollowing =
+      kit.requestsMessageAfterDays !== null
+        ? sql`and p.person_id is null and not f.keep
+            and exists (select 1 from addon_outreach.touches t
+              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')
+            and not exists (select 1 from addon_outreach.replies r
+              where r.profile_id = p.id and r.user_id = ${me})
+            and not exists (select 1 from addon_outreach.file_chats c
+              where c.profile_id = p.id and c.user_id = ${me} and not c.last_from_me)`
+        : sql``;
 
     const cancel = await rows<Found>(
       ctx.tx,
@@ -155,6 +167,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
             and f.state = 'request_sent'
             and f.since <= ${new Date(now - weeks * 7 * DAY).toISOString()}::timestamptz
+            ${unfollowing}
           order by f.since, p.id limit ${TIDY_MOST}`,
     );
 

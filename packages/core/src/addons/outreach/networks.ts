@@ -20,7 +20,7 @@ import {
 
 /**
  * The networks it knows, in Chris's order (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): Facebook and LinkedIn
- * work; Instagram and Alignable are looked at first (`stage`).
+ * work; Instagram and Alignable were looked at first (`stage`), and work now, by hand till their runners.
  */
 export const PLATFORMS = {
   facebook: 'Facebook',
@@ -87,6 +87,15 @@ export interface NetworkKit {
    * once it's sent.
    */
   readonly recommends: boolean;
+  /**
+   * On a follow network (Instagram's), a message to someone who doesn't follow the person back lands in their Requests,
+   * and passes only one text till they accept it (the Instagram and Alignable plan's "The steps"): after how many days
+   * without a follow-back that one short message goes (no link, no video), and at most how many of the day's first
+   * messages go there. No follow-up goes in a chat they haven't answered or accepted. Null where a first message waits
+   * for them to accept.
+   */
+  readonly requestsMessageAfterDays: number | null;
+  readonly requestsMessagesPerDay: number | null;
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
@@ -115,6 +124,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 40,
     forumAnswersPerDay: null,
     recommends: false,
+    requestsMessageAfterDays: null,
+    requestsMessagesPerDay: null,
     tidyLimits: TIDY_LIMITS,
     // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
     runs: {
@@ -147,6 +158,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 40,
     forumAnswersPerDay: null,
     recommends: false,
+    requestsMessageAfterDays: null,
+    requestsMessagesPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
@@ -161,12 +174,14 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
       messageLike: 'the way people message someone they know from work',
     },
   },
-  // A follow network (the plan's "The networks after LinkedIn"): follow, like, comment, then a message, which waits in
-  // Requests till they follow back. Instagram blocks fast, so its limits start low. Its steps are built from what
-  // Check Instagram reads.
+  // A follow network (the plan's "The networks after LinkedIn"): follow, like, comment, then a message once they follow
+  // back; else one short message after 3 days, which waits in their Requests. Instagram blocks fast, so its limits
+  // start low. Its steps are built from what Check Instagram reads.
   instagram: {
     name: PLATFORMS.instagram,
-    stage: 'looking',
+    // Working from its part 12 (the app), as Alignable did before its runner: nothing goes on its own there till its
+    // runner (`runsOnItsOwn`), so Today's list on it is the person's own to do, and the extension notes each step.
+    stage: 'working',
     link: /^https:\/\/www\.instagram\.com\//,
     // An account's number, and its name in instagram.com/<this>/: letters, numbers, dots and underscores.
     profileId: /^[0-9]{1,30}$/,
@@ -180,6 +195,11 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 20,
     forumAnswersPerDay: null,
     recommends: false,
+    // No follow-back in 3 days: one short message to their Requests, at most 5 of the day's 10 first messages.
+    requestsMessageAfterDays: 3,
+    requestsMessagesPerDay: 5,
+    // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
+    // who follows them is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     runs: RUNS_NOTHING,
     words: {
@@ -208,6 +228,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 30,
     forumAnswersPerDay: 2,
     recommends: true,
+    requestsMessageAfterDays: null,
+    requestsMessagesPerDay: null,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     runs: RUNS_NOTHING,
     words: {
@@ -221,7 +243,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   },
 };
 
-/** The networks past their look: Facebook, LinkedIn and Alignable. */
+/** The networks past their look: all four now. */
 export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
   (p) => NETWORKS[p].stage === 'working',
 );

@@ -722,3 +722,56 @@ export function alignablePostsSave(
     },
   };
 }
+
+// ------------------------------------------------------------------------------------------------- Instagram's
+
+const INSTAGRAM: Platform = 'instagram';
+
+/** Someone on the person's Instagram followers list: by their account's name and its address. */
+export interface InstagramListed {
+  readonly username: string;
+  readonly url: string;
+  readonly name: string | null;
+}
+
+/**
+ * The person's Instagram followers, to save as Instagram's friends list (the Instagram and Alignable plan's part 12): on
+ * Instagram the "friends" are the person's followers, so someone they followed who's among them has followed back,
+ * which counts as accepting. Each account once, by its name in its address, in parts of FRIENDS_SAVE_MOST. Someone
+ * with no name of their own is saved by their username, as Instagram shows them.
+ */
+export function instagramListSave(
+  people: readonly InstagramListed[],
+  workspaceId: string,
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    const key = person.username.toLowerCase();
+    if (seen.has(key)) continue;
+    const who = whom(
+      {
+        name: person.name?.trim() || person.username,
+        profile: { id: null, username: person.username, url: person.url },
+      },
+      INSTAGRAM,
+    );
+    if (!who) continue;
+    seen.add(key);
+    kept.push({ ...who, mutualFriends: null });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why: 'There are no followers on the page to save. Open your followers on Instagram, then try again.',
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({
+      workspaceId,
+      platform: INSTAGRAM,
+      list: 'friends',
+      people: kept.slice(at, at + FRIENDS_SAVE_MOST),
+    });
+  return { ok: true, input: parts };
+}

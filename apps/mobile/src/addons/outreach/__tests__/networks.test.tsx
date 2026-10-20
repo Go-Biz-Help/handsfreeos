@@ -581,7 +581,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'facebook');
   });
 
-  it('shows a network still looked at only Chrome’s say, what it does there for now, and its Check (decision 78)', async () => {
+  it('shows Instagram, by hand till its runner, with Chrome’s say, its limits and its Check (its part 12)', async () => {
     const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
     const instagramOn: AutomationOutput = {
       ...AUTOMATION,
@@ -606,20 +606,22 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(screen.getByTestId('settings-networks-instagram-chrome-blocked')).toHaveTextContent(
       'Chrome on Mac 12 isn’t allowed on Instagram yet. Open the extension’s panel on an Instagram page and press Allow on Instagram, then Allow in Chrome’s box.',
     );
-    expect(screen.getByTestId('settings-networks-instagram-looking')).toHaveTextContent(
-      /^Instagram is new to HandsFreeOS\. For now the extension only reads it/,
+    // Not looked at anymore: its every step the person's own, and Instagram's starting limits.
+    expect(screen.queryByTestId('settings-networks-instagram-looking')).toBeNull();
+    expect(screen.getByTestId('settings-networks-instagram-on-its-own')).toHaveTextContent(
+      /doesn’t work on Instagram on its own yet/,
     );
-    // Nothing to choose yet, and no limits to show.
-    expect(screen.queryByTestId('settings-networks-instagram-sending-steps')).toBeNull();
-    expect(screen.queryByTestId('settings-networks-instagram-limits')).toBeNull();
+    expect(
+      screen.getByTestId('settings-networks-instagram-limit-friend_request'),
+    ).toHaveTextContent(/^20Follows$/);
     expect(screen.getByTestId('settings-networks-instagram-checkup')).toHaveTextContent(
-      /^Check InstagramPress this once, so the extension can learn Instagram from your own account\./,
+      /^Check Instagram/,
     );
     await fireEvent.press(screen.getByTestId('settings-networks-instagram-checkup-ask'));
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'instagram');
   });
 
-  it('reads and checks the person’s profile there, on a network still looked at too (decision 80)', async () => {
+  it('reads and checks the person’s profile on Instagram (decision 80)', async () => {
     const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
     const instagramOn: AutomationOutput = {
       ...AUTOMATION,

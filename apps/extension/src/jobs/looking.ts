@@ -223,6 +223,15 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
     const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
     if (isEnd(page)) return page;
     await c.note('a chat', page.boxes);
+  } else if (
+    !stoppedEnd(job) &&
+    (await job.tab.ask({ type: 'hfos-open-chat', threadId: 'first-with-words' })).ok
+  ) {
+    // Its chats' rows are buttons, not links (the owner's Check, 0.62.0): the first with words is opened by its row, as
+    // a person reading their messages does (0.80.0), and read once it's drawn its box.
+    const page = await c.readTill(await readOn('instagram')(job.tab), (p) => p.boxes > 0, 3);
+    if (isEnd(page)) return page;
+    await c.note('a chat', page.boxes);
   } else c.nothingOn.push('a chat');
 
   return c.end();
@@ -667,8 +676,9 @@ function inFront(job: Job, work: (job: Job) => Promise<JobEnd>): Promise<JobEnd>
 }
 
 /**
- * What an ask on a network still looked at does: its Check, and nothing else yet (core asks it nothing else there, and
- * an ask of a kind this build doesn't do ends saying so).
+ * What an ask on Instagram or Alignable does that their own jobs don't: their Check, and their own profile read and put
+ * in (core asks nothing else there that their jobs don't do, and an ask of a kind this build doesn't do ends saying
+ * how to update).
  */
 export function lookingAsk(platform: LookingPlatform) {
   return async (task: AskTaken['task'], job: Job): Promise<JobEnd> => {
@@ -686,7 +696,7 @@ export function lookingAsk(platform: LookingPlatform) {
       return inFront(job, (j) => alignableProfileEdit(j, task));
     const name = NETWORKS[platform].name;
     return {
-      line: `The extension only reads ${name} for now, for Check ${name}: it can’t do that there yet.`,
+      line: `This build of HandsFreeOS Social can’t do that on ${name} yet. Download the newest one, unzip it over the old folder, press Reload on Chrome’s Extensions page, and ask again.`,
       warned: false,
       failed: true,
     };

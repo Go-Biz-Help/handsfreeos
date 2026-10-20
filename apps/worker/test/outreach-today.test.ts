@@ -20,6 +20,7 @@ import { outreachBusiness } from '../../../packages/core/test/addons/outreach-fi
 import {
   fileChats,
   followUps,
+  friends,
   openerUses,
   playbooks,
   posts,
@@ -273,5 +274,46 @@ describe('drafts for Today', () => {
     const video = (await draft(owner, { kind: 'reply', chatId })).json();
     expect(video).toMatchObject({ kind: 'video', answer: 'yes' });
     expect(video.drafts[0]).toMatch(/short video[\s\S]*https:\/\/www\.loom\.com\/share\/abc123$/);
+  });
+});
+
+describe('a first message on Instagram', () => {
+  it('to someone who hasn’t followed back goes to their Requests: one short text with no link', async () => {
+    const [ig] = await testDbs()
+      .admin.db.insert(profiles)
+      .values({
+        workspaceId: ws,
+        platform: 'instagram',
+        username: 'sam.lee',
+        url: 'https://www.instagram.com/sam.lee/',
+        name: 'Sam Lee',
+      })
+      .returning({ id: profiles.id });
+    // The member followed Sam 4 days ago, and Sam hasn't followed back.
+    const at = new Date(Date.now() - 4 * 86_400_000);
+    await testDbs().admin.db.insert(friends).values({
+      workspaceId: ws,
+      userId: member.id,
+      profileId: ig!.id,
+      state: 'request_sent',
+      since: at,
+      seenAt: at,
+    });
+    const res = await draft(member, { kind: 'opener', profileId: ig!.id });
+    expect(res.statusCode).toBe(200);
+    // The one with a link is dropped, and one written as two texts goes as one.
+    expect(res.json().drafts).toEqual([
+      'Hi Sam, I help local owners get more booked calls. Open to hearing how?',
+      'Hi Sam!\nOpen to more booked calls?',
+    ]);
+    // Once Sam follows back, the first message is written as on any network.
+    await testDbs()
+      .admin.db.update(friends)
+      .set({ state: 'friends' })
+      .where(eq(friends.profileId, ig!.id));
+    expect((await draft(member, { kind: 'opener', profileId: ig!.id })).json().drafts).toEqual([
+      'Hi Sam, thanks for adding me! How’s business going?',
+      'Hey Sam, good to connect. What keeps you busiest these days?',
+    ]);
   });
 });

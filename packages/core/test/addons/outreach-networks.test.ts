@@ -558,7 +558,7 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 
-  it('ask only Check of a network still looked at, of a build that knows it, and start no day there (decision 78)', async () => {
+  it('ask Instagram only what a build there does, its followers from 0.80.0, and start its day (its part 12)', async () => {
     const dana = await teammate('Rowan Ellis');
     const pc = randomUUID();
     const instagramOn = {
@@ -577,12 +577,21 @@ describe('each network’s own lists, asks and Today', () => {
       fresh: true,
       ask: { platform: 'instagram', kind: 'checkup' },
     });
-    // Nothing else is asked there yet, and it has no day to start.
+    // Save my followers and unfollowing come with 0.80.0; Instagram has no groups to ask about.
     expect(await refused(ask(dana, 'instagram', { kind: 'friends' }))).toBe(
+      'outreach_extension_too_old',
+    );
+    expect(await refused(ask(dana, 'instagram', { kind: 'groups' }))).toBe(
       'outreach_ask_not_on_network',
     );
+    await beat(dana, pc, '0.80.0');
+    expect(await ask(dana, 'instagram', { kind: 'friends' })).toMatchObject({
+      fresh: true,
+      ask: { platform: 'instagram', kind: 'friends' },
+    });
+    // Its day starts once they're ready, as any network's does: it isn't looked at anymore.
     expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'instagram' }))).toBe(
-      'outreach_network_looking',
+      'outreach_not_ready',
     );
   });
 

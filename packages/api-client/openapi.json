@@ -181144,6 +181144,9 @@
                               }
                             ]
                           },
+                          "requests": {
+                            "type": "boolean"
+                          },
                           "send": {
                             "anyOf": [
                               {
@@ -181404,6 +181407,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "requests": {
+                            "type": "boolean"
                           },
                           "send": {
                             "anyOf": [

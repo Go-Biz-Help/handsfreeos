@@ -174,7 +174,7 @@ export function readLooking(
         !/search/i.test(box.getAttribute('placeholder') ?? ''),
     ).length,
     notes: [
-      `The extension only reads ${site.name} for now: its steps are built from what Check ${site.name} reads.`,
+      `${site.name}’s readers are built from what Check ${site.name} reads on your own account, and tuned from each Check after.`,
     ],
     ...(site.readFound ? { found: site.readFound(doc, href) } : {}),
   };

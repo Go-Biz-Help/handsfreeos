@@ -639,6 +639,23 @@ request when opened, so no Check opens it: the first real request shows what it 
      in Messages, reading each and pressing nothing. Its readers (part 10) are built from what those outlines show,
      as Alignable's were; Instagram's own reader (`src/networks/instagram/read.ts`) starts with the links Check
      follows: places, hashtags and chats.
+   - **Part 10, reading** (extension 0.80.0): Instagram's own readers, as Alignable's are: someone's profile (name,
+     username, whether you follow each other, their followers and latest posts), your followers (whether you follow
+     each back), a post (who, its caption, likes, comments and place), a hashtag's and a place's posts, notifications
+     (who followed you, liked or commented), your messages (each chat, whose last line, which box) and a chat (who,
+     its messages, a request to Accept). The profile and the post are built from Chris's outlines of 18 Oct; the rest
+     from Instagram's usual markup, to be tuned from his next Check, which opens each.
+   - **Part 11, noting your own steps** (extension 0.80.0): Follow or Follow Back (a follow, noted once the button
+     says Following or Requested), a post's Like, a comment sent from a post's box, and a message sent in a chat, each
+     to that account by its name in Instagram's address (`src/networks/instagram/actions.ts`).
+   - **Part 12, in the app** (extension 0.80.0, no migration: every kind, state and ask it uses was there already):
+     Instagram is `working`, by hand till its runner, as Alignable was. A follow-back counts as accepting: **Save my
+     followers** reads the person's followers and saves them as Instagram's friends list, and someone they followed
+     who's among them gets their first message. No follow-back in 3 days: one short message marked as going to their
+     Requests (no link, no video, one text; at most 5 of the day's 10 first messages; its kit's
+     `requestsMessageAfterDays` and `requestsMessagesPerDay`), and no follow-up in a chat they haven't answered or
+     accepted. Tidying unfollows, after the business's 3-week wait, 20 a day: never anyone who wrote back, a customer,
+     or someone kept; the person ticks who, and the extension unfollows them in a tab they can see.
 
 ## Build order
 
