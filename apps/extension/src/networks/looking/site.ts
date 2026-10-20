@@ -10,7 +10,9 @@
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
+import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { BioResult } from '../facebook/own-profile';
+import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
 /** A network looked at: Instagram or Alignable. */
@@ -108,13 +110,18 @@ export interface LookingSite {
    */
   readonly placeOpening?: (name: string, url: URL) => PlaceOpening;
   /**
-   * The person's own profile, before the network's steps are (decision 80): read for the AI's check, and the bio put
-   * in where the extension can. Instagram's both; Alignable's read only, till Check has read its editors.
+   * The person's own profile, before the network's steps are (decision 80): read for the AI's check, and the bio or
+   * the About put in where the extension can. Instagram's bio; Alignable's About Us, past the code it emails (decision
+   * 82), put in where it asks for it.
    */
   readonly ownProfile?: {
     readonly read: (doc: Document, href: string) => ProfileRead;
     readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
+    readonly writeAbout?: (doc: Document, about: string) => Promise<AboutResult>;
+    readonly putCode?: (doc: Document, code: string) => Promise<CodeResult>;
   };
+  /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
+  readonly noticer?: () => Noticer;
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */

@@ -27,6 +27,8 @@ import {
   ASKS_SHOWN_MOST,
   AskCancelInput,
   AskChangedOutput,
+  ASK_CODE_MINUTES,
+  AskCodeInput,
   askAbout,
   AskEndInput,
   AskEndOutput,
@@ -60,7 +62,7 @@ import { outreachAddon } from '../manifest';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
 import { postSearchWords } from '../posts';
 import { ProfileSaveOutput } from '../saves';
-import { asks, computers, profiles } from '../tables';
+import { askCodes, asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
 import { approvedHelpful } from './helpful';
 import { CHECK_AGAIN_DAYS, RESEARCH_WORDS } from '../checks';
@@ -632,7 +634,7 @@ const notAsked = () =>
 export const askProgress = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.progress',
   description:
-    'The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, or their password). Answers whether the person stopped it, and their answer to a step handed to them.',
+    'The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, their password, or a code from their email). Answers whether the person stopped it, their answer to a step handed to them, and the code they typed, once.',
   risk: 0,
   input: AskProgressInput,
   output: AskProgressOutput,
@@ -645,7 +647,7 @@ export const askProgress = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const row = await ownAsk(ctx, me, input.askId);
     if (!row) throw notAsked();
-    if (!isOpen(row)) return { cancelled: row.state === 'cancelled', reply: null };
+    if (!isOpen(row)) return { cancelled: row.state === 'cancelled', reply: null, code: null };
     // Only a computer that took it says how it's going.
     if (row.state === 'waiting')
       throw HfosError.rule(
@@ -656,7 +658,11 @@ export const askProgress = defineAddonCommand(outreachAddon, {
     const now = new Date();
     const changed = input.state !== row.state;
     const lineNew = input.line !== (row.line ?? '');
-    if (!changed && !lineNew) return { cancelled: false, reply: row.reply };
+    // Waiting on a code: one asked for afresh starts with none; one typed since is handed over once, and gone.
+    if (input.state === 'code' && changed)
+      await ctx.tx.delete(askCodes).where(eq(askCodes.askId, row.id));
+    const code = input.state === 'code' && !changed ? await takeCode(ctx, row.id, now) : null;
+    if (!changed && !lineNew) return { cancelled: false, reply: row.reply, code };
     const due =
       changed ||
       row.toldAt === null ||
@@ -680,9 +686,22 @@ export const askProgress = defineAddonCommand(outreachAddon, {
         entityId: row.id,
         payload: { userId: me, kind: row.kind, state: input.state, changed },
       });
-    return { cancelled: false, reply };
+    return { cancelled: false, reply, code };
   },
 });
+
+/** The code typed for an ask, taken once: deleted as it's read, and none once it's past its 10 minutes. */
+async function takeCode(ctx: Ctx, askId: string, now: Date): Promise<string | null> {
+  const [taken] = await ctx.tx
+    .delete(askCodes)
+    .where(eq(askCodes.askId, askId))
+    .returning({ code: askCodes.code, expiresAt: askCodes.expiresAt });
+  return taken && taken.expiresAt > now ? taken.code : null;
+}
+
+/** An ask that ended takes any code typed for it with it. */
+const dropCode = (ctx: Ctx, askId: string) =>
+  ctx.tx.delete(askCodes).where(eq(askCodes.askId, askId));
 
 export const askEnd = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.end',
@@ -711,6 +730,7 @@ export const askEnd = defineAddonCommand(outreachAddon, {
       return { state: row.state };
     }
     if (!isOpen(row)) return { state: row.state };
+    await dropCode(ctx, row.id);
     await ctx.tx
       .update(asks)
       .set({
@@ -763,6 +783,54 @@ export const askReply = defineAddonCommand(outreachAddon, {
   },
 });
 
+export const askCode = defineAddonCommand(outreachAddon, {
+  name: 'outreach.ask.code',
+  description:
+    'The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 10 minutes at most, and taken once.',
+  risk: 0,
+  input: AskCodeInput,
+  output: AskChangedOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  // Typing it again does no harm, and no receipt keeps anything of it.
+  receipt: false,
+  emits: ['outreach.ask.coded'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const row = await ownAsk(ctx, me, input.askId);
+    if (!row || row.state !== 'code')
+      throw HfosError.rule(
+        'outreach_code_not_asked',
+        409,
+        'Your computer isn’t waiting on a code any more, so there’s nowhere for it to go. Refresh the page.',
+      );
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + ASK_CODE_MINUTES * 60_000);
+    await ctx.tx
+      .insert(askCodes)
+      .values({
+        askId: row.id,
+        workspaceId: row.workspaceId,
+        userId: me,
+        code: input.code,
+        givenAt: now,
+        expiresAt,
+      })
+      .onConflictDoUpdate({
+        target: askCodes.askId,
+        set: { code: input.code, givenAt: now, expiresAt },
+      });
+    // Never the code: the event says only that one came.
+    await ctx.emit({
+      type: 'outreach.ask.coded',
+      entityType: 'outreach_ask',
+      entityId: row.id,
+      payload: { userId: me, kind: row.kind },
+    });
+    return { ask: await shownOne(ctx, row, now.getTime()) };
+  },
+});
+
 export const askCancel = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.cancel',
   description:
@@ -779,6 +847,7 @@ export const askCancel = defineAddonCommand(outreachAddon, {
     const row = await ownAsk(ctx, me, input.askId);
     if (!row) throw notAsked();
     if (!isOpen(row)) throw HfosError.notFound('That’s finished already. Refresh the page.');
+    await dropCode(ctx, row.id);
     const [kept] = await ctx.tx
       .update(asks)
       .set({
@@ -899,6 +968,7 @@ export const askCommands = [
   askProgress,
   askEnd,
   askReply,
+  askCode,
   askCancel,
   profileContact,
 ] as const;

@@ -7088,6 +7088,26 @@
         "required": ["workspaceId", "askId"]
       }
     },
+    "outreach.ask.code": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "askId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": ["workspaceId", "askId", "code"]
+      }
+    },
     "outreach.ask.make": {
       "offline": "online",
       "input": {

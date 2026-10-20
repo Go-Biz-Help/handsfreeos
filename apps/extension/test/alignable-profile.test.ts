@@ -217,6 +217,29 @@ describe('their own Alignable profile', () => {
     expect(readLooking(doc, doc.location.href, ALIGNABLE).boxes).toBe(2);
   });
 
+  it('never presses About Us’s Edit on their profile, which emails them a code to go on, nor takes the gallery’s form for it', async () => {
+    // The owner's Check (0.67.0): About Us's page leads back to the profile, where only the gallery's form was, and
+    // its Edit opens a box asking for a code Alignable emails them (0.69.0).
+    const doc = page(
+      `${AL}/austin-tx/acme-roofing?user=7`,
+      `<main><div><div>About Us</div><a href="/biz/profile/about_us?source=about_us_section"><div>Edit</div></a></div>
+        <form><div data-testid="gallery-uploader-picker-dropzone"><input type="file" /></div>
+          <label for="t">Title</label><input id="t" type="text" /><label for="d">Description</label>
+          <textarea id="d" placeholder="Add description"></textarea><a>Cancel</a><input type="submit" /></form></main>`,
+    );
+    let pressed = false;
+    doc.querySelector('a[href*="about_us_section"]')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      pressed = true;
+    });
+    expect(await ALIGNABLE.looks.about!.look(doc, doc.location.href)).toMatchObject({
+      step: 'about',
+      works: true,
+      found: { button: true, emailsCode: true },
+    });
+    expect(pressed).toBe(false);
+  });
+
   it('finds About Us’s Save drawn as the form’s own submit, as the owner’s Check found it (0.66.0)', () => {
     const doc = page(
       `${AL}/biz/profile/about_us`,

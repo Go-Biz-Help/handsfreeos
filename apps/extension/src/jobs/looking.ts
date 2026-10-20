@@ -21,10 +21,11 @@
  *   (0.66.0, partners stage 6) the pages Alignable's steps and Find partners are built from next: the person's town, a
  *   search for businesses, a forum question, their connection requests and a chat with a connection, nothing written.
  */
-import type { AskTaken, AskTask } from '@hfos/core/addons/outreach/asks';
+import { askCodeWords, type AskTaken, type AskTask } from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import {
   PROFILE_CHECK_WORDS as P,
+  profileCheckWordsOn,
   type ProfileRead,
 } from '@hfos/core/addons/outreach/profile-check';
 import { townOf } from '../networks/alignable/site';
@@ -289,7 +290,10 @@ async function nextPages(
   if (town) {
     if (stoppedEnd(job)) return stoppedEnd(job);
     // Alignable opens a town at its own group, /groups/<town-st>, where its owners post (the owner's Check, 0.66.0).
-    const page = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    const opened = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    if (isEnd(opened)) return opened;
+    // Its posts are drawn a moment after the page: the owner's Check (0.67.0) read it while they were still loading.
+    const page = await c.readTill(opened, (p) => countOf(p, 'threads') > 0, 4);
     if (isEnd(page)) return page;
     await c.note('your town', countOf(page, 'threads'));
   } else c.nothingOn.push('your town');
@@ -363,21 +367,32 @@ const INSTAGRAM_FORM = `${INSTAGRAM}/accounts/edit/`;
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
 
 /** Opens a page of the network's for the person's own profile: their account's, or its form. */
-async function openForProfile(job: Job, url: string): Promise<JobEnd | LookingRead> {
+async function openForProfile(
+  job: Job,
+  url: string,
+  platform: LookingPlatform = 'instagram',
+): Promise<JobEnd | LookingRead> {
   await job.tab.open(url);
-  const page = await readOn('instagram')(job.tab);
+  const page = await readOn(platform)(job.tab);
   const warned = await warnedOn(job, page);
   if (warned) return warned;
-  if (page.signedOut) return signedOutEnd('instagram');
+  if (page.signedOut) return signedOutEnd(platform);
   return page;
 }
 
 /** Reads the profile the tab shows, as the AI's check reads it. */
-async function ownRead(job: Job): Promise<ProfileRead | JobEnd> {
+async function ownRead(
+  job: Job,
+  platform: LookingPlatform = 'instagram',
+): Promise<ProfileRead | JobEnd> {
   const answer = await job.tab.ask({ type: 'hfos-own-profile' });
   if (!answer.ok) return { line: answer.error, warned: false, failed: true };
   if (!('read' in answer))
-    return { line: 'Instagram didn’t show your profile.', warned: false, failed: true };
+    return {
+      line: `${NETWORKS[platform].name} didn’t show your profile.`,
+      warned: false,
+      failed: true,
+    };
   return answer.read;
 }
 
@@ -450,6 +465,102 @@ async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   return checked.failed ? checked : { line: P.editDone(bio), warned: false };
 }
 
+// ------------------------------------------------------------------------------------------------ your Alignable profile
+
+/** Alignable's own address for the person's profile: it shows it at their business's (the owner's Check, 0.62.0). */
+const ALIGNABLE_MINE = 'https://www.alignable.com/biz/businesses/my_profile';
+/** Tries at a code: a mistyped or an old one asks for the newest. */
+const CODE_TRIES = 3;
+
+/** Read my profile, on Alignable: their own profile, read, noted, and sent for the AI's check. */
+async function alignableProfileRead(job: Job): Promise<JobEnd> {
+  job.progress('Opening your Alignable profile…');
+  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+  if (isEnd(mine)) return mine;
+  job.progress('Reading your profile…');
+  const read = await ownRead(job, 'alignable');
+  if (isEnd(read)) return read;
+  await job.report?.({ ...ownProfileNote(read), outline: true });
+  if (job.stopped()) return { line: 'Stopped.', warned: false };
+  if (!read.name && !read.about)
+    return {
+      line: 'Alignable didn’t show your profile. Check you’re signed in to Alignable in this browser, then ask again.',
+      warned: false,
+      failed: true,
+    };
+  job.progress('Checking it with the AI…');
+  valueOf(await job.hfos({ type: 'hfos-profile-check', workspaceId: job.businessId, input: read }));
+  return { line: P.readDone, warned: false };
+}
+
+/**
+ * Put this one in, on Alignable: About Us, past the code Alignable emails (decision 82). Its Edit asks for the code;
+ * HandsFreeOS asks the person for it (`job.code`), and it goes in where Alignable asks, then About Us is written and
+ * saved. A code that didn't work asks for the newest; none in 10 minutes ends it. Anything else the person does by
+ * hand, and presses Carry on. Then it's read again for a new check.
+ */
+async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
+  const about = task.about;
+  if (!about) return { line: 'Pick an About Us to put in first.', warned: false, failed: true };
+  job.progress('Opening your Alignable profile…');
+  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+  if (isEnd(mine)) return mine;
+  job.progress('Putting your About Us in…');
+  let result: string = 'none';
+  let again = false;
+  for (let tries = 0; tries <= CODE_TRIES; tries++) {
+    if (job.stopped()) return { line: 'Stopped.', warned: false };
+    const wrote = await job.tab.ask({ type: 'hfos-write-about', about });
+    result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
+    if (result !== 'code') break;
+    if (tries === CODE_TRIES || !job.code) break;
+    const code = await job.code(askCodeWords('alignable', again));
+    if (job.stopped()) return { line: 'Stopped.', warned: false };
+    if (!code)
+      return {
+        line: 'No code came from your email in 10 minutes, so About Us wasn’t changed. Ask again, and Alignable emails a new one.',
+        warned: false,
+        failed: true,
+      };
+    job.progress('Putting the code in…');
+    const put = await job.tab.ask({ type: 'hfos-put-code', code });
+    const taken = put.ok ? put.code : 'none';
+    if (taken === 'none') {
+      result = 'none';
+      break;
+    }
+    again = taken === 'wrong';
+    job.progress('Putting your About Us in…');
+  }
+  if (result !== 'done') {
+    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
+    await job.report?.({
+      note: `About Us didn’t go in (${
+        result === 'not_saved'
+          ? 'Save didn’t keep it'
+          : result === 'code'
+            ? 'Alignable kept asking for a code'
+            : 'no Edit, no box for About Us, or no Save'
+      }).`,
+      outline: true,
+    });
+    if (!job.handOver)
+      return {
+        line: 'Alignable didn’t let the extension change your About Us.',
+        warned: false,
+        failed: true,
+      };
+    const reply = await job.handOver(
+      'Put your About Us in: on your Alignable profile press Edit by About Us, paste what HandsFreeOS wrote, and press Save. Then press Carry on.',
+    );
+    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+  }
+  const checked = await alignableProfileRead(job);
+  return checked.failed
+    ? checked
+    : { line: profileCheckWordsOn('alignable').editAboutDone, warned: false };
+}
+
 /** What Instagram says when it isn't the person's own account in front of the extension. */
 const SIGNED_IN_INSTAGRAM = 'Check you’re signed in to Instagram in this browser, then ask again.';
 
@@ -471,6 +582,11 @@ export function lookingAsk(platform: LookingPlatform) {
       return inFront(job, instagramProfileRead);
     if (platform === 'instagram' && task.kind === 'profile_edit')
       return inFront(job, (j) => instagramProfileEdit(j, task));
+    // Alignable's, before its steps: read, and About Us put in past the code it emails (decision 82).
+    if (platform === 'alignable' && task.kind === 'profile_read')
+      return inFront(job, alignableProfileRead);
+    if (platform === 'alignable' && task.kind === 'profile_edit')
+      return inFront(job, (j) => alignableProfileEdit(j, task));
     const name = NETWORKS[platform].name;
     return {
       line: `The extension only reads ${name} for now, for Check ${name}: it can’t do that there yet.`,

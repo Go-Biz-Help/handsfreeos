@@ -583,6 +583,29 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 1, reading** (extension 0.67.0): Alignable's readers for all of these, counted in each of Check's notes,
      with Requests found in My Network's own menu, the pitch's box waited for, and About Us's Save found. The next
      Check shows whether the readers read the real pages, and what a Connect link's word is.
+   - **What 0.67.0's Check read** (Chris, 20 Oct 2026): the readers read the real pages: a search's 10 businesses each
+     with its owner, business, kind, place and Connect; 5 connections; 16 conversations and the open one's box and
+     Send; a business's page whole, its ideal partner too; a forum question's 5 answers. Connect is
+     `/biz/connection_requests/make_connection?business_id=…`: opening it makes the request, so it's pressed only as the
+     step itself. **The Elevator Pitch is a chat with Alignable's own AI**, not a box: it stays the person's to make
+     there. About Us's Edit opens its editor in the page; its address leads back to the profile, where the form found
+     was the gallery's. Requests was empty. The town's posts were still loading, and a forum question's own words are
+     a plain box between its author and its counts. 0.68.0 reads all of that, and the Requests table's rows.
+   - **What 0.68.0's Check read** (Chris, 20 Oct 2026): the town's posts and a forum question's words read; About Us's
+     Edit opens a box over the page with Cancel and **Continue**, a few steps of Alignable's own, as the Elevator
+     Pitch is a chat with its AI. Requests was empty again.
+   - **About Us asks for a code Alignable emails** (Chris, 20 Oct 2026): its box over the page is Alignable checking
+     it's them before a profile changes, and each press sent an email. So from 0.70.0 Check never presses it, and the
+     extension reads the code's box when it's open. **The code relay** (docs/outreach.md decision 82): the extension
+     asks HandsFreeOS for the code, the person is told on their phone to look in their email, types it in HandsFreeOS,
+     and the extension puts it in the box once and forgets it. Only they can read it, and it's gone once used or after
+     10 minutes. With it, **Get ready on Alignable** (extension 0.71.0) reads their profile for the AI's check (its
+     items: photo, About Us, Elevator Pitch, ideal customer and partner, services), the AI writes About Us whole, and
+     **Put this one in** puts it in past the code. The Elevator Pitch is made with Alignable's own assistant, so it
+     stays theirs to tick.
+   - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
+     question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
+     other networks (`src/networks/alignable/actions.ts`).
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
 

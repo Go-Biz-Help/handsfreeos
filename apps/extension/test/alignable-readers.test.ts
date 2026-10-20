@@ -50,6 +50,18 @@ describe('Alignable’s addresses, as its pages lead', () => {
     expect(outline).toContain('/biz/connection_requests/quick_connect?business_id={');
     expect(outline).not.toContain('4242');
   });
+
+  it('keeps its own words with a _ after /biz, and a like’s and a report’s, never a business’s name', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx`,
+      `<a href="/biz/thumbs_up?resource=9">Like</a><a href="/biz/flags/new?resource=9">Report</a>
+        <a href="/biz/acme/contacts">Contacts</a><a href="/biz/acme-roofing">Acme</a>`,
+    );
+    const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
+    expect(outline).toContain('/biz/thumbs_up?resource={');
+    expect(outline).toContain('/biz/flags/new?resource={');
+    expect(outline).not.toMatch(/acme/i);
+  });
 });
 
 describe('a search for businesses', () => {
@@ -331,6 +343,67 @@ describe('a business’s page', () => {
   });
 });
 
+describe('a forum question’s own post, written straight in a box of its own', () => {
+  it('reads its words between its author and its counts (the owner’s Check, 0.67.0)', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx/need-a-plumber-12`,
+      `<section><a href="/groups/austin-tx"><span>Back to Austin Business Owners</span></a>
+        <div><div><div><div href="/austin-tx/best-bakery?user=6"><a aria-label="Sam’s profile" href="/austin-tx/best-bakery?user=6"></a></div>
+            <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a></div>
+              <div><span>2d</span></div></div></div>
+          <div>Who does great plumbing in Austin?<br>Old house, slow drains.</div>
+          <div><div><span>You and 2 others</span><a href="/biz/likes?resource=7"><span>3</span><span>Like</span></a></div><hr>
+            <div><a href="/biz/discussions/12">Comment</a>
+              <a href="/biz/connection_requests/make_connection?business_id=43&discussion_id=12&type=mgc"><div>Connect</div></a></div></div></div></div>
+      </section>`,
+    );
+    expect(readAlignable(doc, doc.location.href).threads).toMatchObject([
+      {
+        when: '2d',
+        text: 'Who does great plumbing in Austin? Old house, slow drains.',
+        likes: 3,
+        connect: true,
+      },
+    ]);
+  });
+});
+
+describe('My Network’s Requests', () => {
+  it('reads nobody from its table when it says there are none', () => {
+    const doc = page(
+      `${AL}/biz/my_network/connection_requests`,
+      `<div data-testid="requests-360-table"><div><span>Requests</span></div><table><thead><tr>
+        <th><div data-testid="name-header">Business name</div></th><th><div data-testid="reason-header"><div>Why they want to connect</div></div></th><th></th></tr></thead>
+        <tbody><tr><td><div data-testid="connection-requests-360-empty"><span>You have no new requests.</span>
+          <span>Complete your profile to get more.</span><a href="/biz/acme">Go to your profile</a></div></td></tr></tbody></table></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).requests).toEqual([]);
+  });
+
+  it('reads each request’s business, why they’d connect, and its Accept', () => {
+    const doc = page(
+      `${AL}/biz/my_network/connection_requests`,
+      `<div data-testid="requests-360-table"><table><tbody><tr>
+        <td><a href="/austin-tx/best-bakery?user=6&business_id=43"><span>Sam Lee</span></a><div>Best Bakery</div></td>
+        <td><p>We both serve homeowners in Austin.</p></td>
+        <td><button>Accept</button><button>Ignore</button></td></tr></tbody></table></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).requests).toEqual([
+      {
+        name: 'Sam Lee',
+        profile: {
+          id: '43',
+          username: 'austin-tx-best-bakery',
+          url: `${AL}/austin-tx/best-bakery`,
+        },
+        business: 'Best Bakery',
+        reason: 'We both serve homeowners in Austin.',
+        accept: true,
+      },
+    ]);
+  });
+});
+
 describe('Messages', () => {
   it('reads the conversations down the side, and the one open: who, its box and Send', () => {
     const doc = page(
@@ -357,5 +430,30 @@ describe('Messages', () => {
       box: true,
       send: true,
     });
+  });
+});
+
+describe('the box Alignable asks for an emailed code in', () => {
+  const dialog = (words: string, boxes: string) =>
+    page(
+      `${AL}/austin-tx/acme-roofing?user=7`,
+      `<main><h1 title="Dana Reyes">Dana Reyes</h1></main>
+        <div role="dialog"><button aria-label="Close"></button><p>${words}</p>${boxes}
+          <button>Cancel</button><button>Continue</button></div>`,
+    );
+
+  it('finds it over their profile, as About Us’s Edit opened it (0.69.0)', () => {
+    const doc = dialog(
+      'We sent a verification code to your email. Enter it to keep editing.',
+      '<input type="text" />',
+    );
+    expect(readAlignable(doc, doc.location.href).codeBox).toBe(true);
+  });
+
+  it('never takes another box over the page for it', () => {
+    const editor = dialog('Tell people about your business.', '<input type="text" />');
+    expect(readAlignable(editor, editor.location.href).codeBox).toBe(false);
+    const two = dialog('Enter the code we emailed you.', '<input /><input />');
+    expect(readAlignable(two, two.location.href).codeBox).toBe(false);
   });
 });

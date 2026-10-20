@@ -105,7 +105,10 @@ const ALIGNABLE_PAGES: Record<string, string> = {
     <div data-testid="ideal-customer-information"><h1>My Ideal Customers</h1>
       <div data-testid="ideal-customer-add-description"><span>Say who you serve.</span><button>Add</button></div></div>
     <div><div><div>About Us</div><div><button data-testid="elevator-pitch-cta-button"><p>Add Your Elevator Pitch</p></button>
-      <a href="/biz/profile/about_us?source=profile">Edit</a></div></div><p>We fix roofs in Columbus.</p></div></main>`),
+      <a href="/biz/profile/about_us?source=about_us_section">Edit</a></div></div><p>We fix roofs in Columbus.</p></div>
+    <form><div data-testid="gallery-uploader-picker-dropzone"><input type="file" /></div>
+      <label for="t">Title</label><input id="t" type="text" /><label for="d">Description</label>
+      <textarea id="d" placeholder="Add description"></textarea><a>Cancel</a><input type="submit" /></form></main>`),
   // About Us's page, drawn a moment after it opens.
   [`${AL}/biz/profile/about_us`]: html(`<main></main>`),
   [`${AL}/biz/users/77/edit`]: html(
@@ -181,6 +184,11 @@ function alignableDoes(doc: Document) {
     dialog.innerHTML = `<textarea aria-label="Elevator Pitch"></textarea><button>Save</button><button>Cancel</button>`;
     dialog.querySelectorAll('button')[1]!.addEventListener('click', () => dialog.remove());
     doc.body.append(dialog);
+  });
+  // About Us's Edit asks for a code Alignable emails them (0.69.0), so Check never presses it.
+  doc.querySelector('a[href*="source=about_us_section"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    throw new Error('About Us’s Edit was pressed, which emails them a code');
   });
   const part = doc.querySelector('[data-testid="ideal-customer-add-description"]');
   part?.querySelector('button')?.addEventListener('click', () => {
@@ -398,6 +406,7 @@ describe('Check Alignable', () => {
       // Their own profile's editors, opened and closed with nothing written, and About Us's page once it's drawn.
       ['checkup.pitch', true],
       ['checkup.ideal', true],
+      // About Us's page's address: its Edit on their profile emails them a code, so it's never pressed.
       ['checkup.about', true],
       ['checkup.connect', true],
       ['checkup.message', true],

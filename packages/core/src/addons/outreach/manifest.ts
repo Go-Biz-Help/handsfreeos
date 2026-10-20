@@ -117,6 +117,7 @@ export const outreachAddon = defineAddon({
       'outreach.ask.started',
       'outreach.ask.progressed',
       'outreach.ask.replied',
+      'outreach.ask.coded',
       'outreach.ask.cancelled',
       'outreach.ask.ended',
       'outreach.setup.saved',
@@ -200,6 +201,7 @@ export const outreachAddon = defineAddon({
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
+    'ask_codes',
     'asks',
     'automation',
     'checks',

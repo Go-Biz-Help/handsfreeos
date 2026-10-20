@@ -1448,6 +1448,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     finds businesses with the same customers. Two searches a day on a network, the same words for the same kind once
     a week, none while three days of reads wait. Who they find is kept to read for the partner check
     (`partner_leads`, `outreach.partner.leads`), nobody added to Contacts, and let go once the AI has answered.
+82. **A code from your email, typed in HandsFreeOS** (Chris, 20 Oct 2026: "Alignable sends email verification codes
+    to verify profile updates. So we need a feature to send a notification to the user to go check that code in their
+    email and input it in HFOS so the extension can enter it in"). Where a network asks for a code it emailed (Alignable
+    does before About Us changes), the extension asks HandsFreeOS for it: the ask goes to **code** (Needs you), Chrome
+    pops up, and the person's phone says **Look in your email**. They type the code under the ask's line on the web or
+    the phone (`outreach.ask.code`), the live channel tells their computer at once, and it puts the code in. The code is
+    theirs alone, on the database too (`ask_codes`, nobody else reads it, owners included), handed to their computer
+    once and deleted as it's taken, never in a push, an event, the audit or a receipt, and never handed over after 10
+    minutes (`ASK_CODE_MINUTES`); the daily prune clears what's left. A code that didn't work asks for the newest one,
+    which pushes again. With none in 10 minutes the job ends saying so, and asking again has the network send a new
+    one. Check never presses an Edit that emails a code (0.70.0). Its first use is Alignable's About Us, from Get
+    ready (extension 0.71.0): read, written by the AI whole, and put in past the code.
 
 ## Rules worth knowing before changing anything
 
@@ -1723,7 +1735,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   what was asked; stopped, warned or unable to, it's failed with the job's words. Rows of `asks` are private to their
   person on the database too, as `needs` are: a person reads and writes only their own, owners and admins included,
   who count the team's through `private.outreach_asks_waiting` (`test/addons/outreach-own-rows.test.ts`). A step it can't find is handed to the person (**Carry on**, **Skip**), with one push per ask for
-  each way it needs them (a step, or a password to type), on their add-ons switch, opening Live; half an hour with no answer stops it. Asks run outside working hours and after
+  each way it needs them (a step, or a password to type), on their add-ons switch, opening Live; half an hour with no answer stops it. A code the
+  network emailed them (decision 82) pushes each time one is asked for, and waits 10 minutes. Asks run outside working hours and after
   Stop for today, since the person is asking now. They're kept a week, pruned with the feed.
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end

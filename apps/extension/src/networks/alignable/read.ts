@@ -20,7 +20,7 @@
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { Named, ProfileRef } from '../facebook/types';
-import { aboutUsOf, idealOf } from './own-profile';
+import { aboutUsOf, codeBoxIn, idealOf } from './own-profile';
 
 const HOST = 'https://www.alignable.com';
 /** How many of each a read keeps: enough to go on with, never a whole page's worth. */
@@ -36,7 +36,7 @@ const TOWN_PAGES = new Set(['forum', 'questions', 'events', 'groups']);
 /** How long ago, as Alignable prints it: "4h", "5 days ago", "about 4 hours ago", "Yesterday". */
 const WHEN =
   /^((about |over |almost )?\d+\s*(s|m|h|d|w|mo|y|sec|secs|min|mins|minutes?|hr|hrs|hours?|days?|weeks?|months?|years?)( ago)?|just now|yesterday|today)$/i;
-const PART = (id: string) => `[data-testid="${id}"]`;
+export const PART = (id: string) => `[data-testid="${id}"]`;
 
 /** Ideal customer or partner, as a business says it: its words, who and where, and its tags. */
 export type Ideal = NonNullable<ReturnType<typeof idealOf>>;
@@ -51,6 +51,19 @@ export interface Business extends Named {
   readonly connect: boolean;
   /** Its row has Message: a connection. */
   readonly message: boolean;
+}
+
+/**
+ * A connection request someone sent you, on My Network's Requests (`requests-360-table`): who, why they say they'd
+ * connect, and its Accept. The owner's Check (0.67.0) found the table empty, so its rows are read by their links and
+ * buttons till one shows.
+ */
+export interface Request extends Named {
+  readonly profile: ProfileRef;
+  readonly business: string | null;
+  /** What its second column says: why they'd like to connect. */
+  readonly reason: string | null;
+  readonly accept: boolean;
 }
 
 /** A post on a group's page or a discussion's: its author, its words, its likes, and its Connect. */
@@ -111,6 +124,7 @@ export interface ChatOpen {
 /** Everything Alignable's readers found on a page. Plain data: it crosses from the tab as JSON. */
 export type AlignableFound = {
   readonly businesses: readonly Business[];
+  readonly requests: readonly Request[];
   readonly threads: readonly Thread[];
   readonly answers: readonly Answer[];
   readonly chats: readonly ChatRow[];
@@ -118,9 +132,14 @@ export type AlignableFound = {
   readonly chat: ChatOpen | null;
   /** A forum question's box to answer in, and its Send. */
   readonly answerBox: boolean;
+  /**
+   * A box over the page asking for a code Alignable emailed them, with its Continue: what its profile's editors ask
+   * for before a change (the owner's Check, 0.68.0).
+   */
+  readonly codeBox: boolean;
 };
 
-function urlOf(href: string | null | undefined, base: string): URL | null {
+export function urlOf(href: string | null | undefined, base: string): URL | null {
   if (!href) return null;
   try {
     const url = new URL(href, base);
@@ -133,7 +152,7 @@ function urlOf(href: string | null | undefined, base: string): URL | null {
 const parts = (url: URL) => url.pathname.split('/').filter(Boolean);
 
 /** Alignable's id for a business, from whichever part of a link carries it. */
-function idIn(url: URL): string | null {
+export function idIn(url: URL): string | null {
   for (const name of ['business_id', 'with_business_id', 'result_id']) {
     const id = url.searchParams.get(name);
     if (id && ID.test(id)) return id;
@@ -156,7 +175,7 @@ function idIn(url: URL): string | null {
 }
 
 /** A business by its address in its town (/<town-st>/<business>), or by Alignable's id (/biz/businesses/<id>). */
-function businessRef(url: URL, id: string | null): ProfileRef | null {
+export function businessRef(url: URL, id: string | null): ProfileRef | null {
   const [first = '', second = '', third] = parts(url);
   if (TOWN.test(first) && SLUG.test(second) && !TOWN_PAGES.has(second.toLowerCase()) && !third)
     return {
@@ -171,7 +190,7 @@ function businessRef(url: URL, id: string | null): ProfileRef | null {
 }
 
 /** The links in a part of the page, made whole on Alignable. */
-const linksIn = (root: ParentNode, base: string) =>
+export const linksIn = (root: ParentNode, base: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].flatMap((a) => {
     const url = urlOf(a.getAttribute('href'), base);
     return url ? [{ a, url }] : [];
@@ -181,7 +200,7 @@ const linksIn = (root: ParentNode, base: string) =>
  * The id a business's own page ties it to: its Refer's, its Recommend's, then its Connect's or Message's. Never the
  * first link with an id: its page links to other businesses too.
  */
-function idOfPage(root: ParentNode, base: string): string | null {
+export function idOfPage(root: ParentNode, base: string): string | null {
   const links = linksIn(root, base);
   for (const path of [
     /^\/forward_referral_card\//i,
@@ -199,8 +218,8 @@ function idOfPage(root: ParentNode, base: string): string | null {
 const hasLink = (root: ParentNode, base: string, path: RegExp) =>
   linksIn(root, base).some(({ url }) => path.test(url.pathname));
 
-const CONNECT_AT = /^\/biz\/connection_requests\//i;
-const MESSAGE_AT = /^\/biz\/conversations\/?$/i;
+export const CONNECT_AT = /^\/biz\/connection_requests\//i;
+export const MESSAGE_AT = /^\/biz\/conversations\/?$/i;
 
 /** The nearest part of the page holding all of these. */
 function around(elements: readonly Element[]): Element | null {
@@ -214,6 +233,8 @@ function around(elements: readonly Element[]): Element | null {
 function textOf(element: Element | null | undefined): string {
   if (!element) return '';
   const copy = element.cloneNode(true) as Element;
+  // A See More is the page's, never what they wrote.
+  for (const button of copy.querySelectorAll('button')) button.remove();
   for (const br of copy.querySelectorAll('br')) br.replaceWith(' ');
   for (const block of copy.querySelectorAll('p, div')) block.append(' ');
   return clean(copy.textContent);
@@ -276,6 +297,46 @@ function searchResults(doc: Document, base: string): Business[] {
   return found;
 }
 
+/** My Network's Requests: each row's business, its names, why they'd connect, and its Accept. */
+function requestRows(doc: Document, base: string): Request[] {
+  const table = doc.querySelector(PART('requests-360-table'));
+  if (!table) return [];
+  return [...table.querySelectorAll('tbody tr')].slice(0, MOST).flatMap((row) => {
+    if (row.querySelector(PART('connection-requests-360-empty'))) return [];
+    const link = linksIn(row, base).find(({ url }) => businessRef(url, idIn(url)) !== null);
+    if (!link) return [];
+    const profile = businessRef(link.url, idIn(link.url) ?? idAround(row, base));
+    if (!profile) return [];
+    const cells = [...row.querySelectorAll('td')];
+    const lines = [...(cells[0]?.querySelectorAll('a, span, div') ?? [])]
+      .filter((el) => el.children.length === 0)
+      .map((el) => clean(el.textContent))
+      .filter(Boolean);
+    const name = lines[0] ?? clean(link.a.textContent);
+    if (!name) return [];
+    return [
+      {
+        name,
+        profile,
+        business: lines.find((line) => line !== name) ?? null,
+        reason: textOf(cells[1]) || null,
+        accept: [...row.querySelectorAll('button, a')].some((el) =>
+          /^(accept|confirm|connect)$/i.test(clean(el.textContent)),
+        ),
+      },
+    ];
+  });
+}
+
+/** The id a part of the page ties its business to: the first of its links that carries one. */
+function idAround(root: ParentNode, base: string): string | null {
+  for (const { url } of linksIn(root, base)) {
+    const id = idIn(url);
+    if (id) return id;
+  }
+  return null;
+}
+
 /** My Network's rows: each business by its id, its owner's and business's names, and its Message. */
 function connectionRows(doc: Document, base: string): Business[] {
   return [...doc.querySelectorAll(PART('connection-row'))].slice(0, MOST).flatMap((row) => {
@@ -307,7 +368,7 @@ function connectionRows(doc: Document, base: string): Business[] {
 // ------------------------------------------------------------------------------------------------ posts
 
 /** Who wrote a post or an answer: the first link to a business in it that has words, and its business's name. */
-function authorIn(
+export function authorIn(
   root: Element,
   base: string,
 ): (Named & { readonly business: string | null }) | null {
@@ -365,10 +426,9 @@ function postsOn(doc: Document, base: string): Thread[] {
     if (!root) continue;
     seen.add(key);
     const author = authorIn(root, base);
-    // Its words: a box of them with a title (a group's page), else its first paragraph that isn't an answer's.
-    const words =
-      root.querySelector('div[title]') ??
-      [...root.querySelectorAll('p')].find((p) => !p.closest(PART('discussion-comment')));
+    // Its words: a box of them with a title (a group's page), else the part between its author and its counts, which a
+    // discussion's own page draws as a plain box of words (the owner's Check, 0.67.0).
+    const words = root.querySelector('div[title]') ?? bodyOf(root, base);
     found.push({
       author: author ? { name: author.name, profile: author.profile } : null,
       url: key,
@@ -380,6 +440,17 @@ function postsOn(doc: Document, base: string): Thread[] {
     if (found.length >= MOST) break;
   }
   return found;
+}
+
+/** A post's own part with its words: the first of its parts that names no business and holds no link of its own. */
+function bodyOf(root: Element, base: string): Element | null {
+  for (const part of root.children) {
+    if (part.closest(PART('discussion-comment')) || part.querySelector(PART('discussion-comment')))
+      continue;
+    if (linksIn(part, base).length) continue;
+    if (textOf(part)) return part;
+  }
+  return null;
 }
 
 /** A forum question's answers, and the replies under them, each with its own author, words and Connect. */
@@ -416,7 +487,7 @@ function pitchOn(root: ParentNode): string | null {
   return (whole.length > short.length ? whole : short) || null;
 }
 
-function businessPage(doc: Document, base: string): BusinessPage | null {
+export function businessPage(doc: Document, base: string): BusinessPage | null {
   const url = urlOf(base, base);
   if (!url) return null;
   const [first = ''] = parts(url);
@@ -472,7 +543,7 @@ function chatRows(doc: Document): ChatRow[] {
   });
 }
 
-function chatOpen(doc: Document, base: string): ChatOpen | null {
+export function chatOpen(doc: Document, base: string): ChatOpen | null {
   const header = doc.querySelector(PART('channel-header-loaded'));
   const write = doc.querySelector(PART('full-view-write-message'));
   if (!header && !write) return null;
@@ -503,11 +574,13 @@ function answerBoxOn(doc: Document): boolean {
 export function readAlignable(doc: Document, href: string): AlignableFound {
   return {
     businesses: [...searchResults(doc, href), ...connectionRows(doc, href)].slice(0, MOST),
+    requests: requestRows(doc, href),
     threads: postsOn(doc, href),
     answers: answersOn(doc, href),
     chats: chatRows(doc),
     business: businessPage(doc, href),
     chat: chatOpen(doc, href),
     answerBox: answerBoxOn(doc),
+    codeBox: codeBoxIn(doc) !== null,
   };
 }

@@ -432,6 +432,8 @@ export const ASK_EVENTS: ReadonlySet<string> = new Set([
   'outreach.ask.made',
   'outreach.ask.cancelled',
   'outreach.ask.replied',
+  // A code from their email typed in HandsFreeOS: the ask under way takes it at once.
+  'outreach.ask.coded',
 ]);
 
 /**

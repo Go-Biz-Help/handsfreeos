@@ -607,6 +607,10 @@ export function ProfileList({
               />
             </View>
           ) : null}
+          {/* With no bios (Alignable's), how the last one put in went shows here: its code's box among it. */}
+          {!check.bios.length && edit && asks && actions ? (
+            <AskLine asks={asks} ask={edit} actions={actions} />
+          ) : null}
         </View>
       ) : null}
       {check?.nameDraft ? (

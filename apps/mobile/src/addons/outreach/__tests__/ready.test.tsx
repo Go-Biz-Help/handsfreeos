@@ -400,6 +400,92 @@ describe('Get ready on the phone', () => {
     );
   });
 
+  it('checks Alignable’s profile by its own list, and puts About Us in, with its code’s box under it', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const about = 'We help Columbus homeowners keep the rain out. Book a call on our page.';
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'alignable',
+      profileCheck: {
+        items: {
+          picture: ok,
+          about: fix('Doesn’t say how to book.', 'End with how to book a call.'),
+          bio: fix('Not read.', 'Make it with Alignable’s Elevator Pitch button.'),
+          work: ok,
+          featured: ok,
+        },
+        bios: [],
+        aboutDraft: about,
+        coverLine: null,
+        feature: [],
+        at: '2026-10-20T06:00:00.000Z',
+        version: 1,
+      },
+    };
+    const code = jest.fn(async () => true);
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn(), code };
+    const computer = {
+      computerId: '00000000-0000-4000-8000-000000000001',
+      name: 'Office laptop',
+      online: true,
+      signedOut: false,
+      lastSeenAt: new Date().toISOString(),
+      version: '0.71.0',
+    };
+    const asking = {
+      askId: '00000000-0000-4000-8000-000000000002',
+      platform: 'alignable' as const,
+      kind: 'profile_edit' as const,
+      target: 'alignable:',
+      about: null,
+      via: 'mobile' as const,
+      state: 'code' as const,
+      line: 'Alignable emailed you a code to check it’s you. Look in your email, and type the code here. Your computer puts it in.',
+      result: null,
+      reply: null,
+      askedAt: '2026-10-20T06:05:00.000Z',
+      startedAt: '2026-10-20T06:05:10.000Z',
+      endedAt: null,
+      computerName: 'Office laptop',
+    };
+    const asksWith = (open: (typeof asking)[]): AsksOutput => ({
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer,
+      warnedToday: false,
+      asks: open,
+    });
+    const card = (asks: AsksOutput) => (
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />
+    );
+    const { rerender } = await render(card(asksWith([])));
+    await fireEvent.press(screen.getByTestId('ready-open-profile'));
+    const list = screen.getByTestId('ready-profile-list');
+    // Alignable's five: three right by the AI, the About Us and the pitch to tick.
+    expect(within(list).getAllByRole('checkbox')).toHaveLength(2);
+    expect(
+      within(list).getByText('An About Us that says who you help, where, and how to book'),
+    ).toBeTruthy();
+    // No bios: its pitch is Alignable's own. About Us goes in on its own.
+    expect(screen.queryByTestId('ready-bios')).toBeNull();
+    expect(screen.queryByTestId('ready-all')).toBeNull();
+    await fireEvent.press(screen.getByTestId('ready-about-use'));
+    expect(actions.ask).toHaveBeenCalledWith({ kind: 'profile_edit', about }, 'alignable');
+    // Putting it in waits on the code Alignable emailed: its box is right there.
+    await rerender(card(asksWith([asking])));
+    const box = within(screen.getByTestId('ready-about')).getByTestId('ask-code');
+    await fireEvent.changeText(box, '482913');
+    await fireEvent.press(within(screen.getByTestId('ready-about')).getByTestId('ask-code-send'));
+    expect(code).toHaveBeenCalledWith(asking, '482913');
+  });
+
   it('says how the last headline put in went once, under them all, and none from before the latest read', async () => {
     const check = {
       items: Object.fromEntries(
