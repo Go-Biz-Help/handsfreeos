@@ -185,15 +185,10 @@ function alignableDoes(doc: Document) {
     dialog.querySelectorAll('button')[1]!.addEventListener('click', () => dialog.remove());
     doc.body.append(dialog);
   });
-  // About Us's Edit opens its editor in the page (0.67.0), never as a page of its own.
+  // About Us's Edit asks for a code Alignable emails them (0.69.0), so Check never presses it.
   doc.querySelector('a[href*="source=about_us_section"]')?.addEventListener('click', (e) => {
     e.preventDefault();
-    const dialog = doc.createElement('div');
-    dialog.setAttribute('role', 'dialog');
-    dialog.innerHTML = `<label for="about">About Us</label><textarea id="about">We fix roofs.</textarea>
-      <input type="submit" value="Save" /><button>Cancel</button>`;
-    dialog.querySelector('button')!.addEventListener('click', () => dialog.remove());
-    doc.body.append(dialog);
+    throw new Error('About Us’s Edit was pressed, which emails them a code');
   });
   const part = doc.querySelector('[data-testid="ideal-customer-add-description"]');
   part?.querySelector('button')?.addEventListener('click', () => {
@@ -411,8 +406,7 @@ describe('Check Alignable', () => {
       // Their own profile's editors, opened and closed with nothing written, and About Us's page once it's drawn.
       ['checkup.pitch', true],
       ['checkup.ideal', true],
-      // About Us's Edit pressed on their profile, where it opens its editor; then its page's address.
-      ['checkup.about', true],
+      // About Us's page's address: its Edit on their profile emails them a code, so it's never pressed.
       ['checkup.about', true],
       ['checkup.connect', true],
       ['checkup.message', true],

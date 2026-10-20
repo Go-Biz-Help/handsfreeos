@@ -256,10 +256,12 @@ export function aboutLook(doc: Document, site: LookingSite): StepTry | Promise<S
   const main = mainOf(doc);
   const boxes = boxesIn(doc).filter((box) => main.contains(box) && !inGallery(box));
   // On their own profile About Us's box isn't there till its Edit opens it in the page: opening its address leads
-  // back to the profile, with only the gallery's form there (the owner's Check, 0.67.0). Its Edit is pressed, and its
-  // editor closed again with nothing written or saved.
+  // back to the profile, with only the gallery's form there (the owner's Check, 0.67.0). Its Edit first asks for a
+  // code Alignable emails them (the owner's Check, 0.68.0, and Chris: "Alignable sends email verification codes to
+  // verify profile updates"), so Check never presses it again: every press is an email. Its editor is opened when
+  // what the AI wrote goes in, with the code they give HandsFreeOS.
   const edit = main.querySelector<HTMLElement>(ABOUT_EDIT);
-  if (!boxes.length && edit) return openAndClose(doc, site, 'about', edit, 'About Us’s Edit', true);
+  if (!boxes.length && edit) return went('about', { button: true, emailsCode: true }, [], []);
   const about =
     boxes.find((box) => /\b(about|description|describe|tell)\b/i.test(boxName(box))) ??
     boxes.find((box) => box.tagName === 'TEXTAREA') ??

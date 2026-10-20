@@ -593,8 +593,13 @@ request when opened, so no Check opens it: the first real request shows what it 
      a plain box between its author and its counts. 0.68.0 reads all of that, and the Requests table's rows.
    - **What 0.68.0's Check read** (Chris, 20 Oct 2026): the town's posts and a forum question's words read; About Us's
      Edit opens a box over the page with Cancel and **Continue**, a few steps of Alignable's own, as the Elevator
-     Pitch is a chat with its AI. So both stay the person's: Get ready writes them and they're put in by hand, with
-     Copy. Requests was empty again.
+     Pitch is a chat with its AI. Requests was empty again.
+   - **About Us asks for a code Alignable emails** (Chris, 20 Oct 2026): its box over the page is Alignable checking
+     it's them before a profile changes, and each press sent an email. So from 0.70.0 Check never presses it, and the
+     extension reads the code's box when it's open. **The code relay** comes next: the extension asks HandsFreeOS for
+     the code, the person is told on their phone to look in their email, types it in HandsFreeOS, and the extension
+     puts it in the box once and forgets it. Only they can read it, and it's gone once used or after 10 minutes. With
+     it, Get ready writes About Us and the extension puts it in; the Elevator Pitch stays by hand, with Copy.
    - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
      question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
      other networks (`src/networks/alignable/actions.ts`).

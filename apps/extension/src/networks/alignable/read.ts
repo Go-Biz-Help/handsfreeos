@@ -132,6 +132,11 @@ export type AlignableFound = {
   readonly chat: ChatOpen | null;
   /** A forum question's box to answer in, and its Send. */
   readonly answerBox: boolean;
+  /**
+   * A box over the page asking for a code Alignable emailed them, with its Continue: what its profile's editors ask
+   * for before a change (the owner's Check, 0.68.0).
+   */
+  readonly codeBox: boolean;
 };
 
 export function urlOf(href: string | null | undefined, base: string): URL | null {
@@ -565,6 +570,25 @@ function answerBoxOn(doc: Document): boolean {
   return !!box && send;
 }
 
+/** What a box over the page asking for an emailed code says, and what goes on from it. */
+const ABOUT_A_CODE = /\b(code|verif(y|ication)|one[- ]time)\b/i;
+const GOES_ON = /^(continue|verify|submit|confirm|next)$/i;
+
+/** A box over the page asking for a code Alignable emailed them: one box to write in, its words, and its Continue. */
+export function codeBoxIn(doc: Document): HTMLInputElement | null {
+  for (const dialog of doc.querySelectorAll('[role="dialog"], dialog[open]')) {
+    if (!visible(dialog) || !ABOUT_A_CODE.test(clean(dialog.textContent))) continue;
+    const boxes = [...dialog.querySelectorAll<HTMLInputElement>('input')].filter(
+      (box) => visible(box) && !/^(hidden|checkbox|radio|submit|button|file)$/i.test(box.type),
+    );
+    const goesOn = [...dialog.querySelectorAll('button, input[type="submit"]')].some((b) =>
+      GOES_ON.test(clean(b.textContent) || clean(b.getAttribute('value'))),
+    );
+    if (boxes.length === 1 && goesOn) return boxes[0]!;
+  }
+  return null;
+}
+
 /** Everything Alignable's readers find on a page. */
 export function readAlignable(doc: Document, href: string): AlignableFound {
   return {
@@ -576,5 +600,6 @@ export function readAlignable(doc: Document, href: string): AlignableFound {
     business: businessPage(doc, href),
     chat: chatOpen(doc, href),
     answerBox: answerBoxOn(doc),
+    codeBox: codeBoxIn(doc) !== null,
   };
 }
