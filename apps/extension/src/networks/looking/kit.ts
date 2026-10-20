@@ -6,7 +6,14 @@
  * read and outlined, and a look for a step's button, never pressed.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
-import type { OwnProfileAnswer, OwnProfileAsk, TryAnswer, TryAsk } from '../../messages';
+import type {
+  CodeAnswer,
+  CodeAsk,
+  OwnProfileAnswer,
+  OwnProfileAsk,
+  TryAnswer,
+  TryAsk,
+} from '../../messages';
 import { isWholeAddress, type Kit } from '../kit';
 import { outlineLooking, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
@@ -22,17 +29,29 @@ async function look(site: LookingSite, ask: TryAsk): Promise<TryAnswer> {
   return { ok: true, tried: await step.look(document, location.href) };
 }
 
-/** The person's own profile (decision 80): read it for the AI's check, or put the bio in, where the site has one. */
+/**
+ * The person's own profile (decision 80): read it for the AI's check, or put the bio or the About in, where the site
+ * has one, and a code it emailed where it asks for one (decision 82).
+ */
 async function ownProfile(site: LookingSite, ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
   const own = site.ownProfile;
   if (!own)
     return { ok: false, error: `The extension doesn’t read your ${site.name} profile yet.` };
   if (ask.type === 'hfos-own-profile') return { ok: true, read: own.read(document, location.href) };
   if (ask.type === 'hfos-write-about')
-    return { ok: false, error: `${site.name} has no About to put in.` };
+    return own.writeAbout
+      ? { ok: true, result: await own.writeAbout(document, ask.about) }
+      : { ok: false, error: `${site.name} has no About to put in.` };
   if (!own.writeBio)
     return { ok: false, error: `The extension doesn’t put your ${site.name} bio in yet.` };
   return { ok: true, result: await own.writeBio(document, ask.bio) };
+}
+
+/** A code the network emailed them, put in where it asks for it (decision 82). */
+async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
+  const put = site.ownProfile?.putCode;
+  if (!put) return { ok: false, error: `${site.name} asks for no code here.` };
+  return { ok: true, code: await put(document, ask.code) };
 }
 
 const OWN_PROFILE_ASKS = new Set(['hfos-own-profile', 'hfos-write-bio', 'hfos-write-about']);
@@ -63,6 +82,8 @@ export function lookingKit(site: LookingSite): Kit {
         ? look(site, ask as TryAsk)
         : OWN_PROFILE_ASKS.has(ask.type)
           ? ownProfile(site, ask as OwnProfileAsk)
-          : null,
+          : ask.type === 'hfos-put-code'
+            ? putCode(site, ask as CodeAsk)
+            : null,
   };
 }

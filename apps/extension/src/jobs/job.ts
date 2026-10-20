@@ -27,6 +27,8 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  CodeAnswer,
+  CodeAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
   TryAnswer,
@@ -57,6 +59,7 @@ export interface JobTab {
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
 }

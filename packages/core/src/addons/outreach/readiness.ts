@@ -663,35 +663,36 @@ export const READY_WORDS = {
         aboutHint: null,
         aboutCopied: null,
       },
-      // Ticked by the person until Check Alignable has found each part to read (decision 80).
+      // Read from extension 0.71.0, and About Us put in after the code Alignable emails (decision 82).
       alignable: {
         title: 'Check your Alignable profile',
-        hint: 'Business owners look at it before they connect or send anyone your way. It doesn’t have to sell; it just shouldn’t put anyone off. Tick each one once it’s right.',
+        hint: 'Business owners look at it before they connect or send anyone your way. It doesn’t have to sell; it just shouldn’t put anyone off. Your computer reads it, the AI says what to change and writes your About Us, and you tick each one once it’s right.',
         items: {
           picture: {
             label: 'A clear photo of your face',
             tip: 'It shows beside your business’s name. People connect with a person.',
           },
-          cover: {
-            label: 'A cover that says the result you get people',
-            tip: 'One line on an image, like “More booked jobs for roofers”. Not a sales pitch.',
+          about: {
+            label: 'An About Us that says who you help, where, and how to book',
+            tip: 'Its first lines show on your profile: who you help, the town, the result, and how to book a call.',
           },
           bio: {
             label: 'An Elevator Pitch that says who you help and the result',
-            tip: 'From your main offer: who you help, the result you get them, and how to start.',
+            tip: 'Make it with Alignable’s own Elevator Pitch button, from your About Us: who you help, the result, and how to start.',
           },
           work: {
             label: 'Your Ideal Customer and Ideal Partner filled in',
             tip: 'Who they are, where, and a few tags. Alignable suggests you to the businesses that fit.',
           },
-          posts: {
-            label: 'Recommendations and posts that show some proof',
-            tip: 'Ask three happy customers to recommend you, and post a customer’s win now and then.',
+          featured: {
+            label: 'Services that each name one thing you offer',
+            tip: 'In your customers’ words, with a line on each. Ask three happy customers to recommend you too.',
           },
         } satisfies Partial<Record<AnyProfileItem, { label: string; tip: string }>>,
-        about: null,
-        aboutHint: null,
-        aboutCopied: null,
+        about: 'Your About Us',
+        aboutHint:
+          'Change anything that isn’t you, then put it in: your computer writes it in About Us on your Alignable profile. Alignable emails you a code first to check it’s you: your phone tells you, and you type it here.',
+        aboutCopied: 'Copied. Paste it in About Us on your Alignable profile.',
       },
     } satisfies Partial<Record<Platform, unknown>>,
     offer: 'Your main offer',
@@ -792,6 +793,6 @@ const PROFILE_WRITES_ON: Readonly<Record<Platform, string>> = {
   facebook: 'your bio',
   linkedin: 'your headline and About',
   instagram: 'your bio and a name that says what you do',
-  alignable: 'your bio',
+  alignable: 'your About Us',
 };
 export type ProfileWords = ReturnType<typeof profileWordsOn>;

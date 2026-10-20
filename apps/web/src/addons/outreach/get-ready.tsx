@@ -541,6 +541,10 @@ export function ProfileSheet({
                   </div>
                 </div>
               ) : null}
+              {/* With no bios (Alignable's), how the last one put in went shows here: its code's box among it. */}
+              {!check.bios.length && edit && asks ? (
+                <AskLine workspaceId={workspaceId} asks={asks} ask={edit} />
+              ) : null}
             </div>
           ) : null}
           {check?.nameDraft ? (

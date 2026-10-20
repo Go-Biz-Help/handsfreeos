@@ -1458,7 +1458,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     once and deleted as it's taken, never in a push, an event, the audit or a receipt, and never handed over after 10
     minutes (`ASK_CODE_MINUTES`); the daily prune clears what's left. A code that didn't work asks for the newest one,
     which pushes again. With none in 10 minutes the job ends saying so, and asking again has the network send a new
-    one. Check never presses an Edit that emails a code (0.70.0).
+    one. Check never presses an Edit that emails a code (0.70.0). Its first use is Alignable's About Us, from Get
+    ready (extension 0.71.0): read, written by the AI whole, and put in past the code.
 
 ## Rules worth knowing before changing anything
 

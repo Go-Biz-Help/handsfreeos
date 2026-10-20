@@ -11,6 +11,7 @@ import type { StepTry, TryStep } from './networks/tries';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { LinkedInFilePart } from './hfos/files';
+import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { BioResult } from './networks/facebook/own-profile';
 import type { AutoResult, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
@@ -115,13 +116,21 @@ export type FeedPostAnswer =
 
 /**
  * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
- * LinkedIn is their headline, or LinkedIn's About (decision 80; src/networks/facebook/own-profile.ts,
- * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts).
+ * LinkedIn is their headline, or LinkedIn's About or Alignable's About Us (decision 80; src/networks/facebook/own-profile.ts,
+ * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts, src/networks/alignable/own-profile.ts).
  */
 export type OwnProfileAsk =
   | { readonly type: 'hfos-own-profile' }
   | { readonly type: 'hfos-write-bio'; readonly bio: string }
   | { readonly type: 'hfos-write-about'; readonly about: string };
+
+/**
+ * A code the person gave HandsFreeOS, put in where the network asks for the one it emailed them (Alignable's, before
+ * About Us changes; decision 82, src/networks/alignable/own-profile.ts).
+ */
+export type CodeAsk = { readonly type: 'hfos-put-code'; readonly code: string };
+export type CodeAnswer =
+  { readonly ok: true; readonly code: CodeResult } | { readonly ok: false; readonly error: string };
 
 export type OwnProfileAnswer =
   /** `load`: how loading the whole profile went, where the network draws it as it comes into view (LinkedIn). */
@@ -129,7 +138,8 @@ export type OwnProfileAnswer =
   /** `steps`: how each step of putting LinkedIn's headline in went, or its About. */
   | {
       readonly ok: true;
-      readonly result: BioResult;
+      /** `code`: Alignable asks for the code it emailed before About Us goes in. */
+      readonly result: BioResult | AboutResult;
       readonly steps?: HeadlineSteps;
       readonly aboutSteps?: AboutSteps;
     }

@@ -21,7 +21,14 @@ import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
 import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
-import { ABOUT_MOST, BIO_MOST_ON, hasPlaceholder, PROFILE_BIO_MOST } from './profile-check';
+import {
+  ABOUT_MOST,
+  ABOUT_NAME_ON,
+  BIO_MOST_ON,
+  hasPlaceholder,
+  NO_BIO_WRITES_ON,
+  PROFILE_BIO_MOST,
+} from './profile-check';
 import { allowedOn, REPORT_WORDS } from './reports';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
@@ -88,9 +95,10 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'checkup',
   ],
   // Looked at first (decision 78): Check Instagram and Check Alignable, till their steps are built from what they read;
-  // and Instagram's profile, read and checked, and its bio put in (decision 80), before its steps.
+  // and each one's profile, read and checked, and Instagram's bio or Alignable's About Us put in (decisions 80 and
+  // 82), before its steps.
   instagram: ['checkup', 'profile_read', 'profile_edit'],
-  alignable: ['checkup'],
+  alignable: ['checkup', 'profile_read', 'profile_edit'],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
   ASK_KINDS_ON[platform].includes(kind);
@@ -103,6 +111,7 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     post: 'Put up your helpful post on your feed',
     profile_edit: 'Update your profile',
   },
+  alignable: { profile_edit: 'Put your About Us in' },
 };
 
 /** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
@@ -114,7 +123,7 @@ const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
   facebook: 'bio',
   linkedin: 'headline',
   instagram: 'bio',
-  alignable: 'bio',
+  alignable: 'Elevator Pitch',
 };
 
 /**
@@ -129,17 +138,20 @@ export function profileEditWords(
   platform: Platform,
   edit: { readonly bio?: string | null; readonly about?: string | null },
 ): string | null {
-  if (edit.about && platform !== 'linkedin')
+  const aboutName = ABOUT_NAME_ON[platform];
+  if (edit.about && !aboutName)
     return `${PLATFORMS[platform]} has no About to put in. Put in the bio only.`;
+  if (edit.bio && NO_BIO_WRITES_ON.includes(platform))
+    return `${PLATFORMS[platform]}’s ${BIO_NAME_ON[platform]} is made with its own assistant, so your computer can’t put it in. Put in your ${aboutName ?? 'About'} only.`;
   if (edit.bio) {
     const tooLong = bioTooLongWords(platform, edit.bio);
     if (tooLong) return tooLong;
   }
   if (edit.about && edit.about.trim().length > ABOUT_MOST)
-    return `LinkedIn’s About takes up to ${ABOUT_MOST.toLocaleString('en-US')} characters, and this one has ${edit.about.trim().length.toLocaleString('en-US')}. Cut it to fit, then put it in.`;
+    return `${PLATFORMS[platform]}’s ${aboutName} takes up to ${ABOUT_MOST.toLocaleString('en-US')} characters, and this one has ${edit.about.trim().length.toLocaleString('en-US')}. Cut it to fit, then put it in.`;
   const unfilled = [
     edit.bio && hasPlaceholder(edit.bio) && `your ${BIO_NAME_ON[platform]}`,
-    edit.about && hasPlaceholder(edit.about) && 'your About',
+    edit.about && hasPlaceholder(edit.about) && `your ${aboutName ?? 'About'}`,
   ].filter((w): w is string => typeof w === 'string');
   if (unfilled.length)
     return `Fill in the parts in [brackets] in ${unfilled.join(' and ')} first: the AI writes them where it can’t know what’s true for you.`;
@@ -185,6 +197,8 @@ export const ASK_KIND_SINCE_ON: Readonly<
   },
   // Instagram's profile, read and its bio put in (decision 80).
   instagram: { profile_read: '0.62.0', profile_edit: '0.62.0' },
+  // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
+  alignable: { profile_read: '0.71.0', profile_edit: '0.71.0' },
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
