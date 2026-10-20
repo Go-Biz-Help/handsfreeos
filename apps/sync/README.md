@@ -196,10 +196,11 @@ see-every permission>`. Turning the add-on off takes its permissions away, so th
 
 ## What the phone works out itself
 
-- **Search text** for customers, companies and leads (`search_text` is generated, and Postgres 17 doesn't replicate generated columns). It uses the same lower-cased join the migrations use:
+- **Search text** for customers, companies and leads (`search_text` is generated, and Postgres 17 doesn't replicate generated columns). It's core's (`crm/search-text.ts`) and uses the same lower-cased join the migrations use:
   - People: first name, last name, email, `phone_e164` (not the display `phone`), city, first address line.
   - Companies: name, email, `phone_e164`, city, first address line.
   - Leads: the title.
+- **Search everything with no signal** (docs/search.md, "The phone") reads the copy as it is, with no stream of its own: no sync change, and archived rows (a customer in the Deleted bin among them) never show.
 - **An invoice's balance**: core's `balanceCents(total, paid, refunded)` — what's still owed is total less paid, and a refund only uses up an overpayment.
 - **Display states** of money: "Refunded", "Partly refunded", "Opened", "Paying". They come from the amounts and stamps, as on the web.
 - **Whether a plan has a card:** card brand and last four are there. The provider's card token is not.

@@ -10,8 +10,9 @@ plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATIO
 companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, file names, forms and their answers,
 knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
 and the API's guards. Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the
-web, and at the top of Settings on the phone (Settings search, below). The main box and `/customers?q=` work as they
-did until Search 9 switches it on.
+web, and at the top of Settings on the phone (Settings search, below). Search 8 is built but not linked: the phone's
+full-screen search, with signal and without (The phone, below), opens only from a link (a web `/search#q=…` link).
+The main box and `/customers?q=` work as they did until Search 9 switches it on.
 
 ## Where things are
 
@@ -32,6 +33,11 @@ did until Search 9 switches it on.
 | Settings search on the web            | `apps/web/src/components/settings/`: `settings-search.tsx` (the box), `use-setting-highlight.ts` (the jump and its ring), `setting-anchor.tsx` (`SettingAnchor`, `settingAttrs`), `SetRow`'s `setting`  |
 | Settings search on the phone          | `apps/mobile/src/settings/`: `settings-search.tsx` (the results), `use-setting-flash.ts` (scrolling to a row and flashing it); `ListRow`'s `settingKey`                                                 |
 | Its tests                             | `packages/core/test/settings-catalog.test.ts`; `apps/mobile/src/settings/__tests__/settings-search.test.tsx`; `apps/web/e2e/settings-search.spec.ts`                                                    |
+| Why a row matched                     | `packages/core/src/search/explain.ts`: each kind's tier and reason, one copy for the server's searchers and the phone's own search                                                                      |
+| The phone's own search                | `packages/core/src/search/copy.ts` (`searchCopy`, over the rows a phone keeps); `packages/core/src/crm/search-text.ts` (the search text a phone works out, for its pickers too)                         |
+| Search on the phone                   | `apps/mobile/src/app/app/w/[workspaceId]/search.tsx` (the screen); `apps/mobile/src/search/`: `use-search.ts`, `copy-sql.ts`, `recent.ts`, `rows.tsx`; `FilterChip` in `components/ui`                  |
+| Where a phone opens a result          | `apps/mobile/src/links/route-map.ts` (`/search#q=…`, forms, `?task=`, `?message=&at=`, `?activity=` and `?compose=`); Real Estate's deals offline: `apps/mobile/src/addons/realestate/search.ts`        |
+| The phone's tests                     | `packages/core/test/search/copy.test.ts`; `apps/mobile/src/search/__tests__/`: `copy-sql.test.ts`, `search-screen.test.tsx`; `apps/mobile/src/links/__tests__/route-map.test.ts`                        |
 
 ## How a search runs
 
@@ -150,7 +156,8 @@ the gap it closes; `kinds.unit.test.ts` fails until a searcher and its entry mat
 
 **One copy of the ranking.** The SQL only filters roughly and orders well enough to keep the best 101; the tier, why
 it matched, the marks and the lines are worked out in core's JavaScript, the same on the server and, offline, the
-phone. Change a tier rule in `rank.ts` or a searcher's `explain`, not in its SQL alone.
+phone. Change a tier rule in `rank.ts` or a kind's reasons in `explain.ts` (which the server's searchers and the
+phone's `searchCopy` share), not in its SQL alone.
 
 **Archived** records come back only by their name or title, under Archived (Include archived folds them into their
 kind). A kind's own page leaves them out unless asked, and the Archived page lists only them.
@@ -184,6 +191,59 @@ has one (`call_suggestion.record` passes the record to `activity.log`), and a ta
 sealed with it too (`call_suggestion.decide` passes the record to `task.create`, giving it to the host only while the
 host is on the record). A record in the Deleted bin reads for nobody, so the note then goes on the customer alone.
 `app.appointment_transcripts` is never read.
+
+## The phone
+
+**One screen, full screen over the business** (boards 5 and 5b): `/app/w/<business>/search`, with `q` and `kind`.
+Until Search 9 adds the app bar's button it opens only from a link: the route map reads a web `/search#q=…&kind=…`
+link's pairs after `#` (a rule names the pairs it reads, `fragment`, and no other rule ever sees them) and keeps them
+on the phone's own address, so what was typed never leaves the phone that way either. The box is focused, with
+Cancel; the chips are the found kinds with their counts; then the best match with Call and Text (for whoever may use
+the inbox, on a customer with a number), a few of each kind with "See all 7", the Settings group, and "See all 26
+results" for every group at once. One kind (a chip, or See all) is `search.kind` 25 at a time with Show 25 more, and
+for contacts Leads or Clients and "Two Dana Smiths share a number. Same person?" with Compare, which opens the web's
+merge for whoever may archive customers. A kind this build doesn't know is skipped, in a link and in an answer.
+
+**With signal** the phone asks `search.everything` 300 ms after the typing stops, what was typed in the body only
+(`apps/mobile/src/search/use-search.ts`), drops a stale answer, asks again once after 2 s when the refusal says to
+retry, and again when signal comes back. Its own rows show at once, marked "On this phone", and the server's answer
+takes their place (not while viewing as someone: the copy is the viewer's). Settings are searched on the phone, as
+Settings search does, and a setting that matched is sent as `settingsMatched` so no close matches are looked for.
+Results open through the route map (`openAppPath`): a screen the phone has, or the browser for the rest, with the
+arrow out on those rows; a setting opens where Settings search opens it. A search is kept among the recent ones
+(`search_recent`, a local-only table in the encrypted copy, at most 8 a person a business, never sent) when one of
+its results is opened.
+
+**With no signal**, or when a request fails for want of it, `apps/mobile/src/search/copy-sql.ts` reads at most 200
+rows a kind through `getAll` (never a live query over every row): each kind's words lower-cased into one text, the
+three longest typed words each in it (a letter outside ASCII read as any one letter, since SQLite folds the case of
+plain letters only), or the phone, the digits (in order in a number written freely too) or a web address's domain
+typed; those whose name, or a note's own words, holds the words first, then the latest. The SQL only narrows, never
+past what `searchCopy` would match. Core's `searchCopy` (`search/copy.ts`) then decides which match, ranks them with
+the server's tiers and reasons (`search/explain.ts`), and answers in the server's shape with `source: 'phone'`, so one
+row draws both. It searches contacts, companies and leads, tasks, notes, the calendar, live forms by name, Real
+Estate's deals (a phone add-on's `search`, from the same copy and view as its Deals screen) and settings; the chips
+for Money, Messages, Files and Knowledge are greyed, and the line at the top is the board's: "You’re offline, so this
+searched what’s on this phone. Files, messages and money show once you’re back online. As of 8:58 AM". With no signal,
+one kind's page for a kind the phone doesn't keep says searching it needs signal, not that nothing matched. Two tests
+hold it to the server: `copy.test.ts` compares `searchCopy` with `search.kind`'s titles, order, tiers, reasons and
+links on every row of Bayou Plumbing's a phone keeps, read as a phone gets them, and
+`apps/mobile/src/search/__tests__/copy-sql.test.ts` runs the phone's own statements on SQLite and requires the same
+answer from the rows they read as from every row.
+
+**What the phone never shows offline.** Archived records, and a customer in the Deleted bin with them, since the bin
+reads as archived on a phone; neither lends a name to a lead, a task, a note or a visit. Notes and tasks only on a
+customer, company or lead in the copy: the phone's tasks and timeline carry no record, so it can't tell a turned-off
+add-on's property from anything else, and a line anchored to none of the three (a plain to-do among them) waits for
+signal. Viewing as someone with no signal, only settings are searched: "Searching needs signal while you’re viewing
+as Dana." SQLite can't fold accents, so the rows read may miss "José" for "jose" (a name typed as it's stored is
+always read); ranking and marks still fold.
+
+**Where a result lands on the phone.** A thread at its message (`?message=&at=`: scrolled to and rung once it's in the
+copy), a task through the Tasks screen (`?task=`: opened as tapping it would), a note on its customer (`?activity=`),
+Text on the best match through the customer's screen (`?compose=sms`: their text thread, or "No text thread with
+them yet"), a form and one response's answers on the phone's own form screens, and a business's own kinds of
+records, files on a record and business settings on the web.
 
 ## Settings search
 

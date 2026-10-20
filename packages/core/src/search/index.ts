@@ -13,3 +13,5 @@ export * from './close';
 export * from './href';
 export * from './dropdown';
 export * from './lines';
+export * from './explain';
+export * from './copy';

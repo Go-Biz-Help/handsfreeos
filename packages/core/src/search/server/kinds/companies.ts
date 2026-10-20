@@ -4,21 +4,12 @@
  * open leads are read for the winners only.
  */
 import { sql } from 'drizzle-orm';
-import { otherAddressesOf } from '../../../crm/contact-points';
 import { formatPhone } from '../../../crm/phone';
 import type { SearchHit } from '../../../schemas/search';
+import { explainCompany } from '../../explain';
 import { searchHref } from '../../href';
-import { escapeLike, type SearchProbes } from '../../probes';
-import { tierOf } from '../../rank';
-import {
-  digitsIn,
-  fieldHolding,
-  fieldSnippet,
-  hitOf,
-  isoOf,
-  listedValues,
-  wordsLeft,
-} from '../hit';
+import { escapeLike } from '../../probes';
+import { hitOf, isoOf } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
 import { archivedRule, digitsOf, LIVE_PERSON, likeAll, startsAll, uuidArray } from '../sql';
 
@@ -41,61 +32,13 @@ interface Row extends Record<string, unknown> {
   updated_at: Date;
 }
 
-function explain(r: Row, p: SearchProbes): Pick<SearchHit, 'tier' | 'exact' | 'why'> {
-  const why = (field: string, snippet: SearchHit['why']['snippet'] = null) => ({
-    field,
-    label: null,
-    snippet,
-    page: null,
-  });
-  const phones = [r.phone_e164, ...listedValues(r.other_phones, 'phone')];
-  const emails = [
-    r.email?.toLowerCase() ?? null,
-    ...listedValues(r.other_emails, 'email').map((e) => e.toLowerCase()),
-  ];
-  if (p.phoneE164 && phones.includes(p.phoneE164))
-    return { tier: 0, exact: true, why: why('phone') };
-  if (p.email && emails.includes(p.email)) return { tier: 0, exact: true, why: why('email') };
-  const t = tierOf(r.name, p);
-  if (t === 1) return { tier: 1, exact: false, why: why('name') };
-  if (p.domain && (r.website ?? '').toLowerCase().includes(p.domain))
-    return { tier: 1, exact: false, why: why('website', fieldSnippet(r.website, p)) };
-  if (p.domain && emails.some((e) => e?.endsWith(`@${p.domain}`)))
-    return { tier: 1, exact: false, why: why('email', fieldSnippet(r.email, p)) };
-  if (t === 2) return { tier: 2, exact: false, why: why('name') };
-  if (p.digits && phones.some((x) => digitsIn(x).includes(p.digits!)))
-    return { tier: 3, exact: false, why: why('phone') };
-  // Tier 3: the field holding the words the name doesn't.
-  const address = [r.address_line1, r.address_line2, r.city, r.state, r.postal_code]
-    .filter(Boolean)
-    .join(', ');
-  const otherAddresses = otherAddressesOf(r.other_addresses)
-    .map((a) => [a.line1, a.line2, a.city, a.state, a.postalCode].filter(Boolean).join(', '))
-    .join(' ');
-  const field = fieldHolding(wordsLeft([r.name], p), [
-    { field: 'address', text: address },
-    { field: 'address', text: otherAddresses },
-    { field: 'website', text: r.website },
-    { field: 'email', text: emails.filter(Boolean).join(' ') },
-    { field: 'field', text: r.custom_text },
-    { field: 'phone', text: phones.filter(Boolean).join(' ') },
-  ]);
-  if (field === 'address')
-    return { tier: 3, exact: false, why: why('address', fieldSnippet(address, p)) };
-  if (field === 'website')
-    return { tier: 3, exact: false, why: why('website', fieldSnippet(r.website, p)) };
-  if (field === 'email')
-    return { tier: 3, exact: false, why: why('email', fieldSnippet(r.email, p)) };
-  return { tier: 3, exact: false, why: why(field ?? 'name') };
-}
-
 function hitFrom(r: Row, plan: SearchPlan): SearchHit {
   return hitOf({
     kind: 'companies',
     id: r.id,
     title: r.name,
     href: searchHref(plan.workspaceId, { type: 'company', id: r.id }),
-    ...explain(r, plan.p),
+    ...explainCompany(r, plan.p),
     badges: r.archived_at ? ['archived'] : [],
     at: isoOf(r.updated_at),
     contact:

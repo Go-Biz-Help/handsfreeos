@@ -52,11 +52,11 @@ export interface Dropdown {
 
 /** A group's heading: a business's own kind or an add-on's carries its own; core names the rest. */
 export function groupLabel(group: Pick<SearchGroup, 'kind' | 'label'>): string {
-  return (
-    group.label ??
-    (SEARCH_KIND_LABELS as Readonly<Record<string, string>>)[group.kind] ??
-    group.kind
-  );
+  // Core's own labels only: a kind named like one of an object's own keys ("constructor") is no kind of core's.
+  const core = Object.prototype.hasOwnProperty.call(SEARCH_KIND_LABELS, group.kind)
+    ? (SEARCH_KIND_LABELS as Readonly<Record<string, string>>)[group.kind]
+    : undefined;
+  return group.label ?? core ?? group.kind;
 }
 
 /**
@@ -83,12 +83,13 @@ const FEW_ACTIVE = 3;
 
 /**
  * The dropdown for an answer and the Settings group the device found (null when none). `maxGroups` groups of up to
- * 3 rows show (2 a group when more than 3 groups show), `maxRows` rows at most in all.
+ * 3 rows show (2 a group when more than 3 groups show), `maxRows` rows at most in all. `perGroup` sets the rows a
+ * group instead, for every group shown at once (the phone's "See all 26 results").
  */
 export function dropdownOf(
   answer: SearchEverythingOutput,
   settings: SearchGroup | null,
-  opts: { maxGroups?: number; maxRows?: number } = {},
+  opts: { maxGroups?: number; maxRows?: number; perGroup?: number } = {},
 ): Dropdown {
   const maxGroups = opts.maxGroups ?? 5;
   const maxRows = opts.maxRows ?? 10;
@@ -116,7 +117,7 @@ export function dropdownOf(
     .map((g) => ({ g, left: g.items.filter((h) => !sameHit(h)) }))
     .filter((x) => x.left.length > 0);
   const shown = withRows.slice(0, maxGroups);
-  const perGroup = shown.length > 3 ? 2 : 3;
+  const perGroup = opts.perGroup ?? (shown.length > 3 ? 2 : 3);
   let budget = Math.max(0, maxRows - (best ? 1 : 0) - (exact?.length ?? 0));
   const groups: DropdownGroup[] = [];
   for (const { g, left } of shown) {

@@ -97,8 +97,8 @@ export function SettingsSearchResults({
   );
 }
 
-/** The business's settings, from the synced JSON text. */
-function settingsOf(raw: string | null | undefined): Record<string, unknown> | null {
+/** The business's settings, from the synced JSON text (Settings search's, and the main search's Settings group). */
+export function settingsOf(raw: string | null | undefined): Record<string, unknown> | null {
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);

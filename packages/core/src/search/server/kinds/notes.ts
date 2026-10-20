@@ -11,6 +11,7 @@
 import { sql } from 'drizzle-orm';
 import type { SearchHit } from '../../../schemas/search';
 import { searchHref, type SearchRecordRef } from '../../href';
+import { NOTE_LINE_RULE } from '../../lines';
 import { SEARCH_WORDS } from '../../words';
 import { fieldSnippet, hitOf, isoOf, stretchSnippet } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
@@ -27,10 +28,14 @@ import {
 } from '../sql';
 
 /**
- * The timeline lines that are notes, for an activity aliased `a`: the same condition, word for word, as
- * `activities_notes_idx` (20261027009700_search_windows.sql), so the planner proves the partial index from it.
+ * The timeline lines that are notes, for an activity aliased `a`, from core's one rule (`NOTE_LINE_RULE`): the same
+ * condition, word for word, as `activities_notes_idx` (20261027009700_search_windows.sql), so the planner proves the
+ * partial index from it. It reads `(a.kind = 'note' or (a.kind in ('call', 'visit') and a.subtype is null))`.
  */
-export const NOTE_LINES = sql`(a.kind = 'note' or (a.kind in ('call', 'visit') and a.subtype is null))`;
+const BARE_KINDS = NOTE_LINE_RULE.bareKinds.map((k) => `'${k}'`).join(', ');
+export const NOTE_LINES = sql.raw(
+  `(a.kind = '${NOTE_LINE_RULE.kind}' or (a.kind in (${BARE_KINDS}) and a.subtype is null))`,
+);
 
 /** How much of a note found by who it's on shows, from its start (board 2's "Gate code 4471, dog in the yard"). */
 const OPENING = 120;

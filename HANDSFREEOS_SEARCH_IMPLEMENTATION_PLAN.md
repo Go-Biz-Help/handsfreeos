@@ -21,7 +21,8 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3 and 6 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3, 6 and 8 built (Build order), the rest still to
+build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2316,6 +2317,84 @@ its step **Built** here with what changed while building.
      `apps/mobile/src/search/__tests__/search-screen.test.tsx`, `apps/mobile/src/links/__tests__/route-map.test.ts`.
    - Docs: docs/search.md (the phone, online and offline); apps/sync/README.md gets one line saying search reads the
      copy as it is.
+   - **Built** (2026-10-20). No migration, no API change (so `pnpm openapi` has nothing to do), no sync change. It
+     ships with the phone's next over-the-air update, and nothing links to it until Search 9. What changed while
+     building:
+     - **Why a row matched is one copy now** (`packages/core/src/search/explain.ts`): the tiers and reasons of
+       contacts, companies, leads, tasks and visits moved out of their server searchers into a browser-safe module that
+       `searchCopy` uses too, so a contact found by its street says "Address" offline as it does with signal ("One copy
+       of the ranking"). The server's answers don't change: core's search suite passes as it did. The pure helpers
+       both build hits with (`hitOf`, `holdsAll`, `fieldHolding` and the rest) moved from `search/server/hit.ts` into
+       a browser-safe `search/hit.ts`, which the server's `hit.ts` re-exports, so nothing the web or the phone bundles
+       is labelled server only. Which timeline lines are notes (decision 6) is one rule too, `NOTE_LINE_RULE` in
+       `search/lines.ts`: the server's `NOTE_LINES` is built from it (the same text, word for word, that
+       `activities_notes_idx` repeats, which `plans.test.ts` proves), `isNoteLine` reads it, and the phone's SQL takes
+       its kinds as parameters, as it takes `CONTACT_LINES`.
+     - **`searchCopy`'s shape:** `searchCopy(q, rows, opts)`, its options the workspace, permissions, time zone,
+       kinds, `perKind` and `settingsMatched`, answers as `search.everything` does, with `source: 'phone'`, from rows
+       typed as SQLite gives them back (`CopyPerson`, `CopyTask` and the rest). `CopyGroup` is the copy-hit shape a
+       phone add-on hands in (`copyHit` builds one, so add-ons need nothing from the server's half). Beside it:
+       `copyKindsFor`, `copyMissingKinds` (the greyed chips: Money, Messages, Files and Knowledge, since a business's
+       own kinds have no one chip and the Deleted bin is never a chip), `copyWantsClose` (the names for close matches
+       are read only when nothing matched) and `lastContactsOf` (decision 35's last contact from the copy's lines, so
+       contacts rank by it as the server's do).
+     - **The phone is held to the server in two steps.** `copy.test.ts`, against the local stack: after its
+       fixtures, it seeds Bayou Plumbing (`searchWorld` and `moreOfTheBoards`), reads every row a phone keeps as a
+       phone gets them, and compares `searchCopy` with `search.kind` for 21 searches across the seven kinds the phone
+       keeps (titles, order, tiers, exactness, reasons, snippets and links), and close matches for "dnaa smtih". Then
+       `apps/mobile/src/search/__tests__/copy-sql.test.ts` runs the phone's real statements on SQLite (Node's own,
+       with the app's schema, as the changes queue's tests do) and requires `searchCopy` to answer from the rows they
+       read exactly as from every row, for 30 searches: a name outside ASCII typed as stored, a web address pasted
+       whole, a number written freely, more than three words, a note found by its lead. So the SQL never narrows past
+       what `searchCopy` would match, and under the 200-row cap a name, or a note's own words, isn't crowded out.
+     - **The phone's SQL** (`copy-sql.ts`) is one statement a kind, built once, so `phone-sql.test` reads it: each
+       kind's words lower-cased into one text (`hay`), the three longest typed words each in it (not every word), with
+       each letter outside ASCII read as any one letter (SQLite's `lower()` and LIKE fold plain letters only, so
+       "Émile" typed as stored still reads Émile, and `searchCopy` decides); or the phone typed; or the digits typed,
+       in `hay` or in order in a number written freely (`phone_alt`, a company's `phone`), which `searchCopy` reads
+       digit by digit; or a web address's domain, however much of it was typed. 200 rows, those whose name (a note's
+       own words) holds the typed words first, as the server ranks them, then the latest. "jose" still may miss "José"
+       offline: SQLite can't fold. Close matches read up to 2,000 names a kind, the latest changed first, since the
+       phone has no trigrams. The details for the rows read come after: last contact, and a company's people and open
+       leads (on the phone those leave archived people out; the server counts all but binned ones).
+     - **A note found by who it's on** (decision 34) is found by its customer, company and lead together, as the
+       server folds them; the phone has no record's name, since its timeline carries no record.
+     - **Stricter offline than the plan's words, on purpose:** a lead, a task, a note or a visit never lends an archived
+       customer's name, since the bin reads as archived and the phone can't tell the two apart; a note or task on one
+       falls back to its company or lead, or waits for signal. A plain to-do with no customer, company or lead waits
+       for signal too: the phone can't tell it from one on a record (the plan's rule, as written). Offline there is no
+       Lead or Client badge (`personIsClient` reads jobs, visits, plans and bills the phone keeps only in part), and
+       one kind has no Leads/Clients chips or duplicate banner.
+     - **The route map:** `customers/records/:recordId` has no rule of its own: the map's fallback already opens the
+       web, and its test requires every web-only rule to be a whole area, so the test pins the fallback instead.
+       The `fragment` field names the pairs after `#` a rule reads; any other rule never sees them, so Add a contact's
+       name never reaches the Contacts tab.
+     - **What results land on, beyond the files listed:** the thread rings `?message=` for 4 seconds once it's in the
+       copy, scrolled to (`inbox/[conversationId].tsx`); the Tasks screen opens `?task=` as tapping it would, on
+       everyone's tasks (`(more)/tasks.tsx`); the customer's screen opens their text thread for `?compose=sms`
+       (`customers/people/[personId].tsx`), which is how the best match's Text works, since the phone has no composer
+       for a new thread. `?activity=` opens the customer; ringing the note on their timeline is left for later.
+     - **Words in core:** `SEARCH_WORDS.call`, `text` and `standing`, and `badgeLabel`, written as Search 7 writes them
+       for the web, `cancel`, and `needsSignal(label)`: with no signal, one kind's page for a kind the phone doesn't
+       keep says "Searching Messages needs signal. It runs once you’re back online." rather than that nothing matched.
+       A group's heading has "See all 7" (core's `seeAll`) where board 5 draws "Contacts 7 · See all", and "See all 26
+       results" asks the full depth (5 a kind) and draws every group with all 5 (`dropdownOf` gains `perGroup`), since
+       the phone has no Search page.
+     - **The main search's Settings group** marks a setting only the web changes "Opens on the web", with its value,
+       as Settings search does (decision 12); the two read the business's settings through one `settingsOf`.
+     - **One kind's page** asks once more after 2 s on a refusal HandsFreeOS says to retry, its first page and Show 25
+       more alike, as the everything view does (How it works, 6). A kind is known only by core's own labels, so a
+       link's `kind=constructor` is skipped like any kind this build doesn't know.
+     - **Recent searches** are kept when one of a search's results is opened, not on every pause in the typing, in
+       `search_recent` (indexed on person, business and time); `schema.test.ts` checks it's local-only.
+     - **`FilterChip`** takes the Inbox's look; Approvals' copy had a slightly different border and size.
+     - **More files than listed:** `packages/core/src/search/{explain,hit,lines,dropdown,words,index}.ts`,
+       `packages/core/src/index.ts`, `search/server/hit.ts`, the six searchers above
+       (`search/server/kinds/{contacts,companies,leads,tasks,calendar,notes}.ts`),
+       `packages/core/test/search/dropdown.test.ts`, `apps/mobile/src/search/__tests__/copy-sql.test.ts`,
+       `apps/mobile/src/settings/settings-search.tsx` (`settingsOf`), `apps/mobile/src/sync/app-schema.ts` (its
+       comment), `apps/mobile/src/sync/__tests__/schema.test.ts`, `(tabs)/inbox.tsx` and `(more)/approvals.tsx` (their
+       `FilterChip`), and the three screens above.
 
 9. **Search 9: switch it on, on the web and the phone in one push.**
    - Ships: the sidebar box becomes Search everything with its dropdown and ⌘K; the phone-width header opens `/search`

@@ -32,6 +32,22 @@ export const CONTACT_LINES = {
   ],
 } as const;
 
+/**
+ * The timeline lines that are notes (decision 6): kind `note` with any subtype, or a call or visit with no subtype
+ * (logged by a person). Channel copies always carry a subtype and system lines are kind `system`, so neither is one.
+ * One rule, for the server's `NOTE_LINES` (which `activities_notes_idx` repeats word for word), the phone's SQL and
+ * the phone's own search.
+ */
+export const NOTE_LINE_RULE = { kind: 'note', bareKinds: ['call', 'visit'] } as const;
+
+/** Whether a timeline line of this kind and subtype is a note. */
+export function isNoteLine(kind: string | null, subtype: string | null): boolean {
+  return (
+    kind === NOTE_LINE_RULE.kind ||
+    ((NOTE_LINE_RULE.bareKinds as readonly string[]).includes(kind ?? '') && !subtype)
+  );
+}
+
 /** Whether a timeline line of this kind and subtype counts as being in touch. */
 export function countsAsContact(kind: string, subtype: string | null): boolean {
   return (

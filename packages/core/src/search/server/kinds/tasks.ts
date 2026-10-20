@@ -5,9 +5,9 @@
  */
 import { sql } from 'drizzle-orm';
 import type { SearchHit } from '../../../schemas/search';
+import { explainTask } from '../../explain';
 import { searchHref } from '../../href';
-import { tierOf } from '../../rank';
-import { fieldSnippet, hitOf, isoOf } from '../hit';
+import { hitOf, isoOf } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
 import { LIVE_PERSON, likeAll, RECORD_READS, startsAll } from '../sql';
 
@@ -23,16 +23,12 @@ interface Row extends Record<string, unknown> {
 }
 
 function hitFrom(r: Row, plan: SearchPlan): SearchHit {
-  const t = tierOf(r.title, plan.p);
   return hitOf({
     kind: 'tasks',
     id: r.id,
     title: r.title,
     href: searchHref(plan.workspaceId, { type: 'task', id: r.id }),
-    tier: t ?? 4,
-    why: t
-      ? { field: 'title', label: null, snippet: null, page: null }
-      : { field: 'task_notes', label: null, snippet: fieldSnippet(r.notes, plan.p), page: null },
+    ...explainTask(r, plan.p),
     badges: r.done_at ? ['done'] : [],
     at: isoOf(r.updated_at),
     facts: {
