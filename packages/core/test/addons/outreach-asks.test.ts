@@ -3,17 +3,19 @@
  * HandsFreeOS; only that computer takes it, oldest first; the same thing asked twice is one ask; a day without a
  * computer lets it go, a computer gone mid-way loses it, and a warning that day ends what would open Facebook; its
  * line tells nobody more than every 20 seconds and keeps no receipt; a step handed over waits for the person's reply;
- * and each person sees only their own.
+ * a code from their email is theirs alone, handed to their computer once and kept 10 minutes at most; and each person
+ * sees only their own.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { as, closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ASK_EXPIRED_LINE,
   ASK_LOST_LINE,
   ASK_STOPPED_EARLY_LINE,
+  askCodeWords,
 } from '../../src/addons/outreach/asks';
 import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
 
@@ -317,7 +319,7 @@ describe('asking the extension', () => {
         state: 'stuck',
         line: 'It couldn’t find Download. Press it yourself, then Carry on.',
       }),
-    ).toEqual({ cancelled: false, reply: null });
+    ).toEqual({ cancelled: false, reply: null, code: null });
     expect(await events('outreach.ask.progressed')).toBe(before + 2);
     const [changed] = await rows<{ payload: Record<string, unknown> }>(
       admin(),
@@ -361,14 +363,14 @@ describe('asking the extension', () => {
         state: 'stuck',
         line: 'It couldn’t find Download. Press it yourself, then Carry on.',
       }),
-    ).toEqual({ cancelled: false, reply: 'carry_on' });
+    ).toEqual({ cancelled: false, reply: 'carry_on', code: null });
     expect(
       await runAs(riley, ws, 'outreach.ask.progress', {
         askId: taken.askId,
         state: 'working',
         line: 'Carrying on…',
       }),
-    ).toEqual({ cancelled: false, reply: null });
+    ).toEqual({ cancelled: false, reply: null, code: null });
     expect((await row(taken.askId)).reply).toBeNull();
     expect((await runAs(riley, ws, 'outreach.waiting', {})).kinds.ask.count).toBe(0);
     // Not stuck: a reply is refused.
@@ -392,7 +394,7 @@ describe('asking the extension', () => {
         state: 'working',
         line: 'Still going…',
       }),
-    ).toEqual({ cancelled: true, reply: null });
+    ).toEqual({ cancelled: true, reply: null, code: null });
     // Ending it keeps it stopped, with how far it got.
     expect(
       await runAs(riley, ws, 'outreach.ask.end', {
@@ -410,6 +412,101 @@ describe('asking the extension', () => {
         runWith(riley, ws, 'outreach.ask.cancel', { askId: taken.askId }, { channel: 'web' }),
       ),
     ).toBe('not_found');
+  });
+
+  it('waits on a code from their email: theirs alone, handed over once, and gone after 10 minutes', async () => {
+    const kai = await createTestUser('outa-kai', { fullName: 'Kai Member' });
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: kai.id, role: 'member' });
+    const pc = randomUUID();
+    await beat(kai, pc, true);
+    await ask(kai, { kind: 'file_download' });
+    const { ask: taken } = await take(kai, pc);
+    const askId = taken.askId as string;
+    const give = (u: TestUser, code: string, commandId = randomUUID()) =>
+      runWith(u, ws, 'outreach.ask.code', { askId, code }, { channel: 'web', commandId });
+    const progress = (state: string, line: string) =>
+      runAs(kai, ws, 'outreach.ask.progress', { askId, state, line });
+    const codes = async () =>
+      rows<{ code: string; user_id: string }>(
+        admin(),
+        sql`select code, user_id from addon_outreach.ask_codes where ask_id = ${askId}`,
+      );
+
+    // Not waiting on one: nowhere for it to go.
+    expect(await refused(give(kai, '123456'))).toBe('outreach_code_not_asked');
+    const before = await events('outreach.ask.progressed');
+    expect(await progress('code', askCodeWords('alignable'))).toEqual({
+      cancelled: false,
+      reply: null,
+      code: null,
+    });
+    expect(await events('outreach.ask.progressed')).toBe(before + 1);
+    // It waits on them, in Waiting for you.
+    const waiting = await runAs(kai, ws, 'outreach.waiting', {});
+    expect(waiting.kinds.ask.count).toBe(1);
+    expect(waiting.items[0]).toMatchObject({ kind: 'ask', ask: { askId, state: 'code' } });
+
+    // Only theirs to type, and only what looks like a code.
+    expect(await refused(give(sam, '123456'))).toBe('outreach_code_not_asked');
+    expect(await refused(give(kai, '12'))).toBe('validation');
+    const commandId = randomUUID();
+    expect(await give(kai, '123 456', commandId)).toMatchObject({ ask: { askId, state: 'code' } });
+    expect(await codes()).toEqual([{ code: '123456', user_id: kai.id }]);
+    // Nothing of it is kept anywhere else: no receipt, and the event and the audit say only that one came.
+    expect(
+      await rows(
+        admin(),
+        sql`select 1 from app.command_receipts where user_id = ${kai.id} and command_id = ${commandId}`,
+      ),
+    ).toEqual([]);
+    const [coded] = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events where workspace_id = ${ws} and event_type = 'outreach.ask.coded'
+            and entity_id = ${askId}`,
+    );
+    expect(coded!.payload).toMatchObject({ userId: kai.id, kind: 'file_download' });
+    expect(JSON.stringify(coded!.payload)).not.toContain('123456');
+    expect(
+      await rows(
+        admin(),
+        sql`select 1 from app.audit_logs where workspace_id = ${ws} and entity_id = ${askId}
+              and (coalesce(before::text, '') || coalesce(after::text, '')) like '%123456%'`,
+      ),
+    ).toEqual([]);
+    // Nobody else reads it, the business's owner included; they do.
+    const read = (u: TestUser) =>
+      as(u)((tx) =>
+        rows(tx, sql`select code from addon_outreach.ask_codes where ask_id = ${askId}`),
+      );
+    expect(await read(owner)).toEqual([]);
+    expect(await read(sam)).toEqual([]);
+    expect(await read(kai)).toEqual([{ code: '123456' }]);
+
+    // Their computer gets it once, and it's gone.
+    expect(await progress('code', askCodeWords('alignable'))).toMatchObject({ code: '123456' });
+    expect(await progress('code', askCodeWords('alignable'))).toMatchObject({ code: null });
+    expect(await codes()).toEqual([]);
+
+    // A code that didn't work asks again, which pushes again; one past its 10 minutes is never handed over.
+    await progress('working', 'Putting the code in…');
+    expect(await refused(give(kai, '654321'))).toBe('outreach_code_not_asked');
+    await progress('code', askCodeWords('alignable', true));
+    expect(await events('outreach.ask.progressed')).toBe(before + 3);
+    await give(kai, '654321');
+    await rows(
+      admin(),
+      sql`update addon_outreach.ask_codes set expires_at = now() - interval '1 second' where ask_id = ${askId}`,
+    );
+    expect(await progress('code', askCodeWords('alignable', true))).toMatchObject({ code: null });
+    expect(await codes()).toEqual([]);
+
+    // A code typed and never taken goes with its ask's end.
+    await give(kai, '777777');
+    await runAs(kai, ws, 'outreach.ask.end', { askId, state: 'failed', line: 'No code came.' });
+    expect(await codes()).toEqual([]);
+    expect(await refused(give(kai, '777777'))).toBe('outreach_code_not_asked');
   });
 
   it('ends with a look-up’s drafts, and a retried end gets the first answer', async () => {

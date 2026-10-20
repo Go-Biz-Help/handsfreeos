@@ -125,10 +125,12 @@ const ONLINE_COMMANDS = [
   'outreach.wheels.end',
   'outreach.playbook.save',
   'outreach.playbook.archive',
-  // Asking the person's computer from the phone (decision 43): asking, Carry on or Skip, and Stop.
+  // Asking the person's computer from the phone (decision 43): asking, Carry on or Skip, Stop, and the code a network
+  // emailed them.
   'outreach.ask.make',
   'outreach.ask.reply',
   'outreach.ask.cancel',
+  'outreach.ask.code',
   // The person menu on Today (decision 44): Add to Contacts, Demo booked and Don't pitch.
   'outreach.profile.contact',
   'outreach.demo.mark',

@@ -1,4 +1,4 @@
-import type { AskShown, AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { askCodeWords, type AskShown, type AsksOutput } from '@hfos/core/addons/outreach/asks';
 import type { ChatsOutput } from '@hfos/core/addons/outreach/chat-read';
 import type { GroupsOutput } from '@hfos/core/addons/outreach/groups';
 import { fireEvent, render, renderHook, screen, within } from '@testing-library/react-native';
@@ -12,7 +12,7 @@ import { id, TZ } from './mocks';
 /**
  * Asking the computer from the phone (decisions 43 and 44): the Groups and Chats screens' buttons ask the person's
  * working computer, as the web's do, each with the line of its latest ask; a step handed over has Carry on, Skip and
- * Stop; and the Live screen lists what was asked.
+ * Stop; one waiting on a code from their email has a box for it; and the Live screen lists what was asked.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
@@ -267,6 +267,20 @@ describe('An ask’s line on the phone', () => {
       />,
     );
     expect(screen.getByText('Work laptop starts on it in a moment.')).toBeTruthy();
+  });
+
+  it('takes the code a network emailed them, says it’s sent, and lets them type it again', async () => {
+    const code = jest.fn(async () => true);
+    const actions = { ...actionsOf(), code };
+    const waiting = ask({ kind: 'profile_edit', state: 'code', line: askCodeWords('alignable') });
+    await render(<AskLine asks={asksOf()} ask={waiting} actions={actions} />);
+    expect(screen.getByText(askCodeWords('alignable'))).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('ask-code'), '482 913');
+    await fireEvent.press(screen.getByTestId('ask-code-send'));
+    expect(code).toHaveBeenCalledWith(waiting, '482 913');
+    expect(await screen.findByText('Sent. Your computer is putting it in.')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Type it again'));
+    expect(screen.getByTestId('ask-code')).toBeTruthy();
   });
 
   it('lists what was asked on the Live screen, or says nothing was', async () => {

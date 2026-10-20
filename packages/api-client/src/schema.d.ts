@@ -6177,6 +6177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.ask.code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 10 minutes at most, and taken once.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.coded.
+         */
+        post: operations["command_outreach_ask_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.ask.end": {
         parameters: {
             query?: never;
@@ -6227,7 +6247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, or their password). Answers whether the person stopped it, and their answer to a step handed to them.
+         * The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, their password, or a code from their email). Answers whether the person stopped it, their answer to a step handed to them, and the code they typed, once.
          * @description Risk level 0. Requires outreach.use. Emits outreach.ask.progressed.
          */
         post: operations["command_outreach_ask_progress"];
@@ -35180,7 +35200,81 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            target: string;
+                            /** @enum {string} */
+                            via: "web" | "mobile" | "extension";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    code: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ask: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            computerName: string | null;
+                            endedAt: string | null;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            reply: ("carry_on" | "skip") | null;
+                            result: {
+                                drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                /** @default false */
+                                lookedUp: boolean;
+                                /** @default null */
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** @default false */
+                                queued: boolean;
+                                /** @default false */
+                                simple: boolean;
+                            } | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -35239,7 +35333,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled";
+                        state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled";
                     };
                 };
             };
@@ -35401,7 +35495,7 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -35426,7 +35520,7 @@ export interface operations {
                     askId: string;
                     line: string;
                     /** @enum {string} */
-                    state: "working" | "stuck" | "typing";
+                    state: "working" | "stuck" | "typing" | "code";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35441,6 +35535,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         cancelled: boolean;
+                        /** @default null */
+                        code: string | null;
                         reply: ("carry_on" | "skip") | null;
                     };
                 };
@@ -35512,7 +35608,7 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -66896,7 +66992,7 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -69443,7 +69539,7 @@ export interface operations {
                                 } | null;
                                 startedAt: string | null;
                                 /** @enum {string} */
-                                state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                                state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                                 target: string;
                                 /** @enum {string} */
                                 via: "web" | "mobile" | "extension";

@@ -321,6 +321,7 @@ import {
 import {
   AskCancelInput,
   AskChangedOutput,
+  AskCodeInput,
   AskMakeInput,
   AskMakeOutput,
   AskReplyInput,
@@ -562,6 +563,7 @@ export const PHONE_COMMANDS = {
   // a need cleared, a request left and the day started or stopped wait as long as it takes; the rest need signal,
   // asking the computer among them (decision 43): an ask is for now, and the computer may be on.
   'outreach.ask.cancel': command(ONLINE, AskCancelInput, AskChangedOutput),
+  'outreach.ask.code': command(ONLINE, AskCodeInput, AskChangedOutput),
   'outreach.ask.make': command(ONLINE, AskMakeInput, AskMakeOutput),
   'outreach.ask.reply': command(ONLINE, AskReplyInput, AskChangedOutput),
   'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
