@@ -105,7 +105,10 @@ const ALIGNABLE_PAGES: Record<string, string> = {
     <div data-testid="ideal-customer-information"><h1>My Ideal Customers</h1>
       <div data-testid="ideal-customer-add-description"><span>Say who you serve.</span><button>Add</button></div></div>
     <div><div><div>About Us</div><div><button data-testid="elevator-pitch-cta-button"><p>Add Your Elevator Pitch</p></button>
-      <a href="/biz/profile/about_us?source=profile">Edit</a></div></div><p>We fix roofs in Columbus.</p></div></main>`),
+      <a href="/biz/profile/about_us?source=about_us_section">Edit</a></div></div><p>We fix roofs in Columbus.</p></div>
+    <form><div data-testid="gallery-uploader-picker-dropzone"><input type="file" /></div>
+      <label for="t">Title</label><input id="t" type="text" /><label for="d">Description</label>
+      <textarea id="d" placeholder="Add description"></textarea><a>Cancel</a><input type="submit" /></form></main>`),
   // About Us's page, drawn a moment after it opens.
   [`${AL}/biz/profile/about_us`]: html(`<main></main>`),
   [`${AL}/biz/users/77/edit`]: html(
@@ -180,6 +183,16 @@ function alignableDoes(doc: Document) {
     dialog.setAttribute('role', 'dialog');
     dialog.innerHTML = `<textarea aria-label="Elevator Pitch"></textarea><button>Save</button><button>Cancel</button>`;
     dialog.querySelectorAll('button')[1]!.addEventListener('click', () => dialog.remove());
+    doc.body.append(dialog);
+  });
+  // About Us's Edit opens its editor in the page (0.67.0), never as a page of its own.
+  doc.querySelector('a[href*="source=about_us_section"]')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const dialog = doc.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.innerHTML = `<label for="about">About Us</label><textarea id="about">We fix roofs.</textarea>
+      <input type="submit" value="Save" /><button>Cancel</button>`;
+    dialog.querySelector('button')!.addEventListener('click', () => dialog.remove());
     doc.body.append(dialog);
   });
   const part = doc.querySelector('[data-testid="ideal-customer-add-description"]');
@@ -398,6 +411,8 @@ describe('Check Alignable', () => {
       // Their own profile's editors, opened and closed with nothing written, and About Us's page once it's drawn.
       ['checkup.pitch', true],
       ['checkup.ideal', true],
+      // About Us's Edit pressed on their profile, where it opens its editor; then its page's address.
+      ['checkup.about', true],
       ['checkup.about', true],
       ['checkup.connect', true],
       ['checkup.message', true],

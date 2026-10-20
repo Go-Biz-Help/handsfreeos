@@ -50,6 +50,18 @@ describe('Alignable’s addresses, as its pages lead', () => {
     expect(outline).toContain('/biz/connection_requests/quick_connect?business_id={');
     expect(outline).not.toContain('4242');
   });
+
+  it('keeps its own words with a _ after /biz, and a like’s and a report’s, never a business’s name', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx`,
+      `<a href="/biz/thumbs_up?resource=9">Like</a><a href="/biz/flags/new?resource=9">Report</a>
+        <a href="/biz/acme/contacts">Contacts</a><a href="/biz/acme-roofing">Acme</a>`,
+    );
+    const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
+    expect(outline).toContain('/biz/thumbs_up?resource={');
+    expect(outline).toContain('/biz/flags/new?resource={');
+    expect(outline).not.toMatch(/acme/i);
+  });
 });
 
 describe('a search for businesses', () => {
@@ -328,6 +340,67 @@ describe('a business’s page', () => {
       businessMessage: false,
     });
     expect(JSON.stringify(found)).not.toMatch(/Realtor|Acme|leaks/);
+  });
+});
+
+describe('a forum question’s own post, written straight in a box of its own', () => {
+  it('reads its words between its author and its counts (the owner’s Check, 0.67.0)', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx/need-a-plumber-12`,
+      `<section><a href="/groups/austin-tx"><span>Back to Austin Business Owners</span></a>
+        <div><div><div><div href="/austin-tx/best-bakery?user=6"><a aria-label="Sam’s profile" href="/austin-tx/best-bakery?user=6"></a></div>
+            <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a></div>
+              <div><span>2d</span></div></div></div>
+          <div>Who does great plumbing in Austin?<br>Old house, slow drains.</div>
+          <div><div><span>You and 2 others</span><a href="/biz/likes?resource=7"><span>3</span><span>Like</span></a></div><hr>
+            <div><a href="/biz/discussions/12">Comment</a>
+              <a href="/biz/connection_requests/make_connection?business_id=43&discussion_id=12&type=mgc"><div>Connect</div></a></div></div></div></div>
+      </section>`,
+    );
+    expect(readAlignable(doc, doc.location.href).threads).toMatchObject([
+      {
+        when: '2d',
+        text: 'Who does great plumbing in Austin? Old house, slow drains.',
+        likes: 3,
+        connect: true,
+      },
+    ]);
+  });
+});
+
+describe('My Network’s Requests', () => {
+  it('reads nobody from its table when it says there are none', () => {
+    const doc = page(
+      `${AL}/biz/my_network/connection_requests`,
+      `<div data-testid="requests-360-table"><div><span>Requests</span></div><table><thead><tr>
+        <th><div data-testid="name-header">Business name</div></th><th><div data-testid="reason-header"><div>Why they want to connect</div></div></th><th></th></tr></thead>
+        <tbody><tr><td><div data-testid="connection-requests-360-empty"><span>You have no new requests.</span>
+          <span>Complete your profile to get more.</span><a href="/biz/acme">Go to your profile</a></div></td></tr></tbody></table></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).requests).toEqual([]);
+  });
+
+  it('reads each request’s business, why they’d connect, and its Accept', () => {
+    const doc = page(
+      `${AL}/biz/my_network/connection_requests`,
+      `<div data-testid="requests-360-table"><table><tbody><tr>
+        <td><a href="/austin-tx/best-bakery?user=6&business_id=43"><span>Sam Lee</span></a><div>Best Bakery</div></td>
+        <td><p>We both serve homeowners in Austin.</p></td>
+        <td><button>Accept</button><button>Ignore</button></td></tr></tbody></table></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).requests).toEqual([
+      {
+        name: 'Sam Lee',
+        profile: {
+          id: '43',
+          username: 'austin-tx-best-bakery',
+          url: `${AL}/austin-tx/best-bakery`,
+        },
+        business: 'Best Bakery',
+        reason: 'We both serve homeowners in Austin.',
+        accept: true,
+      },
+    ]);
   });
 });
 

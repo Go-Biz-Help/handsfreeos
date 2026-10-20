@@ -53,6 +53,19 @@ export interface Business extends Named {
   readonly message: boolean;
 }
 
+/**
+ * A connection request someone sent you, on My Network's Requests (`requests-360-table`): who, why they say they'd
+ * connect, and its Accept. The owner's Check (0.67.0) found the table empty, so its rows are read by their links and
+ * buttons till one shows.
+ */
+export interface Request extends Named {
+  readonly profile: ProfileRef;
+  readonly business: string | null;
+  /** What its second column says: why they'd like to connect. */
+  readonly reason: string | null;
+  readonly accept: boolean;
+}
+
 /** A post on a group's page or a discussion's: its author, its words, its likes, and its Connect. */
 export interface Thread {
   readonly author: Named | null;
@@ -111,6 +124,7 @@ export interface ChatOpen {
 /** Everything Alignable's readers found on a page. Plain data: it crosses from the tab as JSON. */
 export type AlignableFound = {
   readonly businesses: readonly Business[];
+  readonly requests: readonly Request[];
   readonly threads: readonly Thread[];
   readonly answers: readonly Answer[];
   readonly chats: readonly ChatRow[];
@@ -214,6 +228,8 @@ function around(elements: readonly Element[]): Element | null {
 function textOf(element: Element | null | undefined): string {
   if (!element) return '';
   const copy = element.cloneNode(true) as Element;
+  // A See More is the page's, never what they wrote.
+  for (const button of copy.querySelectorAll('button')) button.remove();
   for (const br of copy.querySelectorAll('br')) br.replaceWith(' ');
   for (const block of copy.querySelectorAll('p, div')) block.append(' ');
   return clean(copy.textContent);
@@ -274,6 +290,46 @@ function searchResults(doc: Document, base: string): Business[] {
     if (found.length >= MOST) break;
   }
   return found;
+}
+
+/** My Network's Requests: each row's business, its names, why they'd connect, and its Accept. */
+function requestRows(doc: Document, base: string): Request[] {
+  const table = doc.querySelector(PART('requests-360-table'));
+  if (!table) return [];
+  return [...table.querySelectorAll('tbody tr')].slice(0, MOST).flatMap((row) => {
+    if (row.querySelector(PART('connection-requests-360-empty'))) return [];
+    const link = linksIn(row, base).find(({ url }) => businessRef(url, idIn(url)) !== null);
+    if (!link) return [];
+    const profile = businessRef(link.url, idIn(link.url) ?? idAround(row, base));
+    if (!profile) return [];
+    const cells = [...row.querySelectorAll('td')];
+    const lines = [...(cells[0]?.querySelectorAll('a, span, div') ?? [])]
+      .filter((el) => el.children.length === 0)
+      .map((el) => clean(el.textContent))
+      .filter(Boolean);
+    const name = lines[0] ?? clean(link.a.textContent);
+    if (!name) return [];
+    return [
+      {
+        name,
+        profile,
+        business: lines.find((line) => line !== name) ?? null,
+        reason: textOf(cells[1]) || null,
+        accept: [...row.querySelectorAll('button, a')].some((el) =>
+          /^(accept|confirm|connect)$/i.test(clean(el.textContent)),
+        ),
+      },
+    ];
+  });
+}
+
+/** The id a part of the page ties its business to: the first of its links that carries one. */
+function idAround(root: ParentNode, base: string): string | null {
+  for (const { url } of linksIn(root, base)) {
+    const id = idIn(url);
+    if (id) return id;
+  }
+  return null;
 }
 
 /** My Network's rows: each business by its id, its owner's and business's names, and its Message. */
@@ -365,10 +421,9 @@ function postsOn(doc: Document, base: string): Thread[] {
     if (!root) continue;
     seen.add(key);
     const author = authorIn(root, base);
-    // Its words: a box of them with a title (a group's page), else its first paragraph that isn't an answer's.
-    const words =
-      root.querySelector('div[title]') ??
-      [...root.querySelectorAll('p')].find((p) => !p.closest(PART('discussion-comment')));
+    // Its words: a box of them with a title (a group's page), else the part between its author and its counts, which a
+    // discussion's own page draws as a plain box of words (the owner's Check, 0.67.0).
+    const words = root.querySelector('div[title]') ?? bodyOf(root, base);
     found.push({
       author: author ? { name: author.name, profile: author.profile } : null,
       url: key,
@@ -380,6 +435,17 @@ function postsOn(doc: Document, base: string): Thread[] {
     if (found.length >= MOST) break;
   }
   return found;
+}
+
+/** A post's own part with its words: the first of its parts that names no business and holds no link of its own. */
+function bodyOf(root: Element, base: string): Element | null {
+  for (const part of root.children) {
+    if (part.closest(PART('discussion-comment')) || part.querySelector(PART('discussion-comment')))
+      continue;
+    if (linksIn(part, base).length) continue;
+    if (textOf(part)) return part;
+  }
+  return null;
 }
 
 /** A forum question's answers, and the replies under them, each with its own author, words and Connect. */
@@ -503,6 +569,7 @@ function answerBoxOn(doc: Document): boolean {
 export function readAlignable(doc: Document, href: string): AlignableFound {
   return {
     businesses: [...searchResults(doc, href), ...connectionRows(doc, href)].slice(0, MOST),
+    requests: requestRows(doc, href),
     threads: postsOn(doc, href),
     answers: answersOn(doc, href),
     chats: chatRows(doc),

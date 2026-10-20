@@ -583,6 +583,14 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 1, reading** (extension 0.67.0): Alignable's readers for all of these, counted in each of Check's notes,
      with Requests found in My Network's own menu, the pitch's box waited for, and About Us's Save found. The next
      Check shows whether the readers read the real pages, and what a Connect link's word is.
+   - **What 0.67.0's Check read** (Chris, 20 Oct 2026): the readers read the real pages: a search's 10 businesses each
+     with its owner, business, kind, place and Connect; 5 connections; 16 conversations and the open one's box and
+     Send; a business's page whole, its ideal partner too; a forum question's 5 answers. Connect is
+     `/biz/connection_requests/make_connection?business_id=…`: opening it makes the request, so it's pressed only as the
+     step itself. **The Elevator Pitch is a chat with Alignable's own AI**, not a box: it stays the person's to make
+     there. About Us's Edit opens its editor in the page; its address leads back to the profile, where the form found
+     was the gallery's. Requests was empty. The town's posts were still loading, and a forum question's own words are
+     a plain box between its author and its counts. 0.68.0 reads all of that, and the Requests table's rows.
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
 

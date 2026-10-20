@@ -247,6 +247,9 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
   await wholeProfile(job, true);
   await c.tryHere('pitch');
   await c.tryHere('ideal');
+  // About Us's Edit, pressed on the profile itself, where Alignable opens its editor (0.67.0): its page's address
+  // leads back here.
+  await c.tryHere('about');
   for (const [url, name] of formsOf(mine.edits)) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const opened = await c.open(url, name);
@@ -289,7 +292,10 @@ async function nextPages(
   if (town) {
     if (stoppedEnd(job)) return stoppedEnd(job);
     // Alignable opens a town at its own group, /groups/<town-st>, where its owners post (the owner's Check, 0.66.0).
-    const page = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    const opened = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    if (isEnd(opened)) return opened;
+    // Its posts are drawn a moment after the page: the owner's Check (0.67.0) read it while they were still loading.
+    const page = await c.readTill(opened, (p) => countOf(p, 'threads') > 0, 4);
     if (isEnd(page)) return page;
     await c.note('your town', countOf(page, 'threads'));
   } else c.nothingOn.push('your town');

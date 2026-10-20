@@ -552,6 +552,17 @@ const PATH_WORDS = new Set([
   'invitations',
   'invitation',
   'messages',
+  // Where the owner's Check went on 0.67.0: a Connect makes the connection at once, and About Us's own Edit; then the
+  // likeliest words for a like's and a report's links.
+  'make_connection',
+  'about_us',
+  'about_us_section',
+  'likes',
+  'like',
+  'reactions',
+  'reports',
+  'report',
+  'flags',
 ]);
 
 /** Its own words in an address's query: what kind of search, and from where (the owner's Check, 0.62.0). */
@@ -588,9 +599,12 @@ export const ALIGNABLE: LookingSite = {
   // What a Connect link leads to, after /biz/connection_requests/: a word of Alignable's, never a name (the owner's
   // Check, 0.66.0, hid it), kept so the next Check says whether opening it sends the request.
   pathWordAt: (parts, at) =>
-    at > 0 &&
-    /^connection_requests$/i.test(parts[at - 1] ?? '') &&
-    /^[a-z_]{1,24}$/.test(parts[at]!),
+    (at > 0 &&
+      /^connection_requests$/i.test(parts[at - 1] ?? '') &&
+      /^[a-z_]{1,24}$/.test(parts[at]!)) ||
+    // A word of its own with a _ in it, right after /biz: a like's link and a report's were hidden (0.67.0). A
+    // business's address is /<town-st>/<business>, and its name never sits there.
+    (at === 1 && /^biz$/i.test(parts[0] ?? '') && /^[a-z]+(_[a-z]+)+$/.test(parts[at]!)),
   queryKept: QUERY_KEPT,
   // Its own readers (partners stage 6c): businesses, posts, a forum question's answers and chats, counted in each of
   // Check's notes so the next Check shows what they find on the real pages.
