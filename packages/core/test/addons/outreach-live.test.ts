@@ -144,11 +144,13 @@ describe('the live view’s words', () => {
     );
     expect(sendingOffWords(false)).toContain('Ask an owner of this business');
     expect(sendingOffWords(true)).toContain('Settings → Facebook');
-    // Alignable before its runner: nothing to pick and nobody to ask; its list is the person's own to do.
-    expect(sendingOffWords(true, 'alignable')).toBe(
-      'Your computer doesn’t work on Alignable on its own yet, so there’s no day to start there. Today’s list on Alignable is yours to do, and it notes each step you take.',
+    // A network with no runner yet (Instagram): nothing to pick and nobody to ask; its list is the person's own to do.
+    expect(sendingOffWords(true, 'instagram')).toBe(
+      'Your computer doesn’t work on Instagram on its own yet, so there’s no day to start there. Today’s list on Instagram is yours to do, and it notes each step you take.',
     );
-    expect(sendingOffWords(false, 'alignable')).not.toContain('Ask an owner');
+    expect(sendingOffWords(false, 'instagram')).not.toContain('Ask an owner');
+    // Alignable has its runner (part 5): its Sending choice is picked on its own page.
+    expect(sendingOffWords(true, 'alignable')).toContain('Settings → Alignable');
     expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');
     expect(sendingOffWords(false)).toContain('Settings → General');
   });

@@ -195,8 +195,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   // referrals. Close to LinkedIn in shape; little is published, so its steps are built from what Check Alignable reads.
   alignable: {
     name: PLATFORMS.alignable,
-    // Working from part 3 (the app), as LinkedIn was, before its runner: nothing goes on its own there till part 5
-    // (`runsOnItsOwn`), so Today's list on it is the person's own to do, and the extension notes each step.
+    // Working from part 3 (the app), as LinkedIn was, and on its own from part 5 (its runner).
     stage: 'working',
     link: /^https:\/\/www\.alignable\.com\//,
     profileId: /^[A-Za-z0-9_-]{1,64}$/,
@@ -209,7 +208,11 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     forumAnswersPerDay: 2,
     recommends: true,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    runs: RUNS_NOTHING,
+    // auto/alignable.ts (part 5): warm-ups (a look at their business page, and a like on a recent post of theirs when
+    // it shows one) and connection requests. Comments and forum answers wait for the person's OK each time, as they're
+    // public writing (the plan's question 9), and Recommend is only ever theirs. Of the switches along the way it reads
+    // the warm-up and the once-a-day jobs: it joins no groups and has no hourly look.
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -231,7 +234,7 @@ export const isLooking = (platform: Platform): boolean => NETWORKS[platform].sta
 
 /**
  * Whether the extension works a network on its own: its runner takes steps there and sends what's OK'd. Until it does
- * (Alignable before its part 5), every step and message there is the person's own, which the extension notes.
+ * (Instagram, still looked at), every step and message there is the person's own, which the extension notes.
  */
 export const runsOnItsOwn = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.length > 0;

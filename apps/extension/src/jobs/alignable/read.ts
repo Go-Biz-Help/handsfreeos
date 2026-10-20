@@ -13,6 +13,9 @@ export const ALIGNABLE = 'https://www.alignable.com';
 /** My Network: the person's connections, and its Requests tab, the requests they've got. */
 export const MY_NETWORK = `${ALIGNABLE}/biz/my_network`;
 export const REQUESTS = `${ALIGNABLE}/biz/my_network/connection_requests`;
+/** Its search for businesses, as Check Alignable opens it: Find partners' (./partner-search.ts). */
+export const businessSearchUrl = (words: string) =>
+  `${ALIGNABLE}/biz/search?q=${encodeURIComponent(words)}`;
 
 /** Between screens of a list: a person reading as they go, as on LinkedIn. */
 export const SCROLL_PACE_MS = [6_000, 12_000] as const;

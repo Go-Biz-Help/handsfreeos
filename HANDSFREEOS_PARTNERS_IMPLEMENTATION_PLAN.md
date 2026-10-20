@@ -622,6 +622,12 @@ request when opened, so no Check opens it: the first real request shows what it 
      person writes it on Alignable, and the extension notes it once it's sent.
    - **Part 7, recommendations on Get ready** (extension 0.76.0): how many the profile shows, of the 5 it wants, and
      the AI's note asking happy customers for one, to paste in Alignable's own Ask for Recommendations.
+   - **Part 5, the runner** (extension 0.77.0, `src/auto/alignable.ts`): Alignable works on its own as LinkedIn does,
+     so its Sending choices open. Its lists first; then once a day its requests, its connections checked, **Find
+     partners** (its search for businesses, then each found read for the partner check; businesses alone, as it has no
+     creators) and its town's posts; then warm-ups, connection requests and the messages OK'd. Comments and forum
+     answers wait for an OK each time, Recommend stays by hand only, and withdrawing old requests stays the person's:
+     no reader of the requests they've sent is built.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,

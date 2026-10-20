@@ -376,8 +376,9 @@ export function TodayView({
 const START_ASKS = { groups: 'groups', chats: 'chats', friends: 'checks' } as const;
 
 /**
- * Find posts, on a network the extension doesn't work on its own yet (Alignable): its runner would read the town's
- * posts each day, so the person asks for it here, and the good ones come onto the list.
+ * Find posts, on a network the extension doesn't work on its own: the person asks for it here, and the good ones come
+ * onto the list. Where a runner works the network (Alignable's, from part 5), it reads the town's posts once a day
+ * itself, so the card doesn't show.
  */
 function FindPostsCard({
   workspaceId,
