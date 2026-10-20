@@ -12,7 +12,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, RequestMeta } from '../../../kernel/types';
 import { onServerClock } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { businessDay, businessLimitsOn, OTHER_PLATFORMS } from '../automation';
+import { businessDay, businessLimitsOn, choicesFor, OTHER_PLATFORMS } from '../automation';
 import {
   ComputerRenameInput,
   ComputerRenameOutput,
@@ -40,7 +40,7 @@ import {
   type DayVia,
   type LiveDay,
 } from '../live';
-import { dailyLimitsNow, WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
+import { WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import { isLooking, networkLimitsNow } from '../networks';
 import type { Platform } from '../playbooks';
@@ -522,12 +522,13 @@ async function teamComputers(ctx: Ctx) {
 export const liveTeam = defineAddonQuery(outreachAddon, {
   name: 'outreach.live.team',
   description:
-    'For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.',
+    'For owners and admins: each person who uses Social Outreach on one network (Facebook when left out), with what their extension is doing (working, waiting, stopped for today, offline), today’s counts there against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.',
   input: LiveTeamInput,
   output: LiveTeamOutput,
   permission: 'outreach.manage',
   scope: inWorkspace,
-  async handler(ctx) {
+  async handler(ctx, input) {
+    const { platform } = input;
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
     const { today, timezone } = await businessToday(ctx, now);
@@ -541,19 +542,20 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
             and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`,
     );
     const ids = found.map((p) => p.user_id);
-    // Facebook's days, counts and warnings: the extension works there alone yet.
+    // The network's own days, counts and warnings, as each person's own live view shows them; the computers and
+    // what waits for them are the person's, the same on every network.
     const [all, kept, counts, waiting, warned, auto] = await Promise.all([
       teamComputers(ctx),
       ctx.tx
         .select()
         .from(days)
-        .where(and(eq(days.workspaceId, ws), eq(days.platform, 'facebook'))),
-      dayCounts(ctx, ids, 'facebook', todayStart),
+        .where(and(eq(days.workspaceId, ws), eq(days.platform, platform))),
+      dayCounts(ctx, ids, platform, todayStart),
       waitingFor(ctx, ids),
       rows<{ user_id: string; at: Date | string }>(
         ctx.tx,
         sql`select distinct on (user_id) user_id, at from addon_outreach.warnings
-            where workspace_id = ${ws} and platform = 'facebook'
+            where workspace_id = ${ws} and platform = ${platform}
               and at >= ${new Date(now - WARNING_SLOWER_DAYS * DAY).toISOString()}::timestamptz
             order by user_id, at desc`,
       ),
@@ -562,7 +564,12 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
     return {
       timezone,
       now: new Date(now).toISOString(),
+      platform,
       people: found
+        // Facebook's lists everyone, as it did; another network those who have it on.
+        .filter(
+          (p) => platform === 'facebook' || choicesFor(auto.of(p.user_id).settings, platform).on,
+        )
         .map((p) => {
           const theirs = all.filter((c) => c.userId === p.user_id);
           const working = workingOf(theirs);
@@ -570,7 +577,8 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
             kept.find((d) => d.userId === p.user_id),
             today,
           );
-          const { settings, wheels } = auto.of(p.user_id);
+          const { settings, wheels } = auto.of(p.user_id, platform);
+          const { sending } = choicesFor(settings, platform);
           const warning = warned.find((w) => w.user_id === p.user_id);
           const slower = warning !== undefined || wheels.on;
           return {
@@ -581,11 +589,11 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
                 ? { state: working.state, lastSeenAt: working.lastSeenAt.toISOString() }
                 : null,
               day,
-              sending: settings.sending,
+              sending,
               now,
             }),
             day,
-            sending: settings.sending,
+            sending,
             computer: working
               ? {
                   name: working.name,
@@ -595,7 +603,7 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
               : null,
             limits: todayLimits(
               counts.get(p.user_id) ?? NONE,
-              dailyLimitsNow(slower, auto.rules.dailyLimits),
+              networkLimitsNow(platform, slower, businessLimitsOn(auto.rules, platform)),
             ),
             waiting: waiting.get(p.user_id) ?? 0,
             warned: warning !== undefined && new Date(warning.at) >= todayStart,

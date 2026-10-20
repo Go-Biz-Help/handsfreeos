@@ -293,6 +293,18 @@ export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode,
 export const onItsOwnAbout = (platform: Platform): string =>
   `It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from ${PLATFORMS[platform]}.`;
 
+/** The team's part of the live view on a network: "Your team", and on another network "Your team on LinkedIn". */
+export const teamWordsOn = (
+  platform: Platform,
+): { readonly title: string; readonly noneTitle: string; readonly none: string } =>
+  platform === 'facebook'
+    ? { title: W.team, noneTitle: W.teamNoneTitle, none: W.teamNone }
+    : {
+        title: `${W.team} on ${PLATFORMS[platform]}`,
+        noneTitle: `Nobody here has ${PLATFORMS[platform]} on yet`,
+        none: `Nobody here has ${PLATFORMS[platform]} on yet.`,
+      };
+
 /** Under On its own on a network the extension doesn't work yet: what it does there instead. */
 export const noRunnerWords = (platform: Platform): string =>
   `Your computer doesn’t work on ${PLATFORMS[platform]} on its own yet. You take each step and send each message yourself, and it notes what you do.`;

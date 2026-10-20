@@ -29,6 +29,7 @@ import {
   dailyWordsOn,
   NETWORK_WORDS as NW,
   noRunnerWords,
+  teamWordsOn,
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -500,9 +501,10 @@ export function ComputersCard({
 }
 
 function TeamCard({ team, now }: { team: LiveTeam; now: number }) {
+  const words = teamWordsOn(team.platform);
   return (
     <Card className="p-4" data-testid="live-team">
-      <h3 className="text-[15px] font-semibold">{W.team}</h3>
+      <h3 className="text-[15px] font-semibold">{words.title}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
         How each person’s extension is doing today. What it says and who it reaches stay theirs.
       </p>
@@ -563,7 +565,7 @@ function TeamCard({ team, now }: { team: LiveTeam; now: number }) {
           </table>
         </div>
       ) : (
-        <EmptyState title={W.teamNoneTitle} dashed className="mt-3" />
+        <EmptyState title={words.noneTitle} dashed className="mt-3" />
       )}
     </Card>
   );
