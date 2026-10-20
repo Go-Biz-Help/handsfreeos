@@ -56,7 +56,8 @@ export const SEARCH_KINDS: readonly SearchKind[] = [
   kind('calendar', 'workspace.read', { offline: true }),
   kind('tasks', 'records.read', { offline: true }),
   kind('notes', 'records.read', { offline: true, windowed: true }),
-  kind('files', 'records.read'),
+  // Names across the business; the words read inside them in a window (Search 5).
+  kind('files', 'records.read', { windowed: true }),
   // Form names are on the phone too; their answers wait for signal.
   kind('forms', 'workspace.read', { offline: true, windowed: true }),
   kind('knowledge', 'workspace.read'),

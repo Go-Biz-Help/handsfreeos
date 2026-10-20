@@ -131,6 +131,8 @@ export const SEARCH_WINDOWS = {
   calls: { quick: { rows: 2_000, days: 180 }, full: { rows: 10_000, days: 1_095 } },
   notes: { quick: { rows: 3_000, days: null }, full: { rows: 20_000, days: null } },
   answers: { quick: { rows: 3_000, days: null }, full: { rows: 20_000, days: null } },
+  // The words read inside files (Search 5), by when they were read.
+  fileWords: { quick: { rows: 1_000, days: null }, full: { rows: 10_000, days: null } },
 } as const satisfies Record<string, Record<'quick' | 'full', WindowSize>>;
 
 /** One window as a search reads it: its rows, the earliest it reaches, and where Look further back starts it. */
@@ -240,9 +242,15 @@ export const STRETCH = { before: 100, length: 320 } as const;
  * (`stretchSnippet`). `firstWord` is lower-cased as typed, since long text isn't folded (decision 23).
  */
 export function stretchOf(column: SQL, firstWord: string | null, name: string): SQL {
-  const from = firstWord
-    ? sql`greatest(1, strpos(lower(${column}), ${firstWord}) - ${STRETCH.before})`
-    : sql`1`;
+  return stretchAt(column, firstWord ? sql`strpos(lower(${column}), ${firstWord})` : null, name);
+}
+
+/**
+ * The same stretch around a match found some other way: `at` is where it starts, 1 for the first character, or 0
+ * when it isn't there (the stretch is then the text's start).
+ */
+export function stretchAt(column: SQL, at: SQL | null, name: string): SQL {
+  const from = at ? sql`greatest(1, ${at} - ${STRETCH.before})` : sql`1`;
   return sql`substr(${column}, ${from}, ${STRETCH.length}) as ${sql.raw(name)},
     (${from} > 1) as ${sql.raw(`${name}_cut_before`)},
     (${from} + ${STRETCH.length} <= char_length(${column})) as ${sql.raw(`${name}_cut_after`)}`;

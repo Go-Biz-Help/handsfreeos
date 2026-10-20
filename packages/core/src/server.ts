@@ -44,7 +44,8 @@ export * from './addons/ai';
 export * from './addons/teammate';
 export * from './addons/roadmap-load';
 export { loadActiveAddons, loadOverrides } from './addons/load';
-// Search everything, server side: running a search, its budgets, and the searchers' shape (search/server).
+// Search everything, server side: running a search, its budgets, the searchers' shape, and an error's SQLSTATE alone
+// (search/server).
 export {
   MIN_STATEMENT_MS,
   runSearch,
@@ -53,6 +54,7 @@ export {
   SEARCH_BUDGETS,
   SearchFailed,
   SearchStopped,
+  sqlStateOf,
   type FoundGroup,
   type KindSearcher,
   type RunOptions,

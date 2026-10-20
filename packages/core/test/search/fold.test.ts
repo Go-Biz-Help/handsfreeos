@@ -3,11 +3,18 @@
  * text, letter for letter, so the server finds and marks what the phone would. Each letter folds to one letter, so
  * the length never changes and a mark found in the folded text fits the original. And the database's stays cheap
  * enough to run on every name of a business.
+ *
+ * Then the words inside files (Search 5): core's `searchWords` and `private.search_words` split a text alike, so the
+ * query core builds (`tsq`, asked as the Files searcher asks it) finds the words the database keeps for a file, model
+ * numbers Postgres splits in two included; `foldPattern` finds a word where the folded text has it, without folding
+ * the text; and `termPattern` only where a word starts.
  */
 import { asUser, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { fold, FOLD_FROM, FOLD_TO } from '../../src/search/fold';
+import { fold, FOLD_FROM, FOLD_TO, foldPattern } from '../../src/search/fold';
+import { searchProbes, searchWords } from '../../src/search/probes';
+import { termPattern, wordsQuery } from '../../src/search/server/kinds/files';
 
 let person: TestUser;
 
@@ -142,5 +149,134 @@ describe('the map', () => {
       if (fold(ch).length !== ch.length) changed.push(`U+${cp.toString(16).toUpperCase()}`);
     }
     expect(changed).toEqual([]);
+  });
+});
+
+/** Each text split by the database, as a signed-in person runs it. */
+async function wordsBySql(texts: readonly string[]): Promise<string[]> {
+  const out = await asUser(testDbs().api.db, person.claims, (tx) =>
+    rows<{ words: string }>(
+      tx,
+      sql`select private.search_words(x.text) as words
+          from jsonb_array_elements_text(${JSON.stringify(texts)}::jsonb) with ordinality as x(text, n)
+          order by x.n`,
+    ),
+  );
+  return out.map((r) => r.words);
+}
+
+/** What a file's words read for search look like besides the corpus: punctuation, numbers and curly quotes. */
+const FILE_CORPUS = [
+  ...CORPUS,
+  'Invoice INV-001042 for 007 Bond St.',
+  '“Quoted,” she said — it’s 50% off… (really!)',
+  'x² ½ Ⅻ ①',
+  'tab\there\nnew line',
+  '0 00 000 0042 10 100',
+  // Postgres's parser splits these, 65e8 and m, 12e3 and e4: never a phrase.
+  'Samsung TV model 65E8M, serial 4E2A1B, 3E8F 10E5A 12e3e4 1e2e3',
+];
+
+describe('core’s searchWords and the database’s', () => {
+  it('split the corpus alike', async () => {
+    const sqlSide = await wordsBySql(FILE_CORPUS);
+    FILE_CORPUS.forEach((text, i) => expect(sqlSide[i], text).toBe(searchWords(text)));
+  });
+
+  it('agree on every character of Latin, Greek, Cyrillic, punctuation and number forms, one at a time', async () => {
+    const chars = [
+      ...range(0x01, 0x24f),
+      ...range(0x370, 0x4ff),
+      ...range(0x1e00, 0x1eff),
+      ...range(0x2000, 0x218f),
+    ];
+    const sqlSide = await wordsBySql(chars);
+    expect(chars.filter((ch, i) => sqlSide[i] !== searchWords(ch))).toEqual([]);
+  });
+
+  it('find the words the database keeps for a text with the query core builds from it', async () => {
+    const texts = FILE_CORPUS.filter((t) => searchProbes(t).tsq);
+    const found = await asUser(testDbs().api.db, person.claims, (tx) =>
+      rows<{ hit: boolean }>(
+        tx,
+        sql`select strip(to_tsvector('simple'::regconfig, private.search_words(x.e ->> 'text')))
+                @@ ${wordsQuery(sql`x.e ->> 'tsq'`)} as hit
+            from jsonb_array_elements(${JSON.stringify(
+              texts.map((text) => ({ text, tsq: searchProbes(text).tsq })),
+            )}::jsonb) with ordinality as x(e, n)
+            order by x.n`,
+      ),
+    );
+    expect(texts.filter((_, i) => !found[i]!.hit)).toEqual([]);
+    // A typed part of a number, or a word inside an address, finds them too.
+    const parts = await asUser(testDbs().api.db, person.claims, (tx) =>
+      rows<{ hit: boolean }>(
+        tx,
+        sql`select strip(to_tsvector('simple'::regconfig, private.search_words(x.e ->> 'text')))
+                @@ ${wordsQuery(sql`x.e ->> 'tsq'`)} as hit
+            from jsonb_array_elements(${JSON.stringify(
+              [
+                ['Invoice INV-001042 for 007 Bond St.', '1042'],
+                ['(504) 555-0142 +1 504 555 0142', '0142'],
+                ['dana.smith@gmail.com DANA.SMITH@GMAIL.COM', 'smith'],
+                ['https://www.GulfCoastRealty.com/about', 'gulfcoast'],
+                ['José García', 'jose garc'],
+                ['Samsung TV model 65E8M', '65E8M'],
+                ['Serial 4E2A1B on the back', '4e2a1b'],
+                ['Serial 4E2A1B on the back', '4e2a'],
+              ].map(([text, q]) => ({ text, tsq: searchProbes(q!).tsq })),
+            )}::jsonb) with ordinality as x(e, n)
+            order by x.n`,
+      ),
+    );
+    expect(parts.map((r) => r.hit)).toEqual([true, true, true, true, true, true, true, true]);
+  });
+
+  it('find a word with foldPattern exactly where the folded text holds it', async () => {
+    const cases = [
+      ['Bill to: JOSÉ García, Łódź', 'jose'],
+      ['Bill to: JOSÉ García, Łódź', 'lodz'],
+      ['Straße 5, ΟΔΟΣ', 'strase'],
+      ['Straße 5, ΟΔΟΣ', 'οδοσ'],
+      ['nothing here', 'jose'],
+      ['Invoice INV-001042', '1042'],
+    ] as const;
+    const out = await asUser(testDbs().api.db, person.claims, (tx) =>
+      rows<{ at: number; folded: number }>(
+        tx,
+        sql`select regexp_instr(x.e ->> 'text', x.e ->> 'pattern', 1, 1, 0, 'i') as at,
+                   strpos(private.search_fold(x.e ->> 'text'), x.e ->> 'word') as folded
+            from jsonb_array_elements(${JSON.stringify(
+              cases.map(([text, word]) => ({ text, word, pattern: foldPattern(word) })),
+            )}::jsonb) with ordinality as x(e, n)
+            order by x.n`,
+      ),
+    );
+    expect(out.map((r) => Number(r.at))).toEqual(out.map((r) => Number(r.folded)));
+    expect(out.map((r) => Number(r.at))).toEqual([10, 23, 1, 11, 0, 15]);
+  });
+
+  it('find a word with termPattern only where a word starts, a number past its leading zeros', async () => {
+    const cases = [
+      ['Latest contest. Page two: test cock', 'test', 27],
+      ['Call (504) 555-0142', '142', 16],
+      ['Invoice INV-001042', '1042', 13],
+      ['Bill to: JOSÉ García', 'jose', 10],
+      ['Model 65E8M', '65e8m', 7],
+      ['Dr. Patel, Andrew', 'dr', 1],
+      ['Andrew, Dr. Patel', 'dr', 9],
+      ['Ladder', 'dd', 0],
+    ] as const;
+    const out = await asUser(testDbs().api.db, person.claims, (tx) =>
+      rows<{ at: number }>(
+        tx,
+        sql`select regexp_instr(x.e ->> 'text', x.e ->> 'pattern', 1, 1, 0, 'i') as at
+            from jsonb_array_elements(${JSON.stringify(
+              cases.map(([text, term]) => ({ text, pattern: termPattern(term) })),
+            )}::jsonb) with ordinality as x(e, n)
+            order by x.n`,
+      ),
+    );
+    expect(out.map((r) => Number(r.at))).toEqual(cases.map((c) => c[2]));
   });
 });

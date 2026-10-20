@@ -215,6 +215,8 @@ describe('the powersync publication', () => {
     );
     expect(tables.every((t) => t.schemaname === 'app')).toBe(true);
     expect(tables.map((t) => t.tablename)).toEqual(PUBLISHED);
+    // The words read inside files (Search 5) stay on the server: search asks for them, phones never keep them.
+    expect(tables.map((t) => t.tablename)).not.toContain('file_texts');
   });
 
   it('has no table with a secret column, and never a table that holds one', async () => {

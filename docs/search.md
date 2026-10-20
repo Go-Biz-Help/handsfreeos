@@ -11,7 +11,8 @@ companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, f
 knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
 and the API's guards. Search 4a is built: core's contract for an add-on to answer searches with groups of its own
 (Rules worth knowing before changing anything, below). Search 4b is built: Real Estate answers through it, with its
-listings, deals, buyers' homes and properties (Real Estate's groups, below).
+listings, deals, buyers' homes and properties (Real Estate's groups, below). Search 5 is built: the worker reads the
+words inside files, and Files finds a file by them.
 Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the web, and at the top of
 Settings on the phone (Settings search, below). The main box and `/customers?q=` work as they did until Search 9
 switches it on.
@@ -30,6 +31,8 @@ switches it on.
 | Add-ons answering                     | `packages/core/src/search/addon.ts` (`AddonSearchInput`, `AddonSearchOutput`, an add-on's kinds and the links let through); `search/server/addons.ts` (which add-ons answer, asking each, holding its answer to core's rules, `addonSearchIssues`); `executeQueryWithin` in `kernel/execute.ts`; `route: false` on `QueryDef` |
 | The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                                                                                                                                      |
 | The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                                                                                                                                      |
+| The words inside files                | `supabase/migrations/20261027009800_file_texts.sql` (`app.file_texts`, `private.search_words`, the forget trigger, `private.files_without_text`); `file.save_text` (`commands/file-text.ts`)                                                                                                                                  |
+| The worker's file reader              | `apps/worker/src/files/file-text.ts` (the job, the sweep, `FILE_READER`) and `office-text.ts` (Word and Excel); `pnpm --filter @hfos/worker run files:read-backlog` lists what's left to read                                                                                                                                 |
 | Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, what results open, and the pure ones); `packages/core/test/addons/search-contract.test.ts` and `test/execute-query-within.test.ts` (add-ons answering); `apps/api/test/search-*.test.ts`; `packages/db/test/search-*.test.ts`                |
 | The load check                        | `scripts/search-load.mjs`, local stack only (The load check, below)                                                                                                                                                                                                                                                           |
 | Settings search                       | `packages/core/src/settings/`: `pages` (the Settings menu), `catalog` (every setting), `search` (`searchSettings`, links, grouping, the main search's Settings group), `words`                                                                                                                                                |
@@ -79,7 +82,7 @@ Each kind's gate is in `SEARCH_KINDS` (`search/kinds.ts`); row security decides 
 | Calendar      | `workspace.read` | an attendee's phone or email exactly; the title (folded); the address, who's coming (folded); the notes                                                                                                                                                             | the whole business                                                                                          |
 | Tasks         | `records.read`   | title (folded), notes                                                                                                                                                                                                                                               | the whole business                                                                                          |
 | Notes         | `records.read`   | the words of note lines (`NOTE_LINES`), then the name of who they're on (folded)                                                                                                                                                                                    | 3,000 / 20,000 note lines                                                                                   |
-| Files         | `records.read`   | names (folded); the words inside come with Search 5                                                                                                                                                                                                                 | the whole business                                                                                          |
+| Files         | `records.read`   | names (folded); the words read inside text PDFs, plain text, CSV, Word and Excel files, split as `searchWords` splits a search, with the page or sheet they're on                                                                                                   | names, the whole business; words 1,000 / 10,000 files with words, the ones read most recently               |
 | Forms         | `workspace.read` | form names (folded); answers of completed responses, then who answered (folded)                                                                                                                                                                                     | names, the whole business; answers 3,000 / 20,000                                                           |
 | Knowledge     | `workspace.read` | knowledge items, through knowledge's own search                                                                                                                                                                                                                     | its own 20 at most                                                                                          |
 | Own kinds     | `records.read`   | a record's name (folded) and fields, a group per kind                                                                                                                                                                                                               | the whole business                                                                                          |
@@ -210,6 +213,30 @@ planner can prove the partial index from it; change both together.
 **Long text is matched where it's stored, unfolded** (decision 23): a message's subject and plain text (never its
 HTML), a transcript, a note, a task's or visit's notes, an answer. Names and titles fold. A found row carries a
 stretch of its text cut in SQL around the first match (`stretchOf`), never the whole body.
+
+**A file's words are read by the worker alone, and follow the file.** `file.attached` queues a `file.text` job
+(never for port papers or knowledge files), which sniffs the first bytes and reads a text PDF page by page, plain text
+and CSV, or Word and Excel with no library (`office-text.ts`: the zip checked before anything is inflated, 20 MB a
+part and 50 MB in all, never a part that says it grows more than 200 times, and a tag scanner that expands no
+entity). No AI and no cost; scans, photos, voice notes and message attachments are Not yet. The words, 100,000
+characters at most, go in `app.file_texts`, which phones never get: `file_texts_select` reads them exactly when the
+file could be opened. No reader builds more than twice that, so a workbook repeating one long cell can't fill the
+worker's memory. They stay hidden while the file is in the bin and go when it's deleted for good, by a definer
+trigger, since a person may only read them; `file.save_text` holds the file while it keeps them, so a delete meanwhile
+waits for it. No event, audit row, log line or job row ever holds them: a failed save says only its SQLSTATE. A better
+reader raises `FILE_READER`, and the daily sweep reads every older file again.
+
+**`searchWords` and `private.search_words` split text alike.** The stored `words` are the text folded, every run of
+anything but a letter or a digit one space, and digits without their leading zeros, so "1042", "0142", "smith" and
+"gulfcoastrealty" match inside a file as they do elsewhere. Core builds the query (`tsq`, `dana:* & smith:*`) from what
+was typed the same way, so `to_tsquery` never throws on it; `fold.test.ts` runs both over one corpus and every
+character of the common blocks, and checks the query finds the stored words. Change one, change both. Postgres's
+parser splits a few words further, "65e8m" into 65e8 and m, which `to_tsquery` makes a phrase, and a phrase never
+matches words kept without their places, so `wordsQuery` makes every `<->` an `&`. The window counts only files with
+words (`t.chars > 0`, which `file_texts_recent_idx` is partial on: change both together), so photos never crowd a
+document out. The snippet finds where the longest typed word starts a word with `termPattern`, built on
+`foldPattern` (each letter a bracket of the letters that fold to it), rather than folding up to 100,000 characters,
+which costs about 2.4 µs a character once a text holds an accent.
 
 **Everything hanging off a record of the business's own kinds asks the record** (`RECORD_READS`): tasks, notes,
 files, appointments, threads and their calls. Their own policies check only sealing, so without it a turned-off

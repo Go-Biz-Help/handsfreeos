@@ -161,6 +161,10 @@ export const threadTitle = (channel: string, who: string): string =>
 /** A call found by what was said on it: "Call · Marcus Smith". */
 export const callTitle = (who: string): string => `Call · ${who}`;
 
+/** Where in a file its words matched: "page 3" of a PDF, or "Sheet 2" of an Excel workbook, told by its name. */
+export const filePlace = (name: string, page: number): string =>
+  /\.xlsx$/i.test(name.trim()) ? `Sheet ${page}` : `page ${page}`;
+
 /** Why a hit matched, as its chip says it. */
 const WHY: Readonly<Record<string, string>> = {
   phone: 'Phone',

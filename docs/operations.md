@@ -2530,6 +2530,28 @@ Confirm the same way, then run `fly status --app handsfreeos-worker` again. You 
 
 Each app has 512 MB, set under `[[vm]]` in its `fly.toml`. To change it, edit `memory` there, commit, and deploy. Change the file rather than running a one-off command, because each deploy applies what the file says.
 
+### Reading the words inside files
+
+Search finds a file by the words inside it as well as by its name. The worker reads them, with no AI and nothing to pay for, and keeps them in `app.file_texts`. No setting turns it on or off, and it needs nothing beyond `SUPABASE_SECRET_KEY`, which the worker already uses to download files.
+
+What it reads, and its limits:
+
+- **Text PDFs, plain text, CSV, Word (.docx) and Excel (.xlsx).** It looks at a file's first bytes, never its name or declared type, so a PDF named `.docx` is read as a PDF.
+- **Not read:** scanned PDFs (fewer than 40 characters a page on average are kept as `no_text`, with what little was found), photos, voice notes, videos and zips (never downloaded), the attachments on texts and emails, port papers and knowledge files. Their names are still found.
+- **25 MB at most** (`too_large` past it, without downloading), the most a person may upload. **100,000 characters** are kept (`truncated` past it), and where each PDF page or Excel sheet starts, so a result can say "page 3". No reader builds more than 200,000 characters from one file, so a small workbook that repeats one long cell can't run the 512 MB machine out of memory.
+- **Word and Excel** are read without a library: the zip is checked before anything is unpacked, at most 2,000 entries, 20 MB a part and 50 MB in all unpacked, and never a part that says it grows more than 200 times. Anything else is `unreadable`.
+- **One file at a time**, as a `file.text` job, queued when the file is added. A job that can't reach Storage tries again, up to 5 times; the last try keeps the file as `unreadable`, so it isn't asked for again. A save the database refuses shows in the log and the job's `last_error` as `file.save_text failed: <SQLSTATE>` (57014 is a statement cancelled or timed out), never with the file's words.
+
+**The catch-up.** The `file.text_sweep` job runs once a day, across every business: it queues the files that have no words yet (files from before this, or written straight into the database by an import), and every file again when the reader gets better (`FILE_READER` in `apps/worker/src/files/file-text.ts` goes up one). It queues 20 at a time, spread over five minutes, so a backlog never holds up reminders and AI replies, and comes back in ten minutes while there's more. A file that's deleted, in the Deleted bin or still uploading is never queued.
+
+**What's left to read.** On your computer, from the repository:
+
+```bash
+pnpm --filter @hfos/worker run files:read-backlog
+```
+
+It reads `DATABASE_URL_WORKER` from `apps/worker/.env`, so it shows your local database. To look at the hosted one, put the worker's hosted connection string (Fly Part 6) in front of the command for that run only, as `DATABASE_URL_WORKER='<connection string>' pnpm --filter @hfos/worker run files:read-backlog`. It only reads, in a read-only transaction. You should see `Every file has its words read (reader 1).`, or the count still to read (`500 or more` past 500) and how many in each business, oldest first. A count that stays the same from one day to the next means the sweep isn't running: check the worker's log for `file.text_sweep`.
+
 ### Rotating secrets
 
 How changes reach the apps:

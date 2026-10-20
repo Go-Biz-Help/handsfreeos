@@ -33,6 +33,7 @@ export const AddonSearchProbes = z.object({
   amount: z.number().int().nullable(),
   card4: z.string().nullable(),
   firstWord: z.string().nullable(),
+  tsq: z.string().max(4000).nullable(),
 });
 
 /**

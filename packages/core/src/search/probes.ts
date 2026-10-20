@@ -52,6 +52,12 @@ export interface SearchProbes {
   readonly card4: string | null;
   /** The first folded word, where a snippet is cut. */
   readonly firstWord: string | null;
+  /**
+   * The words as a prefix query over the words read inside a file (`$tsq`): `dana:* & smith:*`, each word split as
+   * `searchWords` splits a file's text, so "INV-001042" looks for `inv:* & 1042:*`. Only letters, digits, `:*` and
+   * `&`, so `to_tsquery` never throws on it. Null with no words.
+   */
+  readonly tsq: string | null;
 }
 
 /**
@@ -139,7 +145,33 @@ export function searchProbes(typed: string, opts: { country?: CountryCode } = {}
     amount,
     card4,
     firstWord: folded[0] ?? null,
+    // From what was typed, not the lower-cased words: İ lower-cases to i and a combining dot, which folding splits.
+    tsq: words.length ? tsqOf(q) : null,
   };
+}
+
+/**
+ * A text's words as `private.search_words` splits them (20261027009800_file_texts.sql), which is how the words read
+ * inside a file are kept: folded, every run of anything that isn't a letter or a digit made one space, and a run of
+ * digits without its leading zeros. So "INV-001042" gives "inv 1042", "(504) 555-0142" gives " 504 555 142" and
+ * "dana.smith@gmail.com" gives "dana smith gmail com". A letter is what Postgres's `[:alnum:]` calls one: a letter
+ * of any script or a decimal digit, never a superscript or a fraction. `test/search/fold.test.ts` runs both.
+ */
+export function searchWords(text: string): string {
+  return fold(text)
+    .replace(/[^\p{L}\p{Nd}]+/gu, ' ')
+    .replace(/(^| )0+(?=[0-9])/g, '$1');
+}
+
+/** What was typed, split as a file's words are (`searchWords`), each word once: what a file must hold. */
+export function searchTerms(typed: string): string[] {
+  return [...new Set(searchWords(typed).split(' ').filter(Boolean))];
+}
+
+/** What was typed as a prefix query over a file's words, or null with nothing to ask for. */
+function tsqOf(typed: string): string | null {
+  const terms = searchTerms(typed);
+  return terms.length ? terms.map((t) => `${t}:*`).join(' & ') : null;
 }
 
 /** A word with no letter and fewer than 3 digits: "+1", "15", "#2". */

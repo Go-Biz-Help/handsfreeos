@@ -71,6 +71,43 @@ export const FileStoreOutput = z.object({
   changed: z.boolean(),
 });
 
+/**
+ * What came of reading a file's words (Search 5): read whole (`done`), cut at 100,000 characters (`truncated`), a PDF
+ * with next to no words in it, a scan (`no_text`), a kind it doesn't read (`unsupported`), over 25 MB (`too_large`),
+ * or not readable at all (`unreadable`).
+ */
+export const FILE_TEXT_STATES = [
+  'done',
+  'truncated',
+  'no_text',
+  'unsupported',
+  'too_large',
+  'unreadable',
+] as const;
+export type FileTextState = (typeof FILE_TEXT_STATES)[number];
+/** The most characters of a file's words kept, as `app.file_texts` holds them. */
+export const FILE_TEXT_CHARS = 100_000;
+
+/**
+ * Worker: the words it read inside a file, kept for search. `pages` is where each page of a PDF, or sheet of a
+ * workbook, starts in `text`, counted in characters from 0. `reader` is the reader's version, so a better one reads
+ * older files again.
+ */
+export const FileSaveTextInput = z.object({
+  workspaceId: uuid,
+  fileId: uuid,
+  state: z.enum(FILE_TEXT_STATES),
+  // Counted in UTF-16 units, as the worker cuts it, so never more characters than the table holds.
+  text: z.string().max(FILE_TEXT_CHARS).default(''),
+  pages: z.array(z.number().int().min(0).max(FILE_TEXT_CHARS)).max(2000).default([]),
+  reader: z.number().int().min(1).max(100),
+});
+export const FileSaveTextOutput = z.object({
+  fileId: uuid,
+  state: z.enum(FILE_TEXT_STATES),
+  chars: z.number().int(),
+});
+
 export const FILE_LOCK_REASONS = ['signed', 'final', 'record'] as const;
 export type FileLockReason = (typeof FILE_LOCK_REASONS)[number];
 export const FileLockInput = z.object({

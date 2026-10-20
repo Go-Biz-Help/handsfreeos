@@ -61,9 +61,11 @@ describe('the kinds and their searchers', () => {
     const spam = SEARCH_KINDS.find((k) => k.key === 'spam')!;
     expect(spam).toMatchObject({ picked: true, chip: false, windowed: true });
     expect(SEARCH_KINDS.filter((k) => k.picked).map((k) => k.key)).toEqual(['spam']);
+    // Files' names are read across the business, the words inside them in a window (Search 5).
     expect(SEARCH_KINDS.filter((k) => k.windowed).map((k) => k.key)).toEqual([
       'messages',
       'notes',
+      'files',
       'forms',
       'spam',
     ]);
