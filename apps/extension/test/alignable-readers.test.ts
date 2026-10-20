@@ -432,3 +432,28 @@ describe('Messages', () => {
     });
   });
 });
+
+describe('the box Alignable asks for an emailed code in', () => {
+  const dialog = (words: string, boxes: string) =>
+    page(
+      `${AL}/austin-tx/acme-roofing?user=7`,
+      `<main><h1 title="Dana Reyes">Dana Reyes</h1></main>
+        <div role="dialog"><button aria-label="Close"></button><p>${words}</p>${boxes}
+          <button>Cancel</button><button>Continue</button></div>`,
+    );
+
+  it('finds it over their profile, as About Us’s Edit opened it (0.69.0)', () => {
+    const doc = dialog(
+      'We sent a verification code to your email. Enter it to keep editing.',
+      '<input type="text" />',
+    );
+    expect(readAlignable(doc, doc.location.href).codeBox).toBe(true);
+  });
+
+  it('never takes another box over the page for it', () => {
+    const editor = dialog('Tell people about your business.', '<input type="text" />');
+    expect(readAlignable(editor, editor.location.href).codeBox).toBe(false);
+    const two = dialog('Enter the code we emailed you.', '<input /><input />');
+    expect(readAlignable(two, two.location.href).codeBox).toBe(false);
+  });
+});
