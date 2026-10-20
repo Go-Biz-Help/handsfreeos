@@ -32,7 +32,7 @@ export function tierOf(name: string | null | undefined, p: SearchProbes): 1 | 2 
 const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
 /** Whether `word` starts one of the words of `text`: at its start, or after a space or punctuation. */
-function startsAWord(text: string, word: string): boolean {
+export function startsAWord(text: string, word: string): boolean {
   for (let at = text.indexOf(word); at >= 0; at = text.indexOf(word, at + 1))
     if (at === 0 || !LETTER_OR_DIGIT.test(text[at - 1]!)) return true;
   return false;

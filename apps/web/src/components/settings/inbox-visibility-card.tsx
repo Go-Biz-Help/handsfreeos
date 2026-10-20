@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { settingAttrs } from './setting-anchor';
 
 /**
  * Who sees which conversations (M17).
@@ -62,7 +63,11 @@ export function InboxVisibilityCard({
   }
 
   return (
-    <Card className="max-w-[820px] px-[22px] py-5" data-testid="inbox-visibility-card">
+    <Card
+      className="max-w-[820px] px-[22px] py-5"
+      data-testid="inbox-visibility-card"
+      {...settingAttrs('texting.inbox_visibility')}
+    >
       <h2 className="text-lg font-semibold leading-[1.3] tracking-[-0.005em]">
         Who sees which conversations
       </h2>

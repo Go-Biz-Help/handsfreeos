@@ -28,12 +28,15 @@ import {
   type EmailSwitches,
   type NotificationRow,
 } from '@/push/switches';
+import { SettingFlashContext, useFlashRow, useSettingFlash } from '@/settings/use-setting-flash';
+import { cn } from '@/lib/utils';
 
 /**
  * Settings → Notifications (design/m10/More.dc.html): whether this phone gets notifications, then a push switch for
  * each moment beside today's email switches. The switches are the person's, the same as the web's Settings → Account,
  * so they need signal to save ("This needs signal."), and a change made on the web shows here as the person's profile
- * syncs. Someone who answers HandsFreeOS support also has New support tickets.
+ * syncs. Someone who answers HandsFreeOS support also has New support tickets. Opened from settings search
+ * (`?setting=notifications.urgent`), it scrolls to that moment and flashes it.
  */
 export default function NotificationSettings() {
   const { me, business, userId } = useBusiness();
@@ -94,55 +97,59 @@ export default function NotificationSettings() {
   };
 
   const count = phones[0]?.n ?? 0;
+  const { scrollRef, value: flashing } = useSettingFlash();
   return (
     <Screen
       title="Notifications"
       leading="back"
       back={businessHref(business.id, 'settings')}
       testID="notification-settings"
+      scrollRef={scrollRef}
     >
-      <ListLabel>This phone</ListLabel>
-      <ThisPhone registration={registration} />
+      <SettingFlashContext.Provider value={flashing}>
+        <ListLabel>This phone</ListLabel>
+        <ThisPhone registration={registration} />
 
-      <View className="flex-row items-center justify-between gap-2 px-1 pt-2">
-        <Text variant="group">Push and email</Text>
-        <Badge variant={count > 0 ? 'accent' : 'gray'} testID="notification-phones">
-          <Icon
-            as={Smartphone}
-            className={count > 0 ? 'size-[13px] text-accent-text' : 'size-[13px] text-text-2'}
-          />
-          <Text>{phonesWords(count)}</Text>
-        </Badge>
-      </View>
-      <Grid
-        rows={NOTIFICATION_ROWS.filter((row) => staff || !row.staffOnly)}
-        push={shownPush}
-        email={shownEmail}
-        disabled={saving}
-        onPush={togglePush}
-        onEmail={toggleEmail}
-        testID="notification-grid"
-      />
+        <View className="flex-row items-center justify-between gap-2 px-1 pt-2">
+          <Text variant="group">Push and email</Text>
+          <Badge variant={count > 0 ? 'accent' : 'gray'} testID="notification-phones">
+            <Icon
+              as={Smartphone}
+              className={count > 0 ? 'size-[13px] text-accent-text' : 'size-[13px] text-text-2'}
+            />
+            <Text>{phonesWords(count)}</Text>
+          </Badge>
+        </View>
+        <Grid
+          rows={NOTIFICATION_ROWS.filter((row) => staff || !row.staffOnly)}
+          push={shownPush}
+          email={shownEmail}
+          disabled={saving}
+          onPush={togglePush}
+          onEmail={toggleEmail}
+          testID="notification-grid"
+        />
 
-      <ListLabel>Email only</ListLabel>
-      <Grid
-        rows={EMAIL_ONLY_ROWS.filter((row) => agency || !row.agencyOnly)}
-        push={shownPush}
-        email={shownEmail}
-        disabled={saving}
-        onPush={togglePush}
-        onEmail={toggleEmail}
-        header={false}
-        testID="notification-email-only"
-      />
+        <ListLabel>Email only</ListLabel>
+        <Grid
+          rows={EMAIL_ONLY_ROWS.filter((row) => agency || !row.agencyOnly)}
+          push={shownPush}
+          email={shownEmail}
+          disabled={saving}
+          onPush={togglePush}
+          onEmail={toggleEmail}
+          header={false}
+          testID="notification-email-only"
+        />
 
-      <View className="flex-row items-start gap-[9px] rounded-[10px] bg-card-2 px-3 py-[11px]">
-        <Icon as={Info} className="mt-px size-4 text-text-2" />
-        <Text className="flex-1 text-[13.5px] leading-[19px] text-text-2">
-          Push goes to every phone you’re signed in on. The same switches are on the web, under
-          Settings → Account.
-        </Text>
-      </View>
+        <View className="flex-row items-start gap-[9px] rounded-[10px] bg-card-2 px-3 py-[11px]">
+          <Icon as={Info} className="mt-px size-4 text-text-2" />
+          <Text className="flex-1 text-[13.5px] leading-[19px] text-text-2">
+            Push goes to every phone you’re signed in on. The same switches are on the web, under
+            Settings → Account.
+          </Text>
+        </View>
+      </SettingFlashContext.Provider>
     </Screen>
   );
 }
@@ -187,46 +194,85 @@ function Grid({
         </View>
       ) : null}
       {rows.map((row, i) => (
-        <View
+        <GridRow
           key={row.title}
-          className={`flex-row items-center gap-2.5 px-3.5 py-[11px] ${i > 0 ? 'border-t border-border' : ''}`}
-        >
-          <View className="min-w-0 flex-1 gap-0.5">
-            <Text className="text-[15px] font-medium leading-5">{row.title}</Text>
-            <Text className="text-[12.5px] leading-[17px] text-text-3">{row.detail}</Text>
-          </View>
-          <View className="w-[46px] items-center">
-            {row.push ? (
-              <Switch
-                size="sm"
-                label={`${row.title}: push`}
-                checked={push[row.push]}
-                disabled={disabled}
-                onCheckedChange={(on) => onPush(row, row.push!, on)}
-                testID={`push-${row.push}`}
-              />
-            ) : (
-              <Text className="text-sm text-text-3">—</Text>
-            )}
-          </View>
-          <View className="w-[46px] items-center">
-            {row.email === 'always' ? (
-              <Text className="text-[13px] text-text-3">Always</Text>
-            ) : row.email ? (
-              <Switch
-                size="sm"
-                label={`${row.title}: email`}
-                checked={email[row.email]}
-                disabled={disabled}
-                onCheckedChange={(on) => onEmail(row, row.email as EmailSwitch, on)}
-                testID={`email-${row.email}`}
-              />
-            ) : (
-              <Text className="text-sm text-text-3">—</Text>
-            )}
-          </View>
-        </View>
+          row={row}
+          first={i === 0}
+          push={push}
+          email={email}
+          disabled={disabled}
+          onPush={onPush}
+          onEmail={onEmail}
+        />
       ))}
+    </View>
+  );
+}
+
+/** One moment, lit when settings search opened the screen at it. */
+function GridRow({
+  row,
+  first,
+  push,
+  email,
+  disabled,
+  onPush,
+  onEmail,
+}: {
+  row: NotificationRow;
+  first: boolean;
+  push: PushSwitches;
+  email: EmailSwitches;
+  disabled: boolean;
+  onPush: (row: NotificationRow, key: PushSwitch, on: boolean) => void;
+  onEmail: (row: NotificationRow, key: EmailSwitch, on: boolean) => void;
+}) {
+  const flash = useFlashRow(row.key);
+  return (
+    <View
+      ref={flash.ref}
+      onLayout={flash.onLayout}
+      className={cn(
+        'flex-row items-center gap-2.5 px-3.5 py-[11px]',
+        !first && 'border-t border-border',
+        flash.lit && 'bg-accent-soft',
+      )}
+      testID={`notification-row-${row.key}`}
+    >
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text className="text-[15px] font-medium leading-5">{row.title}</Text>
+        <Text className="text-[12.5px] leading-[17px] text-text-3">{row.detail}</Text>
+      </View>
+      <View className="w-[46px] items-center">
+        {row.push ? (
+          <Switch
+            size="sm"
+            label={`${row.title}: push`}
+            checked={push[row.push]}
+            disabled={disabled}
+            onCheckedChange={(on) => onPush(row, row.push!, on)}
+            testID={`push-${row.push}`}
+          />
+        ) : (
+          <Text className="text-sm text-text-3">—</Text>
+        )}
+      </View>
+      <View className="w-[46px] items-center">
+        {row.email === 'always' ? (
+          <Text className="text-[13px] text-text-3">Always</Text>
+        ) : row.email ? (
+          <Switch
+            size="sm"
+            label={`${row.title}: email`}
+            checked={email[row.email]}
+            disabled={disabled}
+            onCheckedChange={(on) => onEmail(row, row.email as EmailSwitch, on)}
+            testID={`email-${row.email}`}
+          />
+        ) : (
+          <Text className="text-sm text-text-3">—</Text>
+        )}
+      </View>
     </View>
   );
 }

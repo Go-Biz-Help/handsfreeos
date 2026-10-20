@@ -6,6 +6,7 @@ import {
   money,
   topUpCapLine,
   usageQuantityWords,
+  type SettingKey,
 } from '@hfos/core';
 import { CreditCard, Download, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -27,6 +28,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { walletCard } from '@/lib/api/worker';
 import type { Ok } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
+import { settingAttrs } from './setting-anchor';
 
 type Wallet = Ok<'/v1/queries/wallet.get'>;
 type Prices = Ok<'/v1/queries/usage.prices'>;
@@ -42,15 +44,18 @@ function Section({
   action,
   children,
   testId,
+  setting,
 }: {
   title: string;
   description?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;
   testId?: string;
+  /** Its key in settings search. */
+  setting?: SettingKey;
 }) {
   return (
-    <Card className="px-[22px] py-5" data-testid={testId}>
+    <Card className="px-[22px] py-5" data-testid={testId} {...settingAttrs(setting)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className={sectionTitle}>{title}</h2>
@@ -241,6 +246,7 @@ export function UsagePage({
         title={BALANCE_WORDS.balance}
         description={BALANCE_WORDS.balanceDetail}
         testId="usage-balance"
+        setting="usage.balance"
         action={
           <Button onClick={topUpNow} disabled={saving || !wallet.card} data-testid="usage-top-up">
             {BALANCE_WORDS.topUp}
@@ -283,6 +289,7 @@ export function UsagePage({
         title={BALANCE_WORDS.autoTitle}
         description={BALANCE_WORDS.autoDetail}
         testId="usage-auto-topup"
+        setting="usage.auto_top_up"
         action={
           <Switch
             checked={autoTopup}
@@ -338,6 +345,7 @@ export function UsagePage({
         title={BALANCE_WORDS.cardTitle}
         description={BALANCE_WORDS.cardDetail}
         testId="usage-card"
+        setting="usage.card"
         action={
           <div className="flex gap-2">
             <Button onClick={addCard} disabled={saving} data-testid="usage-add-card">
@@ -378,6 +386,7 @@ export function UsagePage({
         title={BALANCE_WORDS.pricesTitle}
         description={BALANCE_WORDS.pricesDetail}
         testId="usage-prices"
+        setting="usage.prices"
       >
         <div className="mt-3">
           {prices.items.map((p) => (
@@ -400,6 +409,7 @@ export function UsagePage({
         title={BALANCE_WORDS.statementTitle}
         description={BALANCE_WORDS.statementDetail}
         testId="usage-statement"
+        setting="usage.statement"
         action={
           statement.items.length ? (
             <Button variant="secondary" onClick={download} data-testid="usage-csv">

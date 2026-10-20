@@ -60,6 +60,8 @@ export * from './account/settings-words';
 export * from './account/view-as-words';
 export * from './account/sign-in';
 export * from './account/extension-sign-in';
+// The moments a person is told about, push beside email, for both apps and settings search.
+export * from './account/notification-rows';
 // The side menu, as each person arranges it.
 export * from './account/menu';
 export * from './calendar/index';
@@ -109,3 +111,5 @@ export * from './record-holds';
 export * from './bin-words';
 // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md): probes, ranking, marks, links and words.
 export * from './search/index';
+// Settings search: the Settings menu's pages and every setting on them, searched on the device (stage 6).
+export * from './settings/index';

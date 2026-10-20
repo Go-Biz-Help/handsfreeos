@@ -36,6 +36,7 @@ import { fieldErrors } from '@/lib/api/field-errors';
 import type { CustomRecordType, RelationshipType } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { settingAttrs } from './setting-anchor';
 
 /** What the kind-of-record command takes, less the workspace. */
 type KindBody = Omit<
@@ -143,7 +144,7 @@ export function RelationshipsSettings({
 
   return (
     <div className="flex flex-col gap-6">
-      <section>
+      <section {...settingAttrs('relationships.record_kinds')}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">
@@ -221,7 +222,7 @@ export function RelationshipsSettings({
         ) : null}
       </section>
 
-      <section>
+      <section {...settingAttrs('relationships.types')}>
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">

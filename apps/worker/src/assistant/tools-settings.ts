@@ -37,6 +37,7 @@ interface AreaQuery {
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   business: [{ name: 'workspace.get', as: 'business' }],
   branded_domain: [{ name: 'branded_domain.get', as: 'brandedDomain' }],
+  main_offer: [{ name: 'main_offer.get', as: 'mainOffer' }],
   add_ons: [
     {
       name: 'addon.list',
@@ -94,6 +95,23 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'custom_record_type.list', as: 'kindsOfRecords' },
     { name: 'relationship_type.list', as: 'relationshipTypes' },
   ],
+  // What's in the bin, by name, when it was deleted and when it goes for good; never what's inside.
+  deleted_bin: [
+    {
+      name: 'bin.list',
+      as: 'deletedBin',
+      shape: (v) =>
+        (
+          (v as { items?: { kind: string; name: string; deletedAt: string; purgeAfter: string }[] })
+            ?.items ?? []
+        ).map((i) => ({
+          kind: i.kind,
+          name: i.name,
+          deletedAt: i.deletedAt,
+          goneForGoodAt: i.purgeAfter,
+        })),
+    },
+  ],
   calendars: [{ name: 'calendar.list', as: 'calendars' }],
   services: [{ name: 'service.list', as: 'services' }],
   resources: [{ name: 'resource.list', as: 'resources' }],
@@ -119,6 +137,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   ],
   email: [{ name: 'email.setup_status', as: 'email' }],
   website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
+  facebook_instagram: [{ name: 'meta_account.list', as: 'facebookInstagram' }],
   templates: [{ name: 'template.list', as: 'templates' }],
   lead_intake: [{ name: 'intake.list', as: 'leadIntake' }],
   payments: [
@@ -126,6 +145,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'payment_connection.list', as: 'accounts' },
   ],
   products: [{ name: 'product.list', as: 'products' }],
+  partners: [{ name: 'partners.settings', as: 'partners' }],
   usage: [{ name: 'wallet.get', as: 'balance' }],
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],

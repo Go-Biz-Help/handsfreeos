@@ -93,8 +93,10 @@ export function dropdownOf(
   const maxGroups = opts.maxGroups ?? 5;
   const maxRows = opts.maxRows ?? 10;
   const settingsFound = !!settings && settings.items.length > 0;
-  // A setting that matched means the words were spelled right: no close matches over it.
-  const serverGroups = answer.close && settingsFound ? [] : answer.groups;
+  // A setting that matched means the words were spelled right: no close matches over it. One only close to what was
+  // typed (a typo of its own) is no such sign.
+  const spelledRight = settingsFound && settings.items.some((h) => h.why.field !== 'close');
+  const serverGroups = answer.close && spelledRight ? [] : answer.groups;
   const merged = orderGroups([...serverGroups, ...(settingsFound ? [settings] : [])]);
   const found = merged.filter((g) => g.items.length > 0 || g.total > 0);
   const unavailable = merged.filter((g) => g.unavailable && g.items.length === 0);
@@ -139,7 +141,7 @@ export function dropdownOf(
   // Nobody active, and nothing at all, only when every kind answered: the lines of those that didn't say so instead.
   const line: Dropdown['line'] = answer.tooShort
     ? null
-    : answer.close && !settingsFound && total > 0
+    : answer.close && !spelledRight && total > 0
       ? 'close'
       : total > 0 || unavailable.length > 0
         ? null

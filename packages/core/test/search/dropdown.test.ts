@@ -167,6 +167,29 @@ describe('the dropdown', () => {
     expect(d.chips[0]).toMatchObject({ kind: 'all', count: 1 });
   });
 
+  it('keeps the close-match line and the names when a setting is only close too', () => {
+    // "bown", a typo for Brown: the server's close matches stand, beside a setting that's a typo of its own.
+    const close = answer({
+      q: 'bown',
+      close: true,
+      groups: [
+        group('close', [
+          hit('contacts', 'Dana Brown', 5, {
+            why: { field: 'close', label: null, snippet: null, page: null },
+          }),
+        ]),
+      ],
+    });
+    const settings = group('settings', [
+      hit('settings', 'Your own web address', 5, {
+        why: { field: 'close', label: null, snippet: null, page: null },
+      }),
+    ]);
+    const d = dropdownOf(close, settings);
+    expect(d.line).toBe('close');
+    expect(d.groups.flatMap((g) => g.rows.map((r) => r.title))).toContain('Dana Brown');
+  });
+
   it('counts the settings it found, and says when nothing at all matched', () => {
     const settings = group('settings', [
       hit('settings', 'Quiet hours', 1),

@@ -17,12 +17,14 @@ import type { Permission } from '../permissions';
 export const SETTINGS_AREAS = [
   'business',
   'branded_domain',
+  'main_offer',
   'add_ons',
   'permissions',
   'pipelines',
   'tags',
   'fields',
   'relationships',
+  'deleted_bin',
   'calendars',
   'services',
   'resources',
@@ -32,10 +34,12 @@ export const SETTINGS_AREAS = [
   'texting',
   'email',
   'website_chat',
+  'facebook_instagram',
   'templates',
   'lead_intake',
   'payments',
   'products',
+  'partners',
   'usage',
   'action_center',
   'ai_teammate',
@@ -155,6 +159,34 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       },
     ],
   },
+  // Shown only while an add-on that uses it is on (Social Outreach), as the Settings menu shows it.
+  main_offer: {
+    label: 'Main offer',
+    what: 'the business’s one main offer: who it helps, the result, how fast, how, the guarantee and the price, built a part at a time and scored with the AI, then put live as a version. It is only there while an add-on that uses it is on (Social Outreach)',
+    where: ['Settings', 'Main offer'],
+    onScreen: [
+      'The live version, and how each version is doing',
+      'The draft: each part, its score and what it still needs before it can go live',
+      'Versions',
+    ],
+    path: '/settings/main-offer',
+    permission: 'main_offer.manage',
+    canChange: [],
+    handovers: [
+      {
+        what: 'build the main offer, or change it and put the new version live',
+        why: 'it is built a part at a time with the AI on its own page, and which version goes live is the owner’s call',
+        steps: [
+          'Open Settings → Main offer.',
+          'Work through each part with the AI, then let it score the offer.',
+          'Press Go live once it reads right.',
+        ],
+      },
+    ],
+    notHere: [
+      'promotions such as $50 off this month: those are Knowledge → Promotions, not the main offer',
+    ],
+  },
   add_ons: {
     label: 'Add-ons',
     what: 'the add-ons this business has (extra features for particular kinds of work) and whether each one is on, the ones it could add, what’s coming soon, and the vote on what comes next',
@@ -266,6 +298,31 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'set up, rename, archive or bring back a relationship type, and how many each end may have',
     ],
     handovers: [],
+  },
+  // Customers, conversations and bookings deleted for good, for their 30 days (20261027000400): owners only, unless
+  // an owner gives Delete for good to someone.
+  deleted_bin: {
+    label: 'Deleted bin',
+    what: 'customers, conversations and bookings deleted for good, kept 30 days so they can be brought back, then gone',
+    where: ['Settings', 'Deleted bin'],
+    onScreen: [
+      'Deleted bin: each thing deleted, who deleted it and when it goes for good, with Bring back',
+      'Empty the bin',
+    ],
+    path: '/settings/deleted-bin',
+    permission: 'records.delete',
+    canChange: [],
+    handovers: [
+      {
+        what: 'bring back something deleted for good, or empty the bin',
+        why: 'deleting and bringing back is kept to the people the business trusts with it, on the page itself',
+        steps: [
+          'Open Settings → Deleted bin.',
+          'Press Bring back beside it, or Empty the bin to delete everything in it now.',
+        ],
+      },
+    ],
+    notHere: ['bringing something back after its 30 days: it is gone for good by then'],
   },
   calendars: {
     label: 'Calendars',
@@ -527,6 +584,31 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       },
     ],
   },
+  // Messenger and Instagram direct messages, through the business's Facebook Page (20261025000200).
+  facebook_instagram: {
+    label: 'Facebook & Instagram',
+    what: 'the Facebook Pages and Instagram accounts whose direct messages come to the inbox, and the Facebook sign-ins they came through',
+    where: ['Settings', 'Facebook & Instagram'],
+    onScreen: [
+      'Facebook & Instagram: Connect Facebook (Connect more once one is in)',
+      'Pages and accounts, and the ones not connected anymore',
+      'Facebook sign-in',
+    ],
+    path: '/settings/facebook-instagram',
+    permission: 'channels.manage',
+    canChange: [],
+    handovers: [
+      {
+        what: 'connect a Facebook Page or an Instagram account',
+        why: 'you sign in to Facebook yourself and choose the Pages, so nobody else can do it for you',
+        steps: [
+          'Open Settings → Facebook & Instagram and press Connect Facebook.',
+          'Sign in with a Facebook account that manages the business’s Page, and leave every permission ticked.',
+          'Pick which Pages and Instagram accounts answer in the inbox.',
+        ],
+      },
+    ],
+  },
   templates: {
     label: 'Templates',
     what: 'saved wording for texts and emails, in folders, that the inbox’s reply box can put in',
@@ -621,6 +703,31 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'the maintenance plans you sell: add one, change its price, what it includes or its visits, stop selling it',
     ],
     handovers: [],
+  },
+  // Shown only while an add-on that uses partners is on, for whoever holds Manage partners.
+  partners: {
+    label: 'Partners',
+    what: 'the people who send the business customers for a share of what each pays in their first 12 months: their share, the smallest payout, the calendar their links book, the terms they accept, and paying them',
+    where: ['Settings', 'Partners'],
+    onScreen: [
+      'How partners are paid: Their share, Smallest payout, The calendar their links book',
+      'Partner terms',
+      'Your partners, each with what they have earned and their own page',
+      'Paying your partners: the card, the next payout and each month’s statement',
+    ],
+    path: '/settings/partners',
+    permission: 'partners.manage',
+    canChange: [],
+    handovers: [
+      {
+        what: 'set how partners are paid, or change their terms',
+        why: 'what partners earn is a promise to people outside the business, so a person sets it on the page',
+        steps: [
+          'Open Settings → Partners.',
+          'Change Their share, Smallest payout or The calendar their links book under How partners are paid, or the Partner terms.',
+        ],
+      },
+    ],
   },
   usage: {
     label: 'Usage & balance',

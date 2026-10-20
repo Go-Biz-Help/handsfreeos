@@ -9,11 +9,13 @@ import {
   PARTNERS_WORDS,
   PHONE_SETTINGS_WORDS,
   SAFETY_PHONE_WORDS,
+  SETTINGS_SEARCH_WORDS,
 } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { SearchBox } from '@/components/admin/bits';
 import {
   Bell,
   CloudCheck,
@@ -54,6 +56,8 @@ import { expireSavedSignIn } from '@/lib/test-tools';
 import { useMainOfferRow } from '@/main-offer/row';
 import { usePartnersHere } from '@/partners/calls';
 import { useMoneyRole } from '@/money/use-money';
+import { SettingsSearchResults } from '@/settings/settings-search';
+import { SettingFlashContext, useSettingFlash } from '@/settings/use-setting-flash';
 import {
   DOCUMENT_LIMIT_BYTES,
   setMobileDataAllowed,
@@ -71,6 +75,9 @@ import { useWorksOffline } from '@/sync/hooks';
  * offer is the third exception (2026-10-16): reviewing it, steering the AI and putting it live work here too. Partners
  * are the fourth (stage 2d of the partners plan): each partner's page works here, and how partners are paid is shown
  * to read, set up on the web.
+ *
+ * Search settings at the top finds any setting, the web's included ("Opens on the web"), with no signal needed; a row
+ * here that it finds is scrolled to and flashed.
  */
 export default function Settings() {
   const { me, business, userId } = useBusiness();
@@ -92,6 +99,8 @@ export default function Settings() {
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
   const [appearanceOpen, setAppearanceOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
+  const [q, setQ] = React.useState('');
+  const { scrollRef, value: flashing, flash } = useSettingFlash();
 
   React.useEffect(() => {
     void biometrics.info().then(setInfo);
@@ -122,160 +131,187 @@ export default function Settings() {
       back={businessHref(business.id, 'more')}
       testID="settings"
       contentClassName="gap-2"
+      scrollRef={scrollRef}
     >
-      <ListLabel>{PHONE_SETTINGS_WORDS.thisPhone}</ListLabel>
-      <List>
-        <ListRow
-          icon={Smartphone}
-          label={MY_CELL_WORDS.title}
-          detail={
-            cell?.verifiedAt
-              ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.verified}`
-              : cell
-                ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.notVerified}`
-                : PHONE_SETTINGS_WORDS.myCellDetail
-          }
-          onPress={() => router.push(businessHref(business.id, 'settings/my-cell'))}
-          testID="setting-my-cell"
+      <SearchBox
+        value={q}
+        onChange={setQ}
+        placeholder={SETTINGS_SEARCH_WORDS.box}
+        testID="settings-search"
+      />
+      {q.trim().length >= 2 ? (
+        <SettingsSearchResults
+          q={q}
+          onFlash={(key) => {
+            setQ('');
+            flash(key);
+          }}
         />
-        <ListRow
-          icon={method === 'fingerprint' || method === 'Touch ID' ? Fingerprint : ScanFace}
-          label={unlockLabel(method)}
-          detail={
-            info && !info.available
-              ? PHONE_SETTINGS_WORDS.lockUnavailable
-              : PHONE_SETTINGS_WORDS.lockDetail
-          }
-          end={
-            <Switch
-              label={unlockLabel(method)}
-              testID="setting-lock"
-              checked={Boolean(info?.available) && lockOn}
-              disabled={!info?.available}
-              onCheckedChange={(next) => void toggleLock(next)}
-            />
-          }
-        />
-        <ListRow
-          icon={Layers}
-          label={PHONE_SETTINGS_WORDS.businesses}
-          detail={keptDetail}
-          onPress={() => router.push(businessHref(business.id, 'settings/businesses'))}
-          testID="setting-businesses"
-        />
-        {keepsDocuments ? (
-          <ListRow
-            icon={FileText}
-            label={PHONE_SETTINGS_WORDS.documentsMobileData}
-            detail={keptDocumentsLine(documentBytes, DOCUMENT_LIMIT_BYTES)}
-            end={
-              <Switch
-                label={PHONE_SETTINGS_WORDS.documentsMobileData}
-                testID="setting-documents-mobile-data"
-                checked={mobileData}
-                onCheckedChange={setMobileDataAllowed}
-              />
-            }
-          />
-        ) : null}
-        <ListRow
-          icon={CloudCheck}
-          label={PHONE_SETTINGS_WORDS.changes}
-          end={<UpToDate compact />}
-          onPress={() => router.push(businessHref(business.id, 'changes'))}
-          testID="setting-changes"
-        />
-      </List>
-
-      {whole || offer.here || partners ? (
-        <>
-          <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
+      ) : (
+        <SettingFlashContext.Provider value={flashing}>
+          <ListLabel>{PHONE_SETTINGS_WORDS.thisPhone}</ListLabel>
           <List>
-            {whole ? (
+            <ListRow
+              icon={Smartphone}
+              label={MY_CELL_WORDS.title}
+              detail={
+                cell?.verifiedAt
+                  ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.verified}`
+                  : cell
+                    ? `${formatPhone(cell.e164)} · ${MY_CELL_WORDS.notVerified}`
+                    : PHONE_SETTINGS_WORDS.myCellDetail
+              }
+              onPress={() => router.push(businessHref(business.id, 'settings/my-cell'))}
+              testID="setting-my-cell"
+              settingKey="account.my_cell"
+            />
+            <ListRow
+              icon={method === 'fingerprint' || method === 'Touch ID' ? Fingerprint : ScanFace}
+              label={unlockLabel(method)}
+              detail={
+                info && !info.available
+                  ? PHONE_SETTINGS_WORDS.lockUnavailable
+                  : PHONE_SETTINGS_WORDS.lockDetail
+              }
+              end={
+                <Switch
+                  label={unlockLabel(method)}
+                  testID="setting-lock"
+                  checked={Boolean(info?.available) && lockOn}
+                  disabled={!info?.available}
+                  onCheckedChange={(next) => void toggleLock(next)}
+                />
+              }
+              settingKey="phone.lock"
+            />
+            <ListRow
+              icon={Layers}
+              label={PHONE_SETTINGS_WORDS.businesses}
+              detail={keptDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/businesses'))}
+              testID="setting-businesses"
+              settingKey="phone.businesses"
+            />
+            {keepsDocuments ? (
               <ListRow
-                icon={Wallet}
-                label={BALANCE_WORDS.title}
-                detail={BALANCE_WORDS.phoneSettingsDetail}
-                onPress={() => router.push(businessHref(business.id, 'settings/usage'))}
-                testID="setting-usage"
+                icon={FileText}
+                label={PHONE_SETTINGS_WORDS.documentsMobileData}
+                detail={keptDocumentsLine(documentBytes, DOCUMENT_LIMIT_BYTES)}
+                end={
+                  <Switch
+                    label={PHONE_SETTINGS_WORDS.documentsMobileData}
+                    testID="setting-documents-mobile-data"
+                    checked={mobileData}
+                    onCheckedChange={setMobileDataAllowed}
+                  />
+                }
+                settingKey="phone.documents_mobile_data"
               />
             ) : null}
-            {offer.here ? (
-              <ListRow
-                icon={Target}
-                label={MAIN_OFFER_WORDS.title}
-                detail={offer.line}
-                onPress={() => router.push(businessHref(business.id, 'settings/main-offer'))}
-                testID="setting-main-offer"
-              />
-            ) : null}
-            {partners ? (
-              <ListRow
-                icon={Handshake}
-                label={PARTNERS_WORDS.menu}
-                detail={PARTNERS_WORDS.phone.rowDetail}
-                onPress={() => router.push(businessHref(business.id, 'settings/partners'))}
-                testID="setting-partners"
-              />
-            ) : null}
+            <ListRow
+              icon={CloudCheck}
+              label={PHONE_SETTINGS_WORDS.changes}
+              end={<UpToDate compact />}
+              onPress={() => router.push(businessHref(business.id, 'changes'))}
+              testID="setting-changes"
+              settingKey="phone.changes"
+            />
           </List>
-        </>
-      ) : null}
 
-      <ListLabel>{PHONE_SETTINGS_WORDS.you}</ListLabel>
-      <List>
-        <ListRow
-          icon={ShieldCheck}
-          label={SAFETY_PHONE_WORDS.mySafety}
-          detail={SAFETY_PHONE_WORDS.mySafetyDetail}
-          onPress={() => router.push(businessHref(business.id, 'settings/safety'))}
-          testID="setting-my-safety"
-        />
-        <ListRow
-          icon={Bell}
-          label={PHONE_SETTINGS_WORDS.notifications}
-          detail={PHONE_SETTINGS_WORDS.notificationsDetail}
-          onPress={() => router.push(businessHref(business.id, 'settings/notifications'))}
-          testID="setting-notifications"
-        />
-        <ListRow
-          icon={User}
-          label={PHONE_SETTINGS_WORDS.profile}
-          detail={me.user.email}
-          external
-          onPress={() => void openWeb(`/app/w/${business.id}/settings`)}
-          testID="setting-profile"
-        />
-        <ListRow
-          icon={Moon}
-          label={APPEARANCE_WORDS.title}
-          end={APPEARANCE_LABELS[appearance]}
-          onPress={() => setAppearanceOpen(true)}
-          testID="setting-appearance"
-        />
-      </List>
+          {whole || offer.here || partners ? (
+            <>
+              <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
+              <List>
+                {whole ? (
+                  <ListRow
+                    icon={Wallet}
+                    label={BALANCE_WORDS.title}
+                    detail={BALANCE_WORDS.phoneSettingsDetail}
+                    onPress={() => router.push(businessHref(business.id, 'settings/usage'))}
+                    testID="setting-usage"
+                  />
+                ) : null}
+                {offer.here ? (
+                  <ListRow
+                    icon={Target}
+                    label={MAIN_OFFER_WORDS.title}
+                    detail={offer.line}
+                    onPress={() => router.push(businessHref(business.id, 'settings/main-offer'))}
+                    testID="setting-main-offer"
+                  />
+                ) : null}
+                {partners ? (
+                  <ListRow
+                    icon={Handshake}
+                    label={PARTNERS_WORDS.menu}
+                    detail={PARTNERS_WORDS.phone.rowDetail}
+                    onPress={() => router.push(businessHref(business.id, 'settings/partners'))}
+                    testID="setting-partners"
+                  />
+                ) : null}
+              </List>
+            </>
+          ) : null}
 
-      <View className="h-2" />
-      <List>
-        <ListRow
-          icon={LogOut}
-          label={PHONE_SETTINGS_WORDS.signOut}
-          onPress={() => setSigningOut(true)}
-          testID="setting-sign-out"
-        />
-        <ListRow
-          icon={UserX}
-          label={PHONE_SETTINGS_WORDS.deleteAccount}
-          danger
-          onPress={() => router.push(businessHref(business.id, 'settings/delete-account'))}
-          testID="setting-delete-account"
-        />
-      </List>
-      <Text className="px-1 text-[12.5px] leading-[18px] text-text-3">
-        {PHONE_SETTINGS_WORDS.footnote}
-      </Text>
+          <ListLabel>{PHONE_SETTINGS_WORDS.you}</ListLabel>
+          <List>
+            <ListRow
+              icon={ShieldCheck}
+              label={SAFETY_PHONE_WORDS.mySafety}
+              detail={SAFETY_PHONE_WORDS.mySafetyDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/safety'))}
+              testID="setting-my-safety"
+              settingKey="phone.my_safety"
+            />
+            <ListRow
+              icon={Bell}
+              label={PHONE_SETTINGS_WORDS.notifications}
+              detail={PHONE_SETTINGS_WORDS.notificationsDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/notifications'))}
+              testID="setting-notifications"
+            />
+            <ListRow
+              icon={User}
+              label={PHONE_SETTINGS_WORDS.profile}
+              detail={me.user.email}
+              external
+              onPress={() => void openWeb(`/app/w/${business.id}/settings`)}
+              testID="setting-profile"
+            />
+            <ListRow
+              icon={Moon}
+              label={APPEARANCE_WORDS.title}
+              end={APPEARANCE_LABELS[appearance]}
+              onPress={() => setAppearanceOpen(true)}
+              testID="setting-appearance"
+              settingKey="account.appearance"
+            />
+          </List>
 
-      {testToolsEnabled ? <TestTools /> : null}
+          <View className="h-2" />
+          <List>
+            <ListRow
+              icon={LogOut}
+              label={PHONE_SETTINGS_WORDS.signOut}
+              onPress={() => setSigningOut(true)}
+              testID="setting-sign-out"
+            />
+            <ListRow
+              icon={UserX}
+              label={PHONE_SETTINGS_WORDS.deleteAccount}
+              danger
+              onPress={() => router.push(businessHref(business.id, 'settings/delete-account'))}
+              testID="setting-delete-account"
+              settingKey="account.delete_account"
+            />
+          </List>
+          <Text className="px-1 text-[12.5px] leading-[18px] text-text-3">
+            {PHONE_SETTINGS_WORDS.footnote}
+          </Text>
+
+          {testToolsEnabled ? <TestTools /> : null}
+        </SettingFlashContext.Provider>
+      )}
 
       <Sheet
         open={appearanceOpen}

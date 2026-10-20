@@ -21,7 +21,7 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1 to 3 built (Build order), the rest still to build.
+**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3 and 6 built (Build order), the rest still to build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2201,6 +2201,84 @@ its step **Built** here with what changed while building.
      over-the-air update in the same push.
    - Docs: docs/search.md (the catalogue is the one list, kept honest by its test; anchors that emails link to keep
      their ids), README.md's Settings section.
+   - **Built** (2026-10-20). No migration, no API change (nothing is asked of the server), so `pnpm openapi` has nothing
+     to do. What changed while building:
+     - **An entry carries more:** `key`, `kind`, `page`, `addon`, `section`, `label`, `words`, `anchor`, `open`, `path`,
+       `needs`, `feature`, `only`, `phone` and `value`. `kind` is `page`, `setting`, `phone` or `addon`: each Settings
+       page is an entry itself (`page.texting`, with its own `PAGE_WORDS` seeded from LOOK_ALIKES), so a page is found
+       by its name without every row on it; `phone` entries are the phone's own settings (Face ID, Businesses on this phone,
+       Documents on mobile data, Changes on this phone, My safety), which only `surface: 'phone'` lists; `addon` entries
+       carry their add-on and are grouped under its name. `path` is where it lives under /app/w/<business>/ (an add-on's
+       own page, or Calendars' Services, Resources, Territories and Booking site, which are whole pages with no anchor).
+       Every typed word has to be in the entry, its section, or the page and group around it, and at least one in the
+       entry itself; a typo gets the close-match check (every typed word within its allowance of a word). Every
+       apostrophe reads as one, since the catalogue is written with curly ones and a keyboard types straight ones ("can't
+       answer" finds "Questions the AI can’t answer"), and a typed hyphen splits words ("opt-out" finds "opt out").
+       What's typed is cut at 100 characters, and search's close check (`wordIsClose`, now in `search/close.ts` for the
+       names' close matches too) turns away words whose lengths differ by more than the allowance before working out
+       the distance, so a long pasted word stays cheap on every keystroke.
+     - **`only` on New support tickets and Daily agency digest:** the notification rows' `staffOnly` and `agencyOnly`
+       carry onto their entries, and `searchSettings` takes `staff` and `agency` and lists them only when they hold,
+       as both apps' Notifications show them. Left out, neither is listed. The web's settings layout passes them from
+       `platform.me` (`getPlatformMe`, fetched once per request with the Account page) and the account
+       (`managesAnAgency`, moved into `account/notification-rows.ts` so the web's Account page, the phone's
+       Notifications and settings search decide it once); the phone passes what it already knows (`useKeptStaff`),
+       so it works with no signal.
+     - **`searchSettings(q, { permissions, addons, surface })` takes `addons: null` on the phone,** which has no list of
+       what runs with no signal: a part of core some add-ons use shows when the person holds a permission of an add-on
+       that uses it (`coreFeatureHeld`), as the phone's Main offer row already decides, and an add-on's own entries
+       likewise. `settingsPageShown` and `settingsGroupsFor` are the one gate, which the web's menu uses too. Beside it:
+       `settingHref`, `settingPhoneTarget`, `settingsByPage` (the menu's order, add-ons last), `settingsCount`, and
+       `settingsSearchGroup`, the main search's Settings group for `dropdownOf` (its line is `hitLines`' "Settings ›
+       Texting & calls · 9:00 PM to 8:00 AM"; a setting's id is its catalogue key, since the group never leaves the
+       device). It leaves out a setting that's only close to what was typed, and is null when nothing else matched:
+       the main search's close matches are names (decision 26), and a typo near some setting's word mustn't hide them
+       or set `settingsMatched`. `dropdownOf` likewise counts only a real setting match as spelled right.
+     - **An Automations row opens ringed on the page (`#automation-<id>`), not with `?adjust=`:** its switch is on the
+       row, and most rows have no Adjust sheet. The Adjust fields (a short list of 11, "Gone quiet after" among them)
+       open their automation's sheet with `?adjust=<id>` and ring the field inside it. The sheet follows the address's
+       `?adjust=` itself (`useSearchParams`, which `closeAdjust`'s `replaceState` updates), not the page's
+       `initialAdjust`, which keeps its value after the sheet closes: so the jump works from the Automations page
+       itself, again after the sheet was closed, and a jump to a plain row shuts it. Their section is the automation's
+       name ("Gone quiet after · Stale opportunities").
+     - **Marking a setting:** `<SetRow setting>`, `<Block setting>` and the local sections' `setting` on Usage, Email,
+       Payments and Partners; `settingAttrs(key)` spread on a card, where `<SettingAnchor>` around it would ring wider
+       than a `max-w` card; and `<SettingAnchor>` (with `as` and `row`) only for what has no element of its own, the
+       Workspace form's fields and My calendar's sections. Ids that were already there and linked stay as written
+       (`appearance`, `menu`, `notifications`, `my-cell`, `delete-account`, `passkeys`, `google`, `rcs`, `founding`,
+       `your-page`, `logo-and-colour`, `delete-workspace`). The test accepts each of these forms, and counts the
+       anchor's literal id too, so a key marked twice or not at all fails.
+     - **The ring** is the Add-ons page's `ring-2 ring-accent` on a card, and on a row it also fills it
+       (`bg-accent-soft`, as board 6 draws it). `quiet-hours` moved from the Texting rules card to the Quiet hours row,
+       where board 6 rings it; Automations' "Edit quiet hours" link still lands there.
+     - **Ids changed or not marked:** the Workspace page's Getting started guide switch is `#workspace-getting-started`
+       now, since Home's card already is `#getting-started` (Get help links there). Email's domain card repeats per
+       domain, so only the first is `email.own_domain`, and "Another domain" and "Receive mail here too" are words of
+       it. Partner payouts' card is marked only once payouts are open, when there is something to set. Migrations'
+       Connect a CRM is in the page's words, since it's a header button. Support access (`settings/support-access`)
+       isn't in the Settings menu, so it isn't in the catalogue.
+     - **Notification rows** carry their `key` (`notifications.urgent`) and both the phone's short `detail` and the
+       web's `description`; `KeyedNotificationRow` keeps the key's type so a screen can mark the row. The web's
+       `NotificationPrefs` is core's `EmailSwitches`; `push/switches.ts` re-exports the rows for the phone's imports.
+     - **The phone:** the results are their own component, `apps/mobile/src/settings/settings-search.tsx`, so they're
+       tested without the whole Settings screen; `Screen` gained `scrollRef` for the flash; Notifications' rows flash
+       too (`useFlashRow`). The flash scrolls with `measureLayout` against the ScrollView's `getInnerViewRef()`, which
+       React Native has but its types don't declare yet. Values (quiet hours, business hours) show on the phone's rows
+       and in the main search's group; the web's menu shows each setting's section, as board 6 does.
+     - **More files than listed:** `packages/core/src/settings/index.ts`, the Partners page's `settings-page.tsx` and
+       `payouts-section.tsx`, `apps/mobile/src/components/shell/screen.tsx`,
+       `apps/mobile/src/settings/settings-search.tsx`, `apps/mobile/src/settings/__tests__/settings-search.test.tsx`
+       (Tests by package's Settings search test), the phone's Settings → Notifications screen,
+       `apps/web/src/lib/api/server.ts` (`getPlatformMe`), the settings layout, `packages/core/src/search/close.ts` and
+       `dropdown.ts` with `test/search/dropdown.test.ts`, and `apps/worker/src/assistant/tools-settings.ts`: `get_settings` reads every area, so the four new ones read
+       `main_offer.get`, `meta_account.list`, `bin.list` (names and dates only) and `partners.settings`. No Assistant
+       tool changes any of them; each has a handover.
+     - **The web's box:** in the side menu it stays at the top while the menu scrolls under it (`sticky`), so the menu's
+       scroll to the page you're on never hides it. ↵ with no row picked opens the best match (a setting, or a page
+       found by its name), not the first row in menu order.
+     - **`settings-search.spec.ts`** imports core with `await import('@hfos/core')`, as the consent spec does, and also
+       checks ↓ ↵, ↵ alone opening the best match, Esc, an Adjust field opened again after its sheet was closed, and a
+       member's own Appearance.
 
 7. **Search 7: the web's Search page and what it opens, built but not linked.**
    - Ships: `/search#q=…` by address (the frame from the server, the answer asked from the browser with what's typed

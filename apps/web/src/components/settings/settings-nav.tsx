@@ -1,12 +1,5 @@
 'use client';
-import {
-  ADDON_CATALOG,
-  can,
-  coreFeatureRunning,
-  PARTNERS_WORDS,
-  type CoreFeature,
-  type WorkspacePermission,
-} from '@hfos/core';
+import { settingsGroupsFor, type SettingsPageKey } from '@hfos/core';
 import {
   ArrowRightLeft,
   Building2,
@@ -35,134 +28,49 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { MessengerIcon } from '@/components/inbox/social-bits';
 import { PageHeader } from '@/components/shell/page-header';
 import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { hasSettingsSearch, SettingsSearch } from './settings-search';
+import { useSettingHighlight } from './use-setting-highlight';
 
-interface SettingsItem {
-  readonly path: string;
-  readonly label: string;
-  readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
-  readonly exact?: boolean;
-  readonly needs?: WorkspacePermission;
-  /** A part of core only some add-ons use: shown only while one of them is on (the main offer, partners). */
-  readonly feature?: CoreFeature;
-}
+type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
 
 /**
- * The settings pages, in groups a business owner looks for: themselves first, then the business, then how it
- * talks to customers, what it keeps about them, how they book and pay, and last bringing data across, which is
- * done once. Everyone has their account and their calendar; each of the business's own pages shows for whoever
- * may change what is on it, as the business has set that up (0106), and a group with none of them doesn't show.
+ * Each settings page's icon. The pages themselves, their groups and who sees each are core's list
+ * (`SETTINGS_GROUPS`, packages/core/src/settings/pages.ts), which settings search and the Assistant's map read too.
  */
-const GROUPS: readonly { readonly label: string; readonly items: readonly SettingsItem[] }[] = [
-  {
-    label: 'Your account',
-    items: [
-      { path: '', label: 'Account', icon: UserCircle, exact: true },
-      { path: '/my-calendar', label: 'My calendar', icon: CalendarClock },
-    ],
-  },
-  {
-    label: 'Business',
-    items: [
-      { path: '/workspace', label: 'Workspace', icon: Building2, needs: 'workspace.update' },
-      { path: '/main-offer', label: 'Main offer', icon: Target, feature: 'main_offer' },
-      // Who may do what: only an owner sets it.
-      {
-        path: '/permissions',
-        label: 'Permissions',
-        icon: ShieldCheck,
-        needs: 'permissions.manage',
-      },
-      { path: '/automations', label: 'Automations', icon: Zap, needs: 'workspace.update' },
-      // Check-ins (round six): the business's times and its safety person. Each person's own contacts are on their
-      // Safety page, never here.
-      { path: '/safety', label: 'Safety', icon: LifeBuoy, needs: 'workspace.update' },
-      // Named apart from Payments, and kept in another group, on purpose: Payments is the business's own
-      // customers paying *them*, and this is what the business pays HandsFreeOS. Two things, two names.
-      { path: '/usage', label: 'Usage & balance', icon: Wallet, needs: 'money.manage' },
-    ],
-  },
-  {
-    label: 'Messages',
-    items: [
-      { path: '/texting', label: 'Texting & calls', icon: MessageSquare, needs: 'channels.manage' },
-      { path: '/email', label: 'Email', icon: Mail, needs: 'channels.manage' },
-      {
-        path: '/website-chat',
-        label: 'Website chat',
-        icon: MessagesSquare,
-        needs: 'channels.manage',
-      },
-      // Messenger and Instagram direct messages, through the business's Facebook Page (20261025000200).
-      {
-        path: '/facebook-instagram',
-        label: 'Facebook & Instagram',
-        icon: MessengerIcon,
-        needs: 'channels.manage',
-      },
-      // Beside the channels, because that is what it is for: the wording they send on them.
-      { path: '/templates', label: 'Templates', icon: FileText, needs: 'templates.manage' },
-      // After the channels: what happens when someone new arrives on any of them.
-      { path: '/lead-intake', label: 'Lead intake', icon: Inbox, needs: 'channels.manage' },
-    ],
-  },
-  {
-    label: 'Customers',
-    items: [
-      { path: '/pipelines', label: 'Pipelines', icon: KanbanSquare, needs: 'pipelines.manage' },
-      // The business's tags, and the AI putting them on every customer (0107).
-      { path: '/tags', label: 'Tags', icon: Tag, needs: 'tags.manage' },
-      // What a business keeps about its customers: its own fields, and its own kinds of records (pets,
-      // vehicles, properties) with how they relate.
-      { path: '/fields', label: 'Fields', icon: ListChecks, needs: 'fields.manage' },
-      { path: '/relationships', label: 'Relationships', icon: Network, needs: 'fields.manage' },
-      // Customers, conversations and bookings deleted for good, for their 30 days (20261027000400).
-      { path: '/deleted-bin', label: 'Deleted bin', icon: Trash2, needs: 'records.delete' },
-    ],
-  },
-  {
-    label: 'Bookings & payments',
-    items: [
-      { path: '/calendars', label: 'Calendars', icon: CalendarDays, needs: 'calendars.manage' },
-      // Payments is exact so its own Products page is the only one marked while you're on it.
-      {
-        path: '/payments',
-        label: 'Payments',
-        icon: CreditCard,
-        exact: true,
-        needs: 'money.manage',
-      },
-      { path: '/payments/products', label: 'Products', icon: Package, needs: 'money.manage' },
-      {
-        path: '/partners',
-        label: PARTNERS_WORDS.menu,
-        icon: Handshake,
-        needs: 'partners.manage',
-        feature: 'partners',
-      },
-    ],
-  },
-  {
-    label: 'Bring data in',
-    items: [
-      { path: '/imports', label: 'Imports', icon: Upload, needs: 'records.import' },
-      // Its own page, not a tab inside Imports: that page lists spreadsheets, and this moves a whole
-      // business across from another system.
-      {
-        path: '/migrations',
-        label: 'Migrations',
-        icon: ArrowRightLeft,
-        needs: 'migrations.manage',
-      },
-    ],
-  },
-];
+const ICONS: Readonly<Record<SettingsPageKey, Icon>> = {
+  account: UserCircle,
+  my_calendar: CalendarClock,
+  workspace: Building2,
+  main_offer: Target,
+  permissions: ShieldCheck,
+  automations: Zap,
+  safety: LifeBuoy,
+  usage: Wallet,
+  texting: MessageSquare,
+  email: Mail,
+  website_chat: MessagesSquare,
+  facebook_instagram: MessengerIcon,
+  templates: FileText,
+  lead_intake: Inbox,
+  pipelines: KanbanSquare,
+  tags: Tag,
+  fields: ListChecks,
+  relationships: Network,
+  deleted_bin: Trash2,
+  calendars: CalendarDays,
+  payments: CreditCard,
+  products: Package,
+  partners: Handshake,
+  imports: Upload,
+  migrations: ArrowRightLeft,
+};
 
 /**
  * A calendar's own page (a new one, or one being built) has its own side menu of the calendar's settings, so it
@@ -178,52 +86,71 @@ const CALENDAR_BUILDER =
  */
 export function SettingsFrame({
   workspaceId,
+  staff,
+  agency,
   children,
 }: {
   workspaceId: string;
+  /** They answer HandsFreeOS support, and have New support tickets. */
+  staff: boolean;
+  /** They run an agency, and have Daily agency digest. */
+  agency: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const groups = useSettingsGroups(workspaceId);
+  // Settings search's jump lands here on every settings page, and rings what the address points at.
+  const highlight = useSettingHighlight();
+  // One search for both: the side menu's box on a computer, and the box over the page picker on a phone.
+  const [q, setQ] = useState('');
   if (CALENDAR_BUILDER.test(pathname)) return <>{children}</>;
+  const search = { workspaceId, staff, agency, q, onChange: setQ, icons: ICONS, highlight };
   return (
     <div className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:gap-8">
-      <SettingsNav groups={groups} />
+      <SettingsNav groups={groups} search={search} />
       <div className="min-w-0">
         <PageHeader
           title="Settings"
           description="Your account, and how this workspace is set up."
         />
-        <SettingsPicker groups={groups} />
+        <SettingsPicker groups={groups} search={search} />
         {children}
       </div>
     </div>
   );
 }
 
+type SearchProps = Omit<
+  Parameters<typeof SettingsSearch>[0],
+  'children' | 'clearOnPick' | 'sticky'
+>;
+
 type Group = ReturnType<typeof useSettingsGroups>[number];
 
-/** The groups and pages this person may see, and which one they're on. */
+/** The groups and pages this person may see, and which one they're on: gated as settings search gates them. */
 function useSettingsGroups(workspaceId: string) {
   const pathname = usePathname();
   const { permissions, addons } = useWorkspaceShell();
   const base = `/app/w/${workspaceId}/settings`;
-  return GROUPS.map((g) => ({
+  return settingsGroupsFor({ permissions, addons }).map((g) => ({
     label: g.label,
-    items: g.items
-      .filter((i) => !i.needs || can(permissions, i.needs))
-      .filter((i) => !i.feature || coreFeatureRunning(ADDON_CATALOG, addons, i.feature))
-      .map((i) => {
-        const href = `${base}${i.path}`;
-        return { ...i, href, active: i.exact ? pathname === href : pathname.startsWith(href) };
-      }),
-  })).filter((g) => g.items.length > 0);
+    items: g.items.map((i) => {
+      const href = `${base}${i.path}`;
+      return {
+        ...i,
+        icon: ICONS[i.key],
+        href,
+        active: i.exact ? pathname === href : pathname.startsWith(href),
+      };
+    }),
+  }));
 }
 
-/** On a computer: the side menu. */
-function SettingsNav({ groups }: { groups: readonly Group[] }) {
+/** On a computer: the side menu, with Search settings at its top, which stays there as the menu scrolls under it. */
+function SettingsNav({ groups, search }: { groups: readonly Group[]; search: SearchProps }) {
   const pathname = usePathname();
-  // The page you're on is always in sight in the menu, even when it's far down a long one or on a short screen.
+  // The page you're on is always in sight in the menu, even when it's far down a long one or on a short screen, and
+  // never hidden under the search box.
   const menu = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const box = menu.current;
@@ -231,7 +158,10 @@ function SettingsNav({ groups }: { groups: readonly Group[] }) {
     if (!box || !link) return;
     const b = box.getBoundingClientRect();
     const l = link.getBoundingClientRect();
-    if (l.top < b.top || l.bottom > b.bottom) box.scrollTop += l.top - b.top - b.height / 3;
+    const covered =
+      box.querySelector<HTMLElement>('[data-testid="settings-search-box"]')?.offsetHeight ?? 0;
+    if (l.top < b.top + covered || l.bottom > b.bottom)
+      box.scrollTop += l.top - b.top - b.height / 3;
   }, [pathname]);
   return (
     <Card className="hidden lg:sticky lg:top-8 lg:block" data-testid="settings-nav">
@@ -239,69 +169,78 @@ function SettingsNav({ groups }: { groups: readonly Group[] }) {
         ref={menu}
         className="max-h-[calc(100dvh-4rem-2px)] overflow-y-auto overscroll-contain p-2 [scrollbar-width:thin]"
       >
-        <nav aria-label="Settings" className="flex flex-col gap-2">
-          {groups.map((g) => {
-            // The group's name is plain text, as in a calendar's own menu: labelling the group (or making the name
-            // a heading) would give every settings page a "Messages" or "Customers" that a field's own label, or
-            // the page's own heading, gets mistaken for.
-            const slug = g.label.toLowerCase().replace(/[^a-z]+/g, '-');
-            return (
-              <div key={g.label} data-testid={`settings-group-${slug}`}>
-                <div className="px-2.5 pb-1 pt-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-                  {g.label}
+        <SettingsSearch {...search} sticky>
+          <nav aria-label="Settings" className="flex flex-col gap-2">
+            {groups.map((g) => {
+              // The group's name is plain text, as in a calendar's own menu: labelling the group (or making the name
+              // a heading) would give every settings page a "Messages" or "Customers" that a field's own label, or
+              // the page's own heading, gets mistaken for.
+              const slug = g.label.toLowerCase().replace(/[^a-z]+/g, '-');
+              return (
+                <div key={g.label} data-testid={`settings-group-${slug}`}>
+                  <div className="px-2.5 pb-1 pt-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+                    {g.label}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {g.items.map((i) => {
+                      const Icon = i.icon;
+                      return (
+                        <Link
+                          key={i.href}
+                          href={i.href}
+                          aria-current={i.active ? 'page' : undefined}
+                          className={cn(
+                            'flex h-9 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
+                            i.active
+                              ? 'bg-accent-soft text-accent-text'
+                              : 'text-text-2 hover:bg-card-2 hover:text-text',
+                          )}
+                        >
+                          <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} />
+                          <span className="min-w-0 truncate">{i.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex flex-col gap-0.5">
-                  {g.items.map((i) => {
-                    const Icon = i.icon;
-                    return (
-                      <Link
-                        key={i.href}
-                        href={i.href}
-                        aria-current={i.active ? 'page' : undefined}
-                        className={cn(
-                          'flex h-9 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
-                          i.active
-                            ? 'bg-accent-soft text-accent-text'
-                            : 'text-text-2 hover:bg-card-2 hover:text-text',
-                        )}
-                      >
-                        <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} />
-                        <span className="min-w-0 truncate">{i.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
+              );
+            })}
+          </nav>
+        </SettingsSearch>
       </div>
     </Card>
   );
 }
 
-/** On a phone: the same pages, in the same groups, as a list to pick from. */
-function SettingsPicker({ groups }: { groups: readonly Group[] }) {
+/** On a phone: the same pages, in the same groups, as a list to pick from, under the same search. */
+function SettingsPicker({ groups, search }: { groups: readonly Group[]; search: SearchProps }) {
   const router = useRouter();
   const current = groups.flatMap((g) => g.items).find((i) => i.active);
   return (
-    <div className="mb-5 lg:hidden">
-      <Select
-        aria-label="Settings page"
-        value={current?.href ?? ''}
-        onChange={(e) => router.push(e.target.value)}
-      >
-        {current ? null : <option value="">Choose a page</option>}
-        {groups.map((g) => (
-          <optgroup key={g.label} label={g.label}>
-            {g.items.map((i) => (
-              <option key={i.href} value={i.href}>
-                {i.label}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </Select>
+    <div
+      className={cn(
+        'mb-5 lg:hidden',
+        hasSettingsSearch(search.q) && 'rounded-card border border-border bg-card p-2',
+      )}
+    >
+      <SettingsSearch {...search} clearOnPick>
+        <Select
+          aria-label="Settings page"
+          value={current?.href ?? ''}
+          onChange={(e) => router.push(e.target.value)}
+        >
+          {current ? null : <option value="">Choose a page</option>}
+          {groups.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.items.map((i) => (
+                <option key={i.href} value={i.href}>
+                  {i.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </Select>
+      </SettingsSearch>
     </div>
   );
 }

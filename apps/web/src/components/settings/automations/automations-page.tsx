@@ -36,6 +36,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -147,10 +148,26 @@ export function AutomationsSettings({
   // Opened from a link: its row sits behind the sheet, so it's in view once the sheet closes.
   useEffect(() => {
     if (!initialAdjust) return;
-    document
-      .querySelector(`[data-testid="automation-${CSS.escape(initialAdjust)}"]`)
-      ?.scrollIntoView({ block: 'center' });
+    document.getElementById(`automation-${initialAdjust}`)?.scrollIntoView({ block: 'center' });
   }, [initialAdjust]);
+  // Settings search jumping to an Adjust field while this page is open: the sheet follows the address itself, not
+  // `initialAdjust`, which keeps its value after closeAdjust takes `?adjust=` off. So it opens when the address gains
+  // `?adjust=`, again after it was closed, and shuts when a jump to a plain row takes it off.
+  const adjust = useSearchParams().get('adjust');
+  const [opened, setOpened] = useState(adjust);
+  if (adjust !== opened) {
+    setOpened(adjust);
+    setAdjusting(
+      adjust
+        ? (automationRows({
+            attention: attention.value,
+            automations: automations.value,
+            teammate: teammate.value,
+            maintenanceReady,
+          }).find((r) => r.def.id === adjust && r.def.adjust) ?? null)
+        : null,
+    );
+  }
 
   function closeAdjust() {
     setAdjusting(null);
@@ -345,7 +362,8 @@ function AutomationRowView({
   const Icon = EFFECT_ICONS[def.effect];
   return (
     <div
-      className="flex items-start justify-between gap-4 py-3.5"
+      id={`automation-${def.id}`}
+      className="flex scroll-mt-20 items-start justify-between gap-4 py-3.5"
       data-testid={`automation-${def.id}`}
       data-on={row.on}
     >
