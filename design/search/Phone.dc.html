@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search on the phone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--accent-text)}a:hover{color:var(--accent-hover)}
+.m{background:var(--accent-soft-2);color:var(--text);font-weight:600;border-radius:3px;padding:0 1px}
+.chip{display:inline-flex;flex:none;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);font:inherit;font-size:14px;font-weight:500;color:var(--text-2);white-space:nowrap}
+.chip span{color:var(--text-3)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent-text)}
+.chip[aria-pressed="true"] span{color:var(--accent-text)}
+.sr-head{display:flex;align-items:center;gap:8px;padding:14px 16px 6px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.sr-head a{margin-left:auto;font-size:13px;font-weight:500;text-transform:none;letter-spacing:normal}
+.sr-row{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 16px;color:var(--text);text-decoration:none;border-top:1px solid var(--border)}
+.sr-main{display:flex;flex-direction:column;min-width:0;flex:1}
+.sr-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500}
+.sr-sub{font-size:13px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act{display:inline-flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text-2)}
+.n{font-weight:500;text-transform:none;letter-spacing:normal}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 15px;">
+  <div style="display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; background: var(--card); border-bottom: 1px solid var(--border);">
+    <div style="position: relative; flex: 1;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 12px; top: 13px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Search everything" value="smith" style="width: 100%; box-sizing: border-box; height: 44px; padding: 0 12px 0 38px; border-radius: 10px; border: 1px solid var(--accent); background: var(--card); font: inherit; font-size: 16px; color: var(--text); box-shadow: 0 0 0 3px var(--ring); outline: none;">
+    </div>
+    <button type="button" class="hf-btn hf-btn--ghost" style="height: 44px; padding: 0 10px; font-size: 15px; color: var(--accent-text);">Cancel</button>
+  </div>
+  <div style="display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; background: var(--card); border-bottom: 1px solid var(--border); scrollbar-width: none;">
+    <button type="button" class="chip" aria-pressed="true">All <span>26</span></button>
+    <button type="button" class="chip" aria-pressed="false">Contacts <span>7</span></button>
+    <button type="button" class="chip" aria-pressed="false">Deals <span>3</span></button>
+    <button type="button" class="chip" aria-pressed="false">Money <span>4</span></button>
+    <button type="button" class="chip" aria-pressed="false">Calendar <span>2</span></button>
+  </div>
+  <div style="flex: 1; overflow: hidden; background: var(--card);">
+    <div class="sr-head">Best match</div>
+    <a class="sr-row" href="#" style="border-top: 0;">
+      <span class="hf-avatar hf-avatar--md" style="background: var(--avatar-2);">DS</span>
+      <span class="sr-main"><span class="sr-title">Dana <span class="m">Smith</span></span><span class="sr-sub">Lead · (504) 555-0142</span></span>
+      <button type="button" class="act" aria-label="Call Dana Smith"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></button>
+      <button type="button" class="act" aria-label="Text Dana Smith"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></button>
+    </a>
+    <div class="sr-head">Contacts <span class="n">7</span><a href="#">See all</a></div>
+    <a class="sr-row" href="#"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-1);">MS</span><span class="sr-main"><span class="sr-title">Marcus <span class="m">Smith</span></span><span class="sr-sub">Client · 3 jobs done</span></span></a>
+    <a class="sr-row" href="#"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-3);">JS</span><span class="sr-main"><span class="sr-title">Jo <span class="m">Smith</span>ers</span><span class="sr-sub">Lead · Visit booked Thu</span></span></a>
+    <div class="sr-head">Deals <span class="n">3</span><a href="#">See all</a></div>
+    <a class="sr-row" href="#"><span class="hf-tile hf-tile--md hf-tone--accent"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg></span><span class="sr-main"><span class="sr-title">Water heater swap</span><span class="sr-sub">Dana <span class="m">Smith</span> · Quote sent</span></span><span class="hf-chip hf-chip--money">$2,450</span></a>
+    <div class="sr-head">Money <span class="n">4</span><a href="#">See all</a></div>
+    <a class="sr-row" href="#"><span class="hf-tile hf-tile--md hf-tone--success"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"></path><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 17.5v-11"></path></svg></span><span class="sr-main"><span class="sr-title">Invoice #1042</span><span class="sr-sub">Marcus <span class="m">Smith</span> · 6 days late</span></span><span class="hf-chip hf-chip--money">$1,280</span></a>
+    <div class="sr-head">Messages <span class="n">5</span><a href="#">See all</a></div>
+    <a class="sr-row" href="#"><span class="hf-tile hf-tile--md hf-tone--gray"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span><span class="sr-main"><span class="sr-title">Text from Dana <span class="m">Smith</span></span><span class="sr-sub">“…the house on <span class="m">Smith</span> Ave…”</span></span></a>
+  </div>
+  <div style="padding: 10px 16px 16px; background: var(--card); border-top: 1px solid var(--border);">
+    <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}"><span style="display: block; text-align: center; font-size: 12.5px; color: var(--text-3); margin-bottom: 8px;">You’re offline, so this searched what’s on this phone. Files, messages and money show once you’re back online.</span></sc-if>
+    <button type="button" class="hf-btn hf-btn--secondary hf-btn--lg" style="width: 100%;">See all 26 results</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"offline":{"editor":"boolean","default":false,"section":"State"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { offline: this.props.offline ?? false };
+  }
+}
+</script>
+</body>
+</html>
