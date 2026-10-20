@@ -9,8 +9,10 @@ import {
   stateTone,
   type LiveDay,
 } from '@hfos/core/addons/outreach/live';
+import { askableOn } from '@hfos/core/addons/outreach/asks';
 import {
   dailyWordsOn,
+  findPostsWordsOn,
   NETWORK_WORDS as NW,
   networkShown,
   noRunnerWords,
@@ -30,6 +32,7 @@ import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+import { AskButton, useAskActions, useAsks } from './asks';
 import { OutreachFrame } from './frame';
 import {
   isSetUp,
@@ -122,7 +125,33 @@ export function TodayHub() {
       <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
         <TodayBody {...today} embedded hideSends={shownOnce} />
       </Part>
+      {askableOn(net, 'posts') && !runsOnItsOwn(net) ? <FindPosts platform={net} /> : null}
     </OutreachFrame>
+  );
+}
+
+/**
+ * Find posts, on a network the extension doesn't work on its own yet (Alignable): its runner would read the town's
+ * posts each day, so the person asks for it here, and the good ones come onto the list.
+ */
+function FindPosts({ platform }: { platform: Platform }) {
+  const asks = useAsks(null, W.rows.today);
+  const actions = useAskActions(asks.data, asks.reload);
+  const words = findPostsWordsOn(platform);
+  if (!asks.data) return null;
+  return (
+    <Card className="gap-2 px-4 py-4" testID="today-find-posts">
+      <Text className="text-[15px] font-semibold">{words.title}</Text>
+      <Note>{words.body}</Note>
+      <AskButton
+        asks={asks.data}
+        actions={actions}
+        ask={{ kind: 'posts' }}
+        platform={platform}
+        label={words.title}
+        testID="today-find-posts-ask"
+      />
+    </Card>
   );
 }
 

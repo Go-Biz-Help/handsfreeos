@@ -674,3 +674,51 @@ export function alignableListSave(
     });
   return { ok: true, input: parts };
 }
+
+/**
+ * The posts on an Alignable page (its town's group, a forum question), to keep the ones worth an answer or a comment
+ * (partners stage 6c): each with who wrote it, its own discussion's link and what it says, in no group, as a
+ * network's search finds are. A post with no page of its own, or nobody named, is left out.
+ */
+export function alignablePostsSave(
+  threads: readonly {
+    readonly author: { readonly name: string; readonly profile: ProfileRef | null } | null;
+    readonly url: string | null;
+    readonly when: string | null;
+    readonly text: string;
+    readonly likes: number | null;
+  }[],
+  workspaceId: string,
+): Built<PostsSaveInput> {
+  const seen = new Set<string>();
+  const posts = threads.flatMap((thread) => {
+    if (!thread.author?.profile) return [];
+    const url = networkAddress(thread.url, ALIGNABLE);
+    const who = whom({ name: thread.author.name, profile: thread.author.profile }, ALIGNABLE);
+    const text = clipText(thread.text, POST_TEXT_MOST);
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: thread.when ? clip(thread.when, WHEN_MOST) : null,
+        text,
+        comments: null,
+        reactions: thread.likes,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'There are no posts on the page to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: ALIGNABLE,
+      group: null,
+      posts: posts.slice(0, POSTS_SAVE_MOST),
+      found: 'find',
+    },
+  };
+}

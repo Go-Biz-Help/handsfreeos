@@ -107,6 +107,8 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'checks',
     'lookup',
     'research',
+    // Its town's posts and forum questions (part 6's first piece): whoever asks for what the business offers.
+    'posts',
     'checkup',
     'profile_read',
     'profile_edit',
@@ -123,7 +125,7 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     post: 'Put up your helpful post on your feed',
     profile_edit: 'Update your profile',
   },
-  alignable: { profile_edit: 'Put your About Us in' },
+  alignable: { profile_edit: 'Put your About Us in', posts: 'Find posts in your town' },
 };
 
 /** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
@@ -219,6 +221,7 @@ export const ASK_KIND_SINCE_ON: Readonly<
     checks: '0.73.0',
     lookup: '0.73.0',
     research: '0.73.0',
+    posts: '0.74.0',
   },
 };
 

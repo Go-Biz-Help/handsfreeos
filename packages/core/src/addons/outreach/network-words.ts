@@ -10,7 +10,7 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
-import { TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
+import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import {
   SENDING_MODES,
   type AutomationSettings,
@@ -292,6 +292,17 @@ export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode,
 /** Under what it does on its own on a network: its limits, its pace, and its warnings. */
 export const onItsOwnAbout = (platform: Platform): string =>
   `It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from ${PLATFORMS[platform]}.`;
+
+/**
+ * Today's card for Find posts on a network the extension doesn't work on its own yet (Alignable's town): what it
+ * reads, and that the good ones come onto the list.
+ */
+export const findPostsWordsOn = (
+  platform: Platform,
+): { readonly title: string; readonly body: string } => ({
+  title: askNameOn('posts', platform),
+  body: `Your computer reads the posts and forum questions in your town on ${PLATFORMS[platform]}. The AI picks the ones worth an answer, and they come onto this list with a draft, their writers to connect with.`,
+});
 
 /** Under On its own on a network the extension doesn't work yet: what it does there instead. */
 export const noRunnerWords = (platform: Platform): string =>
