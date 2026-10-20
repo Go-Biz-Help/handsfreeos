@@ -81,6 +81,12 @@ export interface NetworkKit {
    * where comments are the only limit.
    */
   readonly forumAnswersPerDay: number | null;
+  /**
+   * Whether a person writes recommendations of other businesses there (Alignable's): only by hand, for a business they
+   * know (the plan's question 8). Today suggests one a day, a customer or partner of theirs, and the extension notes it
+   * once it's sent.
+   */
+  readonly recommends: boolean;
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
@@ -108,6 +114,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: null,
     checksPerDay: 40,
     forumAnswersPerDay: null,
+    recommends: false,
     tidyLimits: TIDY_LIMITS,
     // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
     runs: {
@@ -139,6 +146,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: 80,
     checksPerDay: 40,
     forumAnswersPerDay: null,
+    recommends: false,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
@@ -171,6 +179,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: null,
     checksPerDay: 20,
     forumAnswersPerDay: null,
+    recommends: false,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     runs: RUNS_NOTHING,
     words: {
@@ -198,6 +207,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     weeklyRequests: null,
     checksPerDay: 30,
     forumAnswersPerDay: 2,
+    recommends: true,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     runs: RUNS_NOTHING,
     words: {

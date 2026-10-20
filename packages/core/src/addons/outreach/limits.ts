@@ -31,12 +31,16 @@ export const THREAD_KEY = /^[A-Za-z0-9._-]{1,64}$/;
 export const GROUP_ID = /^\d{1,30}$/;
 export const GROUP_SLUG = /^[A-Za-z0-9._-]{1,100}$/;
 
-/** The steps the extension notes as the person takes them on Facebook (./activity.ts), as the panel names them. */
+/**
+ * The steps the extension notes as the person takes them on a network (./activity.ts), as the panel names them. A
+ * recommendation is Alignable's, written by the person themselves (the Instagram and Alignable plan's question 8).
+ */
 export const TOUCH_KINDS = {
   friend_request: 'Friend request',
   like: 'Like',
   comment: 'Comment',
   message: 'Message',
+  recommend: 'Recommendation',
 } as const;
 export type TouchKind = keyof typeof TOUCH_KINDS;
 export const TOUCH_KIND_KEYS = Object.keys(TOUCH_KINDS) as [TouchKind, ...TouchKind[]];

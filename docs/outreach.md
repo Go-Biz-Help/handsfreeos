@@ -1369,6 +1369,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       get a connect step after a warm-up. Answers to the ones asking for what the business offers (`strong`) are at
       most 2 a day there (its kit's `forumAnswersPerDay`), inside the day's comments, and Settings shows the line.
       Each is still the person's OK: they post it on Alignable, and the extension notes it.
+    - **Recommend, by hand only** (the plan's question 8; extension 0.75.0): Today suggests one business a day to
+      recommend there (`recommend`, its kit's `recommends`), a partner of the person's or a customer they've done
+      work for (a paid invoice or a job done), never one they've recommended and never one on Never contact. A
+      different one each day, so one they'd rather not waits. They write it on Alignable, and the extension notes it
+      when the recommendation's page sends what's written (a touch of kind `recommend`, once a business). Don't pitch
+      holds back the outreach, never a recommendation. Check Alignable opens a recommendation's page from 0.75.0 too,
+      so its noticer is checked against Alignable's own form.
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
       `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
       drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's

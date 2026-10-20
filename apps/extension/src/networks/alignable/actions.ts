@@ -14,6 +14,9 @@
  *   box under an answer, to whoever wrote the answer.
  * - **Message:** Send in Messages (`messaging-send-external`) with something written, to who the conversation is with,
  *   by Alignable's id for their business; or Enter in its box, once the box empties.
+ * - **Recommendation:** its Recommend is a link to a page to write one on (/biz/recommendations/new?id=…), so the press
+ *   that counts is the one sending what's written there, to the business that page is for, by Alignable's id. Today
+ *   suggests one a day; it's only ever the person's own (the plan's question 8).
  *
  * A step to yourself isn't one, and neither is a step the page can't tie to one business. Like the readers, it goes by
  * Alignable's own test ids, its links' addresses and its words, never class names.
@@ -37,7 +40,7 @@ import {
 
 const HOST = 'https://www.alignable.com';
 /** What a person presses. */
-const CONTROLS = 'a[href], button, [role="button"]';
+const CONTROLS = 'a[href], button, [role="button"], input[type="submit"]';
 /** How far up a press looks for the post, answer or result it's in. */
 const UP_STEPS = 12;
 /** Where a person writes. */
@@ -50,6 +53,13 @@ const BEFORE = 2;
 
 const LIKE = /^like$/i;
 const SEND = /^send$/i;
+/** Where a recommendation is written. */
+const RECOMMEND_AT = /^\/biz\/recommendations\/new\/?$/i;
+/** What sends it. */
+const SEND_IT =
+  /^(submit|send|post|save|publish|recommend)( (my |your )?recommendation| it| now)?$/i;
+/** Its page's heading, the business's name after it: "Recommend Pine Street Bakery". */
+const RECOMMEND_TITLE = /^(write an? )?(recommend(ation)?|vouch)( for)?\s+/i;
 
 /** The control pressed: the button or link the click was in. */
 const controlAt = (target: Element): Element | null => target.closest(CONTROLS);
@@ -199,11 +209,48 @@ function message(control: Element, doc: Document, base: string): Step | null {
   return chat ? step('message', chat.to, { thread: chat.thread }) : null;
 }
 
+/** The business a recommendation's page is for: its name, from its heading or a link to it, and Alignable's id. */
+function recommendedOn(doc: Document, base: string): Reached | null {
+  const page = urlOf(base, base);
+  const id = page && RECOMMEND_AT.test(page.pathname) ? idIn(page) : null;
+  if (!id) return null;
+  const main = doc.querySelector('main, [role="main"]') ?? doc.body;
+  const heading = [...main.querySelectorAll('h1, h2, h3')]
+    .map((h) => clean(h.textContent))
+    .find((words) => RECOMMEND_TITLE.test(words));
+  // Else the link to it: by its id, or the first to a business's page (the page is for that one business).
+  const links = linksIn(main, base).filter(
+    ({ a, url }) => !RECOMMEND_AT.test(url.pathname) && clean(a.textContent),
+  );
+  const linked =
+    links.find(({ url }) => idIn(url) === id) ?? links.find(({ url }) => businessRef(url, null));
+  const name =
+    heading
+      ?.replace(RECOMMEND_TITLE, '')
+      .replace(/[.!?]+$/, '')
+      .trim() || (linked ? clean(linked.a.textContent) : '');
+  if (!name) return null;
+  return { name, profile: { id, username: null, url: `${HOST}/biz/businesses/${id}` } };
+}
+
+/** Send on a recommendation's page, with something written: the recommendation, to the business it's for. */
+function recommend(control: Element, doc: Document, base: string): Step | null {
+  const pressed =
+    control.matches('button[type="submit"], input[type="submit"]') || SEND_IT.test(nameOf(control));
+  if (!pressed) return null;
+  const to = recommendedOn(doc, base);
+  if (!to) return null;
+  const around = control.closest('form') ?? doc.querySelector('main, [role="main"]') ?? doc.body;
+  if (!writingIn(around.querySelector(WRITING))) return null;
+  return step('recommend', to);
+}
+
 /** What a press of the person's was, if it's one of their steps. */
 export function stepFromClick(target: Element, doc: Document, href: string): Step | null {
   const control = controlAt(target);
   if (!control) return null;
   return (
+    recommend(control, doc, href) ??
     connect(control, doc, href) ??
     message(control, doc, href) ??
     answer(control, doc, href) ??

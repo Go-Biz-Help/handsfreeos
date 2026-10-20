@@ -617,6 +617,9 @@ request when opened, so no Check opens it: the first real request shows what it 
      town page for the AI's check, as LinkedIn's search finds are read; the good ones come onto Today with a draft and
      their writers to connect with. Answers to those asking for what the business offers are at most 2 a day, inside
      the day's comments (the plan's limit; its kit's `forumAnswersPerDay`), each after the person's OK.
+   - **Part 3d, Recommend** (extension 0.75.0, a migration: `touches.kind` takes `recommend`): Today suggests one
+     business a day to recommend, a partner or a customer they've done work for, never one recommended already; the
+     person writes it on Alignable, and the extension notes it once it's sent.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,

@@ -79,6 +79,8 @@ export const TODAY_KINDS = {
   warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   confirm: 'Confirm their request',
+  // Alignable's, by hand only (the Instagram and Alignable plan's question 8): a customer or partner to vouch for.
+  recommend: 'Recommend them',
   // A partner's steps (./partners.ts, decision 81), on the list's own part (`partners`), in the same order.
   partner_reply: 'Reply to a partner',
   partner_details: 'Send the partner details',
@@ -119,9 +121,19 @@ export const isPartnerMessage = (kind: string): kind is PartnerMessageKind =>
 export const doneOnItsOwn = (kind: TodayKind, auto: readonly TodayKind[]) =>
   auto.includes(kind === 'partner_warm_up' ? 'warm_up' : kind);
 
-/** Which daily limit each kind counts against: a reply and a confirm count against none. */
+/** The businesses Today suggests recommending a day, where the network has recommendations (Alignable's). */
+export const RECOMMEND_PER_DAY = 1;
+/** Why a business is suggested for a recommendation, and what to do. */
+export const RECOMMEND_WORDS = {
+  partner: 'Your partner',
+  customer: 'Your customer',
+  next: 'Press Recommend on their page and say what they did well, if you know their work.',
+} as const;
+
+/** Which daily limit each kind counts against: a reply, a confirm and a recommendation count against none. */
 export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   confirm: null,
+  recommend: null,
   warm_up: 'like',
   friend_request: 'friend_request',
   opener: 'first_message',
