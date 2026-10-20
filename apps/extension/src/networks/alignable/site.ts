@@ -15,6 +15,7 @@
 import { clean } from '../facebook/dom';
 import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
 import { aboutLook, idealLook, pitchLook, readOwnProfile } from './own-profile';
+import { readAlignable } from './read';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
 
@@ -95,11 +96,29 @@ const PLACES: Readonly<Record<string, string>> = {
   start: 'account',
 };
 
+/** A group's own pages under its address, never one of its discussions: /groups/<group>/members, its events. */
+const GROUP_PAGES = new Set(['search', 'events', 'members', 'about', 'new', 'edit', 'settings']);
+
 function kindOf(url: URL): string {
-  const [first = '', second] = partsOf(url).map((p) => p.toLowerCase());
+  const [first = '', second, third] = partsOf(url).map((p) => p.toLowerCase());
   // Its public home page, signed in or not; its signed-in pages are under /biz.
   if (!first) return 'front';
-  if (first === 'biz') return second ? (PLACES[second] ?? 'app') : 'home';
+  if (first === 'biz') {
+    if (!second) return 'home';
+    // A business by Alignable's id for it (a connection's link, /biz/businesses/<id>), never their own profile's.
+    if (second === 'businesses' && third && third !== 'my_profile') return 'business';
+    // My Network's Requests, and a chat with one business (the owner's Check, 0.66.0).
+    if (second === 'my_network' && third === 'connection_requests') return 'requests';
+    if (second === 'conversations' && url.searchParams.has('with_business_id')) return 'chat';
+    return PLACES[second] ?? 'app';
+  }
+  // A group's page (a town's own group is /groups/<town-st>, where its owners post), and one of its discussions: a
+  // forum question opens at /groups/<group>/<question> (the owner's Check, 0.66.0).
+  if (first === 'groups' && second) {
+    if (GROUP_PAGES.has(second)) return PLACES[second] ?? 'community';
+    if (!third) return 'community';
+    return GROUP_PAGES.has(third) ? (PLACES[third] ?? 'community') : 'discussion';
+  }
   const place = PLACES[first];
   if (place) return place;
   if (TOWN.test(first)) return second ? 'business' : 'town';
@@ -158,8 +177,16 @@ function postOf(url: URL): string | null {
   // (/biz/discussions/<id>).
   const question = TOWN.test(first) && second === 'forum' && !!third;
   const discussion = first === 'biz' && second === 'discussions' && !!third;
+  // A group's discussion at its own address: where a forum question opens (the owner's Check, 0.66.0).
+  const inGroup =
+    first === 'groups' &&
+    !!second &&
+    !!third &&
+    !GROUP_PAGES.has(second) &&
+    !GROUP_PAGES.has(third) &&
+    parts.length === 3;
   const older = !!second && ['forum', 'questions', 'discussions', 'posts'].includes(first);
-  if (!question && !discussion && !older) return null;
+  if (!question && !discussion && !inGroup && !older) return null;
   return `https://${HOST}${url.pathname}`;
 }
 
@@ -558,7 +585,16 @@ export const ALIGNABLE: LookingSite = {
   profileOf,
   postOf,
   pathWords: PATH_WORDS,
+  // What a Connect link leads to, after /biz/connection_requests/: a word of Alignable's, never a name (the owner's
+  // Check, 0.66.0, hid it), kept so the next Check says whether opening it sends the request.
+  pathWordAt: (parts, at) =>
+    at > 0 &&
+    /^connection_requests$/i.test(parts[at - 1] ?? '') &&
+    /^[a-z_]{1,24}$/.test(parts[at]!),
   queryKept: QUERY_KEPT,
+  // Its own readers (partners stage 6c): businesses, posts, a forum question's answers and chats, counted in each of
+  // Check's notes so the next Check shows what they find on the real pages.
+  readFound: readAlignable,
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,

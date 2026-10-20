@@ -32,7 +32,8 @@ export const writingIn = (box: Element): boolean =>
     : clean(box.textContent) !== '';
 
 /** What a person presses: buttons, links drawn as buttons, and menu rows. */
-const CONTROLS = 'button, [role="button"], a[href], [role="link"], [role="menuitem"], [role="tab"]';
+const CONTROLS =
+  'button, [role="button"], a[href], [role="link"], [role="menuitem"], [role="tab"], input[type="submit"], input[type="button"]';
 /** Where a person writes: a plain box, or one drawn to write in. */
 const BOXES = 'textarea, input[type="text"], [role="textbox"], [contenteditable="true"]';
 
