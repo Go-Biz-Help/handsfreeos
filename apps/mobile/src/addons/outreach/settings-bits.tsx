@@ -17,13 +17,15 @@ import {
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
 import {
+  helpfulOn,
+  noRunnerWords,
   onItsOwnAbout,
   postingAboutOn,
   sendingModesOn,
   ticksOn,
   ticksShownOn,
 } from '@hfos/core/addons/outreach/network-words';
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
 import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -278,19 +280,33 @@ export function NetworkModes({
   testID: string;
 }) {
   const modes = sendingModesOn(platform);
-  const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
+  // Where the extension doesn't work the network yet, nothing goes on its own, and there's no helpful post on some.
+  const runs = runsOnItsOwn(platform);
+  const helpful = helpfulOn(platform);
+  const sending = runs ? SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m)) : [];
   const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
   const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
   const notAllowed = [
-    ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => modes[m]),
-    ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
-    ...POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m]),
+    ...(runs
+      ? [
+          ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => modes[m]),
+          ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
+        ]
+      : []),
+    ...(helpful
+      ? POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m])
+      : []),
   ];
   const starts = (next: Pick<NetworkChoices, 'sending' | 'replies'>) =>
     wheelsFrom === null && wheelsMatter(next) ? WHEELS_START_WORDS : undefined;
   return (
     <>
-      <Section boxed={boxed} title={W.sections.onItsOwn} about={onItsOwnAbout(platform)}>
+      <Section
+        boxed={boxed}
+        title={W.sections.onItsOwn}
+        about={runs ? onItsOwnAbout(platform) : noRunnerWords(platform)}
+        testID={`${testID}-on-its-own`}
+      >
         {sending.map((m) => (
           <Choice
             key={m}
@@ -303,36 +319,40 @@ export function NetworkModes({
           />
         ))}
       </Section>
-      <Section
-        boxed={boxed}
-        title={W.sections.replies}
-        about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
-      >
-        {replies.map((m) => (
-          <Choice
-            key={m}
-            label={REPLY_MODES[m]}
-            about={starts({ sending: value.sending, replies: m })}
-            selected={value.replies === m}
-            onPress={() => onChange({ replies: m })}
-            disabled={disabled}
-            testID={`${testID}-replies-${m}`}
-          />
-        ))}
-      </Section>
-      <Section boxed={boxed} title={W.sections.posting} about={postingAboutOn(platform)}>
-        {posting.map((m) => (
-          <Choice
-            key={m}
-            label={POSTING_MODES[m]}
-            about={m === 'after_ok' ? W.usual : undefined}
-            selected={value.posting === m}
-            onPress={() => onChange({ posting: m })}
-            disabled={disabled}
-            testID={`${testID}-posting-${m}`}
-          />
-        ))}
-      </Section>
+      {runs ? (
+        <Section
+          boxed={boxed}
+          title={W.sections.replies}
+          about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+        >
+          {replies.map((m) => (
+            <Choice
+              key={m}
+              label={REPLY_MODES[m]}
+              about={starts({ sending: value.sending, replies: m })}
+              selected={value.replies === m}
+              onPress={() => onChange({ replies: m })}
+              disabled={disabled}
+              testID={`${testID}-replies-${m}`}
+            />
+          ))}
+        </Section>
+      ) : null}
+      {helpful ? (
+        <Section boxed={boxed} title={W.sections.posting} about={postingAboutOn(platform)}>
+          {posting.map((m) => (
+            <Choice
+              key={m}
+              label={POSTING_MODES[m]}
+              about={m === 'after_ok' ? W.usual : undefined}
+              selected={value.posting === m}
+              onPress={() => onChange({ posting: m })}
+              disabled={disabled}
+              testID={`${testID}-posting-${m}`}
+            />
+          ))}
+        </Section>
+      ) : null}
       {notAllowed.length ? <Note>{W.notAllowed(notAllowed)}</Note> : null}
     </>
   );
@@ -355,10 +375,13 @@ export function NetworkTicks({
   testID: string;
 }) {
   const ticks = ticksOn(platform);
+  // None on a network whose runner reads none yet.
+  const shown = ticksShownOn(platform);
+  if (!shown.length) return null;
   return (
     <Section boxed={boxed} title={W.sections.along}>
       <View className="gap-3">
-        {ticksShownOn(platform).map((k) => (
+        {shown.map((k) => (
           <Tick
             key={k}
             label={ticks[k][0]}

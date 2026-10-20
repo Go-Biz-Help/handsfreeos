@@ -1352,6 +1352,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       or training wheels show there yet.
     - **It has no day yet:** `outreach.day.start` refuses one (`outreach_network_looking`), and it isn't on Today's
       strip, the network filters, the setup's networks step or a playbook's (`WORKING_PLATFORMS`).
+    - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
+      `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
+      drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's
+      own (`noRunnerWords`), with no Replies, no helpful post where it has none (`helpfulOn`), and no switches along
+      the way till its runner reads them. An Alignable chat opens at `/biz/conversations?with_business_id=`, by the
+      other business's id, and Today's groups to read admins of are the list's own network's.
     - **In the extension** one reader serves both (`src/networks/looking/`), from each network's site
       (`src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`): its addresses, its own words, its
       warnings and the buttons it looks for. As the person goes its script reads only warnings, and notes none of

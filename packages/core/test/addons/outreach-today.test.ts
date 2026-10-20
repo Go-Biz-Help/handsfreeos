@@ -94,6 +94,9 @@ describe('the list for today', () => {
     expect(before.readAdmins).toEqual([
       expect.objectContaining({ name: 'Austin Small Business Owners' }),
     ]);
+    // A Facebook group's admins are read on Facebook's list alone.
+    const onLinkedIn = await runAs(owner, ws, 'outreach.today', { platform: 'linkedin' });
+    expect(onLinkedIn.readAdmins).toEqual([]);
     await runAs(owner, ws, 'outreach.group.save', {
       group,
       people: [member('lee.park.3', 'Lee Park', [], true)],

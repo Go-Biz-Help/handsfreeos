@@ -608,6 +608,11 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
      question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
      other networks (`src/networks/alignable/actions.ts`).
+   - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
+     Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
+     address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,
+     search finds and forum questions; (d) Recommend (by hand) and forum answers as kinds, with their limits; (e) the
+     switch to `working`, with Sending kept off until the runner (part 5).
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
 

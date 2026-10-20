@@ -11,6 +11,7 @@ import type { LiveOutput } from '@hfos/core/addons/outreach/live';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
+import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -18,6 +19,7 @@ import { SAVE_PAUSE_MS } from '../autosave';
 import { LiveStrip } from '../hub';
 import { PipelineBody } from '../pipeline';
 import { SettingsPartBody } from '../settings';
+import { NetworkModes, NetworkTicks } from '../settings-bits';
 import { TodayBody } from '../today';
 import { id, ME, TZ } from './mocks';
 
@@ -52,6 +54,7 @@ jest.mock('@/components/shell/screen', () => ({
 }));
 
 const NOW = Date.parse('2026-10-10T15:00:00.000Z');
+const W_ALONG = OUTREACH_WORDS.sections.along;
 const LIMIT = { done: 1, most: 15 };
 
 const LIVE: LiveOutput = {
@@ -780,5 +783,46 @@ describe('For your team on a network, for owners and admins', () => {
     );
     expect(screen.getByTestId('settings-rules-network-linkedin')).not.toBeChecked();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeEnabled();
+  });
+});
+
+/**
+ * A network the extension doesn't work on its own yet (Alignable before its runner): its page says so instead of
+ * offering Sending and Replies, has no helpful post to choose, and no switches along the way, as nothing reads them.
+ */
+describe('a network with no runner yet', () => {
+  const value: NetworkChoices = { ...NETWORKS_DEFAULTS.alignable, on: true };
+
+  it('says every step there is the person’s own, with nothing to pick', async () => {
+    await render(
+      <>
+        <NetworkModes
+          platform="alignable"
+          value={value}
+          onChange={jest.fn()}
+          sendingAllowed={['off', 'steps', 'approve_all', 'everything']}
+          repliesAllowed={['draft', 'simple']}
+          boxed={false}
+          disabled={false}
+          testID="modes"
+        />
+        <NetworkTicks
+          platform="alignable"
+          value={value}
+          onChange={jest.fn()}
+          boxed={false}
+          disabled={false}
+          testID="ticks"
+        />
+      </>,
+    );
+    expect(screen.getByTestId('modes-on-its-own')).toHaveTextContent(
+      /doesn’t work on Alignable on its own yet/,
+    );
+    expect(screen.queryByTestId('modes-sending-steps')).toBeNull();
+    expect(screen.queryByTestId('modes-sending-off')).toBeNull();
+    expect(screen.queryByTestId('modes-replies-draft')).toBeNull();
+    expect(screen.queryByTestId('modes-posting-after_ok')).toBeNull();
+    expect(screen.queryByText(W_ALONG)).toBeNull();
   });
 });

@@ -45,8 +45,10 @@ import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
   dailyWordsOn,
+  helpfulOn,
   NETWORK_WORDS as NW,
   networksOn,
+  noRunnerWords,
   onItsOwnAbout,
   postingAboutOn,
   sendingModesOn,
@@ -60,6 +62,7 @@ import {
   type Platform,
   PLATFORM_KEYS,
   PLATFORMS,
+  runsOnItsOwn,
   WORKING_PLATFORMS,
 } from '@hfos/core/addons/outreach/networks';
 import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
@@ -201,65 +204,85 @@ export function NetworkModes({
   testId: string;
 }) {
   const modes = sendingModesOn(platform);
+  // Where the extension doesn't work the network yet, nothing goes on its own, and there's no helpful post on some.
+  const runs = runsOnItsOwn(platform);
+  const helpful = helpfulOn(platform);
   const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
   const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
   const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
   const notAllowed = [
-    ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => modes[m]),
-    ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
-    ...POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m]),
+    ...(runs
+      ? [
+          ...SENDING_MODE_KEYS.filter((m) => !sendingAllowed.includes(m)).map((m) => modes[m]),
+          ...REPLY_MODE_KEYS.filter((m) => !repliesAllowed.includes(m)).map((m) => REPLY_MODES[m]),
+        ]
+      : []),
+    ...(helpful
+      ? POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m])
+      : []),
   ];
   // Picking this one would start training wheels there: said beside it first.
   const starts = (choice: Pick<NetworkChoices, 'sending' | 'replies'>) =>
     wheelsStart && !wheelsMatter(value) && wheelsMatter(choice) ? WHEELS_START_WORDS : undefined;
   return (
     <>
-      <Part title={W.sections.onItsOwn} about={onItsOwnAbout(platform)} card={card}>
-        <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
-          {sending.map((m) => (
-            <RadioCard
-              key={m}
-              selected={value.sending === m}
-              onSelect={() => onChange({ sending: m })}
-              title={modes[m]}
-              description={starts({ sending: m, replies: value.replies })}
-              testId={`${testId}-sending-${m}`}
-            />
-          ))}
-        </div>
-      </Part>
       <Part
-        title={W.sections.replies}
-        about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+        title={W.sections.onItsOwn}
+        about={runs ? onItsOwnAbout(platform) : noRunnerWords(platform)}
         card={card}
+        testId={`${testId}-on-its-own`}
       >
-        <div role="radiogroup" aria-label="Replies" className="flex flex-col gap-2">
-          {replies.map((m) => (
-            <RadioCard
-              key={m}
-              selected={value.replies === m}
-              onSelect={() => onChange({ replies: m })}
-              title={REPLY_MODES[m]}
-              description={starts({ sending: value.sending, replies: m })}
-              testId={`${testId}-replies-${m}`}
-            />
-          ))}
-        </div>
+        {runs ? (
+          <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
+            {sending.map((m) => (
+              <RadioCard
+                key={m}
+                selected={value.sending === m}
+                onSelect={() => onChange({ sending: m })}
+                title={modes[m]}
+                description={starts({ sending: m, replies: value.replies })}
+                testId={`${testId}-sending-${m}`}
+              />
+            ))}
+          </div>
+        ) : null}
       </Part>
-      <Part title={W.sections.posting} about={postingAboutOn(platform)} card={card}>
-        <div role="radiogroup" aria-label="Helpful posts" className="flex flex-col gap-2">
-          {posting.map((m) => (
-            <RadioCard
-              key={m}
-              selected={value.posting === m}
-              onSelect={() => onChange({ posting: m })}
-              title={POSTING_MODES[m]}
-              description={m === 'after_ok' ? W.usual : undefined}
-              testId={`${testId}-posting-${m}`}
-            />
-          ))}
-        </div>
-      </Part>
+      {runs ? (
+        <Part
+          title={W.sections.replies}
+          about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
+          card={card}
+        >
+          <div role="radiogroup" aria-label="Replies" className="flex flex-col gap-2">
+            {replies.map((m) => (
+              <RadioCard
+                key={m}
+                selected={value.replies === m}
+                onSelect={() => onChange({ replies: m })}
+                title={REPLY_MODES[m]}
+                description={starts({ sending: value.sending, replies: m })}
+                testId={`${testId}-replies-${m}`}
+              />
+            ))}
+          </div>
+        </Part>
+      ) : null}
+      {helpful ? (
+        <Part title={W.sections.posting} about={postingAboutOn(platform)} card={card}>
+          <div role="radiogroup" aria-label="Helpful posts" className="flex flex-col gap-2">
+            {posting.map((m) => (
+              <RadioCard
+                key={m}
+                selected={value.posting === m}
+                onSelect={() => onChange({ posting: m })}
+                title={POSTING_MODES[m]}
+                description={m === 'after_ok' ? W.usual : undefined}
+                testId={`${testId}-posting-${m}`}
+              />
+            ))}
+          </div>
+        </Part>
+      ) : null}
       {notAllowed.length ? (
         <p className="text-[13px] text-text-2">{W.notAllowed(notAllowed)}</p>
       ) : null}
@@ -282,9 +305,12 @@ export function NetworkTicks({
   testId: string;
 }) {
   const ticks = ticksOn(platform);
+  // None on a network whose runner reads none yet.
+  const shown = ticksShownOn(platform);
+  if (!shown.length) return null;
   return (
     <Part title={W.sections.along} card={card}>
-      {ticksShownOn(platform).map((key) => (
+      {shown.map((key) => (
         <Tick
           key={key}
           words={ticks[key]}

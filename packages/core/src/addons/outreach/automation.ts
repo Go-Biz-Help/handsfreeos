@@ -44,7 +44,7 @@
 import { z } from 'zod';
 import { localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
 import { DAILY_LIMITS, DAILY_STEPS, type DailyStep } from './limits';
-import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, runsOnItsOwn, type Platform } from './networks';
 import type { TodayKind } from './today';
 import { Voice, VOICE_DEFAULTS } from './voice';
 
@@ -305,7 +305,10 @@ function allowedOf<T extends string>(order: readonly T[], allowed: readonly T[],
   return order[0]!;
 }
 
-/** A network's choices as they stand inside the business's rules: off when the business doesn't allow the network. */
+/**
+ * A network's choices as they stand inside the business's rules: off when the business doesn't allow the network, and
+ * nothing sent on its own where the extension doesn't work it yet, so nothing is drafted to wait there for ever.
+ */
 function choicesWithin(
   choices: NetworkChoices,
   rules: BusinessRules,
@@ -314,7 +317,9 @@ function choicesWithin(
   return {
     ...choices,
     on: choices.on && rules.networksAllowed.includes(platform),
-    sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, choices.sending),
+    sending: runsOnItsOwn(platform)
+      ? allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, choices.sending)
+      : 'off',
     replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, choices.replies),
     posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, choices.posting),
   };

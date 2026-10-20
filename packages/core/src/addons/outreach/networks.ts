@@ -208,6 +208,13 @@ export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
 export const isLooking = (platform: Platform): boolean => NETWORKS[platform].stage === 'looking';
 
 /**
+ * Whether the extension works a network on its own: its runner takes steps there and sends what's OK'd. Until it does
+ * (Alignable before its part 5), every step and message there is the person's own, which the extension notes.
+ */
+export const runsOnItsOwn = (platform: Platform): boolean =>
+  NETWORKS[platform].runs.auto.length > 0;
+
+/**
  * A network's daily limits as they stand for the person: the business's own on that network, each at most the
  * network's starting one, halved (never below one) after a warning there or on training wheels there.
  */
