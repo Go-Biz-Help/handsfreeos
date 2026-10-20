@@ -13,8 +13,9 @@ import {
   dailyWordsOn,
   NETWORK_WORDS as NW,
   networkShown,
+  noRunnerWords,
 } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -315,8 +316,10 @@ export function LiveStrip({
       ) : null}
       {live.sending === 'off' ? (
         <View className="gap-2">
-          <Note testID="live-sending-off">{W.sendingOff(live.canSend)}</Note>
-          {live.canSend && full ? (
+          <Note testID="live-sending-off">
+            {runsOnItsOwn(platform) ? W.sendingOff(live.canSend) : noRunnerWords(platform)}
+          </Note>
+          {live.canSend && full && runsOnItsOwn(platform) ? (
             <Button variant="secondary" size="md" onPress={onSettings} testID="live-settings">
               {W.tabs.settings}
             </Button>

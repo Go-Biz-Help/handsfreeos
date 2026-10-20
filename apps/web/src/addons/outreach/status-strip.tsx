@@ -20,8 +20,12 @@ import {
   shownState,
   stateTone,
 } from '@hfos/core/addons/outreach/live';
-import { dailyWordsOn, NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  dailyWordsOn,
+  NETWORK_WORDS as NW,
+  noRunnerWords,
+} from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -274,7 +278,9 @@ export function StatusStrip({
                   </p>
                 ) : null}
                 {n.live.sending === 'off' ? (
-                  <p className="text-[12.5px] text-text-3">{W.sendingOffNote}</p>
+                  <p className="text-[12.5px] text-text-3">
+                    {runsOnItsOwn(n.platform) ? W.sendingOffNote : noRunnerWords(n.platform)}
+                  </p>
                 ) : null}
                 {/* Its own profile to finish, when the one shown is ready: shown under its own list. */}
                 {ready && !here && n.ready === false ? (
@@ -356,20 +362,26 @@ export function StatusStrip({
           className="rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
           data-testid="live-sending-off"
         >
-          {W.sendingOffNote}{' '}
-          {live.canSend ? (
-            <>
-              {W.changeThatIn}{' '}
-              <Link
-                className="font-medium text-accent-text underline-offset-2 hover:underline"
-                href={outreachHref(workspaceId, { view: 'settings', part: shown.platform })}
-              >
-                {W.tabs.settings}
-              </Link>
-              .
-            </>
+          {!runsOnItsOwn(shown.platform) ? (
+            noRunnerWords(shown.platform)
           ) : (
-            W.askToSend
+            <>
+              {W.sendingOffNote}{' '}
+              {live.canSend ? (
+                <>
+                  {W.changeThatIn}{' '}
+                  <Link
+                    className="font-medium text-accent-text underline-offset-2 hover:underline"
+                    href={outreachHref(workspaceId, { view: 'settings', part: shown.platform })}
+                  >
+                    {W.tabs.settings}
+                  </Link>
+                  .
+                </>
+              ) : (
+                W.askToSend
+              )}
+            </>
           )}
         </p>
       ) : null}
