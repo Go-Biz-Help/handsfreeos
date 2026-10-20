@@ -70,7 +70,8 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
  * part"): Facebook's every kind, Check Facebook among them (decision 77); LinkedIn's its invitations and connections,
  * checking connections for fits, reading chats, looking someone up, researching one person, reading the profile and
  * putting the headline in, withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn
- * (decision 74); Instagram's and Alignable's their Check alone, while they're looked at (decision 78). A kind a network
+ * (decision 74); Instagram's its Check alone, while it's looked at (decision 78), and Alignable's its connections and
+ * requests, checks, research and look-ups too (partners stage 6c, part 4), beside its Check and profile. A kind a network
  * can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
@@ -98,7 +99,18 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   // and each one's profile, read and checked, and Instagram's bio or Alignable's About Us put in (decisions 80 and
   // 82), before its steps.
   instagram: ['checkup', 'profile_read', 'profile_edit'],
-  alignable: ['checkup', 'profile_read', 'profile_edit'],
+  // Alignable from its part 4 (partners stage 6c): its connections and the requests they've got saved, connections
+  // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are.
+  alignable: [
+    'requests',
+    'friends',
+    'checks',
+    'lookup',
+    'research',
+    'checkup',
+    'profile_read',
+    'profile_edit',
+  ],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
   ASK_KINDS_ON[platform].includes(kind);
@@ -198,7 +210,16 @@ export const ASK_KIND_SINCE_ON: Readonly<
   // Instagram's profile, read and its bio put in (decision 80).
   instagram: { profile_read: '0.62.0', profile_edit: '0.62.0' },
   // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
-  alignable: { profile_read: '0.71.0', profile_edit: '0.71.0' },
+  // Its connections, requests, checks, research and look-ups: its part 4.
+  alignable: {
+    profile_read: '0.71.0',
+    profile_edit: '0.71.0',
+    requests: '0.73.0',
+    friends: '0.73.0',
+    checks: '0.73.0',
+    lookup: '0.73.0',
+    research: '0.73.0',
+  },
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */

@@ -25,6 +25,11 @@ import { aboutUsOf, codeBoxIn, idealOf } from './own-profile';
 const HOST = 'https://www.alignable.com';
 /** How many of each a read keeps: enough to go on with, never a whole page's worth. */
 const MOST = 40;
+/**
+ * My Network's rows, all of them: Save my connections reads the list a screen at a time and keeps each once, so a read
+ * that stopped at the first few would never get past them. Alignable's own cap is far above any small business's.
+ */
+const CONNECTIONS_MOST = 5_000;
 /** A town in its addresses: "austin-tx". */
 const TOWN = /^[a-z0-9]+(-[a-z0-9]+)*-[a-z]{2}$/i;
 /** A business's name in its addresses. */
@@ -339,30 +344,32 @@ function idAround(root: ParentNode, base: string): string | null {
 
 /** My Network's rows: each business by its id, its owner's and business's names, and its Message. */
 function connectionRows(doc: Document, base: string): Business[] {
-  return [...doc.querySelectorAll(PART('connection-row'))].slice(0, MOST).flatMap((row) => {
-    const link = row.querySelector(PART('connection-row-profile-link'));
-    const url = urlOf(link?.getAttribute('href'), base);
-    const profile = url ? businessRef(url, idIn(url)) : null;
-    if (!profile) return [];
-    const lines = [
-      ...(row.querySelector(PART('connection-row-summary'))?.querySelectorAll('span') ?? []),
-    ]
-      .filter((span) => span.children.length === 0)
-      .map((span) => clean(span.textContent))
-      .filter(Boolean);
-    const name = lines[0] ?? clean(link?.getAttribute('aria-label'));
-    if (!name) return [];
-    return [
-      {
-        name,
-        profile,
-        business: lines[1] ?? null,
-        details: lines.slice(2),
-        connect: hasLink(row, base, CONNECT_AT),
-        message: hasLink(row, base, MESSAGE_AT),
-      },
-    ];
-  });
+  return [...doc.querySelectorAll(PART('connection-row'))]
+    .slice(0, CONNECTIONS_MOST)
+    .flatMap((row) => {
+      const link = row.querySelector(PART('connection-row-profile-link'));
+      const url = urlOf(link?.getAttribute('href'), base);
+      const profile = url ? businessRef(url, idIn(url)) : null;
+      if (!profile) return [];
+      const lines = [
+        ...(row.querySelector(PART('connection-row-summary'))?.querySelectorAll('span') ?? []),
+      ]
+        .filter((span) => span.children.length === 0)
+        .map((span) => clean(span.textContent))
+        .filter(Boolean);
+      const name = lines[0] ?? clean(link?.getAttribute('aria-label'));
+      if (!name) return [];
+      return [
+        {
+          name,
+          profile,
+          business: lines[1] ?? null,
+          details: lines.slice(2),
+          connect: hasLink(row, base, CONNECT_AT),
+          message: hasLink(row, base, MESSAGE_AT),
+        },
+      ];
+    });
 }
 
 // ------------------------------------------------------------------------------------------------ posts
@@ -573,7 +580,7 @@ function answerBoxOn(doc: Document): boolean {
 /** Everything Alignable's readers find on a page. */
 export function readAlignable(doc: Document, href: string): AlignableFound {
   return {
-    businesses: [...searchResults(doc, href), ...connectionRows(doc, href)].slice(0, MOST),
+    businesses: [...searchResults(doc, href).slice(0, MOST), ...connectionRows(doc, href)],
     requests: requestRows(doc, href),
     threads: postsOn(doc, href),
     answers: answersOn(doc, href),

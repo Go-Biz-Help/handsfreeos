@@ -42,7 +42,7 @@ import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } fro
 import { ownProfileNote } from './report';
 
 /** Reads the page in the job's window as the network's: anything else means it sent the window elsewhere. */
-const readOn =
+export const readOn =
   (platform: LookingPlatform) =>
   async (tab: JobTab): Promise<LookingRead> => {
     const page = await readPageIn(tab);
@@ -344,6 +344,14 @@ async function nextPages(
     const page = await c.readTill(opened, (p) => p.boxes > 0);
     if (isEnd(page)) return page;
     await c.note('a chat with a connection', page.found?.['chat'] ? 1 : 0);
+    // A chat with messages in it, opened from Messages' side (0.73.0): the chat reader is built from its outline, as
+    // a connection's own chat may have none yet (the owner's Check, 0.68.0, opened an empty one).
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    if ((await job.tab.ask({ type: 'hfos-open-chat', threadId: 'first-with-words' })).ok) {
+      const read = await c.readTill(await readOn('alignable')(job.tab), (p) => p.boxes > 0, 3);
+      if (isEnd(read)) return read;
+      await c.note('a chat with messages', countOf(read, 'chats'));
+    } else c.nothingOn.push('a chat with messages');
   } else c.nothingOn.push('a chat with a connection');
   return null;
 }

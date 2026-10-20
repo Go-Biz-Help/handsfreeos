@@ -609,6 +609,10 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
      question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
      other networks (`src/networks/alignable/actions.ts`).
+   - **Part 4, asks** (extension 0.73.0): Save my connections (My Network, all of them past Ally's picks), Check my
+     connection requests, Check my connections and Research (each business's page read for the AI's check, 30 a day),
+     and a business looked up before drafting. Reading chats waits for its reader: the owner's Check opened an empty
+     chat, so Check Alignable now opens one with messages from Messages' side, and the reader is built from its outline.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,

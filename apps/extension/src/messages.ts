@@ -51,7 +51,9 @@ export type BrowseAsk =
   | { readonly type: 'hfos-scroll-feed' }
   | { readonly type: 'hfos-scroll-list' }
   /** A list of groups, or a search for them: scroll the page for more (src/jobs/groups.ts). */
-  | { readonly type: 'hfos-scroll-page' };
+  | { readonly type: 'hfos-scroll-page' }
+  /** A list that opens on a few (Alignable's My Network, on its picks): its tab of them all (src/jobs/alignable). */
+  | { readonly type: 'hfos-show-all' };
 
 export type BrowseAnswer = { readonly ok: boolean };
 
