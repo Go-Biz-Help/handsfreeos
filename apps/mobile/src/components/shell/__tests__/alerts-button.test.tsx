@@ -79,10 +79,9 @@ function draw(ws: string) {
 
 /** iOS's word that the sheet's modal is really gone (`Modal`'s `onDismiss`), taken while the sheet is up. */
 function modalGone(): () => void {
-  let node: { props: Record<string, unknown>; parent: unknown } | null = screen.getByTestId(
-    'alerts-sheet',
-  ) as never;
-  while (node && typeof node.props.onDismiss !== 'function') node = node.parent as never;
+  type Node = { props: Record<string, unknown>; parent: Node | null };
+  let node = screen.getByTestId('alerts-sheet') as unknown as Node | null;
+  while (node && typeof node.props.onDismiss !== 'function') node = node.parent;
   return node!.props.onDismiss as () => void;
 }
 

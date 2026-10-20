@@ -894,10 +894,8 @@ export const askCodeRanOut = (ask: {
   readonly line: string | null;
 }): boolean => ask.state === 'stuck' && ask.line === askCodeRanOutWords(ask.platform);
 /** What a reply's button says on an ask: Carry on, Skip, or Try again where the code ran out. */
-export const askReplyLabel = (
-  ask: Parameters<typeof askCodeRanOut>[0],
-  reply: AskReply,
-): string => (reply === 'carry_on' && askCodeRanOut(ask) ? 'Try again' : ASK_REPLIES[reply]);
+export const askReplyLabel = (ask: Parameters<typeof askCodeRanOut>[0], reply: AskReply): string =>
+  reply === 'carry_on' && askCodeRanOut(ask) ? 'Try again' : ASK_REPLIES[reply];
 /**
  * Where the notification about a code opens: Social Outreach's page for that ask's code, on the phone and the web. An
  * add-on alert opens one of the add-on's pages by a path under `/a/<id>/`, so the query goes after its slash.
