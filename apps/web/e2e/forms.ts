@@ -28,7 +28,7 @@ async function asCustomer<T>(path: string, body: Record<string, unknown>): Promi
 export async function formWithAnswers(
   page: Page,
   label: string,
-): Promise<{ workspaceId: string; formId: string; slug: string }> {
+): Promise<{ workspaceId: string; formId: string; slug: string; email: string }> {
   const owner = await signUpAndConfirm(page, label);
   const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
   const api = apiAs(await signInForApi(owner.email));
@@ -99,7 +99,7 @@ export async function formWithAnswers(
   };
   await answer('Rosa', '(512) 555-0301', 5, 'Late, but fixed it');
   await answer('Tom', '(512) 555-0302', 4, '=1+1');
-  return { workspaceId, formId, slug: created.slug };
+  return { workspaceId, formId, slug: created.slug, email: owner.email };
 }
 
 /** The heading row every export of that form starts with. */

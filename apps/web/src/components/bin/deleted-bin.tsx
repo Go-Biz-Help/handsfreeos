@@ -8,7 +8,8 @@ import {
   binRestoredWords,
 } from '@hfos/core';
 import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,12 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { BinList, BinListItem } from '@/lib/api/types';
+import { cn } from '@/lib/utils';
+
+/** How long a search result's item stays ringed, as a setting found by settings search does. */
+const RING_MS = 4000;
+/** A search result's item further down the bin is looked for this many pages at most. */
+const LOOK_PAGES = 10;
 
 /** "Delete now" on one thing, or "Empty the bin" on all of it. */
 type Asking = { kind: 'one'; item: BinListItem } | { kind: 'all' };
@@ -40,6 +47,58 @@ export function DeletedBin({
   const [busy, setBusy] = useState<string | null>(null);
   const [asking, setAsking] = useState<Asking | null>(null);
   const waiting = items.filter((i) => !i.emptying);
+
+  /**
+   * A search result's item (`?item=<id>`): read further down the bin until it shows, then brought into view and
+   * ringed for a few seconds. It follows the address, so a result opened while the bin is open rings too; the page
+   * renders per request, so this needs no Suspense boundary.
+   */
+  const itemId = useSearchParams().get('item');
+  const [ringed, setRinged] = useState<string | null>(null);
+  // What's shown now, where the look further down starts.
+  const shownNow = useRef({ items, cursor });
+  useEffect(() => {
+    shownNow.current = { items, cursor };
+  }, [items, cursor]);
+  useEffect(() => {
+    if (!itemId) return;
+    let cancelled = false;
+    void (async () => {
+      const had = shownNow.current.items;
+      let shown = had;
+      let next = shownNow.current.cursor;
+      for (let page = 0; !shown.some((i) => i.id === itemId) && next && page < LOOK_PAGES; page++) {
+        try {
+          const out = unwrap(
+            await apiBrowser().POST('/v1/queries/bin.list', {
+              body: { workspaceId, cursor: next, limit: 50 },
+            }),
+          );
+          shown = [...shown, ...out.items];
+          next = out.nextCursor;
+        } catch {
+          return;
+        }
+      }
+      if (cancelled) return;
+      if (shown !== had) {
+        setItems(shown);
+        setCursor(next);
+      }
+      if (shown.some((i) => i.id === itemId)) setRinged(itemId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [itemId, workspaceId]);
+  useEffect(() => {
+    if (!ringed) return;
+    document
+      .querySelector(`[data-bin-item="${CSS.escape(ringed)}"]`)
+      ?.scrollIntoView({ block: 'center' });
+    const timer = window.setTimeout(() => setRinged(null), RING_MS);
+    return () => window.clearTimeout(timer);
+  }, [ringed]);
 
   async function loadMore() {
     if (!cursor) return;
@@ -131,8 +190,13 @@ export function DeletedBin({
               return (
                 <li
                   key={item.id}
-                  className="flex flex-wrap items-center gap-3 py-3"
+                  className={cn(
+                    'flex flex-wrap items-center gap-3 py-3 transition-colors',
+                    ringed === item.id &&
+                      '-mx-3 rounded-[10px] bg-accent-soft px-3 ring-2 ring-accent',
+                  )}
                   data-testid={`bin-item-${item.recordId}`}
+                  data-bin-item={item.id}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">

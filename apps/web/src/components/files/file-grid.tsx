@@ -1,7 +1,7 @@
 'use client';
 import { Download, FileText, Image as ImageIcon, Lock, MoreHorizontal, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -14,6 +14,10 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FileItem } from '@/lib/api/types';
 import { BROWSER_IMAGES, fileKindLabel, fileLine, FILE_WORDS, removeFileConfirm } from '@hfos/core';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
+
+/** How long a search result's file stays ringed, as a setting found by settings search does. */
+const RING_MS = 4000;
 
 /** Short-lived signed URL from the user's own Storage session (RLS decides what they may read). */
 async function signedUrl(file: FileItem, download = false): Promise<string> {
@@ -61,10 +65,41 @@ export function FileGrid({
   canDelete: boolean;
 }) {
   const router = useRouter();
+  // A search result's file (`?file=<id>&page=<n>`): its card is ringed for a few seconds, and a PDF found by its
+  // words opens at the page they're on. It follows the address, so a result on the record already open rings too;
+  // each file and page once, as the list refreshes. The pages it's on render per request: no Suspense boundary needed.
+  const query = useSearchParams();
+  const fileId = query.get('file');
+  const pageParam = query.get('page');
+  const [found, setFound] = useState<{ id: string; page: number | null } | null>(null);
+  // The file and page last ringed, so each rings once, for its own few seconds.
+  const [ringed, setRinged] = useState<string | null>(null);
+  const looked = useRef<string | null>(null);
+  useEffect(() => {
+    const asked = fileId ? `${fileId}:${pageParam ?? ''}` : null;
+    if (!asked) looked.current = null;
+    if (!fileId || looked.current === asked || !files.some((f) => f.id === fileId)) return;
+    looked.current = asked;
+    const page = Number(pageParam);
+    setFound({ id: fileId, page: Number.isInteger(page) && page > 0 ? page : null });
+    setRinged(asked);
+    document
+      .querySelector(`[data-testid="file-tile-${CSS.escape(fileId)}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }, [fileId, pageParam, files]);
+  useEffect(() => {
+    if (!ringed) return;
+    const timer = window.setTimeout(() => setRinged(null), RING_MS);
+    return () => window.clearTimeout(timer);
+  }, [ringed]);
   async function open(file: FileItem, download: boolean) {
     try {
       const url = await signedUrl(file, download);
-      window.open(url, '_blank', 'noopener');
+      const page =
+        !download && file.id === found?.id && file.mimeType === 'application/pdf'
+          ? found.page
+          : null;
+      window.open(page ? `${url}#page=${page}` : url, '_blank', 'noopener');
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -90,7 +125,10 @@ export function FileGrid({
       {files.map((f) => (
         <div
           key={f.id}
-          className="overflow-hidden rounded-menu border border-border bg-card"
+          className={cn(
+            'overflow-hidden rounded-menu border border-border bg-card transition-shadow',
+            ringed && f.id === found?.id && 'ring-2 ring-accent',
+          )}
           data-testid={`file-tile-${f.id}`}
         >
           <button

@@ -35,6 +35,7 @@ export function FormEditor({
   canManage,
   brandedOrigin,
   timeZone,
+  openResponse = null,
 }: {
   workspaceId: string;
   initial: FormGet;
@@ -45,6 +46,8 @@ export function FormEditor({
   brandedOrigin: string | null;
   /** The business's, for when each answer came in on the exported spreadsheet. */
   timeZone: string;
+  /** A response a search result opens (`?response=<id>`): the form opens on its Results, with it open. */
+  openResponse?: string | null;
 }) {
   const router = useRouter();
   const editor = useFormEditor(workspaceId, initial.form.formId, {
@@ -53,7 +56,7 @@ export function FormEditor({
     issues: initial.issues,
   });
   const questions = allQuestions(editor.definition);
-  const [tab, setTab] = useState<Tab>('questions');
+  const [tab, setTab] = useState<Tab>(openResponse ? 'results' : 'questions');
   const [selected, setSelected] = useState<string | null>(questions[0]?.id ?? null);
   const [publishing, setPublishing] = useState(false);
 
@@ -201,6 +204,7 @@ export function FormEditor({
             results={results}
             canManage={canManage}
             timeZone={timeZone}
+            openResponse={openResponse}
           />
         ) : null
       ) : (

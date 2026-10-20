@@ -1,7 +1,8 @@
 'use client';
 import { Plus } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -30,6 +31,8 @@ export function TasksPage({
   members,
   myUserId,
   canModerate,
+  openedId = null,
+  opened,
 }: {
   workspaceId: string;
   scope: 'mine' | 'all';
@@ -39,10 +42,27 @@ export function TasksPage({
   members: { id: string; fullName: string }[];
   myUserId: string;
   canModerate: boolean;
+  /** The task a search result asked for (`?task=<id>`), or null when none was. */
+  openedId?: string | null;
+  /** That task, whoever it's for; null when it isn't there anymore. */
+  opened?: Task | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(opened ?? null);
+  // Another search result's task, on the page already open.
+  const [openedFor, setOpenedFor] = useState(opened?.id ?? null);
+  if ((opened?.id ?? null) !== openedFor) {
+    setOpenedFor(opened?.id ?? null);
+    if (opened) setEditing(opened);
+  }
+  const listHref = scope === 'all' ? `${pathname}?scope=all` : pathname;
+  // Said once for each task asked for that isn't there, not on every visit nor each time the list refreshes.
+  const gone = !!openedId && !opened;
+  useEffect(() => {
+    if (gone) toast.error('That task isn’t there anymore. It may have been deleted.');
+  }, [openedId, gone]);
   useLiveRefresh(['task', 'lead', 'person', 'company']);
   const groups = GROUPS.map((g) => ({
     ...g,
@@ -134,6 +154,19 @@ export function TasksPage({
         members={members}
         myUserId={myUserId}
         relation={{}}
+      />
+      <TaskDialog
+        workspaceId={workspaceId}
+        open={!!editing}
+        onOpenChange={(o) => {
+          if (o) return;
+          setEditing(null);
+          // The list as it was, without the task the address named.
+          router.replace(listHref);
+        }}
+        members={members}
+        myUserId={myUserId}
+        initial={editing ?? undefined}
       />
     </div>
   );

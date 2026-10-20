@@ -461,7 +461,8 @@ export async function runSearchEverything(
     closeKind &&
     can(closeKind.needs) &&
     closeWorthTrying(p.folded) &&
-    (!keys || ['contacts', 'companies', 'leads', 'records'].some((k) => keys.has(k)))
+    // The box's Close matches chip asks for them by name.
+    (!keys || ['contacts', 'companies', 'leads', 'records', 'close'].some((k) => keys.has(k)))
   ) {
     tried++;
     try {
@@ -738,7 +739,9 @@ export async function runSearchKind(
     if (input.standing)
       hits = hits.filter((h) => h.badges.includes(input.standing === 'client' ? 'client' : 'lead'));
   }
-  const ordered = sorted(hits, input.sort);
+  // Close matches come in their own best order, names close on every word first (decision 26), which ranking by tier
+  // and time would undo: every one is tier 5.
+  const ordered = input.kind === 'close' && input.sort === 'best' ? hits : sorted(hits, input.sort);
   const start = startOf(ordered, input.sort, input.cursor);
   const end = Math.min(ordered.length, start + input.limit, KIND_ROWS);
   const pageHits = ordered.slice(start, end);

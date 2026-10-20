@@ -21,7 +21,7 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1, 2, 3, 4a, 4b, 5, 6 and 8 built (Build order), the rest still to
+**Where it stands (2026-10-20):** boards approved; stages 1 to 8 built (Build order), the rest still to
 build.
 
 ## Decisions (Chris, 2026-10-20)
@@ -2524,6 +2524,71 @@ its step **Built** here with what changed while building.
      `apps/web/src/components/shell/workspace-main.tsx`, `apps/web/e2e/search.spec.ts` (the page by address and the
      deep links).
    - Docs: docs/search.md (the screens and where each result opens).
+   - **Built** (2026-10-20). No migration, and no change to the API's shapes (`pnpm openapi` has nothing to do). The
+     page answers at `/search#q=…`, linked from nowhere until Search 9; `search.spec.ts` checks it by its address, that
+     no request to the web's own server carries what was typed, Sort, Leads and Clients by their rows, the whole
+     "Nothing in …" line for an owner and a member, and every new deep link. What changed while building:
+     - **More files than listed:** `components/search/rows/parts.tsx` (what a row is made of: its picture, marked title,
+       badges, core's grey line and chips) and `rows/index.tsx` (`rowView` by kind, the dropdown's and the page's row,
+       `PageRow`); `components/timeline/timeline.tsx`, where `?activity=` opens its dialog, since the lead and the
+       record pages have timelines of their own besides `record-page.tsx`'s; `components/files/file-grid.tsx`, where
+       `?file=&page=` rings the card and a PDF opens at the page, for the same three pages;
+       `components/forms/editor.tsx` and `results.tsx`, which open on Results and One at a time so `responses.tsx` can
+       `show` the response; `components/shell/user-menu.tsx` (signing out clears recent searches);
+       `e2e/forms.ts` (`formWithAnswers` also answers the owner's email); and core's `search/words.ts`: `page`,
+       `kindsOfResults`, `call`, `text`, `sort`, `columns`, `twoShareEmail` (a pair sharing an email had no words),
+       `badgeLabel`, so both apps name a badge alike (a lead and a client in `CONTACTS_WORDS`' words), and `kindNoun`,
+       so one kind's counts read in its own nouns: "1 contact named “dana”", "2 things in the Deleted bin for “tom
+       becnel”", "Show 1 more contact" (`named`, `kindFor`, `showMore` and `searchedBack` take the kind). Leads and
+       Clients are `CONTACTS_WORDS`' own, as "Web: one kind" says; Search 8's phone, built beside this, gave
+       `SEARCH_WORDS` a copy of them (`standing`), which the merge should point at `CONTACTS_WORDS` too.
+       `use-search` is a `.ts`, as "Screens" names it.
+     - **Close matches have a page:** `search.kind` with `close` was refused as `search_kind_gone` (the close searcher
+       read `close` as no kinds picked), yet everything's answer has a `close` group, which the kinds list, Show more
+       and the box's See all open. Now `close` reads every kind's names there (`kinds/close.ts`), in close matches' own
+       order rather than re-ranked (all are tier 5, so time would decide; `run.ts`); and `search.everything` answers
+       the box's Close matches chip (`kinds: ['close']`), which found nothing before. Both are in `kinds.test.ts`.
+     - **Not changed:** `shell/workspace-main.tsx`: `/search` already takes the ordinary padding, its default.
+     - **The route asks for the business, never for anything typed:** "Web: the Search page" has it ask the API for
+       nothing, but the Settings group needs the business's name, clock and settings and the staff and agency flags,
+       and no `SearchProvider` is in the layout yet to hand them down. So the route asks `workspace.get`, `account.me`
+       and `platform.me` itself, until Search 9's provider supplies them (then the page should take them from it).
+     - **Where the pages read their part of the address:** the form page reads `?response=` from its `searchParams`
+       (an id, never what was typed) and hands it down, rather than off `window.location`, because the editor has to
+       open on Results first; the Tasks page reads `?task=` the same way, asks `task.list` with `taskId`, scope and
+       status `all`, and says so when a task asked for is gone (only then: not on an ordinary visit, nor when its
+       dialog closes). The thread (`useOpenedMessage`, in `inbox/hooks.ts`), the timeline, the Files grid, the record
+       page (`compose`, `merge`) and the Deleted bin follow `useSearchParams`, which needs no Suspense boundary on
+       pages rendered per request, as all of these are; Contacts reads `#add=` when it opens and on `hashchange`. So a
+       result for the page already open, as the box will offer on every page, works too; each ask is acted on once,
+       not again as the page refreshes. A note, Text, Merge and Add a contact take theirs off the address once open, and a task once its dialog
+       closes.
+     - **A thread opened at a message** reads up to it (`upTo`, a page) and everything after it (`since`, 100 at a
+       time, paging back to it, at most 10 pages), so nothing between it and the newest page is missing; past 1,000
+       newer messages the rest waits until the thread is opened from the inbox. The message or call is found by its
+       card's own test id (`message-<id>`, `call-<id>`), so `message-log.tsx` is unchanged.
+     - **One kind:** `before` is in the fragment as planned; Look further back adds the older window's results under
+       those already shown, while a reload of that address shows that window alone. Archived offers it too, for its
+       threads, whenever the server says it stopped short. Sort and Leads/Clients are for contacts, as board 3 draws
+       them; a refusal that can't pass (`search_kind_not_allowed`, `search_kind_gone`) shows its words without Try
+       again. Show 50 more drops a page that lands after the search changed, and adds that page's duplicate pairs to
+       the banners. Settings' own page is worked out on the device, since `search.kind` never serves a device kind.
+     - **The page's layout:** the wide cards (contacts, companies, leads, money, messages, a business's own kinds,
+       add-ons) come first and the rest sit in a grid of small ones, as board 2 draws them, each in core's order. The
+       kinds list also lists Archived and the Deleted bin when they found something, opening their pages, scrolls
+       sideways on a phone, and leaves out "Nothing in …" when nothing at all was found (the empty state says it). An
+       invoice's late, due and paid badges aren't drawn: its line already says "6 days overdue" or "Paid Sep 30". The
+       Deleted bin, which answers apart from the groups, is never named in "Nothing in …" when it found something,
+       and a bin that ran out of time gets its own line and Try again. What a card's Show more read belongs to the
+       answer it was read for, so a new search, or Include archived, never shows the last one's rows.
+     - **The box:** a chip asks for its kind alone, and the chips keep everything's counts meanwhile; ← and → move
+       over the chips only once a row is picked, since before that they move the caret, as in any box. Already on the
+       page a link names (the Search page, or Contacts for Add a contact), the dropdown sets `location.hash`, since a
+       router push to the same page fires no `hashchange`. Ask HandsFreeOS shows only while the Assistant is on for the person; Call opens the dialer when
+       calls are on in this browser, else a `tel:` link.
+     - **Recent searches** are kept under the signed-in person (`signedInAs`), even while viewing as a teammate; the
+       Search page keeps them too (on ↵ and on opening a result), and removes anyone else's when it opens, as the
+       provider does. Search 9's layout passes the signed-in person's id to `SearchProvider` the same way.
 
 8. **Search 8: the phone's search, built but not linked.**
    - Ships: the full-screen search route with online answers, the phone's own rows while waiting, the offline search

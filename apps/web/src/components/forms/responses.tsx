@@ -1,7 +1,7 @@
 'use client';
 import { ChevronRight, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,7 +10,16 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormResponseGetOut, FormResponseRow } from '@/lib/api/types';
 
 /** Who answered, and what one person said, with the questions worded as they read at the time. */
-export function FormResponses({ workspaceId, formId }: { workspaceId: string; formId: string }) {
+export function FormResponses({
+  workspaceId,
+  formId,
+  opened = null,
+}: {
+  workspaceId: string;
+  formId: string;
+  /** A response to open straight away: a search result's `forms/<form>/answers/<response>`. */
+  opened?: string | null;
+}) {
   const [items, setItems] = useState<FormResponseRow[] | null>(null);
   const [open, setOpen] = useState<FormResponseGetOut | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,22 +42,32 @@ export function FormResponses({ workspaceId, formId }: { workspaceId: string; fo
     void load();
   }, [load]);
 
-  async function show(responseId: string) {
-    setBusy(true);
-    try {
-      setOpen(
-        unwrap(
-          await apiBrowser().POST('/v1/queries/form.response_get', {
-            body: { workspaceId, responseId },
-          }),
-        ),
-      );
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const show = useCallback(
+    async (responseId: string) => {
+      setBusy(true);
+      try {
+        setOpen(
+          unwrap(
+            await apiBrowser().POST('/v1/queries/form.response_get', {
+              body: { workspaceId, responseId },
+            }),
+          ),
+        );
+      } catch (e) {
+        toast.error(errorMessage(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [workspaceId],
+  );
+
+  const shown = useRef<string | null>(null);
+  useEffect(() => {
+    if (!opened || shown.current === opened) return;
+    shown.current = opened;
+    void show(opened);
+  }, [opened, show]);
 
   async function forget(responseId: string) {
     try {

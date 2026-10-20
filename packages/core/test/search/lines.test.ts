@@ -1,7 +1,7 @@
 /**
  * The grey lines under a result (search/lines.ts), with no database: the last contact reads through
  * `lastContactWords` within a week and as a date after, only real contact counts as contact, and each kind's line
- * comes out of its facts.
+ * comes out of its facts. Then one kind's words: its count in its own nouns, Show more and how far back.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,7 +9,16 @@ import { describe, expect, it } from 'vitest';
 import { binLeftLine } from '../../src/bin-words';
 import type { SearchHit } from '../../src/schemas/search';
 import { CONTACT_LINES, countsAsContact, hitLines, lastContactLine } from '../../src/search/lines';
-import { callTitle, messageTitle, threadTitle, whyLabel } from '../../src/search/words';
+import { CONTACTS_WORDS } from '../../src/crm/record-words';
+import {
+  badgeLabel,
+  callTitle,
+  kindNoun,
+  messageTitle,
+  SEARCH_WORDS,
+  threadTitle,
+  whyLabel,
+} from '../../src/search/words';
 
 const TZ = 'America/Chicago';
 const NOW = Date.parse('2026-10-20T15:00:00.000Z');
@@ -217,6 +226,46 @@ describe('why chips', () => {
     expect(whyLabel({ field: 'name' })).toBeNull();
     expect(whyLabel({ field: 'customer' }, 'leads')).toBe('Customer');
     expect(whyLabel({ field: 'customer' }, 'notes')).toBeNull();
+  });
+});
+
+describe('one kind’s words', () => {
+  it('count one and more of a kind in its own nouns, and a business’s own kinds by their plural', () => {
+    expect(SEARCH_WORDS.named(1, 'contacts', 'Contacts', 'dana')).toBe('1 contact named “dana”');
+    expect(SEARCH_WORDS.named(9, 'contacts', 'Contacts', 'dana')).toBe('9 contacts named “dana”');
+    expect(SEARCH_WORDS.kindFor(2, 'bin', 'Deleted bin', 'tom becnel')).toBe(
+      '2 things in the Deleted bin for “tom becnel”',
+    );
+    expect(SEARCH_WORDS.named(1, 'archived', 'Archived', 'tom becnel')).toBe(
+      '1 archived record named “tom becnel”',
+    );
+    expect(SEARCH_WORDS.kindFor(3, 'money', 'Money', 'smith')).toBe(
+      '3 bills and payments for “smith”',
+    );
+    expect(SEARCH_WORDS.kindFor(3, 'record.pets', 'Pets', 'rex')).toBe('3 pets for “rex”');
+    expect(SEARCH_WORDS.kindFor(1, 'record.pets', 'Pets', 'rex')).toBe(
+      '1 result in Pets for “rex”',
+    );
+    expect(kindNoun(1, 'realestate.listings', 'Listings')).toBe('result in Listings');
+  });
+
+  it('say Show more and how far back in the same nouns', () => {
+    expect(SEARCH_WORDS.showMore(3, 'contacts', 'Contacts')).toBe('Show 3 more contacts');
+    expect(SEARCH_WORDS.showMore(1, 'bin', 'Deleted bin')).toBe(
+      'Show 1 more thing in the Deleted bin',
+    );
+    expect(SEARCH_WORDS.showMore(2, 'close', 'Close matches')).toBe('Show 2 more close matches');
+    expect(SEARCH_WORDS.searchedBack('messages', 'Messages', 'Mar 3, 2025')).toBe(
+      'Searched messages back to Mar 3, 2025.',
+    );
+    expect(SEARCH_WORDS.searchedBack('archived', 'Archived', 'Mar 3, 2025')).toBe(
+      'Searched archived records back to Mar 3, 2025.',
+    );
+  });
+
+  it('names a lead and a client as the Contacts page does', () => {
+    expect(badgeLabel('lead')).toBe(CONTACTS_WORDS.lead);
+    expect(badgeLabel('client')).toBe(CONTACTS_WORDS.client);
   });
 });
 

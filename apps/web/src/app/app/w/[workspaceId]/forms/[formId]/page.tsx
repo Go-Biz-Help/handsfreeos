@@ -8,13 +8,22 @@ import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
 export const metadata: Metadata = { title: 'Form' };
 
-/** One form: its questions, and what a customer would see. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * One form: its questions, and what a customer would see. `?response=<id>` opens on its Results with that response
+ * open, where a search result's `answers/<id>` lands.
+ */
 export default async function FormPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string; formId: string }>;
+  searchParams: Promise<{ response?: string | string[] }>;
 }) {
   const { workspaceId, formId } = await params;
+  const { response } = await searchParams;
+  const openResponse = typeof response === 'string' && UUID.test(response) ? response : null;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = can(got.workspace.permissions, 'forms.manage');
@@ -38,6 +47,7 @@ export default async function FormPage({
         canManage={canManage}
         brandedOrigin={brandedOrigin}
         timeZone={got.workspace.timezone}
+        openResponse={openResponse}
       />
     </>
   );

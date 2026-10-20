@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Fragment, useState, type ComponentType } from 'react';
+import { Fragment, useEffect, useRef, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { CallConsentRow } from '@/components/crm/call-consent';
 import { BIN_WORDS, can } from '@hfos/core';
@@ -186,7 +186,8 @@ export function RecordPage(props: RecordPageProps) {
   const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
   const canBill = can(permissions, 'money.bill');
   // `?tab=money` so the inbox's "See their money" lands on the tab it names.
-  const wanted = useSearchParams().get('tab');
+  const query = useSearchParams();
+  const wanted = query.get('tab');
   const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
@@ -212,6 +213,32 @@ export function RecordPage(props: RecordPageProps) {
     setSheetTo(to);
     setSheetOpen(true);
   };
+  /**
+   * Where a search result lands: Text on a contact's row opens the text sheet (`?compose=sms`), and Compare and merge
+   * on the duplicate banner opens Merge with the other record chosen (`?merge=<id>`), on this page already open too.
+   * Once each, then taken off the address, so a reload doesn't open them again.
+   */
+  const [mergeWith, setMergeWith] = useState<string | null>(null);
+  const landed = useRef('');
+  useEffect(() => {
+    if (!person) return;
+    const compose = query.get('compose');
+    const merge = query.get('merge');
+    // What the address asked for last, so each ask opens once while the page refreshes.
+    const asked = `${compose ?? ''}:${merge ?? ''}`;
+    if (landed.current === asked) return;
+    landed.current = asked;
+    if (!compose && !merge) return;
+    if (compose === 'sms') openSheet('sms');
+    else if (merge && canModerate && !archived) {
+      setMergeWith(merge);
+      setMerging(true);
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('compose');
+    url.searchParams.delete('merge');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [query, person, canModerate, archived]);
   const calls = useCalls();
   useLiveRefresh([
     'person',
@@ -1116,7 +1143,11 @@ export function RecordPage(props: RecordPageProps) {
           workspaceId={workspaceId}
           person={person}
           open={merging}
-          onOpenChange={setMerging}
+          onOpenChange={(o) => {
+            setMerging(o);
+            if (!o) setMergeWith(null);
+          }}
+          initialOtherId={mergeWith}
         />
       ) : null}
       {canModerate ? (
