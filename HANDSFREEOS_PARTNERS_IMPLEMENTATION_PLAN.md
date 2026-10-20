@@ -591,6 +591,13 @@ request when opened, so no Check opens it: the first real request shows what it 
      there. About Us's Edit opens its editor in the page; its address leads back to the profile, where the form found
      was the gallery's. Requests was empty. The town's posts were still loading, and a forum question's own words are
      a plain box between its author and its counts. 0.68.0 reads all of that, and the Requests table's rows.
+   - **What 0.68.0's Check read** (Chris, 20 Oct 2026): the town's posts and a forum question's words read; About Us's
+     Edit opens a box over the page with Cancel and **Continue**, a few steps of Alignable's own, as the Elevator
+     Pitch is a chat with its AI. So both stay the person's: Get ready writes them and they're put in by hand, with
+     Copy. Requests was empty again.
+   - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
+     question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
+     other networks (`src/networks/alignable/actions.ts`).
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
 

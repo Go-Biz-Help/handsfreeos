@@ -36,7 +36,7 @@ const TOWN_PAGES = new Set(['forum', 'questions', 'events', 'groups']);
 /** How long ago, as Alignable prints it: "4h", "5 days ago", "about 4 hours ago", "Yesterday". */
 const WHEN =
   /^((about |over |almost )?\d+\s*(s|m|h|d|w|mo|y|sec|secs|min|mins|minutes?|hr|hrs|hours?|days?|weeks?|months?|years?)( ago)?|just now|yesterday|today)$/i;
-const PART = (id: string) => `[data-testid="${id}"]`;
+export const PART = (id: string) => `[data-testid="${id}"]`;
 
 /** Ideal customer or partner, as a business says it: its words, who and where, and its tags. */
 export type Ideal = NonNullable<ReturnType<typeof idealOf>>;
@@ -134,7 +134,7 @@ export type AlignableFound = {
   readonly answerBox: boolean;
 };
 
-function urlOf(href: string | null | undefined, base: string): URL | null {
+export function urlOf(href: string | null | undefined, base: string): URL | null {
   if (!href) return null;
   try {
     const url = new URL(href, base);
@@ -147,7 +147,7 @@ function urlOf(href: string | null | undefined, base: string): URL | null {
 const parts = (url: URL) => url.pathname.split('/').filter(Boolean);
 
 /** Alignable's id for a business, from whichever part of a link carries it. */
-function idIn(url: URL): string | null {
+export function idIn(url: URL): string | null {
   for (const name of ['business_id', 'with_business_id', 'result_id']) {
     const id = url.searchParams.get(name);
     if (id && ID.test(id)) return id;
@@ -170,7 +170,7 @@ function idIn(url: URL): string | null {
 }
 
 /** A business by its address in its town (/<town-st>/<business>), or by Alignable's id (/biz/businesses/<id>). */
-function businessRef(url: URL, id: string | null): ProfileRef | null {
+export function businessRef(url: URL, id: string | null): ProfileRef | null {
   const [first = '', second = '', third] = parts(url);
   if (TOWN.test(first) && SLUG.test(second) && !TOWN_PAGES.has(second.toLowerCase()) && !third)
     return {
@@ -185,7 +185,7 @@ function businessRef(url: URL, id: string | null): ProfileRef | null {
 }
 
 /** The links in a part of the page, made whole on Alignable. */
-const linksIn = (root: ParentNode, base: string) =>
+export const linksIn = (root: ParentNode, base: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].flatMap((a) => {
     const url = urlOf(a.getAttribute('href'), base);
     return url ? [{ a, url }] : [];
@@ -195,7 +195,7 @@ const linksIn = (root: ParentNode, base: string) =>
  * The id a business's own page ties it to: its Refer's, its Recommend's, then its Connect's or Message's. Never the
  * first link with an id: its page links to other businesses too.
  */
-function idOfPage(root: ParentNode, base: string): string | null {
+export function idOfPage(root: ParentNode, base: string): string | null {
   const links = linksIn(root, base);
   for (const path of [
     /^\/forward_referral_card\//i,
@@ -213,8 +213,8 @@ function idOfPage(root: ParentNode, base: string): string | null {
 const hasLink = (root: ParentNode, base: string, path: RegExp) =>
   linksIn(root, base).some(({ url }) => path.test(url.pathname));
 
-const CONNECT_AT = /^\/biz\/connection_requests\//i;
-const MESSAGE_AT = /^\/biz\/conversations\/?$/i;
+export const CONNECT_AT = /^\/biz\/connection_requests\//i;
+export const MESSAGE_AT = /^\/biz\/conversations\/?$/i;
 
 /** The nearest part of the page holding all of these. */
 function around(elements: readonly Element[]): Element | null {
@@ -363,7 +363,7 @@ function connectionRows(doc: Document, base: string): Business[] {
 // ------------------------------------------------------------------------------------------------ posts
 
 /** Who wrote a post or an answer: the first link to a business in it that has words, and its business's name. */
-function authorIn(
+export function authorIn(
   root: Element,
   base: string,
 ): (Named & { readonly business: string | null }) | null {
@@ -482,7 +482,7 @@ function pitchOn(root: ParentNode): string | null {
   return (whole.length > short.length ? whole : short) || null;
 }
 
-function businessPage(doc: Document, base: string): BusinessPage | null {
+export function businessPage(doc: Document, base: string): BusinessPage | null {
   const url = urlOf(base, base);
   if (!url) return null;
   const [first = ''] = parts(url);
@@ -538,7 +538,7 @@ function chatRows(doc: Document): ChatRow[] {
   });
 }
 
-function chatOpen(doc: Document, base: string): ChatOpen | null {
+export function chatOpen(doc: Document, base: string): ChatOpen | null {
   const header = doc.querySelector(PART('channel-header-loaded'));
   const write = doc.querySelector(PART('full-view-write-message'));
   if (!header && !write) return null;

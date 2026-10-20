@@ -15,6 +15,7 @@
 import { clean } from '../facebook/dom';
 import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
 import { aboutLook, idealLook, pitchLook, readOwnProfile } from './own-profile';
+import { alignableNoticer } from './actions';
 import { readAlignable } from './read';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
@@ -609,6 +610,8 @@ export const ALIGNABLE: LookingSite = {
   // Its own readers (partners stage 6c): businesses, posts, a forum question's answers and chats, counted in each of
   // Check's notes so the next Check shows what they find on the real pages.
   readFound: readAlignable,
+  // The person's own steps, noted as they take them (part 2): Connect, Like, a forum answer's Send, and a message.
+  noticer: alignableNoticer,
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,

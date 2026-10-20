@@ -11,6 +11,7 @@
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { BioResult } from '../facebook/own-profile';
+import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
 /** A network looked at: Instagram or Alignable. */
@@ -115,6 +116,8 @@ export interface LookingSite {
     readonly read: (doc: Document, href: string) => ProfileRead;
     readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
   };
+  /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
+  readonly noticer?: () => Noticer;
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */
