@@ -14,7 +14,7 @@ import { checkedHelpful, helpfulPrompt } from '../../src/addons/outreach/helpful
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
 import { executeCommand, type CommandDef } from '../../src/server';
-import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runWith, yesterdayNoon } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const worker = () => testDbs().worker.db;
@@ -219,10 +219,11 @@ describe('helpful posts, and the people who engage', () => {
 
   it('never posts in the same group twice in a week, and frees the day for one put aside', async () => {
     // As if yesterday's.
+    const yesterday = yesterdayNoon().toISOString();
     await rows(
       admin(),
-      sql`update addon_outreach.helpful set asked_at = now() - interval '1 day',
-            posted_at = now() - interval '1 day' where id = ${first}`,
+      sql`update addon_outreach.helpful set asked_at = ${yesterday}::timestamptz,
+            posted_at = ${yesterday}::timestamptz where id = ${first}`,
     );
     const [g] = await rows<{ group_id: string }>(
       admin(),

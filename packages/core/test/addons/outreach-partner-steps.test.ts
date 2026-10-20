@@ -15,7 +15,7 @@ import { PARTNER_WORDS, partnerDraftPrompt } from '../../src/addons/outreach/par
 import { blankPlaybook, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { goesAsItIs } from '../../src/addons/outreach/sends';
 import { doneOnItsOwn } from '../../src/addons/outreach/today';
-import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runAsSystem, yesterdayNoon } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -450,7 +450,7 @@ describe('reaching partners', () => {
     // The day before, all three were free.
     await rows(
       admin(),
-      sql`update addon_outreach.sends set done_at = ${daysAgo(1)}::timestamptz
+      sql`update addon_outreach.sends set done_at = ${yesterdayNoon().toISOString()}::timestamptz
           where workspace_id = ${ws} and kind = 'partner_ask'`,
     );
     expect((await partnerSteps()).filter((s) => s.kind === 'partner_ask')).toHaveLength(3);
