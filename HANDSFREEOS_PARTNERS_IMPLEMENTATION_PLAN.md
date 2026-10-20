@@ -596,10 +596,13 @@ request when opened, so no Check opens it: the first real request shows what it 
      Pitch is a chat with its AI. Requests was empty again.
    - **About Us asks for a code Alignable emails** (Chris, 20 Oct 2026): its box over the page is Alignable checking
      it's them before a profile changes, and each press sent an email. So from 0.70.0 Check never presses it, and the
-     extension reads the code's box when it's open. **The code relay** comes next: the extension asks HandsFreeOS for
-     the code, the person is told on their phone to look in their email, types it in HandsFreeOS, and the extension
-     puts it in the box once and forgets it. Only they can read it, and it's gone once used or after 10 minutes. With
-     it, Get ready writes About Us and the extension puts it in; the Elevator Pitch stays by hand, with Copy.
+     extension reads the code's box when it's open. **The code relay** (docs/outreach.md decision 82): the extension
+     asks HandsFreeOS for the code, the person is told on their phone to look in their email, types it in HandsFreeOS,
+     and the extension puts it in the box once and forgets it. Only they can read it, and it's gone once used or after
+     10 minutes. With it, **Get ready on Alignable** (extension 0.71.0) reads their profile for the AI's check (its
+     items: photo, About Us, Elevator Pitch, ideal customer and partner, services), the AI writes About Us whole, and
+     **Put this one in** puts it in past the code. The Elevator Pitch is made with Alignable's own assistant, so it
+     stays theirs to tick.
    - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
      question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
      other networks (`src/networks/alignable/actions.ts`).

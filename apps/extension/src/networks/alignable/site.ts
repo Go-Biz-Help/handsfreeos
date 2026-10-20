@@ -14,7 +14,14 @@
  */
 import { clean } from '../facebook/dom';
 import { boxesSaying, controlsSaying, lookFor, mainOf, namesIn } from '../looking/looks';
-import { aboutLook, idealLook, pitchLook, readOwnProfile } from './own-profile';
+import {
+  aboutLook,
+  idealLook,
+  pitchLook,
+  putCode,
+  readOwnProfile,
+  writeAboutUs,
+} from './own-profile';
 import { alignableNoticer } from './actions';
 import { readAlignable } from './read';
 import type { LookingSite, PlaceOpening } from '../looking/site';
@@ -620,8 +627,8 @@ export const ALIGNABLE: LookingSite = {
   editLink: (url) =>
     /^\/biz\/[^/]+\/[^/]+\/edit\/?$/i.test(url.pathname) ||
     /^\/biz\/profile\/[^/]+\/?$/i.test(url.pathname),
-  // Read for the AI's check (decision 80); what it writes goes in once Check has read each editor.
-  ownProfile: { read: readOwnProfile },
+  // Read for the AI's check (decision 80), and About Us put in past the code Alignable emails (decision 82).
+  ownProfile: { read: readOwnProfile, writeAbout: writeAboutUs, putCode },
   // The menu's link to the person's own profile, by its words.
   ownLink: (doc, href) => {
     for (const anchor of doc.querySelectorAll(

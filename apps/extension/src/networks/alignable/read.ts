@@ -20,7 +20,7 @@
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { Named, ProfileRef } from '../facebook/types';
-import { aboutUsOf, idealOf } from './own-profile';
+import { aboutUsOf, codeBoxIn, idealOf } from './own-profile';
 
 const HOST = 'https://www.alignable.com';
 /** How many of each a read keeps: enough to go on with, never a whole page's worth. */
@@ -568,25 +568,6 @@ function answerBoxOn(doc: Document): boolean {
     /^send$/i.test(clean(b.textContent)),
   );
   return !!box && send;
-}
-
-/** What a box over the page asking for an emailed code says, and what goes on from it. */
-const ABOUT_A_CODE = /\b(code|verif(y|ication)|one[- ]time)\b/i;
-const GOES_ON = /^(continue|verify|submit|confirm|next)$/i;
-
-/** A box over the page asking for a code Alignable emailed them: one box to write in, its words, and its Continue. */
-export function codeBoxIn(doc: Document): HTMLInputElement | null {
-  for (const dialog of doc.querySelectorAll('[role="dialog"], dialog[open]')) {
-    if (!visible(dialog) || !ABOUT_A_CODE.test(clean(dialog.textContent))) continue;
-    const boxes = [...dialog.querySelectorAll<HTMLInputElement>('input')].filter(
-      (box) => visible(box) && !/^(hidden|checkbox|radio|submit|button|file)$/i.test(box.type),
-    );
-    const goesOn = [...dialog.querySelectorAll('button, input[type="submit"]')].some((b) =>
-      GOES_ON.test(clean(b.textContent) || clean(b.getAttribute('value'))),
-    );
-    if (boxes.length === 1 && goesOn) return boxes[0]!;
-  }
-  return null;
 }
 
 /** Everything Alignable's readers find on a page. */
