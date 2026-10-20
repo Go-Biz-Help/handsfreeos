@@ -251,7 +251,8 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const opened = await c.open(url, name);
     if (isEnd(opened)) return opened;
-    const form = await c.readTill(opened, (page) => page.boxes > 0);
+    // Your details' page drew nothing in the time the owner's Check gave it (0.66.0): it's given longer.
+    const form = await c.readTill(opened, (page) => page.boxes > 0, 8);
     if (isEnd(form)) return form;
     await c.note(name, form.boxes);
     if (name === ABOUT_FORM) await c.tryHere('about');
@@ -287,9 +288,10 @@ async function nextPages(
 ): Promise<JobEnd | null> {
   if (town) {
     if (stoppedEnd(job)) return stoppedEnd(job);
+    // Alignable opens a town at its own group, /groups/<town-st>, where its owners post (the owner's Check, 0.66.0).
     const page = await c.open(`${ALIGNABLE}/${town}`, 'your town');
     if (isEnd(page)) return page;
-    await c.note('your town', page.people.length);
+    await c.note('your town', countOf(page, 'threads'));
   } else c.nothingOn.push('your town');
 
   if (stoppedEnd(job)) return stoppedEnd(job);
@@ -298,7 +300,7 @@ async function nextPages(
     'a search for businesses',
   );
   if (isEnd(found)) return found;
-  await c.note('a search for businesses', found.people.length);
+  await c.note('a search for businesses', countOf(found, 'businesses'));
 
   const question = posts.find((p) => /\/forum\//i.test(new URL(p.url).pathname)) ?? posts[0];
   if (question) {
@@ -307,7 +309,7 @@ async function nextPages(
     if (isEnd(opened)) return opened;
     const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
     if (isEnd(page)) return page;
-    await c.note('a forum question', null);
+    await c.note('a forum question', countOf(page, 'threads'));
     await c.look('comment');
     await c.look('like');
   } else c.nothingOn.push('a forum question');
@@ -315,8 +317,9 @@ async function nextPages(
   if (stoppedEnd(job)) return stoppedEnd(job);
   const network = await c.open(`${ALIGNABLE_IN}/my_network`, 'your network');
   if (isEnd(network)) return network;
-  await c.note('your network', network.links.length);
-  const requests = network.links.find((l) => /^requests?$/i.test(l.name));
+  await c.note('your network', countOf(network, 'businesses'));
+  // Requests is a tab in My Network's own menu, so among its places, not its links (the owner's Check, 0.66.0).
+  const requests = [...network.links, ...network.places].find((l) => /^requests?$/i.test(l.name));
   if (requests) {
     if (stoppedEnd(job)) return stoppedEnd(job);
     const page = await c.open(requests.url, 'your connection requests');
@@ -330,10 +333,16 @@ async function nextPages(
     if (isEnd(opened)) return opened;
     const page = await c.readTill(opened, (p) => p.boxes > 0);
     if (isEnd(page)) return page;
-    await c.note('a chat with a connection', page.boxes);
+    await c.note('a chat with a connection', page.found?.['chat'] ? 1 : 0);
   } else c.nothingOn.push('a chat with a connection');
   return null;
 }
+
+/** How many of one of the network's own readers' lists a page had (`LookingRead.found`). */
+const countOf = (page: LookingRead, list: string): number => {
+  const rows = page.found?.[list];
+  return Array.isArray(rows) ? rows.length : 0;
+};
 
 const ABOUT_FORM = 'your About Us’s page';
 

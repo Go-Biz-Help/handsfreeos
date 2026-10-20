@@ -111,23 +111,53 @@ const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/biz/users/77/edit`]: html(
     `<main><form><label for="f">First Name</label><input id="f" type="text" value="Casey" /><button>Save</button></form></main>`,
   ),
-  // The pages its steps and Find partners are built from next (0.66.0): their town, a search, a forum question, their
-  // connection requests and a chat with a connection.
-  [`${AL}/austin-tx`]: html(`${ALIGNABLE_MENU}<main>
-    <a href="/austin-tx/acme-plumbing">Acme Plumbing</a><a href="/austin-tx/best-bakery">Best Bakery</a></main>`),
-  [`${AL}/biz/search?q=small%20business`]: html(
-    `${ALIGNABLE_MENU}<main><a href="/austin-tx/acme-plumbing">Acme Plumbing</a></main>`,
-  ),
-  [`${AL}/austin-tx/forum/12/need-a-plumber`]: html(`${ALIGNABLE_MENU}<main>
-    <h1>Need a plumber?</h1><button>Like</button><textarea placeholder="Write an answer"></textarea></main>`),
-  [`${AL}/biz/my_network`]: html(`${ALIGNABLE_MENU}<main>
-    <a href="/biz/my_network/received?_fat=a">Requests</a>
-    <div data-testid="connection-row"><a href="/biz/conversations?with_business_id=42">Message</a></div></main>`),
+  // The pages its steps and Find partners are built from next, drawn as the owner's Check found them (0.66.0): their
+  // town's own group with a post, a search's results, a forum question with an answer and its box, My Network's rows
+  // and its Requests tab in its own menu, and a chat with a connection.
+  [`${AL}/austin-tx`]: html(`${ALIGNABLE_MENU}<section>
+    <h1 data-testid="group-header/header-text">Austin Business Owners</h1>
+    <div><div><div><a aria-label="Go to Dana Reyes’s profile" href="/austin-tx/acme-plumbing?user=5"></a></div>
+      <div><a href="/austin-tx/acme-plumbing?user=5"><span>Dana Reyes</span><span>at</span><span>Acme Plumbing</span></a>
+        <div><span>Posted in</span><a href="/groups/austin-tx/need-a-roofer"><span>4h</span></a></div></div></div>
+      <div><div title="Need a roofer"><span>Can anyone recommend a roofer?</span></div></div>
+      <div><div><a href="/biz/likes?resource=9"><span>3</span><span>Like</span></a></div>
+        <div><a href="/biz/discussions/91">Comment</a><a href="/biz/likes"><div>Like</div></a>
+          <a href="/biz/connection_requests/quick?business_id=42&discussion_id=91&type=mgc"><div>Connect</div></a></div></div></div>
+  </section>`),
+  [`${AL}/biz/search?q=small%20business`]:
+    html(`${ALIGNABLE_MENU}<section><div role="contentinfo"><ul>
+    <div><a href="/austin-tx/acme-plumbing?user=5&result_id=42"><img alt="Dana Reyes" /></a>
+      <div><div><div><a title="Dana Reyes" href="/austin-tx/acme-plumbing?user=5&result_id=42">Dana Reyes</a></div>
+        <div><div><a title="Acme Plumbing" href="/austin-tx/acme-plumbing?user=5&result_id=42">Acme Plumbing</a>
+          <span>Plumbing</span></div><div>Austin, TX</div></div></div>
+      <a data-testid="react-connect-button" href="/biz/connection_requests/quick?business_id=42&result_id=42">Connect</a></div></div>
+  </ul></div></section>`),
+  [`${AL}/austin-tx/forum/12/need-a-plumber`]: html(`${ALIGNABLE_MENU}<section>
+    <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a>
+      <span>4h</span></div>
+      <p>Need a plumber in Austin?</p>
+      <div><a href="/biz/discussions/12">Comment</a><button>Like</button></div></div>
+    <div data-testid="discussion-comment"><a href="/austin-tx/acme-plumbing?user=5">Dana Reyes</a><span>5h</span>
+      <div data-testid="discussion-comment-body">We can help.</div><button>Reply</button><button>Like</button>
+      <a href="/biz/connection_requests/quick?business_id=42&request_source=discussionpost_1&type=mgc">Connect</a></div>
+    <form data-testid="discussion-comment-reply-form"><textarea placeholder="Write an answer"></textarea>
+      <button>Send</button></form>
+  </section>`),
+  [`${AL}/biz/my_network`]: html(`${ALIGNABLE_MENU}<nav>
+    <a href="/biz/my_network?_fat=a"><span>My Connections</span></a>
+    <a href="/biz/my_network/received?_fat=a"><span>Requests</span></a></nav><section>
+    <div data-testid="connection-row">
+      <a aria-label="Best Bakery" data-testid="connection-row-profile-link" href="/biz/businesses/43"><img alt="Sam Lee" /></a>
+      <div data-testid="connection-row-summary"><div><span>Sam Lee</span><span>Best Bakery</span></div></div>
+      <a data-testid="connection-row-cta" href="/biz/conversations?with_business_id=42">Message</a></div></section>`),
   [`${AL}/biz/my_network/received?_fat=a`]: html(`${ALIGNABLE_MENU}<main>
     <a href="/austin-tx/best-bakery">Best Bakery</a><button>Accept</button><button>Ignore</button></main>`),
-  [`${AL}/biz/conversations?with_business_id=42`]: html(
-    `${ALIGNABLE_MENU}<main><textarea placeholder="Write a message"></textarea><button>Send</button></main>`,
-  ),
+  [`${AL}/biz/conversations?with_business_id=42`]: html(`${ALIGNABLE_MENU}<div data-testid="inbox">
+    <div data-testid="conversationInSidebar"><div><img alt="" /><div><div>Sam Lee</div><div>See you Tuesday</div></div></div>
+      <span data-testid="conversationDate">Oct 12</span></div>
+    <div data-testid="channel-header-loaded"><a href="/biz/businesses/42?user=5"><div>Dana Reyes</div></a></div>
+    <div data-testid="full-view-write-message"><div contenteditable="true"></div><textarea placeholder="Write a message"></textarea>
+      <button aria-label="Send" data-testid="messaging-send-external"></button></div></div>`),
 };
 
 /** Where Alignable sends an address: their own profile, to their business's page in its town. */

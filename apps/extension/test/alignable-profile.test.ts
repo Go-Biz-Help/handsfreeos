@@ -154,6 +154,30 @@ describe('their own Alignable profile', () => {
       found: { opened: true, box: false, cancel: false, closed: true },
       missing: ['the Elevator Pitch opened no box to write in'],
     });
+  }, 10_000);
+
+  it('waits for the box an Elevator Pitch’s box over the page draws after it opens', async () => {
+    // The owner's Check (0.66.0) looked while the box over the page was still empty.
+    const doc = ownProfile();
+    doc
+      .querySelector('[data-testid="elevator-pitch-cta-button"]')!
+      .addEventListener('click', () => {
+        const dialog = doc.createElement('div');
+        dialog.setAttribute('role', 'dialog');
+        dialog.innerHTML = `<svg></svg><svg></svg>`;
+        doc.body.append(dialog);
+        setTimeout(() => {
+          dialog.innerHTML = `<textarea placeholder="Your elevator pitch"></textarea>
+            <button>Save</button><button>Cancel</button>`;
+          dialog
+            .querySelector('button:last-child')!
+            .addEventListener('click', () => dialog.remove());
+        }, 600);
+      });
+    expect(await ALIGNABLE.looks.pitch!.look(doc, doc.location.href)).toMatchObject({
+      works: true,
+      found: { opened: true, box: true, save: 1, cancel: true, closed: true },
+    });
   });
 
   it('opens My Ideal Customer’s words and closes them again', async () => {
@@ -191,5 +215,20 @@ describe('their own Alignable profile', () => {
     expect(doc.querySelector('textarea')!.value).toBe('We fix roofs.');
     // A read of the page counts its boxes, so Check knows it's drawn.
     expect(readLooking(doc, doc.location.href, ALIGNABLE).boxes).toBe(2);
+  });
+
+  it('finds About Us’s Save drawn as the form’s own submit, as the owner’s Check found it (0.66.0)', () => {
+    const doc = page(
+      `${AL}/biz/profile/about_us`,
+      `<form><input type="hidden" name="authenticity_token" value="x" />
+        <input id="name" type="text" placeholder="Business Name" />
+        <textarea placeholder="Add description">We fix roofs.</textarea>
+        <a>Cancel</a><input type="submit" value="Save" /></form>`,
+    );
+    expect(ALIGNABLE.looks.about!.look(doc, doc.location.href)).toMatchObject({
+      step: 'about',
+      works: true,
+      found: { box: true, save: 1 },
+    });
   });
 });

@@ -1,0 +1,361 @@
+/**
+ * Alignable's own readers (src/networks/alignable/read.ts; partners stage 6c, part 1): on pages drawn as the owner's
+ * Check Alignable outlined them (0.66.0, 19 Oct 2026), with their test ids, links and words where Alignable put them.
+ * What a report of each says: how many of each, never what they say.
+ */
+import { JSDOM } from 'jsdom';
+import { describe, expect, it } from 'vitest';
+import { readAlignable } from '../src/networks/alignable/read';
+import { ALIGNABLE } from '../src/networks/alignable/site';
+import { outlineLooking, readLooking } from '../src/networks/looking/read';
+import { pageFound } from '../src/jobs/report';
+
+const AL = 'https://www.alignable.com';
+const page = (url: string, body: string) =>
+  new JSDOM(`<!doctype html><html><body>${body}</body></html>`, { url }).window.document;
+
+const kind = (path: string) => ALIGNABLE.kindOf(ALIGNABLE.url(`${AL}${path}`)!);
+
+describe('Alignable’s addresses, as its pages lead', () => {
+  it('tells apart a business by its id, Requests, a chat, a town’s group and a discussion', () => {
+    expect(kind('/biz/businesses/42')).toBe('business');
+    // Their own profile's address is where Check starts on it, still known by its own word.
+    expect(kind('/biz/businesses/my_profile')).toBe('search');
+    expect(kind('/biz/my_network/connection_requests?_fat=a')).toBe('requests');
+    expect(kind('/biz/conversations?with_business_id=42')).toBe('chat');
+    expect(kind('/biz/conversations')).toBe('inbox');
+    expect(kind('/groups/austin-tx')).toBe('community');
+    expect(kind('/groups/austin-tx/need-a-roofer-123')).toBe('discussion');
+    expect(kind('/groups/austin-tx/members')).toBe('search');
+    expect(kind('/groups/austin-tx/events/77')).toBe('events');
+    expect(kind('/groups/search?q=roof')).toBe('search');
+  });
+
+  it('counts a group’s discussion as a post, never its members or events', () => {
+    const post = (path: string) => ALIGNABLE.postOf(ALIGNABLE.url(`${AL}${path}`)!);
+    expect(post('/groups/austin-tx/need-a-roofer-123?cyattr=x')).toBe(
+      `${AL}/groups/austin-tx/need-a-roofer-123`,
+    );
+    expect(post('/groups/austin-tx/members')).toBeNull();
+    expect(post('/groups/austin-tx/events/77')).toBeNull();
+    expect(post('/groups/austin-tx')).toBeNull();
+  });
+
+  it('keeps the word a Connect link leads to in an outline, and hides the business it’s for', () => {
+    const doc = page(
+      `${AL}/biz/search?q=roof`,
+      `<a href="/biz/connection_requests/quick_connect?business_id=4242&type=mgc">Connect</a>`,
+    );
+    const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
+    expect(outline).toContain('/biz/connection_requests/quick_connect?business_id={');
+    expect(outline).not.toContain('4242');
+  });
+});
+
+describe('a search for businesses', () => {
+  const doc = page(
+    `${AL}/biz/search?q=plumber`,
+    `<div role="contentinfo"><ul>
+      <div><a href="/austin-tx/acme-plumbing?user=5&page_num=1&result_id=42&request_source=biz/search-index">
+          <div data-testid="avatar"><img data-testid="avatar-image" alt="Dana Reyes" title="Dana Reyes" /></div></a>
+        <div><div><div><a title="Dana Reyes" href="/austin-tx/acme-plumbing?user=5&result_id=42">Dana Reyes</a>
+            <div role="status"><svg></svg>47</div></div>
+          <div><div><a title="Acme Plumbing Co" href="/austin-tx/acme-plumbing?user=5&result_id=42">Acme Plumbing Co</a>
+            <span>Plumbing Contractor</span></div><div>Austin, TX</div></div></div>
+        <a data-testid="react-connect-button" href="/biz/connection_requests/quick?business_id=42&result_id=42"><svg></svg>Connect</a></div></div>
+      <div><a href="/round-rock-tx/best-bakery?user=6&result_id=43"><img alt="Sam Lee" /></a>
+        <div><div><div><a title="Sam Lee" href="/round-rock-tx/best-bakery?user=6&result_id=43">Sam Lee</a></div>
+          <div><div><a title="Best Bakery" href="/round-rock-tx/best-bakery?user=6&result_id=43">Best Bakery</a>
+            <span>Bakery</span></div><div>Round Rock, TX</div></div></div></div></div>
+    </ul></div>`,
+  );
+
+  it('reads each result’s owner, business, kind and town, its id, and whether it has Connect', () => {
+    expect(readAlignable(doc, doc.location.href).businesses).toEqual([
+      {
+        name: 'Dana Reyes',
+        profile: {
+          id: '42',
+          username: 'austin-tx-acme-plumbing',
+          url: `${AL}/austin-tx/acme-plumbing`,
+        },
+        business: 'Acme Plumbing Co',
+        details: ['Plumbing Contractor', 'Austin, TX'],
+        connect: true,
+        message: false,
+      },
+      {
+        name: 'Sam Lee',
+        profile: {
+          id: '43',
+          username: 'round-rock-tx-best-bakery',
+          url: `${AL}/round-rock-tx/best-bakery`,
+        },
+        business: 'Best Bakery',
+        details: ['Bakery', 'Round Rock, TX'],
+        connect: false,
+        message: false,
+      },
+    ]);
+  });
+
+  it('says how many it read, and of what, in a report: never a name', () => {
+    const found = pageFound(readLooking(doc, doc.location.href, ALIGNABLE));
+    expect(found).toMatchObject({
+      businesses: 2,
+      businessesName: 2,
+      businessesBusiness: 2,
+      businessesConnect: 1,
+      threads: 0,
+      answers: 0,
+      business: false,
+      chat: false,
+      answerBox: false,
+    });
+    expect(JSON.stringify(found)).not.toMatch(/Dana|Acme|Austin/);
+  });
+});
+
+describe('My Network', () => {
+  it('reads each connection’s business by its id, its names and its Message', () => {
+    const doc = page(
+      `${AL}/biz/my_network`,
+      `<div data-testid="connections-table"><div data-testid="allies-picks-list"><div>
+        <div data-testid="connection-row">
+          <a aria-label="Sam Lee" data-testid="connection-row-profile-link" href="/biz/businesses/43?cyattr=x">
+            <div data-testid="avatar"><img alt="Sam Lee" /></div></a>
+          <div data-testid="connection-row-summary"><div><span>Sam Lee</span><span>Best Bakery Co</span></div></div>
+          <div><button data-testid="connection-row-menu-trigger"></button>
+            <a data-testid="connection-row-cta" href="/biz/conversations?_fat=x&with_business_id=43">Message</a></div>
+          <p data-testid="connection-row-action-summary">Say hi to Sam about the bakery fair.</p></div>
+      </div></div></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).businesses).toEqual([
+      {
+        name: 'Sam Lee',
+        profile: { id: '43', username: null, url: `${AL}/biz/businesses/43` },
+        business: 'Best Bakery Co',
+        details: [],
+        connect: false,
+        message: true,
+      },
+    ]);
+  });
+});
+
+describe('posts, on a town’s group and a forum question', () => {
+  it('reads each post on a group’s page: its author, words, likes, its discussion and its Connect', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx`,
+      `<section><h1 data-testid="group-header/header-text">Austin Business Owners</h1>
+        <div><div><div><div href="/austin-tx/acme-plumbing?user=5">
+            <a aria-label="Go to Dana Reyes’s profile" href="/austin-tx/acme-plumbing?cyattr=a&user=5"></a></div>
+          <div><div><a href="/austin-tx/acme-plumbing?cyattr=a&user=5"><span>Dana Reyes</span><span>at</span>
+            <span>Acme Plumbing</span></a></div>
+            <div><span>Posted in</span><span>·</span><a href="/groups/austin-tx/need-a-roofer?cyattr=a"><span>4h</span></a></div></div></div>
+          <div><div><img data-testid="postImage" alt="A roof" /><div><div title="Need a roofer">Can anyone<br>recommend a roofer?</div>
+            <button>See More</button></div></div></div>
+          <div><div><span>You and 2 others</span><a href="/biz/likes?resource=9"><span>3</span><span>Like</span><span>s</span></a>
+            <span><span>0</span><span>Share</span></span></div><hr>
+            <div><a href="/biz/discussions/91?cyattr=a"><svg></svg>Comment</a><a href="/biz/likes"><div>Like</div></a>
+              <a href="/biz/connection_requests/quick?business_id=42&discussion_id=91&type=mgc"><div>Connect</div></a>
+              <a href="/biz/reports/new?feed_item=1"><div>Report</div></a></div></div></div></div>
+      </section>`,
+    );
+    const read = readAlignable(doc, doc.location.href);
+    expect(read.threads).toEqual([
+      {
+        author: {
+          name: 'Dana Reyes',
+          profile: {
+            id: null,
+            username: 'austin-tx-acme-plumbing',
+            url: `${AL}/austin-tx/acme-plumbing`,
+          },
+        },
+        url: `${AL}/biz/discussions/91`,
+        when: '4h',
+        text: 'Can anyone recommend a roofer?',
+        likes: 3,
+        connect: true,
+      },
+    ]);
+    expect(read.answers).toEqual([]);
+    expect(read.business).toBeNull();
+  });
+
+  it('reads a forum question’s post, then its answers and their replies, and its box to answer in', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx/need-a-plumber-12`,
+      `<section><div><div><div><a aria-label="Sam’s profile" href="/austin-tx/best-bakery?user=6"></a>
+          <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a></div>
+            <div><span>4h</span></div></div></div>
+          <p>Who does great plumbing in Austin?</p>
+          <div><div><a href="/biz/likes?resource=7"><span>1</span><span>Like</span></a></div><hr>
+            <div><a href="/biz/discussions/12">Comment</a><a href="/biz/likes"><div>Like</div></a>
+              <a href="/biz/connection_requests/quick?business_id=43&discussion_id=12&type=mgc"><div>Connect</div></a></div></div></div>
+        <div><div data-testid="discussion-comment"><div><a href="/austin-tx/acme-plumbing?user=5"><div data-testid="avatar"><img alt="Dana" /></div></a>
+            <div><div><div><a href="/austin-tx/acme-plumbing?user=5">Dana Reyes</a><span>about 4 hours ago</span></div>
+              <div data-testid="discussion-comment-body"><div>We can help.<br><br>Call any time.</div></div>
+              <button>See More</button></div>
+              <div><button>Reply</button><button>Like</button>
+                <a href="/biz/connection_requests/quick?business_id=42&request_source=discussionpost_1&type=mgc">Connect</a></div></div></div>
+          <div><button><span>1</span></button>
+            <div data-testid="discussion-comment"><div><a href="/austin-tx/best-bakery?user=6"><img alt="Sam" /></a>
+              <div><div><div><a href="/austin-tx/best-bakery?user=6">Sam Lee</a><span>3h</span></div>
+                <div data-testid="discussion-comment-body"><p>Thanks!</p></div></div>
+                <div><button>Reply</button><button>Like</button></div></div></div></div></div></div>
+        <form data-testid="discussion-comment-reply-form"><div><div contenteditable="true" placeholder="Write a comment"><p><br></p></div>
+          <textarea placeholder="Write a comment"></textarea></div><button>Send</button></form></div>
+      </section>`,
+    );
+    const read = readAlignable(doc, doc.location.href);
+    expect(read.threads).toEqual([
+      {
+        author: {
+          name: 'Sam Lee',
+          profile: {
+            id: null,
+            username: 'austin-tx-best-bakery',
+            url: `${AL}/austin-tx/best-bakery`,
+          },
+        },
+        url: `${AL}/biz/discussions/12`,
+        when: '4h',
+        text: 'Who does great plumbing in Austin?',
+        likes: 1,
+        connect: true,
+      },
+    ]);
+    expect(read.answers).toEqual([
+      {
+        author: {
+          name: 'Dana Reyes',
+          profile: {
+            id: null,
+            username: 'austin-tx-acme-plumbing',
+            url: `${AL}/austin-tx/acme-plumbing`,
+          },
+        },
+        when: 'about 4 hours ago',
+        text: 'We can help. Call any time.',
+        connect: true,
+        reply: false,
+      },
+      {
+        author: {
+          name: 'Sam Lee',
+          profile: {
+            id: null,
+            username: 'austin-tx-best-bakery',
+            url: `${AL}/austin-tx/best-bakery`,
+          },
+        },
+        when: '3h',
+        text: 'Thanks!',
+        connect: false,
+        reply: true,
+      },
+    ]);
+    expect(read.answerBox).toBe(true);
+  });
+});
+
+describe('a business’s page', () => {
+  it('reads its names, town, pitch, About Us, ideal customer and partner, tags and buttons', () => {
+    const doc = page(
+      `${AL}/austin-tx/acme-plumbing`,
+      `<section><div><div><div><img alt="Acme Plumbing cover" />
+        <div><a href="/biz/recommendations/new?id=42&request_source=businesses-show">Recommend</a>
+          <a href="/forward_referral_card/42">Refer</a></div>
+        <div><div><h1 title="Dana Reyes">Dana Reyes</h1><h2 title="Acme Plumbing">Acme Plumbing</h2></div>
+          <div><a href="/austin-tx">Austin, TX</a></div></div>
+        <div><a href="/biz/search?q=plumbing&source=profile_featured_tags">Plumbing</a>
+          <a href="/biz/search?q=drains&source=profile_featured_tags">Drains</a>
+          <a href="/biz/search?q=plumbing&source=profile_featured_tags">Plumbing</a></div>
+        <div><a href="/biz/connection_requests/quick?business_id=42&request_source=profile"><div>Connect</div></a></div></div>
+        <div><div><svg></svg><div>Our Elevator Pitch</div></div>
+          <div><span>We fix leaks fast. <a href="#">Read more</a></span>
+            <span>We fix leaks fast, and we answer the phone at night.</span>
+            <a href="/biz/businesses/77"><strong>Recommended by</strong> 3 local businesses</a></div></div>
+        <div><div data-testid="ideal-customer-information"><h1>Our Ideal Customers</h1>
+            <div data-testid="ideal-customer-description">Homeowners with older houses.</div>
+            <div><div data-testid="ideal-customer-type">Consumers</div><div data-testid="ideal-customer-location">Austin and Round Rock</div></div>
+            <div data-testid="ideal-customer-tags"><div><a href="/biz/search?q=homeowners"><span>Homeowners</span></a></div></div></div>
+          <div data-testid="ideal-partner-information"><h1>Businesses we refer with</h1>
+            <div data-testid="ideal-partner-description">Realtors and home inspectors.</div>
+            <div data-testid="ideal-partner-tags"><div><a href="/biz/search?q=realtor"><span>Realtor</span></a>
+              <a href="/biz/search?q=inspector"><span>Home Inspector</span></a></div></div></div></div>
+        <div><div><div>About Us</div></div><div><p>Family plumbers since 1990.</p><p>Licensed and insured.</p></div></div>
+      </div></div></section>`,
+    );
+    expect(readAlignable(doc, doc.location.href).business).toEqual({
+      name: 'Dana Reyes',
+      title: 'Acme Plumbing',
+      profile: {
+        id: '42',
+        username: 'austin-tx-acme-plumbing',
+        url: `${AL}/austin-tx/acme-plumbing`,
+      },
+      town: 'austin-tx',
+      pitch: 'We fix leaks fast, and we answer the phone at night.',
+      about: 'Family plumbers since 1990.',
+      customer: {
+        words: 'Homeowners with older houses.',
+        type: 'Consumers',
+        place: 'Austin and Round Rock',
+        tags: ['Homeowners'],
+      },
+      partner: {
+        words: 'Realtors and home inspectors.',
+        type: null,
+        place: null,
+        tags: ['Realtor', 'Home Inspector'],
+      },
+      tags: ['Plumbing', 'Drains'],
+      connect: true,
+      recommend: true,
+      refer: true,
+      message: false,
+    });
+    const found = pageFound(readLooking(doc, doc.location.href, ALIGNABLE));
+    expect(found).toMatchObject({
+      business: true,
+      businessName: true,
+      businessPitch: true,
+      businessPartner: true,
+      businessTags: true,
+      businessMessage: false,
+    });
+    expect(JSON.stringify(found)).not.toMatch(/Realtor|Acme|leaks/);
+  });
+});
+
+describe('Messages', () => {
+  it('reads the conversations down the side, and the one open: who, its box and Send', () => {
+    const doc = page(
+      `${AL}/biz/conversations?_fat=x&with_business_id=42`,
+      `<div data-testid="inbox"><div><div><header><h3>Messages</h3></header>
+        <div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>Sam Lee</div><div>See you Tuesday</div></div></div>
+          <span data-testid="conversationDate">Oct 12</span></div></div>
+        <div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>Pat Kim</div></div></div>
+          <span data-testid="conversationDate">Sep 3</span></div></div></div>
+        <div><div data-testid="channel-header-loaded"><header><div><img alt="" />
+          <a href="/biz/businesses/42?user=5"><div>Dana Reyes</div></a></div></header></div>
+          <div data-testid="full-view-write-message"><div><div contenteditable="true" placeholder="Write a message"></div>
+            <textarea placeholder="Write a message"></textarea></div>
+            <button aria-label="Send" data-testid="messaging-send-external"><svg></svg></button></div></div></div>`,
+    );
+    const read = readAlignable(doc, doc.location.href);
+    expect(read.chats).toEqual([
+      { name: 'Sam Lee', preview: 'See you Tuesday', when: 'Oct 12' },
+      { name: 'Pat Kim', preview: null, when: 'Sep 3' },
+    ]);
+    expect(read.chat).toEqual({
+      name: 'Dana Reyes',
+      profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+      box: true,
+      send: true,
+    });
+  });
+});

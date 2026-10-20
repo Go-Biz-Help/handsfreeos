@@ -78,11 +78,45 @@ export function sectionsIn(outline: string): string[] {
   return [...names];
 }
 
+const upper = (key: string) => `${key[0]!.toUpperCase()}${key.slice(1)}`;
+/** A row's or a read's parts, by their names. */
+const partsOf = (value: unknown): string[] =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).filter((k) => /^[a-z][a-zA-Z]{0,20}$/.test(k))
+    : [];
+/** Whether a part had something: words, a yes, a list with something in it, a number. */
+const filled = (value: unknown): boolean =>
+  Array.isArray(value)
+    ? value.length > 0
+    : typeof value === 'string'
+      ? value.trim() !== ''
+      : typeof value === 'number' ||
+        value === true ||
+        (value !== null && typeof value === 'object');
+
 /** What the readers found on a page: how many of each list, and which parts of a profile. Never what they said. */
 export function pageFound(read: PageRead): Record<string, number | boolean> {
   const found: Record<string, number | boolean> = {};
   for (const [key, value] of Object.entries(read))
     if (Array.isArray(value) && /^[a-z][a-zA-Z]{0,39}$/.test(key)) found[key] = value.length;
+  // A network's own readers' (Alignable's businesses, posts, answers, chats): each list's count, how many of its rows
+  // had each of their parts, and which parts a page's own read had. Never what any of them said.
+  const lists = (read as { readonly found?: Readonly<Record<string, unknown>> }).found;
+  for (const [key, value] of Object.entries(lists ?? {})) {
+    if (!/^[a-z][a-zA-Z]{0,30}$/.test(key)) continue;
+    if (typeof value === 'boolean') found[key] = value;
+    else if (Array.isArray(value)) {
+      found[key] = value.length;
+      for (const part of partsOf(value[0]))
+        found[`${key}${upper(part)}`] = value.filter((row) =>
+          filled((row as Record<string, unknown> | null)?.[part]),
+        ).length;
+    } else if (value && typeof value === 'object') {
+      found[key] = true;
+      for (const part of partsOf(value))
+        found[`${key}${upper(part)}`] = filled((value as Record<string, unknown>)[part]);
+    } else if (value === null) found[key] = false;
+  }
   const profile = (read as { readonly profile?: Record<string, unknown> | null }).profile;
   if (profile && typeof profile === 'object') {
     found.profile = true;

@@ -18,8 +18,8 @@ export interface OutlineSite {
   readonly name: string;
   /** A link on its pages as a URL, or null when it leads anywhere else. */
   readonly url: (href: string, base: string) => URL | null;
-  /** Whether a part of an address is one of its own words, kept as it is. */
-  readonly isPathWord: (part: string) => boolean;
+  /** Whether a part of an address is one of its own words, kept as it is: by itself, or for where it is. */
+  readonly isPathWord: (part: string, at?: number, parts?: readonly string[]) => boolean;
   /** How any other part of an address is hidden: as a whole, by default. */
   readonly maskPart?: (part: string, token: (value: string) => string) => string;
   /** The host its links are on, left out of each link's shape. */
@@ -132,8 +132,8 @@ export class SiteOutliner {
         }
       });
     const path = parts
-      .map((part) =>
-        this.site.isPathWord(part)
+      .map((part, at) =>
+        this.site.isPathWord(part, at, parts)
           ? part
           : this.site.maskPart
             ? this.site.maskPart(part, token)

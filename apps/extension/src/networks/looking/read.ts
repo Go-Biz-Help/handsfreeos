@@ -71,6 +71,10 @@ export function nameOf(element: Element): string {
   return (
     clean(element.getAttribute('aria-label')) ||
     wordsOf(element) ||
+    // A form's own button drawn as an input says what it does by its value: About Us's Save (the owner's Check, 0.66.0).
+    (element.tagName === 'INPUT' && /^(submit|button)$/i.test(element.getAttribute('type') ?? '')
+      ? clean(element.getAttribute('value'))
+      : '') ||
     clean(element.querySelector('svg[aria-label]')?.getAttribute('aria-label')) ||
     clean(element.querySelector('img[alt]')?.getAttribute('alt'))
   );
@@ -172,6 +176,7 @@ export function readLooking(
     notes: [
       `The extension only reads ${site.name} for now: its steps are built from what Check ${site.name} reads.`,
     ],
+    ...(site.readFound ? { found: site.readFound(doc, href) } : {}),
   };
 }
 
@@ -181,7 +186,11 @@ export function outlineSiteOf(site: LookingSite): OutlineSite {
   return {
     name: site.name,
     url: (href, base) => site.url(href, base),
-    isPathWord: (part) => site.pathWords.has(part.toLowerCase()),
+    isPathWord: (part, at, parts) =>
+      site.pathWords.has(part.toLowerCase()) ||
+      (site.pathWordAt !== undefined && at !== undefined && parts !== undefined
+        ? site.pathWordAt(parts, at)
+        : false),
     host: site.host,
     mask,
     // "Name (@name) • Instagram photos and videos": each part between the dots hidden, or kept when it's the network's.

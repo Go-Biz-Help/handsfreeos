@@ -572,6 +572,17 @@ request when opened, so no Check opens it: the first real request shows what it 
 3. **6c, Alignable works** (its parts 1 to 6), built from what 6a sends back, with partners in it: reading its pages,
    noting your steps, its day in the apps, its asks, the runner and Find partners (your town's businesses by the
    playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage last.
+   - **What 6a's Check read** (Chris, 19 Oct 2026): a town opens at its own group (`/groups/<town-st>`), whose posts
+     each have Comment, Like and a Connect of their own; a forum question is a discussion at
+     `/groups/<group>/<question>`, its answers each with Connect, and a box to answer in with Send. A search's results
+     each carry Alignable's id for the business (`result_id`) and a Connect button; My Network's rows link each business
+     by that id, with Message; a chat has a box and Send. Every Connect is a link to `/biz/connection_requests/…`. A
+     business's page shows its Elevator Pitch, My Ideal Customer and **its ideal partner, with tags**: who it says it
+     refers with, Find partners' best clue. My Ideal Customer's editor works; the Elevator Pitch's box over the page was
+     still drawing, and About Us's Save is the form's own submit.
+   - **Part 1, reading** (extension 0.67.0): Alignable's readers for all of these, counted in each of Check's notes,
+     with Requests found in My Network's own menu, the pitch's box waited for, and About Us's Save found. The next
+     Check shows whether the readers read the real pages, and what a Connect link's word is.
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
 

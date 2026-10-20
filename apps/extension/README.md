@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.66.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.67.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -80,7 +80,11 @@ never one that signs out, pays, invites, deletes or changes settings. From 0.66.
 then opens what Alignable's steps and Find partners are built from next: your town (from your business's address), a
 search for businesses, a forum question a page linked to, your connection requests (My Network's Requests) and a chat
 with one of your connections (a connection's Message), writing nothing. Connect isn't opened: its link may send the
-request. Each is built out from what its Check sends back.
+request. Each is built out from what its Check sends back. From 0.67.0 Alignable has readers of its own
+(`src/networks/alignable/read.ts`), built from that Check's outlines: a search's businesses, your connections, the
+posts on a group's page (a town opens at its own group, `/groups/<town-st>`), a forum question's answers and its box,
+a business's page (its pitch, About Us, ideal customer and ideal partner) and Messages. Each of the Check's notes says
+how many of each they found, never what they say, so the next Check shows whether they read the real pages.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script

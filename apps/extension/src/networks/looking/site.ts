@@ -53,6 +53,11 @@ export interface LookingRead {
   readonly boxes: number;
   /** What the person should know about this read. */
   readonly notes: readonly string[];
+  /**
+   * What the network's own readers found on the page (`readFound`): Alignable's businesses, posts, answers and chats.
+   * Each of Check's notes counts them, never says them.
+   */
+  readonly found?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -83,6 +88,8 @@ export interface LookingSite {
   readonly postOf: (url: URL) => string | null;
   /** The parts of its addresses that are its own words (never a name), kept in an outline's links. */
   readonly pathWords: ReadonlySet<string>;
+  /** A part kept for where it is in its address: the word after Alignable's /biz/connection_requests/. */
+  readonly pathWordAt?: (parts: readonly string[], at: number) => boolean;
   /** Its own words on its pages, lower case: kept in an outline, as everything else a person wrote is hidden. */
   readonly words: ReadonlySet<string>;
   /** Its own words in an address's query, kept in an outline beside every network's (tab, type, filter, sort). */
@@ -108,6 +115,8 @@ export interface LookingSite {
     readonly read: (doc: Document, href: string) => ProfileRead;
     readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
   };
+  /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
+  readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;
   /** The steps it looks for, each on the kinds of page it's for (`*`: any of its pages, while they're still learned). */
   readonly looks: Readonly<
     Partial<Record<TryStep, { readonly on: readonly string[]; readonly look: Look }>>

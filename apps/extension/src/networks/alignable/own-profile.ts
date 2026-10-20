@@ -37,7 +37,7 @@ const cut = (text: string | null | undefined, most: number): string | null => {
 };
 
 /** About Us: the words under its heading, never a button's. */
-function aboutUsOf(root: ParentNode): string | null {
+export function aboutUsOf(root: ParentNode): string | null {
   const heading = [...root.querySelectorAll('div, span, h2, h3, h4')].find(
     (el) => el.children.length === 0 && /^about us$/i.test(clean(el.textContent)),
   );
@@ -56,13 +56,15 @@ function aboutUsOf(root: ParentNode): string | null {
 }
 
 /** My Ideal Customer, or the ideal partner: its few words (unless it only says to add some), who, where and tags. */
-function idealOf(root: ParentNode, who: 'customer' | 'partner') {
+export function idealOf(root: ParentNode, who: 'customer' | 'partner') {
   const part = root.querySelector(PART(`ideal-${who}-information`));
   if (!part) return null;
   const words = part.querySelector(PART(`ideal-${who}-add-description`));
   const add = ADD.test(clean(words?.querySelector('button')?.textContent));
+  // On anyone else's page their words are a part of their own (the owner's Check, 0.66.0).
+  const theirs = clean(part.querySelector(PART(`ideal-${who}-description`))?.textContent);
   return {
-    words: add ? null : clean(words?.querySelector('span')?.textContent) || null,
+    words: theirs || (add ? null : clean(words?.querySelector('span')?.textContent) || null),
     type: clean(part.querySelector(PART(`ideal-${who}-type`))?.textContent) || null,
     place: clean(part.querySelector(PART(`ideal-${who}-location`))?.textContent) || null,
     tags: [...part.querySelectorAll(`${PART(`ideal-${who}-tags`)} a`)]
@@ -182,7 +184,14 @@ async function openAndClose(
       ),
       outline: outlineNow(doc, site),
     };
-  const box = opened.matches(BOXES) ? opened : opened.querySelector<HTMLElement>(BOXES);
+  // A box over the page is drawn before what's in it: the Elevator Pitch's was still empty when the owner's Check
+  // looked (0.66.0), so its box is waited for.
+  const box = opened.matches(BOXES)
+    ? opened
+    : await waitFor(
+        () => [...opened.querySelectorAll<HTMLElement>(BOXES)].find((b) => visible(b)) ?? null,
+        5_000,
+      );
   const around = opened.closest('[role="dialog"], dialog, form') ?? opened.parentElement ?? main;
   const save = controlsSaying(around, SAVE, true).length;
   const outline = outlineNow(doc, site);
