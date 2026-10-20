@@ -16,9 +16,9 @@ import { useView } from '@/view-as/state';
 export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
 
 /**
- * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, the AI teammate's test console and quick
- * setup, setting the business up, Changes on this phone, and (test builds) This phone's copy. The call sheet sits
- * over all of them (`startCall`).
+ * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Search everything, the AI teammate's test
+ * console and quick setup, setting the business up, Changes on this phone, and (test builds) This phone's copy. The
+ * call sheet sits over all of them (`startCall`).
  */
 export default function BusinessLayout() {
   const state = useSession();
@@ -67,6 +67,7 @@ function Business({ userId }: { userId: string }) {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ask" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="search" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="ai-test" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="ai-setup" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="setup" options={{ presentation: 'fullScreenModal' }} />

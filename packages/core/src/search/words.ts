@@ -52,6 +52,9 @@ export const SEARCH_WORDS = {
   exact: 'Exact match',
   alsoHas: (q: string) => `Also has ${q} in it`,
   hints: { move: 'move', open: 'open', close: 'close' },
+  /** The best match's buttons, named for screen readers: "Call Dana Smith". */
+  call: (name: string) => `Call ${name}`,
+  text: (name: string) => `Text ${name}`,
 
   // ---- The Search page ----
   resultsFor: (n: number, q: string, capped = false) =>
@@ -74,6 +77,8 @@ export const SEARCH_WORDS = {
   showingOf: (shown: number, total: number) => `Showing ${shown} of ${total}`,
   showMoreOf: (n: number) => `Show ${n} more`,
   sorts: { best: 'Best match', recent: 'Most recent contact', name: 'Name A–Z' },
+  /** All 9 · Leads 5 · Clients 4, over one kind's contacts. */
+  standing: { label: 'Leads or clients', all: 'All', leads: 'Leads', clients: 'Clients' },
   twoShare: (name: string, phone: string) =>
     `Two ${name}s share the number ${phone}. They may be the same person.`,
   twoSharePhone: (name: string) => `Two ${name}s share a number. Same person?`,
@@ -118,7 +123,12 @@ export const SEARCH_WORDS = {
     'You’re offline, so this searched what’s on this phone. Files, messages and money show once you’re back online.',
   onThisPhone: 'On this phone',
   viewingAsOffline: (name: string) => `Searching needs signal while you’re viewing as ${name}.`,
+  /** One kind's page with no signal, for a kind the phone doesn't keep, such as Messages, Money or Files. */
+  needsSignal: (label: string) =>
+    `Searching ${label} needs signal. It runs once you’re back online.`,
   everythingFor: (q: string) => `Search everything for ${quoted(q)}`,
+  /** Leaves the phone's full-screen search. */
+  cancel: 'Cancel',
 
   // ---- Refusals (the API, the web and the phone print the same) ----
   kindGone:
@@ -200,3 +210,26 @@ export function whyLabel(
   if (why.field === 'customer' && (kind === 'notes' || kind === 'forms')) return null;
   return WHY[why.field] ?? null;
 }
+
+/**
+ * A badge beside a hit's title, as both apps draw it: "Lead", "Client", "Archived", "Other mail". Null for a badge
+ * said another way: an invoice's late, due and paid are its line ("6 days overdue", "Paid Sep 30"), and an anonymous
+ * answer's is "Answered by someone who didn’t say who".
+ */
+const BADGES: Readonly<Record<string, string>> = {
+  lead: 'Lead',
+  client: 'Client',
+  archived: 'Archived',
+  done: 'Done',
+  won: 'Won',
+  lost: 'Lost',
+  cancelled: 'Cancelled',
+  void: 'Void',
+  draft: 'Draft',
+  other_mail: 'Other mail',
+  spam: 'Spam',
+  my_mail: 'My mail',
+  voicemail: 'Voicemail',
+  automated: 'Automated',
+};
+export const badgeLabel = (badge: string): string | null => BADGES[badge] ?? null;

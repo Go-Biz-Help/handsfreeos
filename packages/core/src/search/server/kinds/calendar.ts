@@ -7,10 +7,9 @@
  */
 import { sql } from 'drizzle-orm';
 import type { SearchHit } from '../../../schemas/search';
+import { explainAppointment } from '../../explain';
 import { searchHref } from '../../href';
-import type { SearchProbes } from '../../probes';
-import { tierOf } from '../../rank';
-import { fieldHolding, fieldSnippet, hitOf, isoOf, wordsLeft } from '../hit';
+import { hitOf, isoOf } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
 import { LIVE_PERSON, likeAll, RECORD_READS, startsAll } from '../sql';
 
@@ -30,39 +29,13 @@ interface Row extends Record<string, unknown> {
   updated_at: Date;
 }
 
-const why = (field: string, snippet: SearchHit['why']['snippet'] = null): SearchHit['why'] => ({
-  field,
-  label: null,
-  snippet,
-  page: null,
-});
-
-/** Tier and why, in core: an attendee exactly, the title, the place or who's coming, then the notes. */
-function explain(r: Row, p: SearchProbes): Pick<SearchHit, 'tier' | 'exact' | 'why'> {
-  if (r.exact_phone) return { tier: 0, exact: true, why: why('phone') };
-  if (r.exact_email) return { tier: 0, exact: true, why: why('email') };
-  const t = tierOf(r.title, p);
-  if (t) return { tier: t, exact: false, why: why('title') };
-  const field = fieldHolding(wordsLeft([r.title], p), [
-    { field: 'address', text: r.address },
-    { field: 'customer', text: r.attendees },
-    { field: 'note', text: r.notes },
-  ]);
-  if (field === 'address')
-    return { tier: 3, exact: false, why: why('address', fieldSnippet(r.address, p)) };
-  if (field === 'customer')
-    return { tier: 3, exact: false, why: why('customer', fieldSnippet(r.who, p)) };
-  // A visit's notes are words in content (How it works, 4).
-  return { tier: 4, exact: false, why: why('note', fieldSnippet(r.notes, p)) };
-}
-
 function hitFrom(r: Row, plan: SearchPlan): SearchHit {
   return hitOf({
     kind: 'calendar',
     id: r.id,
     title: r.title,
     href: searchHref(plan.workspaceId, { type: 'appointment', id: r.id, day: r.day }),
-    ...explain(r, plan.p),
+    ...explainAppointment(r, plan.p),
     badges: r.status === 'cancelled' ? ['cancelled'] : [],
     at: isoOf(r.starts_at),
     facts: {

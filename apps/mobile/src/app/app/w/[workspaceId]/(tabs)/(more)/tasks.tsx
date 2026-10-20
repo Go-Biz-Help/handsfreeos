@@ -1,5 +1,5 @@
 import { TASK_WORDS, tasksSummary, type TaskOut } from '@hfos/core';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
 import { SectionList, View } from 'react-native';
 
@@ -19,12 +19,14 @@ import { stateOf } from '@/customers/outbox';
 
 /**
  * Tasks, reached from More: the web's own groups — overdue, today, this week, later, no due date — then what was
- * finished lately. The circle completes a task with no signal and the change waits in the queue; the red, blue and
- * quiet due words are core's, worked out where the business is.
+ * finished lately. A search result opens a task here (`?task=`). The circle completes a task with no signal and the
+ * change waits in the queue; the red, blue and quiet due words are core's, worked out where the business is.
  */
 export default function Tasks() {
   const { business, me } = useBusiness();
-  const [scope, setScope] = React.useState<TaskScope>('mine');
+  const params = useLocalSearchParams<{ task?: string }>();
+  // A task a search found (`?task=`) may be anyone's.
+  const [scope, setScope] = React.useState<TaskScope>(params.task ? 'all' : 'mine');
   const [adding, setAdding] = React.useState(false);
   const list = useTasks(scope);
   const members = useMembers();
@@ -75,6 +77,18 @@ export default function Tasks() {
     },
     [business.id],
   );
+
+  // A task a search found (`?task=`) opens as tapping it would, once it's in the copy: its customer, company or lead,
+  // or the list it's in when it's on none of them.
+  const openedTask = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const id = params.task;
+    if (!id || openedTask.current === id) return;
+    const found = [...list.groups.flatMap((g) => g.items), ...list.done].find((t) => t.id === id);
+    if (!found) return;
+    openedTask.current = id;
+    openRecord(found);
+  }, [params.task, list.groups, list.done, openRecord]);
 
   return (
     <Screen title={TASK_WORDS.title} leading="back" testID="tasks" scroll={false}>

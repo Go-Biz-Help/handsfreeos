@@ -14,3 +14,5 @@ export * from './href';
 export * from './dropdown';
 export * from './lines';
 export * from './addon';
+export * from './explain';
+export * from './copy';

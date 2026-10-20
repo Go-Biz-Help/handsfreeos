@@ -6,24 +6,14 @@
  */
 import { sql } from 'drizzle-orm';
 import { personIsClient } from '../../../crm/clients';
-import { otherAddressesOf } from '../../../crm/contact-points';
 import { formatPhone } from '../../../crm/phone';
 import { fullName } from '../../../crm/records';
 import type { SearchHit } from '../../../schemas/search';
+import { explainContact } from '../../explain';
 import { searchHref } from '../../href';
-import { escapeLike, type SearchProbes } from '../../probes';
-import { tierOf } from '../../rank';
+import { escapeLike } from '../../probes';
 import { SEARCH_WORDS } from '../../words';
-import {
-  digitsIn,
-  fieldHolding,
-  fieldSnippet,
-  hitOf,
-  holdsAny,
-  isoOf,
-  listedValues,
-  wordsLeft,
-} from '../hit';
+import { fieldSnippet, hitOf, holdsAny, isoOf } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
 import {
   archivedRule,
@@ -60,54 +50,6 @@ interface Row extends Record<string, unknown> {
   lc_at: Date | null;
 }
 
-/** Tier and why for one row, worked out from which arm matched. */
-function explain(r: Row, p: SearchProbes): Pick<SearchHit, 'tier' | 'exact' | 'why'> {
-  const why = (field: string, snippet: SearchHit['why']['snippet'] = null) => ({
-    field,
-    label: null,
-    snippet,
-    page: null,
-  });
-  const phones = [r.phone_e164, ...listedValues(r.other_phones, 'phone')];
-  const emails = [
-    r.email?.toLowerCase() ?? null,
-    ...listedValues(r.other_emails, 'email').map((e) => e.toLowerCase()),
-  ];
-  if (p.phoneE164 && phones.includes(p.phoneE164))
-    return { tier: 0, exact: true, why: why('phone') };
-  if (p.email && emails.includes(p.email)) return { tier: 0, exact: true, why: why('email') };
-  const name = fullName(r.first_name, r.last_name);
-  const t = tierOf(name, p);
-  if (t === 1) return { tier: 1, exact: false, why: why('name') };
-  if (p.domain && emails.some((e) => e?.endsWith(`@${p.domain}`)))
-    return { tier: 1, exact: false, why: why('email', fieldSnippet(r.email, p)) };
-  if (t === 2) return { tier: 2, exact: false, why: why('name') };
-  if (p.digits && [...phones, r.phone_alt].some((x) => digitsIn(x).includes(p.digits!)))
-    return { tier: 3, exact: false, why: why('phone') };
-  // Tier 3: the field holding the words the name doesn't.
-  const address = [r.address_line1, r.address_line2, r.city, r.state, r.postal_code]
-    .filter(Boolean)
-    .join(', ');
-  const otherAddresses = otherAddressesOf(r.other_addresses)
-    .map((a) => [a.line1, a.line2, a.city, a.state, a.postalCode].filter(Boolean).join(', '))
-    .join(' ');
-  const field = fieldHolding(wordsLeft([name], p), [
-    { field: 'address', text: address },
-    { field: 'address', text: otherAddresses },
-    { field: 'company', text: r.company_name },
-    { field: 'email', text: emails.filter(Boolean).join(' ') },
-    { field: 'field', text: r.custom_text },
-    { field: 'phone', text: [...phones, r.phone_alt].filter(Boolean).join(' ') },
-  ]);
-  if (field === 'address')
-    return { tier: 3, exact: false, why: why('address', fieldSnippet(address, p)) };
-  if (field === 'company')
-    return { tier: 3, exact: false, why: why('company', fieldSnippet(r.company_name, p)) };
-  if (field === 'email')
-    return { tier: 3, exact: false, why: why('email', fieldSnippet(r.email, p)) };
-  return { tier: 3, exact: false, why: why(field ?? 'name') };
-}
-
 function hitFrom(r: Row, plan: SearchPlan): SearchHit {
   const name = fullName(r.first_name, r.last_name);
   const lastContact =
@@ -119,7 +61,8 @@ function hitFrom(r: Row, plan: SearchPlan): SearchHit {
     id: r.id,
     title: name || SEARCH_WORDS.noName,
     href: searchHref(plan.workspaceId, { type: 'person', id: r.id }),
-    ...explain(r, plan.p),
+    // Why it matched is core's, the same on the phone (search/explain.ts).
+    ...explainContact(r, plan.p),
     badges: [
       ...(r.archived_at ? ['archived'] : []),
       ...(r.client === undefined ? [] : [r.client ? 'client' : 'lead']),

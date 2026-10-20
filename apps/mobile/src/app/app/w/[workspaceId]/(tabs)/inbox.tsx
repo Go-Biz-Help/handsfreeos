@@ -29,6 +29,7 @@ import {
 import { ConversationRow } from '@/components/inbox/conversation-row';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
+import { FilterChip } from '@/components/ui/filter-chip';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -307,38 +308,5 @@ export default function Inbox() {
         }
       />
     </Screen>
-  );
-}
-
-function FilterChip({
-  label,
-  on,
-  onPress,
-  icon,
-  testID,
-}: {
-  label: string;
-  on: boolean;
-  onPress: () => void;
-  icon?: React.ReactNode;
-  testID?: string;
-}) {
-  return (
-    <Pressable
-      role="button"
-      accessibilityState={{ selected: on }}
-      onPress={onPress}
-      hitSlop={{ top: 6, bottom: 6 }}
-      testID={testID}
-      className={cn(
-        'h-8 flex-row items-center gap-1.5 rounded-full border px-3',
-        on ? 'border-accent-soft-2 bg-accent-soft' : 'border-border-strong bg-card',
-      )}
-    >
-      {icon}
-      <Text className={cn('text-[13.5px] font-medium', on ? 'text-accent-text' : 'text-text-2')}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }

@@ -43,7 +43,7 @@ import { useLens } from '@/view-as/use-lens';
  * 20261027000400).
  */
 export default function PersonScreen() {
-  const { personId } = useLocalSearchParams<{ personId: string }>();
+  const { personId, compose } = useLocalSearchParams<{ personId: string; compose?: string }>();
   const { business } = useBusiness();
   const data = useRecord('person', personId);
   const person = data.person;
@@ -61,10 +61,10 @@ export default function PersonScreen() {
   const onSheet = (which: 'note' | 'tags' | 'task' | 'photo', open: boolean) =>
     setSheets((all) => ({ ...all, [which]: open }));
 
-  const { data: allConversations } = useQuery<{ id: string; channel: string }>(
-    PERSON_CONVERSATIONS_SQL,
-    [business.id, personId],
-  );
+  const { data: allConversations, isLoading: threadsLoading } = useQuery<{
+    id: string;
+    channel: string;
+  }>(PERSON_CONVERSATIONS_SQL, [business.id, personId]);
   // Viewing as a teammate (20261018000100): Text and Email open only threads they see.
   const lens = useLens();
   const conversations = allConversations.filter((c) => sees(lens?.conversations, c.id));
@@ -84,6 +84,15 @@ export default function PersonScreen() {
     }
     router.push(businessHref(business.id, `inbox/${id}`) as Href);
   };
+
+  // Text, from a search result (`?compose=sms`): their text thread, as the Text button opens it, once.
+  const composeOnce = React.useRef(false);
+  React.useEffect(() => {
+    if (composeOnce.current || compose !== 'sms' || !person || threadsLoading) return;
+    composeOnce.current = true;
+    openThread('sms');
+    // Only when the address asks for it and the threads have been read.
+  }, [compose, person, threadsLoading]);
 
   if (!person)
     return (

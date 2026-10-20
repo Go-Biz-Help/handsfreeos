@@ -4,10 +4,9 @@
  */
 import { sql } from 'drizzle-orm';
 import type { SearchHit } from '../../../schemas/search';
+import { explainLead } from '../../explain';
 import { searchHref } from '../../href';
-import type { SearchProbes } from '../../probes';
-import { tierOf } from '../../rank';
-import { fieldSnippet, hitOf, holdsAll, isoOf } from '../hit';
+import { hitOf, isoOf } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
 import { archivedRule, folded, LIVE_PERSON, likeAll, startsAll } from '../sql';
 
@@ -26,30 +25,6 @@ interface Row extends Record<string, unknown> {
   owner_email: string | null;
 }
 
-function explain(r: Row, p: SearchProbes): Pick<SearchHit, 'tier' | 'exact' | 'why'> {
-  const t = tierOf(r.title, p);
-  if (t)
-    return {
-      tier: t,
-      exact: false,
-      why: { field: 'title', label: null, snippet: null, page: null },
-    };
-  const onCompany = !holdsAll([r.person_name], p) && holdsAll([r.company_name], p);
-  const who = onCompany
-    ? r.company_name
-    : [r.person_name, r.company_name].filter(Boolean).join(' · ');
-  return {
-    tier: 3,
-    exact: false,
-    why: {
-      field: onCompany ? 'company' : 'customer',
-      label: null,
-      snippet: fieldSnippet(who, p),
-      page: null,
-    },
-  };
-}
-
 function hitFrom(r: Row, plan: SearchPlan): SearchHit {
   const customer = r.person_name?.trim() || r.company_name || null;
   return hitOf({
@@ -57,7 +32,7 @@ function hitFrom(r: Row, plan: SearchPlan): SearchHit {
     id: r.id,
     title: r.title,
     href: searchHref(plan.workspaceId, { type: 'lead', id: r.id }),
-    ...explain(r, plan.p),
+    ...explainLead(r, plan.p),
     badges: [...(r.archived_at ? ['archived'] : []), ...(r.status === 'open' ? [] : [r.status])],
     at: isoOf(r.updated_at),
     amount: { cents: Number(r.value_cents ?? 0), currency: 'USD' },

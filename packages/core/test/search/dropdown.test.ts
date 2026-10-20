@@ -104,6 +104,10 @@ describe('the dropdown', () => {
     ]);
     expect(d.chips[0]).toMatchObject({ label: 'All', count: 9 });
     expect(d.line).toBeNull();
+    // Every group at once (the phone's See all results): each group's rows as asked, however many groups show.
+    const all = dropdownOf(a, null, { maxGroups: 40, maxRows: 400, perGroup: 5 });
+    expect(all.groups.map((g) => g.rows.length)).toEqual([2, 1, 1, 1, 1, 1, 1]);
+    expect(all.alsoFound).toEqual([]);
   });
 
   it('puts exact matches under Exact match, with no best match, when a number was typed', () => {
@@ -242,5 +246,7 @@ describe('the dropdown', () => {
     expect(groupLabel({ kind: 'contacts', label: null })).toBe('Contacts');
     expect(groupLabel({ kind: 'record.pets', label: 'Pets' })).toBe('Pets');
     expect(groupLabel({ kind: 'bin', label: null })).toBe('Deleted bin');
+    // An object's own keys are no kind of core's.
+    expect(groupLabel({ kind: 'constructor', label: null })).toBe('constructor');
   });
 });

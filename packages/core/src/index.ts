@@ -29,6 +29,8 @@ export * from './crm/synced';
 export * from './crm/contact-points';
 export * from './crm/person-merge';
 export * from './crm/picked-contact';
+// The search text a phone works out for itself: its pickers and its offline search.
+export * from './crm/search-text';
 // Fields a business invents, and the kinds of records and relationships it makes up (0101).
 export * from './crm/custom-fields';
 export * from './relationships/index';
