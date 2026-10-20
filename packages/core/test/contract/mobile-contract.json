@@ -12,7 +12,9 @@
             "maxLength": 254
           }
         },
-        "required": ["confirmEmail"]
+        "required": [
+          "confirmEmail"
+        ]
       }
     },
     "activity.log": {
@@ -30,7 +32,11 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["note", "call", "visit"]
+            "enum": [
+              "note",
+              "call",
+              "visit"
+            ]
           },
           "body": {
             "type": "string",
@@ -86,7 +92,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "kind", "body"]
+        "required": [
+          "workspaceId",
+          "kind",
+          "body"
+        ]
       }
     },
     "addon_alert.acknowledge": {
@@ -103,7 +113,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "alertId"]
+        "required": [
+          "workspaceId",
+          "alertId"
+        ]
       }
     },
     "addon.save_settings": {
@@ -136,7 +149,10 @@
             }
           }
         },
-        "required": ["workspaceId", "addonId"]
+        "required": [
+          "workspaceId",
+          "addonId"
+        ]
       }
     },
     "ai_setup.finish": {
@@ -157,7 +173,13 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["reply", "answer", "book", "qualify", "follow_up"]
+                  "enum": [
+                    "reply",
+                    "answer",
+                    "book",
+                    "qualify",
+                    "follow_up"
+                  ]
                 }
               },
               "description": {
@@ -207,7 +229,9 @@
                       ]
                     }
                   },
-                  "required": ["name"]
+                  "required": [
+                    "name"
+                  ]
                 }
               },
               "area": {
@@ -260,13 +284,21 @@
                       "type": "string"
                     }
                   },
-                  "required": ["day", "start", "end"]
+                  "required": [
+                    "day",
+                    "start",
+                    "end"
+                  ]
                 }
               },
               "answerWhen": {
                 "default": "always",
                 "type": "string",
-                "enum": ["always", "after_hours", "custom"]
+                "enum": [
+                  "always",
+                  "after_hours",
+                  "custom"
+                ]
               },
               "customHours": {
                 "default": [
@@ -313,7 +345,11 @@
                       "type": "string"
                     }
                   },
-                  "required": ["day", "start", "end"]
+                  "required": [
+                    "day",
+                    "start",
+                    "end"
+                  ]
                 }
               },
               "facts": {
@@ -325,7 +361,10 @@
                 },
                 "additionalProperties": {
                   "type": "string",
-                  "enum": ["yes", "no"]
+                  "enum": [
+                    "yes",
+                    "no"
+                  ]
                 }
               },
               "name": {
@@ -337,12 +376,20 @@
               "disclosure": {
                 "default": "first_message",
                 "type": "string",
-                "enum": ["first_message", "when_asked"]
+                "enum": [
+                  "first_message",
+                  "when_asked"
+                ]
               },
               "tone": {
                 "default": "friendly",
                 "type": "string",
-                "enum": ["friendly", "professional", "short", "keep"]
+                "enum": [
+                  "friendly",
+                  "professional",
+                  "short",
+                  "keep"
+                ]
               },
               "allowPrices": {
                 "default": false,
@@ -366,7 +413,10 @@
                       "maxLength": 5000
                     }
                   },
-                  "required": ["question", "answer"]
+                  "required": [
+                    "question",
+                    "answer"
+                  ]
                 }
               },
               "keepFindings": {
@@ -407,7 +457,13 @@
                     "kind": {
                       "default": "text",
                       "type": "string",
-                      "enum": ["text", "choice", "yes_no", "number", "file"]
+                      "enum": [
+                        "text",
+                        "choice",
+                        "yes_no",
+                        "number",
+                        "file"
+                      ]
                     },
                     "options": {
                       "default": [],
@@ -439,11 +495,17 @@
                         },
                         "below": {
                           "default": null,
-                          "type": ["number", "null"]
+                          "type": [
+                            "number",
+                            "null"
+                          ]
                         },
                         "above": {
                           "default": null,
-                          "type": ["number", "null"]
+                          "type": [
+                            "number",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -460,7 +522,9 @@
                                   "const": "admins"
                                 }
                               },
-                              "required": ["kind"]
+                              "required": [
+                                "kind"
+                              ]
                             },
                             {
                               "type": "object",
@@ -487,14 +551,19 @@
                                             "pattern": "^[a-z][a-z0-9_]{0,59}$"
                                           }
                                         },
-                                        "required": ["$ph"],
+                                        "required": [
+                                          "$ph"
+                                        ],
                                         "additionalProperties": false
                                       }
                                     ]
                                   }
                                 }
                               },
-                              "required": ["kind", "userIds"]
+                              "required": [
+                                "kind",
+                                "userIds"
+                              ]
                             },
                             {
                               "type": "object",
@@ -504,7 +573,9 @@
                                   "const": "lead_assignee"
                                 }
                               },
-                              "required": ["kind"]
+                              "required": [
+                                "kind"
+                              ]
                             },
                             {
                               "type": "object",
@@ -514,7 +585,9 @@
                                   "const": "person_owner"
                                 }
                               },
-                              "required": ["kind"]
+                              "required": [
+                                "kind"
+                              ]
                             }
                           ]
                         },
@@ -524,7 +597,10 @@
                       ]
                     }
                   },
-                  "required": ["id", "question"]
+                  "required": [
+                    "id",
+                    "question"
+                  ]
                 }
               },
               "chat": {
@@ -550,7 +626,11 @@
             "maxLength": 300
           }
         },
-        "required": ["workspaceId", "answers", "baseRevision"]
+        "required": [
+          "workspaceId",
+          "answers",
+          "baseRevision"
+        ]
       }
     },
     "ai_setup.save": {
@@ -588,7 +668,13 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["reply", "answer", "book", "qualify", "follow_up"]
+                  "enum": [
+                    "reply",
+                    "answer",
+                    "book",
+                    "qualify",
+                    "follow_up"
+                  ]
                 }
               },
               "description": {
@@ -638,7 +724,9 @@
                       ]
                     }
                   },
-                  "required": ["name"]
+                  "required": [
+                    "name"
+                  ]
                 }
               },
               "area": {
@@ -691,13 +779,21 @@
                       "type": "string"
                     }
                   },
-                  "required": ["day", "start", "end"]
+                  "required": [
+                    "day",
+                    "start",
+                    "end"
+                  ]
                 }
               },
               "answerWhen": {
                 "default": "always",
                 "type": "string",
-                "enum": ["always", "after_hours", "custom"]
+                "enum": [
+                  "always",
+                  "after_hours",
+                  "custom"
+                ]
               },
               "customHours": {
                 "default": [
@@ -744,7 +840,11 @@
                       "type": "string"
                     }
                   },
-                  "required": ["day", "start", "end"]
+                  "required": [
+                    "day",
+                    "start",
+                    "end"
+                  ]
                 }
               },
               "facts": {
@@ -756,7 +856,10 @@
                 },
                 "additionalProperties": {
                   "type": "string",
-                  "enum": ["yes", "no"]
+                  "enum": [
+                    "yes",
+                    "no"
+                  ]
                 }
               },
               "name": {
@@ -768,12 +871,20 @@
               "disclosure": {
                 "default": "first_message",
                 "type": "string",
-                "enum": ["first_message", "when_asked"]
+                "enum": [
+                  "first_message",
+                  "when_asked"
+                ]
               },
               "tone": {
                 "default": "friendly",
                 "type": "string",
-                "enum": ["friendly", "professional", "short", "keep"]
+                "enum": [
+                  "friendly",
+                  "professional",
+                  "short",
+                  "keep"
+                ]
               },
               "allowPrices": {
                 "default": false,
@@ -797,7 +908,10 @@
                       "maxLength": 5000
                     }
                   },
-                  "required": ["question", "answer"]
+                  "required": [
+                    "question",
+                    "answer"
+                  ]
                 }
               },
               "keepFindings": {
@@ -838,7 +952,13 @@
                     "kind": {
                       "default": "text",
                       "type": "string",
-                      "enum": ["text", "choice", "yes_no", "number", "file"]
+                      "enum": [
+                        "text",
+                        "choice",
+                        "yes_no",
+                        "number",
+                        "file"
+                      ]
                     },
                     "options": {
                       "default": [],
@@ -870,11 +990,17 @@
                         },
                         "below": {
                           "default": null,
-                          "type": ["number", "null"]
+                          "type": [
+                            "number",
+                            "null"
+                          ]
                         },
                         "above": {
                           "default": null,
-                          "type": ["number", "null"]
+                          "type": [
+                            "number",
+                            "null"
+                          ]
                         }
                       }
                     },
@@ -891,7 +1017,9 @@
                                   "const": "admins"
                                 }
                               },
-                              "required": ["kind"]
+                              "required": [
+                                "kind"
+                              ]
                             },
                             {
                               "type": "object",
@@ -918,14 +1046,19 @@
                                             "pattern": "^[a-z][a-z0-9_]{0,59}$"
                                           }
                                         },
-                                        "required": ["$ph"],
+                                        "required": [
+                                          "$ph"
+                                        ],
                                         "additionalProperties": false
                                       }
                                     ]
                                   }
                                 }
                               },
-                              "required": ["kind", "userIds"]
+                              "required": [
+                                "kind",
+                                "userIds"
+                              ]
                             },
                             {
                               "type": "object",
@@ -935,7 +1068,9 @@
                                   "const": "lead_assignee"
                                 }
                               },
-                              "required": ["kind"]
+                              "required": [
+                                "kind"
+                              ]
                             },
                             {
                               "type": "object",
@@ -945,7 +1080,9 @@
                                   "const": "person_owner"
                                 }
                               },
-                              "required": ["kind"]
+                              "required": [
+                                "kind"
+                              ]
                             }
                           ]
                         },
@@ -955,7 +1092,10 @@
                       ]
                     }
                   },
-                  "required": ["id", "question"]
+                  "required": [
+                    "id",
+                    "question"
+                  ]
                 }
               },
               "chat": {
@@ -1118,7 +1258,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "step", "answers"]
+        "required": [
+          "workspaceId",
+          "step",
+          "answers"
+        ]
       }
     },
     "ai_teammate.answer_feedback": {
@@ -1140,7 +1284,11 @@
             "maxLength": 300
           }
         },
-        "required": ["workspaceId", "feedbackId", "answer"]
+        "required": [
+          "workspaceId",
+          "feedbackId",
+          "answer"
+        ]
       }
     },
     "ai_teammate.decide_draft": {
@@ -1160,7 +1308,10 @@
           },
           "decision": {
             "type": "string",
-            "enum": ["approve", "reject"]
+            "enum": [
+              "approve",
+              "reject"
+            ]
           },
           "edits": {
             "type": "object",
@@ -1182,7 +1333,11 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "draftId", "decision"]
+        "required": [
+          "workspaceId",
+          "draftId",
+          "decision"
+        ]
       }
     },
     "ai_teammate.give_feedback": {
@@ -1204,7 +1359,10 @@
           },
           "rating": {
             "type": "string",
-            "enum": ["good", "bad"]
+            "enum": [
+              "good",
+              "bad"
+            ]
           },
           "betterReply": {
             "anyOf": [
@@ -1240,7 +1398,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "rating"]
+        "required": [
+          "workspaceId",
+          "rating"
+        ]
       }
     },
     "ai_teammate.set_status": {
@@ -1258,10 +1419,18 @@
           },
           "status": {
             "type": "string",
-            "enum": ["off", "training", "automatic"]
+            "enum": [
+              "off",
+              "training",
+              "automatic"
+            ]
           }
         },
-        "required": ["workspaceId", "teammateId", "status"]
+        "required": [
+          "workspaceId",
+          "teammateId",
+          "status"
+        ]
       }
     },
     "appointment.cancel": {
@@ -1295,7 +1464,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "appointmentId"]
+        "required": [
+          "workspaceId",
+          "appointmentId"
+        ]
       }
     },
     "appointment.create": {
@@ -1383,7 +1555,12 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["customer_address", "business", "virtual", "phone"]
+                    "enum": [
+                      "customer_address",
+                      "business",
+                      "virtual",
+                      "phone"
+                    ]
                   },
                   {
                     "type": "null"
@@ -1432,7 +1609,11 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["none", "google_meet", "zoom"]
+                    "enum": [
+                      "none",
+                      "google_meet",
+                      "zoom"
+                    ]
                   },
                   {
                     "type": "null"
@@ -1517,7 +1698,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "calendarId", "startsAt"]
+        "required": [
+          "workspaceId",
+          "calendarId",
+          "startsAt"
+        ]
       }
     },
     "appointment.reschedule": {
@@ -1553,7 +1738,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "appointmentId", "startsAt"]
+        "required": [
+          "workspaceId",
+          "appointmentId",
+          "startsAt"
+        ]
       }
     },
     "appointment.set_status": {
@@ -1571,10 +1760,17 @@
           },
           "status": {
             "type": "string",
-            "enum": ["completed", "no_show"]
+            "enum": [
+              "completed",
+              "no_show"
+            ]
           }
         },
-        "required": ["workspaceId", "appointmentId", "status"]
+        "required": [
+          "workspaceId",
+          "appointmentId",
+          "status"
+        ]
       }
     },
     "appointment.still_going": {
@@ -1591,7 +1787,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "appointmentId"]
+        "required": [
+          "workspaceId",
+          "appointmentId"
+        ]
       }
     },
     "appointment.update": {
@@ -1631,7 +1830,12 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["customer_address", "business", "virtual", "phone"]
+                    "enum": [
+                      "customer_address",
+                      "business",
+                      "virtual",
+                      "phone"
+                    ]
                   },
                   {
                     "type": "null"
@@ -1680,7 +1884,11 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["none", "google_meet", "zoom"]
+                    "enum": [
+                      "none",
+                      "google_meet",
+                      "zoom"
+                    ]
                   },
                   {
                     "type": "null"
@@ -1815,7 +2023,10 @@
             }
           }
         },
-        "required": ["workspaceId", "appointmentId"]
+        "required": [
+          "workspaceId",
+          "appointmentId"
+        ]
       }
     },
     "assistant.consent": {
@@ -1829,7 +2040,9 @@
             "maximum": 1000
           }
         },
-        "required": ["version"]
+        "required": [
+          "version"
+        ]
       }
     },
     "attendee.confirm": {
@@ -1850,7 +2063,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "attendeeId"]
+        "required": [
+          "workspaceId",
+          "attendeeId"
+        ]
       }
     },
     "attention.assign": {
@@ -1878,7 +2094,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "itemId", "assigneeUserId"]
+        "required": [
+          "workspaceId",
+          "itemId",
+          "assigneeUserId"
+        ]
       }
     },
     "attention.cancel_auto": {
@@ -1895,7 +2115,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "itemId"]
+        "required": [
+          "workspaceId",
+          "itemId"
+        ]
       }
     },
     "attention.dismiss": {
@@ -1923,7 +2146,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "itemId"]
+        "required": [
+          "workspaceId",
+          "itemId"
+        ]
       }
     },
     "attention.let_handle": {
@@ -1943,7 +2169,11 @@
           },
           "action": {
             "type": "string",
-            "enum": ["hand_to_ai", "reply", "set_next_action"]
+            "enum": [
+              "hand_to_ai",
+              "reply",
+              "set_next_action"
+            ]
           },
           "body": {
             "type": "string",
@@ -1952,7 +2182,14 @@
           },
           "channel": {
             "type": "string",
-            "enum": ["sms", "email", "chat", "portal", "messenger", "instagram"]
+            "enum": [
+              "sms",
+              "email",
+              "chat",
+              "portal",
+              "messenger",
+              "instagram"
+            ]
           },
           "subject": {
             "type": "string",
@@ -1979,7 +2216,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "itemId"]
+        "required": [
+          "workspaceId",
+          "itemId"
+        ]
       }
     },
     "attention.restore": {
@@ -1996,7 +2236,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "itemId"]
+        "required": [
+          "workspaceId",
+          "itemId"
+        ]
       }
     },
     "attention.snooze": {
@@ -2017,7 +2260,11 @@
             "format": "date-time"
           }
         },
-        "required": ["workspaceId", "itemId", "until"]
+        "required": [
+          "workspaceId",
+          "itemId",
+          "until"
+        ]
       }
     },
     "attention.unsnooze": {
@@ -2034,7 +2281,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "itemId"]
+        "required": [
+          "workspaceId",
+          "itemId"
+        ]
       }
     },
     "call.cancel_connect": {
@@ -2051,7 +2301,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "callId"]
+        "required": [
+          "workspaceId",
+          "callId"
+        ]
       }
     },
     "call.connect_me": {
@@ -2077,7 +2330,9 @@
             "maxLength": 40
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "company.archive": {
@@ -2098,7 +2353,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "companyId"]
+        "required": [
+          "workspaceId",
+          "companyId"
+        ]
       }
     },
     "company.create": {
@@ -2239,7 +2497,9 @@
                   ]
                 }
               },
-              "required": ["email"]
+              "required": [
+                "email"
+              ]
             }
           },
           "otherPhones": {
@@ -2264,7 +2524,9 @@
                   ]
                 }
               },
-              "required": ["phone"]
+              "required": [
+                "phone"
+              ]
             }
           },
           "otherAddresses": {
@@ -2402,7 +2664,10 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["workspaceId", "name"]
+        "required": [
+          "workspaceId",
+          "name"
+        ]
       }
     },
     "company.restore": {
@@ -2419,7 +2684,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "companyId"]
+        "required": [
+          "workspaceId",
+          "companyId"
+        ]
       }
     },
     "company.update": {
@@ -2560,7 +2828,9 @@
                   ]
                 }
               },
-              "required": ["email"]
+              "required": [
+                "email"
+              ]
             }
           },
           "otherPhones": {
@@ -2585,7 +2855,9 @@
                   ]
                 }
               },
-              "required": ["phone"]
+              "required": [
+                "phone"
+              ]
             }
           },
           "otherAddresses": {
@@ -2909,7 +3181,10 @@
             }
           }
         },
-        "required": ["workspaceId", "companyId"]
+        "required": [
+          "workspaceId",
+          "companyId"
+        ]
       }
     },
     "conversation.archive": {
@@ -2926,7 +3201,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.assign": {
@@ -2954,7 +3232,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "conversationId", "assigneeUserId"]
+        "required": [
+          "workspaceId",
+          "conversationId",
+          "assigneeUserId"
+        ]
       }
     },
     "conversation.close": {
@@ -2971,7 +3253,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.close_all": {
@@ -2988,7 +3273,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.hand_to_ai": {
@@ -3007,7 +3295,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.link_person": {
@@ -3028,7 +3319,11 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId", "personId"]
+        "required": [
+          "workspaceId",
+          "conversationId",
+          "personId"
+        ]
       }
     },
     "conversation.mark_read": {
@@ -3045,7 +3340,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.mark_unread": {
@@ -3062,7 +3360,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.move": {
@@ -3080,14 +3381,22 @@
           },
           "folder": {
             "type": "string",
-            "enum": ["inbox", "other", "spam"]
+            "enum": [
+              "inbox",
+              "other",
+              "spam"
+            ]
           },
           "remember": {
             "default": false,
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "conversationId", "folder"]
+        "required": [
+          "workspaceId",
+          "conversationId",
+          "folder"
+        ]
       }
     },
     "conversation.open": {
@@ -3106,7 +3415,10 @@
           "channel": {
             "default": "sms",
             "type": "string",
-            "enum": ["sms", "email"]
+            "enum": [
+              "sms",
+              "email"
+            ]
           },
           "to": {
             "type": "string",
@@ -3114,7 +3426,10 @@
             "maxLength": 254
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "conversation.reopen": {
@@ -3131,7 +3446,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.restore": {
@@ -3148,7 +3466,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.share": {
@@ -3165,7 +3486,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "conversation.snooze": {
@@ -3186,7 +3510,11 @@
             "format": "date-time"
           }
         },
-        "required": ["workspaceId", "conversationId", "until"]
+        "required": [
+          "workspaceId",
+          "conversationId",
+          "until"
+        ]
       }
     },
     "conversation.take_over": {
@@ -3203,7 +3531,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "conversationId"]
+        "required": [
+          "workspaceId",
+          "conversationId"
+        ]
       }
     },
     "estimate.create": {
@@ -3327,7 +3658,11 @@
                   "maximum": 100000000000
                 }
               },
-              "required": ["name", "quantity", "unitPriceCents"]
+              "required": [
+                "name",
+                "quantity",
+                "unitPriceCents"
+              ]
             }
           },
           "discount": {
@@ -3336,7 +3671,11 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": ["none", "percent", "amount"]
+                "enum": [
+                  "none",
+                  "percent",
+                  "amount"
+                ]
               },
               "percentBp": {
                 "type": "integer",
@@ -3356,7 +3695,11 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": ["none", "percent", "amount"]
+                "enum": [
+                  "none",
+                  "percent",
+                  "amount"
+                ]
               },
               "percentBp": {
                 "type": "integer",
@@ -3382,7 +3725,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "estimate.send": {
@@ -3401,12 +3747,17 @@
             "format": "uuid"
           },
           "channels": {
-            "default": ["email"],
+            "default": [
+              "email"
+            ],
             "maxItems": 2,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["sms", "email"]
+              "enum": [
+                "sms",
+                "email"
+              ]
             }
           },
           "message": {
@@ -3422,7 +3773,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "estimateId"]
+        "required": [
+          "workspaceId",
+          "estimateId"
+        ]
       }
     },
     "estimate.update": {
@@ -3550,7 +3904,11 @@
                   "maximum": 100000000000
                 }
               },
-              "required": ["name", "quantity", "unitPriceCents"]
+              "required": [
+                "name",
+                "quantity",
+                "unitPriceCents"
+              ]
             }
           },
           "discount": {
@@ -3559,7 +3917,11 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": ["none", "percent", "amount"]
+                "enum": [
+                  "none",
+                  "percent",
+                  "amount"
+                ]
               },
               "percentBp": {
                 "type": "integer",
@@ -3579,7 +3941,11 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": ["none", "percent", "amount"]
+                "enum": [
+                  "none",
+                  "percent",
+                  "amount"
+                ]
               },
               "percentBp": {
                 "type": "integer",
@@ -3610,7 +3976,12 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["workspaceId", "estimateId", "personId", "baseRevision"]
+        "required": [
+          "workspaceId",
+          "estimateId",
+          "personId",
+          "baseRevision"
+        ]
       }
     },
     "extension_sign_in.answer": {
@@ -3635,7 +4006,10 @@
             ]
           }
         },
-        "required": ["requestId", "pick"]
+        "required": [
+          "requestId",
+          "pick"
+        ]
       }
     },
     "file.begin_upload": {
@@ -3653,7 +4027,12 @@
           },
           "recordType": {
             "type": "string",
-            "enum": ["person", "company", "lead", "custom_record"]
+            "enum": [
+              "person",
+              "company",
+              "lead",
+              "custom_record"
+            ]
           },
           "recordId": {
             "type": "string",
@@ -3690,7 +4069,14 @@
             "maximum": 26214400
           }
         },
-        "required": ["workspaceId", "recordType", "recordId", "name", "mimeType", "sizeBytes"]
+        "required": [
+          "workspaceId",
+          "recordType",
+          "recordId",
+          "name",
+          "mimeType",
+          "sizeBytes"
+        ]
       }
     },
     "file.confirm": {
@@ -3707,7 +4093,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "fileId"]
+        "required": [
+          "workspaceId",
+          "fileId"
+        ]
       }
     },
     "form_response.delete": {
@@ -3724,7 +4113,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "responseId"]
+        "required": [
+          "workspaceId",
+          "responseId"
+        ]
       }
     },
     "form_response.record": {
@@ -3757,7 +4149,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "formId", "answers"]
+        "required": [
+          "workspaceId",
+          "formId",
+          "answers"
+        ]
       }
     },
     "invoice.create": {
@@ -3881,7 +4277,11 @@
                   "maximum": 100000000000
                 }
               },
-              "required": ["name", "quantity", "unitPriceCents"]
+              "required": [
+                "name",
+                "quantity",
+                "unitPriceCents"
+              ]
             }
           },
           "discount": {
@@ -3890,7 +4290,11 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": ["none", "percent", "amount"]
+                "enum": [
+                  "none",
+                  "percent",
+                  "amount"
+                ]
               },
               "percentBp": {
                 "type": "integer",
@@ -3907,7 +4311,14 @@
           "purpose": {
             "default": "standard",
             "type": "string",
-            "enum": ["standard", "deposit", "balance", "setup_fee", "subscription", "quick"]
+            "enum": [
+              "standard",
+              "deposit",
+              "balance",
+              "setup_fee",
+              "subscription",
+              "quick"
+            ]
           },
           "origin": {
             "default": "staff",
@@ -3990,7 +4401,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "invoice.record_cash_payment": {
@@ -4014,7 +4428,11 @@
           "method": {
             "default": "cash",
             "type": "string",
-            "enum": ["cash", "check", "other"]
+            "enum": [
+              "cash",
+              "check",
+              "other"
+            ]
           },
           "receivedAt": {
             "type": "string",
@@ -4032,7 +4450,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "invoiceId", "amountCents"]
+        "required": [
+          "workspaceId",
+          "invoiceId",
+          "amountCents"
+        ]
       }
     },
     "invoice.send": {
@@ -4051,12 +4473,17 @@
             "format": "uuid"
           },
           "channels": {
-            "default": ["email"],
+            "default": [
+              "email"
+            ],
             "maxItems": 2,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["sms", "email"]
+              "enum": [
+                "sms",
+                "email"
+              ]
             }
           },
           "message": {
@@ -4072,7 +4499,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "invoiceId"]
+        "required": [
+          "workspaceId",
+          "invoiceId"
+        ]
       }
     },
     "invoice.update": {
@@ -4200,7 +4630,11 @@
                   "maximum": 100000000000
                 }
               },
-              "required": ["name", "quantity", "unitPriceCents"]
+              "required": [
+                "name",
+                "quantity",
+                "unitPriceCents"
+              ]
             }
           },
           "discount": {
@@ -4209,7 +4643,11 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": ["none", "percent", "amount"]
+                "enum": [
+                  "none",
+                  "percent",
+                  "amount"
+                ]
               },
               "percentBp": {
                 "type": "integer",
@@ -4262,7 +4700,12 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["workspaceId", "invoiceId", "personId", "baseRevision"]
+        "required": [
+          "workspaceId",
+          "invoiceId",
+          "personId",
+          "baseRevision"
+        ]
       }
     },
     "job.set_status": {
@@ -4282,7 +4725,13 @@
           },
           "status": {
             "type": "string",
-            "enum": ["scheduled", "on_the_way", "in_progress", "waiting_on_parts", "done"]
+            "enum": [
+              "scheduled",
+              "on_the_way",
+              "in_progress",
+              "waiting_on_parts",
+              "done"
+            ]
           },
           "customerNote": {
             "anyOf": [
@@ -4311,7 +4760,10 @@
                     "maximum": 180
                   }
                 },
-                "required": ["lat", "lng"]
+                "required": [
+                  "lat",
+                  "lng"
+                ]
               },
               {
                 "type": "null"
@@ -4323,7 +4775,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "appointmentId", "status"]
+        "required": [
+          "workspaceId",
+          "appointmentId",
+          "status"
+        ]
       }
     },
     "knowledge_item.create": {
@@ -4365,7 +4821,11 @@
                     }
                   }
                 },
-                "required": ["kind", "question", "answer"]
+                "required": [
+                  "kind",
+                  "question",
+                  "answer"
+                ]
               },
               {
                 "type": "object",
@@ -4395,7 +4855,11 @@
                     }
                   }
                 },
-                "required": ["kind", "title", "body"]
+                "required": [
+                  "kind",
+                  "title",
+                  "body"
+                ]
               },
               {
                 "type": "object",
@@ -4425,17 +4889,27 @@
                     }
                   }
                 },
-                "required": ["kind", "title", "body"]
+                "required": [
+                  "kind",
+                  "title",
+                  "body"
+                ]
               }
             ]
           },
           "status": {
             "default": "draft",
             "type": "string",
-            "enum": ["draft", "published"]
+            "enum": [
+              "draft",
+              "published"
+            ]
           }
         },
-        "required": ["workspaceId", "content"]
+        "required": [
+          "workspaceId",
+          "content"
+        ]
       }
     },
     "lead.archive": {
@@ -4452,7 +4926,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "leadId"]
+        "required": [
+          "workspaceId",
+          "leadId"
+        ]
       }
     },
     "lead.create": {
@@ -4573,7 +5050,10 @@
             }
           }
         },
-        "required": ["workspaceId", "title"]
+        "required": [
+          "workspaceId",
+          "title"
+        ]
       }
     },
     "lead.move_stage": {
@@ -4615,7 +5095,11 @@
             "maxLength": 200
           }
         },
-        "required": ["workspaceId", "leadId", "stageId"]
+        "required": [
+          "workspaceId",
+          "leadId",
+          "stageId"
+        ]
       }
     },
     "lead.record_answers": {
@@ -4649,11 +5133,18 @@
                   "maxLength": 500
                 }
               },
-              "required": ["questionId", "answer"]
+              "required": [
+                "questionId",
+                "answer"
+              ]
             }
           }
         },
-        "required": ["workspaceId", "leadId", "answers"]
+        "required": [
+          "workspaceId",
+          "leadId",
+          "answers"
+        ]
       }
     },
     "lead.restore": {
@@ -4670,7 +5161,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "leadId"]
+        "required": [
+          "workspaceId",
+          "leadId"
+        ]
       }
     },
     "lead.set_next_action": {
@@ -4710,7 +5204,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "leadId", "text"]
+        "required": [
+          "workspaceId",
+          "leadId",
+          "text"
+        ]
       }
     },
     "lead.update": {
@@ -4850,7 +5348,10 @@
                 ]
               },
               "valueCents": {
-                "type": ["number", "null"]
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "source": {
                 "anyOf": [
@@ -4910,7 +5411,10 @@
             }
           }
         },
-        "required": ["workspaceId", "leadId"]
+        "required": [
+          "workspaceId",
+          "leadId"
+        ]
       }
     },
     "look.begin_upload": {
@@ -4937,7 +5441,12 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["workspaceId", "name", "mimeType", "sizeBytes"]
+        "required": [
+          "workspaceId",
+          "name",
+          "mimeType",
+          "sizeBytes"
+        ]
       }
     },
     "look.find": {
@@ -4950,7 +5459,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "look.set": {
@@ -4970,7 +5481,9 @@
             "const": true
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "look.use_upload": {
@@ -4987,7 +5500,10 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:png|jpg|webp|gif|svg)$"
           }
         },
-        "required": ["workspaceId", "objectPath"]
+        "required": [
+          "workspaceId",
+          "objectPath"
+        ]
       }
     },
     "main_offer.publish": {
@@ -5010,7 +5526,10 @@
             "maxLength": 300
           }
         },
-        "required": ["workspaceId", "revision"]
+        "required": [
+          "workspaceId",
+          "revision"
+        ]
       }
     },
     "main_offer.save_direction": {
@@ -5032,7 +5551,11 @@
             "maxLength": 2000
           }
         },
-        "required": ["workspaceId", "revision", "direction"]
+        "required": [
+          "workspaceId",
+          "revision",
+          "direction"
+        ]
       }
     },
     "main_offer.save_draft": {
@@ -5222,7 +5745,11 @@
             }
           }
         },
-        "required": ["workspaceId", "revision", "parts"]
+        "required": [
+          "workspaceId",
+          "revision",
+          "parts"
+        ]
       }
     },
     "message.cancel_scheduled": {
@@ -5239,7 +5766,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "messageId"]
+        "required": [
+          "workspaceId",
+          "messageId"
+        ]
       }
     },
     "message.retry": {
@@ -5256,7 +5786,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "messageId"]
+        "required": [
+          "workspaceId",
+          "messageId"
+        ]
       }
     },
     "message.send": {
@@ -5290,7 +5823,14 @@
           "channel": {
             "default": "sms",
             "type": "string",
-            "enum": ["sms", "email", "chat", "portal", "messenger", "instagram"]
+            "enum": [
+              "sms",
+              "email",
+              "chat",
+              "portal",
+              "messenger",
+              "instagram"
+            ]
           },
           "body": {
             "type": "string",
@@ -5384,7 +5924,10 @@
                               "maxLength": 20
                             }
                           },
-                          "required": ["type", "title"],
+                          "required": [
+                            "type",
+                            "title"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -5404,7 +5947,11 @@
                               "maxLength": 1000
                             }
                           },
-                          "required": ["type", "title", "url"],
+                          "required": [
+                            "type",
+                            "title",
+                            "url"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -5425,14 +5972,21 @@
                               "maxLength": 40
                             }
                           },
-                          "required": ["type", "title", "phone"],
+                          "required": [
+                            "type",
+                            "title",
+                            "phone"
+                          ],
                           "additionalProperties": false
                         }
                       ]
                     }
                   }
                 },
-                "required": ["kind", "buttons"],
+                "required": [
+                  "kind",
+                  "buttons"
+                ],
                 "additionalProperties": false
               },
               {
@@ -5465,7 +6019,10 @@
                               "maxLength": 20
                             }
                           },
-                          "required": ["type", "title"],
+                          "required": [
+                            "type",
+                            "title"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -5485,7 +6042,11 @@
                               "maxLength": 1000
                             }
                           },
-                          "required": ["type", "title", "url"],
+                          "required": [
+                            "type",
+                            "title",
+                            "url"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -5506,14 +6067,21 @@
                               "maxLength": 40
                             }
                           },
-                          "required": ["type", "title", "phone"],
+                          "required": [
+                            "type",
+                            "title",
+                            "phone"
+                          ],
                           "additionalProperties": false
                         }
                       ]
                     }
                   }
                 },
-                "required": ["kind", "title"],
+                "required": [
+                  "kind",
+                  "title"
+                ],
                 "additionalProperties": false
               },
               {
@@ -5562,7 +6130,10 @@
                                     "maxLength": 20
                                   }
                                 },
-                                "required": ["type", "title"],
+                                "required": [
+                                  "type",
+                                  "title"
+                                ],
                                 "additionalProperties": false
                               },
                               {
@@ -5582,7 +6153,11 @@
                                     "maxLength": 1000
                                   }
                                 },
-                                "required": ["type", "title", "url"],
+                                "required": [
+                                  "type",
+                                  "title",
+                                  "url"
+                                ],
                                 "additionalProperties": false
                               },
                               {
@@ -5603,19 +6178,30 @@
                                     "maxLength": 40
                                   }
                                 },
-                                "required": ["type", "title", "phone"],
+                                "required": [
+                                  "type",
+                                  "title",
+                                  "phone"
+                                ],
                                 "additionalProperties": false
                               }
                             ]
                           }
                         }
                       },
-                      "required": ["body", "mediaFileId", "buttons"],
+                      "required": [
+                        "body",
+                        "mediaFileId",
+                        "buttons"
+                      ],
                       "additionalProperties": false
                     }
                   }
                 },
-                "required": ["kind", "cards"],
+                "required": [
+                  "kind",
+                  "cards"
+                ],
                 "additionalProperties": false
               }
             ]
@@ -5646,11 +6232,19 @@
                   "pattern": "^[a-z][a-z0-9_]{0,39}$"
                 }
               },
-              "required": ["marker", "sealed", "addonId", "key"]
+              "required": [
+                "marker",
+                "sealed",
+                "addonId",
+                "key"
+              ]
             }
           }
         },
-        "required": ["workspaceId", "body"]
+        "required": [
+          "workspaceId",
+          "body"
+        ]
       }
     },
     "onboarding_setup.finish": {
@@ -5668,12 +6262,21 @@
               "goal": {
                 "default": "leads",
                 "type": "string",
-                "enum": ["leads", "booked", "paid", "organized"]
+                "enum": [
+                  "leads",
+                  "booked",
+                  "paid",
+                  "organized"
+                ]
               },
               "teamSize": {
                 "default": "solo",
                 "type": "string",
-                "enum": ["solo", "small", "big"]
+                "enum": [
+                  "solo",
+                  "small",
+                  "big"
+                ]
               },
               "booksTime": {
                 "default": false,
@@ -5686,16 +6289,29 @@
               "customersIn": {
                 "default": "none",
                 "type": "string",
-                "enum": ["sheet", "ghl", "crm", "phone", "none"]
+                "enum": [
+                  "sheet",
+                  "ghl",
+                  "crm",
+                  "phone",
+                  "none"
+                ]
               },
               "hasEin": {
                 "default": null,
-                "type": ["boolean", "null"]
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "payWith": {
                 "default": "later",
                 "type": "string",
-                "enum": ["stripe", "square", "later"]
+                "enum": [
+                  "stripe",
+                  "square",
+                  "later"
+                ]
               },
               "reviewLink": {
                 "default": "",
@@ -5782,7 +6398,13 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": ["reply", "answer", "book", "qualify", "follow_up"]
+                      "enum": [
+                        "reply",
+                        "answer",
+                        "book",
+                        "qualify",
+                        "follow_up"
+                      ]
                     }
                   },
                   "description": {
@@ -5832,7 +6454,9 @@
                           ]
                         }
                       },
-                      "required": ["name"]
+                      "required": [
+                        "name"
+                      ]
                     }
                   },
                   "area": {
@@ -5885,13 +6509,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["day", "start", "end"]
+                      "required": [
+                        "day",
+                        "start",
+                        "end"
+                      ]
                     }
                   },
                   "answerWhen": {
                     "default": "always",
                     "type": "string",
-                    "enum": ["always", "after_hours", "custom"]
+                    "enum": [
+                      "always",
+                      "after_hours",
+                      "custom"
+                    ]
                   },
                   "customHours": {
                     "default": [
@@ -5938,7 +6570,11 @@
                           "type": "string"
                         }
                       },
-                      "required": ["day", "start", "end"]
+                      "required": [
+                        "day",
+                        "start",
+                        "end"
+                      ]
                     }
                   },
                   "facts": {
@@ -5950,7 +6586,10 @@
                     },
                     "additionalProperties": {
                       "type": "string",
-                      "enum": ["yes", "no"]
+                      "enum": [
+                        "yes",
+                        "no"
+                      ]
                     }
                   },
                   "name": {
@@ -5962,12 +6601,20 @@
                   "disclosure": {
                     "default": "first_message",
                     "type": "string",
-                    "enum": ["first_message", "when_asked"]
+                    "enum": [
+                      "first_message",
+                      "when_asked"
+                    ]
                   },
                   "tone": {
                     "default": "friendly",
                     "type": "string",
-                    "enum": ["friendly", "professional", "short", "keep"]
+                    "enum": [
+                      "friendly",
+                      "professional",
+                      "short",
+                      "keep"
+                    ]
                   },
                   "allowPrices": {
                     "default": false,
@@ -5991,7 +6638,10 @@
                           "maxLength": 5000
                         }
                       },
-                      "required": ["question", "answer"]
+                      "required": [
+                        "question",
+                        "answer"
+                      ]
                     }
                   },
                   "keepFindings": {
@@ -6032,7 +6682,13 @@
                         "kind": {
                           "default": "text",
                           "type": "string",
-                          "enum": ["text", "choice", "yes_no", "number", "file"]
+                          "enum": [
+                            "text",
+                            "choice",
+                            "yes_no",
+                            "number",
+                            "file"
+                          ]
                         },
                         "options": {
                           "default": [],
@@ -6064,11 +6720,17 @@
                             },
                             "below": {
                               "default": null,
-                              "type": ["number", "null"]
+                              "type": [
+                                "number",
+                                "null"
+                              ]
                             },
                             "above": {
                               "default": null,
-                              "type": ["number", "null"]
+                              "type": [
+                                "number",
+                                "null"
+                              ]
                             }
                           }
                         },
@@ -6085,7 +6747,9 @@
                                       "const": "admins"
                                     }
                                   },
-                                  "required": ["kind"]
+                                  "required": [
+                                    "kind"
+                                  ]
                                 },
                                 {
                                   "type": "object",
@@ -6112,14 +6776,19 @@
                                                 "pattern": "^[a-z][a-z0-9_]{0,59}$"
                                               }
                                             },
-                                            "required": ["$ph"],
+                                            "required": [
+                                              "$ph"
+                                            ],
                                             "additionalProperties": false
                                           }
                                         ]
                                       }
                                     }
                                   },
-                                  "required": ["kind", "userIds"]
+                                  "required": [
+                                    "kind",
+                                    "userIds"
+                                  ]
                                 },
                                 {
                                   "type": "object",
@@ -6129,7 +6798,9 @@
                                       "const": "lead_assignee"
                                     }
                                   },
-                                  "required": ["kind"]
+                                  "required": [
+                                    "kind"
+                                  ]
                                 },
                                 {
                                   "type": "object",
@@ -6139,7 +6810,9 @@
                                       "const": "person_owner"
                                     }
                                   },
-                                  "required": ["kind"]
+                                  "required": [
+                                    "kind"
+                                  ]
                                 }
                               ]
                             },
@@ -6149,7 +6822,10 @@
                           ]
                         }
                       },
-                      "required": ["id", "question"]
+                      "required": [
+                        "id",
+                        "question"
+                      ]
                     }
                   },
                   "chat": {
@@ -6180,13 +6856,22 @@
             "type": "object",
             "properties": {
               "email": {
-                "type": ["string", "null"]
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
-            "required": ["email"]
+            "required": [
+              "email"
+            ]
           }
         },
-        "required": ["workspaceId", "answers", "baseRevision"]
+        "required": [
+          "workspaceId",
+          "answers",
+          "baseRevision"
+        ]
       }
     },
     "onboarding_setup.save": {
@@ -6229,12 +6914,21 @@
               "goal": {
                 "default": "leads",
                 "type": "string",
-                "enum": ["leads", "booked", "paid", "organized"]
+                "enum": [
+                  "leads",
+                  "booked",
+                  "paid",
+                  "organized"
+                ]
               },
               "teamSize": {
                 "default": "solo",
                 "type": "string",
-                "enum": ["solo", "small", "big"]
+                "enum": [
+                  "solo",
+                  "small",
+                  "big"
+                ]
               },
               "booksTime": {
                 "default": false,
@@ -6247,16 +6941,29 @@
               "customersIn": {
                 "default": "none",
                 "type": "string",
-                "enum": ["sheet", "ghl", "crm", "phone", "none"]
+                "enum": [
+                  "sheet",
+                  "ghl",
+                  "crm",
+                  "phone",
+                  "none"
+                ]
               },
               "hasEin": {
                 "default": null,
-                "type": ["boolean", "null"]
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "payWith": {
                 "default": "later",
                 "type": "string",
-                "enum": ["stripe", "square", "later"]
+                "enum": [
+                  "stripe",
+                  "square",
+                  "later"
+                ]
               },
               "reviewLink": {
                 "default": "",
@@ -6343,7 +7050,13 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": ["reply", "answer", "book", "qualify", "follow_up"]
+                      "enum": [
+                        "reply",
+                        "answer",
+                        "book",
+                        "qualify",
+                        "follow_up"
+                      ]
                     }
                   },
                   "description": {
@@ -6393,7 +7106,9 @@
                           ]
                         }
                       },
-                      "required": ["name"]
+                      "required": [
+                        "name"
+                      ]
                     }
                   },
                   "area": {
@@ -6446,13 +7161,21 @@
                           "type": "string"
                         }
                       },
-                      "required": ["day", "start", "end"]
+                      "required": [
+                        "day",
+                        "start",
+                        "end"
+                      ]
                     }
                   },
                   "answerWhen": {
                     "default": "always",
                     "type": "string",
-                    "enum": ["always", "after_hours", "custom"]
+                    "enum": [
+                      "always",
+                      "after_hours",
+                      "custom"
+                    ]
                   },
                   "customHours": {
                     "default": [
@@ -6499,7 +7222,11 @@
                           "type": "string"
                         }
                       },
-                      "required": ["day", "start", "end"]
+                      "required": [
+                        "day",
+                        "start",
+                        "end"
+                      ]
                     }
                   },
                   "facts": {
@@ -6511,7 +7238,10 @@
                     },
                     "additionalProperties": {
                       "type": "string",
-                      "enum": ["yes", "no"]
+                      "enum": [
+                        "yes",
+                        "no"
+                      ]
                     }
                   },
                   "name": {
@@ -6523,12 +7253,20 @@
                   "disclosure": {
                     "default": "first_message",
                     "type": "string",
-                    "enum": ["first_message", "when_asked"]
+                    "enum": [
+                      "first_message",
+                      "when_asked"
+                    ]
                   },
                   "tone": {
                     "default": "friendly",
                     "type": "string",
-                    "enum": ["friendly", "professional", "short", "keep"]
+                    "enum": [
+                      "friendly",
+                      "professional",
+                      "short",
+                      "keep"
+                    ]
                   },
                   "allowPrices": {
                     "default": false,
@@ -6552,7 +7290,10 @@
                           "maxLength": 5000
                         }
                       },
-                      "required": ["question", "answer"]
+                      "required": [
+                        "question",
+                        "answer"
+                      ]
                     }
                   },
                   "keepFindings": {
@@ -6593,7 +7334,13 @@
                         "kind": {
                           "default": "text",
                           "type": "string",
-                          "enum": ["text", "choice", "yes_no", "number", "file"]
+                          "enum": [
+                            "text",
+                            "choice",
+                            "yes_no",
+                            "number",
+                            "file"
+                          ]
                         },
                         "options": {
                           "default": [],
@@ -6625,11 +7372,17 @@
                             },
                             "below": {
                               "default": null,
-                              "type": ["number", "null"]
+                              "type": [
+                                "number",
+                                "null"
+                              ]
                             },
                             "above": {
                               "default": null,
-                              "type": ["number", "null"]
+                              "type": [
+                                "number",
+                                "null"
+                              ]
                             }
                           }
                         },
@@ -6646,7 +7399,9 @@
                                       "const": "admins"
                                     }
                                   },
-                                  "required": ["kind"]
+                                  "required": [
+                                    "kind"
+                                  ]
                                 },
                                 {
                                   "type": "object",
@@ -6673,14 +7428,19 @@
                                                 "pattern": "^[a-z][a-z0-9_]{0,59}$"
                                               }
                                             },
-                                            "required": ["$ph"],
+                                            "required": [
+                                              "$ph"
+                                            ],
                                             "additionalProperties": false
                                           }
                                         ]
                                       }
                                     }
                                   },
-                                  "required": ["kind", "userIds"]
+                                  "required": [
+                                    "kind",
+                                    "userIds"
+                                  ]
                                 },
                                 {
                                   "type": "object",
@@ -6690,7 +7450,9 @@
                                       "const": "lead_assignee"
                                     }
                                   },
-                                  "required": ["kind"]
+                                  "required": [
+                                    "kind"
+                                  ]
                                 },
                                 {
                                   "type": "object",
@@ -6700,7 +7462,9 @@
                                       "const": "person_owner"
                                     }
                                   },
-                                  "required": ["kind"]
+                                  "required": [
+                                    "kind"
+                                  ]
                                 }
                               ]
                             },
@@ -6710,7 +7474,10 @@
                           ]
                         }
                       },
-                      "required": ["id", "question"]
+                      "required": [
+                        "id",
+                        "question"
+                      ]
                     }
                   },
                   "chat": {
@@ -6881,7 +7648,12 @@
                     "const": "US"
                   }
                 },
-                "required": ["line1", "city", "state", "postalCode"]
+                "required": [
+                  "line1",
+                  "city",
+                  "state",
+                  "postalCode"
+                ]
               },
               "timezone": {
                 "type": "string",
@@ -6921,7 +7693,11 @@
             }
           }
         },
-        "required": ["workspaceId", "screen", "answers"]
+        "required": [
+          "workspaceId",
+          "screen",
+          "answers"
+        ]
       }
     },
     "organization.create": {
@@ -7068,7 +7844,9 @@
             ]
           }
         },
-        "required": ["businessName"]
+        "required": [
+          "businessName"
+        ]
       }
     },
     "outreach.ask.cancel": {
@@ -7085,7 +7863,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "askId"]
+        "required": [
+          "workspaceId",
+          "askId"
+        ]
       }
     },
     "outreach.ask.code": {
@@ -7105,7 +7886,11 @@
             "type": "string"
           }
         },
-        "required": ["workspaceId", "askId", "code"]
+        "required": [
+          "workspaceId",
+          "askId",
+          "code"
+        ]
       }
     },
     "outreach.ask.make": {
@@ -7120,7 +7905,12 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "ask": {
             "oneOf": [
@@ -7132,7 +7922,9 @@
                     "const": "file_request"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7142,7 +7934,9 @@
                     "const": "file_download"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7152,7 +7946,9 @@
                     "const": "file_backup"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7162,7 +7958,9 @@
                     "const": "file_in"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7172,7 +7970,9 @@
                     "const": "requests"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7182,7 +7982,9 @@
                     "const": "friends"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7192,7 +7994,9 @@
                     "const": "groups"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7202,7 +8006,9 @@
                     "const": "chats"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7212,7 +8018,9 @@
                     "const": "checks"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7222,7 +8030,9 @@
                     "const": "group_checks"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7241,7 +8051,9 @@
                     }
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7255,7 +8067,10 @@
                     "format": "uuid"
                   }
                 },
-                "required": ["kind", "helpfulId"]
+                "required": [
+                  "kind",
+                  "helpfulId"
+                ]
               },
               {
                 "type": "object",
@@ -7270,7 +8085,10 @@
                     "maxLength": 100
                   }
                 },
-                "required": ["kind", "words"]
+                "required": [
+                  "kind",
+                  "words"
+                ]
               },
               {
                 "type": "object",
@@ -7294,7 +8112,9 @@
                     "maxLength": 500
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7313,7 +8133,9 @@
                     }
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7332,7 +8154,10 @@
                     }
                   }
                 },
-                "required": ["kind", "profileIds"]
+                "required": [
+                  "kind",
+                  "profileIds"
+                ]
               },
               {
                 "type": "object",
@@ -7351,7 +8176,10 @@
                     }
                   }
                 },
-                "required": ["kind", "profileIds"]
+                "required": [
+                  "kind",
+                  "profileIds"
+                ]
               },
               {
                 "type": "object",
@@ -7418,10 +8246,15 @@
                         ]
                       }
                     },
-                    "required": ["kind"]
+                    "required": [
+                      "kind"
+                    ]
                   }
                 },
-                "required": ["kind", "draft"]
+                "required": [
+                  "kind",
+                  "draft"
+                ]
               },
               {
                 "type": "object",
@@ -7435,7 +8268,10 @@
                     "format": "uuid"
                   }
                 },
-                "required": ["kind", "profileId"]
+                "required": [
+                  "kind",
+                  "profileId"
+                ]
               },
               {
                 "type": "object",
@@ -7445,7 +8281,9 @@
                     "const": "profile_read"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7465,7 +8303,9 @@
                     "maxLength": 2600
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               },
               {
                 "type": "object",
@@ -7475,12 +8315,17 @@
                     "const": "checkup"
                   }
                 },
-                "required": ["kind"]
+                "required": [
+                  "kind"
+                ]
               }
             ]
           }
         },
-        "required": ["workspaceId", "ask"]
+        "required": [
+          "workspaceId",
+          "ask"
+        ]
       }
     },
     "outreach.ask.reply": {
@@ -7498,10 +8343,17 @@
           },
           "reply": {
             "type": "string",
-            "enum": ["carry_on", "skip"]
+            "enum": [
+              "carry_on",
+              "skip"
+            ]
           }
         },
-        "required": ["workspaceId", "askId", "reply"]
+        "required": [
+          "workspaceId",
+          "askId",
+          "reply"
+        ]
       }
     },
     "outreach.automation.save": {
@@ -7522,12 +8374,21 @@
             "properties": {
               "sending": {
                 "type": "string",
-                "enum": ["off", "steps", "approve_all", "everything"]
+                "enum": [
+                  "off",
+                  "steps",
+                  "approve_all",
+                  "everything"
+                ]
               },
               "replies": {
                 "default": "draft",
                 "type": "string",
-                "enum": ["draft", "simple", "everything"]
+                "enum": [
+                  "draft",
+                  "simple",
+                  "everything"
+                ]
               },
               "warmUp": {
                 "type": "boolean"
@@ -7550,7 +8411,11 @@
               "posting": {
                 "default": "after_ok",
                 "type": "string",
-                "enum": ["copy", "after_ok", "own"]
+                "enum": [
+                  "copy",
+                  "after_ok",
+                  "own"
+                ]
               },
               "hours": {
                 "type": "object",
@@ -7576,7 +8441,11 @@
                     }
                   }
                 },
-                "required": ["start", "end", "days"]
+                "required": [
+                  "start",
+                  "end",
+                  "days"
+                ]
               },
               "noting": {
                 "default": true,
@@ -7593,7 +8462,10 @@
               "pushes": {
                 "default": "bundled",
                 "type": "string",
-                "enum": ["bundled", "each"]
+                "enum": [
+                  "bundled",
+                  "each"
+                ]
               },
               "dayReport": {
                 "type": "boolean"
@@ -7655,12 +8527,21 @@
                       "sending": {
                         "default": "off",
                         "type": "string",
-                        "enum": ["off", "steps", "approve_all", "everything"]
+                        "enum": [
+                          "off",
+                          "steps",
+                          "approve_all",
+                          "everything"
+                        ]
                       },
                       "replies": {
                         "default": "draft",
                         "type": "string",
-                        "enum": ["draft", "simple", "everything"]
+                        "enum": [
+                          "draft",
+                          "simple",
+                          "everything"
+                        ]
                       },
                       "warmUp": {
                         "default": true,
@@ -7685,7 +8566,11 @@
                       "posting": {
                         "default": "after_ok",
                         "type": "string",
-                        "enum": ["copy", "after_ok", "own"]
+                        "enum": [
+                          "copy",
+                          "after_ok",
+                          "own"
+                        ]
                       }
                     }
                   },
@@ -7710,12 +8595,21 @@
                       "sending": {
                         "default": "off",
                         "type": "string",
-                        "enum": ["off", "steps", "approve_all", "everything"]
+                        "enum": [
+                          "off",
+                          "steps",
+                          "approve_all",
+                          "everything"
+                        ]
                       },
                       "replies": {
                         "default": "draft",
                         "type": "string",
-                        "enum": ["draft", "simple", "everything"]
+                        "enum": [
+                          "draft",
+                          "simple",
+                          "everything"
+                        ]
                       },
                       "warmUp": {
                         "default": true,
@@ -7740,7 +8634,11 @@
                       "posting": {
                         "default": "after_ok",
                         "type": "string",
-                        "enum": ["copy", "after_ok", "own"]
+                        "enum": [
+                          "copy",
+                          "after_ok",
+                          "own"
+                        ]
                       }
                     }
                   },
@@ -7765,12 +8663,21 @@
                       "sending": {
                         "default": "off",
                         "type": "string",
-                        "enum": ["off", "steps", "approve_all", "everything"]
+                        "enum": [
+                          "off",
+                          "steps",
+                          "approve_all",
+                          "everything"
+                        ]
                       },
                       "replies": {
                         "default": "draft",
                         "type": "string",
-                        "enum": ["draft", "simple", "everything"]
+                        "enum": [
+                          "draft",
+                          "simple",
+                          "everything"
+                        ]
                       },
                       "warmUp": {
                         "default": true,
@@ -7795,17 +8702,29 @@
                       "posting": {
                         "default": "after_ok",
                         "type": "string",
-                        "enum": ["copy", "after_ok", "own"]
+                        "enum": [
+                          "copy",
+                          "after_ok",
+                          "own"
+                        ]
                       }
                     }
                   }
                 }
               }
             },
-            "required": ["sending", "warmUp", "confirmRequests", "hours"]
+            "required": [
+              "sending",
+              "warmUp",
+              "confirmRequests",
+              "hours"
+            ]
           }
         },
-        "required": ["workspaceId", "settings"]
+        "required": [
+          "workspaceId",
+          "settings"
+        ]
       }
     },
     "outreach.day.start": {
@@ -7820,14 +8739,21 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "installId": {
             "type": "string",
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.day.stop": {
@@ -7842,14 +8768,21 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "installId": {
             "type": "string",
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.demo.mark": {
@@ -7864,7 +8797,12 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "profileId": {
             "type": "string",
@@ -7874,17 +8812,27 @@
             "type": "object",
             "properties": {
               "id": {
-                "type": ["string", "null"]
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "username": {
-                "type": ["string", "null"]
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "url": {
                 "type": "string",
                 "maxLength": 500
               }
             },
-            "required": ["id", "username", "url"]
+            "required": [
+              "id",
+              "username",
+              "url"
+            ]
           },
           "name": {
             "type": "string",
@@ -7895,7 +8843,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "booked"]
+        "required": [
+          "workspaceId",
+          "booked"
+        ]
       }
     },
     "outreach.friend.set": {
@@ -7910,7 +8861,12 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "profileId": {
             "type": "string",
@@ -7920,17 +8876,27 @@
             "type": "object",
             "properties": {
               "id": {
-                "type": ["string", "null"]
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "username": {
-                "type": ["string", "null"]
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "url": {
                 "type": "string",
                 "maxLength": 500
               }
             },
-            "required": ["id", "username", "url"]
+            "required": [
+              "id",
+              "username",
+              "url"
+            ]
           },
           "name": {
             "type": "string",
@@ -7947,7 +8913,9 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.helpful.ask": {
@@ -7962,14 +8930,21 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "groupId": {
             "type": "string",
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.helpful.ok": {
@@ -7991,7 +8966,10 @@
             "maxLength": 2000
           }
         },
-        "required": ["workspaceId", "helpfulId"]
+        "required": [
+          "workspaceId",
+          "helpfulId"
+        ]
       }
     },
     "outreach.helpful.posted": {
@@ -8037,7 +9015,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "helpfulId", "posted"]
+        "required": [
+          "workspaceId",
+          "helpfulId",
+          "posted"
+        ]
       }
     },
     "outreach.helpful.skip": {
@@ -8054,7 +9036,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "helpfulId"]
+        "required": [
+          "workspaceId",
+          "helpfulId"
+        ]
       }
     },
     "outreach.need.clear": {
@@ -8072,10 +9057,17 @@
           },
           "how": {
             "type": "string",
-            "enum": ["done", "dismissed"]
+            "enum": [
+              "done",
+              "dismissed"
+            ]
           }
         },
-        "required": ["workspaceId", "needId", "how"]
+        "required": [
+          "workspaceId",
+          "needId",
+          "how"
+        ]
       }
     },
     "outreach.partner.mark": {
@@ -8093,10 +9085,21 @@
           },
           "mark": {
             "type": "string",
-            "enum": ["interested", "call_booked", "partner", "not_now", "again", "not_partner"]
+            "enum": [
+              "interested",
+              "call_booked",
+              "partner",
+              "not_now",
+              "again",
+              "not_partner"
+            ]
           }
         },
-        "required": ["workspaceId", "partnerId", "mark"]
+        "required": [
+          "workspaceId",
+          "partnerId",
+          "mark"
+        ]
       }
     },
     "outreach.playbook.archive": {
@@ -8116,7 +9119,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "playbookId", "archived"]
+        "required": [
+          "workspaceId",
+          "playbookId",
+          "archived"
+        ]
       }
     },
     "outreach.playbook.save": {
@@ -8141,7 +9148,9 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["crm_demos"]
+                "enum": [
+                  "crm_demos"
+                ]
               },
               {
                 "type": "null"
@@ -8270,7 +9279,14 @@
                           "properties": {
                             "part": {
                               "type": "string",
-                              "enum": ["who", "cost", "method", "proof", "call", "next"]
+                              "enum": [
+                                "who",
+                                "cost",
+                                "method",
+                                "proof",
+                                "call",
+                                "next"
+                              ]
                             },
                             "say": {
                               "type": "string",
@@ -8283,7 +9299,11 @@
                               "maxLength": 240
                             }
                           },
-                          "required": ["part", "say", "show"]
+                          "required": [
+                            "part",
+                            "say",
+                            "show"
+                          ]
                         }
                       },
                       "at": {
@@ -8303,7 +9323,11 @@
                         ]
                       }
                     },
-                    "required": ["parts", "at", "version"]
+                    "required": [
+                      "parts",
+                      "at",
+                      "version"
+                    ]
                   },
                   {
                     "type": "null"
@@ -8315,7 +9339,11 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["group_admin", "creator", "business"]
+                  "enum": [
+                    "group_admin",
+                    "creator",
+                    "business"
+                  ]
                 }
               },
               "onItsNetworks": {
@@ -8369,7 +9397,12 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["facebook", "linkedin", "instagram", "alignable"]
+                  "enum": [
+                    "facebook",
+                    "linkedin",
+                    "instagram",
+                    "alignable"
+                  ]
                 }
               },
               "groupWords": {
@@ -8385,7 +9418,14 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["connect", "engage", "message", "follow_up", "answer", "post"]
+                  "enum": [
+                    "connect",
+                    "engage",
+                    "message",
+                    "follow_up",
+                    "answer",
+                    "post"
+                  ]
                 }
               },
               "pace": {
@@ -8417,7 +9457,9 @@
                     "maximum": 30
                   }
                 },
-                "required": ["messageAfterDays"]
+                "required": [
+                  "messageAfterDays"
+                ]
               },
               "tone": {
                 "anyOf": [
@@ -8502,7 +9544,12 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "enum": ["continue", "offer", "later", "stop"]
+                                "enum": [
+                                  "continue",
+                                  "offer",
+                                  "later",
+                                  "stop"
+                                ]
                               },
                               {
                                 "type": "string",
@@ -8511,11 +9558,19 @@
                             ]
                           }
                         },
-                        "required": ["label", "tag", "next"]
+                        "required": [
+                          "label",
+                          "tag",
+                          "next"
+                        ]
                       }
                     }
                   },
-                  "required": ["id", "text", "answers"]
+                  "required": [
+                    "id",
+                    "text",
+                    "answers"
+                  ]
                 }
               },
               "avoid": {
@@ -8570,7 +9625,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "name", "details"]
+        "required": [
+          "workspaceId",
+          "name",
+          "details"
+        ]
       }
     },
     "outreach.post.skip": {
@@ -8587,7 +9646,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "postId"]
+        "required": [
+          "workspaceId",
+          "postId"
+        ]
       }
     },
     "outreach.profile.contact": {
@@ -8616,7 +9678,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "profileId"]
+        "required": [
+          "workspaceId",
+          "profileId"
+        ]
       }
     },
     "outreach.readiness.messages": {
@@ -8629,7 +9694,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.readiness.numbers": {
@@ -8657,7 +9724,11 @@
             }
           }
         },
-        "required": ["workspaceId", "goal", "days"]
+        "required": [
+          "workspaceId",
+          "goal",
+          "days"
+        ]
       }
     },
     "outreach.readiness.profile": {
@@ -8672,7 +9743,12 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "item": {
             "type": "string",
@@ -8692,7 +9768,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "item", "done"]
+        "required": [
+          "workspaceId",
+          "item",
+          "done"
+        ]
       }
     },
     "outreach.request.set_aside": {
@@ -8709,7 +9789,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "profileId"]
+        "required": [
+          "workspaceId",
+          "profileId"
+        ]
       }
     },
     "outreach.send.approve": {
@@ -8739,7 +9822,9 @@
                   "maxLength": 2000
                 }
               },
-              "required": ["sendId"]
+              "required": [
+                "sendId"
+              ]
             }
           },
           "partial": {
@@ -8747,7 +9832,9 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.send.skip": {
@@ -8764,7 +9851,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "sendId"]
+        "required": [
+          "workspaceId",
+          "sendId"
+        ]
       }
     },
     "outreach.stage.mark": {
@@ -8782,7 +9872,12 @@
           },
           "mark": {
             "type": "string",
-            "enum": ["ready", "pitched", "lost", "open"]
+            "enum": [
+              "ready",
+              "pitched",
+              "lost",
+              "open"
+            ]
           },
           "why": {
             "default": null,
@@ -8798,7 +9893,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "profileId", "mark"]
+        "required": [
+          "workspaceId",
+          "profileId",
+          "mark"
+        ]
       }
     },
     "outreach.wheels.end": {
@@ -8817,10 +9916,18 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId", "userId"]
+        "required": [
+          "workspaceId",
+          "userId"
+        ]
       }
     },
     "partner.add": {
@@ -8850,7 +9957,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "partner.referral_set": {
@@ -8878,7 +9988,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "personId", "partnerId"]
+        "required": [
+          "workspaceId",
+          "personId",
+          "partnerId"
+        ]
       }
     },
     "partner.update": {
@@ -8908,10 +10022,17 @@
           },
           "status": {
             "type": "string",
-            "enum": ["active", "paused", "ended"]
+            "enum": [
+              "active",
+              "paused",
+              "ended"
+            ]
           }
         },
-        "required": ["workspaceId", "partnerId"]
+        "required": [
+          "workspaceId",
+          "partnerId"
+        ]
       }
     },
     "payment_connection.connect": {
@@ -8925,12 +10046,18 @@
           },
           "provider": {
             "type": "string",
-            "enum": ["stripe", "square"]
+            "enum": [
+              "stripe",
+              "square"
+            ]
           },
           "environment": {
             "default": "live",
             "type": "string",
-            "enum": ["live", "test"]
+            "enum": [
+              "live",
+              "test"
+            ]
           },
           "label": {
             "anyOf": [
@@ -8945,7 +10072,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "provider"]
+        "required": [
+          "workspaceId",
+          "provider"
+        ]
       }
     },
     "person.archive": {
@@ -8966,7 +10096,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "person.create": {
@@ -9123,7 +10256,9 @@
                   ]
                 }
               },
-              "required": ["email"]
+              "required": [
+                "email"
+              ]
             }
           },
           "otherPhones": {
@@ -9148,7 +10283,9 @@
                   ]
                 }
               },
-              "required": ["phone"]
+              "required": [
+                "phone"
+              ]
             }
           },
           "otherAddresses": {
@@ -9286,7 +10423,9 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "person.restore": {
@@ -9303,7 +10442,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "person.update": {
@@ -9458,7 +10600,9 @@
                   ]
                 }
               },
-              "required": ["email"]
+              "required": [
+                "email"
+              ]
             }
           },
           "otherPhones": {
@@ -9483,7 +10627,9 @@
                   ]
                 }
               },
-              "required": ["phone"]
+              "required": [
+                "phone"
+              ]
             }
           },
           "otherAddresses": {
@@ -9829,7 +10975,10 @@
             }
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "phone_number.buy": {
@@ -9847,10 +10996,17 @@
           },
           "numberType": {
             "type": "string",
-            "enum": ["local", "toll_free"]
+            "enum": [
+              "local",
+              "toll_free"
+            ]
           }
         },
-        "required": ["workspaceId", "e164", "numberType"]
+        "required": [
+          "workspaceId",
+          "e164",
+          "numberType"
+        ]
       }
     },
     "portal_access.give": {
@@ -9867,7 +11023,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "push_device.register": {
@@ -9877,7 +11036,10 @@
         "properties": {
           "platform": {
             "type": "string",
-            "enum": ["ios", "android"]
+            "enum": [
+              "ios",
+              "android"
+            ]
           },
           "token": {
             "type": "string",
@@ -9901,7 +11063,11 @@
             ]
           }
         },
-        "required": ["platform", "token", "appVersion"]
+        "required": [
+          "platform",
+          "token",
+          "appVersion"
+        ]
       }
     },
     "push_device.remove": {
@@ -9920,7 +11086,10 @@
           "reason": {
             "default": "signed_out",
             "type": "string",
-            "enum": ["signed_out", "turned_off"]
+            "enum": [
+              "signed_out",
+              "turned_off"
+            ]
           }
         }
       }
@@ -10067,7 +11236,11 @@
             }
           }
         },
-        "required": ["workspaceId", "dealId", "profile"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "profile"
+        ]
       }
     },
     "realestate.client_task.add": {
@@ -10106,7 +11279,11 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["upload", "sign_off", "do"]
+            "enum": [
+              "upload",
+              "sign_off",
+              "do"
+            ]
           },
           "title": {
             "type": "string",
@@ -10174,7 +11351,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.client_task.mark_done": {
@@ -10204,7 +11384,12 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "taskId", "personId", "note"]
+        "required": [
+          "workspaceId",
+          "taskId",
+          "personId",
+          "note"
+        ]
       }
     },
     "realestate.cma.find_comps": {
@@ -10233,7 +11418,10 @@
             "maximum": 24
           }
         },
-        "required": ["workspaceId", "cmaId"]
+        "required": [
+          "workspaceId",
+          "cmaId"
+        ]
       }
     },
     "realestate.cma.request_summary": {
@@ -10250,7 +11438,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "cmaId"]
+        "required": [
+          "workspaceId",
+          "cmaId"
+        ]
       }
     },
     "realestate.contingency.add": {
@@ -10272,7 +11463,15 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["inspection", "financing", "appraisal", "home_sale", "hoa", "title", "other"]
+            "enum": [
+              "inspection",
+              "financing",
+              "appraisal",
+              "home_sale",
+              "hoa",
+              "title",
+              "other"
+            ]
           },
           "label": {
             "type": "string",
@@ -10288,7 +11487,11 @@
             "format": "date"
           }
         },
-        "required": ["workspaceId", "dealId", "kind"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "kind"
+        ]
       }
     },
     "realestate.contingency.resolve": {
@@ -10306,7 +11509,11 @@
           },
           "how": {
             "type": "string",
-            "enum": ["satisfied", "waived", "expired"]
+            "enum": [
+              "satisfied",
+              "waived",
+              "expired"
+            ]
           },
           "documentId": {
             "type": "string",
@@ -10322,7 +11529,11 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "contingencyId", "how"]
+        "required": [
+          "workspaceId",
+          "contingencyId",
+          "how"
+        ]
       }
     },
     "realestate.contract.confirm": {
@@ -10347,7 +11558,10 @@
             }
           }
         },
-        "required": ["workspaceId", "readId"]
+        "required": [
+          "workspaceId",
+          "readId"
+        ]
       }
     },
     "realestate.deal.export": {
@@ -10364,7 +11578,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.deal.move_stage": {
@@ -10388,7 +11605,11 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "dealId", "stage"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "stage"
+        ]
       }
     },
     "realestate.document.add": {
@@ -10467,10 +11688,18 @@
           "status": {
             "default": "draft",
             "type": "string",
-            "enum": ["draft", "sent"]
+            "enum": [
+              "draft",
+              "sent"
+            ]
           }
         },
-        "required": ["workspaceId", "dealId", "fileId", "kind"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "fileId",
+          "kind"
+        ]
       }
     },
     "realestate.duty.acknowledge": {
@@ -10487,7 +11716,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dutyId"]
+        "required": [
+          "workspaceId",
+          "dutyId"
+        ]
       }
     },
     "realestate.duty.add_evidence": {
@@ -10509,7 +11741,14 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["document", "file", "note", "attestation", "appointment", "message"]
+            "enum": [
+              "document",
+              "file",
+              "note",
+              "attestation",
+              "appointment",
+              "message"
+            ]
           },
           "documentId": {
             "type": "string",
@@ -10533,7 +11772,11 @@
             "maxLength": 4000
           }
         },
-        "required": ["workspaceId", "dutyId", "kind"]
+        "required": [
+          "workspaceId",
+          "dutyId",
+          "kind"
+        ]
       }
     },
     "realestate.duty.complete": {
@@ -10554,7 +11797,10 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "dutyId"]
+        "required": [
+          "workspaceId",
+          "dutyId"
+        ]
       }
     },
     "realestate.duty.complete_with_exception": {
@@ -10576,7 +11822,11 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "dutyId", "reason"]
+        "required": [
+          "workspaceId",
+          "dutyId",
+          "reason"
+        ]
       }
     },
     "realestate.duty.pick_vendor": {
@@ -10616,7 +11866,11 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "dutyId", "vendorId"]
+        "required": [
+          "workspaceId",
+          "dutyId",
+          "vendorId"
+        ]
       }
     },
     "realestate.duty.set_status": {
@@ -10634,7 +11888,12 @@
           },
           "status": {
             "type": "string",
-            "enum": ["not_started", "in_progress", "waiting_external", "blocked"]
+            "enum": [
+              "not_started",
+              "in_progress",
+              "waiting_external",
+              "blocked"
+            ]
           },
           "waitingOn": {
             "type": "string",
@@ -10664,7 +11923,12 @@
                 "format": "date-time"
               }
             },
-            "required": ["what", "owner", "impact", "reviewAt"]
+            "required": [
+              "what",
+              "owner",
+              "impact",
+              "reviewAt"
+            ]
           },
           "note": {
             "type": "string",
@@ -10675,7 +11939,11 @@
             "format": "date"
           }
         },
-        "required": ["workspaceId", "dutyId", "status"]
+        "required": [
+          "workspaceId",
+          "dutyId",
+          "status"
+        ]
       }
     },
     "realestate.duty.vendor_quote": {
@@ -10715,7 +11983,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "pickId", "cents"]
+        "required": [
+          "workspaceId",
+          "pickId",
+          "cents"
+        ]
       }
     },
     "realestate.duty.withdraw_evidence": {
@@ -10741,7 +12013,12 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "dutyId", "evidenceId", "reason"]
+        "required": [
+          "workspaceId",
+          "dutyId",
+          "evidenceId",
+          "reason"
+        ]
       }
     },
     "realestate.field_note.add": {
@@ -10764,7 +12041,14 @@
           "aboutKind": {
             "default": "deal",
             "type": "string",
-            "enum": ["deal", "home", "tour_stop", "showing", "open_house", "walkthrough"]
+            "enum": [
+              "deal",
+              "home",
+              "tour_stop",
+              "showing",
+              "open_house",
+              "walkthrough"
+            ]
           },
           "aboutId": {
             "type": "string",
@@ -10788,7 +12072,11 @@
             }
           }
         },
-        "required": ["workspaceId", "dealId", "id"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "id"
+        ]
       }
     },
     "realestate.financing.mark_done": {
@@ -10826,14 +12114,21 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["document", "file", "message"]
+                "enum": [
+                  "document",
+                  "file",
+                  "message"
+                ]
               },
               "id": {
                 "type": "string",
                 "format": "uuid"
               }
             },
-            "required": ["kind", "id"]
+            "required": [
+              "kind",
+              "id"
+            ]
           },
           "startedOn": {
             "anyOf": [
@@ -10904,7 +12199,12 @@
             ]
           }
         },
-        "required": ["workspaceId", "dealId", "step", "proof"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "step",
+          "proof"
+        ]
       }
     },
     "realestate.financing.reopen_step": {
@@ -10939,7 +12239,12 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "dealId", "step", "reason"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "step",
+          "reason"
+        ]
       }
     },
     "realestate.financing.update_step": {
@@ -11037,7 +12342,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "dealId", "step"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "step"
+        ]
       }
     },
     "realestate.finding.add": {
@@ -11075,7 +12384,11 @@
           },
           "severity": {
             "type": "string",
-            "enum": ["safety", "repair", "minor"]
+            "enum": [
+              "safety",
+              "repair",
+              "minor"
+            ]
           },
           "estimateCents": {
             "anyOf": [
@@ -11093,7 +12406,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["must_fix", "would_like", "skip"]
+                "enum": [
+                  "must_fix",
+                  "would_like",
+                  "skip"
+                ]
               },
               {
                 "type": "null"
@@ -11102,7 +12419,12 @@
           },
           "ask": {
             "type": "string",
-            "enum": ["repair", "replace", "credit", "not_asked"]
+            "enum": [
+              "repair",
+              "replace",
+              "credit",
+              "not_asked"
+            ]
           },
           "creditCents": {
             "anyOf": [
@@ -11136,7 +12458,12 @@
             }
           }
         },
-        "required": ["workspaceId", "inspectionId", "title", "severity"]
+        "required": [
+          "workspaceId",
+          "inspectionId",
+          "title",
+          "severity"
+        ]
       }
     },
     "realestate.finding.remove": {
@@ -11153,7 +12480,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "findingId"]
+        "required": [
+          "workspaceId",
+          "findingId"
+        ]
       }
     },
     "realestate.finding.update": {
@@ -11187,7 +12517,11 @@
           },
           "severity": {
             "type": "string",
-            "enum": ["safety", "repair", "minor"]
+            "enum": [
+              "safety",
+              "repair",
+              "minor"
+            ]
           },
           "estimateCents": {
             "anyOf": [
@@ -11205,7 +12539,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["must_fix", "would_like", "skip"]
+                "enum": [
+                  "must_fix",
+                  "would_like",
+                  "skip"
+                ]
               },
               {
                 "type": "null"
@@ -11214,7 +12552,12 @@
           },
           "ask": {
             "type": "string",
-            "enum": ["repair", "replace", "credit", "not_asked"]
+            "enum": [
+              "repair",
+              "replace",
+              "credit",
+              "not_asked"
+            ]
           },
           "creditCents": {
             "anyOf": [
@@ -11248,7 +12591,10 @@
             }
           }
         },
-        "required": ["workspaceId", "findingId"]
+        "required": [
+          "workspaceId",
+          "findingId"
+        ]
       }
     },
     "realestate.home.add": {
@@ -11292,7 +12638,11 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "dealId", "address"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "address"
+        ]
       }
     },
     "realestate.home.lookup": {
@@ -11314,7 +12664,10 @@
             "maxLength": 80
           }
         },
-        "required": ["workspaceId", "homeId"]
+        "required": [
+          "workspaceId",
+          "homeId"
+        ]
       }
     },
     "realestate.home.set_status": {
@@ -11332,14 +12685,25 @@
           },
           "status": {
             "type": "string",
-            "enum": ["saved", "shortlisted", "toured", "offered", "passed", "removed"]
+            "enum": [
+              "saved",
+              "shortlisted",
+              "toured",
+              "offered",
+              "passed",
+              "removed"
+            ]
           },
           "note": {
             "type": "string",
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "homeId", "status"]
+        "required": [
+          "workspaceId",
+          "homeId",
+          "status"
+        ]
       }
     },
     "realestate.inspection.add": {
@@ -11391,7 +12755,11 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "dealId", "kind"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "kind"
+        ]
       }
     },
     "realestate.inspection.update": {
@@ -11452,7 +12820,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "inspectionId"]
+        "required": [
+          "workspaceId",
+          "inspectionId"
+        ]
       }
     },
     "realestate.listing.confirm_facts": {
@@ -11537,7 +12908,12 @@
             },
             "additionalProperties": {
               "type": "string",
-              "enum": ["seller", "pasted", "agent", "mls"]
+              "enum": [
+                "seller",
+                "pasted",
+                "agent",
+                "mls"
+              ]
             }
           },
           "highlights": {
@@ -11552,7 +12928,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "dealId", "facts"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "facts"
+        ]
       }
     },
     "realestate.listing.description.request": {
@@ -11569,7 +12949,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.listing.lookup": {
@@ -11591,7 +12974,10 @@
             "maxLength": 80
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.listing.mark_live": {
@@ -11620,7 +13006,12 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId", "mlsNumber", "liveOn"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "mlsNumber",
+          "liveOn"
+        ]
       }
     },
     "realestate.listing.photo_add": {
@@ -11653,7 +13044,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "dealId", "fileId"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "fileId"
+        ]
       }
     },
     "realestate.listing.photos_arrange": {
@@ -11694,11 +13089,19 @@
                   "type": "boolean"
                 }
               },
-              "required": ["id", "caption", "public"]
+              "required": [
+                "id",
+                "caption",
+                "public"
+              ]
             }
           }
         },
-        "required": ["workspaceId", "dealId", "photos"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "photos"
+        ]
       }
     },
     "realestate.listing.posts_request": {
@@ -11715,7 +13118,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.listing.price.propose": {
@@ -11743,7 +13149,11 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "dealId", "priceCents"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "priceCents"
+        ]
       }
     },
     "realestate.match.dismiss": {
@@ -11760,7 +13170,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "matchId"]
+        "required": [
+          "workspaceId",
+          "matchId"
+        ]
       }
     },
     "realestate.match.send": {
@@ -11779,7 +13192,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "matchId"]
+        "required": [
+          "workspaceId",
+          "matchId"
+        ]
       }
     },
     "realestate.memory.add": {
@@ -11801,7 +13217,15 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["likes", "dislikes", "must_have", "deal_breaker", "timing", "money", "other"]
+            "enum": [
+              "likes",
+              "dislikes",
+              "must_have",
+              "deal_breaker",
+              "timing",
+              "money",
+              "other"
+            ]
           },
           "words": {
             "type": "string",
@@ -11809,7 +13233,12 @@
             "maxLength": 300
           }
         },
-        "required": ["workspaceId", "dealId", "kind", "words"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "kind",
+          "words"
+        ]
       }
     },
     "realestate.net_sheet.save": {
@@ -11904,7 +13333,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.offer.add_version": {
@@ -11922,7 +13354,10 @@
           },
           "side": {
             "type": "string",
-            "enum": ["us", "them"]
+            "enum": [
+              "us",
+              "them"
+            ]
           },
           "terms": {
             "type": "object",
@@ -11982,7 +13417,14 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["conventional", "fha", "va", "usda", "cash", "other"]
+                    "enum": [
+                      "conventional",
+                      "fha",
+                      "va",
+                      "usda",
+                      "cash",
+                      "other"
+                    ]
                   },
                   {
                     "type": "null"
@@ -12004,7 +13446,10 @@
               },
               "appraisalContingency": {
                 "default": null,
-                "type": ["boolean", "null"]
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "closingDate": {
                 "default": null,
@@ -12045,7 +13490,10 @@
               },
               "homeSaleContingency": {
                 "default": null,
-                "type": ["boolean", "null"]
+                "type": [
+                  "boolean",
+                  "null"
+                ]
               },
               "escalationCapCents": {
                 "default": null,
@@ -12113,7 +13561,9 @@
                 ]
               }
             },
-            "required": ["priceCents"]
+            "required": [
+              "priceCents"
+            ]
           },
           "respondBy": {
             "anyOf": [
@@ -12139,7 +13589,12 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "offerId", "side", "terms"]
+        "required": [
+          "workspaceId",
+          "offerId",
+          "side",
+          "terms"
+        ]
       }
     },
     "realestate.offer.share_summary": {
@@ -12156,7 +13611,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "offerId"]
+        "required": [
+          "workspaceId",
+          "offerId"
+        ]
       }
     },
     "realestate.open_house.plan": {
@@ -12195,7 +13653,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "dealId", "startsAt"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "startsAt"
+        ]
       }
     },
     "realestate.open_house.sign_in": {
@@ -12247,7 +13709,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "openHouseId", "firstName"]
+        "required": [
+          "workspaceId",
+          "openHouseId",
+          "firstName"
+        ]
       }
     },
     "realestate.repair.send": {
@@ -12296,7 +13762,11 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "dealId", "words"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "words"
+        ]
       }
     },
     "realestate.showing.add": {
@@ -12353,7 +13823,12 @@
             "maxLength": 40
           }
         },
-        "required": ["workspaceId", "dealId", "startsAt", "agentName"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "startsAt",
+          "agentName"
+        ]
       }
     },
     "realestate.showing.decide": {
@@ -12373,7 +13848,11 @@
           },
           "decision": {
             "type": "string",
-            "enum": ["confirm", "decline", "cancel"]
+            "enum": [
+              "confirm",
+              "decline",
+              "cancel"
+            ]
           },
           "note": {
             "type": "string",
@@ -12381,7 +13860,11 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "showingId", "decision"]
+        "required": [
+          "workspaceId",
+          "showingId",
+          "decision"
+        ]
       }
     },
     "realestate.showing.feedback": {
@@ -12437,7 +13920,11 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["low", "right", "high"]
+                "enum": [
+                  "low",
+                  "right",
+                  "high"
+                ]
               },
               {
                 "type": "null"
@@ -12445,7 +13932,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "showingId"]
+        "required": [
+          "workspaceId",
+          "showingId"
+        ]
       }
     },
     "realestate.status_email.request": {
@@ -12464,10 +13954,19 @@
           "milestone": {
             "default": "asked",
             "type": "string",
-            "enum": ["under_contract", "inspection_done", "clear_to_close", "closed", "asked"]
+            "enum": [
+              "under_contract",
+              "inspection_done",
+              "clear_to_close",
+              "closed",
+              "asked"
+            ]
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.status_email.save": {
@@ -12494,7 +13993,12 @@
             "maxLength": 10000
           }
         },
-        "required": ["workspaceId", "draftId", "subject", "body"]
+        "required": [
+          "workspaceId",
+          "draftId",
+          "subject",
+          "body"
+        ]
       }
     },
     "realestate.status_email.send": {
@@ -12513,7 +14017,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "draftId"]
+        "required": [
+          "workspaceId",
+          "draftId"
+        ]
       }
     },
     "realestate.suggestion.add": {
@@ -12530,7 +14037,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "suggestionId"]
+        "required": [
+          "workspaceId",
+          "suggestionId"
+        ]
       }
     },
     "realestate.suggestion.not_a_fit": {
@@ -12552,7 +14062,10 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "suggestionId"]
+        "required": [
+          "workspaceId",
+          "suggestionId"
+        ]
       }
     },
     "realestate.tour.feedback": {
@@ -12574,7 +14087,11 @@
           },
           "interest": {
             "type": "string",
-            "enum": ["love", "maybe", "no"]
+            "enum": [
+              "love",
+              "maybe",
+              "no"
+            ]
           },
           "rating": {
             "anyOf": [
@@ -12593,7 +14110,12 @@
             "maxLength": 2000
           }
         },
-        "required": ["workspaceId", "stopId", "personId", "interest"]
+        "required": [
+          "workspaceId",
+          "stopId",
+          "personId",
+          "interest"
+        ]
       }
     },
     "realestate.tour.plan": {
@@ -12656,10 +14178,17 @@
                 "maxLength": 500
               }
             },
-            "required": ["reason"]
+            "required": [
+              "reason"
+            ]
           }
         },
-        "required": ["workspaceId", "dealId", "homeIds", "startsAt"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "homeIds",
+          "startsAt"
+        ]
       }
     },
     "realestate.tour.record_visit": {
@@ -12677,14 +14206,21 @@
           },
           "status": {
             "type": "string",
-            "enum": ["visited", "skipped"]
+            "enum": [
+              "visited",
+              "skipped"
+            ]
           },
           "note": {
             "type": "string",
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "stopId", "status"]
+        "required": [
+          "workspaceId",
+          "stopId",
+          "status"
+        ]
       }
     },
     "realestate.tour.set_stops": {
@@ -12710,7 +14246,11 @@
             }
           }
         },
-        "required": ["workspaceId", "tourId", "homeIds"]
+        "required": [
+          "workspaceId",
+          "tourId",
+          "homeIds"
+        ]
       }
     },
     "realestate.vendor.approve": {
@@ -12730,7 +14270,11 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "vendorId", "approved"]
+        "required": [
+          "workspaceId",
+          "vendorId",
+          "approved"
+        ]
       }
     },
     "realestate.vendor.save": {
@@ -12823,7 +14367,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "services"]
+        "required": [
+          "workspaceId",
+          "services"
+        ]
       }
     },
     "realestate.walkthrough.add_item": {
@@ -12853,7 +14400,12 @@
             "maxLength": 1000
           }
         },
-        "required": ["workspaceId", "id", "walkthroughId", "title"]
+        "required": [
+          "workspaceId",
+          "id",
+          "walkthroughId",
+          "title"
+        ]
       }
     },
     "realestate.walkthrough.check_item": {
@@ -12871,7 +14423,12 @@
           },
           "state": {
             "type": "string",
-            "enum": ["ok", "not_ok", "unsure", "unchecked"]
+            "enum": [
+              "ok",
+              "not_ok",
+              "unsure",
+              "unchecked"
+            ]
           },
           "note": {
             "type": "string",
@@ -12886,7 +14443,11 @@
             }
           }
         },
-        "required": ["workspaceId", "itemId", "state"]
+        "required": [
+          "workspaceId",
+          "itemId",
+          "state"
+        ]
       }
     },
     "realestate.walkthrough.finish": {
@@ -12907,7 +14468,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "walkthroughId"]
+        "required": [
+          "workspaceId",
+          "walkthroughId"
+        ]
       }
     },
     "realestate.walkthrough.plan": {
@@ -12936,7 +14500,11 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId", "id"]
+        "required": [
+          "workspaceId",
+          "dealId",
+          "id"
+        ]
       }
     },
     "realestate.walkthrough.start": {
@@ -12953,7 +14521,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "walkthroughId"]
+        "required": [
+          "workspaceId",
+          "walkthroughId"
+        ]
       }
     },
     "record_hold.lift": {
@@ -12975,7 +14546,11 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "holdId", "reason"]
+        "required": [
+          "workspaceId",
+          "holdId",
+          "reason"
+        ]
       }
     },
     "record_hold.place": {
@@ -12997,7 +14572,11 @@
             "maxLength": 500
           }
         },
-        "required": ["workspaceId", "customRecordId", "reason"]
+        "required": [
+          "workspaceId",
+          "customRecordId",
+          "reason"
+        ]
       }
     },
     "record.add_tag": {
@@ -13011,7 +14590,11 @@
           },
           "recordType": {
             "type": "string",
-            "enum": ["person", "company", "lead"]
+            "enum": [
+              "person",
+              "company",
+              "lead"
+            ]
           },
           "recordId": {
             "type": "string",
@@ -13022,7 +14605,12 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "recordType", "recordId", "tagId"]
+        "required": [
+          "workspaceId",
+          "recordType",
+          "recordId",
+          "tagId"
+        ]
       }
     },
     "record.remove_tag": {
@@ -13036,7 +14624,11 @@
           },
           "recordType": {
             "type": "string",
-            "enum": ["person", "company", "lead"]
+            "enum": [
+              "person",
+              "company",
+              "lead"
+            ]
           },
           "recordId": {
             "type": "string",
@@ -13047,7 +14639,12 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "recordType", "recordId", "tagId"]
+        "required": [
+          "workspaceId",
+          "recordType",
+          "recordId",
+          "tagId"
+        ]
       }
     },
     "safety_contact.remove": {
@@ -13064,7 +14661,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "id"]
+        "required": [
+          "workspaceId",
+          "id"
+        ]
       }
     },
     "safety_contact.save": {
@@ -13098,7 +14698,9 @@
             "type": "string"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "safety.check_in": {
@@ -13141,7 +14743,12 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "id", "place", "plannedEndAt"]
+        "required": [
+          "workspaceId",
+          "id",
+          "place",
+          "plannedEndAt"
+        ]
       }
     },
     "safety.check_out": {
@@ -13158,7 +14765,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "checkInId"]
+        "required": [
+          "workspaceId",
+          "checkInId"
+        ]
       }
     },
     "safety.extend": {
@@ -13180,7 +14790,11 @@
             "maximum": 240
           }
         },
-        "required": ["workspaceId", "checkInId", "minutes"]
+        "required": [
+          "workspaceId",
+          "checkInId",
+          "minutes"
+        ]
       }
     },
     "safety.help": {
@@ -13212,7 +14826,9 @@
             "maximum": 180
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "safety.where": {
@@ -13239,7 +14855,12 @@
             "maximum": 180
           }
         },
-        "required": ["workspaceId", "checkInId", "latitude", "longitude"]
+        "required": [
+          "workspaceId",
+          "checkInId",
+          "latitude",
+          "longitude"
+        ]
       }
     },
     "subscription.request_card": {
@@ -13263,7 +14884,10 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["sms", "email"]
+              "enum": [
+                "sms",
+                "email"
+              ]
             }
           },
           "message": {
@@ -13279,7 +14903,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "subscriptionId"]
+        "required": [
+          "workspaceId",
+          "subscriptionId"
+        ]
       }
     },
     "task.complete": {
@@ -13296,7 +14923,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "taskId"]
+        "required": [
+          "workspaceId",
+          "taskId"
+        ]
       }
     },
     "task.create": {
@@ -13399,7 +15029,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "title"]
+        "required": [
+          "workspaceId",
+          "title"
+        ]
       }
     },
     "task.delete": {
@@ -13416,7 +15049,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "taskId"]
+        "required": [
+          "workspaceId",
+          "taskId"
+        ]
       }
     },
     "task.reopen": {
@@ -13433,7 +15069,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "taskId"]
+        "required": [
+          "workspaceId",
+          "taskId"
+        ]
       }
     },
     "task.update": {
@@ -13631,7 +15270,10 @@
             }
           }
         },
-        "required": ["workspaceId", "taskId"]
+        "required": [
+          "workspaceId",
+          "taskId"
+        ]
       }
     },
     "teammate_lesson.apply": {
@@ -13656,7 +15298,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "lessonId"]
+        "required": [
+          "workspaceId",
+          "lessonId"
+        ]
       }
     },
     "teammate_lesson.dismiss": {
@@ -13673,7 +15318,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "lessonId"]
+        "required": [
+          "workspaceId",
+          "lessonId"
+        ]
       }
     },
     "user_phone.start_verification": {
@@ -13691,7 +15339,10 @@
             "maxLength": 40
           }
         },
-        "required": ["workspaceId", "phone"]
+        "required": [
+          "workspaceId",
+          "phone"
+        ]
       }
     },
     "user.update_profile": {
@@ -13750,7 +15401,10 @@
           },
           "decision": {
             "type": "string",
-            "enum": ["approve", "reject"]
+            "enum": [
+              "approve",
+              "reject"
+            ]
           },
           "edits": {
             "type": "object",
@@ -13776,7 +15430,11 @@
             ]
           }
         },
-        "required": ["workspaceId", "approvalId", "decision"]
+        "required": [
+          "workspaceId",
+          "approvalId",
+          "decision"
+        ]
       }
     }
   },
@@ -13800,7 +15458,10 @@
             "pattern": "^[a-z]{2,16}$"
           }
         },
-        "required": ["workspaceId", "addonId"]
+        "required": [
+          "workspaceId",
+          "addonId"
+        ]
       }
     },
     "ai_setup.get": {
@@ -13812,7 +15473,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "ai_teammate.feedback": {
@@ -13842,7 +15505,9 @@
             }
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "attention.preview_handle": {
@@ -13858,7 +15523,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "itemId"]
+        "required": [
+          "workspaceId",
+          "itemId"
+        ]
       }
     },
     "booking_site.get": {
@@ -13870,7 +15538,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "branded_domain.get": {
@@ -13882,7 +15552,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "calendar.availability": {
@@ -13954,7 +15626,10 @@
                     "maximum": 180
                   }
                 },
-                "required": ["lat", "lng"]
+                "required": [
+                  "lat",
+                  "lng"
+                ]
               },
               {
                 "type": "null"
@@ -13976,7 +15651,12 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["customer_address", "business", "virtual", "phone"]
+                "enum": [
+                  "customer_address",
+                  "business",
+                  "virtual",
+                  "phone"
+                ]
               },
               {
                 "type": "null"
@@ -13984,7 +15664,12 @@
             ]
           }
         },
-        "required": ["workspaceId", "calendarId", "from", "to"]
+        "required": [
+          "workspaceId",
+          "calendarId",
+          "from",
+          "to"
+        ]
       }
     },
     "crm.find_matches": {
@@ -13997,7 +15682,10 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["person", "company"]
+            "enum": [
+              "person",
+              "company"
+            ]
           },
           "email": {
             "anyOf": [
@@ -14037,7 +15725,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "kind"]
+        "required": [
+          "workspaceId",
+          "kind"
+        ]
       }
     },
     "email.compose_options": {
@@ -14057,7 +15748,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "extension_sign_in.pending": {
@@ -14084,7 +15777,10 @@
             }
           }
         },
-        "required": ["workspaceId", "fileIds"]
+        "required": [
+          "workspaceId",
+          "fileIds"
+        ]
       }
     },
     "form.response_export": {
@@ -14110,7 +15806,10 @@
             "maxLength": 400
           }
         },
-        "required": ["workspaceId", "formId"]
+        "required": [
+          "workspaceId",
+          "formId"
+        ]
       }
     },
     "form.response_get": {
@@ -14126,7 +15825,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "responseId"]
+        "required": [
+          "workspaceId",
+          "responseId"
+        ]
       }
     },
     "form.response_list": {
@@ -14156,7 +15858,10 @@
             "maxLength": 400
           }
         },
-        "required": ["workspaceId", "formId"]
+        "required": [
+          "workspaceId",
+          "formId"
+        ]
       }
     },
     "knowledge_scan.get": {
@@ -14172,7 +15877,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "knowledge_suggestion.list": {
@@ -14186,11 +15893,19 @@
           "status": {
             "default": "pending",
             "type": "string",
-            "enum": ["pending", "accepted", "rejected"]
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ]
           },
           "reason": {
             "type": "string",
-            "enum": ["scan", "gap", "pack"]
+            "enum": [
+              "scan",
+              "gap",
+              "pack"
+            ]
           },
           "scanId": {
             "type": "string",
@@ -14207,7 +15922,9 @@
             "maxLength": 400
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "main_offer.get": {
@@ -14219,7 +15936,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "main_offer.tries": {
@@ -14231,7 +15950,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "onboarding_setup.get": {
@@ -14243,7 +15964,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.asks": {
@@ -14286,7 +16009,9 @@
             }
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.automation": {
@@ -14302,7 +16027,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.automation.people": {
@@ -14314,7 +16041,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.chats": {
@@ -14328,7 +16057,12 @@
           "view": {
             "default": "prospects",
             "type": "string",
-            "enum": ["prospects", "tagged", "read", "waiting"]
+            "enum": [
+              "prospects",
+              "tagged",
+              "read",
+              "waiting"
+            ]
           },
           "tag": {
             "type": "string",
@@ -14347,10 +16081,17 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.groups": {
@@ -14364,12 +16105,22 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "view": {
             "default": "work",
             "type": "string",
-            "enum": ["work", "maybe", "skip", "all"]
+            "enum": [
+              "work",
+              "maybe",
+              "skip",
+              "all"
+            ]
           },
           "search": {
             "type": "string",
@@ -14382,7 +16133,9 @@
             "maximum": 9007199254740991
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.helpful": {
@@ -14396,10 +16149,17 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.live": {
@@ -14413,10 +16173,17 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.live.team": {
@@ -14426,9 +16193,21 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.lookup": {
@@ -14442,7 +16221,12 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           },
           "profiles": {
             "default": [],
@@ -14452,13 +16236,22 @@
               "type": "object",
               "properties": {
                 "id": {
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "username": {
-                  "type": ["string", "null"]
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
-              "required": ["id", "username"]
+              "required": [
+                "id",
+                "username"
+              ]
             }
           },
           "threads": {
@@ -14480,7 +16273,9 @@
             }
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.playbook.list": {
@@ -14492,7 +16287,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.readiness": {
@@ -14506,10 +16303,17 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.setup": {
@@ -14521,7 +16325,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.stages": {
@@ -14559,10 +16365,17 @@
           },
           "platform": {
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.today": {
@@ -14576,10 +16389,17 @@
           "platform": {
             "default": "facebook",
             "type": "string",
-            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+            "enum": [
+              "facebook",
+              "linkedin",
+              "instagram",
+              "alignable"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.waiting": {
@@ -14595,7 +16415,9 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "outreach.wheels": {
@@ -14607,7 +16429,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "partner.get": {
@@ -14623,7 +16447,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "partnerId"]
+        "required": [
+          "workspaceId",
+          "partnerId"
+        ]
       }
     },
     "partner.list": {
@@ -14635,7 +16462,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "partner.of_person": {
@@ -14651,7 +16480,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "personId"]
+        "required": [
+          "workspaceId",
+          "personId"
+        ]
       }
     },
     "partners.settings": {
@@ -14663,7 +16495,9 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     },
     "realestate.buyer_profile.get": {
@@ -14679,7 +16513,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.client_tasks": {
@@ -14699,7 +16536,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.cma": {
@@ -14715,7 +16555,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "cmaId"]
+        "required": [
+          "workspaceId",
+          "cmaId"
+        ]
       }
     },
     "realestate.deal.history": {
@@ -14741,7 +16584,10 @@
             "format": "date-time"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.document.list": {
@@ -14757,7 +16603,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.duty.vendors": {
@@ -14787,7 +16636,10 @@
             ]
           }
         },
-        "required": ["workspaceId", "dutyId"]
+        "required": [
+          "workspaceId",
+          "dutyId"
+        ]
       }
     },
     "realestate.exports": {
@@ -14803,7 +16655,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.financing": {
@@ -14819,7 +16674,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.homes": {
@@ -14839,7 +16697,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.inspections": {
@@ -14855,7 +16716,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.listing": {
@@ -14871,7 +16735,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.listing.marketing": {
@@ -14887,7 +16754,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.listing.prices": {
@@ -14903,7 +16773,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.lockbox.list": {
@@ -14919,7 +16792,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.matches": {
@@ -14936,10 +16812,17 @@
           },
           "state": {
             "type": "string",
-            "enum": ["new", "sent", "dismissed"]
+            "enum": [
+              "new",
+              "sent",
+              "dismissed"
+            ]
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.memory": {
@@ -14959,7 +16842,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.offers": {
@@ -14975,7 +16861,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.offers.compare": {
@@ -14991,7 +16880,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.open_houses": {
@@ -15007,7 +16899,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.showing.list": {
@@ -15023,7 +16918,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.tours": {
@@ -15043,7 +16941,10 @@
             "type": "boolean"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "realestate.walkthrough": {
@@ -15059,7 +16960,10 @@
             "format": "uuid"
           }
         },
-        "required": ["workspaceId", "dealId"]
+        "required": [
+          "workspaceId",
+          "dealId"
+        ]
       }
     },
     "record_hold.list": {
@@ -15076,10 +16980,15 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["legal", "retention"]
+            "enum": [
+              "legal",
+              "retention"
+            ]
           }
         },
-        "required": ["workspaceId"]
+        "required": [
+          "workspaceId"
+        ]
       }
     }
   },

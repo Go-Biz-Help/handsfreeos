@@ -396,6 +396,8 @@ export const automationGet = defineAddonQuery(outreachAddon, {
   output: AutomationOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
+  // The worker reads them for someone too: the networks they work, for the morning push.
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const { whose } = await whoseFor(ctx, input.userId);
     const [row, rules] = await Promise.all([rowOf(ctx, whose), rulesOf(ctx)]);

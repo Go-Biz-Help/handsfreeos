@@ -16,7 +16,7 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
-import { dailyWordsOn, networkShown } from '@hfos/core/addons/outreach/network-words';
+import { dailyWordsOn, networkShown, teamWordsOn } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -128,9 +128,13 @@ export function useLiveProps(
   const team = useOutreachAnswer(
     ctx.manages && full
       ? async () =>
-          unwrap(await api.POST('/v1/queries/outreach.live.team', { body: { workspaceId: ws } }))
+          unwrap(
+            await api.POST('/v1/queries/outreach.live.team', {
+              body: { workspaceId: ws, platform },
+            }),
+          )
       : null,
-    `live-team:${ws}`,
+    `live-team:${ws}:${platform}`,
     W.team,
     { everySeconds: LIVE_REFETCH_SECONDS },
   );
@@ -409,7 +413,7 @@ export function LiveBody({
 
 function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
   return (
-    <Part title={W.team} testID="live-team">
+    <Part title={teamWordsOn(team.platform).title} testID="live-team">
       {team.people.length ? (
         <List>
           {team.people.map((p) => {
@@ -441,7 +445,7 @@ function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
           })}
         </List>
       ) : (
-        <Note>{W.teamNone}</Note>
+        <Note>{teamWordsOn(team.platform).none}</Note>
       )}
     </Part>
   );

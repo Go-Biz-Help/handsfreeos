@@ -481,6 +481,7 @@ describe('The live view on the phone', () => {
     const team: LiveTeamOutput = {
       timezone: TZ,
       now: new Date(NOW).toISOString(),
+      platform: 'facebook',
       people: [
         {
           userId: id(7),

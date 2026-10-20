@@ -305,13 +305,19 @@ export const LiveOutput = z.object({
 });
 export type LiveOutput = z.output<typeof LiveOutput>;
 
-export const LiveTeamInput = z.object({ workspaceId: z.uuid() });
+export const LiveTeamInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network whose days, counts and warnings it gives, as the person's own live view: Facebook's when left out. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type LiveTeamInput = z.input<typeof LiveTeamInput>;
 
 /** Each person's status for owners and admins (decision 24): never their lines, feed or messages. */
 export const LiveTeamOutput = z.object({
   timezone: z.string(),
   now: moment,
+  /** The network it's about: on another than Facebook, only the people who have it on. */
+  platform: z.enum(PLATFORM_KEYS),
   people: z.array(
     z.object({
       userId: z.uuid(),

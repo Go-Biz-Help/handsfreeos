@@ -769,7 +769,8 @@ openers on group posts") and answered its questions the same day. These are sett
     in a tab. A page their profile links to counts as their business only when the line naming it says they own or
     founded it ("Owner at…"); otherwise it's told to the AI as where they work, a job. Built.
 22. **Phone alerts:** a push when the extension spots a reply, and a morning push at a time that's a setting (8am to
-    start). Built (the third of three parts).
+    start). Built (the third of three parts). The morning push counts every network the person works, as Today's
+    strip shows them: one network in its own words, more than one named ("on Facebook and Alignable").
 23. **Which openers work:** each playbook has two or three AI opener styles and the person's own openers. Drafts
     take turns with them, and a results card shows the replies and demos for each. Built.
 24. **The demo link is built now,** so a booking through it counts by itself. The "Demo booked" mark stays too.
@@ -1597,7 +1598,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
   kept apart. On LinkedIn the extension notes the person's own steps, who wrote back and LinkedIn's warnings, as
   LinkedIn's (0.34.0, apps/extension/README.md, "The networks"), and takes no ask there before 0.40.0
-  (`ASK_NETWORK_SINCE`); the team's live view, the activity panel and joining groups are Facebook's. A new place that
+  (`ASK_NETWORK_SINCE`); the activity panel and joining groups are Facebook's. The team's live view is the network on
+  screen's, as the person's own is (`outreach.live.team`'s `platform`): on any other than Facebook, only the people
+  who have it on. A new place that
   reads a warning, a day or the day's counts names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
   on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
