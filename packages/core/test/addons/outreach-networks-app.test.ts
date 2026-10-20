@@ -168,19 +168,22 @@ describe('the networks a person works', () => {
   });
 
   it('keeps a network still looked at off Today and the filters, while it can be turned on (decision 78)', () => {
-    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin']);
-    expect(PLATFORM_KEYS.filter(isLooking)).toEqual(['instagram', 'alignable']);
+    // Alignable works from its part 3, by hand till its runner (`runsOnItsOwn`); Instagram is still looked at.
+    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'alignable']);
+    expect(PLATFORM_KEYS.filter(isLooking)).toEqual(['instagram']);
     const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });
     expect(networksOn(instagram)).toEqual(['facebook', 'instagram']);
     expect(networksShown(instagram)).toEqual(['facebook']);
-    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin']);
+    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin', 'alignable']);
     expect(networkOfLink('https://www.instagram.com/dana.reyes/')).toBe('instagram');
     expect(networkOfLink('https://www.alignable.com/austin-tx/acme-plumbing')).toBe('alignable');
     expect(NETWORK_WORDS.looking('Instagram')).toContain('press Check Instagram below once');
     expect(REPORT_WORDS.notAllowed('Chrome on Mac 12', 'instagram')).toContain(
       'on an Instagram page',
     );
-    expect(SETUP_WORDS.stepAbout.networks).toBe('Where you reach people: Facebook or LinkedIn');
+    expect(SETUP_WORDS.stepAbout.networks).toBe(
+      'Where you reach people: Facebook, LinkedIn or Alignable',
+    );
   });
 
   it('changes one network’s choices, Facebook’s being the settings’ own', () => {
@@ -213,7 +216,9 @@ describe('the setup’s step to pick networks', () => {
       'extension',
       'groups',
     ]);
-    expect(SETUP_WORDS.stepAbout.networks).toBe('Where you reach people: Facebook or LinkedIn');
+    expect(SETUP_WORDS.stepAbout.networks).toBe(
+      'Where you reach people: Facebook, LinkedIn or Alignable',
+    );
     const got = { playbooks: [], extensionAt: null, groups: { mine: 0, business: 0, latest: [] } };
     expect(setupSummary(got, withLinkedIn(true))[1]).toBe('Networks: Facebook, LinkedIn');
     expect(setupSummary(got, null)[1]).toBe('Networks: Facebook');

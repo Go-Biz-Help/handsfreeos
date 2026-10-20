@@ -571,7 +571,8 @@ request when opened, so no Check opens it: the first real request shows what it 
    "referral partners" side, so no new field was needed.
 3. **6c, Alignable works** (its parts 1 to 6), built from what 6a sends back, with partners in it: reading its pages,
    noting your steps, its day in the apps, its asks, the runner and Find partners (your town's businesses by the
-   playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage last.
+   playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage at part 3, as
+   LinkedIn did, with nothing going on its own there till its runner (part 5).
    - **What 6a's Check read** (Chris, 19 Oct 2026): a town opens at its own group (`/groups/<town-st>`), whose posts
      each have Comment, Like and a Connect of their own; a forum question is a discussion at
      `/groups/<group>/<question>`, its answers each with Connect, and a box to answer in with Send. A search's results
@@ -610,7 +611,9 @@ request when opened, so no Check opens it: the first real request shows what it 
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,
      search finds and forum questions; (d) Recommend (by hand) and forum answers as kinds, with their limits; (e) the
-     switch to `working`, with Sending kept off until the runner (part 5).
+     switch to `working`, with Sending kept off until the runner (part 5). Built: (a), then (e), so Chris can try
+     Alignable by hand while the rest comes; (b) needs no new field, as a playbook's words to search are its kinds of
+     business there and its area narrows the person's own town.
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
 

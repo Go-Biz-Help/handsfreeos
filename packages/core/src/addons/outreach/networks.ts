@@ -177,7 +177,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   // referrals. Close to LinkedIn in shape; little is published, so its steps are built from what Check Alignable reads.
   alignable: {
     name: PLATFORMS.alignable,
-    stage: 'looking',
+    // Working from part 3 (the app), as LinkedIn was, before its runner: nothing goes on its own there till part 5
+    // (`runsOnItsOwn`), so Today's list on it is the person's own to do, and the extension notes each step.
+    stage: 'working',
     link: /^https:\/\/www\.alignable\.com\//,
     profileId: /^[A-Za-z0-9_-]{1,64}$/,
     username: /^[A-Za-z0-9%_-]{1,100}$/,
@@ -199,7 +201,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   },
 };
 
-/** The networks the extension works on, past their look: Facebook and LinkedIn. */
+/** The networks past their look: Facebook, LinkedIn and Alignable. */
 export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
   (p) => NETWORKS[p].stage === 'working',
 );

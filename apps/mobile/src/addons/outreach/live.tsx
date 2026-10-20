@@ -16,8 +16,12 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
-import { dailyWordsOn, networkShown } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  dailyWordsOn,
+  networkShown,
+  noRunnerWords,
+} from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
@@ -323,8 +327,10 @@ export function LiveBody({
       <Card className="gap-2.5 px-4 py-3.5" testID="live-day">
         {live.sending === 'off' ? (
           <>
-            <Note testID="live-sending-off">{W.sendingOff(live.canSend)}</Note>
-            {live.canSend ? (
+            <Note testID="live-sending-off">
+              {runsOnItsOwn(platform) ? W.sendingOff(live.canSend) : noRunnerWords(platform)}
+            </Note>
+            {live.canSend && runsOnItsOwn(platform) ? (
               <Button variant="secondary" size="md" onPress={onSettings} testID="live-settings">
                 {W.rows.settings}
               </Button>
