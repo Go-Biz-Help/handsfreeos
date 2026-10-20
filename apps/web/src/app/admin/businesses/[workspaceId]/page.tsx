@@ -1,11 +1,29 @@
 import {
   DESK_BUSINESS_WORDS,
-  DESK_SETUP_WORDS,
-  deskBusinessCounts,
+  DESK_QUICK_LOOK_WORDS,
+  deskBusinessFlags,
   deskLastActive,
+  deskMoreLines,
+  deskPlanLabel,
+  deskPlanLines,
+  deskQuickLookCounts,
+  deskSetupRows,
+  deskSetupScore,
 } from '@hfos/core';
 import Link from 'next/link';
 import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
+import {
+  ActivitySection,
+  FLAG_ACTION_CLASS,
+  FlagList,
+  GlanceCounts,
+  GlanceLines,
+  GlanceSection,
+  MoreAboutThem,
+  ProblemReportsSection,
+  SetupRows,
+  TheirMoneySection,
+} from '@/components/admin/business-glance';
 import { FoundingSeatBlock } from '@/components/admin/founding-seat-block';
 import { SupportAccessAsk } from '@/components/admin/support-access-ask';
 import { ViewAsButton } from '@/components/admin/view-as';
@@ -14,9 +32,14 @@ import { PartnerPayoutsBlock } from '@/components/admin/partner-payouts-block';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
 import { WalletBlock } from '@/components/admin/wallet-block';
 import { STATUS_WORD, whenWords } from '@/components/admin/ticket-bits';
+import { Badge } from '@/components/ui/badge';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
 
-/** One business, as a support person needs it: who is in it, how much is in it, and what is switched on. */
+/**
+ * One business, as a support person needs it: what needs a look, its numbers and 30 days of activity, what is set
+ * up, who is in it, its plan and balance, what its customers paid it, everything else worth knowing on a call, and
+ * its tickets. The quick look shows the same at a glance; this page is where things are changed.
+ */
 export default async function BusinessPage({
   params,
 }: {
@@ -24,12 +47,13 @@ export default async function BusinessPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [detail, wallet, partnerPayouts] = await Promise.all([
+  const [detail, wallet, partnerPayouts, glance] = await Promise.all([
     api.POST('/v1/queries/platform.business.get', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/platform.wallet.get', { body: { workspaceId } }).then(unwrapPage),
     api
       .POST('/v1/queries/platform.partner_payouts.get', { body: { workspaceId } })
       .then(unwrapPage),
+    api.POST('/v1/queries/platform.business.glance', { body: { workspaceId } }).then(unwrapPage),
   ]);
   const me = unwrap(await api.POST('/v1/queries/platform.me', { body: {} }));
   // Only staff who give founding seats are asked about them; for anybody else the block isn't there.
@@ -39,6 +63,7 @@ export default async function BusinessPage({
         .then(unwrapPage)
     : null;
   const b = detail.business;
+  const setup = deskSetupRows(glance.setup);
   return (
     <div className="mx-auto w-full max-w-5xl">
       <Link href="/admin/businesses" className="text-[13px] text-text-3 hover:text-text">
@@ -50,6 +75,10 @@ export default async function BusinessPage({
           <p className="mt-1 text-[13px] text-text-3">
             {DESK_BUSINESS_WORDS.headline(b, new Date(b.createdAt).toLocaleDateString())}
           </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Badge variant={glance.plan ? 'ok' : 'gray'}>{deskPlanLabel(glance.plan)}</Badge>
+            {b.foundingSeat ? <Badge variant="ok">{b.foundingSeat}</Badge> : null}
+          </div>
         </div>
         {me.staff?.permissions.includes('platform.view_as') ? (
           <ViewAsButton
@@ -60,32 +89,26 @@ export default async function BusinessPage({
         ) : null}
       </div>
 
-      <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {deskBusinessCounts(detail.counts).map((c) => (
-          <div key={c.label} className="rounded-card border border-border bg-card px-4 py-3">
-            <dt className="text-[13px] text-text-3">{c.label}</dt>
-            <dd className="mt-0.5 text-xl font-semibold tabular-nums">{c.value}</dd>
-          </div>
-        ))}
-      </dl>
+      <div className="mt-5" data-testid="business-flags">
+        <FlagList
+          flags={deskBusinessFlags({ ...b, tickets: detail.tickets }, glance, wallet)}
+          // Each flag's tab is a section further down this page.
+          action={(tab, label) => (
+            <a href={`#${tab}`} className={FLAG_ACTION_CLASS}>
+              {label}
+            </a>
+          )}
+        />
+      </div>
 
-      <div className="mt-6 grid gap-5 md:grid-cols-2">
-        <section className="rounded-card border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold">{DESK_BUSINESS_WORDS.whatIsSetUp}</h2>
-          <ul className="mt-3 flex flex-col gap-2 text-[13px]">
-            {Object.entries(detail.setup).map(([key, on]) => (
-              <li key={key} className="flex items-center justify-between gap-2">
-                <span>{DESK_SETUP_WORDS[key] ?? key}</span>
-                <span className={on ? 'text-success-text' : 'text-text-3'}>
-                  {on ? DESK_BUSINESS_WORDS.setUpYes : DESK_BUSINESS_WORDS.setUpNotYet}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <div className="mt-4">
+        <GlanceCounts items={deskQuickLookCounts(detail.counts, glance)} />
+      </div>
 
-        <section className="rounded-card border border-border bg-card p-4">
-          <h2 className="text-sm font-semibold">{DESK_BUSINESS_WORDS.theirPeople}</h2>
+      <div className="mt-6 grid items-start gap-5 md:grid-cols-2">
+        <ActivitySection glance={glance} />
+
+        <GlanceSection id="people" title={DESK_BUSINESS_WORDS.theirPeople}>
           <ul className="mt-3 flex flex-col gap-2 text-[13px]">
             {detail.people.map((p) => (
               <li key={p.userId} className="flex items-center justify-between gap-2">
@@ -108,7 +131,22 @@ export default async function BusinessPage({
               </li>
             ))}
           </ul>
-        </section>
+        </GlanceSection>
+      </div>
+
+      <section id="setup" className="mt-5 scroll-mt-4" data-testid="business-setup">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">{DESK_BUSINESS_WORDS.whatIsSetUp}</h2>
+          <span className="text-xs text-text-3">{deskSetupScore(setup)}</span>
+        </div>
+        <SetupRows setup={setup} />
+      </section>
+
+      <div id="money" className="mt-5 grid scroll-mt-4 items-start gap-5 md:grid-cols-2">
+        <GlanceSection title={DESK_QUICK_LOOK_WORDS.theirPlan}>
+          <GlanceLines lines={deskPlanLines(glance.plan)} />
+        </GlanceSection>
+        <TheirMoneySection glance={glance} />
       </div>
 
       {founding ? (
@@ -151,26 +189,32 @@ export default async function BusinessPage({
         canChange={me.staff?.permissions.includes('platform.own_business.manage') ?? false}
       />
 
-      <section className="mt-5 rounded-card border border-border bg-card p-4">
-        <h2 className="text-sm font-semibold">{DESK_BUSINESS_WORDS.theirTickets}</h2>
-        {detail.tickets.length === 0 ? (
-          <p className="mt-2 text-[13px] text-text-3">{DESK_BUSINESS_WORDS.neverWrittenIn}</p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-2 text-[13px]">
-            {detail.tickets.map((t) => (
-              <li key={t.id}>
-                <Link href={`/admin/tickets/${t.id}`} className="hover:text-accent-text">
-                  #{t.number} {t.subject}
-                  <span className="text-text-3">
-                    {' '}
-                    · {STATUS_WORD[t.status]} · {whenWords(t.createdAt)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <GlanceSection title={DESK_QUICK_LOOK_WORDS.moreAboutThem} className="mt-5" id="more">
+        <MoreAboutThem lines={deskMoreLines(b, glance, detail.phoneModel)} />
+      </GlanceSection>
+
+      <div id="tickets" className="mt-5 grid scroll-mt-4 items-start gap-5 md:grid-cols-2">
+        <GlanceSection title={DESK_BUSINESS_WORDS.theirTickets}>
+          {detail.tickets.length === 0 ? (
+            <p className="mt-2 text-[13px] text-text-3">{DESK_BUSINESS_WORDS.neverWrittenIn}</p>
+          ) : (
+            <ul className="mt-3 flex flex-col gap-2 text-[13px]">
+              {detail.tickets.map((t) => (
+                <li key={t.id}>
+                  <Link href={`/admin/tickets/${t.id}`} className="hover:text-accent-text">
+                    #{t.number} {t.subject}
+                    <span className="text-text-3">
+                      {' '}
+                      · {STATUS_WORD[t.status]} · {whenWords(t.createdAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </GlanceSection>
+        <ProblemReportsSection glance={glance} />
+      </div>
     </div>
   );
 }

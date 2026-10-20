@@ -403,10 +403,14 @@ describe('one business', () => {
       `Lone Star Group · signed up ${new Date('2026-08-01T15:00:00.000Z').toLocaleDateString()} · last active 3 hours ago`,
     );
     expect(screen.getByTestId('business-counts')).toHaveTextContent(
-      'Contacts340Leads12Conversations88Appointments21Invoices57',
+      'Contacts340Leads12Conversations88Appointments21Invoices57Collected, 30 days$4,820',
     );
-    expect(screen.getByTestId('business-setup-phone')).toHaveTextContent('Texting and callsYes');
-    expect(screen.getByTestId('business-setup-payments')).toHaveTextContent('Taking moneyNot yet');
+    expect(screen.getByTestId('business-setup-phone')).toHaveTextContent(
+      'Texting and calls(512) 555-0148Yes',
+    );
+    expect(screen.getByTestId('business-setup-payments')).toHaveTextContent(
+      'Taking moneyNothing connectedNot yet',
+    );
     expect(screen.getByTestId('business-people')).toHaveTextContent(
       'Dale Ramsey · owner30 minutestech@lonestarhvac.test · membernever',
       { exact: false },
@@ -417,6 +421,40 @@ describe('one business', () => {
     );
     await fireEvent.press(screen.getByTestId('business-ticket-1042'));
     expect(router.push).toHaveBeenCalledWith(`/app/admin/tickets/${TICKET}`);
+  });
+
+  it('says what needs a look, what it did lately, its plan, what its customers paid it, and the rest', async () => {
+    answers['/v1/queries/platform.wallet.get'] = { ...WALLET, declinesInRow: 2 };
+    answers['/v1/queries/platform.business.glance'] = {
+      ...GLANCE,
+      problemReports: {
+        open: 1,
+        recent: [
+          {
+            id: '44444444-4444-4444-8444-444444444444',
+            area: 'Invoices',
+            note: 'Send did nothing',
+            createdAt: minutesAgo(90),
+            handled: false,
+          },
+        ],
+      },
+    };
+    await showDesk(<Business />, () => answers);
+    expect(await screen.findByTestId('business-flag-card_declined')).toHaveTextContent(
+      /declined 2 times in a row/,
+    );
+    expect(screen.getByTestId('business-flag-problem_reports')).toBeTruthy();
+    expect(lastBody('/v1/queries/platform.business.glance')).toEqual({ workspaceId: LONE_STAR });
+    expect(screen.getByTestId('business-activity')).toHaveTextContent(/Texts1,204/);
+    expect(screen.getByTestId('business-plan-Plan')).toHaveTextContent('PlanMonthly, $97 a month');
+    expect(screen.getByTestId('business-their-money-Waiting to be paid')).toHaveTextContent(
+      /on 4 invoices/,
+    );
+    expect(screen.getByTestId('business-more-Industry')).toHaveTextContent('IndustryHVAC');
+    expect(screen.getByTestId('business-problems')).toHaveTextContent(
+      /Invoices: “Send did nothing”/,
+    );
   });
 
   it('says they have never written in', async () => {

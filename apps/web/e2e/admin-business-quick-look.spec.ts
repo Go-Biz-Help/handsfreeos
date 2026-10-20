@@ -42,4 +42,11 @@ test('a business opens in a quick look from the directory, tab by tab, and close
   await page.keyboard.press('Escape');
   await expect(look).toHaveCount(0);
   await expect(page.getByTestId(`business-row-${workspaceId}`)).toBeVisible();
+
+  // The full page says the same, with the room to say all of it.
+  await page.goto(`/admin/businesses/${workspaceId}`);
+  await expect(page.getByTestId('business-flags')).toContainText('Nothing needs a look right now.');
+  await expect(page.getByTestId('business-setup')).toContainText('Texting registration');
+  await expect(page.getByRole('heading', { name: 'What their customers pay them' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'More about them' })).toBeVisible();
 });

@@ -1,19 +1,13 @@
 import {
   DESK_BUSINESS_WORDS,
   DESK_QUICK_LOOK_WORDS,
-  DESK_SETUP_STATE_WORDS,
-  deskActivityBars,
   deskBusinessFlags,
   deskMoreLines,
   deskPlanAndBalanceShort,
   deskPlanLabel,
   deskQuickLookCounts,
   deskSetupRows,
-  deskSetupScore,
   deskTheirMoneyLines,
-  deskTrafficLines,
-  type DeskFlagTone,
-  type DeskSetupState,
 } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
@@ -22,14 +16,19 @@ import { View } from 'react-native';
 import { DESK_BUSINESS_PHONE_WORDS } from '@/admin/business-words';
 import { desk, useLive, type Ok } from '@/admin/live';
 import { dayWords } from '@/admin/words';
-import { DeskWaiting, Line, Section, Stats } from '@/components/admin/bits';
+import { DeskWaiting, Stats } from '@/components/admin/bits';
+import {
+  GlanceActivity,
+  GlanceFlags,
+  GlanceLines,
+  GlanceSetup,
+} from '@/components/admin/business-glance';
 import { deskHref } from '@/components/admin/staff-context';
 import { ChevronLeft, ChevronRight } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
-import { cn } from '@/lib/utils';
 
 /** A business on the directory, as far as the quick look needs it before its details arrive. */
 export interface QuickLookRow {
@@ -42,19 +41,6 @@ interface Look {
   readonly wallet: Ok<'/v1/queries/platform.wallet.get'>;
   readonly glance: Ok<'/v1/queries/platform.business.glance'>;
 }
-
-const FLAG_TONE: Readonly<Record<DeskFlagTone, { box: string; text: string; dot: string }>> = {
-  danger: { box: 'bg-danger-soft', text: 'text-danger-text', dot: 'bg-danger' },
-  warning: { box: 'bg-warning-soft', text: 'text-warning-text', dot: 'bg-warning' },
-  accent: { box: 'bg-accent-soft', text: 'text-accent-text', dot: 'bg-accent' },
-};
-
-const SETUP_BADGE: Readonly<Record<DeskSetupState, 'ok' | 'gray' | 'pending' | 'danger'>> = {
-  yes: 'ok',
-  no: 'gray',
-  waiting: 'pending',
-  problem: 'danger',
-};
 
 /**
  * A business opened from the directory in a sheet over the list (the web's quick look, at phone width): what needs a
@@ -174,130 +160,34 @@ export function BusinessQuickLook({
 
 function Glance({ look }: { look: Look }) {
   const { detail, wallet, glance } = look;
-  const flags = deskBusinessFlags({ ...detail.business, tickets: detail.tickets }, glance, wallet);
-  const setup = deskSetupRows(glance.setup);
-  const total = glance.activity.reduce((a, n) => a + n, 0);
-  const bars = deskActivityBars(glance.activity);
-
   return (
     <View className="gap-3">
-      {flags.length ? (
-        <View className="gap-1.5" testID="quick-look-flags">
-          {flags.map((f) => (
-            <View
-              key={f.key}
-              className={cn('flex-row gap-2.5 rounded-[10px] px-3 py-2.5', FLAG_TONE[f.tone].box)}
-              testID={`quick-look-flag-${f.key}`}
-            >
-              <View className={cn('mt-1.5 size-2 rounded-full', FLAG_TONE[f.tone].dot)} />
-              <Text className={cn('min-w-0 flex-1 text-[13.5px]', FLAG_TONE[f.tone].text)}>
-                {f.text}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <View className="rounded-[10px] bg-success-soft px-3 py-2.5" testID="quick-look-calm">
-          <Text className="text-[13.5px] text-success-text">
-            {DESK_QUICK_LOOK_WORDS.nothingNeedsALook}
-          </Text>
-        </View>
-      )}
-
+      <GlanceFlags
+        flags={deskBusinessFlags({ ...detail.business, tickets: detail.tickets }, glance, wallet)}
+        testID="quick-look"
+      />
       <Stats items={deskQuickLookCounts(detail.counts, glance)} testID="quick-look-counts" />
-
-      <Section
-        title={DESK_QUICK_LOOK_WORDS.lastThirtyDays}
-        end={
-          <Text className="text-[12.5px] text-text-3">
-            {DESK_QUICK_LOOK_WORDS.activityTotal(total)}
-          </Text>
-        }
-        testID="quick-look-activity"
-      >
-        <View
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel={DESK_QUICK_LOOK_WORDS.activityChart(total)}
-          className="h-12 flex-row items-end gap-[2px]"
-        >
-          {bars.map((share, i) => (
-            <View
-              key={i}
-              className={cn(
-                'flex-1 rounded-[2px]',
-                share === 0
-                  ? 'bg-card-3'
-                  : i === bars.length - 1
-                    ? 'bg-accent'
-                    : 'bg-accent-soft-2',
-              )}
-              style={{ height: `${Math.max(4, Math.round(share * 100))}%` }}
-            />
-          ))}
-        </View>
-        <View className="flex-row justify-between">
-          <Text className="text-[11px] text-text-3">{DESK_QUICK_LOOK_WORDS.thirtyDaysAgo}</Text>
-          <Text className="text-[11px] text-text-3">{DESK_QUICK_LOOK_WORDS.today}</Text>
-        </View>
-        <View className="gap-2">
-          {deskTrafficLines(glance.traffic).map((t) => (
-            <Line key={t.label} label={t.label} value={t.value} />
-          ))}
-        </View>
-      </Section>
-
-      <Section title={DESK_QUICK_LOOK_WORDS.planAndBalance} testID="quick-look-plan-balance">
-        <View className="gap-2">
-          {deskPlanAndBalanceShort(glance.plan, wallet).map((l) => (
-            <Line
-              key={l.label}
-              label={l.label}
-              value={l.value}
-              tone={l.tone ?? undefined}
-              testID={`quick-look-line-${l.label}`}
-            />
-          ))}
-        </View>
-      </Section>
-
-      <Section
+      <GlanceActivity glance={glance} testID="quick-look-activity" />
+      <GlanceLines
+        title={DESK_QUICK_LOOK_WORDS.planAndBalance}
+        lines={deskPlanAndBalanceShort(glance.plan, wallet)}
+        testID="quick-look-plan-balance"
+      />
+      <GlanceSetup
         title={DESK_BUSINESS_WORDS.whatIsSetUp}
-        end={<Text className="text-[12.5px] text-text-3">{deskSetupScore(setup)}</Text>}
+        setup={deskSetupRows(glance.setup)}
         testID="quick-look-setup"
-      >
-        <View className="gap-3">
-          {setup.map((s) => (
-            <View
-              key={s.key}
-              className="flex-row items-start gap-3"
-              testID={`quick-look-setup-${s.key}`}
-            >
-              <View className="min-w-0 flex-1 gap-0.5">
-                <Text className="text-[13.5px] font-medium">{s.label}</Text>
-                <Text className="text-[13px] text-text-3">{s.detail}</Text>
-              </View>
-              <Badge variant={SETUP_BADGE[s.state]}>{DESK_SETUP_STATE_WORDS[s.state]}</Badge>
-            </View>
-          ))}
-        </View>
-      </Section>
-
-      <Section title={DESK_QUICK_LOOK_WORDS.whatCustomersPayThem} testID="quick-look-their-money">
-        <View className="gap-2">
-          {deskTheirMoneyLines(glance).map((l) => (
-            <Line key={l.label} label={l.label} value={l.value} tone={l.tone ?? undefined} />
-          ))}
-        </View>
-      </Section>
-
-      <Section title={DESK_QUICK_LOOK_WORDS.moreAboutThem} testID="quick-look-more">
-        <View className="gap-2">
-          {deskMoreLines(detail.business, glance, detail.phoneModel).map((m) => (
-            <Line key={m.label} label={m.label} value={m.value} />
-          ))}
-        </View>
-      </Section>
+      />
+      <GlanceLines
+        title={DESK_QUICK_LOOK_WORDS.whatCustomersPayThem}
+        lines={deskTheirMoneyLines(glance)}
+        testID="quick-look-their-money"
+      />
+      <GlanceLines
+        title={DESK_QUICK_LOOK_WORDS.moreAboutThem}
+        lines={deskMoreLines(detail.business, glance, detail.phoneModel)}
+        testID="quick-look-more"
+      />
     </View>
   );
 }
