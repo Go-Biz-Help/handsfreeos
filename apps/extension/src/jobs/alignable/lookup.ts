@@ -12,26 +12,36 @@ import { readThemOnAlignable } from './checks';
 
 type LookupTask = Extract<AskTask, { kind: 'lookup' }>;
 
+/**
+ * What their business's page says, as lines for the AI's drafts: empty when there's no page to open or Alignable
+ * didn't show theirs, which still lets the drafts be written from what HandsFreeOS knows. A warning, or a page asking
+ * them to sign in, ends it. Alignable's runner looks up the same way before it drafts (../../auto/alignable.ts).
+ */
+export async function lookUpOnAlignable(
+  job: Job,
+  name: string,
+  profileUrl: string | null,
+): Promise<{ readonly lines: string[] } | { readonly end: JobEnd }> {
+  if (!profileUrl) return { lines: [] };
+  try {
+    const read = await readThemOnAlignable(job, { profileId: '', name, url: profileUrl });
+    if ('end' in read) return read;
+    return { lines: read.lines.slice(0, LOOKUP_LINES) };
+  } catch {
+    // Alignable went elsewhere: draft from what's known.
+    return { lines: [] };
+  }
+}
+
 /** Looks them up on Alignable, then asks the AI for drafts; the drafts are the ask's result, for Today to show. */
 export async function lookupOnAlignable(
   job: Job,
   task: LookupTask,
 ): Promise<JobEnd & { readonly result: AskResult | null }> {
   job.progress(`Looking ${task.name} up on Alignable…`);
-  let lines: string[] = [];
-  if (task.profileUrl) {
-    try {
-      const read = await readThemOnAlignable(job, {
-        profileId: '',
-        name: task.name,
-        url: task.profileUrl,
-      });
-      if ('end' in read) return { ...read.end, result: null };
-      lines = read.lines.slice(0, LOOKUP_LINES);
-    } catch {
-      // Alignable went elsewhere: draft from what's known.
-    }
-  }
+  const looked = await lookUpOnAlignable(job, task.name, task.profileUrl);
+  if ('end' in looked) return { ...looked.end, result: null };
+  const lines = looked.lines;
   if (job.stopped()) return { line: 'Stopped.', warned: false, result: null };
   await job.tab.close?.();
   job.progress('Writing drafts…');

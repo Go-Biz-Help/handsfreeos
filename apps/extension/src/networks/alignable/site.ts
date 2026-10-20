@@ -23,6 +23,7 @@ import {
   writeAboutUs,
 } from './own-profile';
 import { alignableNoticer } from './actions';
+import { connectOnPage, likeTheirPost, theirPosts, writeMessage } from './auto';
 import { openConversation, scrollList, showAllConnections } from './browse';
 import { readAlignable } from './read';
 import type { LookingSite, PlaceOpening } from '../looking/site';
@@ -626,6 +627,14 @@ export const ALIGNABLE: LookingSite = {
   },
   // The person's own steps, noted as they take them (part 2): Connect, Like, a forum answer's Send, and a message.
   noticer: alignableNoticer,
+  // What its runner presses on its own (part 5), each only on its own page: a like on a post of theirs, their own
+  // Connect, and a message in their conversation (./auto.ts). Never a comment, an answer or a recommendation.
+  auto: {
+    theirPosts: (doc, href, profile) => theirPosts(doc, href, profile).map((f) => f.post),
+    like: likeTheirPost,
+    connect: connectOnPage,
+    message: writeMessage,
+  },
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,

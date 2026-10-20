@@ -71,15 +71,19 @@ export type AutoAsk =
       readonly url: string | null;
     }
   | { readonly type: 'hfos-comment'; readonly text: string }
-  /** On LinkedIn, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts). */
+  /**
+   * On LinkedIn and Alignable, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts,
+   * src/networks/alignable/auto.ts).
+   */
   | { readonly type: 'hfos-message'; readonly text: string; readonly profile?: ProfileRef };
 
 /**
  * LinkedIn's runner's own steps besides those (src/networks/linkedin/auto.ts): Connect on their profile without a
  * note, whose answer is an `AutoAnswer`; and their profile's Message, which opens the conversation in a window over the
- * page, whose answer is a `BrowseAnswer`.
+ * page, whose answer is a `BrowseAnswer`. On Alignable (src/networks/alignable/auto.ts), `profile` says whose business
+ * page it is, and only its own Connect, carrying Alignable's id for it, is pressed.
  */
-export type ConnectAsk = { readonly type: 'hfos-connect' };
+export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
 export type OpenMessageAsk = { readonly type: 'hfos-open-message' };
 
 /**

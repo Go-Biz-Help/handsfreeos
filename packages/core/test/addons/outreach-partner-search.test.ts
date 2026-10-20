@@ -11,6 +11,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   PARTNER_LEADS_WAITING_MOST,
+  PARTNER_SEARCH_KINDS_ON,
   PARTNER_SEARCHES_PER_DAY,
   partnerLeadFact,
   partnerSearchWords,
@@ -305,5 +306,56 @@ describe('finding partners by search', () => {
     );
     expect(seen[0]).toEqual({ leads: 0, searches: 0 });
     expect(await searches(riley)).toMatchObject({ today: 0, waiting: 0 });
+  });
+
+  it('searches Alignable for businesses alone, as it has no creators, and reads who it finds as businesses', async () => {
+    expect(PARTNER_SEARCH_KINDS_ON.alignable).toEqual(['business']);
+    expect(PARTNER_SEARCH_KINDS_ON.linkedin).toEqual(['creator', 'business']);
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Partners on Alignable',
+      template: null,
+      details: {
+        ...partnerPlaybook,
+        signs: [],
+        groupWords: ['Austin realtors', 'Home inspectors'],
+        platforms: ['alignable' as const],
+      },
+    });
+    // Its words for businesses only, two a day; Facebook's searches are as they were.
+    expect((await searches(owner, { platform: 'alignable' })).searches).toEqual([
+      { kind: 'business', words: 'Austin realtors' },
+      { kind: 'business', words: 'Home inspectors' },
+    ]);
+    const hill = {
+      id: '4242',
+      username: 'austin-tx-hill-homes',
+      url: 'https://www.alignable.com/austin-tx/hill-homes',
+    };
+    expect(
+      await runAs(owner, ws, 'outreach.partner.leads', {
+        platform: 'alignable',
+        kind: 'business',
+        words: 'Austin realtors',
+        people: [
+          {
+            profile: hill,
+            name: 'Hana Hill',
+            lines: ['Hill Homes', 'Real Estate Agent', 'Austin, TX'],
+            followers: null,
+          },
+        ],
+      }),
+    ).toEqual({ kept: 1 });
+    const read = (await runAs(owner, ws, 'outreach.partners.next', { platform: 'alignable' })) as {
+      people: { name: string; kind: string; url: string }[];
+    };
+    expect(read.people.map((p) => [p.name, p.kind, p.url])).toEqual([
+      ['Hana Hill', 'business', hill.url],
+    ]);
+    expect(await searches(owner, { platform: 'alignable' })).toMatchObject({
+      searches: [{ kind: 'business', words: 'Home inspectors' }],
+      today: 1,
+      waiting: 1,
+    });
   });
 });

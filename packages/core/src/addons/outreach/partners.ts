@@ -169,6 +169,17 @@ export const PARTNER_SEARCH_KIND_KEYS = Object.keys(PARTNER_SEARCH_KINDS) as [
   ...PartnerSearchKind[],
 ];
 
+/**
+ * What each network's searches look for: creators and businesses, but on Alignable businesses alone. Its members are
+ * all businesses, its search finds businesses, and it has no creators, so a search for them would only use up the day's.
+ */
+export const PARTNER_SEARCH_KINDS_ON: Readonly<Record<Platform, readonly PartnerSearchKind[]>> = {
+  facebook: PARTNER_SEARCH_KIND_KEYS,
+  linkedin: PARTNER_SEARCH_KIND_KEYS,
+  instagram: PARTNER_SEARCH_KIND_KEYS,
+  alignable: ['business'],
+};
+
 /** Searches a day on each network, and the days before the same words are searched for the same kind again. */
 export const PARTNER_SEARCHES_PER_DAY = 2;
 export const PARTNER_SEARCH_AGAIN_DAYS = 7;
