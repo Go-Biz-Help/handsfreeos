@@ -67,8 +67,14 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
 describe('LinkedIn pages with more boxes than their outline shows', () => {
   // A chat's side is measured on screen; jsdom draws nothing, so it says none either way.
   const options = { sideOf: () => null };
-  it.each(PAGES)('reads %s the same with a bare box around every element', (fixture, url) => {
-    const asWritten = readPage(load(fixture, url), url, NOW, options);
-    expect(readPage(boxEverything(load(fixture, url)), url, NOW, options)).toEqual(asWritten);
-  });
+  // The whole feed read twice, once with a box around each of its thousands of elements: over 5 seconds on a busy CI
+  // machine (5.4 s on 20 Oct 2026), so it gets room.
+  it.each(PAGES)(
+    'reads %s the same with a bare box around every element',
+    (fixture, url) => {
+      const asWritten = readPage(load(fixture, url), url, NOW, options);
+      expect(readPage(boxEverything(load(fixture, url)), url, NOW, options)).toEqual(asWritten);
+    },
+    30_000,
+  );
 });
