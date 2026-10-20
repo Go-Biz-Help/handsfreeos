@@ -134,22 +134,27 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
               numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
               profile = excluded.profile, profile_check = excluded.profile_check`,
     );
-  // Their LinkedIn profile too, each network's its own: read and checked right, and ticked, with its headline and About.
-  await rows(
-    admin(),
-    sql`update addon_outreach.setup s set network_profiles = s.network_profiles || jsonb_build_object('linkedin',
-          (select jsonb_build_object(
-            'ticks', jsonb_object_agg(item, jsonb_build_object(
-              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-              'version', (select live_version from app.main_offers where workspace_id = ${ws}))),
-            'check', jsonb_build_object(
-              'items', jsonb_object_agg(item, jsonb_build_object('ok', true, 'why', 'Looks right.', 'fix', null)),
-              'bios', '[]'::jsonb, 'coverLine', null, 'feature', '[]'::jsonb,
-              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-              'version', (select live_version from app.main_offers where workspace_id = ${ws})))
-          from unnest(array['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts']) item))
-        where s.workspace_id = ${ws} and s.user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
-  );
+  // Their LinkedIn and Alignable profiles too, each network's its own: read and checked right, and ticked, each with
+  // its own parts (LinkedIn's headline and About, Alignable's About Us).
+  for (const [platform, items] of [
+    ['linkedin', ['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts']],
+    ['alignable', ['picture', 'about', 'bio', 'work', 'featured']],
+  ] as const)
+    await rows(
+      admin(),
+      sql`update addon_outreach.setup s set network_profiles = s.network_profiles || jsonb_build_object(${platform}::text,
+            (select jsonb_build_object(
+              'ticks', jsonb_object_agg(item, jsonb_build_object(
+                'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                'version', (select live_version from app.main_offers where workspace_id = ${ws}))),
+              'check', jsonb_build_object(
+                'items', jsonb_object_agg(item, jsonb_build_object('ok', true, 'why', 'Looks right.', 'fix', null)),
+                'bios', '[]'::jsonb, 'coverLine', null, 'feature', '[]'::jsonb,
+                'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                'version', (select live_version from app.main_offers where workspace_id = ${ws})))
+            from unnest(${`{${items.join(',')}}`}::text[]) item))
+          where s.workspace_id = ${ws} and s.user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
+    );
   // Their messages OK'd against the live version (Your messages).
   await rows(
     admin(),

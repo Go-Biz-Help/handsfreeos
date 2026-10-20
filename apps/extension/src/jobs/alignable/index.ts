@@ -8,6 +8,7 @@
  * - `checks` and `research`: business pages opened and read for the AI's check, on Alignable's own day's count
  *   (./checks.ts).
  * - `lookup`: a business's page read before drafting: one page (./lookup.ts).
+ * - `posts`: their town's posts and forum questions, a few screens, sent for the AI to check (./posts.ts).
  * - `checkup`, `profile_read` and `profile_edit`: Check Alignable, and their own profile read and its About Us put
  *   in, as before (../looking.ts).
  */
@@ -18,6 +19,7 @@ import { lookingAsk } from '../looking';
 import { checkConnections, researchOnAlignable } from './checks';
 import { lookupOnAlignable } from './lookup';
 import { checkRequests, saveConnections } from './people';
+import { findPostsInTown } from './posts';
 
 type Ended = JobEnd & { readonly result?: AskResult | null };
 
@@ -36,6 +38,8 @@ export async function alignableAsk(task: AskTaken['task'], job: Job): Promise<En
       return researchOnAlignable(job, task);
     case 'lookup':
       return lookupOnAlignable(job, task);
+    case 'posts':
+      return findPostsInTown(job);
     default:
       return looked(task, job);
   }

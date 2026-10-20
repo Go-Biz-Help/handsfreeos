@@ -77,6 +77,8 @@ export const SETTINGS_WORDS = {
   /** The kit's other limits a day, beside the daily steps. */
   profilesRead: 'Profiles read',
   helpfulPost: 'Helpful post',
+  forumAnswers: 'Forum answers',
+  forumAnswersNote: 'Out of the day’s comments, for posts asking for what you offer.',
   /** The person's own profile on a network, read by their computer and checked by the AI (decision 80). */
   yourProfile: (name: string) => `Your ${name} profile`,
   profileRight: (n: number, of: number) => `${n} of ${of} ${n === 1 ? 'looks' : 'look'} right.`,
@@ -124,6 +126,16 @@ export function limitsShownOn(
           : null,
     })),
     { key: 'checks', label: SETTINGS_WORDS.profilesRead, most: kit.checksPerDay, note: null },
+    ...(kit.forumAnswersPerDay !== null
+      ? [
+          {
+            key: 'forum',
+            label: SETTINGS_WORDS.forumAnswers,
+            most: Math.min(kit.forumAnswersPerDay, now.comment),
+            note: SETTINGS_WORDS.forumAnswersNote,
+          },
+        ]
+      : []),
     ...(helpfulOn(platform)
       ? [{ key: 'helpful', label: SETTINGS_WORDS.helpfulPost, most: HELPFUL_PER_DAY, note: null }]
       : []),

@@ -75,6 +75,12 @@ export interface NetworkKit {
   readonly weeklyRequests: number | null;
   /** How many profiles the person's computer reads a day to check for good fits (decision 46). */
   readonly checksPerDay: number;
+  /**
+   * The most answers a day to posts asking for what the business offers, inside the daily comments: Alignable's forum,
+   * where owners ask for referrals, watches for the same business answering every question (the plan: 2 a day). Null
+   * where comments are the only limit.
+   */
+  readonly forumAnswersPerDay: number | null;
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
@@ -101,6 +107,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: DAILY_LIMITS,
     weeklyRequests: null,
     checksPerDay: 40,
+    forumAnswersPerDay: null,
     tidyLimits: TIDY_LIMITS,
     // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
     runs: {
@@ -131,6 +138,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: 80,
     checksPerDay: 40,
+    forumAnswersPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
@@ -162,6 +170,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 20,
+    forumAnswersPerDay: null,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     runs: RUNS_NOTHING,
     words: {
@@ -188,6 +197,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 30,
+    forumAnswersPerDay: 2,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     runs: RUNS_NOTHING,
     words: {

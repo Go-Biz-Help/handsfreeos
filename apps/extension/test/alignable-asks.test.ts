@@ -302,3 +302,66 @@ describe('Check my connections, Research and a look-up, on Alignable', () => {
     });
   });
 });
+
+describe('Find posts in your town, on Alignable', () => {
+  /** Their own profile, at their business's address in their town. */
+  const mine = () =>
+    new JSDOM(
+      `<!doctype html><html><body><main><h1 title="Casey Owner">Casey Owner</h1></main></body></html>`,
+      { url: `${AL}/columbus-oh/summit-roofing?user=77` },
+    ).window.document;
+  /** Their town's group: a business asking for a plumber, and a post with no page of its own. */
+  const town = () =>
+    new JSDOM(
+      `<!doctype html><html><body><main>
+        <div><div><a href="/columbus-oh/reyes-plumbing"><span>Dana Reyes</span><span>Reyes Plumbing</span></a></div>
+          <div title="Can anyone recommend a roofer?">Can anyone recommend a roofer after last week’s storm?</div>
+          <a href="/biz/discussions/501">Comment</a></div>
+        <div><div><a href="/columbus-oh/lee-realty"><span>Sam Lee</span></a></div><div title="Hello">Hello all</div></div>
+      </main></body></html>`,
+      { url: `${AL}/groups/columbus-oh` },
+    ).window.document;
+
+  it('opens their town from their profile, and sends its posts by businesses for the AI to check', async () => {
+    const { tab, opened } = alignableTab({
+      '/biz/businesses/my_profile': mine,
+      '/columbus-oh': town,
+    });
+    const { job, sent } = alignableJob(tab, { 'hfos-save-posts': () => ({ checking: 1 }) });
+    const end = await runAsk({ kind: 'posts', groups: null, words: [] } as never, job, 'alignable');
+    expect(opened).toEqual(['/biz/businesses/my_profile', '/columbus-oh']);
+    const saved = sent.filter((s) => s.type === 'hfos-save-posts').map((s) => s.input);
+    expect(saved).toEqual([
+      {
+        workspaceId: 'b',
+        platform: 'alignable',
+        group: null,
+        found: 'find',
+        posts: [
+          expect.objectContaining({
+            url: `${AL}/biz/discussions/501`,
+            name: 'Dana Reyes',
+            text: 'Can anyone recommend a roofer after last week’s storm?',
+          }),
+        ],
+      },
+    ]);
+    expect(end).toMatchObject({
+      line: 'Read 1 post in your town on Alignable: 1 post sent for the AI to check. The good ones go on your list for today.',
+    });
+  });
+
+  it('says to add their town when their profile has none', async () => {
+    const nowhere = () =>
+      new JSDOM('<!doctype html><html><body><main></main></body></html>', {
+        url: `${AL}/biz/businesses/my_profile`,
+      }).window.document;
+    const { tab } = alignableTab({ '/biz/businesses/my_profile': nowhere });
+    const { job } = alignableJob(tab);
+    const end = await runAsk({ kind: 'posts', groups: null, words: [] } as never, job, 'alignable');
+    expect(end).toMatchObject({
+      failed: true,
+      line: expect.stringContaining('didn’t show your town'),
+    });
+  });
+});

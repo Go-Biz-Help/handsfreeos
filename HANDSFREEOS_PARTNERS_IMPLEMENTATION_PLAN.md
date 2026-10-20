@@ -613,6 +613,10 @@ request when opened, so no Check opens it: the first real request shows what it 
      connection requests, Check my connections and Research (each business's page read for the AI's check, 30 a day),
      and a business looked up before drafting. Reading chats waits for its reader: the owner's Check opened an empty
      chat, so Check Alignable now opens one with messages from Messages' side, and the reader is built from its outline.
+   - **Part 3c, its town's posts and forum questions** (extension 0.74.0): Find posts in your town reads the person's
+     town page for the AI's check, as LinkedIn's search finds are read; the good ones come onto Today with a draft and
+     their writers to connect with. Answers to those asking for what the business offers are at most 2 a day, inside
+     the day's comments (the plan's limit; its kit's `forumAnswersPerDay`), each after the person's OK.
    - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
      Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
      address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,

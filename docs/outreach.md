@@ -1363,6 +1363,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
       business looked up before drafting. Reading its chats waits for a reader built from a chat with messages in it,
       which Check Alignable opens from Messages' side from 0.73.0.
+    - **Its town's posts and forum questions** (extension 0.74.0, the `posts` ask, **Find posts in your town** on
+      Today): the extension finds the person's town from their own profile's address, opens its page and reads a few
+      screens of it, and saves each post and question as one found on the network (no group, `found: 'find'`), for
+      the AI's check as LinkedIn's search finds are. The good ones come onto Today with a draft, and their writers
+      get a connect step after a warm-up. Answers to the ones asking for what the business offers (`strong`) are at
+      most 2 a day there (its kit's `forumAnswersPerDay`), inside the day's comments, and Settings shows the line.
+      Each is still the person's OK: they post it on Alignable, and the extension notes it.
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
       `runs.auto`), even once it has a day: its Sending is off whatever was picked (`withinRules`), so nothing is
       drafted to wait for a sender that isn't there, and its page in Settings says every step there is the person's

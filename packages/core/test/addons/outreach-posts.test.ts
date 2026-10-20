@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { NETWORKS } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import {
   asksForHelp,
@@ -253,5 +254,54 @@ describe('posts in a group’s feed', () => {
     const [first, ...rest] = await comments();
     expect(first).toMatchObject({ name: 'Lee Park', asking: true });
     expect(rest.every((i) => !(i as { asking?: boolean }).asking)).toBe(true);
+  });
+
+  it('answers at most 2 asking posts a day on Alignable, with the town’s other posts beside them', async () => {
+    const town = async (n: number, strong: boolean) => {
+      const slug = `owner-${n}-${randomUUID().slice(0, 6)}`;
+      const [p] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+            values (${ws}, 'alignable', ${slug}, ${`https://www.alignable.com/columbus-oh/${slug}`},
+              ${`Owner ${n}`}) returning id`,
+      );
+      const url = `https://www.alignable.com/forum/question-${n}-${slug}`;
+      await rows(
+        admin(),
+        sql`insert into addon_outreach.posts
+              (workspace_id, user_id, profile_id, url, body, found, seen_at, check_state, strong)
+            values (${ws}, ${owner.id}, ${p!.id}, ${url}, ${`Post ${n}`}, 'find',
+              now() - make_interval(mins => ${n}), 'good', ${strong})`,
+      );
+      return { profileId: p!.id, url };
+    };
+    const asking = [];
+    for (const n of [1, 2, 3, 4]) asking.push(await town(n, true));
+    await town(5, false);
+    await town(6, false);
+    const listed = async () =>
+      (
+        (await runAs(owner, ws, 'outreach.today', { platform: 'alignable' })).items as {
+          kind: string;
+          name: string;
+          asking?: boolean;
+        }[]
+      ).filter((i) => i.kind === 'comment');
+    // Two of the four asking, the newest; the town's other two after them.
+    expect((await listed()).map((i) => [i.name, !!i.asking])).toEqual([
+      ['Owner 1', true],
+      ['Owner 2', true],
+      ['Owner 5', false],
+      ['Owner 6', false],
+    ]);
+    // One answered today: one asking post is left of the 2.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, post_url, at)
+          values (${ws}, ${asking[0]!.profileId}, ${owner.id}, 'comment', ${asking[0]!.url}, now())`,
+    );
+    expect((await listed()).filter((i) => i.asking).map((i) => i.name)).toEqual(['Owner 2']);
+    // Facebook has no such cap: every asking post there stays on its list.
+    expect(NETWORKS.facebook.forumAnswersPerDay).toBeNull();
   });
 });

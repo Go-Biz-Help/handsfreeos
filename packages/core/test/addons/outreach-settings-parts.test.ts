@@ -52,6 +52,17 @@ describe('Settings, a page for each part', () => {
     ]);
   });
 
+  it('shows Alignable’s 2 forum answers a day inside its comments, never more than the comments left', () => {
+    const forum = (slower: boolean, rules: Parameters<typeof limitsShownOn>[1] = NO_RULES) =>
+      limitsShownOn('alignable', rules, slower).find((l) => l.key === 'forum');
+    expect(forum(false)).toMatchObject({ label: 'Forum answers', most: 2 });
+    expect(forum(false)!.note).toMatch(/^Out of the day’s comments/);
+    expect(
+      forum(false, { dailyLimits: {}, networkLimits: { alignable: { comment: 1 } } })!.most,
+    ).toBe(1);
+    expect(limitsShownOn('linkedin', NO_RULES, false).some((l) => l.key === 'forum')).toBe(false);
+  });
+
   it('takes the business’s own limits on that network, and halves them on training wheels', () => {
     const rules = { dailyLimits: { friend_request: 4 }, networkLimits: { linkedin: { like: 0 } } };
     expect(shown('linkedin', rules, true).slice(0, 5)).toEqual([
