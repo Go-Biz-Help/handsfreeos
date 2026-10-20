@@ -18477,6 +18477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.business.glance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business at a glance: what needs a look, its plan, 30 days of activity, what its customers paid it, and what is connected.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_business_glance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.business.list": {
         parameters: {
             query?: never;
@@ -70849,6 +70869,7 @@ export interface operations {
                             note: string | null;
                         }[];
                         business: {
+                            attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];
                             /** Format: date-time */
                             createdAt: string;
                             foundingSeat: string | null;
@@ -70860,6 +70881,7 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
+                            plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
                             timezone: string;
                             /** Format: uuid */
                             workspaceId: string;
@@ -70903,6 +70925,129 @@ export interface operations {
             };
         };
     };
+    query_platform_business_glance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activity: number[];
+                        attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];
+                        deletionRequestedAt: string | null;
+                        more: {
+                            addons: string[];
+                            cameFrom: {
+                                at: string | null;
+                                source: string;
+                                status: string;
+                            } | null;
+                            lastViewedAs: string | null;
+                            mainOffer: {
+                                liveVersion: number | null;
+                                revision: number;
+                            } | null;
+                            supportAccess: {
+                                expiresAt: string | null;
+                                /** @enum {string} */
+                                status: "requested" | "active" | "declined" | "ended";
+                            } | null;
+                        };
+                        plan: {
+                            canceledAt: string | null;
+                            graceEndsAt: string | null;
+                            periodEnd: string | null;
+                            /** @enum {string} */
+                            plan: "founding_free" | "founding_lifetime" | "monthly";
+                            priceCents: number;
+                            renewalFailedAt: string | null;
+                            renewalProblem: string | null;
+                            renewalStoppedAt: string | null;
+                            /** @enum {string} */
+                            status: "active" | "grace" | "past_due" | "canceled";
+                        } | null;
+                        problemReports: {
+                            open: number;
+                            recent: {
+                                area: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                handled: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                            }[];
+                        };
+                        setup: {
+                            aiTeammate: ("off" | "training" | "automatic") | null;
+                            bookingPage: {
+                                enabled: boolean;
+                                slug: string;
+                            } | null;
+                            calendarConnections: {
+                                provider: string;
+                                status: string;
+                            }[];
+                            calendars: number;
+                            emailAddresses: number;
+                            emailDomain: {
+                                domain: string;
+                                status: string;
+                            } | null;
+                            /** @enum {string} */
+                            gettingStarted: "finished" | "started" | "not_started" | "off";
+                            mailboxes: {
+                                provider: string;
+                                status: string;
+                            }[];
+                            meta: string | null;
+                            numbers: string[];
+                            payments: {
+                                provider: string;
+                                status: string;
+                            }[];
+                            registration: {
+                                reason: string | null;
+                                since: string | null;
+                                /** @enum {string} */
+                                state: "approved" | "waiting" | "rejected" | "draft";
+                            } | null;
+                        };
+                        theirMoney: {
+                            collected30dCents: number;
+                            openDisputes: number;
+                            openInvoiceCents: number;
+                            openInvoices: number;
+                            overdueInvoices: number;
+                            refunded30dCents: number;
+                        };
+                        traffic: {
+                            aiReplies: number;
+                            calls: number;
+                            emails: number;
+                            texts: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_platform_business_list: {
         parameters: {
             query?: never;
@@ -70921,7 +71066,7 @@ export interface operations {
                      * @default newest
                      * @enum {string}
                      */
-                    sort?: "newest" | "busiest" | "quietest" | "name";
+                    sort?: "newest" | "busiest" | "quietest" | "attention" | "name";
                 };
             };
         };
@@ -70934,6 +71079,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         businesses: {
+                            attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];
                             /** Format: date-time */
                             createdAt: string;
                             foundingSeat: string | null;
@@ -70945,6 +71091,7 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
+                            plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
                             timezone: string;
                             /** Format: uuid */
                             workspaceId: string;
