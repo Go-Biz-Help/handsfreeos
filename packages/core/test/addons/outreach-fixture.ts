@@ -45,16 +45,19 @@ export const fromExtension = () => ({
 const gettingReady = new Set<string>();
 const GATED = new Set(['outreach.today', 'outreach.day.start', 'outreach.helpful.next']);
 
-/** A new business owned by `u`, with the add-on on. Its id. */
+/** A new business owned by `u`, with the add-on on, in Chicago unless given its time zone. Its id. */
 export async function outreachBusiness(
   u: TestUser,
   name: string,
-  opts: { readonly ready?: boolean } = {},
+  opts: { readonly ready?: boolean; readonly timezone?: string } = {},
 ): Promise<string> {
-  const made = await executeCommand(api(), organizationCreate, { businessName: name }, human(u), {
-    correlationId: randomUUID(),
-    channel: 'test',
-  });
+  const made = await executeCommand(
+    api(),
+    organizationCreate,
+    { businessName: name, ...(opts.timezone ? { timezone: opts.timezone } : {}) },
+    human(u),
+    { correlationId: randomUUID(), channel: 'test' },
+  );
   const id = made.output.workspaceId;
   await rows(
     admin(),
