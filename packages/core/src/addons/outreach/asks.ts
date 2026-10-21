@@ -72,8 +72,8 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
  * putting the headline in, withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn
  * (decision 74); Instagram's its Check and profile, from its part 12 its followers and unfollowing, and from its part
  * 13 its checks, research, chats and look-ups; and Alignable's its connections and requests, checks, research and
- * look-ups too (partners stage 6c, part 4), beside its Check and profile. A kind a network can't be asked is refused
- * (`outreach_ask_not_on_network`).
+ * look-ups too (partners stage 6c, part 4), beside its Check and profile, and from 0.84.0 its chats. A kind a network
+ * can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   facebook: ASK_KIND_KEYS,
@@ -114,13 +114,15 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'profile_edit',
   ],
   // Alignable from its part 4 (partners stage 6c): its connections and the requests they've got saved, connections
-  // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are.
+  // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are. Its chats read
+  // (noting who wrote last) from 0.84.0, once its chat reader was built from the owner's Check of 21 Oct 2026.
   alignable: [
     'requests',
     'friends',
     'checks',
     'lookup',
     'research',
+    'chats',
     // Its town's posts and forum questions (part 6's first piece): whoever asks for what the business offers.
     'posts',
     'checkup',
@@ -237,7 +239,7 @@ export const ASK_KIND_SINCE_ON: Readonly<
     lookup: '0.81.0',
   },
   // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
-  // Its connections, requests, checks, research and look-ups: its part 4.
+  // Its connections, requests, checks, research and look-ups: its part 4. Its chats: 0.84.0.
   alignable: {
     profile_read: '0.71.0',
     profile_edit: '0.71.0',
@@ -247,6 +249,7 @@ export const ASK_KIND_SINCE_ON: Readonly<
     lookup: '0.73.0',
     research: '0.73.0',
     posts: '0.74.0',
+    chats: '0.84.0',
   },
 };
 

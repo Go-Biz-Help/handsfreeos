@@ -481,7 +481,7 @@ async function setArchived(
 export const customRecordArchive = defineCommand({
   name: 'custom_record.archive',
   description:
-    'Archive a record: hidden from lists and searches, its history, tasks, files and relationships kept.',
+    'Archive a record: hidden from lists, found in search under Archived, its history, tasks, files and relationships kept.',
   risk: 3,
   input: CustomRecordArchiveInput,
   output: CustomRecordArchiveOutput,

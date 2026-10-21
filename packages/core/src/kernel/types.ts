@@ -343,6 +343,12 @@ export interface QueryDef<I extends z.ZodType = z.ZodType, O extends z.ZodType =
   readonly addon?: AddonRef;
   /** How it may be offered to the AI (0108). */
   readonly ai?: OperationAi;
+  /**
+   * false for a query that only ever runs inside another (an add-on's answer to a search, run by `search.everything`
+   * and `search.kind` through `executeQueryWithin`): the API never mounts it, so nobody can call it on its own,
+   * around the rate limit and the slot gate of the query it runs in, and the API client never has it.
+   */
+  readonly route?: false;
   readonly handler: (ctx: QueryContext, input: z.output<I>) => Promise<z.input<O>>;
 }
 

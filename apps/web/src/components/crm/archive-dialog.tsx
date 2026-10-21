@@ -1,4 +1,5 @@
 'use client';
+import { ARCHIVE_WORDS } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -89,11 +90,7 @@ export function ArchiveDialog({
     >
       <DialogContent
         title={archived ? `Restore ${name}?` : `Archive ${name}?`}
-        description={
-          archived
-            ? 'They come back to the lists and can be used on new leads again.'
-            : 'Archived records leave the lists and searches but keep their history. You can restore them at any time. This is recorded in the audit log.'
-        }
+        description={archived ? ARCHIVE_WORDS.restoreCustomer : ARCHIVE_WORDS.archiveCustomer}
       >
         {blocked ? (
           <Callout className="mt-4" data-testid="archive-blocked">

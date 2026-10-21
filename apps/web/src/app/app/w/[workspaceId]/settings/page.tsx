@@ -1,4 +1,4 @@
-import { pushSwitchesOf } from '@hfos/core';
+import { managesAnAgency, pushSwitchesOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { DeleteAccount } from '@/components/account/delete-account';
 import { AppearanceSection } from '@/components/settings/appearance-section';
@@ -9,8 +9,9 @@ import { NotificationsSection } from '@/components/settings/notifications-sectio
 import { PasskeysSection } from '@/components/settings/passkeys-section';
 import { PasswordSection } from '@/components/settings/password-section';
 import { ProfileForm } from '@/components/settings/profile-form';
+import { settingAttrs } from '@/components/settings/setting-anchor';
 import { Card } from '@/components/ui/card';
-import { apiServer, getMe, unwrap } from '@/lib/api/server';
+import { apiServer, getMe, getPlatformMe, unwrap } from '@/lib/api/server';
 import { parseTheme } from '@/lib/theme';
 
 export const metadata: Metadata = { title: 'Account settings' };
@@ -33,10 +34,7 @@ export default async function SettingsPage({
       .then(unwrap)
       .catch(() => null),
     // Whether they answer HandsFreeOS support: only then is New support tickets a row of theirs.
-    api
-      .POST('/v1/queries/platform.me', { body: {} })
-      .then(unwrap)
-      .catch(() => null),
+    getPlatformMe(),
   ]);
   const current = me.workspaces.find((w) => w.id === workspaceId);
   // All on unless turned off. The daily agency digest is for organization owners and admins only.
@@ -54,20 +52,15 @@ export default async function SettingsPage({
       };
     }
   ).notifications;
-  // An agency: an organization with more than one business (a founder owns an organization of one, and its digest
-  // would never have anything in it).
-  const agency = me.organizations.some(
-    (o) =>
-      (o.role === 'owner' || o.role === 'admin') &&
-      me.workspaces.filter((w) => w.organizationId === o.id).length > 1,
-  );
+  // An agency: an organization with more than one business, as settings search and the phone decide it.
+  const agency = managesAnAgency({ organizations: me.organizations, businesses: me.workspaces });
   const number = phone?.number && phone.number.status === 'active' ? phone.number.e164 : null;
   return (
     <>
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
           <div className="flex flex-col gap-5">
-            <Card className="p-6">
+            <Card className="p-6" {...settingAttrs('account.profile')}>
               <ProfileForm user={me.user} />
             </Card>
             <Card className="p-6" id="appearance">

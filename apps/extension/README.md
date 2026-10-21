@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.83.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.84.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -53,7 +53,7 @@ next is in its kit, never in an `if`.
 | Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                                                                                                                                                                                                                                 |
 | LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                                                                                                                                                                                                                                   |
 | Instagram | `src/networks/instagram/` | No: asked for | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press |
-| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, and works its list on its own once you let it (0.77.0); **Check Alignable** reads its pages at /biz                                                                                                                                                                                                                        |
+| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz                                                                                                                                                                                             |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -104,7 +104,8 @@ end and saves them; **Check my connection requests** saves the ones you've got f
 connections** and **Research** open each business's page and read it for the AI's check, 30 a day to start; and a
 look-up reads a business's page before the AI drafts to it. It presses nothing on Alignable but My Network's tab of
 all connections and a list's own Show more. Check Alignable also opens a chat with messages in it from Messages'
-side, so its chat reader can be built from that next.
+side, so its chat reader can be built from that next: it's built from the owner's Check of 21 Oct 2026 (0.84.0,
+below).
 From 0.74.0 **Find posts in your town** opens your town's page on Alignable (the town in your own profile's address),
 reads a few screens of its posts and forum questions, and sends them for the AI's check
 (`src/jobs/alignable/posts.ts`). It presses nothing there.
@@ -125,14 +126,15 @@ From 0.80.0 Instagram works by hand, as Alignable did before its runner (the Ins
   back), a post (who posted it, its caption, likes, comments and place), a hashtag's and a place's posts, your
   notifications (who followed you, liked or commented), your messages (each chat, whose last line, which box) and a
   chat (who it's with, its messages, a request to Accept). The profile and the post are built from the owner's outlines
-  of 18 Oct 2026; the rest from Instagram's usual markup, to be tuned from his next Check. Check Instagram opens a chat
-  by its row now, as its chats aren't links.
+  of 18 Oct 2026; the rest from Instagram's usual markup, tuned from his Check of 21 Oct 2026 (0.84.0, below). Check
+  Instagram opens a chat by its row now, as its chats aren't links.
 - **Your own steps there** (`src/networks/instagram/actions.ts`): Follow or Follow Back (noted once the button says
   Following or Requested), a post's Like, a comment sent from a post's box and a message sent in a chat, each to the
   account by its name in Instagram's address. Never what you wrote, and never a step to yourself.
 - **Save my followers** (`src/jobs/instagram/`): opens your account from Instagram's menu, then your followers, reads
   the box a screen at a time at a person's pace to its end and saves them; someone you followed who's among them has
-  followed back, which HandsFreeOS counts as accepting. It presses nothing.
+  followed back, which HandsFreeOS counts as accepting. It presses nothing but, from 0.84.0, your account's count of
+  followers, once, when Instagram doesn't open the box from its address.
 - **Unfollow the ones you ticked**, those who didn't follow back in your business's wait (3 weeks to start), 20 a day
   at most, in a tab you can see: their Following, then Unfollow in its box, each by its own words. Nothing is
   unfollowed on its own.
@@ -160,6 +162,30 @@ of your area's hashtags and the places their posts were tagged at, whose posts g
 author gets a like, then a follow), and your notifications read for warm leads (whoever followed you is followed back;
 whoever liked or commented gets a like back, then a follow). Find partners also reads the hashtag of its words and the
 accounts Instagram suggests. Below, "On its own on Instagram".
+
+From 0.84.0 its Alignable and Instagram readers are tuned from the owner's Checks of 21 Oct 2026 (docs/outreach.md,
+decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structure, never their words:
+
+- **Alignable's chats** (`src/networks/alignable/read.ts`): an open conversation's messages, each a `rel-card-message`
+  between its header and its box. Theirs starts its row with their picture in a link to their business, then who and
+  when; your own ends it with a picture alone. Each is kept as yours or theirs, what it says and when, the latest 20,
+  with who wrote last, as Instagram's chats are. **Read my chats** works on Alignable (`src/jobs/alignable/chats.ts`):
+  it opens Messages (/biz/conversations), presses each conversation's row down its side by the name it shows (its rows
+  aren't links), skips one with nothing in it yet, sends each as Alignable's by Alignable's id for the business, and
+  notes who wrote last (`outreach.replies.note`), scrolling the list for more; a tab of yours notes it as you go too.
+  Its runner reads them once a day (below, "On its own on Alignable").
+- **Instagram's followers:** where /<you>/followers/ shows your account without the box over it (its counts aren't
+  links to the list now), your count of followers is pressed once to open it, by Save my followers and by Check.
+- **Instagram's chats:** each message is an article, with their picture beside the last of theirs; who it's with
+  leaves out the accounts a post shared in it links to, and a post one of you shares still says who wrote last.
+- **Instagram's notifications:** the accounts it suggests under "Suggested for you" are never read as having engaged.
+- **A post's likes:** the number after its Like in its bar, in page order.
+- **Hashtags:** Instagram sends a hashtag's page to its search for it (/explore/search/keyword/?q=#<tag>), whose posts
+  are read as the hashtag's, by Check and the day's look at hashtags.
+- **Places:** /explore/locations/ is no list of places now but an account Instagram draws, so Check opens up to two of
+  the hashtag's posts for one tagged at a place instead.
+- **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
+  button among your highlights is no highlight.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script
@@ -651,7 +677,8 @@ line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say
   each to its end, then checks your connections once (`src/auto/lists.ts`); then the requests each morning and the
   connections weekly.
 - **Once a day,** with **Once a day** on for Alignable: your connection requests, your connections checked (30
-  business pages a day to start), Find partners (Alignable's search for businesses, `/biz/search`, a few screens,
+  business pages a day to start), from 0.84.0 your chats read for the AI with who wrote last noted (60 a day, as on
+  Instagram), Find partners (Alignable's search for businesses, `/biz/search`, a few screens,
   each business kept by Alignable's id, then those found read for the AI's partner check:
   `src/jobs/alignable/partner-search.ts`), and your town's posts and forum questions read for the AI.
 - **Your Alignable list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own: a

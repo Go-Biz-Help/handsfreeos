@@ -332,6 +332,11 @@ function describeAction(e: AuditEntry): string {
       return `removed the file ${s(e.before?.name)}`;
     case 'file.lock':
       return `locked ${name(e)} as signed and kept`;
+    // Search 5: the worker reading a file's words for search. The row has the file's name, never its words.
+    case 'file.save_text':
+      return Number(e.after?.chars) > 0
+        ? `read the words in ${s(e.after?.name) || 'a file'} for search`
+        : `found no words to read in ${s(e.after?.name) || 'a file'}, so search finds it by its name`;
     // An add-on's alerts (Real Estate step 5): raised and cleared by its worker, acknowledged by a person.
     case 'addon_alert.raised':
       return `raised the alert “${s(e.after?.title)}”`;

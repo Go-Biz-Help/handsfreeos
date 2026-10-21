@@ -4,6 +4,7 @@
  * say the same thing. Browser-safe; `commands/bin.ts` does the work.
  */
 import { fmtAt, fmtMonthDay, localDayOf } from './calendar/when';
+import { daysSince } from './crm/format';
 import type { BinContents, BinKind } from './schemas/bin';
 
 /** Days something waits in the bin. The database sets the date (`purge_after`); this only says it. */
@@ -314,4 +315,26 @@ export function binItemWhen(item: BinItemLike, timeZone: string, now = Date.now(
       ? BIN_WORDS.emptying
       : `Gone for good on ${binDay(item.purgeAfter, timeZone, now)}`
   }`;
+}
+
+/**
+ * How long ago something went in the bin and how long it has left, for a search result: "Deleted 4 days ago · Gone
+ * for good in 26 days", or "· Being deleted now". Search finds an item by its name only (decision 8).
+ */
+export function binLeftLine(
+  item: Pick<BinItemLike, 'deletedAt' | 'purgeAfter' | 'emptying'>,
+  now = Date.now(),
+): string {
+  const ago = daysSince(item.deletedAt, now);
+  const deleted =
+    ago === 0 ? 'Deleted today' : ago === 1 ? 'Deleted yesterday' : `Deleted ${ago} days ago`;
+  if (item.emptying) return `${deleted} · ${BIN_WORDS.emptying}`;
+  const left = Math.max(0, Math.ceil((Date.parse(item.purgeAfter) - now) / 86_400_000));
+  const gone =
+    left === 0
+      ? 'Gone for good today'
+      : left === 1
+        ? 'Gone for good tomorrow'
+        : `Gone for good in ${left} days`;
+  return `${deleted} · ${gone}`;
 }

@@ -46,6 +46,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn, relativeTime } from '@/lib/utils';
 import { SetRow } from './set-row';
+import { settingAttrs } from './setting-anchor';
 
 export interface ChatTeammate {
   readonly id: string;
@@ -664,6 +665,7 @@ function StatusCard({
       <SetRow
         className="mt-3"
         center
+        setting="website_chat.who_answers"
         title="Who answers"
         description="Your team can reply from the inbox too."
         body={note ? <span className="text-xs text-text-3">{note}</span> : undefined}
@@ -683,6 +685,7 @@ function StatusCard({
       </SetRow>
       <SetRow
         center
+        setting="website_chat.daily_limit"
         title="Daily limit"
         description="New chats a day, so a flood of strangers can’t use up your AI time."
         body={capError ? <FieldError>{capError}</FieldError> : undefined}
@@ -735,7 +738,7 @@ function SitesCard({ workspaceId, widget }: { workspaceId: string; widget: ChatW
     }
   };
   return (
-    <Card className="p-6" data-testid="chat-sites">
+    <Card className="p-6" data-testid="chat-sites" {...settingAttrs('website_chat.sites')}>
       <CardTitle sub="The chat only opens on these sites. Anywhere else, browsers refuse to show it.">
         Your sites
       </CardTitle>
@@ -803,7 +806,7 @@ function SnippetCard({
     }
   };
   return (
-    <Card className="p-6" data-testid="chat-install-card">
+    <Card className="p-6" data-testid="chat-install-card" {...settingAttrs('website_chat.install')}>
       <div className="flex items-start justify-between gap-3">
         <CardTitle sub="Paste this once. It loads after your page, so it doesn’t slow it down, and it can’t clash with your site’s look.">
           Add it to your site
@@ -907,7 +910,7 @@ function SnippetCard({
 function TryCard({ workspaceId, widget }: { workspaceId: string; widget: ChatWidget }) {
   const href = `/chat-preview/${widget.publicKey}?w=${workspaceId}`;
   return (
-    <Card className="p-6">
+    <Card className="p-6" {...settingAttrs('website_chat.try')}>
       <div className="flex items-start justify-between gap-3">
         <CardTitle sub="Opens a preview page with your chat. Test chats create nothing and send nothing.">
           Try it
@@ -1018,7 +1021,7 @@ function LookForm({
 
   return (
     <form onSubmit={save} className="flex min-w-0 flex-col gap-5" data-testid="chat-look-form">
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('website_chat.look')}>
         <CardTitle sub="One colour and a greeting. The window matches your visitor’s light or dark setting.">
           Look
         </CardTitle>
@@ -1131,7 +1134,7 @@ function LookForm({
         </div>
       </Card>
 
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('website_chat.away')}>
         <CardTitle>{who ? `When ${who} isn’t answering` : 'When nobody is answering'}</CardTitle>
         <div className="mt-3">
           <Label htmlFor="chat-away">Away message</Label>
@@ -1183,6 +1186,7 @@ function LookForm({
         </Hint>
         <SetRow
           className="mt-2"
+          setting="website_chat.text_box"
           title="Offer a box to get texts"
           body={
             <>

@@ -150,8 +150,15 @@ export function PayoutsSection({
     );
 
   const card = payouts.card;
+  // Only once payouts are open is there anything here to set, so only then is it settings search's.
   return (
-    <Section title={P.title} description={P.about} icon={Banknote} testId="partner-payouts">
+    <Section
+      title={P.title}
+      description={P.about}
+      icon={Banknote}
+      testId="partner-payouts"
+      setting="partners.payouts"
+    >
       <div className="mt-3">
         <SetRow
           first

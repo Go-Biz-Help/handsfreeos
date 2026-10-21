@@ -29,6 +29,8 @@ export * from './crm/synced';
 export * from './crm/contact-points';
 export * from './crm/person-merge';
 export * from './crm/picked-contact';
+// The search text a phone works out for itself: its pickers and its offline search.
+export * from './crm/search-text';
 // Fields a business invents, and the kinds of records and relationships it makes up (0101).
 export * from './crm/custom-fields';
 export * from './relationships/index';
@@ -60,6 +62,8 @@ export * from './account/settings-words';
 export * from './account/view-as-words';
 export * from './account/sign-in';
 export * from './account/extension-sign-in';
+// The moments a person is told about, push beside email, for both apps and settings search.
+export * from './account/notification-rows';
 // The side menu, as each person arranges it.
 export * from './account/menu';
 export * from './calendar/index';
@@ -107,3 +111,7 @@ export * from './safety-phone';
 export * from './record-holds';
 // The Deleted bin (20261027000400): what deleting for good says, on both apps.
 export * from './bin-words';
+// Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md): probes, ranking, marks, links and words.
+export * from './search/index';
+// Settings search: the Settings menu's pages and every setting on them, searched on the device (stage 6).
+export * from './settings/index';

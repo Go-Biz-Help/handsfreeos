@@ -94,7 +94,7 @@ export const inboxCrmTools: readonly AssistantTool[] = [
   define({
     name: 'archive_or_restore',
     description:
-      'Archive something so it leaves the lists and searches but keeps its history, or bring back one that was archived: a customer (a person), a company, a lead, a conversation, or one of the business’s own records (a pet, a vehicle, a property). Ids come from search_customers, get_customer, list_leads, list_inbox, find_conversations or find_records; archived ones from find_archived (conversations: find_conversations with box archived). A customer or company with open leads or tasks is held back at first, as on the screen; if the person still wants it, call again with archiveOpenLeads, which archives their open leads with them.',
+      'Archive something so it leaves the lists (search still finds it, under Archived) but keeps its history, or bring back one that was archived: a customer (a person), a company, a lead, a conversation, or one of the business’s own records (a pet, a vehicle, a property). Ids come from search_customers, get_customer, list_leads, list_inbox, find_conversations or find_records; archived ones from find_archived (conversations: find_conversations with box archived). A customer or company with open leads or tasks is held back at first, as on the screen; if the person still wants it, call again with archiveOpenLeads, which archives their open leads with them.',
     input: z.object({
       action: z.enum(['archive', 'restore']),
       what: z.enum(['customer', 'company', 'lead', 'conversation', 'record']),

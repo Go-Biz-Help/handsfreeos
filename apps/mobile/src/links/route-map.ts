@@ -17,6 +17,9 @@
  *   (`ui.phone`): its screen once this build has it (./addon-screens.ts), the web until then and for the rest.
  * - **An extension sign-in** (`/app/extension-sign-in/<id>`, its push) opens the screen that asks for the number the
  *   extension shows. It belongs to no business.
+ * - **Search everything** (`/search#q=…&kind=…`): the web keeps what's typed after `#` (decision 37), and only a rule
+ *   that names a pair after `#` reads it; the phone's search keeps it on its own address. A result opens through this
+ *   map too: a business's own kinds of records, and a file on a record, have no screen here, so they open the web.
  * - **The support desk** (the web's /admin, M13) is the one place outside /app the app opens: a new-ticket
  *   notification links to `/admin/tickets/<id>`. Its pages open the phone's Support desk (/app/admin), which asks
  *   HandsFreeOS whether the person works there. The phones don't claim /admin in app.json, so an email's /admin link
@@ -69,6 +72,16 @@ interface Rule {
   readonly deeper?: boolean;
   /** Query parameters the phone's screen reads too (Home's `?item=`), kept on its address. */
   readonly query?: readonly string[];
+  /**
+   * Query parameters that send the link to the web instead: what they ask for the phone's screen doesn't do (a search
+   * result's file on a record, `?tab=files&file=<id>&page=<n>`, rung on the web's Files tab at its page).
+   */
+  readonly webWhen?: readonly string[];
+  /**
+   * Pairs after `#` the phone's screen reads, kept on its address as query parameters. The web keeps what's typed into
+   * search there (`/search#q=…&kind=…`, decision 37) so it never reaches a server; on the phone it stays on the phone.
+   */
+  readonly fragment?: readonly string[];
 }
 
 /**
@@ -78,13 +91,33 @@ interface Rule {
 export const ROUTES: readonly Rule[] = [
   { web: '', phone: '', query: ['item'] },
   { web: 'inbox', phone: 'inbox' },
-  { web: 'inbox/:conversationId', phone: 'inbox/:conversationId' },
+  // A search result opens the thread at its message (`?message=&at=`), which rings once it's in the copy.
+  { web: 'inbox/:conversationId', phone: 'inbox/:conversationId', query: ['message', 'at'] },
   { web: 'pipeline', phone: 'pipeline', query: ['pipeline'] },
-  { web: 'leads/:leadId', phone: 'leads/:leadId' },
+  // A file found by search (`?file=`) opens on the web, where the record's Files ring it, as for a customer.
+  { web: 'leads/:leadId', phone: 'leads/:leadId', webWhen: ['file'] },
   { web: 'customers', phone: 'customers' },
-  { web: 'customers/people/:personId', phone: 'customers/people/:personId' },
-  { web: 'customers/companies/:companyId', phone: 'customers/companies/:companyId' },
-  { web: 'tasks', phone: 'tasks' },
+  // A note found by search (`?activity=`) opens its customer; Text (`?compose=sms`) opens their text thread; a file
+  // (`?file=`) opens the web, where their Files ring it at its page.
+  {
+    web: 'customers/people/:personId',
+    phone: 'customers/people/:personId',
+    query: ['activity', 'compose'],
+    webWhen: ['file'],
+  },
+  {
+    web: 'customers/companies/:companyId',
+    phone: 'customers/companies/:companyId',
+    webWhen: ['file'],
+  },
+  // A task found by search (`?task=`) opens from the Tasks screen once it's in the copy.
+  { web: 'tasks', phone: 'tasks', query: ['task'] },
+  // Forms the phone fills in, and one response's answers (asked of HandsFreeOS: answers never sync, M17).
+  { web: 'forms', phone: 'forms' },
+  { web: 'forms/:formId', phone: 'forms/:formId' },
+  { web: 'forms/:formId/answers/:responseId', phone: 'forms/:formId/answers/:responseId' },
+  // Search everything, by address: what's typed is after `#` on the web, and a query parameter on the phone.
+  { web: 'search', phone: 'search', fragment: ['q', 'kind'] },
   // The Calendar tab opens the appointment itself when the link names one (?appt=<id>).
   { web: 'calendar', phone: 'calendar', query: ['appt', 'date'] },
   { web: 'money', phone: 'money' },
@@ -135,22 +168,37 @@ export const ROUTES: readonly Rule[] = [
 
 const segments = (path: string) => path.split('/').filter(Boolean);
 
-/** A web path's parts: `/app/w/<ws>/inbox/<id>?x=1` → path and query. */
-function splitQuery(pathAndQuery: string): { path: string; query: Record<string, string> } {
+/** `a=1&b=2`'s pairs, keys that aren't plain words left out. */
+function pairsOf(text: string): Record<string, string> {
+  const pairs: Record<string, string> = {};
+  for (const pair of text.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    const key = decodePart(eq >= 0 ? pair.slice(0, eq) : pair);
+    const value = decodePart(eq >= 0 ? pair.slice(eq + 1) : '');
+    if (key && /^[A-Za-z][\w-]{0,40}$/.test(key)) pairs[key] = value;
+  }
+  return pairs;
+}
+
+/**
+ * A web path's parts: `/app/w/<ws>/inbox/<id>?x=1` → path and query, and the pairs after `#` (`/search#q=…`), which
+ * only a rule that names them reads.
+ */
+function splitQuery(pathAndQuery: string): {
+  path: string;
+  query: Record<string, string>;
+  fragment: Record<string, string>;
+} {
   const hash = pathAndQuery.indexOf('#');
   const withoutHash = hash >= 0 ? pathAndQuery.slice(0, hash) : pathAndQuery;
   const mark = withoutHash.indexOf('?');
   const path = mark >= 0 ? withoutHash.slice(0, mark) : withoutHash;
-  const query: Record<string, string> = {};
-  if (mark >= 0)
-    for (const pair of withoutHash.slice(mark + 1).split('&')) {
-      if (!pair) continue;
-      const eq = pair.indexOf('=');
-      const key = decodePart(eq >= 0 ? pair.slice(0, eq) : pair);
-      const value = decodePart(eq >= 0 ? pair.slice(eq + 1) : '');
-      if (key && /^[A-Za-z][\w-]{0,40}$/.test(key)) query[key] = value;
-    }
-  return { path, query };
+  return {
+    path,
+    query: mark >= 0 ? pairsOf(withoutHash.slice(mark + 1)) : {},
+    fragment: hash >= 0 ? pairsOf(pathAndQuery.slice(hash + 1)) : {},
+  };
 }
 
 function decodePart(part: string): string {
@@ -308,7 +356,7 @@ function deskRoute(rest: readonly string[], query: Readonly<Record<string, strin
 
 /** Where a web path opens on the phone. */
 export function routeFor(pathAndQuery: string): LinkTarget {
-  const { path, query } = splitQuery(pathAndQuery);
+  const { path, query, fragment } = splitQuery(pathAndQuery);
   const parts = segments(path);
   if (parts[0] === 'admin') return deskRoute(parts.slice(1), query);
   if (parts[0] !== 'app') return { kind: 'none' };
@@ -340,12 +388,24 @@ export function routeFor(pathAndQuery: string): LinkTarget {
     const rest = parts.slice(3);
     if (rest[0] === 'a') return addonTarget(businessId, rest.slice(1), query, pathAndQuery);
     for (const rule of ROUTES) {
-      const params = matchParts(segments(rule.web), rest, query, rule.deeper);
+      // The pairs after `#` count only for a rule that names them, and win over the query's.
+      const named = Object.fromEntries(
+        (rule.fragment ?? [])
+          .filter((key) => fragment[key] !== undefined)
+          .map((key) => [key, fragment[key]!]),
+      );
+      const params = matchParts(segments(rule.web), rest, { ...query, ...named }, rule.deeper);
       if (!params) continue;
-      if (rule.phone === 'web') return { kind: 'web', path: pathAndQuery, businessId };
+      if (rule.phone === 'web' || rule.webWhen?.some((key) => query[key]))
+        return { kind: 'web', path: pathAndQuery, businessId };
       return {
         kind: 'screen',
-        href: screenHref(businessId, phonePathOf(rule.phone, params), rule.query, query),
+        href: screenHref(
+          businessId,
+          phonePathOf(rule.phone, params),
+          [...(rule.query ?? []), ...(rule.fragment ?? [])],
+          { ...query, ...named },
+        ),
         businessId,
         later: rule.later ?? null,
         params,

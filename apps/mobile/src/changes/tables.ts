@@ -10,6 +10,8 @@ import { column, Table } from '@powersync/common';
  *   optimistic rows leave the synced tables at the next checkpoint once it's been handled; screens show the outbox over
  *   the synced data until the server's own rows arrive.
  * - `photo_uploads` is local-only: the photo track's progress for each photo (its outbox row has the same id).
+ * - `search_recent` is local-only and never sent: a person's recent searches in a business, at most 8
+ *   (`src/search/recent.ts`). It isn't a change, but it lives beside them in the same encrypted database.
  *
  * One change is one local transaction: its optimistic rows, its `commands` row and its `outbox` row.
  */
@@ -91,9 +93,23 @@ export const photoUploadsTable = new Table(
   { localOnly: true },
 );
 
+export const searchRecentTable = new Table(
+  {
+    workspace_id: column.text,
+    /** Whoever typed it, so a phone two people sign in to never shows one the other's. */
+    user_id: column.text,
+    /** What was typed, trimmed. */
+    q: column.text,
+    /** When it was last searched (ISO 8601). */
+    at: column.text,
+  },
+  { localOnly: true, indexes: { person: ['user_id', 'workspace_id', 'at'] } },
+);
+
 /** The names of the phone's own tables; the schema generator refuses a synced table with any of them. */
 export const LOCAL_TABLES = {
   commands: commandsTable,
   outbox: outboxTable,
   photo_uploads: photoUploadsTable,
+  search_recent: searchRecentTable,
 } as const;

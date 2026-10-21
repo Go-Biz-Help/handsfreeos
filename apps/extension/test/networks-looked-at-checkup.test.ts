@@ -76,8 +76,19 @@ const INSTAGRAM_PAGES: Record<string, string> = {
     <div role="textbox" contenteditable="true" aria-label="Message"></div></main>`),
 };
 
-/** What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written. */
+/**
+ * What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written; and
+ * their count of followers opens the box of them (the owner's Check, 21 Oct 2026).
+ */
 function instagramDoes(doc: Document) {
+  doc
+    .querySelector('#followers-count')
+    ?.addEventListener('click', () =>
+      doc.body.insertAdjacentHTML(
+        'beforeend',
+        `<div role="dialog"><h1>Followers</h1><a href="/jo.baker/">jo.baker</a><button>Remove</button></div>`,
+      ),
+    );
   for (const message of doc.querySelectorAll('header [role="button"]'))
     if (message.textContent === 'Message')
       message.addEventListener('click', () => {
@@ -268,7 +279,8 @@ function fakeTab(
       if (
         message.type === 'hfos-try' ||
         message.type === 'hfos-own-profile' ||
-        message.type === 'hfos-open-chat'
+        message.type === 'hfos-open-chat' ||
+        message.type === 'hfos-show-all'
       ) {
         // As the tab answers it (src/networks/looking/kit.ts), on this page.
         vi.stubGlobal('location', new URL(at));
@@ -375,6 +387,56 @@ describe('Check Instagram', () => {
       false,
       true,
     ]);
+    expect(end.line).toBe(
+      'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
+    );
+  });
+
+  it('opens their followers by its count, reads a hashtag where it lands, and finds a place on its posts (21 Oct 2026)', async () => {
+    const pages = { ...INSTAGRAM_PAGES };
+    // Their account at /<you>/followers/ without the box over it, its counts not links to the list.
+    pages[`${IG}/casey.owner/followers/`] = html(`${IG_MENU}<main role="main"><header>
+      <a role="link" href="#"><h2>casey.owner</h2></a>
+      <a role="link" href="#" id="followers-count"><span title="3,872">3,872</span> followers</a>
+      <a href="/accounts/edit/">Edit profile</a></header></main>`);
+    // The post read before was tagged at no place.
+    pages[`${IG}/p/E2bCd45EfGh/`] = pages[`${IG}/p/E2bCd45EfGh/`]!.replace(
+      '<a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a>',
+      '',
+    );
+    // A hashtag's page sends the tab to Instagram's search for it, its grid of posts the hashtag's.
+    pages[`${IG}/explore/tags/smallbusiness/`] = html(
+      `${IG_MENU}<main role="main"><span dir="auto">#smallbusiness</span>
+        <a href="/p/G4dEf67GhIj/">post</a><a href="/p/J6fGh89IjKl/">post</a><a href="/p/K7gHi90JkLm/">post</a></main>`,
+    );
+    pages[`${IG}/p/G4dEf67GhIj/`] = html(`<main role="main"><article>
+      <a href="/kim_bakes/">kim_bakes</a></article></main>`);
+    pages[`${IG}/p/J6fGh89IjKl/`] = html(`<main role="main"><article>
+      <a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a></article></main>`);
+    const { tab, opened, asked } = fakeTab(pages, 'instagram', {
+      [`${IG}/explore/tags/smallbusiness/`]: `${IG}/explore/search/keyword/?q=%23smallbusiness`,
+    });
+    const notes: ReportNote[] = [];
+    const job = {
+      tab,
+      hfos: (async () => ({ ok: true, value: {} })) as unknown as Hfos,
+      businessId: 'b',
+      stopped: () => false,
+      progress: () => undefined,
+      warn: async () => undefined,
+      report: async (note: ReportNote = {}) => void notes.push(note),
+    } satisfies Job;
+    const end = await runAsk({ kind: 'checkup' }, job, 'instagram');
+    expect(asked.filter((t) => t === 'hfos-show-all')).toHaveLength(1);
+    // Its posts opened one at a time till one was tagged at a place; never /explore/locations/ alone.
+    expect(opened.slice(6, 11)).toEqual([
+      `${IG}/casey.owner/followers/`,
+      `${IG}/explore/tags/smallbusiness/`,
+      `${IG}/p/G4dEf67GhIj/`,
+      `${IG}/p/J6fGh89IjKl/`,
+      `${IG}/explore/locations/212988663/austin-texas/`,
+    ]);
+    expect(opened).not.toContain(`${IG}/explore/locations/`);
     expect(end.line).toBe(
       'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
     );

@@ -146,6 +146,7 @@ import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import { roadmapHandlers } from '../addons/roadmap';
 import { onFileFingerprint } from './file-fingerprint';
+import { onFileText } from '../files/file-text';
 import { onSupportAccessRequested } from './support-access';
 import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
 import type { HandlerMap } from './types';
@@ -168,8 +169,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // An agency's reminder to a client business's owners.
     'onboarding.remind_requested': onOnboardingRemindRequested,
     'file.deleted': onFileDeleted,
-    // What a file held when it arrived, and before it was locked as signed (Real Estate, step 3).
-    'file.attached': onFileFingerprint,
+    // What a file held when it arrived, and before it was locked as signed (Real Estate, step 3); then its words
+    // read for search (Search 5), as a job of its own.
+    'file.attached': [onFileFingerprint, onFileText],
     'file.locked': onFileFingerprint,
     // 20261018000400: a customer's file for a file question: copied onto the lead, and the question's people told.
     'file.received': onFileReceived,

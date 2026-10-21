@@ -13,6 +13,8 @@ import { supportAccessList } from './support-access';
 import { recordHoldQueries } from './record-hold';
 import { binQueries } from './bin';
 export { binList, binPreview } from './bin';
+import { searchEverything, searchKind } from './search';
+export { searchEverything, searchKind } from './search';
 import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
@@ -99,6 +101,7 @@ import { personGet, personList } from './person';
 import { pipelineList } from './pipeline.list';
 import { taskList } from './task.list';
 import { timelineList } from './timeline.list';
+import { activityGet } from './activity.get';
 import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
@@ -195,6 +198,7 @@ export {
   tagList,
   taskList,
   timelineList,
+  activityGet,
   workspaceGet,
   workspaceInvitations,
   workspaceMembers,
@@ -285,6 +289,8 @@ export const queries: readonly QueryDef[] = [
   leadGet,
   taskList,
   timelineList,
+  // One timeline line, for a search result's ?activity= link.
+  activityGet,
   fileList,
   fileFingerprints,
   importGet,
@@ -421,6 +427,9 @@ export const queries: readonly QueryDef[] = [
   platformOnboardingCounts,
   // The onboarding setup.
   onboardingSetupGet,
+  // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md).
+  searchEverything,
+  searchKind,
 ] as unknown as readonly QueryDef[];
 
 export {

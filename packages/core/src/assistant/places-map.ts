@@ -63,7 +63,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     onScreen: [
       'New message, at the top (it starts a text to someone already in Contacts)',
       'Mine, Unassigned, and All (Everyone when each person sees only their own); Needs a person and the AI teammate’s own box when it is on',
-      'Search conversations (names, numbers and words in messages), and Open, Snoozed, Closed or Archived',
+      'Search conversations (names, numbers and words in messages; Search everything at the top of the side menu finds them too), and Open, Snoozed, Closed or Archived',
       'Select, for whoever may delete for good (owners, unless one gives it out): tick conversations, then Delete for good…',
     ],
     howTo: [
@@ -136,7 +136,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Bring back an archived customer: Contacts, Show archived, press them, then ⋯ and Restore',
       'Delete customers for good: Contacts, tick them, then Delete for good… (owners); they wait 30 days in Settings → Deleted bin',
       'Bring back a deleted customer, conversation or booking: Settings → Deleted bin, then Bring back',
-      'Search from anywhere: Search contacts at the top of the side menu',
+      'Search from anywhere: Search everything at the top of the side menu (⌘K or Ctrl K) finds customers by name, phone, email or street, and archived ones under Archived',
     ],
     notHere: [
       'choosing many customers at once to tag, assign or archive (the Assistant can tag many at once)',
@@ -206,7 +206,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Switch pipeline: the picker at the top of Pipeline',
     ],
     notHere: [
-      'searching or filtering the board',
+      'filtering the board (Search everything at the top of the side menu finds a lead by its title or customer)',
       'moving many leads at once',
       'moving a lead to another pipeline once it is made',
       'changing the stages here (that is Settings → Pipelines)',
@@ -537,7 +537,10 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Tick a task off: press its circle (Recently done has the ones to undo)',
       'Change or delete a task: its ⋯, then Edit or Delete',
     ],
-    notHere: ['repeating tasks, priorities or subtasks', 'searching tasks'],
+    notHere: [
+      'repeating tasks, priorities or subtasks',
+      'searching the Tasks page itself (Search everything at the top of the side menu finds a task by its title or notes)',
+    ],
     path: '/tasks',
   },
   {
@@ -599,7 +602,9 @@ export const APP_PLACES: readonly AppPlace[] = [
 
 /** What is on every page, around the page itself. */
 export const EVERY_PAGE: readonly string[] = [
-  'Top of the side menu: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search contacts (it searches contacts only), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
+  'Top of the side menu: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search everything (⌘K or Ctrl K), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
+  'Search everything finds, for whoever may see them, customers, companies, leads, estimates, invoices and payments, messages and calls, appointments, tasks, notes, files and the words inside them, forms and their answers, Knowledge, the business’s own kinds of records, Real Estate’s listings, deals, homes and properties, and settings; archived things show under Archived, and the Deleted bin to whoever may delete for good. Enter with no row picked opens the Search page with every result. A place hidden from the side menu isn’t found by it, but still opens from a link',
+  'Settings has its own Search settings box at the top of its menu',
   'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers), and Sign out',
   'Each person can reorder, group or hide places in their side menu (Settings → Account, under Side menu); a place may be inside a group called More; Home and Settings never hide',
   'A place their role doesn’t allow isn’t in their side menu at all: Inbox, Money and Audit log need their own permission',
@@ -620,6 +625,8 @@ export const PHONE_APP: readonly string[] = [
   'More: Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web',
   'Its Settings: My cell phone, unlocking with Face ID or a fingerprint, Businesses on this phone, Usage & balance, Notifications, Appearance, Sign out, Delete my account',
   'Only on the web: workflows, the AI teammate’s settings, Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
+  'Search everything: the magnifying glass at the top of the business’s screens, and Search everything under the Contacts and Inbox boxes; with no signal it searches what is on the phone (contacts, companies, leads, tasks, notes, the calendar, form names and settings) and says so',
+  'Its Settings has a search box at the top; a setting only the web changes opens on the web',
 ];
 
 /** What customers see, and where the business manages it, for "can my customer…" questions. */

@@ -1,6 +1,7 @@
 import {
   DESK_BUSINESS_WORDS,
   DESK_OWN_BUSINESS_WORDS,
+  DESK_PHONE_LISTENER_WORDS,
   DESK_PHONE_MODEL_WORDS,
   DESK_QUICK_LOOK_WORDS,
   DESK_WALLET_STAGE_TONES,
@@ -18,10 +19,13 @@ import {
   deskTheirMoneyLines,
   deskWalletLines,
   deskWalletMoves,
+  PHONE_LISTENER_LABELS,
+  PHONE_LISTENERS,
   PHONE_MODEL_LABELS,
   PHONE_MODELS,
   TICKET_STATUS_WORDS,
   type DeskWalletStage,
+  type PhoneListener,
   type PhoneModel,
 } from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -206,6 +210,13 @@ export default function Business() {
         <PhoneModelSection
           workspaceId={b.workspaceId}
           phoneModel={detail.phoneModel}
+          canChange={canPickModel}
+          onChanged={live.reload}
+        />
+
+        <PhoneListenerSection
+          workspaceId={b.workspaceId}
+          phoneListener={detail.phoneListener}
           canChange={canPickModel}
           onChanged={live.reload}
         />
@@ -566,6 +577,67 @@ function PhoneModelSection({
       ) : (
         <Text className="text-[13.5px]" testID="phone-model-value">
           {phoneModel ? PHONE_MODEL_LABELS[phoneModel] : DESK_PHONE_MODEL_WORDS.default}
+        </Text>
+      )}
+    </Section>
+  );
+}
+
+type ListenerChoice = PhoneListener | 'default';
+
+/**
+ * Who hears the caller on this business's calls: Nova-3 or Flux. Support flips it to hear how Flux does on the
+ * business's calls, without a restart, and flips it back; it takes effect from the next call.
+ */
+function PhoneListenerSection({
+  workspaceId,
+  phoneListener,
+  canChange,
+  onChanged,
+}: {
+  workspaceId: string;
+  phoneListener: PhoneListener | null;
+  canChange: boolean;
+  onChanged: () => void;
+}) {
+  const { busy, run } = useSwitch(onChanged);
+  const value: ListenerChoice = phoneListener ?? 'default';
+  return (
+    <Section
+      title={DESK_PHONE_LISTENER_WORDS.label}
+      detail={DESK_PHONE_LISTENER_WORDS.explain}
+      testID="business-phone-listener"
+    >
+      {canChange ? (
+        <Segmented<ListenerChoice>
+          label={DESK_PHONE_LISTENER_WORDS.label}
+          value={value}
+          onChange={(choice) =>
+            void run(() =>
+              desk('/v1/commands/phone_listener.set', {
+                workspaceId,
+                listener: choice === 'default' ? null : choice,
+              }),
+            )
+          }
+          options={[
+            {
+              value: 'default',
+              label: DESK_PHONE_LISTENER_WORDS.default,
+              testID: 'phone-listener-default',
+              disabled: busy,
+            },
+            ...PHONE_LISTENERS.map((l) => ({
+              value: l,
+              label: PHONE_LISTENER_LABELS[l],
+              testID: `phone-listener-${l}`,
+              disabled: busy,
+            })),
+          ]}
+        />
+      ) : (
+        <Text className="text-[13.5px]" testID="phone-listener-value">
+          {phoneListener ? PHONE_LISTENER_LABELS[phoneListener] : DESK_PHONE_LISTENER_WORDS.default}
         </Text>
       )}
     </Section>

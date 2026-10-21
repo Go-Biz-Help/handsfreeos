@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addonAiIssues,
   addonModuleIssues,
+  addonSearchIssues,
   commands,
   manifestIssues,
   queries,
@@ -27,5 +28,9 @@ describe('__NAME__', () => {
 
   it('offers the AI only what it may use', () => {
     expect(addonAiIssues([__CONST__Server])).toEqual([]);
+  });
+
+  it('answers searches only as core runs them', () => {
+    expect(addonSearchIssues([__CONST__Server])).toEqual([]);
   });
 });

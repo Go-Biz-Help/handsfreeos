@@ -153,16 +153,61 @@ export const RECORD_WORDS = {
   },
 } as const;
 
-/** "This person is archived: hidden from lists and searches, history kept." */
 /** On a duplicate that was merged into another record: where everything of theirs went. */
 export function mergedWords(intoName: string): string {
   return `Merged into ${intoName}: everything of theirs is on that record now, and this one stays archived.`;
 }
 
-export function archivedNotice(kind: 'person' | 'company', canRestore: boolean): string {
-  return `This ${kind} is archived: hidden from lists and searches, history kept.${
+/**
+ * "This person is archived: hidden from lists, found in search under Archived, history kept." On a customer's or
+ * company's page, and a business's own record's (`noun` its kind's singular, lower-cased: "pet").
+ */
+export function archivedNotice(noun: string, canRestore: boolean): string {
+  return `This ${noun} is archived: hidden from lists, found in search under Archived, history kept.${
     canRestore ? ' Restore from the menu to use it again.' : ''
   }`;
+}
+
+/**
+ * What the dialogs that archive and restore say. Archiving takes a thing out of the lists, never out of search, which
+ * finds it under Archived (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, How it works, 5).
+ */
+export const ARCHIVE_WORDS = {
+  /** A customer or company. */
+  archiveCustomer:
+    'Archived records leave the lists but keep their history, and search finds them under Archived. You can restore them at any time. This is recorded in the audit log.',
+  restoreCustomer: 'They come back to the lists and can be used on new leads again.',
+  /** One of the business's own records. */
+  archiveRecord:
+    'It leaves lists, and search finds it under Archived. Its history, tasks, files and relationships are kept.',
+  restoreRecord: 'It comes back into lists, and search finds it with the rest again.',
+} as const;
+
+/**
+ * What the Assistant's card says before it archives or restores a customer, a company or one of the business's own
+ * records (`plural` its kind's: "Pets"): where it goes, that search still finds it, and where to bring it back.
+ */
+export function archiveCardWords(
+  what: 'customer' | 'company' | 'record',
+  plural = '',
+): { readonly away: string; readonly back: string } {
+  switch (what) {
+    case 'customer':
+      return {
+        away: 'They leave Contacts but keep their history, and search finds them under Archived. Bring them back any time: Contacts, Show archived.',
+        back: 'They come back to Contacts, and can go on new leads again.',
+      };
+    case 'company':
+      return {
+        away: 'It leaves Contacts but keeps its history, and search finds it under Archived. Bring it back any time: Contacts → Companies, Show archived.',
+        back: 'It comes back to Contacts.',
+      };
+    case 'record':
+      return {
+        away: `It leaves ${plural}, and search finds it under Archived. Its history, tasks, files and relationships stay.`,
+        back: `It comes back to ${plural}.`,
+      };
+  }
 }
 
 /**

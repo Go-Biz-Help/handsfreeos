@@ -30,6 +30,7 @@ import type { MetaAccount, MetaAccountList, MetaConnection } from '@/lib/api/typ
 import { publicEnv } from '@/lib/env';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { relativeTime } from '@/lib/utils';
+import { settingAttrs } from './setting-anchor';
 
 /** What the worker came back with, from `?meta=` and its counts. */
 export interface MetaResult {
@@ -202,7 +203,7 @@ export function FacebookInstagramPage({
         </ul>
       </Card>
 
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('facebook_instagram.accounts')}>
         <h2 className="text-[15px] font-semibold">Pages and accounts</h2>
         {connected.length === 0 ? (
           <p className="mt-2 text-[13px] text-text-3" data-testid="meta-none">
@@ -235,7 +236,7 @@ export function FacebookInstagramPage({
       </Card>
 
       {data.connections.length ? (
-        <Card className="p-6">
+        <Card className="p-6" {...settingAttrs('facebook_instagram.sign_in')}>
           <h2 className="text-[15px] font-semibold">Facebook sign-in</h2>
           <p className="mt-1 text-[13px] text-text-2">
             {readsAds

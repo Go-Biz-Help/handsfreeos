@@ -1,20 +1,20 @@
 import type { StaffRole } from '@hfos/core';
 import { AskButton } from '@/components/assistant/ask-button';
 import { CallsPill } from '@/components/calls/calls-pill';
+import { SearchBox } from '@/components/search/search-box';
 import { Brand } from '@/components/ui/brand';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
 import { GetHelp } from '@/components/support/get-help';
 import { guideOf } from '@/lib/guide';
 import { FootLinks, NavLinks } from './nav-links';
-import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
 
 /**
- * The sidebar: the business and search at the top, the person's own menu in the middle, and at the bottom the
- * places about HandsFreeOS itself (Add-ons, Ideas), Get help and the account. The menu scrolls on its own — a long
- * one, or a short screen, never pushes them off the bottom — and the padding around it leaves room for a focus ring
- * the scroller would otherwise clip.
+ * The sidebar: the business, Search everything (⌘K) and Ask HandsFreeOS at the top, the person's own menu in the
+ * middle, and at the bottom the places about HandsFreeOS itself (Add-ons, Ideas), Get help and the account. The menu
+ * scrolls on its own — a long one, or a short screen, never pushes them off the bottom — and the padding around it
+ * leaves room for a focus ring the scroller would otherwise clip.
  *
  * It is kept to the height of the window and pinned there, which is what makes the menu scroll at all: the page
  * beside it is as long as its own content, and a row of a flex container is as tall as its tallest child, so
@@ -37,7 +37,7 @@ export function Sidebar({
           <Brand />
         </div>
         <WorkspaceSwitcher me={me} current={current} staff={staff} />
-        <SearchField workspaceId={current.id} className="mt-2" />
+        <SearchBox className="mt-2" />
         <AskButton className="mt-1.5" />
       </div>
       <div

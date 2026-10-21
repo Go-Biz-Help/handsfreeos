@@ -22,6 +22,7 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import type { AssistantSavedMessage, AssistantToolStatus } from '@/lib/api/types';
 import { usePageRecord, type PageRecord } from '@/lib/assistant/page-record';
 import { stopRun, streamAnswer } from '@/lib/assistant/stream';
+import { isMac, isShortcut } from '@/lib/keys';
 import { useMatches } from '@/lib/use-media';
 
 export interface Step {
@@ -216,11 +217,6 @@ function rememberThread(workspaceId: string, threadId: string | null): void {
   } catch {
     // Private windows: the chat just isn't reopened after a reload.
   }
-}
-
-function isMac(): boolean {
-  const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-  return /mac|iphone|ipad|ipod/i.test(nav.userAgentData?.platform || nav.platform || '');
 }
 
 const fromSaved = (m: AssistantSavedMessage): ChatMessage =>
@@ -642,8 +638,7 @@ export function AssistantProvider({
     setMac(onMac);
     if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== 'j' || e.altKey || e.shiftKey || e.repeat) return;
-      if (onMac ? !e.metaKey || e.ctrlKey : !e.ctrlKey || e.metaKey) return;
+      if (!isShortcut(e, 'j', onMac)) return;
       e.preventDefault();
       setOpenState((o) => !o);
     };

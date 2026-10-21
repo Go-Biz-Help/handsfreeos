@@ -17,7 +17,7 @@
  * (deepgram-flux.ts); `fake` (fake-speech.ts) is the stand-in for tests, which treats the audio it's sent as the
  * words themselves.
  */
-import type { PhoneVoice } from '@hfos/core/server';
+import type { PhoneListener, PhoneVoice } from '@hfos/core/server';
 
 /** Words heard on the call. */
 export interface HeardWords {
@@ -63,6 +63,11 @@ export interface ListenHandlers {
   /** Silence after words that may never have been marked the end of a turn (noise, a trailing "um"). */
   readonly onUtteranceEnd: () => void;
   readonly onError: (e: Error) => void;
+}
+
+export interface ListenOptions {
+  /** Who hears the call, when support picked one for the business in /admin; null is the worker's VOICE_LISTENER. */
+  readonly listener?: PhoneListener | null;
 }
 
 export interface Listening {
@@ -118,7 +123,7 @@ export class LineBusy extends Error {
 
 export interface SpeechServices {
   readonly name: 'deepgram' | 'fake';
-  listen(handlers: ListenHandlers): Promise<Listening>;
+  listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening>;
   /** 8 kHz μ-law audio of `text`, in pieces as they're made. */
   speak(text: string, options: SpeakOptions): AsyncIterable<Buffer>;
   /** Opens a voice for a call (VoiceLine). Without it, every sentence is said with `speak`. */

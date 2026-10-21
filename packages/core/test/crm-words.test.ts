@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import {
   addedLine,
   addressLine,
+  ARCHIVE_WORDS,
+  archiveCardWords,
   archivedNotice,
   boardStages,
   customerSince,
@@ -154,11 +156,26 @@ describe('a record’s head', () => {
 
   it('says what archiving means, and only offers Restore to someone who may', () => {
     expect(archivedNotice('person', true)).toBe(
-      'This person is archived: hidden from lists and searches, history kept. Restore from the menu to use it again.',
+      'This person is archived: hidden from lists, found in search under Archived, history kept. Restore from the menu to use it again.',
     );
     expect(archivedNotice('company', false)).toBe(
-      'This company is archived: hidden from lists and searches, history kept.',
+      'This company is archived: hidden from lists, found in search under Archived, history kept.',
     );
+    // A business's own kind, in its own noun.
+    expect(archivedNotice('pet', false)).toBe(
+      'This pet is archived: hidden from lists, found in search under Archived, history kept.',
+    );
+    // Search finds what's archived, so no wording says it leaves searches.
+    for (const words of Object.values(ARCHIVE_WORDS)) expect(words).not.toMatch(/searches/);
+    expect(ARCHIVE_WORDS.archiveCustomer).toContain('search finds them under Archived');
+    expect(ARCHIVE_WORDS.archiveRecord).toContain('search finds it under Archived');
+    // The Assistant's card says the same.
+    for (const what of ['customer', 'company', 'record'] as const) {
+      const { away, back } = archiveCardWords(what, 'Pets');
+      expect(away).toContain('search finds');
+      expect(`${away} ${back}`).not.toMatch(/searches/);
+    }
+    expect(archiveCardWords('record', 'Pets').away).toMatch(/^It leaves Pets, /);
   });
 
   it('says how a lead ended, with who and when', () => {

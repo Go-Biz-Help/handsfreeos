@@ -174,18 +174,38 @@ test('company → person with duplicate warning → lead → note → task → a
   await expect(page.getByText('restored Mike Johnson')).toBeVisible();
 });
 
-test('a member sees customers but cannot archive; the search field in the shell opens the list', async ({
+test('/customers?q= still filters Contacts; the side menu’s Search everything shows Contacts as you type and opens the Search page', async ({
   page,
 }) => {
   await signUpAndConfirm(page, 'crm-member');
   const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
-  await page.goto(`/app/w/${workspaceId}`);
-  await page.getByTestId('shell-search').fill('Ramsey');
-  await page.getByTestId('shell-search').press('Enter');
-  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/customers\\?q=Ramsey`));
+  // Contacts' own box keeps its filter in the address, as it always has.
+  await page.goto(`/app/w/${workspaceId}/customers?q=Ramsey`);
   await expect(page.getByTestId('customers-search')).toHaveValue('Ramsey');
   await expect(page.getByText('No people match')).toBeVisible();
   await expectEmptyToHaveAdd(page);
+
+  await page.getByRole('button', { name: 'Add a person' }).click();
+  await page.getByLabel('First name').fill('Pat');
+  await page.getByLabel('Last name').fill('Ramsey');
+  await page.getByTestId('person-save').click();
+  await expect(page).toHaveURL(/\/customers\/people\/[0-9a-f-]{36}$/);
+
+  // Every request the browser sends the web's own server: what's typed must be in none of them.
+  const sent: string[] = [];
+  page.on('request', (r) => {
+    if (new URL(r.url()).port === '3000')
+      sent.push(`${r.url()} ${r.postData() ?? ''} ${JSON.stringify(r.headers())}`.toLowerCase());
+  });
+  await page.goto(`/app/w/${workspaceId}`);
+  await page.getByTestId('shell-search').fill('Ramsey');
+  const panel = page.getByTestId('search-panel');
+  await expect(panel.getByTestId('search-chip-contacts')).toBeVisible();
+  await expect(panel).toContainText('Pat Ramsey');
+  await page.getByTestId('shell-search').press('Enter');
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/search#q=Ramsey$`));
+  await expect(page.getByTestId('search-card-contacts')).toContainText('Pat Ramsey');
+  expect(sent.filter((r) => r.includes('ramsey'))).toEqual([]);
 });
 
 async function expectEmptyToHaveAdd(page: Page) {

@@ -2,6 +2,8 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { searchHref, type SearchRecordRef } from '@hfos/core';
+
 import { decideLink, NOT_YOURS } from '../decide';
 import { phonePathOf, ROUTES, routeFor, targetOfLink, webPathOf } from '../route-map';
 
@@ -57,6 +59,12 @@ describe('the route map', () => {
       'ideas/:ideaId': { href: `ideas/${ID}`, later: false },
       // The AI teammate's quick setup: the same screens on the phone (HANDSFREEOS_AI_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8).
       'ai-team/setup': { href: 'ai-setup', later: false },
+      // Forms the phone fills in, and one response's answers (a search result opens on it).
+      forms: { href: 'forms', later: false },
+      'forms/:formId': { href: `forms/${ID}`, later: false },
+      'forms/:formId/answers/:responseId': { href: `forms/${ID}/answers/${ID}`, later: false },
+      // Search everything, by address.
+      search: { href: 'search', later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
     expect(screens.map((r) => r.web).sort()).toEqual(Object.keys(expected).sort());
@@ -131,6 +139,75 @@ describe('the route map', () => {
     // Only the query a screen reads is kept.
     expect(routeFor(`/app/w/${WS}?item=${ID}&utm=email`)).toMatchObject({
       href: `/app/w/${WS}?item=${ID}`,
+    });
+  });
+
+  it('opens Search everything with what was typed, read from after `#` and kept on the phone', () => {
+    expect(routeFor(`/app/w/${WS}/search#q=dana%20smith&kind=contacts`)).toEqual({
+      kind: 'screen',
+      href: `/app/w/${WS}/search?q=dana%20smith&kind=contacts`,
+      businessId: WS,
+      later: null,
+      params: { q: 'dana smith', kind: 'contacts' },
+    });
+    // Everything, when no kind is named; what the search page's other switches say stays on the web.
+    expect(routeFor(`/app/w/${WS}/search#q=1042&archived=1`)).toMatchObject({
+      href: `/app/w/${WS}/search?q=1042`,
+      params: { q: '1042' },
+    });
+    expect(routeFor(`/app/w/${WS}/search`)).toMatchObject({ href: `/app/w/${WS}/search` });
+    // Only a rule that names a pair after `#` reads it: Add a contact's name never reaches the Contacts tab.
+    expect(routeFor(`/app/w/${WS}/customers#add=person&name=dana`)).toMatchObject({
+      href: `/app/w/${WS}/customers`,
+      params: {},
+    });
+  });
+
+  it('opens each search result where it lands, with what its screen reads', () => {
+    const at = '2026-10-17T14:02:11.123456Z';
+    expect(routeFor(`/app/w/${WS}/inbox/${ID}?message=${OTHER}&at=${at}`)).toMatchObject({
+      href: `/app/w/${WS}/inbox/${ID}?message=${OTHER}&at=${encodeURIComponent(at)}`,
+      params: { conversationId: ID, message: OTHER, at },
+    });
+    expect(routeFor(`/app/w/${WS}/tasks?task=${ID}`)).toMatchObject({
+      href: `/app/w/${WS}/tasks?task=${ID}`,
+      params: { task: ID },
+    });
+    expect(routeFor(`/app/w/${WS}/customers/people/${ID}?activity=${OTHER}`)).toMatchObject({
+      href: `/app/w/${WS}/customers/people/${ID}?activity=${OTHER}`,
+      params: { personId: ID, activity: OTHER },
+    });
+    expect(routeFor(`/app/w/${WS}/customers/people/${ID}?compose=sms`)).toMatchObject({
+      href: `/app/w/${WS}/customers/people/${ID}?compose=sms`,
+    });
+    expect(routeFor(`/app/w/${WS}/forms/${ID}/answers/${OTHER}`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/forms/${ID}/answers/${OTHER}`,
+      params: { formId: ID, responseId: OTHER },
+    });
+    // A business's own kinds of records, a file on a record and a setting have no screen here: the web, whole. The
+    // file links are core's own, on a customer, a company and a lead.
+    const base = `/app/w/${WS}/`;
+    const fileOn = (on: SearchRecordRef) =>
+      searchHref(WS, { type: 'file', id: OTHER, on, page: 3 }).slice(base.length);
+    for (const page of [
+      `customers/records/${ID}`,
+      `customers/records/${ID}?activity=${OTHER}`,
+      fileOn({ type: 'person', id: ID }),
+      fileOn({ type: 'company', id: ID }),
+      fileOn({ type: 'lead', id: ID }),
+      fileOn({ type: 'custom_record', id: ID }),
+      'settings/deleted-bin?item=abc',
+      'settings/texting#quiet-hours',
+    ])
+      expect(routeFor(`/app/w/${WS}/${page}`)).toEqual({
+        kind: 'web',
+        path: `/app/w/${WS}/${page}`,
+        businessId: WS,
+      });
+    // The money tab a customer's link names still opens their screen here.
+    expect(routeFor(`/app/w/${WS}/customers/people/${ID}?tab=money`)).toMatchObject({
+      kind: 'screen',
     });
   });
 

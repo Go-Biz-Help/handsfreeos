@@ -654,23 +654,35 @@ export function effectiveWorkspaceRole(
   return candidates.sort((a, b) => roleRank(b) - roleRank(a))[0] ?? null;
 }
 
+/** An add-on's own permission as its manifest describes it, which core's lists don't hold. */
+export interface AddonPermissionWords {
+  readonly label: string;
+  readonly defaultRoles: readonly string[];
+  readonly customizable?: boolean;
+}
+
 /**
  * What a person refused for lacking `permission` reads: what they'd need, and who can give it. `role` is theirs in
- * the business, null when they aren't in it.
+ * the business, null when they aren't in it. `addon` describes an add-on's own permission (its manifest's entry).
  */
 export function missingPermissionMessage(
   permission: Permission,
   role: WorkspaceRole | null,
+  addon?: AddonPermissionWords,
 ): string {
   if (isStaffPermission(permission))
     return 'Your support role doesn’t cover that. A support admin can change your role.';
   if (isOrgPermission(permission))
     return 'Only an owner or admin of the agency can do that. Ask one of them.';
   if (!role) return 'You’re not in this business. Ask one of its owners to invite you.';
-  const info = CUSTOMIZABLE_PERMISSIONS.find((p) => p.permission === permission);
-  if (info)
-    return `You need the “${info.label}” permission for that. An owner of this business can turn it on for you in Settings → Permissions.`;
-  if (!hasWorkspacePermission('admin', permission))
+  const label = addon
+    ? addon.customizable !== false
+      ? addon.label
+      : null
+    : CUSTOMIZABLE_PERMISSIONS.find((p) => p.permission === permission)?.label;
+  if (label)
+    return `You need the “${label}” permission for that. An owner of this business can turn it on for you in Settings → Permissions.`;
+  if (!(addon ? addon.defaultRoles.includes('admin') : hasWorkspacePermission('admin', permission)))
     return 'Only an owner of this business can do that. Ask one of them.';
   return 'Only owners and admins of this business can do that. Ask an owner to change your role on the Members page.';
 }

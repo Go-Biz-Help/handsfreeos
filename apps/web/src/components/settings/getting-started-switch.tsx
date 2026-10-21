@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { settingAttrs } from './setting-anchor';
 
 /**
  * Getting started on or off for the whole business (`onboarding.set_enabled`). Off, nobody in the business sees the
@@ -44,8 +45,8 @@ export function GettingStartedSwitch({
   return (
     <Card
       className="flex items-start gap-4 p-6"
-      id="getting-started"
       data-testid="getting-started-switch"
+      {...settingAttrs('workspace.getting_started')}
     >
       <div className="min-w-0 flex-1">
         <h2 className="text-lg font-semibold tracking-tight">{GUIDE_SWITCH_WORDS.title}</h2>

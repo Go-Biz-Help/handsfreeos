@@ -19,6 +19,7 @@ import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Ok } from '@/lib/api/types';
+import { settingAttrs } from './setting-anchor';
 
 type SafetySettings = Ok<'/v1/queries/safety.settings'>;
 
@@ -81,7 +82,7 @@ export function SafetySettingsPage({
 
   return (
     <div className="mx-auto grid w-full max-w-3xl gap-4" data-testid="safety-settings">
-      <Card className="p-4 md:p-5">
+      <Card className="p-4 md:p-5" {...settingAttrs('safety.check_ins')}>
         <h2 className="flex items-center gap-2 text-[15px] font-semibold">
           <ShieldCheck className="h-4 w-4 text-text-3" strokeWidth={1.75} />
           Check-ins
@@ -174,7 +175,7 @@ export function SafetySettingsPage({
           ) : null}
         </form>
       </Card>
-      <Card className="p-4 md:p-5" data-testid="safety-preview">
+      <Card className="p-4 md:p-5" data-testid="safety-preview" {...settingAttrs('safety.preview')}>
         <h2 className="text-[15px] font-semibold">What each person sees</h2>
         <p className="mt-1 text-[13px] text-text-2">
           Under When, on their own Safety page and in the phone app.

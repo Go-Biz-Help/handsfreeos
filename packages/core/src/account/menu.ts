@@ -648,7 +648,8 @@ export const MENU_WORDS = {
   inMenu: 'In the menu',
   hidden: 'Hidden',
   hiddenEmpty: 'Nothing hidden.',
-  hiddenHint: 'Hidden places still open from search and from a link.',
+  // Not "from search": Search everything doesn't list places yet (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, Not yet).
+  hiddenHint: 'Hidden places still open from a link.',
   addGroup: 'Add a group',
   groupName: 'Group name',
   groupEmpty: 'Nothing in here yet. An empty group is dropped when you save.',

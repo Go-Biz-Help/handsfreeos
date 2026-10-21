@@ -44,6 +44,7 @@ import { showingCommands, showingQueries } from './ops/showings';
 import { vendorCommands, vendorQueries } from './ops/vendors';
 import { connectionQueries } from './ops/connections';
 import { searchCommands, searchQueries } from './ops/searches';
+import { searchEverythingQueries } from './ops/search';
 import { fieldCommands, fieldQueries } from './ops/field';
 import { exportCommands, exportQueries } from './ops/export';
 import { lockboxCommands, lockboxQueries } from './ops/lockboxes';
@@ -126,5 +127,7 @@ export const realestateAddonServer: AddonServerModule = {
     ...fieldQueries,
     ...exportQueries,
     ...lockboxQueries,
+    // Search everything: never a route, run only inside core's search.
+    ...searchEverythingQueries,
   ],
 };

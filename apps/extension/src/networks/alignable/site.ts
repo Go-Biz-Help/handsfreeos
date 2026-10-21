@@ -24,8 +24,9 @@ import {
 } from './own-profile';
 import { alignableNoticer } from './actions';
 import { connectOnPage, likeTheirPost, theirPosts, writeMessage } from './auto';
-import { openConversation, scrollList, showAllConnections } from './browse';
+import { openConversation, scrollAny, showAllConnections } from './browse';
 import { readAlignable } from './read';
+import { readReplies } from './replies';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
 
@@ -619,12 +620,15 @@ export const ALIGNABLE: LookingSite = {
   // Its own readers (partners stage 6c): businesses, posts, a forum question's answers and chats, counted in each of
   // Check's notes so the next Check shows what they find on the real pages.
   readFound: readAlignable,
-  // Its lists, for the person's asks (part 4): My Network switched to all their connections, and each list scrolled.
+  // Its lists, for the person's asks (part 4): My Network switched to all their connections, and each list scrolled;
+  // from 0.84.0 Messages' conversations down its side scrolled too, and one opened by its row's name for Read my chats.
   lists: {
-    scroll: (doc) => scrollList(doc),
+    scroll: (doc) => scrollAny(doc),
     showAll: (doc) => showAllConnections(doc),
-    openChat: (doc) => openConversation(doc),
+    openChat: (doc, _href, name) => openConversation(doc, name),
   },
+  // Who wrote back in the conversation open (0.84.0), as the person goes and as Read my chats goes.
+  replies: readReplies,
   // The person's own steps, noted as they take them (part 2): Connect, Like, a forum answer's Send, and a message.
   noticer: alignableNoticer,
   // What its runner presses on its own (part 5), each only on its own page: a like on a post of theirs, their own

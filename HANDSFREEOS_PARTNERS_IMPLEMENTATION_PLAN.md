@@ -611,8 +611,10 @@ request when opened, so no Check opens it: the first real request shows what it 
      other networks (`src/networks/alignable/actions.ts`).
    - **Part 4, asks** (extension 0.73.0): Save my connections (My Network, all of them past Ally's picks), Check my
      connection requests, Check my connections and Research (each business's page read for the AI's check, 30 a day),
-     and a business looked up before drafting. Reading chats waits for its reader: the owner's Check opened an empty
+     and a business looked up before drafting. Reading chats waited for its reader: the owner's Check opened an empty
      chat, so Check Alignable now opens one with messages from Messages' side, and the reader is built from its outline.
+     Built in extension 0.84.0 from his Check of 21 Oct 2026: **Read my chats** reads each conversation's messages as
+     his or theirs, sends them for the AI and notes who wrote last, asked or once a day by the runner.
    - **Part 3c, its town's posts and forum questions** (extension 0.74.0): Find posts in your town reads the person's
      town page for the AI's check, as LinkedIn's search finds are read; the good ones come onto Today with a draft and
      their writers to connect with. Answers to those asking for what the business offers are at most 2 a day, inside
@@ -641,7 +643,8 @@ request when opened, so no Check opens it: the first real request shows what it 
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
    - **Part 9, Check's new reads** (extension 0.79.0): Check Instagram also opens their followers, a hashtag
-     (#smallbusiness), a place a post was tagged at (or Instagram's list of places), their notifications and a chat
+     (#smallbusiness), a place a post was tagged at (from 0.84.0 one of the hashtag's posts opened for one, as
+     /explore/locations/ is no list of places now), their notifications and a chat
      in Messages, reading each and pressing nothing. Its readers (part 10) are built from what those outlines show,
      as Alignable's were; Instagram's own reader (`src/networks/instagram/read.ts`) starts with the links Check
      follows: places, hashtags and chats.
@@ -650,7 +653,9 @@ request when opened, so no Check opens it: the first real request shows what it 
      each back), a post (who, its caption, likes, comments and place), a hashtag's and a place's posts, notifications
      (who followed you, liked or commented), your messages (each chat, whose last line, which box) and a chat (who,
      its messages, a request to Accept). The profile and the post are built from Chris's outlines of 18 Oct; the rest
-     from Instagram's usual markup, to be tuned from his next Check, which opens each.
+     from Instagram's usual markup, to be tuned from his next Check, which opens each. Tuned in extension 0.84.0 from
+     his Check of 21 Oct: the followers' box opened by his count of followers, a chat's messages as articles, a post's
+     likes after its Like, the suggestions under notifications left out, and a hashtag read on the search it lands on.
    - **Part 11, noting your own steps** (extension 0.80.0): Follow or Follow Back (a follow, noted once the button
      says Following or Requested), a post's Like, a comment sent from a post's box, and a message sent in a chat, each
      to that account by its name in Instagram's address (`src/networks/instagram/actions.ts`).

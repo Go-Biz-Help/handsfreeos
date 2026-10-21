@@ -27,6 +27,7 @@ import { useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
+import { FilterChip } from '@/components/ui/filter-chip';
 import { Icon } from '@/components/ui/icon';
 import { Segmented } from '@/components/ui/segmented';
 import { Text } from '@/components/ui/text';
@@ -131,26 +132,23 @@ export default function Approvals() {
         {view === 'waiting' && name ? (
           <View className="flex-row flex-wrap gap-1.5">
             <FilterChip
+              label={APPROVALS_WORDS.filterAll(all.length)}
               on={filter === 'all'}
               onPress={() => setFilter('all')}
               testID="approvals-filter-all"
-            >
-              {APPROVALS_WORDS.filterAll(all.length)}
-            </FilterChip>
+            />
             <FilterChip
+              label={APPROVALS_WORDS.filterWorkflows(flows.length)}
               on={filter === 'workflows'}
               onPress={() => setFilter('workflows')}
               testID="approvals-filter-workflows"
-            >
-              {APPROVALS_WORDS.filterWorkflows(flows.length)}
-            </FilterChip>
+            />
             <FilterChip
+              label={APPROVALS_WORDS.filterTeammate(name, openDrafts.length)}
               on={filter === 'ai'}
               onPress={() => setFilter('ai')}
               testID="approvals-filter-ai"
-            >
-              {APPROVALS_WORDS.filterTeammate(name, openDrafts.length)}
-            </FilterChip>
+            />
           </View>
         ) : null}
       </View>
@@ -233,36 +231,6 @@ export default function Approvals() {
         />
       )}
     </Screen>
-  );
-}
-
-function FilterChip({
-  on,
-  onPress,
-  children,
-  testID,
-}: {
-  on: boolean;
-  onPress: () => void;
-  children: string;
-  testID: string;
-}) {
-  return (
-    <Pressable
-      role="button"
-      accessibilityState={{ selected: on }}
-      onPress={onPress}
-      testID={testID}
-      hitSlop={{ top: 6, bottom: 6 }}
-      className={cn(
-        'h-8 justify-center rounded-full border px-3',
-        on ? 'border-accent bg-accent-soft' : 'border-border bg-card',
-      )}
-    >
-      <Text className={cn('text-[13px] font-medium', on ? 'text-accent-text' : 'text-text-2')}>
-        {children}
-      </Text>
-    </Pressable>
   );
 }
 

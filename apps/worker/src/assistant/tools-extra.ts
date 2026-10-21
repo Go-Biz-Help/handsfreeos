@@ -32,6 +32,7 @@ import {
   IDEAS_WORDS,
   isValidTimeZone,
   MENU_ALWAYS_SHOWN,
+  MENU_WORDS,
   menuOf,
   menuSummary,
   moveKey,
@@ -1052,7 +1053,7 @@ const arrangeMyMenu: SettingsConfirmTool = {
     const warnings: Warning[] = refused.length
       ? [{ kind: 'blocked', text: alwaysShown(refused) }]
       : act === 'hide'
-        ? [{ kind: 'note', text: 'Hidden places still open from search and from a link.' }]
+        ? [{ kind: 'note', text: MENU_WORDS.hiddenHint }]
         : (act === 'use_suggested' || act === 'start_over') &&
             (menu.hidden.length || menu.entries.some((e) => e.kind === 'group'))
           ? [{ kind: 'note', text: 'Your own groups go, and hidden places come back.' }]

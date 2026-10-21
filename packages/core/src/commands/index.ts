@@ -199,6 +199,7 @@ import { companyCreate } from './company.create';
 import { companyRestore } from './company.restore';
 import { companyUpdate } from './company.update';
 import { fileBeginUpload, fileConfirm, fileDelete, fileLock, fileStore } from './file';
+import { fileSaveText } from './file-text';
 import { importCancel, importCreate, importStart } from './import';
 import { invitationAccept } from './invitation.accept';
 import { invitationResend } from './invitation.resend';
@@ -440,6 +441,7 @@ import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
+import { phoneListenerCommands } from './phone-listener';
 import { problemReportCommands } from './problem-report';
 import { ownBusinessCommands } from './own-business';
 import { mailFolderCommands } from './mail-folder';
@@ -600,6 +602,7 @@ export {
   fileDelete,
   fileLock,
   fileStore,
+  fileSaveText,
   importCancel,
   importCreate,
   importStart,
@@ -771,6 +774,7 @@ export const commands: readonly CommandDef[] = [
   fileDelete,
   fileLock,
   fileStore,
+  fileSaveText,
   importCreate,
   importStart,
   importCancel,
@@ -1074,6 +1078,7 @@ export const commands: readonly CommandDef[] = [
   ...walletCommands,
   ...foundingCommands,
   ...phoneModelCommands,
+  ...phoneListenerCommands,
   // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
   ...ownBusinessCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
@@ -1252,6 +1257,7 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
+export * from './phone-listener';
 export * from './problem-report';
 export * from './own-business';
 export * from './mail-folder';

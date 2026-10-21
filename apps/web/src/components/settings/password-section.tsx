@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { settingAttrs } from './setting-anchor';
 
 export function PasswordSection({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
@@ -36,7 +37,7 @@ export function PasswordSection({ email }: { email: string }) {
   }
 
   return (
-    <div>
+    <div {...settingAttrs('account.password')}>
       <div className="flex items-center gap-3.5 py-3.5">
         <span className="flex h-9 w-9 flex-none items-center justify-center rounded-menu bg-card-2 text-text-2">
           <Lock className="h-[18px] w-[18px]" strokeWidth={1.5} />

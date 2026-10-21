@@ -8,7 +8,8 @@
  *   HandsFreeOS counts that as accepting, and their first message comes as on the other networks.
  *
  * Once a day, while it works on its own, its runner reads the first screens alone, where Instagram shows the newest
- * (`saveNewFollowers`): who followed back lately. Nothing is pressed on Instagram: the box is only scrolled. It stops
+ * (`saveNewFollowers`): who followed back lately. Nothing is pressed on Instagram but their own account's count of
+ * followers, once, where Instagram doesn't open the box from its address (0.84.0); the box is only scrolled. It stops
  * on any Instagram warning.
  */
 import { instagramListSave, type InstagramListed } from '../../hfos/saves';
@@ -24,6 +25,8 @@ export const NEW_FOLLOWER_SCROLLS = 8;
 const BOX_MS = 2_500;
 /** How many times the box is looked for before it's taken as not there. */
 const BOX_LOOKS = 4;
+/** Looks for the box before their count of followers is pressed to open it. */
+const PRESS_AFTER = 2;
 
 const keyOf = (person: InstagramListed) => person.username.toLowerCase();
 
@@ -49,11 +52,13 @@ export async function saveFollowers(job: Job, newest = false): Promise<JobEnd> {
     };
   job.progress('Opening your followers…');
   await job.tab.open(`${home.own.replace(/\/?$/, '/')}followers/`);
-  // Instagram draws the box over their profile a moment after it opens.
+  // Instagram draws the box over their profile a moment after it opens; where it doesn't from the address, their
+  // account's count of followers opens it, pressed once as a person does (the owner's Check, 21 Oct 2026).
   for (let look = 0; look < BOX_LOOKS; look++) {
     await pause(BOX_MS);
     const page = await readInstagramIn(job.tab);
     if (page.found.followers.length || page.signedOut || page.warnings.length) break;
+    if (look === PRESS_AFTER - 1) await job.tab.ask({ type: 'hfos-show-all' });
   }
   const got = await gather(
     job,
