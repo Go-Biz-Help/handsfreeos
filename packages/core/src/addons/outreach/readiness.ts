@@ -12,8 +12,8 @@
  * - **Your profile** (each person's): the extension has read it since the main offer went live (./profile-check.ts,
  *   decision 64), and every item on the profile list is right by the AI's check of it or ticked done by hand.
  * - **Your messages** (each person's, decisions 65 to 67): they've seen sample messages for their playbook as the AI
- *   writes them in their voice (the first message, the video, the link, the follow-ups and a check-in) and OK'd how
- *   they read, since the live version.
+ *   writes them in their voice (the first message, the video when the business has one, the link, the follow-ups and
+ *   a check-in) and OK'd how they read, since the live version. The short video never holds anyone up (decision 83).
  * - **Your numbers** (each person's): a monthly goal for calls booked, and the math seen.
  *
  * Worked out each time from what's kept (`outreach.readiness`), never stored as a flag. Browser-safe: the web, the
@@ -97,8 +97,6 @@ export interface ReadyFacts {
     readonly niche: string | null;
     readonly problem: string | null;
     readonly proof: readonly string[];
-    /** Its short video's link (decision 69): Your messages waits on one. */
-    readonly videoLink: string | null;
   }[];
   readonly profile: ProfileTicks;
   /** The AI's latest check of the person's profile, read by the extension; null until one is. */
@@ -211,25 +209,19 @@ export function readinessOf(f: ReadyFacts): Readiness {
               left: W.profile(profileItems.length - counted.length, platform),
             };
 
-  // OK'd since the live version, with a playbook's short video linked (decision 69, the business's: an owner or admin
-  // links it); OK'd before the version changed wants a look again. Samples need the offer and a niche first.
-  const video = f.playbooks.some((p) => filled(p.videoLink));
+  // OK'd since the live version; OK'd before the version changed wants a look again. Samples need the offer and a niche
+  // first. A short video is the business's to add if it wants one, and never holds anyone up (decision 83).
   const okd = f.messages !== null && live !== null && f.messages.version === live;
-  const messages: ReadyItemState =
-    okd && video
-      ? { item: 'messages', state: 'done', whose: 'person', left: null }
-      : okd
-        ? f.canPlaybooks
-          ? { item: 'messages', state: 'todo', whose: 'person', left: W.messagesVideo }
-          : { item: 'messages', state: 'waiting', whose: 'business', left: W.messagesVideoWaiting }
-        : f.messages && live !== null
-          ? { item: 'messages', state: 'look_again', whose: 'person', left: W.messagesAgain }
-          : {
-              item: 'messages',
-              state: 'todo',
-              whose: 'person',
-              left: f.offer && withNiche ? W.messages : W.messagesFirst,
-            };
+  const messages: ReadyItemState = okd
+    ? { item: 'messages', state: 'done', whose: 'person', left: null }
+    : f.messages && live !== null
+      ? { item: 'messages', state: 'look_again', whose: 'person', left: W.messagesAgain }
+      : {
+          item: 'messages',
+          state: 'todo',
+          whose: 'person',
+          left: f.offer && withNiche ? W.messages : W.messagesFirst,
+        };
 
   const numbers: ReadyItemState =
     f.numbers.goal !== null && f.numbers.at !== null
@@ -470,15 +462,13 @@ export const READY_WORDS = {
       label: 'Your messages',
       why: 'See what goes out in your name before anything does, and that it sounds like you.',
       go: 'See your messages',
-      /** OK'd, and the playbook's short video isn't linked yet: an owner or admin adds it. */
-      goVideo: 'Add the video',
     },
     numbers: {
       label: 'Your numbers',
       why: 'A goal for the month says how many people to reach each day.',
       go: 'Set your goal',
     },
-  } satisfies Record<ReadyItem, { label: string; why: string; go: string; goVideo?: string }>,
+  } satisfies Record<ReadyItem, { label: string; why: string; go: string }>,
   states: {
     done: 'Done',
     todo: 'To do',
@@ -512,10 +502,6 @@ export const READY_WORDS = {
     messagesFirst:
       'Once your main offer is live and a playbook has its niche, see sample messages for it here.',
     messagesAgain: 'Your main offer changed. Look at your messages again so they still fit.',
-    messagesVideo:
-      'Link your playbook’s short video: the AI writes its script under Playbooks → Short video.',
-    messagesVideoWaiting:
-      'Waiting on the playbook’s short video. Ask an owner or admin of this business to link it under Playbooks → Short video.',
     numbers: 'Set a goal for calls booked a month, and see what it takes each day.',
   },
   /** Why Start my day is refused, by the first item left. */

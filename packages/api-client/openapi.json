@@ -89653,7 +89653,7 @@
     "/v1/commands/outreach.setup.save": {
       "post": {
         "operationId": "command_outreach_setup_save",
-        "summary": "The person finished a step of the Social Outreach setup (it never moves back), finished it, left it for later, hid its reminder, or the extension said it’s signed in.",
+        "summary": "The person started the Social Outreach setup or left it for later, a first day started from it, its reminder was hidden, or the extension said it’s signed in.",
         "tags": [
           "commands"
         ],
@@ -89727,15 +89727,222 @@
                       "items": {
                         "type": "string",
                         "enum": [
-                          "playbooks",
-                          "ready",
+                          "offer",
+                          "playbook",
+                          "video",
                           "rules",
-                          "networks",
-                          "settings",
                           "extension",
-                          "groups"
+                          "messages",
+                          "numbers",
+                          "networks"
                         ]
                       }
+                    },
+                    "states": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "step": {
+                            "type": "string",
+                            "enum": [
+                              "offer",
+                              "playbook",
+                              "video",
+                              "rules",
+                              "extension",
+                              "messages",
+                              "numbers",
+                              "networks"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "done",
+                              "todo",
+                              "again",
+                              "waiting"
+                            ]
+                          },
+                          "left": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "step",
+                          "state",
+                          "left",
+                          "optional"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "business": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "item": {
+                            "type": "string",
+                            "enum": [
+                              "offer",
+                              "playbook"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "done",
+                              "todo",
+                              "again",
+                              "waiting"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "item",
+                          "state"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "step": {
+                                  "type": "string",
+                                  "enum": [
+                                    "allow",
+                                    "playbook",
+                                    "profile",
+                                    "choices",
+                                    "start"
+                                  ]
+                                },
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "done",
+                                    "todo",
+                                    "again",
+                                    "waiting"
+                                  ]
+                                },
+                                "left": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "optional": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "step",
+                                "state",
+                                "left",
+                                "optional"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "platform",
+                          "steps"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "net": {
+                                  "type": "null"
+                                },
+                                "step": {
+                                  "type": "string",
+                                  "enum": [
+                                    "offer",
+                                    "playbook",
+                                    "video",
+                                    "rules",
+                                    "extension",
+                                    "messages",
+                                    "numbers",
+                                    "networks"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "net",
+                                "step"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "net": {
+                                  "type": "string",
+                                  "enum": [
+                                    "facebook",
+                                    "linkedin",
+                                    "instagram",
+                                    "alignable"
+                                  ]
+                                },
+                                "step": {
+                                  "type": "string",
+                                  "enum": [
+                                    "allow",
+                                    "playbook",
+                                    "profile",
+                                    "choices",
+                                    "start"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "net",
+                                "step"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "reached": {
                       "anyOf": [
@@ -89792,6 +89999,12 @@
                         }
                       ]
                     },
+                    "computer": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "settingsSaved": {
                       "type": "boolean"
                     },
@@ -89804,11 +90017,19 @@
                     "canManage": {
                       "type": "boolean"
                     },
+                    "sendingAllowedMore": {
+                      "type": "boolean"
+                    },
                     "playbooks": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
                           "name": {
                             "type": "string"
                           },
@@ -89817,14 +90038,39 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "niche": {
+                            "type": "boolean"
+                          },
+                          "video": {
+                            "type": "boolean"
+                          },
+                          "networks": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "facebook",
+                                "linkedin",
+                                "instagram",
+                                "alignable"
+                              ]
+                            }
                           }
                         },
                         "required": [
+                          "id",
                           "name",
-                          "template"
+                          "template",
+                          "niche",
+                          "video",
+                          "networks"
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "noVideo": {
+                      "type": "boolean"
                     },
                     "groups": {
                       "type": "object",
@@ -89889,15 +90135,22 @@
                   },
                   "required": [
                     "steps",
+                    "states",
+                    "business",
+                    "networks",
+                    "next",
                     "reached",
                     "startedAt",
                     "finishedAt",
                     "extensionAt",
+                    "computer",
                     "settingsSaved",
                     "firstTime",
                     "banner",
                     "canManage",
+                    "sendingAllowedMore",
                     "playbooks",
+                    "noVideo",
                     "groups",
                     "extensionLink"
                   ],
@@ -186505,7 +186758,7 @@
     "/v1/queries/outreach.setup": {
       "post": {
         "operationId": "query_outreach_setup",
-        "summary": "The person’s own Social Outreach setup: their steps, how far they got, whether the extension signed in, whether they saved their settings, the playbooks in use, their groups saved, and where to download the extension.",
+        "summary": "The person’s own Social Outreach setup: where each of their steps stands (the main setup’s and each network’s), the next one left, whether the extension signed in, whether they saved their settings, the playbooks in use, their groups saved, and where to download the extension.",
         "tags": [
           "queries"
         ],
@@ -186543,15 +186796,222 @@
                       "items": {
                         "type": "string",
                         "enum": [
-                          "playbooks",
-                          "ready",
+                          "offer",
+                          "playbook",
+                          "video",
                           "rules",
-                          "networks",
-                          "settings",
                           "extension",
-                          "groups"
+                          "messages",
+                          "numbers",
+                          "networks"
                         ]
                       }
+                    },
+                    "states": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "step": {
+                            "type": "string",
+                            "enum": [
+                              "offer",
+                              "playbook",
+                              "video",
+                              "rules",
+                              "extension",
+                              "messages",
+                              "numbers",
+                              "networks"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "done",
+                              "todo",
+                              "again",
+                              "waiting"
+                            ]
+                          },
+                          "left": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "optional": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "step",
+                          "state",
+                          "left",
+                          "optional"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "business": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "item": {
+                            "type": "string",
+                            "enum": [
+                              "offer",
+                              "playbook"
+                            ]
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "done",
+                              "todo",
+                              "again",
+                              "waiting"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "item",
+                          "state"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          },
+                          "steps": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "step": {
+                                  "type": "string",
+                                  "enum": [
+                                    "allow",
+                                    "playbook",
+                                    "profile",
+                                    "choices",
+                                    "start"
+                                  ]
+                                },
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "done",
+                                    "todo",
+                                    "again",
+                                    "waiting"
+                                  ]
+                                },
+                                "left": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "optional": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "step",
+                                "state",
+                                "left",
+                                "optional"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "platform",
+                          "steps"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "next": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "net": {
+                                  "type": "null"
+                                },
+                                "step": {
+                                  "type": "string",
+                                  "enum": [
+                                    "offer",
+                                    "playbook",
+                                    "video",
+                                    "rules",
+                                    "extension",
+                                    "messages",
+                                    "numbers",
+                                    "networks"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "net",
+                                "step"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "net": {
+                                  "type": "string",
+                                  "enum": [
+                                    "facebook",
+                                    "linkedin",
+                                    "instagram",
+                                    "alignable"
+                                  ]
+                                },
+                                "step": {
+                                  "type": "string",
+                                  "enum": [
+                                    "allow",
+                                    "playbook",
+                                    "profile",
+                                    "choices",
+                                    "start"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "net",
+                                "step"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "reached": {
                       "anyOf": [
@@ -186608,6 +187068,12 @@
                         }
                       ]
                     },
+                    "computer": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "settingsSaved": {
                       "type": "boolean"
                     },
@@ -186620,11 +187086,19 @@
                     "canManage": {
                       "type": "boolean"
                     },
+                    "sendingAllowedMore": {
+                      "type": "boolean"
+                    },
                     "playbooks": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
                           "name": {
                             "type": "string"
                           },
@@ -186633,14 +187107,39 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "niche": {
+                            "type": "boolean"
+                          },
+                          "video": {
+                            "type": "boolean"
+                          },
+                          "networks": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "facebook",
+                                "linkedin",
+                                "instagram",
+                                "alignable"
+                              ]
+                            }
                           }
                         },
                         "required": [
+                          "id",
                           "name",
-                          "template"
+                          "template",
+                          "niche",
+                          "video",
+                          "networks"
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "noVideo": {
+                      "type": "boolean"
                     },
                     "groups": {
                       "type": "object",
@@ -186705,15 +187204,22 @@
                   },
                   "required": [
                     "steps",
+                    "states",
+                    "business",
+                    "networks",
+                    "next",
                     "reached",
                     "startedAt",
                     "finishedAt",
                     "extensionAt",
+                    "computer",
                     "settingsSaved",
                     "firstTime",
                     "banner",
                     "canManage",
+                    "sendingAllowedMore",
                     "playbooks",
+                    "noVideo",
                     "groups",
                     "extensionLink"
                   ],

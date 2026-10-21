@@ -1,32 +1,95 @@
 /**
- * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36, 45 and 63; the owner's answers 21a, 22a and
- * 23a): a step at a time, like the main app's onboarding. Pick the playbooks, get ready (./readiness.ts), set the team's
- * rules (owners and admins), pick your networks, choose your own settings, install the extension and sign in, then
- * bring in your groups.
+ * Social Outreach's setup, in HandsFreeOS (docs/outreach.md, decisions 36, 45, 57 and 83): a page of its own, like the
+ * main app's onboarding, that takes a person from nothing to their first day. It's drawn on the canvas "Social Outreach
+ * setup".
  *
- * - **Each person's own,** and it only moves forward (`laterStep`): `addon_outreach.setup` keeps the furthest step
- *   finished, when they started and finished, and when the extension last said it's signed in for them.
- * - **It remembers where they got to:** leaving and coming back opens on the step after the furthest one finished
- *   (`setupOpenAt`); Settings → Set up again opens it at the first.
- * - **A first-timer** (`firstTime`) is someone who has never saved their own settings and never started the setup:
- *   the bare Social Outreach page sends them here, and the extension opens it once per computer when they sign in.
- *   Saving their own settings is kept for good (`settings_at`): an owner or admin changing them later doesn't make
- *   them a first-timer again.
+ * - **A main setup, once:** their business (the main offer, a playbook, a short video if they want one, and the team's
+ *   rules: owners and admins), their computer (the extension), and them (their messages, their goal, the networks they
+ *   use). A member's main setup is their own four; the business's part shows beside it, done or waiting on an owner.
+ * - **Then a short setup for each network they turn on,** Facebook first: allow it in Chrome and a playbook for it
+ *   (every network but Facebook), their profile there, what it does there, then their first day there.
+ * - **Each step is worked out from facts** (`setupStepStates`, `networkStepStates`), never kept as a flag: Get ready's
+ *   items (./readiness.ts), the extension signing in, their own saved settings, the team's rules saved, the computer
+ *   Chrome allows on a network, and a day started there. Skipping a step leaves it to do, and the setup opens at the
+ *   first one left (`setupNext`). The old furthest step finished (`reached`) is still read and kept, and decides nothing.
+ * - **A first-timer** (`firstTime`) has never saved their own settings and never started the setup: the bare Social
+ *   Outreach page sends them here, and the extension opens it once per computer when they sign in. Saving their own
+ *   settings is kept for good (`settings_at`).
  *
  * Browser-safe and without server code: the web, the extension and the phone read the steps and the words from here.
  */
 import { z } from 'zod';
 import { localDateOf } from '../../calendar/engine/zoned';
 import { fmtMonthDay, fmtTime, localDayOf } from '../../calendar/when';
-import { settingsSummary, type AutomationSettings } from './automation';
+import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
-import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from './networks';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import type { ReadyItem, ReadyState } from './readiness';
+
+// ------------------------------------------------------------------------------------------------- the steps
+
+/** The main setup's three parts, in order. */
+export const SETUP_PARTS = ['business', 'computer', 'you'] as const;
+export type SetupPart = (typeof SETUP_PARTS)[number];
 
 /**
- * The steps, in order. The team's rules come before the person's own, so a rule never quietly steps theirs back; the
- * networks they work come before what the extension does on each.
+ * The main setup's steps, in the order they depend on each other: the offer before the playbook (its builder reads
+ * it), the video after the playbook (its script is the offer and the niche), the team's rules before anyone's own
+ * choices, the extension before anything it reads, and the messages before the networks they go out on.
  */
 export const SETUP_STEPS = [
+  'offer',
+  'playbook',
+  'video',
+  'rules',
+  'extension',
+  'messages',
+  'numbers',
+  'networks',
+] as const;
+export type SetupStep = (typeof SETUP_STEPS)[number];
+
+export const SETUP_PART_OF: Record<SetupStep, SetupPart> = {
+  offer: 'business',
+  playbook: 'business',
+  video: 'business',
+  rules: 'business',
+  extension: 'computer',
+  messages: 'you',
+  numbers: 'you',
+  networks: 'you',
+};
+
+/** A step that never holds anyone up: done once there's a video, or the business says it doesn't use one. */
+export const OPTIONAL_STEPS: ReadonlySet<SetupStep> = new Set(['video']);
+
+/** The business's own steps: an owner's or admin's (`outreach.manage`). */
+const BUSINESS_STEPS: ReadonlySet<SetupStep> = new Set(['offer', 'playbook', 'video', 'rules']);
+
+/** The person's main steps, in order: the business's part only for owners and admins. */
+export function setupSteps(canManage: boolean): SetupStep[] {
+  return SETUP_STEPS.filter((s) => canManage || !BUSINESS_STEPS.has(s));
+}
+
+/** A network's short setup, in order. */
+export const NETWORK_STEPS = ['allow', 'playbook', 'profile', 'choices', 'start'] as const;
+export type NetworkStep = (typeof NETWORK_STEPS)[number];
+
+/**
+ * A network's steps: Facebook needs no Allow (the extension is let on it as it's put in), and its playbook is the main
+ * setup's; every other network allows the extension in Chrome and needs a playbook that runs there.
+ */
+export function networkSteps(platform: Platform): NetworkStep[] {
+  return platform === 'facebook'
+    ? ['profile', 'choices', 'start']
+    : ['allow', 'playbook', 'profile', 'choices', 'start'];
+}
+
+/**
+ * The furthest step the old setup kept (`addon_outreach.setup.reached`): still read and still accepted from an open
+ * tab of the old setup, and it decides nothing now that each step is worked out from facts.
+ */
+export const SETUP_REACHED = [
   'playbooks',
   'ready',
   'rules',
@@ -35,88 +98,351 @@ export const SETUP_STEPS = [
   'extension',
   'groups',
 ] as const;
-export type SetupStep = (typeof SETUP_STEPS)[number];
-/** A screen of the setup: the welcome before the steps, one of the steps, or the end. */
-export type SetupScreen = 'welcome' | SetupStep | 'done';
-const SETUP_SCREENS: readonly SetupScreen[] = ['welcome', ...SETUP_STEPS, 'done'];
+export type SetupReached = (typeof SETUP_REACHED)[number];
 
-const order = (s: SetupStep) => SETUP_STEPS.indexOf(s);
+// ------------------------------------------------------------------------------------------------- where each stands
 
-/** The steps for this person, in order: the team's rules only for owners and admins (`outreach.manage`). */
-export function setupSteps(canManage: boolean): SetupStep[] {
-  return SETUP_STEPS.filter((s) => canManage || s !== 'rules');
+/** Where a step stands: done, to do, to look at again (the main offer changed), or waiting on an owner. */
+export const STEP_STATES = ['done', 'todo', 'again', 'waiting'] as const;
+export type StepState = (typeof STEP_STATES)[number];
+
+const FROM_READY: Record<ReadyState, StepState> = {
+  done: 'done',
+  todo: 'todo',
+  look_again: 'again',
+  waiting: 'waiting',
+};
+
+/** A Get ready item as the setup reads it: where it stands, and what's left of it. */
+interface ReadyFact {
+  readonly item: ReadyItem;
+  readonly state: ReadyState;
+  readonly left: string | null;
 }
 
-/** The later of two steps: a step finished again never moves `reached` back. */
-export function laterStep(a: SetupStep | null, b: SetupStep | null): SetupStep | null {
-  if (!a) return b;
-  if (!b) return a;
-  return order(b) > order(a) ? b : a;
+/** What the setup is worked out from (`outreach.setup` gathers them). */
+export interface SetupFacts {
+  readonly canManage: boolean;
+  readonly extensionAt: string | null;
+  /** They've saved their own settings, ever. */
+  readonly settingsSaved: boolean;
+  /** The business's rules were kept in the setup, or changed from the starting ones. */
+  readonly rulesSaved: boolean;
+  /** A playbook in use has its short video linked. */
+  readonly video: boolean;
+  /** The business said it doesn't use a short video. */
+  readonly noVideo: boolean;
+  /** Get ready's items on Facebook: the offer, a playbook with its niche, the messages and the goal. */
+  readonly ready: readonly ReadyFact[];
+  /** Each network the person works, in order (Facebook first): its own facts. */
+  readonly networks: readonly NetworkFacts[];
 }
 
-/** How many of the person's steps are done: those at or before `reached`. */
-export function stepsDone(reached: SetupStep | null, steps: readonly SetupStep[]): number {
-  if (!reached) return 0;
-  return steps.filter((s) => order(s) <= order(reached)).length;
+export interface NetworkFacts {
+  readonly platform: Platform;
+  /** Chrome lets the computer that works on it (Facebook always). */
+  readonly allowed: boolean;
+  /** Get ready's items there: a playbook that runs there, and the profile there. */
+  readonly ready: readonly ReadyFact[];
+  /** What the extension sends there on its own. */
+  readonly sending: SendingMode;
+  /** A day there has started, ever. */
+  readonly started: boolean;
 }
 
-/** A screen from the address (`?step=`), or null. */
-export function readSetupStep(v: string | null | undefined): SetupScreen | null {
-  return SETUP_SCREENS.find((s) => s === v) ?? null;
+const fact = (ready: readonly ReadyFact[], item: ReadyItem): ReadyFact | undefined =>
+  ready.find((r) => r.item === item);
+
+export const StepStateOf = <T extends readonly [string, ...string[]]>(steps: T) =>
+  z.object({
+    step: z.enum(steps),
+    state: z.enum(STEP_STATES),
+    /** What's left of it, in the person's words; null when it's done. */
+    left: z.string().nullable(),
+    /** A step that holds nobody up. */
+    optional: z.boolean(),
+  });
+const MainStepState = StepStateOf(SETUP_STEPS);
+const NetworkStepState = StepStateOf(NETWORK_STEPS);
+export type MainStepState = z.output<typeof MainStepState>;
+export type NetworkStepState = z.output<typeof NetworkStepState>;
+
+/** The person's main steps, each where it stands. */
+export function setupStepStates(f: SetupFacts): MainStepState[] {
+  const W = SETUP_WORDS.left;
+  const offer = fact(f.ready, 'offer');
+  const playbook = fact(f.ready, 'playbook');
+  const messages = fact(f.ready, 'messages');
+  const numbers = fact(f.ready, 'numbers');
+  // A playbook with its niche on any network the person works counts: the business may not work Facebook.
+  const playbookDone =
+    playbook?.state === 'done' ||
+    f.networks.some((n) => fact(n.ready, 'playbook')?.state === 'done');
+  const businessDone = offer?.state === 'done' && playbookDone;
+  const fromReady = (
+    r: ReadyFact | undefined,
+    fallback: string,
+  ): Pick<MainStepState, 'state' | 'left'> =>
+    r
+      ? { state: FROM_READY[r.state], left: r.state === 'done' ? null : r.left }
+      : { state: 'todo', left: fallback };
+  const of = (step: SetupStep): Pick<MainStepState, 'state' | 'left'> => {
+    switch (step) {
+      case 'offer':
+        return fromReady(offer, W.offer);
+      case 'playbook':
+        return playbookDone ? { state: 'done', left: null } : fromReady(playbook, W.playbook);
+      case 'video':
+        return f.video || f.noVideo
+          ? { state: 'done', left: null }
+          : { state: 'todo', left: W.video };
+      case 'rules':
+        return f.rulesSaved ? { state: 'done', left: null } : { state: 'todo', left: W.rules };
+      case 'extension':
+        return f.extensionAt ? { state: 'done', left: null } : { state: 'todo', left: W.extension };
+      case 'messages': {
+        // Samples are written from the offer and a niche: a member waits on the business for those.
+        if (
+          messages?.state !== 'done' &&
+          messages?.state !== 'look_again' &&
+          !businessDone &&
+          !f.canManage
+        )
+          return { state: 'waiting', left: W.messagesWaiting };
+        return fromReady(messages, W.messages);
+      }
+      case 'numbers':
+        return fromReady(numbers, W.numbers);
+      case 'networks':
+        return f.settingsSaved
+          ? { state: 'done', left: null }
+          : { state: 'todo', left: W.networks };
+    }
+  };
+  return setupSteps(f.canManage).map((step) => ({
+    step,
+    ...of(step),
+    optional: OPTIONAL_STEPS.has(step),
+  }));
 }
 
-/** The screen after a step: the next of theirs, or the end after the last. */
-export function nextScreen(step: SetupStep, steps: readonly SetupStep[]): SetupScreen {
-  return steps.find((s) => order(s) > order(step)) ?? 'done';
+/** The business's part as a member sees it beside their own: the offer and a playbook, done or waiting on an owner. */
+export function businessStates(f: SetupFacts): { item: 'offer' | 'playbook'; state: StepState }[] {
+  if (f.canManage) return [];
+  return (['offer', 'playbook'] as const).map((item) => {
+    const r = fact(f.ready, item);
+    const done =
+      r?.state === 'done' ||
+      (item === 'playbook' && f.networks.some((n) => fact(n.ready, 'playbook')?.state === 'done'));
+    return { item, state: done ? 'done' : 'waiting' };
+  });
 }
 
-/** The step before a screen, or null on the first and the welcome. */
-export function previousStep(screen: SetupScreen, steps: readonly SetupStep[]): SetupStep | null {
-  if (screen === 'welcome') return null;
-  if (screen === 'done') return steps[steps.length - 1] ?? null;
-  return [...steps].reverse().find((s) => order(s) < order(screen)) ?? null;
+/** A network's steps, each where it stands. */
+export function networkStepStates(f: SetupFacts, n: NetworkFacts): NetworkStepState[] {
+  const W = SETUP_WORDS.left;
+  const name = PLATFORMS[n.platform];
+  const of = (step: NetworkStep): Pick<NetworkStepState, 'state' | 'left'> => {
+    switch (step) {
+      case 'allow':
+        if (n.allowed && f.extensionAt) return { state: 'done', left: null };
+        return { state: 'todo', left: f.extensionAt ? W.allow(name) : W.extensionFirst };
+      case 'playbook':
+      case 'profile': {
+        const r = fact(n.ready, step);
+        if (!r) return { state: 'todo', left: null };
+        return { state: FROM_READY[r.state], left: r.state === 'done' ? null : r.left };
+      }
+      case 'choices':
+        return f.settingsSaved && n.sending !== 'off'
+          ? { state: 'done', left: null }
+          : { state: 'todo', left: W.choices(name) };
+      case 'start':
+        return n.started ? { state: 'done', left: null } : { state: 'todo', left: W.start(name) };
+    }
+  };
+  return networkSteps(n.platform).map((step) => ({ step, ...of(step), optional: false }));
 }
 
-/** The screen Back goes to: the step before, or the welcome from the first step; null on the welcome. */
-export function previousScreen(
-  screen: SetupScreen,
-  steps: readonly SetupStep[],
+// ------------------------------------------------------------------------------------------------- the stops
+
+/** A place in the setup: a main step, or one network's step. */
+export type SetupStop =
+  | { readonly net: null; readonly step: SetupStep }
+  | { readonly net: Platform; readonly step: NetworkStep };
+
+export const SetupStopShape = z.union([
+  z.object({ net: z.null(), step: z.enum(SETUP_STEPS) }),
+  z.object({ net: z.enum(PLATFORM_KEYS), step: z.enum(NETWORK_STEPS) }),
+]);
+
+/** Where the setup opens: the welcome before any step, a step, or the end. */
+export type SetupScreen = 'welcome' | 'done' | SetupStop;
+
+/** What the setup is laid out from: the person's main steps and each network's, each where it stands. */
+export interface SetupLaidOut {
+  readonly states: readonly MainStepState[];
+  readonly networks: readonly {
+    readonly platform: Platform;
+    readonly steps: readonly NetworkStepState[];
+  }[];
+}
+
+/** Every stop, in order: the main steps, then each network's. */
+export function setupStops(
+  got: SetupLaidOut,
+): (SetupStop & { state: StepState; optional: boolean })[] {
+  return [
+    ...got.states.map(
+      (s) => ({ net: null, step: s.step, state: s.state, optional: s.optional }) as const,
+    ),
+    ...got.networks.flatMap((n) =>
+      n.steps.map(
+        (s) => ({ net: n.platform, step: s.step, state: s.state, optional: s.optional }) as const,
+      ),
+    ),
+  ];
+}
+
+export const sameStop = (a: SetupStop, b: SetupStop) => a.net === b.net && a.step === b.step;
+
+/**
+ * The first step left to do, for the reminder and where the setup opens: to do or to look at again, never one waiting
+ * on an owner, and never the optional video; null once everything is done.
+ */
+export function setupNext(got: SetupLaidOut): SetupStop | null {
+  const left = setupStops(got).find(
+    (s) => !s.optional && (s.state === 'todo' || s.state === 'again'),
+  );
+  return left ? stopOf(left) : null;
+}
+
+const stopOf = (s: SetupStop): SetupStop =>
+  s.net === null ? { net: null, step: s.step } : { net: s.net, step: s.step };
+
+/** The step after one, once it's done or skipped: the next not done, or the end. */
+export function stopAfter(at: SetupStop, got: SetupLaidOut): SetupScreen {
+  const all = setupStops(got);
+  const i = all.findIndex((s) => sameStop(s, at));
+  const next = all.slice(i + 1).find((s) => s.state !== 'done');
+  return next ? stopOf(next) : 'done';
+}
+
+/** The step Back goes to: the one before, or the welcome from the first. */
+export function stopBefore(at: SetupStop | 'done', got: SetupLaidOut): SetupScreen {
+  const all = setupStops(got);
+  if (at === 'done') return all.at(-1) ? stopOf(all.at(-1)!) : 'welcome';
+  const i = all.findIndex((s) => sameStop(s, at));
+  return i > 0 ? stopOf(all[i - 1]!) : 'welcome';
+}
+
+/** A step from the address (`?step=`, with `?net=` for a network's), the old setup's names read as what they became. */
+export function readSetupStop(
+  step: string | null | undefined,
+  net: string | null | undefined,
 ): SetupScreen | null {
-  if (screen === 'welcome') return null;
-  return previousStep(screen, steps) ?? 'welcome';
+  if (step === 'welcome' || step === 'done') return step;
+  const platform = PLATFORM_KEYS.find((p) => p === net);
+  if (platform) {
+    const s = NETWORK_STEPS.find((x) => x === step);
+    return s ? { net: platform, step: s } : null;
+  }
+  const s = SETUP_STEPS.find((x) => x === step);
+  if (s) return { net: null, step: s };
+  // The old setup's steps (decision 83): what each became.
+  const old: Partial<Record<string, SetupStop>> = {
+    playbooks: { net: null, step: 'playbook' },
+    ready: { net: null, step: 'messages' },
+    settings: { net: null, step: 'networks' },
+    groups: { net: 'facebook', step: 'start' },
+  };
+  return old[step ?? ''] ?? null;
 }
 
 /**
- * Where the setup opens. The welcome when it's asked for, and when they've finished no step yet and none is asked
- * for. Set up again (`again`) opens at the asked step or the first. Otherwise a step asked for opens when it's one of
- * theirs and not past the one they'd come back to (any once they've finished; the end only once they have); else the
- * end once finished; else the step after the furthest finished (the last, when that was the last); else the first.
+ * Where the setup opens. The welcome when it's asked for, and when they haven't started yet and nothing is asked for.
+ * Set up again (`again`) opens at the step asked for, or the first. Otherwise any of their steps asked for (the rail's
+ * rows are links), else the first step left, else the end.
  */
 export function setupOpenAt(
-  got: {
-    readonly reached: SetupStep | null;
-    readonly finishedAt: string | null;
-    readonly steps: readonly SetupStep[];
-  },
-  asked: string | null | undefined,
+  got: SetupLaidOut & { readonly startedAt: string | null; readonly finishedAt: string | null },
+  asked: SetupScreen | null,
   again: boolean,
 ): SetupScreen {
-  const first = got.steps[0] ?? 'playbooks';
-  const want = readSetupStep(asked);
-  if (want === 'welcome' || (want === null && !again && !got.reached && !got.finishedAt))
-    return 'welcome';
-  const theirs = want !== null && (want === 'done' || got.steps.includes(want as SetupStep));
-  if (again) return theirs && want !== 'done' ? want : first;
-  const comeBack: SetupScreen = got.reached ? nextScreen(got.reached, got.steps) : first;
-  const at = (s: SetupScreen) =>
-    s === 'done' ? SETUP_STEPS.length : s === 'welcome' ? -1 : order(s);
-  if (theirs) {
-    if (got.finishedAt) return want;
-    if (want !== 'done' && at(want) <= at(comeBack)) return want;
-  }
-  if (got.finishedAt) return 'done';
-  return comeBack === 'done' ? (got.steps[got.steps.length - 1] ?? first) : comeBack;
+  const all = setupStops(got);
+  const theirs = (s: SetupScreen | null): s is SetupStop =>
+    s !== null && s !== 'welcome' && s !== 'done' && all.some((x) => sameStop(x, s));
+  const first: SetupScreen = all[0] ? stopOf(all[0]) : 'done';
+  if (asked === 'welcome') return 'welcome';
+  if (again) return theirs(asked) ? asked : first;
+  if (asked === null && !got.startedAt && !got.finishedAt) return 'welcome';
+  if (theirs(asked)) return asked;
+  const next = setupNext(got);
+  if (asked === 'done' || !next) return 'done';
+  return next;
 }
+
+/** How many of the main steps are done, or of one network's. */
+export function doneOf(steps: readonly { state: StepState }[]): { done: number; of: number } {
+  return { done: steps.filter((s) => s.state === 'done').length, of: steps.length };
+}
+
+/**
+ * Before a network's first day: the first thing still in the way, with its words, or null when nothing is. The
+ * business's part a member waits on, the main setup's steps, then the network's own (not its Start, nor the optional
+ * video). Start my day's own refusals still come from the server: this only says so before the press.
+ */
+export function startBlocker(
+  got: SetupLaidOut & {
+    readonly business: readonly { item: 'offer' | 'playbook'; state: StepState }[];
+  },
+  platform: Platform,
+): { stop: SetupStop | null; state: StepState; left: string } | null {
+  const waiting = got.business.find((b) => b.state !== 'done');
+  if (waiting)
+    return {
+      stop: null,
+      state: 'waiting',
+      left:
+        waiting.item === 'offer' ? SETUP_WORDS.left.offerWaiting : SETUP_WORDS.left.playbookWaiting,
+    };
+  const main = got.states.find((s) => !s.optional && s.state !== 'done');
+  if (main)
+    return { stop: { net: null, step: main.step }, state: main.state, left: main.left ?? '' };
+  const net = got.networks.find((n) => n.platform === platform);
+  const own = net?.steps.find((s) => s.step !== 'start' && s.state !== 'done');
+  if (own)
+    return { stop: { net: platform, step: own.step }, state: own.state, left: own.left ?? '' };
+  return null;
+}
+
+/** Where a refusal of Start my day is fixed (clients branch on its rule, never on its words). */
+export function startFix(rule: string, platform: Platform): SetupStop | null {
+  if (rule === 'outreach_sending_off') return { net: platform, step: 'choices' };
+  if (rule === 'outreach_network_off') return { net: null, step: 'networks' };
+  return null;
+}
+
+/** Never saved their own settings and never started the setup (an extension signing in doesn't count as starting). */
+export interface SetupKept {
+  readonly startedAt: unknown;
+  readonly finishedAt: unknown;
+  readonly bannerHiddenAt: unknown;
+}
+export const isFirstTime = (kept: SetupKept | null, settingsSaved: boolean): boolean =>
+  !settingsSaved && !kept?.startedAt && !kept?.finishedAt;
+
+/**
+ * Whether Social Outreach's tabs show the next step: something is left, it isn't hidden, and they started the setup or
+ * never saved their own settings. Someone who has used it for weeks and saved theirs long ago isn't reminded.
+ */
+export const showsSetupBanner = (
+  kept: SetupKept | null,
+  settingsSaved: boolean,
+  anythingLeft: boolean,
+): boolean => anythingLeft && !kept?.bannerHiddenAt && (Boolean(kept?.startedAt) || !settingsSaved);
+
+// ------------------------------------------------------------------------------------------------- addresses
 
 /** Social Outreach's tabs, as their addresses name them (`?view=`); the activity is the bare page. */
 export type OutreachTab =
@@ -148,47 +474,92 @@ export function outreachPath(
   return `/app/w/${workspaceId}/a/outreach${qs ? `?${qs}` : ''}`;
 }
 
-/** The setup's address: a step (`?step=`), Set up again (`?again=1`), or opened by the extension (`?from=extension`). */
+/**
+ * The setup's address: a step (`?step=`, with `?net=` for a network's), Set up again (`?again=1`), or opened by the
+ * extension (`?from=extension`).
+ */
 export function outreachSetupPath(
   workspaceId: string,
-  to: { readonly step?: SetupScreen; readonly again?: boolean; readonly from?: 'extension' } = {},
+  to: {
+    readonly step?: SetupScreen;
+    readonly again?: boolean;
+    readonly from?: 'extension';
+  } = {},
 ): string {
   const params = new URLSearchParams();
-  if (to.step) params.set('step', to.step);
+  const step = to.step;
+  if (step === 'welcome' || step === 'done') params.set('step', step);
+  else if (step) {
+    if (step.net) params.set('net', step.net);
+    params.set('step', step.step);
+  }
   if (to.again) params.set('again', '1');
   if (to.from) params.set('from', to.from);
   const qs = params.toString();
   return `/app/w/${workspaceId}/a/outreach/setup${qs ? `?${qs}` : ''}`;
 }
 
+/** A stop's key: for React, the page's test ids and its address. */
+export const stopKey = (s: SetupScreen): string =>
+  s === 'welcome' || s === 'done' ? s : s.net ? `${s.net}-${s.step}` : s.step;
+
 // ------------------------------------------------------------------------------------------------- the shapes
 
 export const SetupInput = z.object({ workspaceId: z.uuid() });
 export type SetupInput = z.input<typeof SetupInput>;
 
-/** How many of the person's groups the groups step lists. */
+/** How many of the person's groups the setup lists. */
 export const SETUP_GROUPS_SHOWN = 5;
 
 export const SetupOutput = z.object({
-  /** This person's steps, in order. */
+  /** This person's main steps, in order. */
   steps: z.array(z.enum(SETUP_STEPS)),
-  /** The furthest step finished; null until one is. */
-  reached: z.enum(SETUP_STEPS).nullable(),
-  /** When they first moved on from a step or left it for later; null when they never have. */
+  /** Each main step where it stands, in order. */
+  states: z.array(MainStepState),
+  /** The business's part as a member sees it beside their own; empty for owners and admins, whose steps they are. */
+  business: z.array(z.object({ item: z.enum(['offer', 'playbook']), state: z.enum(STEP_STATES) })),
+  /** Each network the person works, Facebook first, with its own steps where they stand. */
+  networks: z.array(
+    z.object({ platform: z.enum(PLATFORM_KEYS), steps: z.array(NetworkStepState) }),
+  ),
+  /** The first step left (`setupNext`); null once everything is done. */
+  next: SetupStopShape.nullable(),
+  /** The old setup's furthest step finished: read, and deciding nothing. */
+  reached: z.enum(SETUP_REACHED).nullable(),
+  /** When they first moved on from the welcome or left it for later; null when they never have. */
   startedAt: z.iso.datetime().nullable(),
+  /** When a first day started from the setup; the phone points to the computer until then. */
   finishedAt: z.iso.datetime().nullable(),
   /** The last time the extension said it's signed in for them here; null when it never has. */
   extensionAt: z.iso.datetime().nullable(),
+  /** The computer that works, by its name; null with none. */
+  computer: z.string().nullable(),
   /** Whether they've ever saved their own settings (an owner or admin saving them for them doesn't count or undo it). */
   settingsSaved: z.boolean(),
   /** Never saved their own settings and never started the setup: Social Outreach sends them to the setup. */
   firstTime: z.boolean(),
-  /** Whether Social Outreach's tabs show "Finish setting up" (`showsSetupBanner`). */
+  /** Whether Social Outreach's tabs show the next step (`showsSetupBanner`). */
   banner: z.boolean(),
-  /** Owners and admins: they write the playbooks and set the team's rules. */
+  /** Owners and admins: they do the business's part. */
   canManage: z.boolean(),
+  /** Whether the business lets anyone pick more than doing everything themselves. */
+  sendingAllowedMore: z.boolean(),
   /** The business's playbooks in use, oldest first. */
-  playbooks: z.array(z.object({ name: z.string(), template: z.string().nullable() })),
+  playbooks: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      template: z.string().nullable(),
+      /** It has its niche and the niche's problem. */
+      niche: z.boolean(),
+      /** Its short video is linked. */
+      video: z.boolean(),
+      /** The networks it runs on. */
+      networks: z.array(z.enum(PLATFORM_KEYS)),
+    }),
+  ),
+  /** The business doesn't use a short video. */
+  noVideo: z.boolean(),
   /**
    * Groups this person is in, saved from their Facebook, and the business's groups in all; with the ones they're in
    * that the extension saw last (up to `SETUP_GROUPS_SHOWN`), each scored against the playbooks.
@@ -212,42 +583,23 @@ export type SetupOutput = z.output<typeof SetupOutput>;
 export const SetupSaveInput = z
   .object({
     workspaceId: z.uuid(),
-    /** A step finished: moves `reached` forward, never back. */
-    reached: z.enum(SETUP_STEPS).optional(),
-    /** The last step finished: the setup is done. */
+    /** The old setup's furthest step finished, from a tab of it still open: kept, and deciding nothing. */
+    reached: z.enum(SETUP_REACHED).optional(),
+    /** A first day started from the setup: it's done. */
     finished: z.literal(true).optional(),
     /** Sent by the extension: it's signed in here. Says nothing about the setup being started. */
     extension: z.literal(true).optional(),
-    /** Left for later: they won't be sent to the setup again. */
+    /** They moved on from the welcome, or left it for later: they won't be sent to the setup again. */
     started: z.literal(true).optional(),
-    /** Hide the "Finish setting up" line on Social Outreach's tabs. */
+    /** Hide the next step's line on Social Outreach's tabs. */
     hideBanner: z.literal(true).optional(),
   })
   .refine((i) => i.reached || i.finished || i.extension || i.started || i.hideBanner, {
     error:
-      'Say which step was finished, that the setup is done, that it was left for later, or that the extension signed in.',
+      'Say that the setup was started or is done, that its line is hidden, or that the extension signed in.',
   });
 export type SetupSaveInput = z.input<typeof SetupSaveInput>;
 export const SetupSaveOutput = SetupOutput;
-
-/** What's kept for a person, as the rules below read it. */
-export interface SetupKept {
-  readonly reached: SetupStep | null;
-  readonly startedAt: unknown;
-  readonly finishedAt: unknown;
-  readonly bannerHiddenAt: unknown;
-}
-
-/** Never saved their own settings and never started the setup (an extension signing in doesn't count as starting). */
-export const isFirstTime = (kept: SetupKept | null, settingsSaved: boolean): boolean =>
-  !settingsSaved && !kept?.reached && !kept?.startedAt && !kept?.finishedAt;
-
-/**
- * Whether Social Outreach's tabs remind them to finish: not finished, not hidden, and either started or never saved
- * their own settings. Someone who has used it for weeks and saved theirs long ago isn't reminded.
- */
-export const showsSetupBanner = (kept: SetupKept | null, settingsSaved: boolean): boolean =>
-  !kept?.finishedAt && !kept?.bannerHiddenAt && (Boolean(kept?.startedAt) || !settingsSaved);
 
 // ------------------------------------------------------------------------------------------------- the words
 
@@ -259,101 +611,199 @@ export function whenWords(at: string, now = Date.now(), timeZone?: string): stri
   return `on ${fmtMonthDay(day)}`;
 }
 
-/** "Facebook, LinkedIn or Alignable". */
-const orWords = (names: readonly string[]): string =>
-  names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
+/** "Facebook, LinkedIn and Instagram". */
+export const andWords = (names: readonly string[]): string =>
+  names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+/** Where each network's pages are, as Chrome's box names them when the extension asks to work there. */
+const SITES: Record<Platform, string> = {
+  facebook: 'facebook.com',
+  linkedin: 'linkedin.com',
+  instagram: 'instagram.com',
+  alignable: 'alignable.com',
+};
+
+/** "1 step", "3 steps". */
+const stepsWords = (n: number) => (n === 1 ? '1 step' : `${n} steps`);
 
 /** The setup's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
 export const SETUP_WORDS = {
   title: 'Set up Social Outreach',
   /** Beside the brand at the top of the setup's page, as the main app's onboarding has it. */
   settingUp: (business: string) => `Setting up Social Outreach for ${business}`,
-  counter: (n: number, of: number, name: string) => `${n} of ${of} · ${name}`,
-  /** The screen before the steps, for someone who hasn't finished one yet. */
+  settingUpOn: (network: string, business: string) => `Setting up ${network} for ${business}`,
+  /** Above each step's title: "Your business · 4 of 4", "LinkedIn · 1 of 5". */
+  counter: (where: string, n: number, of: number) => `${where} · ${n} of ${of}`,
+  steps: stepsWords,
   welcome: {
-    title: 'Let’s set up Social Outreach',
-    hint: 'Find customers on Facebook the way you would yourself: in the groups you’re in, with friend requests, likes, comments and messages that sound like you. The extension does the clicking in Chrome, and you stay in charge.',
-    steps: 'What you’ll do',
-    time: 'About 10 minutes. What you pick is kept as you go, so you can stop any time and carry on later.',
+    eyebrow: 'Set up Social Outreach',
+    title: 'Let’s get Social Outreach working',
+    hint: 'Three parts, then a short setup for each network you use. When you’re done, it knows who to look for and what to say.',
+    memberTitle: (name: string) => `Welcome, ${name}. Here’s your part.`,
+    memberHint: 'Four steps, then a short setup for each network you use.',
+    owners: 'owners and admins',
+    then: 'Then: a short setup for each network',
+    thenAbout:
+      'Facebook first, then any other you turn on. About 5 minutes each, and it ends with your first day there.',
+    eachNetwork: 'Each network',
+    eachNetworkAbout: 'Your profile there, what it does there, then your first day.',
+    eachNetworkTime: 'About 5 minutes each',
+    time: 'About 15 minutes. Stop any time; it keeps your place.',
+    timeMember: 'About 10 minutes, then 5 for each network. Stop any time; it keeps your place.',
     start: 'Let’s start',
   },
-  /** Each step in a line, on the welcome. */
-  stepAbout: {
-    playbooks: 'Who you’re looking for, how you sound, and what you offer',
-    ready: 'Your main offer, a niche, your profile and your goal, for your best results',
-    rules: 'What your team may do on its own, and how much a day',
-    networks: `Where you reach people: ${orWords(WORKING_PLATFORMS.map((p) => PLATFORMS[p]))}`,
-    settings: 'What the extension does for you, how the AI writes, and when',
-    extension: 'Put the extension in Chrome and sign in',
-    groups: 'Bring in the Facebook groups you’re in',
-  } satisfies Record<SetupStep, string>,
-  /** On the step they come back to, when they'd finished some before. */
-  resumed: 'Welcome back. Carry on where you left off.',
-  startOver: 'Start over',
-  steps: {
-    playbooks: {
-      name: 'Playbooks',
-      title: 'Pick your playbooks',
-      hint: 'A playbook says who you’re looking for on Facebook, how you sound and what you offer. Start from one of ours and make it yours, or write your own. Change them any time on the Playbooks tab.',
-      hintMember:
-        'Your business’s playbooks say who you’re looking for, how you sound and what you offer. An owner or admin writes them.',
+  parts: {
+    business: {
+      name: 'Your business',
+      about:
+        'Your main offer, a playbook and your team’s rules. A short video too, if you want one.',
     },
-    ready: {
-      name: 'Get ready',
-      title: 'Get ready for your best results',
-      hint: 'Four things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked. Do them now, or carry on: each waits on Today until it’s done.',
+    computer: { name: 'Your computer', about: 'Put the extension in Chrome and sign in.' },
+    you: { name: 'You', about: 'OK your messages, set your goal, pick the networks you use.' },
+  } satisfies Record<SetupPart, { name: string; about: string }>,
+  /** The rail's group of networks, and what it says over the business's part for a member. */
+  networksHead: 'Then, each network',
+  ownersDo: 'An owner does these.',
+  mainDone: 'Main setup',
+  mainAllDone: 'Done',
+  optional: 'Optional',
+  working: 'Working',
+  progress: (done: number, of: number) => `${done} of ${of} done`,
+  progressOn: (network: string, done: number, of: number) => `${network} · ${done} of ${of} done`,
+  main: {
+    offer: {
+      name: 'Main offer',
+      title: 'Your main offer',
+      hint: 'What you sell, in one clear offer. Every message starts from it.',
+    },
+    playbook: {
+      name: 'Playbook',
+      title: 'Pick a playbook',
+      hint: 'Who you’re looking for, how you sound and what you offer. Start from ours or write your own.',
+    },
+    video: {
+      name: 'Short video',
+      title: 'A short video',
+      hint: 'Optional. A 2 to 4 minute video your messages can link to. The AI writes the script; you record it.',
     },
     rules: {
-      name: 'Your team’s rules',
-      title: 'Set your team’s rules',
-      hint: 'What everyone may pick, their daily limits, and where a new person starts. Only owners and admins see this step.',
-    },
-    networks: {
-      name: 'Your networks',
-      title: 'Pick your networks',
-      hint: 'Where you reach people. Facebook is on to start; turn on any other your business allows. Each network has its own day, limits and choices, and a warning on one never stops another. Change them later on the Settings tab.',
-    },
-    settings: {
-      name: 'Your settings',
-      title: 'What the extension does for you',
-      hint: 'Pick what it may do on its own, and when. Your business’s defaults are picked to start. Change any of it later on the Settings tab.',
-      /** For someone who has saved theirs before: what's picked is theirs. */
-      hintSaved:
-        'Pick what it may do on its own, and when. These are your settings now. Change any of it later on the Settings tab.',
+      name: 'Team rules',
+      title: 'Your team’s rules',
+      hint: 'What your team may do on its own. Most businesses keep these.',
     },
     extension: {
       name: 'The extension',
-      title: 'Install the extension and sign in',
-      hint: 'It works in Chrome on a computer, beside you on Facebook. It’s a test build you load by hand, not one from the Chrome Web Store.',
+      title: 'Put the extension in Chrome',
+      hint: 'Five quick steps on this computer. This page ticks itself when it’s done.',
     },
-    groups: {
-      name: 'Your groups',
-      title: 'Bring in your groups',
-      hint: 'The extension reads the Facebook groups you’re in, and each is scored against your playbooks: Work these, Maybe or Skip.',
+    messages: {
+      name: 'Your messages',
+      title: 'Your messages',
+      hint: 'What goes out in your name, on every network. OK them before anything is sent.',
+    },
+    numbers: {
+      name: 'Your goal',
+      title: 'Your goal',
+      hint: 'How many calls you want booked a month. It sets how many people to reach each day.',
+    },
+    networks: {
+      name: 'Your networks',
+      title: 'The networks you use',
+      hint: 'Facebook is on to start. Each one you turn on gets a short setup of its own next.',
+    },
+  } satisfies Record<SetupStep, { name: string; title: string; hint: string }>,
+  network: {
+    allow: {
+      name: 'Allow it in Chrome',
+      title: (n: string) => `Allow it on ${n}`,
+      hint: 'Chrome asks once for each network. It takes a few seconds.',
+    },
+    playbook: {
+      name: 'A playbook for it',
+      title: (n: string) => `A playbook for ${n}`,
+      hint: (n: string) => `Pick a playbook to run on ${n}, or write one for it.`,
+    },
+    profile: {
+      name: 'Your profile',
+      title: (n: string) => `Your ${n} profile`,
+      hint: 'People look at it before they answer. Your computer reads it, and the AI says what to change.',
+    },
+    choices: {
+      name: 'What it does there',
+      title: (n: string) => `What it does on ${n}`,
+      hint: 'Pick how much it does on its own here. You can change it any time.',
+    },
+    start: {
+      name: 'Start your day',
+      title: (n: string) => `Start your first day on ${n}`,
+      hint: 'Here’s what happens once you start.',
     },
   } satisfies Record<
-    SetupStep,
-    { name: string; title: string; hint: string; hintMember?: string; hintSaved?: string }
+    NetworkStep,
+    { name: string; title: (n: string) => string; hint: string | ((n: string) => string) }
   >,
-  /** Above the settings when an owner or admin last chose them for the person. */
-  pickedForYou: (name: string) => `${name} picked these for you. Keep them or change them.`,
-  playbooksInUse: 'Your playbooks',
-  playbooksNone:
-    'Your business has no playbook yet. Ask an owner or admin to write one; you can carry on meanwhile.',
-  playbooksNoneManage: 'No playbook yet. Start from one below, or write your own.',
-  templates: 'Start from one of ours',
-  templateAbout:
-    'It opens in the playbook builder with our words filled in, for you to change to your own offer and link.',
-  /**
-   * Load unpacked needs the folder that holds manifest.json, so the zip has the build at its top. Chrome knows an
-   * extension loaded this way by its folder, so the folder is one to keep: moving it signs the person out.
-   */
+  /** What's left of a step, for the reminder and the Start screen. */
+  left: {
+    offer: 'Write your main offer and put it live.',
+    offerWaiting:
+      'Waiting on your business’s main offer. Ask an owner of this business to finish it under Settings → Main offer.',
+    playbook: 'Pick a playbook and its niche.',
+    playbookWaiting:
+      'Waiting on your business’s playbook. Ask an owner of this business to write one on the Playbooks tab.',
+    video: 'Optional: link a short video, or say you don’t use one.',
+    rules: 'Keep your team’s rules, or change them.',
+    extension: 'Put the extension in Chrome and sign in.',
+    extensionFirst: 'Put the extension in Chrome first, under Your computer.',
+    messages: 'See your messages and OK how they sound.',
+    messagesWaiting:
+      'Your messages are written from your business’s main offer and playbook, so they wait on those.',
+    numbers: 'Set a goal for calls booked a month.',
+    networks: 'Pick the networks you use.',
+    allow: (n: string) => `Allow the extension on ${n} in Chrome.`,
+    choices: (n: string) => `Pick what it does on its own on ${n}.`,
+    start: (n: string) => `Start your first day on ${n}.`,
+  },
+  /** The extension's install, a step at a time (decision 71). Load unpacked needs the folder that holds manifest.json. */
   install: [
-    'Download the extension and unzip it. Move the folder somewhere you’ll keep it, like Documents, and don’t delete it.',
-    'In Chrome, go to chrome://extensions and turn on Developer mode, at the top right.',
-    'Press Load unpacked and pick the folder that has manifest.json in it.',
-    'Pin it: press the puzzle piece beside the address bar, then the pin beside HandsFreeOS Social.',
+    {
+      title: 'Download it and unzip it',
+      text: 'Keep the folder in Documents. Chrome needs it to stay there.',
+    },
+    {
+      title: 'Turn on Developer mode',
+      text: 'Paste this in Chrome’s address bar. The switch is at the top right.',
+    },
+    {
+      title: 'Press Load unpacked',
+      text: 'Pick the hfos-social folder, the one with manifest.json in it.',
+    },
+    { title: 'Pin it', text: 'Press the puzzle piece by the address bar, then the pin.' },
   ] as const,
+  signIn: {
+    title: 'Sign in',
+    text: (email: string) =>
+      `Press the extension and sign in as ${email}. A number shows here: pick the same one.`,
+  },
+  otherNetworksLater:
+    'It works on Facebook straight away. Each other network gets a quick Allow later, in its own setup.',
+  stuck: {
+    title: 'Stuck?',
+    items: [
+      {
+        q: 'Chrome says “Manifest file is missing”',
+        a: 'You picked the folder around it. Pick the one with manifest.json inside.',
+      },
+      {
+        q: 'It’s gone after Chrome restarts',
+        a: 'Chrome turned it off. Turn it back on in chrome://extensions.',
+      },
+      { q: 'It signed you out', a: 'The folder moved. Load it again from where it is now.' },
+      {
+        q: 'A newer version came out',
+        a: 'Download it, unzip it over the same folder, then press the reload arrow on its card.',
+      },
+    ],
+  },
   /** Beside the download: which version, how big, and where it works. */
   downloadAbout: (version: string, bytes: number | null) =>
     [
@@ -368,44 +818,162 @@ export const SETUP_WORDS = {
     'Chrome may ask you to turn off extensions in developer mode now and then. Keep them on, or the extension stops working.',
   /** Folded on the Settings tab, under the download. */
   howToInstall: 'How to install it',
-  signInStep: (email: string, business: string) =>
-    `Open facebook.com, press the extension’s button, and sign in with ${email}. Pick ${business} if it asks.`,
   update:
     'For a newer version, download it again and unzip it, put the new files in place of the old ones in the same folder, and press the reload arrow on its card in chrome://extensions.',
   waiting: 'Waiting for the extension to sign in. This page updates by itself.',
-  signedIn: (when: string) => `The extension signed in. It last checked in ${when}.`,
-  notChrome: 'The extension works in Chrome on a computer. Open this page there to install it.',
-  fromExtension: 'The extension is signed in. Finish setting up here: it takes a few minutes.',
-  groupsHow:
-    'Press Save my groups, and your computer opens your groups on Facebook in a window of its own and saves them here.',
-  groupsNone: 'No groups yet: they show here as soon as the extension saves them.',
-  groupsSome: (n: number) => `${n} of your ${n === 1 ? 'group is' : 'groups are'} in.`,
+  signedIn: (when: string) => `The extension is signed in. It checked in ${when}.`,
+  /** A network's Allow, a step at a time: the panel's button, Chrome's box, then a reload. */
+  allow: (network: Platform) => {
+    const n = PLATFORMS[network];
+    return [
+      { title: 'Open the extension', text: `Press its pinned button, then Allow on ${n}.` },
+      {
+        title: 'Press Allow in Chrome’s box',
+        text: `It asks to let the extension read and change ${SITES[network]}, so it can work there beside you.`,
+      },
+      {
+        title: `Reload ${n}`,
+        text: `If a ${n} tab was already open, reload it. Stay signed in to ${n} in this Chrome.`,
+      },
+    ] as const;
+  },
+  allowButton: (n: string) => `Allow on ${n}`,
+  site: (network: Platform) => SITES[network],
+  allowWaiting: 'Waiting for Chrome to allow it. This page updates by itself.',
+  allowed: (n: string, computer: string | null) =>
+    computer ? `Allowed on ${n}, on ${computer}.` : `Allowed on ${n}.`,
+  notChrome: 'This step needs Chrome on a computer. Open this page there to carry on.',
+  pageLink: 'This page’s link',
+  copyLink: 'Copy link',
+  keptPlace: 'Your place is kept, so it opens right here.',
+  /** The networks step: each network, and what comes next. */
+  networkAbout: {
+    facebook: 'The groups you’re in, your friends, and messages',
+    linkedin: 'Connections and messages',
+    instagram: 'Follows and messages',
+    alignable: 'Local business owners near you',
+  } satisfies Record<Platform, string>,
+  networksNext: (names: readonly string[]) =>
+    `Next: set up ${andWords(names)}. About 5 minutes each. Turn on more any time on the Settings tab.`,
+  networksNone: 'Turn on at least one network to carry on.',
+  networksNotAllowed: (names: readonly string[]) =>
+    `Your business doesn’t use ${andWords(names)}. An owner can change that in Team rules.`,
+  saveAndSetUp: (n: string) => `Save and set up ${n}`,
+  /** What it does there: Sending as cards, nothing picked to start (decision 26 stays). */
+  pickOne: 'Pick one',
+  mostPeople: 'Most people start here',
+  pickToCarryOn: 'Pick one to carry on',
+  saveAndCarryOn: 'Save and carry on',
+  moreChoices: (n: string) => `More choices on ${n}`,
+  sendingCards: {
+    steps: {
+      title: 'Friend requests, likes and comments on their own',
+      about: 'Each message waits for one tap from you.',
+    },
+    approve_all: {
+      title: 'The same, with messages ready each morning',
+      about: 'Approve the day’s messages in one press.',
+    },
+    everything: {
+      title: 'Everything on its own, messages too',
+      about: 'It still stops for anything that needs you.',
+    },
+  } satisfies Record<Exclude<SendingMode, 'off'>, { title: string; about: string }>,
+  sendingOnlyOff:
+    'Your business doesn’t let anyone send on their own yet. Ask an owner to allow it in Team rules.',
+  /** The team's rules: kept in one press. */
+  keepRules: 'Keep these',
+  saveRules: 'Save and carry on',
+  changeRules: 'Change them',
+  rulesChoices: 'Choices',
+  rulesChoicesAbout:
+    'Everyone may pick any choice, from doing it all themselves to everything on its own.',
+  rulesLimits: 'On Facebook, a day',
+  rulesNetworks: 'Networks',
+  rulesNetworksAbout: (names: readonly string[]) =>
+    `Everyone may turn on ${andWords(names)}. Each has its own safe limits.`,
+  rulesNew: 'New people',
+  rulesNewAbout: 'They start doing everything themselves, until they pick.',
+  rulesWarning: 'A warning from a network stops its day and halves its limits for a week.',
+  /** The video: optional (decision 83). */
+  videoWrite: 'Write the script',
+  videoOpen: 'Open the script',
+  noVideo: 'We don’t use one',
+  videoLinked: 'Your video is linked.',
+  videoNone: 'You don’t use one. Add one any time on the Playbooks tab.',
+  /** The offer and the playbook, built on their own pages: they come back here. */
+  offerWrite: 'Write your main offer',
+  offerOpen: 'Open your main offer',
+  offerLive: (version: number) => `Version ${version} is live.`,
+  playbooksInUse: 'Your playbooks',
+  templates: 'Start from one of ours',
+  templateAbout: 'It opens with our words filled in, for you to make into your own offer and link.',
+  useTemplate: 'Use this one',
+  writeOwn: 'Write your own',
+  playbookOn: (n: string) => `Use on ${n}`,
+  playbookRunsOn: (n: string) => `Runs on ${n}`,
+  playbookNiche: 'Pick its niche',
+  /** Your messages: in their voice. */
+  voice: 'Your voice:',
+  changeVoice: 'Change it',
+  /** The Start screen. */
+  start: {
+    blocked: 'One thing left before it reaches anyone for you here.',
+    doItNow: 'Do it now',
+    happens: 'What happens next',
+    steps: [
+      {
+        title: 'It reads your friends, requests and groups first',
+        text: 'So your first list is full. You’ll see it tick off on Today.',
+      },
+      {
+        title: 'Then it works your list, inside your limits',
+        text: 'What you picked goes on its own.',
+      },
+      { title: 'Messages wait for your OK', text: 'On Today, and on your phone.' },
+    ],
+    go: (n: string) => `Start my first day on ${n}`,
+    then: (n: string) => `Then ${n}`,
+    thenAbout: (steps: number) =>
+      `You turned it on too. Its setup is ${steps} short steps, right after this.`,
+  },
   done: {
     title: 'You’re set up',
-    hint: 'The extension follows your settings from HandsFreeOS. Change any of it on the Settings tab.',
+    hint: 'Your first day has started. The extension reads your lists first, then works your list.',
   },
   phone: 'Get the phone app to hear when someone writes back.',
-  /** On the phone's Social Outreach screen until the person has finished the setup (`finishedAt`), hidden line or not. */
+  getPhone: 'Get the phone app',
+  goToday: 'Go to Today',
+  changeLater: 'Change any of it on the Settings tab',
+  /** On the phone's Social Outreach screen until a first day starts from the setup (`finishedAt`). */
   onPhone:
     'Set up Social Outreach on a computer: the extension needs Chrome. Open HandsFreeOS on the web, then Social Outreach.',
-  banner: (done: number, of: number) => `Finish setting up Social Outreach: ${done} of ${of} done.`,
+  /** The line on Social Outreach's tabs. */
+  bannerNext: (what: string, done: number, of: number) => `Next: ${what} · ${done} of ${of} done.`,
+  bannerSetUp: (n: string) => `set up ${n}`,
+  bannerWorking: (names: readonly string[]) =>
+    names.length ? `${andWords(names)} ${names.length === 1 ? 'is' : 'are'} working.` : '',
+  /** On the step they come back to, when they'd started before. */
+  resumed: 'Welcome back. Carry on where you left off.',
+  startOver: 'Start over',
+  fromExtension: 'The extension is signed in. Finish setting up here: it takes a few minutes.',
   next: 'Next',
   back: 'Back',
   skip: 'Skip for now',
-  finish: 'Finish',
   later: 'Finish later',
   carryOn: 'Carry on',
   hide: 'Hide',
   again: 'Set up again',
+  /** On a network's Settings page once it's on: its own short setup. */
+  setUpNetwork: (n: string) => `Set up ${n}`,
+  setUpNetworkAbout: (network: Platform) =>
+    network === 'facebook'
+      ? 'A short setup of its own: your profile there, what it does there and your first day.'
+      : 'A short setup of its own: Chrome’s Allow, your profile there, what it does there and your first day.',
   againAbout:
-    'Go through the setup again: playbooks, getting ready, your networks, your settings, the extension and your groups.',
+    'Go through the setup again: your computer, your messages, your goal and your networks.',
   againAboutManage:
-    'Go through the setup again: playbooks, getting ready, your team’s rules, your networks, your settings, the extension and your groups.',
-  /** Under the Get ready step's items. */
-  readyStill:
-    'Reading your friends and groups goes on while you get ready, so your first day starts with a full list.',
-  useTemplate: 'Use this one',
-  writeOwn: 'Write your own',
+    'Go through the setup again: your business, your computer, your messages, your goal and your networks.',
   download: 'Download HandsFreeOS Social',
   /** Where the team gets the extension (`extensionLink`): Settings' For your team and the install step, on the web and the phone. */
   link: {
@@ -418,39 +986,34 @@ export const SETUP_WORDS = {
   },
   copy: 'Copy',
   copied: 'Copied. Paste it in Chrome’s address bar.',
-  keepRules: 'Keep these and carry on',
-  saveRules: 'Save and carry on',
-  allGroups: 'See them all on the Groups tab',
-  goToday: 'Go to Today',
-  getPhone: 'Get the phone app',
-  changeLater: 'Change any of it on the Settings tab',
 } as const;
 
 /** Where Chrome lists the extensions loaded; a page can't link to it, so it's copied. */
 export const CHROME_EXTENSIONS_URL = 'chrome://extensions';
 
-/**
- * The summary beside each step: one plain line per part. The extension's line says when it last checked in, in the
- * business's time zone (`timeZone`), so the server and the browser write the same.
- */
-export function setupSummary(
-  got: Pick<SetupOutput, 'playbooks' | 'extensionAt' | 'groups'>,
-  settings: AutomationSettings | null,
-  timeZone?: string,
-  now = Date.now(),
-): string[] {
-  const networks = settings ? PLATFORM_KEYS.filter((p) => settings.networks[p].on) : [];
-  return [
-    got.playbooks.length
-      ? `Playbooks: ${got.playbooks.map((p) => p.name).join(', ')}`
-      : 'Playbooks: none yet',
-    networks.length
-      ? `Networks: ${networks.map((p) => PLATFORMS[p]).join(', ')}`
-      : `Networks: ${PLATFORMS.facebook}`,
-    settings ? settingsSummary(settings)[0]! : 'Your settings: your business’s defaults',
-    got.extensionAt
-      ? `Extension: last checked in ${whenWords(got.extensionAt, now, timeZone)}`
-      : 'Extension: not signed in yet',
-    got.groups.mine ? `Groups: ${got.groups.mine} of yours saved` : 'Groups: none yet',
-  ];
+/** A step's name, for the rail and the reminder. */
+export const stopName = (s: SetupStop): string =>
+  s.net === null ? SETUP_WORDS.main[s.step].name : SETUP_WORDS.network[s.step].name;
+
+/** What the reminder says is next: a main step by its name, or a network to set up. */
+export function bannerWords(got: SetupLaidOut, next: SetupStop): string {
+  if (next.net === null) {
+    const { done, of } = doneOf(got.states);
+    return SETUP_WORDS.bannerNext(SETUP_WORDS.main[next.step].name, done, of);
+  }
+  const net = got.networks.find((n) => n.platform === next.net);
+  const { done, of } = doneOf(net?.steps ?? []);
+  return SETUP_WORDS.bannerNext(SETUP_WORDS.bannerSetUp(PLATFORMS[next.net]), done, of);
 }
+
+/** The networks whose first day has started: "Facebook is working." */
+export const networksWorking = (got: SetupLaidOut): Platform[] =>
+  got.networks
+    .filter((n) => n.steps.find((s) => s.step === 'start')?.state === 'done')
+    .map((n) => n.platform);
+
+/** The sending choices a person can pick in the setup: all but doing everything themselves. */
+export const SETUP_SENDING = SENDING_MODE_KEYS.filter((m) => m !== 'off') as Exclude<
+  SendingMode,
+  'off'
+>[];

@@ -4,15 +4,16 @@
  * never in the browser extension, which loads them when the person signs in and follows each change within seconds.
  *
  * The pieces here are controlled: they show a value and hand each change on. The Settings tab's pages
- * (./settings-page.tsx) put them in cards and save each change as it's made; the setup (./setup-view.tsx) uses the
- * whole forms, saved with its own buttons:
+ * (./settings-page.tsx) put them in cards and save each change as it's made; the setup (./setup-steps.tsx and
+ * ./setup-network.tsx) uses them saved with its own buttons:
  *
  * - **A network's choices** (`NetworkModes`, `NetworkTicks`): what the extension does there on its own, in its words.
+ *   The setup asks Sending as cards of its own and folds the rest under More choices.
  * - **The person's own** (`VoicePart`, `HoursPart`, `PushesPart`, `ExtensionTicks`), and `ChoicesForm`, all of them
- *   with Facebook's choices, for the setup's settings step and where a new person starts.
- * - **The networks the person works** (`NetworksPart`), for the setup's networks step.
+ *   with Facebook's choices, for where a new person starts.
+ * - **The networks the person works** (`NetworksPart`), on the Settings tab.
  * - **The business's rules** (`AllowedPicks`, `LimitsFields`, `DefaultsFold`), and `RulesForm`, all of them with the
- *   networks the team may use, for the setup's rules step.
+ *   networks the team may use, for the setup's rules step when they're changed.
  */
 import {
   BusinessRules,
@@ -40,7 +41,7 @@ import {
   type SendingMode,
   type WheelsState,
 } from '@hfos/core/addons/outreach/automation';
-import { settingsToSave } from '@hfos/core/addons/outreach/chat-read';
+import { outreachSettings, settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
@@ -194,6 +195,7 @@ export function NetworkModes({
   postingAllowed = POSTING_MODE_KEYS,
   card = false,
   wheelsStart = false,
+  sendingPart = true,
   testId,
 }: Allowed & {
   platform: Platform;
@@ -201,6 +203,8 @@ export function NetworkModes({
   onChange: (change: Partial<NetworkChoices>) => void;
   card?: boolean;
   wheelsStart?: boolean;
+  /** Sending's own part: the setup asks it on its own, as cards, and folds the rest (decision 83). */
+  sendingPart?: boolean;
   testId: string;
 }) {
   const modes = sendingModesOn(platform);
@@ -226,27 +230,29 @@ export function NetworkModes({
     wheelsStart && !wheelsMatter(value) && wheelsMatter(choice) ? WHEELS_START_WORDS : undefined;
   return (
     <>
-      <Part
-        title={W.sections.onItsOwn}
-        about={runs ? onItsOwnAbout(platform) : noRunnerWords(platform)}
-        card={card}
-        testId={`${testId}-on-its-own`}
-      >
-        {runs ? (
-          <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
-            {sending.map((m) => (
-              <RadioCard
-                key={m}
-                selected={value.sending === m}
-                onSelect={() => onChange({ sending: m })}
-                title={modes[m]}
-                description={starts({ sending: m, replies: value.replies })}
-                testId={`${testId}-sending-${m}`}
-              />
-            ))}
-          </div>
-        ) : null}
-      </Part>
+      {sendingPart ? (
+        <Part
+          title={W.sections.onItsOwn}
+          about={runs ? onItsOwnAbout(platform) : noRunnerWords(platform)}
+          card={card}
+          testId={`${testId}-on-its-own`}
+        >
+          {runs ? (
+            <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
+              {sending.map((m) => (
+                <RadioCard
+                  key={m}
+                  selected={value.sending === m}
+                  onSelect={() => onChange({ sending: m })}
+                  title={modes[m]}
+                  description={starts({ sending: m, replies: value.replies })}
+                  testId={`${testId}-sending-${m}`}
+                />
+              ))}
+            </div>
+          ) : null}
+        </Part>
+      ) : null}
       {runs ? (
         <Part
           title={W.sections.replies}
@@ -890,7 +896,8 @@ export function RulesForm({
         disabled={(!carryOn && same(rules, now)) || busy !== null || carryingOn}
         loading={busy === 'rules'}
         onClick={() => {
-          if (carryOn && same(rules, now)) return carryOn();
+          // Kept as they are once already: nothing to save. The setup's first keep is saved, so its step ticks.
+          if (carryOn && same(rules, now) && outreachSettings(settings).rulesKept) return carryOn();
           void act(
             'rules',
             async () =>
@@ -899,7 +906,10 @@ export function RulesForm({
                   body: {
                     workspaceId,
                     addonId: 'outreach',
-                    settings: settingsToSave(settings, { rules }),
+                    settings: settingsToSave(
+                      settings,
+                      carryOn ? { rules, rulesKept: true } : { rules },
+                    ),
                   },
                 }),
               ),

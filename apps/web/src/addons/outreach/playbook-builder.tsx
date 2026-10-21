@@ -257,7 +257,7 @@ const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 // ---------- the steps ----------
 
-type StepKey =
+export type StepKey =
   | 'goal'
   | 'niche'
   | 'offer'
@@ -399,6 +399,7 @@ export function PlaybookBuilder({
   mainOffer,
   mainOfferVersion = null,
   doneHref,
+  openAt,
 }: {
   workspaceId: string;
   /** The playbook to change; null for a new one. */
@@ -417,6 +418,8 @@ export function PlaybookBuilder({
   mainOfferVersion?: number | null;
   /** Where saving or leaving goes: the Playbooks tab, or the setup it was started from. */
   doneHref?: string;
+  /** A playbook opened on one of its steps (the setup's video step), carrying on to its summary. */
+  openAt?: StepKey;
 }) {
   const router = useRouter();
   const origin = usePublicOrigin(brandedOrigin);
@@ -430,9 +433,10 @@ export function PlaybookBuilder({
     return d.offer || !mainOffer?.outcome ? d : { ...d, offer: mainOffer.outcome };
   });
   const [draft, setDraft] = useState(start);
-  const [at, setAt] = useState(playbook ? REVIEW : 0);
+  const opened = playbook && openAt ? STEPS.findIndex((s) => s.key === openAt) : -1;
+  const [at, setAt] = useState(opened >= 0 ? opened : playbook ? REVIEW : 0);
   /** Reached from the last step's Change: carrying on goes back there. */
-  const [fromReview, setFromReview] = useState(false);
+  const [fromReview, setFromReview] = useState(opened >= 0);
   const [busy, setBusy] = useState(false);
   const [taken, setTaken] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);

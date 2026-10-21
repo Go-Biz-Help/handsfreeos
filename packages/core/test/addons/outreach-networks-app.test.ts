@@ -52,7 +52,7 @@ import {
   WORKING_PLATFORMS,
 } from '../../src/addons/outreach/networks';
 import { REPORT_WORDS } from '../../src/addons/outreach/reports';
-import { setupSteps, setupSummary, SETUP_WORDS } from '../../src/addons/outreach/setup';
+import { networkSteps, setupSteps, SETUP_WORDS } from '../../src/addons/outreach/setup';
 import type { StagesOutput } from '../../src/addons/outreach/stages';
 import { TODAY_KINDS } from '../../src/addons/outreach/today';
 import { OUTREACH_WORDS as W } from '../../src/addons/outreach/words';
@@ -196,9 +196,7 @@ describe('the networks a person works', () => {
     expect(REPORT_WORDS.notAllowed('Chrome on Mac 12', 'instagram')).toContain(
       'on an Instagram page',
     );
-    expect(SETUP_WORDS.stepAbout.networks).toBe(
-      'Where you reach people: Facebook, LinkedIn, Instagram or Alignable',
-    );
+    expect(SETUP_WORDS.networkAbout.instagram).toBe('Follows and messages');
   });
 
   it('changes one network’s choices, Facebook’s being the settings’ own', () => {
@@ -212,31 +210,17 @@ describe('the networks a person works', () => {
   });
 });
 
-describe('the setup’s step to pick networks', () => {
-  it('comes after the team’s rules and before the person’s own settings', () => {
-    expect(setupSteps(true)).toEqual([
-      'playbooks',
-      'ready',
-      'rules',
-      'networks',
-      'settings',
-      'extension',
-      'groups',
-    ]);
-    expect(setupSteps(false)).toEqual([
-      'playbooks',
-      'ready',
-      'networks',
-      'settings',
-      'extension',
-      'groups',
-    ]);
-    expect(SETUP_WORDS.stepAbout.networks).toBe(
-      'Where you reach people: Facebook, LinkedIn, Instagram or Alignable',
+describe('the setup’s networks', () => {
+  it('picks the networks last in the main setup, then sets each up on its own (decision 83)', () => {
+    expect(setupSteps(true).at(-1)).toBe('networks');
+    expect(setupSteps(false)).toEqual(['extension', 'messages', 'numbers', 'networks']);
+    // Facebook is let on as the extension is put in, and its playbook is the main setup's.
+    expect(networkSteps('facebook')).toEqual(['profile', 'choices', 'start']);
+    expect(networkSteps('linkedin')).toEqual(['allow', 'playbook', 'profile', 'choices', 'start']);
+    expect(SETUP_WORDS.networksNext(['Facebook', 'LinkedIn'])).toBe(
+      'Next: set up Facebook and LinkedIn. About 5 minutes each. Turn on more any time on the Settings tab.',
     );
-    const got = { playbooks: [], extensionAt: null, groups: { mine: 0, business: 0, latest: [] } };
-    expect(setupSummary(got, withLinkedIn(true))[1]).toBe('Networks: Facebook, LinkedIn');
-    expect(setupSummary(got, null)[1]).toBe('Networks: Facebook');
+    expect(SETUP_WORDS.allow('linkedin')[1].text).toContain('linkedin.com');
   });
 });
 

@@ -496,24 +496,27 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   and Live tabs, its Settings pages and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
   `sameNamePeople`), and its tabs' names and the labels its Playbooks, Groups and Chats tabs share with the phone. The web's step-by-step playbook builder keeps its own questions, which the phone doesn't ask. The helpers that write phone rows (`addon_phone_upsert` and the seals) run only as their owner: nobody
   signed in may call them.
-- **The setup** (decisions 36 and 45, `/a/outreach/setup`, `setup.ts`, `ops/setup.ts`, the web's `setup-view.tsx`):
-  Social Outreach's onboarding, a step at a time in the same card as the main app's, with a summary beside it. Pick
-  the playbooks (a template opens the builder with our words, to make into the business's own offer and link, and
-  saving comes back), set the team's rules (owners and admins, before their own choices), choose your own settings
-  (starting from the business's defaults), install the extension and sign in, then bring in your groups (**Save my
-  groups** asks the computer, as the Groups tab does). The install
-  step has the download link, plain steps for loading a build by hand in Chrome, and a line that says when the
-  extension last checked in, which turns on by itself when it signs in. It remembers where each person got to, can be left with **Finish later**
-  and picked up from the **Carry on** line on every tab (with **Hide**), and **Set up again** on the Settings tab
-  opens it at the first step. Someone who never saved their own settings and never started it is sent there from
-  the bare Social Outreach page, and the extension opens it in a tab when they sign in (decision 21a); the
-  phone's Social Outreach screen says to set it up on a computer until it's finished (`SETUP_WORDS.onPhone`, while
-  `finishedAt` is empty, whether or not the web's line was hidden). The extension downloads from HandsFreeOS itself
+- **The setup** (decisions 36, 45 and 83, `/a/outreach/setup`, `setup.ts`, `ops/setup.ts`, the web's
+  `setup-view.tsx`, `setup-steps.tsx` and `setup-network.tsx`): Social Outreach's onboarding, a step at a time in the
+  same card as the main app's, with a list of the steps beside it (folded on a phone). A **main setup** in three
+  parts, once per person: **Your business** (the main offer, a playbook, a short video if the business wants one, the
+  team's rules; owners and admins only), **Your computer** (the extension) and **You** (your messages, your goal, the
+  networks you use). Then a **short setup for each network** they turn on, Facebook first: Allow it in Chrome (not on
+  Facebook), a playbook for it (only while none runs there), your profile there, what it does there, and your first
+  day there (`?net=linkedin&step=allow`). Each step ticks from what's true, never from a button pressed, and **Skip
+  for now** leaves it to do. The main offer and a playbook are built on their own pages, which come back to the step
+  (`back=`, `from=setup`). The install has five steps, each with a picture of Chrome drawn in the app's colours
+  (`install-pictures.tsx`), the sign-in ticking by itself, and **Stuck?** folded under them; a network's Allow has
+  three. It opens at the first step left, can be left with **Finish later** and picked up from the **Next** line on
+  every tab ("Next: Main offer · 5 of 8 done.", with **Carry on** and **Hide**), and **Set up again** on the Settings
+  tab opens it at the first step. Someone who never saved their own settings and never started it is sent there from
+  the bare Social Outreach page, and the extension opens it in a tab when they sign in (decision 21a); the phone's
+  Social Outreach screen says to set it up on a computer until it's finished (`SETUP_WORDS.onPhone`, while
+  `finishedAt` is empty, whether or not the web's line was hidden). On a phone or a browser other than Chrome, the
+  steps done on a computer say so, with the page's link to copy. The extension downloads from HandsFreeOS itself
   (decision 71): the setup's install step and Settings → Your computer have **Download HandsFreeOS Social** with its
-  version and size, and the steps to load it into Chrome with Developer mode. A business that keeps its own copy
-  pastes its link under **Where your team gets the extension** (Settings → General, For your team, on the web; and
-  on the phone), and
-  everyone's download is that one instead.
+  version and size. A business that keeps its own copy pastes its link under **Where your team gets the extension**
+  (Settings → General, For your team, on the web; and on the phone), and everyone's download is that one instead.
 - **Playbooks** (`/a/outreach?view=playbooks`): what the business is looking for on social media, how it sounds and
   which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
   own proof (decision 62), an offer and link, something useful to send, who it's for, signs to look for and who to
@@ -600,7 +603,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | Spotting replies on the page                             | `apps/extension/src/facebook/replies.ts`, `src/hfos/replies.ts`, `src/content.ts`                                                                                                                                                                                                   |
 | The phone: its screens, and the words they say           | `apps/mobile/src/addons/outreach/`, `app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/`, `words.ts` (the web's too)                                                                                                                                                                 |
 | The phone's copy of Waiting for you                      | `views/waiting.ts`, `../phone-rows.ts`, `supabase/migrations/20261027001800_outreach_on_the_phone.sql`                                                                                                                                                                              |
-| The setup, in HandsFreeOS                                | `setup.ts`, `ops/setup.ts`, `apps/web/src/addons/outreach/setup-view.tsx`, `extension-link.tsx`, `/a/outreach/setup`                                                                                                                                                                |
+| The setup, in HandsFreeOS                                | `setup.ts`, `ops/setup.ts`, `apps/web/src/addons/outreach/setup-view.tsx`, `setup-steps.tsx`, `setup-network.tsx`, `install-pictures.tsx`, `extension-link.tsx`, `/a/outreach/setup`                                                                                                |
 | The extension's first run, and the setup's table         | `apps/extension/src/hfos/setup.ts`, `supabase/migrations/20261027001900_outreach_setup.sql`                                                                                                                                                                                         |
 | How the AI writes, and a message as a few texts          | `voice.ts`, `today.ts` (`checkedDrafts`), `apps/worker/src/addons/outreach/today.ts`, `apps/extension/src/auto/run.ts`, `supabase/migrations/20261027002600_outreach_voice.sql`                                                                                                     |
 | The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`                                                                                                                     |
@@ -690,8 +693,8 @@ Operations, all through the kernel:
 | `outreach.ask.reply`                                  | `outreach.use`    | Carry on or Skip, for a step handed to the person                                                                                                                                                                                                                                                                                   |
 | `outreach.ask.cancel`                                 | `outreach.use`    | Stop an ask, waiting or under way                                                                                                                                                                                                                                                                                                   |
 | `outreach.asks`                                       | `outreach.use`    | The person's own asks, today's and the open ones (a tab's kinds), with their working computer and whether Facebook warned them today                                                                                                                                                                                                |
-| `outreach.setup`                                      | `outreach.use`    | The person's own setup: their steps, how far they got and when they finished (`finishedAt`, the phone's line), the extension signed in, playbooks, groups, the link                                                                                                                                                                 |
-| `outreach.setup.save`                                 | `outreach.use`    | A step finished (never back), the setup done, left for later, its line hidden, or the extension signed in                                                                                                                                                                                                                           |
+| `outreach.setup`                                      | `outreach.use`    | The person's own setup: the main steps and each network's, where each stands and what's next, when they finished (`finishedAt`, the phone's line), the extension signed in, playbooks, the link                                                                                                                                     |
+| `outreach.setup.save`                                 | `outreach.use`    | The setup started, done, left for later, its line hidden, or the extension signed in                                                                                                                                                                                                                                                |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -905,7 +908,8 @@ showing what's going on and prompting, the app and the phone live too, and answe
 45. **The onboarding lives in HandsFreeOS** (decision 36), after these: pick playbooks, settings, then "Install the
     extension and sign in", then groups; the phone points to the computer. A first-timer signing in on the extension
     is sent there (21a). Built (settings part 6); the phone's Social Outreach screen says to set it up on a computer
-    until it's done (`SETUP_WORDS.onPhone`).
+    until it's done (`SETUP_WORDS.onPhone`). Decision 83 put its steps in a new order: a main setup, then one for each
+    network.
 
 The owner asked on 11 Oct 2026 for Social Outreach to work the whole way people sell in Facebook groups: find the
 fits among the friends and chats they already have, start with the groups they're in and join more when those run
@@ -961,7 +965,7 @@ defaults, a few texts on to start), the choice made is said, for the owner to ch
     bubbles above it, on Today and Waiting for you on the web, the phone and the extension's panel. Built. The
     extension's panel is replaced by decision 72: no message waits there, so it shows no chat bubbles.
 53. **The AI writes plainly:** everyday words a 10-year-old knows, short sentences, relaxed, and never a long dash.
-    Each person picks their voice on the Settings tab (and in the setup's settings step), with a sample of how a
+    Each person picks their voice on the Settings tab (and in Facebook's setup, under More choices), with a sample of how a
     message reads: short forms like "u" and "thx", text acronyms like "lol" and "btw", an emoji now and then, all off
     to start. Built.
 54. **A greeting after a gap.** When the last message either way was a few days ago or more, the AI opens with a
@@ -975,7 +979,7 @@ defaults, a few texts on to start), the choice made is said, for the owner to ch
     playbook stands: they go only with all of the add-on's data, as before. Built, in core for every add-on.
 57. **An onboarding like the main app's.** The setup is a page of its own over the app, in the main onboarding's
     frame, with a welcome first that says what's ahead, Finish later at the top, and "carry on where you left off".
-    Built.
+    Built; its steps are decision 83's.
 58. **Check my groups did nothing.** The computer's extension was a build from before checking groups, which left
     the ask hanging. Each kind of ask now names the build it needs: an older one says to update, with how. Built; the
     extension is 0.25.0.
@@ -1059,8 +1063,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     joining groups. A member waits on the business's two and does their own meanwhile. A new main offer version asks
     everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
     `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
-    days in their settings. Get ready is also a setup step, after the playbooks. Built. **Your messages** joined with
-    the plan's step 6 (decision 68), so it's five items, and waits on the playbook's short video (decision 69).
+    days in their settings. Its items are setup steps of their own (decision 83): the main offer, the playbook, your
+    messages and your goal in the main setup, and your profile in each network's. Built. **Your messages** joined
+    with the plan's step 6 (decision 68), so it's five items; it doesn't wait on a short video (decision 83).
 64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
     person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
     it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
@@ -1117,8 +1122,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     script, and the business changes the words as it likes. Proof comes only from the real results given; with none,
     the script leaves "[your result]" to fill in. Recording tips sit beside it, and the person records it themselves
     and pastes its link (Loom, YouTube or Google Drive: https, with a real host). The playbook keeps both (data
-    version 5); a script written for an older main offer version says so. **Your messages** is done only once a
-    playbook in use has its video linked: an owner or admin links it, and anyone else waits on them. The phone shows
+    version 5); a script written for an older main offer version says so. An owner or admin links it. The video is
+    optional (decision 83): **Your messages** doesn't wait on it, and the setup's video step has **We don’t use
+    one**, kept as the business's choice (`noVideo`). The phone shows
     the script and changes the link; the script is written on the web. Built.
 70. **The daily numbers** (the main offer plan's step 8; `tracking.ts`, the boards in `design/tracking`; the owner's
     decision: the day's report is on to start). Results leads with the three numbers the video says to watch every
@@ -1633,6 +1639,38 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     notification becomes "Alignable's code ran out", and the step's Carry on reads **Try again**, which opens the
     profile again and presses Edit, so the network emails a new code (extension 0.72.0).
 
+83. **A main setup, then a short one for each network** (Chris, 21 Oct 2026: "an easy to use and follow onboarding
+    for the social outreach add on"). The old setup had too many steps, a hard extension install, no clear next
+    thing to do and too much reading, for owners and their team alike. It also ended before anything could work: Get
+    ready was a list of links, Sending stayed off, nothing started a day, and it covered Facebook only. Chris decided:
+    - **What goes in:** "everything needed to have the system being to start working and know what it should be
+      doing should be in the onboarding". So the setup covers Get ready's items (decision 63), the team's rules, the
+      extension, what it does on each network, and the first day there.
+    - **The split:** "ok then we may need to have an overall onboarding and then have a short onboarding for each
+      social media platform they turn on". The **main setup** has three parts: Your business (`offer`, `playbook`,
+      `video`, `rules`; owners and admins), Your computer (`extension`) and You (`messages`, `numbers`, `networks`).
+      Owners have 8 steps and members 4; a member sees the business's part as done or waiting on an owner, and their
+      messages wait on it. Each network turned on (in the networks step, or later with **Set up {network}** on its
+      page in Settings) gets its own: `allow` (not Facebook), `playbook` (only while no playbook runs there),
+      `profile`, `choices` and `start` (`NETWORK_STEPS`, `networkSteps`).
+    - **Sending:** "They pick, we suggest". What it does on a network is three cards with nothing picked and the usual
+      one marked **Most people start here**; Save waits for a pick. Decision 26's off stays until they pick.
+    - **The short video is optional:** "ok just want to make sure its not required because some owners may not want
+      one". **Your messages** no longer waits on a linked video (decision 69), and the video step has **We don’t use
+      one** (`noVideo`). Members never wait on it.
+
+    Every step ticks from what's true (`setupStepStates`, `networkStepStates`): Get ready's items for that network
+    (`readinessFor`), the extension signed in (`extension_at`), their own settings saved (`settings_at`), the team's
+    rules kept or changed (`rulesKept`, which **Keep these** saves), a playbook in use with its video or `noVideo`,
+    the network allowed on the working computer, that network's Sending not off, and a day started there. **Skip for
+    now** leaves a step to do. It opens at the first step not done, the main setup's then each network's, passing
+    over a step waiting on someone else (`setupOpenAt`, `setupNext`). Groups have no step: decision 60's lists-first
+    reads them before a network's first day, and its Start says so. Start names the first thing in the way with **Do
+    it now** (`startBlocker`), and a refusal shows in the server's words with its fix (`startFix`). The install has
+    five steps with drawn pictures and **Stuck?**; a network's Allow has three. No migration: `reached` is no longer
+    written and an old one is still read (`SETUP_REACHED`), and an old `?step=` opens its new step (`readSetupStop`).
+    Designed on the canvas "Social Outreach setup" (https://claude.ai/artifact/5hcaEL1hSTAUjKUn8JrSdU). Built.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -1674,8 +1712,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   onboarding frame (`SetupPage`, `SetupCard`), with Finish later at the top. A **welcome** comes first while no step
   is finished (`setupOpenAt`); Back from the first step goes to it; coming back where they left off says so
   (`resumed`), with Start over.
-- **The setup is each person's own, and only moves forward** (`addon_outreach.setup`, `laterStep`). Finishing it
-  changes nothing the extension does: the settings step's save does (`outreach.automation.save`). A **first-timer**
+- **The setup's steps are worked out, never kept** (decision 83, `setupStepStates`, `networkStepStates`): each ticks
+  from a fact another screen also changes, so a step done on Today or Settings is done in the setup too, and Skip
+  for now never ticks one. Don't add a stored "done" for a step; add the fact. `reached` is old data, still read
+  (`SETUP_REACHED`) and no longer written. A new step goes in `SETUP_STEPS` or `NETWORK_STEPS` with its words in
+  `SETUP_WORDS`, which the phone reads too.
+- **The setup is each person's own** (`addon_outreach.setup`). Finishing it changes nothing the extension does: the
+  networks step's and each network's saves do (`outreach.automation.save`). A **first-timer**
   (`isFirstTime`) has never saved their own settings and never started the setup (`started_at`: moving on from a
   step, or leaving it for later). Saving their own settings is kept for good (`settings_at`, stamped by
   `outreach.automation.save` only when it's the person's own): an owner or admin saving them for them doesn't count,
@@ -1690,9 +1733,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   follows. Only the extension's first sign-in, and the person's own steps, go out on the live channel: its sign-ins
   again and its check every few hours don't, so colleagues' open tabs don't refresh for someone else's extension.
   The **Carry on** line shows only to someone who started it or never saved their own settings, until it's finished
-  or hidden (`showsSetupBanner`). The groups step lists the groups the person is in that the extension saved last
-  (`groups.latest`), which **Save my groups** (an ask, there and on the Groups tab) fills from their own groups page
-  (facebook.com/groups/joins/), where each group listed is saved as one they're in.
+  or hidden (`showsSetupBanner`).
 - **HandsFreeOS hands out the extension** (decision 71): the web app's `build` and `dev` first run the extension's
   `scripts/download.mjs`, which builds it for the HandsFreeOS the web app's own settings name (`NEXT_PUBLIC_API_URL`,
   `NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, read as Next.js
@@ -1809,8 +1850,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     one goal for every network, each network's share of the first messages. `private.outreach_numbers_by_network` gives each
     count's network, from the profile reached (20261027007400).
   - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
-    on each; **the setup has a step to pick networks** (`networks`, between the team's rules and the person's own
-    settings, 20261027007400). **A playbook runs only on its networks** (`runsOn`, data version 7): Today, posts,
+    on each; **the setup has a step to pick networks** (`networks`, the main setup's last, then a short setup for
+    each network turned on, decision 83). **A playbook runs only on its networks** (`runsOn`, data version 7): Today, posts,
     checks, asks and Get ready read the playbooks on the network shown. Every customers' playbook saved before then
     gets Facebook and LinkedIn, as it ran on both (`onItsNetworks` marks it done); a new one starts with every network
     that works. Get ready says when no playbook runs on the network shown (`playbookNoneOn`).

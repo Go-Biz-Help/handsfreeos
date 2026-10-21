@@ -51,7 +51,7 @@ import {
 } from '@hfos/core/addons/outreach/settings-parts';
 import { profileWordsOn, READY_WORDS as R, tickCounts } from '@hfos/core/addons/outreach/readiness';
 import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
-import { outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
+import { networkSteps, outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { START_FRESH_WORDS as F, OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { AlertCircle, Check, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -494,6 +494,26 @@ function NetworkPage({
         ) : null}
         <SaveLine statuses={statuses} />
       </PageTitle>
+      {on && !looking && asks ? (
+        // Turned on: its own short setup, from Chrome's Allow to a first day there (decision 83).
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3"
+          data-testid={`${testId}-set-up`}
+        >
+          <p className="min-w-0 flex-[1_1_260px] text-[13px] text-text-2">
+            {SETUP_WORDS.setUpNetworkAbout(platform)}
+          </p>
+          <ButtonLink
+            size="sm"
+            variant="secondary"
+            href={outreachSetupPath(workspaceId, {
+              step: { net: platform, step: networkSteps(platform)[0]! },
+            })}
+          >
+            {SETUP_WORDS.setUpNetwork(name)}
+          </ButtonLink>
+        </div>
+      ) : null}
       {!may ? (
         <p className="text-[13px] text-text-2" data-testid={`${testId}-not-allowed`}>
           {NW.notAllowed(name, team !== null)}

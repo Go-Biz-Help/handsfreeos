@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { OfferBuilder } from '@/components/main-offer/builder';
 import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
+import { safeNext } from '@/lib/utils';
 
 export const metadata: Metadata = { title: 'Build your main offer' };
 
@@ -11,7 +12,8 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 /**
  * The main offer's builder (docs/main-offer.md), a page of its own over the app like the onboarding: a step at a
  * time, `?step=` opening one, and `&try=` one of the AI's tries beside the draft. A draft opens where it is; with
- * none, it starts from the live version, or from nothing.
+ * none, it starts from the live version, or from nothing. `&back=` names the page it was opened from inside this
+ * business (Social Outreach's setup), which leaving and putting it live go back to; anything else is ignored.
  */
 export default async function MainOfferBuildPage({
   params,
@@ -23,6 +25,8 @@ export default async function MainOfferBuildPage({
   const { workspaceId } = await params;
   const query = await searchParams;
   const asked = one(query.step);
+  const back = safeNext(one(query.back), '');
+  const doneHref = back.startsWith(`/app/w/${workspaceId}/`) ? back : undefined;
   const { api } = await apiServer();
   const [{ workspace }, me] = await Promise.all([
     api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
@@ -53,6 +57,7 @@ export default async function MainOfferBuildPage({
       tries={tries}
       startAt={startAt}
       openTry={one(query.try)}
+      doneHref={doneHref}
     />
   );
 }

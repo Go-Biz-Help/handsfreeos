@@ -64,6 +64,16 @@ export const OutreachSettingsSchema = z.object({
     .max(500, { error: 'That link is too long. Give a shorter link to the extension’s zip.' })
     .nullable()
     .default(null),
+  /**
+   * The business doesn't use a short video (decision 83): the setup's video step counts as done without one. A video
+   * is never needed; linking one later still works.
+   */
+  noVideo: z.boolean().default(false),
+  /**
+   * An owner or admin kept the team's rules in the setup (decision 83), as they are or changed. The add-on's install
+   * stores the starting rules, so rules kept is this, or rules changed from the starting ones.
+   */
+  rulesKept: z.boolean().default(false),
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 

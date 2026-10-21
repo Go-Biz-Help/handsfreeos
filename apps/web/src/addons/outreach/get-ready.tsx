@@ -77,20 +77,8 @@ export function ReadyItems({
   onChange?: (next: Readiness) => void;
 }) {
   const [open, setOpen] = useState<'profile' | 'messages' | 'numbers' | null>(null);
-  const go = (item: ReadyItem, left: string | null): ReactNode => {
+  const go = (item: ReadyItem): ReactNode => {
     const label = R.items[item].go;
-    // OK'd, with the playbook's short video still to link: its step in the playbook (decision 69).
-    if (item === 'messages' && left === R.left.messagesVideo)
-      return (
-        <ButtonLink
-          size="sm"
-          variant="secondary"
-          href={outreachHref(workspaceId, { view: 'playbooks' })}
-          data-testid="ready-add-video"
-        >
-          {R.items.messages.goVideo}
-        </ButtonLink>
-      );
     if (item === 'offer')
       return (
         <ButtonLink
@@ -162,7 +150,7 @@ export function ReadyItems({
                     {R.states.waiting}
                   </span>
                 ) : (
-                  go(i.item, i.left)
+                  go(i.item)
                 )}
               </div>
             </li>
@@ -274,6 +262,43 @@ export function ProfileSheet({
   onClose: () => void;
   onChange?: (next: Readiness) => void;
 }) {
+  const P = profileWordsOn(readiness.platform ?? 'facebook');
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent title={P.title} description={P.hint}>
+        <div className="grid gap-4" data-testid="ready-profile-sheet">
+          <ProfileBody
+            workspaceId={workspaceId}
+            readiness={readiness}
+            asks={asks}
+            onChange={onChange}
+          />
+          <div className="flex justify-end">
+            <Button onClick={onClose} data-testid="ready-profile-done">
+              {P.done}
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * The profile's own part, in the sheet on Today and Settings, and inline as a network's setup step (decision 83): the
+ * read and the AI's check, each item to tick, and what to put in.
+ */
+export function ProfileBody({
+  workspaceId,
+  readiness,
+  asks,
+  onChange,
+}: {
+  workspaceId: string;
+  readiness: Readiness;
+  asks: Asks | null;
+  onChange?: (next: Readiness) => void;
+}) {
   const [busy, setBusy] = useState<string | null>(null);
   // The network's own profile: its list, its words, and its asks.
   const platform = readiness.platform ?? 'facebook';
@@ -314,313 +339,296 @@ export function ProfileSheet({
     }
   };
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent title={P.title} description={P.hint}>
-        <div className="grid gap-4" data-testid="ready-profile-sheet">
-          {again ? (
-            <p
-              role="status"
-              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
-            >
-              <span className="font-semibold">{R.left.profileAgain}</span>
-              {readiness.changed.length ? ` ${R.changed(readiness.changed)}` : null}
-            </p>
-          ) : null}
-          {readiness.offer ? (
-            <div className="grid gap-1.5">
-              <div className="flex justify-between text-[13px] text-text-2">
-                <span>{P.offer}</span>
-                <span className="tabular-nums">{P.ticked(ticked, P.items.length)}</span>
-              </div>
-              <p className="text-[13px] font-medium">“{readiness.offer.line}”</p>
-            </div>
-          ) : null}
-          <div className="grid gap-2 rounded-menu bg-card-2 p-3" data-testid="ready-profile-read">
-            <p className="text-[13px] text-text-2">
-              {check
-                ? P.readAt(
-                    new Date(check.at).toLocaleString([], {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    }),
-                  )
-                : P.notRead}
-            </p>
-            {asks ? (
-              <AskButton
-                workspaceId={workspaceId}
-                asks={asks}
-                ask={{ kind: 'profile_read' }}
-                platform={platform}
-                label={check ? P.readAgain : P.read}
-                variant={check ? 'secondary' : 'primary'}
-                testId="ready-profile-read-ask"
-              />
-            ) : null}
+    <>
+      {again ? (
+        <p role="status" className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text">
+          <span className="font-semibold">{R.left.profileAgain}</span>
+          {readiness.changed.length ? ` ${R.changed(readiness.changed)}` : null}
+        </p>
+      ) : null}
+      {readiness.offer ? (
+        <div className="grid gap-1.5">
+          <div className="flex justify-between text-[13px] text-text-2">
+            <span>{P.offer}</span>
+            <span className="tabular-nums">{P.ticked(ticked, P.items.length)}</span>
           </div>
-          <ul className="divide-y divide-border">
-            {P.items.map((words) => {
-              const { item } = words;
-              const checked = on(item);
-              const ai = check?.items[item] ?? null;
-              return (
-                <li key={item} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 py-3.5">
-                  {ai?.ok && !checked ? (
-                    // Right by the AI's check: nothing to tick.
-                    <CheckCircle2
-                      className="mt-0.5 h-5 w-5 text-success"
-                      strokeWidth={1.75}
-                      role="img"
-                      aria-label={P.ok}
-                      data-testid={`ready-profile-${item}-ok`}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={checked}
-                      aria-label={words.label}
-                      disabled={busy !== null}
-                      onClick={() => void tick(item)}
-                      data-testid={`ready-profile-${item}`}
-                      className={cn(
-                        'mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[6px] border-[1.5px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-wait',
-                        checked
-                          ? 'border-accent bg-accent text-white'
-                          : 'border-border-strong bg-card',
-                      )}
-                    >
-                      {checked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
-                    </button>
-                  )}
-                  <div className="min-w-0" data-testid={`ready-profile-ai-${item}`}>
-                    <p className="font-semibold">{words.label}</p>
-                    {ai ? (
-                      <p
-                        className={cn(
-                          'text-[13px]',
-                          ai.ok ? 'text-success-text' : 'text-warning-text',
-                        )}
-                      >
-                        <span className="font-medium">{ai.ok ? P.ok : P.fix}:</span>{' '}
-                        {ai.ok ? ai.why : (ai.fix ?? ai.why)}
-                      </p>
-                    ) : (
-                      <p className="text-[13px] text-text-2">{words.tip}</p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          {check?.bios.length ? (
-            <div className="grid gap-2" data-testid="ready-bios">
-              <div>
-                <p className="font-semibold">{P.bios}</p>
-                <p className="text-[13px] text-text-2">{P.biosHint}</p>
-              </div>
-              {check.bios.map((option, i) => (
-                <div
-                  key={option}
+          <p className="text-[13px] font-medium">“{readiness.offer.line}”</p>
+        </div>
+      ) : null}
+      <div className="grid gap-2 rounded-menu bg-card-2 p-3" data-testid="ready-profile-read">
+        <p className="text-[13px] text-text-2">
+          {check
+            ? P.readAt(
+                new Date(check.at).toLocaleString([], {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                }),
+              )
+            : P.notRead}
+        </p>
+        {asks ? (
+          <AskButton
+            workspaceId={workspaceId}
+            asks={asks}
+            ask={{ kind: 'profile_read' }}
+            platform={platform}
+            label={check ? P.readAgain : P.read}
+            variant={check ? 'secondary' : 'primary'}
+            testId="ready-profile-read-ask"
+          />
+        ) : null}
+      </div>
+      <ul className="divide-y divide-border">
+        {P.items.map((words) => {
+          const { item } = words;
+          const checked = on(item);
+          const ai = check?.items[item] ?? null;
+          return (
+            <li key={item} className="grid grid-cols-[24px_minmax(0,1fr)] gap-3 py-3.5">
+              {ai?.ok && !checked ? (
+                // Right by the AI's check: nothing to tick.
+                <CheckCircle2
+                  className="mt-0.5 h-5 w-5 text-success"
+                  strokeWidth={1.75}
+                  role="img"
+                  aria-label={P.ok}
+                  data-testid={`ready-profile-${item}-ok`}
+                />
+              ) : (
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={checked}
+                  aria-label={words.label}
+                  disabled={busy !== null}
+                  onClick={() => void tick(item)}
+                  data-testid={`ready-profile-${item}`}
                   className={cn(
-                    'grid gap-2 rounded-menu border p-3',
-                    check.aboutDraft && i === picked ? 'border-accent' : 'border-border',
+                    'mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-[6px] border-[1.5px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-wait',
+                    checked ? 'border-accent bg-accent text-white' : 'border-border-strong bg-card',
                   )}
                 >
-                  {check.aboutDraft ? (
-                    // The one Put them all in puts in beside the About.
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={i === picked}
-                      onClick={() => setPicked(i)}
-                      className="text-left text-[14px]"
-                      data-testid={`ready-bio-pick-${i}`}
-                    >
-                      “{option}”
-                    </button>
-                  ) : (
-                    <p className="text-[14px]">“{option}”</p>
-                  )}
-                  {hasPlaceholder(option) ? (
-                    <p className="text-[12.5px] text-warning-text">{P.fillIn}</p>
-                  ) : asks ? (
-                    <AskButton
-                      workspaceId={workspaceId}
-                      asks={asks}
-                      ask={{ kind: 'profile_edit', bio: option }}
-                      platform={platform}
-                      label={P.useBio}
-                      showLine={false}
-                      testId={`ready-bio-use-${i}`}
-                    />
-                  ) : null}
-                </div>
-              ))}
-              {/* How the last one put in went, once: an ask doesn't say which it was. */}
-              {edit && asks ? <AskLine workspaceId={workspaceId} asks={asks} ask={edit} /> : null}
-            </div>
-          ) : null}
-          {check?.coverLine ? (
-            <div className="grid gap-1">
-              <p className="font-semibold">{P.coverLine}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[14px]">“{check.coverLine}”</p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void copyText(check.coverLine!, P.coverCopied)}
-                  data-testid="ready-cover-copy"
-                >
-                  Copy
-                </Button>
-              </div>
-              <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
-            </div>
-          ) : null}
-          {platform === 'alignable' && check ? (
-            <div className="grid gap-1.5" data-testid="ready-recommendations">
-              <div>
-                <p className="font-semibold">{RW.title}</p>
-                <p className="text-[13px] text-text-2" data-testid="ready-recommendations-count">
-                  {RW.count(check.recommendations ?? null)}
-                </p>
-              </div>
-              {check.recommendNote ? (
-                <div className="grid gap-1">
-                  <p className="text-[13px] font-medium">{RW.note}</p>
-                  <p className="whitespace-pre-wrap text-[14px]" data-testid="ready-recommend-note">
-                    {check.recommendNote}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => void copyText(check.recommendNote!, RW.copied)}
-                      data-testid="ready-recommend-copy"
-                    >
-                      Copy
-                    </Button>
-                    <a
-                      href={ASK_RECOMMENDATIONS_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[13px] font-medium text-accent-text hover:underline"
-                    >
-                      {RW.open}
-                    </a>
-                  </div>
-                  <p className="text-[12.5px] text-text-3">{RW.noteHint}</p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {check?.aboutDraft && P.about ? (
-            <div className="grid gap-1.5" data-testid="ready-about">
-              <div>
-                <p className="font-semibold">{P.about}</p>
-                <p className="text-[13px] text-text-2">{P.aboutHint}</p>
-              </div>
-              <textarea
-                value={about}
-                onChange={(e) => setAbout(e.target.value)}
-                rows={8}
-                aria-label={P.about}
-                className="w-full rounded-menu border border-border bg-card p-3 text-[14px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-                data-testid="ready-about-text"
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p
-                  className={cn('text-[12.5px]', aboutWhy ? 'text-warning-text' : 'text-text-3')}
-                  data-testid="ready-about-why"
-                >
-                  {aboutWhy ?? P.length(about.trim().length, ABOUT_MOST)}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => void copyText(about, P.aboutCopied ?? 'Copied.')}
-                    data-testid="ready-about-copy"
+                  {checked ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> : null}
+                </button>
+              )}
+              <div className="min-w-0" data-testid={`ready-profile-ai-${item}`}>
+                <p className="font-semibold">{words.label}</p>
+                {ai ? (
+                  <p
+                    className={cn('text-[13px]', ai.ok ? 'text-success-text' : 'text-warning-text')}
                   >
-                    Copy
-                  </Button>
-                  {asks ? (
-                    <AskButton
-                      workspaceId={workspaceId}
-                      asks={asks}
-                      ask={{ kind: 'profile_edit', about: about.trim() }}
-                      platform={platform}
-                      label={P.useBio}
-                      showLine={false}
-                      disabled={aboutWhy !== null || !about.trim()}
-                      testId="ready-about-use"
-                    />
-                  ) : null}
-                </div>
+                    <span className="font-medium">{ai.ok ? P.ok : P.fix}:</span>{' '}
+                    {ai.ok ? ai.why : (ai.fix ?? ai.why)}
+                  </p>
+                ) : (
+                  <p className="text-[13px] text-text-2">{words.tip}</p>
+                )}
               </div>
-              {asks && bio && !hasPlaceholder(bio) ? (
-                // Both in one press: the headline picked above, and this About (decision 80).
-                <div className="grid gap-1 rounded-menu bg-card-2 p-3" data-testid="ready-all">
-                  <p className="text-[13px] text-text-2">{P.useAllHint}</p>
-                  <div>
-                    <AskButton
-                      workspaceId={workspaceId}
-                      asks={asks}
-                      ask={{ kind: 'profile_edit', bio, about: about.trim() }}
-                      platform={platform}
-                      label={P.useAll}
-                      variant="primary"
-                      showLine={false}
-                      disabled={aboutWhy !== null || !about.trim()}
-                      testId="ready-all-use"
-                    />
-                  </div>
-                </div>
-              ) : null}
-              {/* With no bios (Alignable's), how the last one put in went shows here: its code's box among it. */}
-              {!check.bios.length && edit && asks ? (
-                <AskLine workspaceId={workspaceId} asks={asks} ask={edit} />
-              ) : null}
-            </div>
-          ) : null}
-          {check?.nameDraft ? (
-            <div className="grid gap-1" data-testid="ready-name">
-              <p className="font-semibold">{P.name}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[14px]">“{check.nameDraft}”</p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void copyText(check.nameDraft!, P.nameCopied)}
-                  data-testid="ready-name-copy"
+            </li>
+          );
+        })}
+      </ul>
+      {check?.bios.length ? (
+        <div className="grid gap-2" data-testid="ready-bios">
+          <div>
+            <p className="font-semibold">{P.bios}</p>
+            <p className="text-[13px] text-text-2">{P.biosHint}</p>
+          </div>
+          {check.bios.map((option, i) => (
+            <div
+              key={option}
+              className={cn(
+                'grid gap-2 rounded-menu border p-3',
+                check.aboutDraft && i === picked ? 'border-accent' : 'border-border',
+              )}
+            >
+              {check.aboutDraft ? (
+                // The one Put them all in puts in beside the About.
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={i === picked}
+                  onClick={() => setPicked(i)}
+                  className="text-left text-[14px]"
+                  data-testid={`ready-bio-pick-${i}`}
                 >
-                  Copy
-                </Button>
-              </div>
-              <p className="text-[12.5px] text-text-3">{P.nameHint}</p>
+                  “{option}”
+                </button>
+              ) : (
+                <p className="text-[14px]">“{option}”</p>
+              )}
+              {hasPlaceholder(option) ? (
+                <p className="text-[12.5px] text-warning-text">{P.fillIn}</p>
+              ) : asks ? (
+                <AskButton
+                  workspaceId={workspaceId}
+                  asks={asks}
+                  ask={{ kind: 'profile_edit', bio: option }}
+                  platform={platform}
+                  label={P.useBio}
+                  showLine={false}
+                  testId={`ready-bio-use-${i}`}
+                />
+              ) : null}
             </div>
-          ) : null}
-          {check?.feature.length ? (
-            <div className="grid gap-1">
-              <p className="font-semibold">{P.feature}</p>
-              <ul className="list-disc pl-5 text-[13.5px]">
-                {check.feature.map((f) => (
-                  <li key={f}>{f}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          <div className="flex justify-end">
-            <Button onClick={onClose} data-testid="ready-profile-done">
-              {P.done}
+          ))}
+          {/* How the last one put in went, once: an ask doesn't say which it was. */}
+          {edit && asks ? <AskLine workspaceId={workspaceId} asks={asks} ask={edit} /> : null}
+        </div>
+      ) : null}
+      {check?.coverLine ? (
+        <div className="grid gap-1">
+          <p className="font-semibold">{P.coverLine}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[14px]">“{check.coverLine}”</p>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void copyText(check.coverLine!, P.coverCopied)}
+              data-testid="ready-cover-copy"
+            >
+              Copy
             </Button>
           </div>
+          <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
         </div>
-      </SheetContent>
-    </Sheet>
+      ) : null}
+      {platform === 'alignable' && check ? (
+        <div className="grid gap-1.5" data-testid="ready-recommendations">
+          <div>
+            <p className="font-semibold">{RW.title}</p>
+            <p className="text-[13px] text-text-2" data-testid="ready-recommendations-count">
+              {RW.count(check.recommendations ?? null)}
+            </p>
+          </div>
+          {check.recommendNote ? (
+            <div className="grid gap-1">
+              <p className="text-[13px] font-medium">{RW.note}</p>
+              <p className="whitespace-pre-wrap text-[14px]" data-testid="ready-recommend-note">
+                {check.recommendNote}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void copyText(check.recommendNote!, RW.copied)}
+                  data-testid="ready-recommend-copy"
+                >
+                  Copy
+                </Button>
+                <a
+                  href={ASK_RECOMMENDATIONS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[13px] font-medium text-accent-text hover:underline"
+                >
+                  {RW.open}
+                </a>
+              </div>
+              <p className="text-[12.5px] text-text-3">{RW.noteHint}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {check?.aboutDraft && P.about ? (
+        <div className="grid gap-1.5" data-testid="ready-about">
+          <div>
+            <p className="font-semibold">{P.about}</p>
+            <p className="text-[13px] text-text-2">{P.aboutHint}</p>
+          </div>
+          <textarea
+            value={about}
+            onChange={(e) => setAbout(e.target.value)}
+            rows={8}
+            aria-label={P.about}
+            className="w-full rounded-menu border border-border bg-card p-3 text-[14px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+            data-testid="ready-about-text"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p
+              className={cn('text-[12.5px]', aboutWhy ? 'text-warning-text' : 'text-text-3')}
+              data-testid="ready-about-why"
+            >
+              {aboutWhy ?? P.length(about.trim().length, ABOUT_MOST)}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void copyText(about, P.aboutCopied ?? 'Copied.')}
+                data-testid="ready-about-copy"
+              >
+                Copy
+              </Button>
+              {asks ? (
+                <AskButton
+                  workspaceId={workspaceId}
+                  asks={asks}
+                  ask={{ kind: 'profile_edit', about: about.trim() }}
+                  platform={platform}
+                  label={P.useBio}
+                  showLine={false}
+                  disabled={aboutWhy !== null || !about.trim()}
+                  testId="ready-about-use"
+                />
+              ) : null}
+            </div>
+          </div>
+          {asks && bio && !hasPlaceholder(bio) ? (
+            // Both in one press: the headline picked above, and this About (decision 80).
+            <div className="grid gap-1 rounded-menu bg-card-2 p-3" data-testid="ready-all">
+              <p className="text-[13px] text-text-2">{P.useAllHint}</p>
+              <div>
+                <AskButton
+                  workspaceId={workspaceId}
+                  asks={asks}
+                  ask={{ kind: 'profile_edit', bio, about: about.trim() }}
+                  platform={platform}
+                  label={P.useAll}
+                  variant="primary"
+                  showLine={false}
+                  disabled={aboutWhy !== null || !about.trim()}
+                  testId="ready-all-use"
+                />
+              </div>
+            </div>
+          ) : null}
+          {/* With no bios (Alignable's), how the last one put in went shows here: its code's box among it. */}
+          {!check.bios.length && edit && asks ? (
+            <AskLine workspaceId={workspaceId} asks={asks} ask={edit} />
+          ) : null}
+        </div>
+      ) : null}
+      {check?.nameDraft ? (
+        <div className="grid gap-1" data-testid="ready-name">
+          <p className="font-semibold">{P.name}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[14px]">“{check.nameDraft}”</p>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void copyText(check.nameDraft!, P.nameCopied)}
+              data-testid="ready-name-copy"
+            >
+              Copy
+            </Button>
+          </div>
+          <p className="text-[12.5px] text-text-3">{P.nameHint}</p>
+        </div>
+      ) : null}
+      {check?.feature.length ? (
+        <div className="grid gap-1">
+          <p className="font-semibold">{P.feature}</p>
+          <ul className="list-disc pl-5 text-[13.5px]">
+            {check.feature.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -641,6 +649,38 @@ function MessagesSheet({
   open: boolean;
   onClose: () => void;
   onChange?: (next: Readiness) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent title={R.messages.title} description={R.messages.hint}>
+        <div className="grid gap-4" data-testid="ready-messages-sheet">
+          <MessagesBody
+            workspaceId={workspaceId}
+            readiness={readiness}
+            onChange={onChange}
+            onDone={onClose}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** The messages' own part, in the sheet and inline as the setup's step: the samples to read, and They read right. */
+export function MessagesBody({
+  workspaceId,
+  readiness,
+  onChange,
+  onDone,
+  okLabel,
+}: {
+  workspaceId: string;
+  readiness: Readiness;
+  onChange?: (next: Readiness) => void;
+  /** After They read right: the sheet closes, the setup moves on. */
+  onDone?: () => void;
+  /** The OK's own words, where the setup says it its way. */
+  okLabel?: string;
 }) {
   const M = R.messages;
   const [samples, setSamples] = useState<MessageSamples | null>(readiness.messages.samples);
@@ -675,7 +715,7 @@ function MessagesSheet({
       );
       toast.success(M.okd);
       onChange?.(next);
-      onClose();
+      onDone?.();
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -692,112 +732,102 @@ function MessagesSheet({
     </p>
   );
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent title={M.title} description={M.hint}>
-        <div className="grid gap-4" data-testid="ready-messages-sheet">
-          {samples ? (
-            <p className="text-[12.5px] text-text-3">
-              {M.about(samples.playbookName, samples.version)}
-            </p>
+    <>
+      {samples ? (
+        <p className="text-[12.5px] text-text-3">
+          {M.about(samples.playbookName, samples.version)}
+        </p>
+      ) : null}
+      {again ? (
+        <p role="status" className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text">
+          <span className="font-semibold">{R.left.messagesAgain}</span>
+          {readiness.changed.length ? ` ${R.changed(readiness.changed)}` : null}
+        </p>
+      ) : older ? (
+        <p role="status" className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text">
+          {M.older}
+        </p>
+      ) : null}
+      {busy === 'write' ? (
+        <p className="flex items-center gap-2 text-[13px] text-text-2" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+          {M.writing}
+        </p>
+      ) : null}
+      {samples ? (
+        <div className="divide-y divide-border" data-testid="ready-messages-samples">
+          <section className="grid gap-2 pb-4">
+            <h3 className="font-semibold">{M.first}</h3>
+            {samples.first.map((t) => bubble(t, t))}
+          </section>
+          <section className="grid gap-2 py-4">
+            <h3 className="font-semibold">{M.video}</h3>
+            {samples.video ? (
+              bubble(samples.video)
+            ) : (
+              <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.noVideo}</p>
+            )}
+          </section>
+          {samples.link ? (
+            <section className="grid gap-2 py-4">
+              <h3 className="font-semibold">{M.link}</h3>
+              {bubble(samples.link)}
+            </section>
           ) : null}
-          {again ? (
-            <p
-              role="status"
-              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
-            >
-              <span className="font-semibold">{R.left.messagesAgain}</span>
-              {readiness.changed.length ? ` ${R.changed(readiness.changed)}` : null}
-            </p>
-          ) : older ? (
-            <p
-              role="status"
-              className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text"
-            >
-              {M.older}
-            </p>
+          {samples.followUps.length ? (
+            <section className="grid gap-2 py-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="font-semibold">{M.followUps(samples.followUps.length)}</h3>
+                <Link
+                  href={outreachHref(workspaceId, { view: 'playbooks' })}
+                  className="text-[13px] font-medium text-accent-text hover:underline"
+                >
+                  {M.changeHowMany}
+                </Link>
+              </div>
+              {samples.followUps.map((t, i) => (
+                <div key={t} className="grid gap-1">
+                  <span className="text-[11.5px] tabular-nums text-text-3">
+                    {M.later(samples.followUpGaps[i] ?? 1)}
+                  </span>
+                  {bubble(t)}
+                </div>
+              ))}
+            </section>
           ) : null}
-          {busy === 'write' ? (
-            <p className="flex items-center gap-2 text-[13px] text-text-2" role="status">
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
-              {M.writing}
-            </p>
+          {samples.checkIn ? (
+            <section className="grid gap-2 pt-4">
+              <h3 className="font-semibold">{M.checkIn}</h3>
+              {bubble(samples.checkIn)}
+            </section>
           ) : null}
-          {samples ? (
-            <div className="divide-y divide-border" data-testid="ready-messages-samples">
-              <section className="grid gap-2 pb-4">
-                <h3 className="font-semibold">{M.first}</h3>
-                {samples.first.map((t) => bubble(t, t))}
-              </section>
-              <section className="grid gap-2 py-4">
-                <h3 className="font-semibold">{M.video}</h3>
-                {samples.video ? (
-                  bubble(samples.video)
-                ) : (
-                  <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.noVideo}</p>
-                )}
-              </section>
-              {samples.link ? (
-                <section className="grid gap-2 py-4">
-                  <h3 className="font-semibold">{M.link}</h3>
-                  {bubble(samples.link)}
-                </section>
-              ) : null}
-              {samples.followUps.length ? (
-                <section className="grid gap-2 py-4">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 className="font-semibold">{M.followUps(samples.followUps.length)}</h3>
-                    <Link
-                      href={outreachHref(workspaceId, { view: 'playbooks' })}
-                      className="text-[13px] font-medium text-accent-text hover:underline"
-                    >
-                      {M.changeHowMany}
-                    </Link>
-                  </div>
-                  {samples.followUps.map((t, i) => (
-                    <div key={t} className="grid gap-1">
-                      <span className="text-[11.5px] tabular-nums text-text-3">
-                        {M.later(samples.followUpGaps[i] ?? 1)}
-                      </span>
-                      {bubble(t)}
-                    </div>
-                  ))}
-                </section>
-              ) : null}
-              {samples.checkIn ? (
-                <section className="grid gap-2 pt-4">
-                  <h3 className="font-semibold">{M.checkIn}</h3>
-                  {bubble(samples.checkIn)}
-                </section>
-              ) : null}
-            </div>
-          ) : busy !== 'write' ? (
-            <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.none}</p>
-          ) : null}
-          <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
-            <Button
-              variant={samples ? 'secondary' : 'primary'}
-              onClick={() => void write()}
-              loading={busy === 'write'}
-              disabled={busy !== null || live === null}
-              data-testid="ready-messages-write"
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {samples ? M.again : M.write}
-            </Button>
-            {samples && !older ? (
-              <Button
-                onClick={() => void ok()}
-                loading={busy === 'ok'}
-                disabled={busy !== null}
-                data-testid="ready-messages-ok"
-              >
-                {M.ok}
-              </Button>
-            ) : null}
-          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      ) : busy !== 'write' ? (
+        <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.none}</p>
+      ) : null}
+      <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
+        <Button
+          variant={samples ? 'secondary' : 'primary'}
+          onClick={() => void write()}
+          loading={busy === 'write'}
+          disabled={busy !== null || live === null}
+          data-testid="ready-messages-write"
+        >
+          <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {samples ? M.again : M.write}
+        </Button>
+        {samples && !older ? (
+          <Button
+            onClick={() => void ok()}
+            loading={busy === 'ok'}
+            disabled={busy !== null}
+            data-testid="ready-messages-ok"
+          >
+            {okLabel ?? M.ok}
+          </Button>
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -813,6 +843,41 @@ function NumbersSheet({
   open: boolean;
   onClose: () => void;
   onChange?: (next: Readiness) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent title={R.numbers.title} description={R.numbers.hint}>
+        <div className="grid gap-6" data-testid="ready-numbers-sheet">
+          <NumbersBody
+            workspaceId={workspaceId}
+            readiness={readiness}
+            onChange={onChange}
+            onDone={onClose}
+            onCancel={onClose}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** The goal's own part, in the sheet and inline as the setup's step: calls a month, the days, and the math. */
+export function NumbersBody({
+  workspaceId,
+  readiness,
+  onChange,
+  onDone,
+  onCancel,
+  saveLabel,
+}: {
+  workspaceId: string;
+  readiness: Readiness;
+  onChange?: (next: Readiness) => void;
+  /** After it's saved: the sheet closes, the setup moves on. */
+  onDone?: () => void;
+  /** The sheet's Cancel; the setup has its own Back. */
+  onCancel?: () => void;
+  saveLabel?: string;
 }) {
   const [goal, setGoal] = useState(readiness.numbers.goal ?? 8);
   const [days, setDays] = useState<number[]>(readiness.numbers.days);
@@ -832,7 +897,7 @@ function NumbersSheet({
       );
       toast.success(R.numbers.saved);
       onChange?.(next);
-      onClose();
+      onDone?.();
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -840,100 +905,98 @@ function NumbersSheet({
     }
   };
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent title={R.numbers.title} description={R.numbers.hint}>
-        <div className="grid gap-6" data-testid="ready-numbers-sheet">
-          <div className="grid gap-2">
-            <span className="text-[13px] font-medium" id="ready-goal">
-              {R.numbers.goal}
-            </span>
-            <Stepper
-              value={goal}
-              onChange={setGoal}
-              min={CALLS_GOAL.min}
-              max={CALLS_GOAL.max}
-              label={R.numbers.goal}
-              testId="ready-goal"
-            />
-          </div>
-          <div className="grid gap-2">
-            <span className="text-[13px] font-medium" id="ready-days">
-              {R.numbers.days}
-            </span>
-            <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="ready-days">
-              {WEEK.map((d) => {
-                const picked = days.includes(d);
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    aria-pressed={picked}
-                    onClick={() => toggle(d)}
-                    data-testid={`ready-day-${d}`}
-                    className={cn(
-                      'h-9 min-w-[52px] rounded-full border px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
-                      picked
-                        ? 'border-accent bg-accent-soft text-accent-text'
-                        : 'border-border-strong bg-card text-text-2 hover:bg-card-2',
-                    )}
-                  >
-                    {WEEKDAY_WORDS[d]}
-                  </button>
-                );
-              })}
-            </div>
-            {days.includes(0) ? (
-              <p className="text-[12.5px] text-warning-text">{R.numbers.sunday}</p>
-            ) : null}
-          </div>
-          <div className="grid gap-3" data-testid="ready-math">
-            <span className="text-[13px] font-medium">{R.numbers.takes}</span>
-            <div className="flex flex-wrap gap-6">
-              <div>
-                <p className="text-[28px] font-semibold tabular-nums tracking-tight">
-                  {m.messagesADay.low} to {m.messagesADay.high}
-                </p>
-                <p className="text-[13px] text-text-2">{R.numbers.messagesADay}</p>
-              </div>
-              <div>
-                <p className="text-[28px] font-semibold tabular-nums tracking-tight">
-                  {Math.round(m.yesesADay * 10) / 10}
-                </p>
-                <p className="text-[13px] text-text-2">{R.numbers.yesesADay}</p>
-              </div>
-            </div>
-            <ol className="grid list-decimal gap-1.5 rounded-menu bg-card-2 py-3 pl-8 pr-4 text-[13px] tabular-nums">
-              {numbersLines(goal, m).map((l) => (
-                <li key={l}>{l}</li>
-              ))}
-            </ol>
-            <p
-              role="status"
-              data-testid="ready-verdict"
-              data-fits={m.fits}
-              className={cn(
-                'rounded-menu p-3 text-[13px]',
-                m.fits === 'yes'
-                  ? 'bg-success-soft text-success-text'
-                  : 'bg-warning-soft text-warning-text',
-              )}
-            >
-              {numbersVerdict(m)}
+    <>
+      <div className="grid gap-2">
+        <span className="text-[13px] font-medium" id="ready-goal">
+          {R.numbers.goal}
+        </span>
+        <Stepper
+          value={goal}
+          onChange={setGoal}
+          min={CALLS_GOAL.min}
+          max={CALLS_GOAL.max}
+          label={R.numbers.goal}
+          testId="ready-goal"
+        />
+      </div>
+      <div className="grid gap-2">
+        <span className="text-[13px] font-medium" id="ready-days">
+          {R.numbers.days}
+        </span>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="ready-days">
+          {WEEK.map((d) => {
+            const picked = days.includes(d);
+            return (
+              <button
+                key={d}
+                type="button"
+                aria-pressed={picked}
+                onClick={() => toggle(d)}
+                data-testid={`ready-day-${d}`}
+                className={cn(
+                  'h-9 min-w-[52px] rounded-full border px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
+                  picked
+                    ? 'border-accent bg-accent-soft text-accent-text'
+                    : 'border-border-strong bg-card text-text-2 hover:bg-card-2',
+                )}
+              >
+                {WEEKDAY_WORDS[d]}
+              </button>
+            );
+          })}
+        </div>
+        {days.includes(0) ? (
+          <p className="text-[12.5px] text-warning-text">{R.numbers.sunday}</p>
+        ) : null}
+      </div>
+      <div className="grid gap-3" data-testid="ready-math">
+        <span className="text-[13px] font-medium">{R.numbers.takes}</span>
+        <div className="flex flex-wrap gap-6">
+          <div>
+            <p className="text-[28px] font-semibold tabular-nums tracking-tight">
+              {m.messagesADay.low} to {m.messagesADay.high}
             </p>
-            <p className="text-[12px] text-text-3">
-              {R.numbers.rates} {R.numbers.notMessages}
-            </p>
+            <p className="text-[13px] text-text-2">{R.numbers.messagesADay}</p>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={() => void save()} loading={busy} data-testid="ready-numbers-save">
-              {R.numbers.save}
-            </Button>
+          <div>
+            <p className="text-[28px] font-semibold tabular-nums tracking-tight">
+              {Math.round(m.yesesADay * 10) / 10}
+            </p>
+            <p className="text-[13px] text-text-2">{R.numbers.yesesADay}</p>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+        <ol className="grid list-decimal gap-1.5 rounded-menu bg-card-2 py-3 pl-8 pr-4 text-[13px] tabular-nums">
+          {numbersLines(goal, m).map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ol>
+        <p
+          role="status"
+          data-testid="ready-verdict"
+          data-fits={m.fits}
+          className={cn(
+            'rounded-menu p-3 text-[13px]',
+            m.fits === 'yes'
+              ? 'bg-success-soft text-success-text'
+              : 'bg-warning-soft text-warning-text',
+          )}
+        >
+          {numbersVerdict(m)}
+        </p>
+        <p className="text-[12px] text-text-3">
+          {R.numbers.rates} {R.numbers.notMessages}
+        </p>
+      </div>
+      <div className="flex justify-end gap-2">
+        {onCancel ? (
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        ) : null}
+        <Button onClick={() => void save()} loading={busy} data-testid="ready-numbers-save">
+          {saveLabel ?? R.numbers.save}
+        </Button>
+      </div>
+    </>
   );
 }
