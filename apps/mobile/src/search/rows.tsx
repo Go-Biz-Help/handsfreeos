@@ -1,5 +1,6 @@
 import {
   badgeLabel,
+  badgeTone,
   hitLines,
   marksIn,
   SEARCH_WORDS,
@@ -123,6 +124,7 @@ export function SearchRow({
   now,
   timeZone,
   onOpen,
+  page,
   testID,
 }: {
   hit: SearchHit;
@@ -133,19 +135,27 @@ export function SearchRow({
   timeZone: string;
   /** Before the row opens (to keep the search among the recent ones). */
   onOpen?: () => void;
+  /** On one kind's own page, where same-named contacts are told apart by where they are (board 5b). */
+  page?: boolean;
   testID?: string;
 }) {
   const probes = React.useMemo(() => searchProbes(q), [q]);
   const web = opensOnWeb(hit, workspaceId);
-  const lines = settingLines(hit, web) ?? hitLines(hit, { now, timeZone });
+  const lines = settingLines(hit, web) ?? hitLines(hit, { now, timeZone, page });
   const why = whyLabel(hit.why, hit.kind);
   const snippet = snippetOf(hit);
-  const badges = hit.badges.map(badgeLabel).filter((b): b is string => !!b);
+  // By its key, as the web draws it: its words may change, its tone doesn't.
+  const badges = hit.badges.flatMap((key) => {
+    const label = badgeLabel(key);
+    return label ? [{ key, label }] : [];
+  });
   const person = hit.kind === 'contacts' || (hit.kind === 'close' && !!hit.contact);
   return (
     <Pressable
       role={web ? 'link' : 'button'}
-      accessibilityLabel={[hit.title, ...badges, lines.line, why].filter(Boolean).join('. ')}
+      accessibilityLabel={[hit.title, ...badges.map((b) => b.label), lines.line, why]
+        .filter(Boolean)
+        .join('. ')}
       onPress={() => {
         onOpen?.();
         openHit(hit, workspaceId);
@@ -163,8 +173,8 @@ export function SearchRow({
             numberOfLines={1}
           />
           {badges.map((b) => (
-            <Badge key={b} variant={b === 'Client' ? 'ok' : b === 'Lead' ? 'accent' : 'gray'}>
-              {b}
+            <Badge key={b.key} variant={badgeTone(b.key)}>
+              {b.label}
             </Badge>
           ))}
         </View>

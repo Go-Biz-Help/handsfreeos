@@ -8,7 +8,7 @@ import { fmtDateShort, fmtMonthDay, fmtRange, localDayOf } from '../calendar/whe
 import { lastContactWords } from '../crm/pipeline-words';
 import { dueWording } from '../money/words';
 import type { SearchHit } from '../schemas/search';
-import { filePlace } from './words';
+import { filePlace, SEARCH_WORDS } from './words';
 
 export interface HitLines {
   /** The grey line under the title. */
@@ -41,6 +41,39 @@ export const CONTACT_LINES = {
  */
 export const NOTE_LINE_RULE = { kind: 'note', bareKinds: ['call', 'visit'] } as const;
 
+/** How much of a note's start its title and opening are worked out from, in characters (the server's `substr`). */
+export const NOTE_START = 200;
+/** A note's title: its first line, cut to about this. */
+const NOTE_TITLE = 80;
+/** How much of a note found by who it's on shows, from its start (board 2's "Gate code 4471, dog in the yard"). */
+const NOTE_OPENING = 120;
+
+/** The first `n` characters of a text, counted as Postgres counts them (one an emoji), as `substr` cuts it. */
+function firstChars(text: string, n: number): string {
+  let at = 0;
+  for (let i = 0; i < n && at < text.length; i++) at += text.codePointAt(at)! > 0xffff ? 2 : 1;
+  return text.slice(0, at);
+}
+
+/** The first `n` characters of a text, its spaces made one, with "…" when it was cut. */
+function cut(text: string, n: number): string {
+  const whole = text.replace(/\s+/g, ' ').trim();
+  return whole.length > n ? `${whole.slice(0, n).trimEnd()}…` : whole;
+}
+
+/**
+ * A note's title (its first line, or "Note" when it has no words) and its opening, from its first `NOTE_START`
+ * characters: one rule for the server's searcher, which reads only that much, and the phone's own search, which reads
+ * the whole body, so a row reads the same when the server's answer takes the phone's place.
+ */
+export function noteLines(body: string | null | undefined): { title: string; opening: string } {
+  const start = firstChars(body ?? '', NOTE_START);
+  return {
+    title: cut(start.split('\n')[0] ?? '', NOTE_TITLE) || SEARCH_WORDS.untitledNote,
+    opening: cut(start, NOTE_OPENING),
+  };
+}
+
 /** Whether a timeline line of this kind and subtype is a note. */
 export function isNoteLine(kind: string | null, subtype: string | null): boolean {
   return (
@@ -61,6 +94,11 @@ export function countsAsContact(kind: string, subtype: string | null): boolean {
 interface When {
   readonly now?: number;
   readonly timeZone: string;
+  /**
+   * A kind's own page, where same-named contacts need telling apart: a contact's line is phone · where · last contact
+   * (board 5b), its email only when it has no phone.
+   */
+  readonly page?: boolean;
 }
 
 const DAY_MS = 86_400_000;
@@ -168,7 +206,10 @@ export function hitLines(hit: SearchHit, w: When): HitLines {
   switch (hit.kind) {
     case 'contacts':
       return {
-        line: joined([f.phone, f.email, f.lastContact ? lastContactLine(f.lastContact, w) : null]),
+        line: joined([
+          ...(w.page ? [f.phone ?? f.email, f.where] : [f.phone, f.email]),
+          f.lastContact ? lastContactLine(f.lastContact, w) : null,
+        ]),
         chip: null,
         under: f.openLead
           ? joined([f.openLead.title, f.openLead.stage])
@@ -276,7 +317,8 @@ export function hitLines(hit: SearchHit, w: When): HitLines {
       };
     case 'settings':
       return {
-        line: joined([f.on ? `Settings › ${f.on}` : 'Settings', f.status]),
+        // An add-on's own carry their place as the subtitle: never "Settings ›".
+        line: joined([hit.subtitle ?? (f.on ? `Settings › ${f.on}` : 'Settings'), f.status]),
         chip: null,
         under: null,
       };

@@ -533,6 +533,18 @@ test('what results open onto: a message in its thread, a task, a form’s answer
   );
   const fileId = new URL(page.url()).searchParams.get('file')!;
   await expect(page.getByTestId(`file-tile-${fileId}`)).toHaveClass(/ring-2/);
+  // A result for the page already open lands on its own tab: the note while Files shows, the file while the
+  // Timeline does.
+  await page.evaluate((id) => window.history.pushState(null, '', `?activity=${id}`), activityId);
+  await expect(page.getByTestId('opened-activity')).toHaveText(
+    'Slab leak likely, under the kitchen',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page).toHaveURL(new RegExp(`/customers/people/${kim.personId}$`));
+  await expect(page.getByTestId('tab-timeline')).toHaveAttribute('data-state', 'active');
+  await page.evaluate((id) => window.history.pushState(null, '', `?tab=files&file=${id}`), fileId);
+  await expect(page.getByTestId('tab-files')).toHaveAttribute('data-state', 'active');
+  await expect(page.getByTestId(`file-tile-${fileId}`)).toHaveClass(/ring-2/);
 
   // Text on a contact opens the record's text sheet.
   await page.goto(`/app/w/${workspaceId}/customers/people/${kim.personId}?compose=sms`);

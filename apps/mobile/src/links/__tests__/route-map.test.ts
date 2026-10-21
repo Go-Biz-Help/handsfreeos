@@ -2,6 +2,8 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { searchHref, type SearchRecordRef } from '@hfos/core';
+
 import { decideLink, NOT_YOURS } from '../decide';
 import { phonePathOf, ROUTES, routeFor, targetOfLink, webPathOf } from '../route-map';
 
@@ -183,11 +185,18 @@ describe('the route map', () => {
       href: `/app/w/${WS}/forms/${ID}/answers/${OTHER}`,
       params: { formId: ID, responseId: OTHER },
     });
-    // A business's own kinds of records, a file on a record and a setting have no screen here: the web, whole.
+    // A business's own kinds of records, a file on a record and a setting have no screen here: the web, whole. The
+    // file links are core's own, on a customer, a company and a lead.
+    const base = `/app/w/${WS}/`;
+    const fileOn = (on: SearchRecordRef) =>
+      searchHref(WS, { type: 'file', id: OTHER, on, page: 3 }).slice(base.length);
     for (const page of [
       `customers/records/${ID}`,
       `customers/records/${ID}?activity=${OTHER}`,
-      `customers/people/${ID}/files`,
+      fileOn({ type: 'person', id: ID }),
+      fileOn({ type: 'company', id: ID }),
+      fileOn({ type: 'lead', id: ID }),
+      fileOn({ type: 'custom_record', id: ID }),
       'settings/deleted-bin?item=abc',
       'settings/texting#quiet-hours',
     ])
@@ -196,6 +205,10 @@ describe('the route map', () => {
         path: `/app/w/${WS}/${page}`,
         businessId: WS,
       });
+    // The money tab a customer's link names still opens their screen here.
+    expect(routeFor(`/app/w/${WS}/customers/people/${ID}?tab=money`)).toMatchObject({
+      kind: 'screen',
+    });
   });
 
   it('opens every page a notification links to', () => {

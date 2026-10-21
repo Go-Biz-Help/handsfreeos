@@ -1,10 +1,8 @@
 import {
   copyKindsFor,
   copyWantsClose,
-  managesAnAgency,
   searchCopy,
   searchProbes,
-  searchSettings,
   settingsSearchGroup,
   SEARCH_KIND_LABELS,
   type SearchEverythingOutput,
@@ -13,18 +11,16 @@ import {
   type SearchKindOutput,
   type SearchSource,
 } from '@hfos/core';
-import { usePowerSync, useQuery } from '@powersync/react-native';
+import { usePowerSync } from '@powersync/react-native';
 import * as React from 'react';
 
 import { PHONE_ADDONS } from '@/addons/registry';
-import { useKeptStaff } from '@/admin/staff';
 import { useSettled } from '@/components/admin/bits';
 import { useBusiness } from '@/components/shell/business-context';
 import { api, ApiError, errorMessage, unwrap } from '@/lib/api';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
-import { settingsOf } from '@/settings/settings-search';
-import { useKeepsDocuments } from '@/sync/document-keeper';
+import { usePhoneSettings } from '@/settings/settings-search';
 
 import { readCloseNames, readCopy, type CopyAsk, type CopyDb } from './copy-sql';
 
@@ -60,21 +56,28 @@ export function knownKind(kind: string): boolean {
 
 /**
  * Whether the phone searches a kind in its own copy with no signal: core's kinds it keeps that this person may search,
- * and an add-on's that searches its part of the copy. The rest (Messages, Money, Files, Knowledge, a business's own
- * kinds) wait for signal.
+ * and the kinds an add-on's own search answers from its part of the copy (Real Estate's Deals). The rest (Messages,
+ * Money, Files, Knowledge, a business's own kinds, Real Estate's Listings, Homes and Properties) wait for signal.
  */
 export function searchedOffline(kind: string, permissions: readonly string[]): boolean {
   return (
     copyKindsFor(permissions, [kind]).length > 0 ||
     PHONE_ADDONS.some(
-      (a) => !!a.search && permissions.includes(a.permission) && kind.startsWith(`${a.addonId}.`),
+      (a) => !!a.search && permissions.includes(a.permission) && !!a.searchKinds?.includes(kind),
     )
   );
 }
 
+/**
+ * Whether the phone can draw a group: a kind it knows, or one that only says it didn't answer, in its own words (an
+ * add-on that couldn't be searched is named by its id, `realestate`, with its name as the label).
+ */
+const drawable = (g: SearchGroup): boolean =>
+  knownKind(g.kind) || (!!g.unavailable && g.items.length === 0 && !!g.label);
+
 /** An answer without the groups this build doesn't know (an older build skips a kind it doesn't know). */
 function knownOnly(a: SearchEverythingOutput): SearchEverythingOutput {
-  const groups = a.groups.filter((g) => knownKind(g.kind));
+  const groups = a.groups.filter(drawable);
   if (groups.length === a.groups.length) return a;
   return {
     ...a,
@@ -86,30 +89,18 @@ function knownOnly(a: SearchEverythingOutput): SearchEverythingOutput {
 
 /** The main search's Settings group, worked out on the phone from core's catalogue, as Settings search does. */
 export function useSettingsGroup(q: string): SearchGroup | null {
-  const { business, me, userId } = useBusiness();
-  const { permissions } = useGrants();
-  const staff = useKeptStaff(userId) !== null;
-  const agency = managesAnAgency(me);
-  const keepsDocuments = useKeepsDocuments(business.id);
-  const { data } = useQuery<{ settings: string | null }>(
-    'SELECT settings FROM workspaces WHERE id = ?',
-    [business.id],
+  const { business } = useBusiness();
+  const { hits, settings } = usePhoneSettings(q);
+  return React.useMemo(
+    () =>
+      searchProbes(q).tooShort
+        ? null
+        : settingsSearchGroup(business.id, hits, {
+            settings,
+            timeZone: business.timezone || 'UTC',
+          }),
+    [q, hits, settings, business.id, business.timezone],
   );
-  const raw = data[0]?.settings ?? null;
-  return React.useMemo(() => {
-    if (searchProbes(q).tooShort) return null;
-    const hits = searchSettings(q, {
-      permissions: permissions ?? [],
-      addons: null,
-      staff,
-      agency,
-      surface: 'phone',
-    }).filter((h) => keepsDocuments || h.entry.key !== 'phone.documents_mobile_data');
-    return settingsSearchGroup(business.id, hits, {
-      settings: settingsOf(raw),
-      timeZone: business.timezone || 'UTC',
-    });
-  }, [q, permissions, staff, agency, keepsDocuments, raw, business.id, business.timezone]);
 }
 
 /** What a search reads from the copy, for this person and these chips. */
@@ -146,6 +137,11 @@ async function answerFromCopy(
 /** A request that failed for want of signal (a fetch's TypeError), not a refusal. */
 const noSignal = (e: unknown) => e instanceof TypeError;
 const aborted = (e: unknown) => e instanceof Error && e.name === 'AbortError';
+/**
+ * Whether Try again can help a failed search: a refusal that passes (busy, too slow, too fast) or a failure with no
+ * refusal at all. Not one saying the person may not look there, or that the kind is gone, as the web decides.
+ */
+const retryable = (e: unknown) => !(e instanceof ApiError) || e.disposition === 'retry';
 
 export interface EverythingState {
   /** What was searched: the typing, once it settled. */
@@ -156,6 +152,8 @@ export interface EverythingState {
   readonly loading: boolean;
   /** HandsFreeOS's refusal, in its words. */
   readonly error: string | null;
+  /** Whether Try again can help the refusal. */
+  readonly canRetry: boolean;
   /** No signal: the answer is the phone's own, and the screen says so. */
   readonly offline: boolean;
   /** Viewing as a teammate with no signal: only settings are searched. */
@@ -185,13 +183,21 @@ export function useEverything(
     answer: PhoneAnswer | null;
     loading: boolean;
     error: string | null;
+    canRetry: boolean;
     offline: boolean;
-  }>({ key: '', answer: null, loading: false, error: null, offline: false });
+  }>({ key: '', answer: null, loading: false, error: null, canRetry: true, offline: false });
 
   const key = JSON.stringify([q, kinds, full, settingsMatched, online, !!viewing]);
   React.useEffect(() => {
     if (searchProbes(q).tooShort) {
-      setState({ key, answer: null, loading: false, error: null, offline: !online });
+      setState({
+        key,
+        answer: null,
+        loading: false,
+        error: null,
+        canRetry: true,
+        offline: !online,
+      });
       return;
     }
     let live = true;
@@ -247,7 +253,7 @@ export function useEverything(
           setTimeout(() => live && setRound((r) => r + 1), RETRY_MS);
           return;
         }
-        show({ loading: false, error: errorMessage(e) });
+        show({ loading: false, error: errorMessage(e), canRetry: retryable(e) });
       });
     return () => {
       live = false;
@@ -263,6 +269,7 @@ export function useEverything(
     settings,
     loading: current ? state.loading : !searchProbes(q).tooShort,
     error: current ? state.error : null,
+    canRetry: current ? state.canRetry : true,
     offline: !online || (current && state.offline),
     viewingOffline: !!viewing && (!online || (current && state.offline)),
     retry: React.useCallback(() => setRound((r) => r + 1), []),
@@ -280,6 +287,8 @@ export interface OneKindState {
   readonly loading: boolean;
   readonly loadingMore: boolean;
   readonly error: string | null;
+  /** Whether Try again can help the refusal. */
+  readonly canRetry: boolean;
   readonly offline: boolean;
   readonly viewingOffline: boolean;
   showMore(): void;
@@ -311,6 +320,7 @@ export function useOneKind(
     loading: boolean;
     loadingMore: boolean;
     error: string | null;
+    canRetry: boolean;
     offline: boolean;
   }>({
     key: '',
@@ -320,6 +330,7 @@ export function useOneKind(
     loading: false,
     loadingMore: false,
     error: null,
+    canRetry: true,
     offline: false,
   });
   const key = JSON.stringify([q, kind, standing, online, !!viewing]);
@@ -394,7 +405,7 @@ export function useOneKind(
           setTimeout(() => live && setRound((r) => r + 1), RETRY_MS);
           return;
         }
-        show({ loading: false, error: errorMessage(e) });
+        show({ loading: false, error: errorMessage(e), canRetry: retryable(e) });
       });
     return () => {
       live = false;
@@ -428,7 +439,12 @@ export function useOneKind(
             setTimeout(() => void more(false), RETRY_MS);
             return;
           }
-          setState((s) => ({ ...s, loadingMore: false, error: errorMessage(e) }));
+          setState((s) => ({
+            ...s,
+            loadingMore: false,
+            error: errorMessage(e),
+            canRetry: retryable(e),
+          }));
         });
     void more(true);
   }, [page?.nextCursor, state.loadingMore, ask25, key]);
@@ -443,6 +459,7 @@ export function useOneKind(
     loading: current ? state.loading : !searchProbes(q).tooShort,
     loadingMore: current && state.loadingMore,
     error: current ? state.error : null,
+    canRetry: current ? state.canRetry : true,
     offline: !online || (current && state.offline),
     viewingOffline: !!viewing && (!online || (current && state.offline)),
     showMore,

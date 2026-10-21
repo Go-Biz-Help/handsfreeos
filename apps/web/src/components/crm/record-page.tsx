@@ -77,6 +77,7 @@ import {
 } from '@hfos/core';
 import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { useRecordTab } from '@/lib/use-record-tab';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
 import { PartnerCard } from '@/components/partners/partner-card';
 import { AttributionCard } from './attribution-card';
@@ -185,10 +186,10 @@ export function RecordPage(props: RecordPageProps) {
    */
   const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
   const canBill = can(permissions, 'money.bill');
-  // `?tab=money` so the inbox's "See their money" lands on the tab it names.
+  // `?tab=money` so the inbox's "See their money" lands on the tab it names; a search result's note or file opens
+  // its own tab, on this page already open too.
   const query = useSearchParams();
-  const wanted = query.get('tab');
-  const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
+  const [tab, setTab] = useRecordTab(TABS, 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);

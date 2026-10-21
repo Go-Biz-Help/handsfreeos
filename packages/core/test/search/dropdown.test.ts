@@ -230,6 +230,25 @@ describe('the dropdown', () => {
     expect(dropdownOf(answer({ groups: [slow] }), null).line).toBeNull();
   });
 
+  it('counts a Deleted bin that wasn’t searched as a kind that didn’t answer, with its own line', () => {
+    // "tom becnel", deleted for good: every kind answered empty and the bin ran out of budget.
+    const stopped = group('bin', [], { unavailable: 'skipped' });
+    const d = dropdownOf(answer({ groups: [], bin: stopped }), null);
+    expect(d.unavailable.map((g) => g.kind)).toEqual(['bin']);
+    expect(d.line).toBeNull();
+    expect(d.bin).toBeNull();
+    expect(unavailableLine(stopped)).toMatch(/^Deleted bin wasn’t searched this time/);
+    const archived = group('archived', [
+      hit('contacts', 'Tom Becnel', 1, { badges: ['archived'] }),
+    ]);
+    expect(dropdownOf(answer({ groups: [], archived, bin: stopped }), null).line).toBeNull();
+    // A bin that found something, though its facts failed, is the bin, not a kind that didn't answer.
+    const found = group('bin', [hit('bin', 'Tom Becnel', 1)], { unavailable: 'failed' });
+    const shown = dropdownOf(answer({ groups: [], bin: found }), null);
+    expect(shown.unavailable).toEqual([]);
+    expect(shown.line).toBe('none_active');
+  });
+
   it('words the business’s own kinds together with Try again only, since there’s no one chip to pick', () => {
     const records = group('records', [], { unavailable: 'skipped' });
     expect(groupLabel(records)).toBe('Your own kinds of records');

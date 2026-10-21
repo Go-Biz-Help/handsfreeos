@@ -86,7 +86,10 @@ export const SearchHit = z.object({
   kind: z.string(),
   id: uuid,
   title: z.string(),
-  /** Add-on and record rows only; core's own kinds print their facts through `hitLines`. */
+  /**
+   * Add-on and record rows, and an add-on's own settings (where it sits); core's own kinds print their facts through
+   * `hitLines`.
+   */
   subtitle: z.string().nullable(),
   /**
    * lead, client, archived, done, won, lost, cancelled, void, late, due, paid, draft, other_mail, spam, my_mail,

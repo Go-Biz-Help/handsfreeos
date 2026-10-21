@@ -236,7 +236,8 @@ export function KindPage({
     <>
       <div className="mb-5 mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="text-[14px] font-semibold" role="status" data-testid="search-kind-title">
-          {group
+          {/* A kind that didn't answer has its own line below, never "0 listings". */}
+          {group && !(notAnswered && items.length === 0)
             ? byName
               ? W.named(total, kind, plural, q)
               : W.kindFor(total, kind, plural, q)

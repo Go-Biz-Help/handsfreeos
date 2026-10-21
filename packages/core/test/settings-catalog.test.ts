@@ -289,6 +289,25 @@ describe('the settings catalogue', () => {
     ]);
     const groups = settingsByPage(withIt);
     expect(groups[groups.length - 1]!.label).toBe('Real Estate Agent');
+    // The main search's Settings group says where they sit too: under the add-on's name, never "Settings ›".
+    const now = { settings: null, timeZone: 'America/Chicago' };
+    const lineOf = (hits: typeof withIt, key: string) =>
+      hitLines(
+        settingsSearchGroup('ws', hits, now)!.items.find((h) => h.id === key)!,
+        {
+          now: Date.now(),
+          timeZone: 'America/Chicago',
+        },
+      ).line;
+    expect(lineOf(withIt, 'addon.realestate.page.settings')).toBe('Real Estate Agent');
+    const dealHit = withIt.find((h) => h.entry.key === 'addon.realestate.page.settings')!;
+    const aSwitch = {
+      ...dealHit,
+      entry: { ...dealHit.entry, key: 'addon.realestate.x', path: 'add-ons' },
+    };
+    expect(lineOf([aSwitch], 'addon.realestate.x')).toBe(
+      'Real Estate Agent · Opens the Add-ons page',
+    );
     expect(
       searchSettings('deal settings', { permissions: owner, addons: [], surface: 'web' }).map(
         (h) => h.entry.key,

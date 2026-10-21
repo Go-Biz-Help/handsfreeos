@@ -21,7 +21,7 @@ import {
   Upload,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AddonSlot } from '@/components/addons/slot';
@@ -62,6 +62,7 @@ import type {
   TimelineList,
 } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { useRecordTab } from '@/lib/use-record-tab';
 import { CustomRecordDialog } from './custom-record-dialog';
 import { RecordIcon } from './record-icon';
 import { RelationshipsCard } from './relationships-card';
@@ -105,8 +106,8 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
   // records can only be archived.
   const canDelete = can(permissions, 'records.delete') && !record.addonId;
   const canWrite = can(permissions, 'records.write');
-  const wanted = useSearchParams().get('tab');
-  const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
+  // `?tab=`, or a search result's note or file, picks the tab, on this page already open too.
+  const [tab, setTab] = useRecordTab(TABS, 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);

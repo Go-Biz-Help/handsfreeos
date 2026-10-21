@@ -43,7 +43,10 @@ export interface Dropdown {
   readonly groups: readonly DropdownGroup[];
   /** The groups that didn't fit: "Also found: Calendar 2 · Tasks 1". */
   readonly alsoFound: readonly { kind: string; label: string; total: number; capped: boolean }[];
-  /** Kinds that were slow, skipped or failed this time, each with its own line (`unavailableLine`) and Try again. */
+  /**
+   * Kinds that were slow, skipped or failed this time, the Deleted bin among them, each with its own line
+   * (`unavailableLine`) and Try again.
+   */
   readonly unavailable: readonly SearchGroup[];
   /** Shown only when the active groups hold fewer than 3 hits (decision 28). */
   readonly archived: SearchGroup | null;
@@ -78,6 +81,22 @@ export function unavailableLine(
     : SEARCH_WORDS.skipped(label);
 }
 
+/**
+ * "No one active matches": nothing active was found, every kind answered (the Deleted bin included), and Archived or
+ * the bin found someone. One rule for the server's `noneActive` and the dropdown's line, which `dropdownOf` decides
+ * again once the device's Settings group is merged in.
+ */
+export function nobodyActive(a: {
+  /** What the active groups found. */
+  readonly total: number;
+  /** How many kinds didn't answer. */
+  readonly unanswered: number;
+  readonly archived: SearchGroup | null;
+  readonly bin: SearchGroup | null;
+}): boolean {
+  return a.total === 0 && a.unanswered === 0 && !!(a.archived?.items.length || a.bin?.items.length);
+}
+
 /** Archived and the bin show in the dropdown only when the active groups found fewer than this. */
 const FEW_ACTIVE = 3;
 
@@ -100,7 +119,13 @@ export function dropdownOf(
   const serverGroups = answer.close && spelledRight ? [] : answer.groups;
   const merged = orderGroups([...serverGroups, ...(settingsFound ? [settings] : [])]);
   const found = merged.filter((g) => g.items.length > 0 || g.total > 0);
-  const unavailable = merged.filter((g) => g.unavailable && g.items.length === 0);
+  // The Deleted bin comes apart from the groups: one that wasn't searched has its line too, and holds back the
+  // nobody-active and nothing-at-all lines as any other kind's does.
+  const binStopped = answer.bin?.unavailable && !answer.bin.items.length ? answer.bin : null;
+  const unavailable = [
+    ...merged.filter((g) => g.unavailable && g.items.length === 0),
+    ...(binStopped ? [binStopped] : []),
+  ];
   const total = found.reduce((n, g) => n + g.total, 0);
   const capped = found.some((g) => g.capped);
 
@@ -144,10 +169,15 @@ export function dropdownOf(
     ? null
     : answer.close && !spelledRight && total > 0
       ? 'close'
-      : total > 0 || unavailable.length > 0
-        ? null
-        : answer.archived?.items.length || answer.bin?.items.length
-          ? 'none_active'
+      : nobodyActive({
+            total,
+            unanswered: unavailable.length,
+            archived: answer.archived,
+            bin: answer.bin,
+          })
+        ? 'none_active'
+        : total > 0 || unavailable.length > 0
+          ? null
           : 'empty';
 
   return {

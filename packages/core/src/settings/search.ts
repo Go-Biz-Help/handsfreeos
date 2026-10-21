@@ -26,6 +26,7 @@ import {
   settingsPageShown,
   type SettingsViewer,
 } from './pages';
+import { SETTINGS_SEARCH_WORDS } from './words';
 
 export interface SettingHit {
   readonly entry: SettingEntry;
@@ -279,8 +280,10 @@ export function settingsCount(hits: readonly SettingHit[]): { settings: number; 
 
 /**
  * The Settings group of the main search, worked out on the device and merged into the server's answer by `dropdownOf`:
- * each setting as a hit whose line `hitLines` prints ("Settings › Texting & calls · 9:00 PM to 8:00 AM"). A setting's
- * id is its catalogue key; the group never leaves the device.
+ * each setting as a hit whose line `hitLines` prints ("Settings › Texting & calls · 9:00 PM to 8:00 AM"). An add-on's
+ * own never sit in Settings: their line is the add-on's name, and a switch's says it opens the Add-ons page, as the
+ * Settings box shows them ("Real Estate Agent · Opens the Add-ons page"). A setting's id is its catalogue key; the
+ * group never leaves the device.
  *
  * A setting that's only close to what was typed is left out: the main search's close matches are names, and only a
  * setting that really matched means the words were spelled right (`settingsMatched`, decision 26). Null when none did.
@@ -294,11 +297,16 @@ export function settingsSearchGroup(
   if (matched.length === 0) return null;
   const hitOf = (h: SettingHit): SearchHit => {
     const value = h.entry.value?.(now.settings, now.timeZone) ?? null;
+    const addon = h.entry.addon
+      ? [h.pageLabel, h.entry.path === 'add-ons' ? SETTINGS_SEARCH_WORDS.opensAddOns : null]
+          .filter(Boolean)
+          .join(' · ')
+      : null;
     return {
       kind: 'settings',
       id: h.entry.key,
       title: h.entry.label,
-      subtitle: null,
+      subtitle: addon,
       badges: [],
       why: { field: 'setting', label: null, snippet: null, page: null },
       tier: h.tier,
@@ -307,7 +315,10 @@ export function settingsSearchGroup(
       href: settingHref(workspaceId, h.entry),
       contact: null,
       amount: null,
-      facts: { ...(h.pageLabel ? { on: h.pageLabel } : {}), ...(value ? { status: value } : {}) },
+      facts: {
+        ...(h.pageLabel && !addon ? { on: h.pageLabel } : {}),
+        ...(value ? { status: value } : {}),
+      },
       duplicateOf: null,
     };
   };

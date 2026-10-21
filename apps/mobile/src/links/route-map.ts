@@ -19,7 +19,7 @@
  *   extension shows. It belongs to no business.
  * - **Search everything** (`/search#q=…&kind=…`): the web keeps what's typed after `#` (decision 37), and only a rule
  *   that names a pair after `#` reads it; the phone's search keeps it on its own address. A result opens through this
- *   map too: a business's own kinds of records have no screen here, so they open the web.
+ *   map too: a business's own kinds of records, and a file on a record, have no screen here, so they open the web.
  * - **The support desk** (the web's /admin, M13) is the one place outside /app the app opens: a new-ticket
  *   notification links to `/admin/tickets/<id>`. Its pages open the phone's Support desk (/app/admin), which asks
  *   HandsFreeOS whether the person works there. The phones don't claim /admin in app.json, so an email's /admin link
@@ -73,6 +73,11 @@ interface Rule {
   /** Query parameters the phone's screen reads too (Home's `?item=`), kept on its address. */
   readonly query?: readonly string[];
   /**
+   * Query parameters that send the link to the web instead: what they ask for the phone's screen doesn't do (a search
+   * result's file on a record, `?tab=files&file=<id>&page=<n>`, rung on the web's Files tab at its page).
+   */
+  readonly webWhen?: readonly string[];
+  /**
    * Pairs after `#` the phone's screen reads, kept on its address as query parameters. The web keeps what's typed into
    * search there (`/search#q=…&kind=…`, decision 37) so it never reaches a server; on the phone it stays on the phone.
    */
@@ -89,15 +94,22 @@ export const ROUTES: readonly Rule[] = [
   // A search result opens the thread at its message (`?message=&at=`), which rings once it's in the copy.
   { web: 'inbox/:conversationId', phone: 'inbox/:conversationId', query: ['message', 'at'] },
   { web: 'pipeline', phone: 'pipeline', query: ['pipeline'] },
-  { web: 'leads/:leadId', phone: 'leads/:leadId' },
+  // A file found by search (`?file=`) opens on the web, where the record's Files ring it, as for a customer.
+  { web: 'leads/:leadId', phone: 'leads/:leadId', webWhen: ['file'] },
   { web: 'customers', phone: 'customers' },
-  // A note found by search (`?activity=`) opens its customer; Text (`?compose=sms`) opens their text thread.
+  // A note found by search (`?activity=`) opens its customer; Text (`?compose=sms`) opens their text thread; a file
+  // (`?file=`) opens the web, where their Files ring it at its page.
   {
     web: 'customers/people/:personId',
     phone: 'customers/people/:personId',
     query: ['activity', 'compose'],
+    webWhen: ['file'],
   },
-  { web: 'customers/companies/:companyId', phone: 'customers/companies/:companyId' },
+  {
+    web: 'customers/companies/:companyId',
+    phone: 'customers/companies/:companyId',
+    webWhen: ['file'],
+  },
   // A task found by search (`?task=`) opens from the Tasks screen once it's in the copy.
   { web: 'tasks', phone: 'tasks', query: ['task'] },
   // Forms the phone fills in, and one response's answers (asked of HandsFreeOS: answers never sync, M17).
@@ -384,7 +396,8 @@ export function routeFor(pathAndQuery: string): LinkTarget {
       );
       const params = matchParts(segments(rule.web), rest, { ...query, ...named }, rule.deeper);
       if (!params) continue;
-      if (rule.phone === 'web') return { kind: 'web', path: pathAndQuery, businessId };
+      if (rule.phone === 'web' || rule.webWhen?.some((key) => query[key]))
+        return { kind: 'web', path: pathAndQuery, businessId };
       return {
         kind: 'screen',
         href: screenHref(

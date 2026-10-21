@@ -187,8 +187,3 @@ export function settingsGroupsFor(viewer: SettingsViewer): {
     items: SETTINGS_PAGES.filter((p) => p.group === g.label && settingsPageShown(p, viewer)),
   })).filter((g) => g.items.length > 0);
 }
-
-/** A page's address: `/app/w/<business>/settings/texting`. */
-export function settingsPageHref(workspaceId: string, page: Pick<SettingsPage, 'path'>): string {
-  return `/app/w/${workspaceId}/settings${page.path}`;
-}

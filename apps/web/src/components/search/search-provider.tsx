@@ -1,5 +1,5 @@
 'use client';
-import { searchPageHref } from '@hfos/core';
+import { nextRecentSearches, RECENT_SEARCHES_KEPT, searchPageHref } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import {
   createContext,
@@ -16,11 +16,11 @@ import { isMac, isShortcut } from '@/lib/keys';
 
 /**
  * Recent searches stay on the device and with the person who typed them (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md,
- * How it works, 7): in `localStorage`, under the person and the business, never sent anywhere. Every read and write
- * is in try/catch: a private window, or blocked site data, just has none.
+ * How it works, 7): in `localStorage`, under the person and the business, never sent anywhere, kept by core's one
+ * rule (`nextRecentSearches`), as the phone keeps its own. Every read and write is in try/catch: a private window, or
+ * blocked site data, just has none.
  */
 const RECENT_PREFIX = 'hfos.search.recent.';
-const RECENT_MAX = 8;
 
 const recentKey = (userId: string, workspaceId: string) =>
   `${RECENT_PREFIX}${userId}.${workspaceId}`;
@@ -29,7 +29,7 @@ export function readRecent(userId: string, workspaceId: string): string[] {
   try {
     const raw: unknown = JSON.parse(localStorage.getItem(recentKey(userId, workspaceId)) ?? '[]');
     return Array.isArray(raw)
-      ? raw.filter((q): q is string => typeof q === 'string').slice(0, RECENT_MAX)
+      ? raw.filter((q): q is string => typeof q === 'string').slice(0, RECENT_SEARCHES_KEPT)
       : [];
   } catch {
     return [];
@@ -38,13 +38,9 @@ export function readRecent(userId: string, workspaceId: string): string[] {
 
 /** Puts a search first in the person's recent ones, once, keeping the newest 8. Answers the list as it now stands. */
 export function rememberSearch(userId: string, workspaceId: string, q: string): string[] {
-  const typed = q.trim().slice(0, 120);
   const was = readRecent(userId, workspaceId);
-  if (typed.length < 2) return was;
-  const next = [typed, ...was.filter((r) => r.toLowerCase() !== typed.toLowerCase())].slice(
-    0,
-    RECENT_MAX,
-  );
+  const next = nextRecentSearches(was, q);
+  if (next.length === was.length && next.every((r, i) => r === was[i])) return was;
   try {
     localStorage.setItem(recentKey(userId, workspaceId), JSON.stringify(next));
   } catch {

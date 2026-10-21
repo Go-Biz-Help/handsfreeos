@@ -2840,6 +2840,59 @@ its step **Built** here with what changed while building.
         phone's one-kind page reads. Stage 7's note asked the merge to point it at `CONTACTS_WORDS`; it's code, so
         not this stage's.
 
+**After joining the stages** (2026-10-21). Stages 4 to 8 were built side by side and merged; checking the joins
+between them turned up these, fixed in one commit ("Search: what joining the stages turned up"). No migration, no sync
+change and no change to the API's shapes (`pnpm openapi` leaves `packages/api-client` as it was).
+
+- **An add-on that couldn't be searched shows on the phone.** Search 4a's `failedGroup` names its group by the bare
+  add-on id (`realestate`), and Search 8's `knownOnly` dropped any kind without a dot that core doesn't label, so the
+  phone said "No matches" where the web says "Real Estate Agent couldn’t be searched just now". The phone now keeps a
+  group that only carries its line (`unavailable`, no items, its own label). Its one-kind page shows an unavailable
+  group's line with Try again instead of the empty state, and no empty state under a refusal; Try again shows only for
+  a refusal it can help (`disposition: 'retry'`, or no refusal at all), as the web's `canRetry` decides. On the web,
+  a kind's page that didn't answer has no "0 listings" title.
+- **A Deleted bin that wasn't searched counts in core.** `dropdownOf` adds a stopped bin (`answer.bin` unavailable,
+  no items) to `unavailable`, so neither nobody active nor nothing at all shows beside its line, in the box and on the
+  phone too; the Search page's own copy of that is gone. Nobody active is one rule, `nobodyActive` (search/dropdown.ts),
+  for the server's `noneActive` and the dropdown, and the server now counts a stopped bin too.
+- **Results for the record page already open land on their tab** (Search 7's note said they worked; they did only
+  on the tab already showing). Next's router keeps the page when only its query changes, and a hidden Radix tab isn't
+  mounted, so `useRecordTab` (`apps/web/src/lib/use-record-tab.ts`) follows `?tab=`, `?activity=` (the Timeline) and
+  `?file=` (Files) on the person, company and record pages, once each. `search.spec.ts` picks a note while Files shows
+  and a file while the Timeline does.
+- **A file result opens the web from the phone,** as docs/search.md said: the route map's people, company and lead
+  rules gain `webWhen: ['file']`, so `opensOnWeb` draws the arrow and the tap opens the web's Files ringed at the page.
+  The route-map test builds its file links with core's `searchHref`, on a customer, a company, a lead and a record.
+- **The phone's offline one-kind page names kinds properly.** A phone add-on names the kinds its search answers
+  (`PhoneAddon.searchKinds`, Real Estate's `RE_COPY_KINDS`, just Deals), so Listings, Homes and Properties say they
+  need signal. The page keeps the name of the chip or See all that opened it, then core's list of kinds with the
+  running add-ons', and never a kind's key ("Searching this needs signal" when nothing names it).
+- **Real Estate's offline deals say what the server says.** "Client" and "Address" chips (`RE_SEARCH_WORDS.client`,
+  `whyLabel`), `dealSearchLine` for the line, `addonSearchKindKey` for the kind and core's fold check (`copyHolds`, new
+  beside `copyHit`). `dealHits` is the pure half, tested in `apps/mobile/src/addons/realestate/__tests__/search.test.ts`.
+- **The Search page's "Nothing in …" names a running add-on's kinds:** `searchKindsFor` is handed the running add-ons'
+  manifests, as Search 4a meant; an add-on that couldn't be searched leaves its kinds off.
+- **A chip in the box asks for its kind alone:** the Settings group is worked out only with no chip, or Settings.
+- **An add-on's settings sit under its name in the main search too:** `settingsSearchGroup` gives an add-on's entry its
+  place as the subtitle ("Real Estate Agent", "Real Estate Agent · Opens the Add-ons page"), which `hitLines` prints
+  instead of "Settings ›" (the owner's decision of 2026-09-28).
+- **The phone's one-kind rows read phone · where · last contact** (board 5b): `hitLines` takes `page`, and a contact's
+  line there is its phone (its email with none), where it is and its last contact.
+- **One copy each, where two had grown apart:** a note's title and opening (`noteLines` in search/lines.ts, from the
+  first `NOTE_START` characters, counted as Postgres counts them, for the server's searcher and `searchCopy`); recent
+  searches (`search/recent.ts`: 8, 120 characters, 2 at least, the same words folded as search folds them, for the
+  web's `localStorage` and the phone's table, where SQLite's `lower` couldn't fold "É"); a badge's tone
+  (`badgeTone`, by key, for both apps; the phone's Lead badge is amber now, as the web's); and the phone's settings
+  reading (`usePhoneSettings`, for Settings search and the main search's Settings group).
+- **Dead code gone:** `SEARCH_WORDS.addonFailed` (an add-on's line was always `failed(label)`) and
+  `settingsPageHref`.
+- **docs/search.md** says each of these where it describes them, and no longer says a note leaves the address once
+  open: it leaves when its dialog closes, as a task does.
+- **Two verification failures weren't search's:** `packages/db/test/sync-access.test.ts`'s every-person check times
+  out at 30 s on this reused database (6,019 businesses, 119,505 people; the function itself returns no mismatches in
+  48 s), and `packages/core/test/addon-votes.test.ts`'s tie case loses its week among 68 left by earlier runs. Both
+  fail the same way on `410ae5c`, before search.
+
 ## Answered
 
 The research's open questions, and where each is settled:

@@ -76,7 +76,7 @@ export function SearchPage() {
 function Results({ business }: { business: SearchContextValue }) {
   const { workspaceId } = business;
   const router = useRouter();
-  const { permissions } = useWorkspaceShell();
+  const { permissions, addons } = useWorkspaceShell();
   const [state, setState] = useState<SearchPageState>(EMPTY_STATE);
   const [typed, setTyped] = useState('');
   const box = business.pageBoxRef;
@@ -146,23 +146,22 @@ function Results({ business }: { business: SearchContextValue }) {
     .filter((g): g is SearchGroup => !!g);
   const archived = s.answer?.archived?.items.length ? s.answer.archived : null;
   const bin = s.answer?.bin?.items.length ? s.answer.bin : null;
-  // The kinds that didn't answer, each with its line and Try again: the bin comes apart from the groups.
-  const unavailable = [
-    ...(d?.unavailable ?? []),
-    ...(s.answer?.bin?.unavailable && !bin ? [s.answer.bin] : []),
-  ];
-  // The kinds this person may look in that found nothing this time: "Nothing in Knowledge."
-  // Not when nothing at all was found: the empty state says so.
+  // The kinds that didn't answer, the bin among them, each with its line and Try again.
+  const unavailable = d?.unavailable ?? [];
+  // The kinds this person may look in that found nothing this time, the running add-ons' among them: "Nothing in
+  // Knowledge." Not when nothing at all was found: the empty state says so. An add-on that couldn't answer has one
+  // line for all its kinds, under its own id.
+  const running = useMemo(() => ADDON_CATALOG.filter((m) => addons.includes(m.id)), [addons]);
   const nothingIn =
     d && d.total > 0 && d.line !== 'close'
-      ? searchKindsFor({ permissions })
+      ? searchKindsFor({ permissions, addons: running })
           .filter(
             (k) =>
               k.chip &&
               k.label &&
               !found.some((g) => g.kind === k.key) &&
               !(k.key === 'bin' && bin) &&
-              !unavailable.some((g) => g.kind === k.key),
+              !unavailable.some((g) => g.kind === k.key || k.key.startsWith(`${g.kind}.`)),
           )
           .map((k) => k.label!)
       : [];

@@ -34,7 +34,7 @@ import {
 } from './explain';
 import { searchHref, type SearchRecordRef } from './href';
 import { SEARCH_KINDS, type SearchKind } from './kinds';
-import { countsAsContact, isNoteLine } from './lines';
+import { countsAsContact, isNoteLine, noteLines } from './lines';
 import { probesOut, searchProbes, type SearchProbes } from './probes';
 import { bestOf, orderGroups, rankHits, tierOf } from './rank';
 import { digitsIn, fieldSnippet, hitOf, holdsAll, listedValues } from './hit';
@@ -481,16 +481,6 @@ function taskHit(r: CopyTask, p: SearchProbes, o: CopySearchOptions) {
   });
 }
 
-/** A note's title: its first line, cut to about this; found by who it's on, this much of it shows. */
-const NOTE_TITLE = 80;
-const NOTE_OPENING = 120;
-
-/** The first `n` characters of a text, its spaces made one, with "…" when it was cut. */
-function cut(value: string | null, n: number): string {
-  const whole = (value ?? '').replace(/\s+/g, ' ').trim();
-  return whole.length > n ? `${whole.slice(0, n).trimEnd()}…` : whole;
-}
-
 function noteHit(r: CopyNote, p: SearchProbes, o: CopySearchOptions) {
   if (!isNoteLine(text(r.kind), text(r.subtype))) return null;
   const on = anchorOf(r);
@@ -505,11 +495,11 @@ function noteHit(r: CopyNote, p: SearchProbes, o: CopySearchOptions) {
     text(r.on_lead_title),
   ];
   if (!inWords && !holdsAll(onNames, p)) return null;
-  const opening = cut(body, NOTE_OPENING);
+  const { title, opening } = noteLines(body);
   return hitOf({
     kind: 'notes',
     id: r.id,
-    title: cut(body?.split('\n')[0] ?? null, NOTE_TITLE) || SEARCH_WORDS.untitledNote,
+    title,
     href: searchHref(o.workspaceId, { type: 'activity', id: r.id, on: on.ref }),
     tier: 4,
     why: {
@@ -746,3 +736,9 @@ export function copyHit(
 ): SearchHit {
   return hitOf(h);
 }
+
+/**
+ * Whether every typed word sits somewhere in these texts together, accents folded: core's own check, for an add-on
+ * matching its part of the copy as `searchCopy` matches core's.
+ */
+export const copyHolds = holdsAll;

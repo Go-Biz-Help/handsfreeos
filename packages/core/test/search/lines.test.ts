@@ -8,7 +8,14 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { binLeftLine } from '../../src/bin-words';
 import type { SearchHit } from '../../src/schemas/search';
-import { CONTACT_LINES, countsAsContact, hitLines, lastContactLine } from '../../src/search/lines';
+import {
+  CONTACT_LINES,
+  countsAsContact,
+  hitLines,
+  lastContactLine,
+  NOTE_START,
+  noteLines,
+} from '../../src/search/lines';
 import { CONTACTS_WORDS } from '../../src/crm/record-words';
 import {
   badgeLabel,
@@ -85,6 +92,23 @@ function subtypesWritten(): Set<string> {
   return found;
 }
 
+describe('a note’s title and opening', () => {
+  it('come from its first characters, as the server reads them, though the phone reads the whole body', () => {
+    // "Gate code 4471", 190 blank lines, then the dog: past what the server reads, so neither shows it.
+    const gate = `Gate code 4471${'\n'.repeat(190)}dog in the yard`;
+    expect(noteLines(gate)).toEqual({ title: 'Gate code 4471', opening: 'Gate code 4471' });
+    expect(noteLines(gate.slice(0, NOTE_START))).toEqual(noteLines(gate));
+    expect(noteLines(null)).toEqual({ title: 'Note', opening: '' });
+    expect(noteLines('Slab leak likely\nunder the kitchen')).toEqual({
+      title: 'Slab leak likely',
+      opening: 'Slab leak likely under the kitchen',
+    });
+    // Characters as Postgres's substr counts them: an emoji is one.
+    expect(noteLines(`🙂${' '.repeat(198)}x`).opening).toBe('🙂 x');
+    expect(noteLines(`🙂${' '.repeat(199)}x`).opening).toBe('🙂');
+  });
+});
+
 describe('what counts as contact', () => {
   it('is a message, a call, a note or a visit either way, or a booking; never a bookkeeping line', () => {
     for (const kind of CONTACT_LINES.kinds)
@@ -122,6 +146,14 @@ describe('each kind’s line', () => {
     );
     expect(lines.line).toBe('(504) 555-0142 · dana.smith@gmail.com · Texted 2 days ago');
     expect(lines.under).toBe('Water heater · Quote sent');
+    // A kind's own page tells same-named contacts apart by where they are (board 5b).
+    const dana = (facts: SearchHit['facts']) =>
+      hitLines(hit('contacts', { facts }), { ...w, page: true }).line;
+    const texted = { kind: 'sms', subtype: 'outbound', at: daysAgo(2) } as const;
+    expect(
+      dana({ phone: '(504) 555-0142', email: 'd@x.com', where: 'Metairie', lastContact: texted }),
+    ).toBe('(504) 555-0142 · Metairie · Texted 2 days ago');
+    expect(dana({ email: 'd@x.com', where: 'Kenner' })).toBe('d@x.com · Kenner');
     expect(
       hitLines(hit('contacts', { facts: { company: 'Smithfield Property Mgmt' } }), w).under,
     ).toBe('Works at Smithfield Property Mgmt');

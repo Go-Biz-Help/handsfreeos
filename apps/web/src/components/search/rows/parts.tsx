@@ -1,6 +1,7 @@
 'use client';
 import {
   badgeLabel,
+  badgeTone,
   hitLines,
   money,
   whyLabel,
@@ -25,7 +26,7 @@ import {
 import type { ReactNode } from 'react';
 import { RecordIcon } from '@/components/relationships/record-icon';
 import { Avatar } from '@/components/ui/avatar';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Highlight, Marked } from '../highlight';
 
@@ -117,13 +118,6 @@ export function PersonMark({ hit }: { hit: SearchHit }) {
   );
 }
 
-const BADGE_TONES: Readonly<Record<string, BadgeVariant>> = {
-  lead: 'pending',
-  client: 'ok',
-  my_mail: 'accent',
-  won: 'ok',
-};
-
 /** The badges core's words name ("Lead", "Client", "Archived", "Other mail"), in the order the hit has them. */
 export function HitBadges({ hit }: { hit: SearchHit }) {
   const shown = hit.badges
@@ -133,12 +127,7 @@ export function HitBadges({ hit }: { hit: SearchHit }) {
   return (
     <>
       {shown.map(({ b, label }) => (
-        <Badge
-          key={b}
-          variant={BADGE_TONES[b] ?? 'gray'}
-          className="h-5 px-1.5 text-[11.5px]"
-          data-badge={b}
-        >
+        <Badge key={b} variant={badgeTone(b)} className="h-5 px-1.5 text-[11.5px]" data-badge={b}>
           {label}
         </Badge>
       ))}

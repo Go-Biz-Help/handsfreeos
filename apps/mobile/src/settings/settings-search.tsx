@@ -25,14 +25,14 @@ import { useKeepsDocuments } from '@/sync/document-keeper';
  * and opens the browser at it, anchor and all, since a phone route drops what's after `#`. Values such as quiet hours
  * come from the business's synced settings.
  */
-export function SettingsSearchResults({
-  q,
-  onFlash,
-}: {
-  q: string;
-  /** Flashes a row of this very screen (a setting on Settings itself). */
-  onFlash: (key: string) => void;
-}) {
+/**
+ * The settings that match what's typed on the phone, gated as its Settings screens show them, and the business's own
+ * values: one reading for Settings search and the main search's Settings group (`useSettingsGroup`).
+ */
+export function usePhoneSettings(q: string): {
+  readonly hits: readonly SettingHit[];
+  readonly settings: Record<string, unknown> | null;
+} {
   const { business, me, userId } = useBusiness();
   const { permissions } = useGrants();
   // New support tickets and Daily agency digest are listed only to those whose Notifications show them. Whether they
@@ -45,7 +45,8 @@ export function SettingsSearchResults({
     'SELECT settings FROM workspaces WHERE id = ?',
     [business.id],
   );
-  const settings = React.useMemo(() => settingsOf(data[0]?.settings), [data]);
+  const raw = data[0]?.settings ?? null;
+  const settings = React.useMemo(() => settingsOf(raw), [raw]);
   const hits = React.useMemo(
     () =>
       searchSettings(q, {
@@ -57,6 +58,19 @@ export function SettingsSearchResults({
       }).filter((h) => keepsDocuments || h.entry.key !== 'phone.documents_mobile_data'),
     [q, permissions, staff, agency, keepsDocuments],
   );
+  return { hits, settings };
+}
+
+export function SettingsSearchResults({
+  q,
+  onFlash,
+}: {
+  q: string;
+  /** Flashes a row of this very screen (a setting on Settings itself). */
+  onFlash: (key: string) => void;
+}) {
+  const { business } = useBusiness();
+  const { hits, settings } = usePhoneSettings(q);
 
   const open = (hit: SettingHit) => {
     const target = settingPhoneTarget(business.id, hit.entry);

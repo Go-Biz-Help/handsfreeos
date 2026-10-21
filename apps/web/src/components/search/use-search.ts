@@ -171,7 +171,8 @@ export function useSearch(
     const controller = new AbortController();
     let quiet: number | undefined;
     const run = async (again: boolean) => {
-      const settings = settingsOf(text);
+      // A chip asks for its kind alone: the Settings group only with none picked, or Settings itself.
+      const settings = !kinds || kinds.includes('settings') ? settingsOf(text) : null;
       setShown((s) => ({ ...s, loading: true }));
       try {
         const answer = unwrap(

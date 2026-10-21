@@ -23,7 +23,7 @@ database before it reaches `main` ("Apply new migrations", docs/operations.md). 
 | Running a search                      | `packages/core/src/search/server/run.ts`: which kinds run, `step`, the budgets, the archived split, close matches, paging                                                                                                                                                                                                     |
 | Each kind's SQL                       | `packages/core/src/search/server/kinds/<kind>.ts`, listed in `kinds/index.ts`; shared fragments (`LIVE_PERSON`, `RECORD_READS`, `numberMatches`, `archivedRule`, the windows) in `search/server/sql.ts`                                                                                                                       |
 | What results open onto                | `activity.get` (`queries/activity.get.ts`), `task.list`'s `taskId`, `conversation.thread`'s `upTo`                                                                                                                                                                                                                            |
-| Shared logic, for the server and apps | `packages/core/src/search/`: `probes` (what was typed), `kinds` (each kind's gate), `rank`, `snippet` (marks), `close`, `href`, `dropdown`, `lines`, `words`, and `fold` (accents)                                                                                                                                            |
+| Shared logic, for the server and apps | `packages/core/src/search/`: `probes` (what was typed), `kinds` (each kind's gate), `rank`, `snippet` (marks), `close`, `href`, `dropdown` (and `nobodyActive`), `lines` (and a note's `noteLines`), `words` (and `badgeTone`), `recent` (recent searches), and `fold` (accents)                                              |
 | Document numbers                      | `documentNumberProbe` and `documentNumberMatches` in `packages/core/src/money/numbering.ts`                                                                                                                                                                                                                                   |
 | Add-ons answering                     | `packages/core/src/search/addon.ts` (`AddonSearchInput`, `AddonSearchOutput`, an add-on's kinds and the links let through); `search/server/addons.ts` (which add-ons answer, asking each, holding its answer to core's rules, `addonSearchIssues`); `executeQueryWithin` in `kernel/execute.ts`; `route: false` on `QueryDef` |
 | The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                                                                                                                                      |
@@ -43,7 +43,7 @@ database before it reaches `main` ("Apply new migrations", docs/operations.md). 
 | The phone's tests                     | `packages/core/test/search/copy.test.ts`; `apps/mobile/src/search/__tests__/`: `copy-sql.test.ts`, `search-screen.test.tsx`, `entry-points.test.tsx`; `apps/mobile/src/links/__tests__/route-map.test.ts`; Maestro's `apps/mobile/maestro/search.yaml`                                                                        |
 | The web's Search page                 | `apps/web/src/app/app/w/[workspaceId]/search/page.tsx` (the frame), `components/search/search-page.tsx` (everything) and `kind-page.tsx` (one kind)                                                                                                                                                                           |
 | The web's box and dropdown            | `apps/web/src/components/search/`: `search-provider.tsx` (⌘K, recent searches), `search-box.tsx`, `use-search.ts`, `panel.tsx`, `highlight.tsx`, `rows/` (a row per kind); `lib/keys.ts` (`isMac`)                                                                                                                            |
-| Where results open on the web         | The pages themselves follow their own part of the address: the inbox's thread, Tasks, a form, the timeline, the Files grid, a contact's page, the Deleted bin and Contacts (The web's screens, below)                                                                                                                         |
+| Where results open on the web         | The pages themselves follow their own part of the address: the inbox's thread, Tasks, a form, the timeline, the Files grid, a record page's tab (`lib/use-record-tab.ts`), a contact's page, the Deleted bin and Contacts (The web's screens, below)                                                                          |
 | The web's tests                       | `apps/web/e2e/search.spec.ts`: the box and its keys, the Search page by its address, and what each result opens onto; `search.mobile.spec.ts`: a phone-width screen's header and the Inbox's sheet                                                                                                                            |
 | Where search opens from               | Web: the side menu's box (`shell/sidebar.tsx`), the phone-width header (`shell/mobile-shell.tsx`), the layout filling `SearchProvider`. Phone: `AppBar`'s `search`, `searchScreenHref` (`search/href.ts`) and `SearchEverythingRow` (`search/rows.tsx`), last in Contacts' and Inbox's boxes                                  |
 
@@ -160,25 +160,30 @@ what's typed never reaches the web's own server or its host's logs; `search.spec
 makes to it.
 
 - **Everything**: a card for each kind found, in core's order, the kinds list beside them with counts and "Nothing in
-  Knowledge." for the kinds that found nothing (never the Deleted bin when it found something, nor a kind that didn't
-  answer, which has its own line and Try again); tasks and notes share one card when together they have 4 or fewer.
+  Knowledge." for the kinds that found nothing, a running add-on's among them (never the Deleted bin when it found
+  something, nor a kind that didn't answer, which has its own line and Try again, nor the kinds of an add-on that
+  couldn't be searched); tasks and notes share one card when together they have 4 or fewer.
   Settings, Archived and the Deleted bin come last. "Show 3 more contacts" reads that kind's first page in place, for
   that answer only; "Only contacts" opens the kind. Close matches have a page of their own too: `search.kind` with
   `close` reads every kind's names, in close matches' own order, and the box's Close matches chip asks for them alone. The line at the top (close matches, nobody active, nothing at all) is core's
-  `dropdownOf`, decided after the device's Settings group is merged in, as in the box.
+  `dropdownOf`, decided after the device's Settings group is merged in, as in the box; a Deleted bin that wasn't
+  searched counts among the kinds that didn't answer, with its own line, so neither nobody active nor nothing at all
+  shows beside it. Nobody active is one rule (`nobodyActive`) for the server's `noneActive` and the dropdown.
 - **One kind** (`kind=`): `search.kind` 50 at a time with Show 50 more; contacts get All · Leads · Clients, Sort and a
   table (name, phone, email, where, last contact), and the banner when two share a number or an email, whose Compare
   and merge (for `records.archive`) opens Merge with the other record chosen. A windowed kind, and Archived for its
   threads, says how far back it looked, and Look further back adds the older window's results; Messages can Look in
-  Spam. Settings' own page is the device's whole answer. Counts read in each kind's own nouns: "1 contact named
+  Spam. A kind that didn't answer (an add-on's that failed) shows its line with Try again, and no count. Settings' own page is the device's whole answer. Counts read in each kind's own nouns: "1 contact named
   “dana”", "2 things in the Deleted bin for “tom becnel”" (core's `kindNoun`).
 - **The box and its dropdown** (`search-box.tsx`, `panel.tsx`) sit at the top of the side menu, inside the layout's
   `SearchProvider`: the chips, the best match with Call and Text, a few groups, Exact match and "Also has 1042 in
   it", Also found, Archived and the bin when little else matched, ⌘K (Ctrl K) and the keys of "Keyboard" in the plan.
   ⌘K focuses the box wherever the side menu is drawn (from `md`); below it, it opens the Search page with its own box
-  focused. The box asks only while its panel is open. Recent searches stay in `localStorage` under the signed-in
-  person and the business, at most 8, shared by the box and the Search page through the provider, which removes
-  anyone else's when it mounts; signing out removes them all.
+  focused. The box asks only while its panel is open. A chip asks for its kind alone: the Settings group shows with
+  no chip picked, or Settings itself. Recent searches stay in `localStorage` under the signed-in person and the
+  business, kept by core's rule (`search/recent.ts`, as the phone keeps its own: at most 8, the same words searched
+  again moving up whatever their case or accents), shared by the box and the Search page through the provider, which
+  removes anyone else's when it mounts; signing out removes them all.
 - **On a phone-sized screen** the header's search button opens the Search page, titled "Search" with Back, except
   in the Inbox, where it keeps its sheet that searches conversations and ends with "Search everything for “q”".
 - **Marks** are drawn by `highlight.tsx` as text inside `<mark>`, from the server's snippet ranges or core's `marksIn`,
@@ -187,9 +192,11 @@ makes to it.
 **Where each result opens** (core's `searchHref`). Each page follows its own part of the address, so a result for the
 page already open works too, as the box offers on every page: the thread, the timeline, the Files grid, a
 contact's page and the Deleted bin through `useSearchParams` (each renders per request, so none needs a Suspense
-boundary), Contacts on `hashchange`, and the form and Tasks pages from their `searchParams`. Each ask is acted on once,
-not again as the page refreshes. A note, Text, Merge and Add a contact take theirs off the address once open, and a
-task once its dialog closes, so a reload doesn't open them again:
+boundary), Contacts on `hashchange`, and the form and Tasks pages from their `searchParams`. A record page's tab
+follows the address too (`useRecordTab`): `?tab=` picks it, a note (`?activity=`) opens the Timeline and a file
+(`?file=`) Files, since the router keeps the page when only its query changes and a tab that isn't shown isn't
+mounted. Each ask is acted on once, not again as the page refreshes. Text, Merge and Add a contact take theirs off the
+address once open, and a note or a task once its dialog closes, so a reload doesn't open them again:
 
 | Result              | Address                                            | What happens                                                                                                                                          |
 | ------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -403,9 +410,13 @@ link's pairs after `#` (a rule names the pairs it reads, `fragment`, and no othe
 on the phone's own address, so what was typed never leaves the phone that way either. The box is focused, with
 Cancel; the chips are the found kinds with their counts; then the best match with Call and Text (for whoever may use
 the inbox, on a customer with a number), a few of each kind with "See all 7", the Settings group, and "See all 26
-results" for every group at once. One kind (a chip, or See all) is `search.kind` 25 at a time with Show 25 more, and
-for contacts Leads or Clients and "Two Dana Smiths share a number. Same person?" with Compare, which opens the web's
-merge for whoever may archive customers. A kind this build doesn't know is skipped, in a link and in an answer.
+results" for every group at once. One kind (a chip, or See all) is `search.kind` 25 at a time with Show 25 more, its contacts
+told apart by phone · where · last contact (`hitLines`' `page`, board 5b), and for contacts Leads or Clients and "Two
+Dana Smiths share a number. Same person?" with Compare, which opens the web's merge for whoever may archive customers.
+A kind this build doesn't know is skipped, in a link and in an answer; a group that only says it didn't answer (an
+add-on that couldn't be searched, named by its id) is kept, so its line shows, there and on its kind's own page,
+rather than "No matches". Try again shows only with a refusal it can help (busy, too slow, too fast, no answer at
+all), as on the web.
 
 **With signal** the phone asks `search.everything` 300 ms after the typing stops, what was typed in the body only
 (`apps/mobile/src/search/use-search.ts`), drops a stale answer, asks again once after 2 s when the refusal says to
@@ -414,8 +425,9 @@ takes their place (not while viewing as someone: the copy is the viewer's). Sett
 Settings search does, and a setting that matched is sent as `settingsMatched` so no close matches are looked for.
 Results open through the route map (`openAppPath`): a screen the phone has, or the browser for the rest, with the
 arrow out on those rows; a setting opens where Settings search opens it. A search is kept among the recent ones
-(`search_recent`, a local-only table in the encrypted copy, at most 8 a person a business, never sent) when one of
-its results is opened.
+(`search_recent`, a local-only table in the encrypted copy, never sent, by core's rule in `search/recent.ts`: at most
+8 a person a business, the same words again moving up whatever their case or accents) when one of its results is
+opened.
 
 **With no signal**, or when a request fails for want of it, `apps/mobile/src/search/copy-sql.ts` reads at most 200
 rows a kind through `getAll` (never a live query over every row): each kind's words lower-cased into one text, the
@@ -425,10 +437,13 @@ typed; those whose name, or a note's own words, holds the words first, then the 
 past what `searchCopy` would match. Core's `searchCopy` (`search/copy.ts`) then decides which match, ranks them with
 the server's tiers and reasons (`search/explain.ts`), and answers in the server's shape with `source: 'phone'`, so one
 row draws both. It searches contacts, companies and leads, tasks, notes, the calendar, live forms by name, Real
-Estate's deals (a phone add-on's `search`, from the same copy and view as its Deals screen) and settings; the chips
+Estate's deals (a phone add-on's `search`, from the same copy and view as its Deals screen, with the server's line
+and its Client and Address chips) and settings; the chips
 for Money, Messages, Files and Knowledge are greyed, and the line at the top is the board's: "You’re offline, so this
 searched what’s on this phone. Files, messages and money show once you’re back online. As of 8:58 AM". With no signal,
-one kind's page for a kind the phone doesn't keep says searching it needs signal, not that nothing matched. Two tests
+one kind's page for a kind the phone doesn't keep says searching it needs signal, not that nothing matched: Real
+Estate's Listings, Homes and Properties too, since a phone add-on names the kinds its search answers
+(`PhoneAddon.searchKinds`), and by the name the chip or See all that opened it gave, never a kind's key. Two tests
 hold it to the server: `copy.test.ts` compares `searchCopy` with `search.kind`'s titles, order, tiers, reasons and
 links on every row of Bayou Plumbing's a phone keeps, read as a phone gets them, and
 `apps/mobile/src/search/__tests__/copy-sql.test.ts` runs the phone's own statements on SQLite and requires the same
@@ -446,7 +461,8 @@ always read); ranking and marks still fold.
 copy), a task through the Tasks screen (`?task=`: opened as tapping it would), a note on its customer (`?activity=`),
 Text on the best match through the customer's screen (`?compose=sms`: their text thread, or "No text thread with
 them yet"), a form and one response's answers on the phone's own form screens, and a business's own kinds of
-records, files on a record and business settings on the web.
+records, files on a record (the route map's `webWhen: ['file']`, so the row carries the arrow out) and business
+settings on the web.
 
 ## Settings search
 
@@ -456,7 +472,9 @@ over the page picker on a phone-width screen): typing replaces the menu with wha
 ("5 settings on 2 pages"), and choosing one opens its page at it and rings it for 4 seconds, from another page or the
 one already open. On the phone it's a box at the top of Settings: a setting the phone has opens its screen scrolled
 to the row and flashed (`?setting=<key>`), and one only the web changes says "Opens on the web" and opens the browser
-at it. The main search's Settings group (Search 7 and 8) is the same search, through `settingsSearchGroup`.
+at it. The main search's Settings group (Search 7 and 8) is the same search, through `settingsSearchGroup`; an add-on's
+entries there read under its own name ("Real Estate Agent", and "Real Estate Agent · Opens the Add-ons page" for a
+switch), never "Settings ›". On the phone both read the settings through one hook, `usePhoneSettings`.
 
 **The catalogue is the one list.** `SETTINGS_GROUPS` (`settings/pages.ts`) is the Settings menu itself: the web draws
 its menu from it, settings search gates each page as the menu does (`settingsPageShown`: the page's permission, and a

@@ -29,6 +29,7 @@ import type {
   SearchKindOutput,
 } from '../../schemas/search';
 import { closeWorthTrying } from '../close';
+import { nobodyActive } from '../dropdown';
 import { fold } from '../fold';
 import { SERVER_SEARCH_KINDS, searchKindEntry, searcherKeyOf, type SearchKind } from '../kinds';
 import { probesOut, searchProbes, type SearchProbes } from '../probes';
@@ -518,8 +519,12 @@ export async function runSearchEverything(
     : null;
   const total = answered.reduce((n, g) => n + g.total, 0);
   const close = !!closeGroup;
-  // "No one active matches" only when every kind answered: a kind that wasn't searched may hold someone.
-  const everyKindAnswered = stoppedGroups.length === 0 && addons.answered;
+  const shownBin = bin && (bin.items.length || bin.unavailable) ? bin : null;
+  // "No one active matches" only when every kind answered, the bin included: a kind that wasn't searched may hold
+  // someone. The dropdown's own rule, which decides it again with the device's Settings group.
+  const unanswered = [...ordered, ...(shownBin ? [shownBin] : [])].filter(
+    (g) => g.unavailable && g.items.length === 0,
+  ).length;
   return {
     q: p.q,
     tooShort: false,
@@ -529,9 +534,9 @@ export async function runSearchEverything(
     best: close ? null : bestOf(answered),
     groups: ordered,
     archived: archivedGroup,
-    bin: bin && (bin.items.length || bin.unavailable) ? bin : null,
+    bin: shownBin,
     close,
-    noneActive: total === 0 && everyKindAnswered && !!(archivedGroup || bin?.items.length),
+    noneActive: nobodyActive({ total, unanswered, archived: archivedGroup, bin: shownBin }),
   };
 }
 

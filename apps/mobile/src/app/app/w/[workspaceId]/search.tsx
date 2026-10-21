@@ -1,10 +1,12 @@
 import {
+  ADDON_CATALOG,
   copyMissingKinds,
   dropdownOf,
   groupLabel,
   holds,
   searchCount,
   searchHref,
+  searchKindsFor,
   searchProbes,
   SEARCH_WORDS as W,
   unavailableLine,
@@ -60,9 +62,16 @@ export default function Search() {
   const db: RecentDb = usePowerSync();
   const [typed, setTyped] = React.useState(() => (params.q ?? '').trim().slice(0, 120));
   // A kind this build doesn't know is skipped: everything is searched instead.
-  const [kind, setKind] = React.useState<string | null>(() =>
+  const [kind, setKindOnly] = React.useState<string | null>(() =>
     params.kind && knownKind(params.kind) ? params.kind : null,
   );
+  // What the chip or See all that opened a kind called it, for when the answer on screen no longer names it (no
+  // signal, and the copy has no group of that kind).
+  const [opened, setOpened] = React.useState<string | null>(null);
+  const setKind = React.useCallback((next: string | null, label: string | null = null) => {
+    setKindOnly(next);
+    setOpened(label);
+  }, []);
   const [full, setFull] = React.useState(false);
   const everything = useEverything(typed, { full });
   const remember = React.useCallback(
@@ -127,7 +136,12 @@ export default function Search() {
       {typed.trim().length < 2 ? (
         <Recent onPick={setTyped} />
       ) : kind ? (
-        <OneKind typed={typed} kind={kind} label={kindLabel(everything, kind)} onOpen={remember} />
+        <OneKind
+          typed={typed}
+          kind={kind}
+          label={kindLabel(everything, kind, opened)}
+          onOpen={remember}
+        />
       ) : (
         <Everything
           state={everything}
@@ -141,12 +155,20 @@ export default function Search() {
   );
 }
 
-/** A kind's label, from the group that answered it, or core's. */
-function kindLabel(s: EverythingState, kind: string): string {
+/**
+ * A kind's label: from the group that answered it, the chip or See all that opened it, or core's list of kinds (an
+ * add-on's among them). Null for a business's own kind nothing has named yet, never its key.
+ */
+function kindLabel(s: EverythingState, kind: string, opened: string | null): string | null {
   const group = [...(s.answer?.groups ?? []), ...(s.settings ? [s.settings] : [])].find(
     (g) => g.kind === kind,
   );
-  return groupLabel(group ?? { kind, label: null });
+  if (group) return groupLabel(group);
+  if (opened) return opened;
+  const listed = searchKindsFor({ permissions: [], viewAs: true, addons: ADDON_CATALOG }).find(
+    (k) => k.key === kind,
+  );
+  return listed?.label ?? (kind.includes('.') ? null : groupLabel({ kind, label: null }));
 }
 
 /**
@@ -177,7 +199,7 @@ function Chips({
 }: {
   everything: EverythingState;
   kind: string | null;
-  onKind: (kind: string | null) => void;
+  onKind: (kind: string | null, label?: string) => void;
 }) {
   const { permissions } = useGrants();
   const dropdown = useDropdown(everything, false);
@@ -201,7 +223,7 @@ function Chips({
             label={c.label}
             count={searchCount(c.count, c.capped)}
             on={c.kind === 'all' ? kind === null : kind === c.kind}
-            onPress={() => onKind(c.kind === 'all' ? null : c.kind)}
+            onPress={() => (c.kind === 'all' ? onKind(null) : onKind(c.kind, c.label))}
             testID={`search-chip-${c.kind}`}
           />
         ))}
@@ -264,7 +286,13 @@ function TopLines({
   state,
   source,
 }: {
-  state: { offline: boolean; viewingOffline: boolean; error: string | null; retry: () => void };
+  state: {
+    offline: boolean;
+    viewingOffline: boolean;
+    error: string | null;
+    canRetry: boolean;
+    retry: () => void;
+  };
   source: 'server' | 'phone' | null;
 }) {
   const { viewing } = useBusiness();
@@ -285,7 +313,7 @@ function TopLines({
     return (
       <SearchNote
         tone="warning"
-        action={{ label: W.tryAgain, onPress: state.retry }}
+        action={state.canRetry ? { label: W.tryAgain, onPress: state.retry } : undefined}
         testID="search-error"
       >
         {state.error}
@@ -311,7 +339,7 @@ function Everything({
   state: EverythingState;
   full: boolean;
   onFull: () => void;
-  onKind: (kind: string) => void;
+  onKind: (kind: string, label: string) => void;
   onOpen: () => void;
 }) {
   const { business } = useBusiness();
@@ -338,7 +366,7 @@ function Everything({
         label={groupLabel(g)}
         seeAll={
           more > 0 && g.kind !== 'archived' && g.kind !== 'bin' && g.kind !== 'close'
-            ? { label: W.seeAll(g.total, g.capped), onPress: () => onKind(g.kind) }
+            ? { label: W.seeAll(g.total, g.capped), onPress: () => onKind(g.kind, groupLabel(g)) }
             : null
         }
         testID={`search-heading-${g.kind}`}
@@ -448,7 +476,8 @@ function OneKind({
 }: {
   typed: string;
   kind: string;
-  label: string;
+  /** Null for a business's own kind nothing has named yet. */
+  label: string | null;
   onOpen: () => void;
 }) {
   const { business } = useBusiness();
@@ -462,6 +491,8 @@ function OneKind({
   const now = React.useMemo(() => Date.now(), [group]);
   const q = kind === 'settings' ? typed.trim() : state.q;
   const pair = state.duplicates.find((d) => d.on === 'phone');
+  // A kind that didn't answer (an add-on's that failed) says so in its own line, never that nothing matched.
+  const notAnswered = group ? unavailableLine(group) : null;
   // With no signal, a kind the phone doesn't keep wasn't searched at all: it says so, not that nothing matched.
   const waits =
     kind !== 'settings' &&
@@ -530,9 +561,17 @@ function OneKind({
           {W.twoSharePhone(pair.name)}
         </SearchNote>
       ) : null}
+      {notAnswered ? (
+        <SearchNote
+          action={{ label: W.tryAgain, onPress: state.retry }}
+          testID={`search-unavailable-${kind}`}
+        >
+          {notAnswered}
+        </SearchNote>
+      ) : null}
       {group && group.items.length > 0 ? (
         <View testID={`search-group-${kind}`}>
-          <GroupHeading label={label} />
+          <GroupHeading label={groupLabel(group)} />
           {group.items.map((hit) => (
             <View key={`${hit.kind}:${hit.id}`} className="border-t border-border">
               <SearchRow
@@ -542,11 +581,16 @@ function OneKind({
                 now={now}
                 timeZone={timeZone}
                 onOpen={onOpen}
+                page
               />
             </View>
           ))}
         </View>
-      ) : !state.loading && !state.viewingOffline && !searchProbes(q).tooShort ? (
+      ) : !state.loading &&
+        !state.viewingOffline &&
+        !state.error &&
+        !notAnswered &&
+        !searchProbes(q).tooShort ? (
         <View className="items-center gap-1 px-6 py-10" testID="search-empty">
           <Text className="text-center text-[15px] font-semibold">{W.noMatches(q)}</Text>
           <Text className="text-center text-[13px] text-text-2">{W.noMatchesHelp}</Text>

@@ -5,7 +5,7 @@ import type { CopyDb, PhoneAddonSearch } from '@/search/copy-sql';
 
 import { OutreachMore } from './outreach/more';
 import { RealestateMore } from './realestate/more';
-import { searchRealestateCopy } from './realestate/search';
+import { RE_COPY_KINDS, searchRealestateCopy } from './realestate/search';
 import { SalescoachMore } from './salescoach/more';
 
 /**
@@ -25,6 +25,11 @@ export interface PhoneAddon {
    * (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "Phone: no signal"). Asked only of someone holding `permission`.
    */
   readonly search?: (db: CopyDb, ask: PhoneAddonSearch) => Promise<readonly CopyGroup[]>;
+  /**
+   * The group kinds `search` answers (`realestate.deals`): one kind's page for any other of its kinds says it needs
+   * signal with none, rather than that nothing matched.
+   */
+  readonly searchKinds?: readonly string[];
 }
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
@@ -33,6 +38,7 @@ export const PHONE_ADDONS: readonly PhoneAddon[] = [
     permission: 'realestate.use',
     More: RealestateMore,
     search: searchRealestateCopy,
+    searchKinds: RE_COPY_KINDS,
   },
   { addonId: 'outreach', permission: 'outreach.use', More: OutreachMore },
   { addonId: 'salescoach', permission: 'salescoach.use', More: SalescoachMore },

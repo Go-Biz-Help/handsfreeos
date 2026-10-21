@@ -16,3 +16,4 @@ export * from './lines';
 export * from './addon';
 export * from './explain';
 export * from './copy';
+export * from './recent';

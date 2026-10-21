@@ -154,13 +154,12 @@ export const SEARCH_WORDS = {
     `${label} took too long to search. Try again, or pick ${label} on its own.`,
   skipped: (label: string) =>
     `${label} wasn’t searched this time, to keep this quick. Pick ${label} on its own to search it.`,
-  /** One of core's own kinds whose details couldn't be read this time. */
+  /** A kind whose details couldn't be read this time, or an add-on that couldn't answer, by its own name. */
   failed: (label: string) => `${label} couldn’t be searched just now. Try again in a minute.`,
   /** The business's own kinds have no one chip to pick, so their lines only say Try again. */
   ownKindsTooSlow: 'Your own kinds of records took too long to search. Try again.',
   ownKindsSkipped:
     'Your own kinds of records weren’t searched this time, to keep this quick. Try again.',
-  addonFailed: (name: string) => `${name} couldn’t be searched just now. Try again in a minute.`,
   tryAgain: 'Try again',
 
   /** A contact or a record saved with no name. */
@@ -173,9 +172,12 @@ export const SEARCH_WORDS = {
     'You’re offline, so this searched what’s on this phone. Files, messages and money show once you’re back online.',
   onThisPhone: 'On this phone',
   viewingAsOffline: (name: string) => `Searching needs signal while you’re viewing as ${name}.`,
-  /** One kind's page with no signal, for a kind the phone doesn't keep, such as Messages, Money or Files. */
-  needsSignal: (label: string) =>
-    `Searching ${label} needs signal. It runs once you’re back online.`,
+  /**
+   * One kind's page with no signal, for a kind the phone doesn't keep, such as Messages, Money or Files; a business's
+   * own kind opened by a link before the phone knew what it's called has no name to give.
+   */
+  needsSignal: (label: string | null) =>
+    `Searching ${label ?? 'this'} needs signal. It runs once you’re back online.`,
   everythingFor: (q: string) => `Search everything for ${quoted(q)}`,
   /** Leaves the phone's full-screen search. */
   cancel: 'Cancel',
@@ -283,3 +285,13 @@ const BADGES: Readonly<Record<string, string>> = {
   automated: 'Automated',
 };
 export const badgeLabel = (badge: string): string | null => BADGES[badge] ?? null;
+
+/** A badge's tone, by its key, as both apps draw it: a client and a won deal green, a lead amber, the rest grey. */
+const BADGE_TONES: Readonly<Record<string, 'ok' | 'pending' | 'accent'>> = {
+  lead: 'pending',
+  client: 'ok',
+  my_mail: 'accent',
+  won: 'ok',
+};
+export const badgeTone = (badge: string): 'ok' | 'pending' | 'accent' | 'gray' =>
+  Object.prototype.hasOwnProperty.call(BADGE_TONES, badge) ? BADGE_TONES[badge]! : 'gray';

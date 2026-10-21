@@ -11,8 +11,7 @@
 import { sql } from 'drizzle-orm';
 import type { SearchHit } from '../../../schemas/search';
 import { searchHref, type SearchRecordRef } from '../../href';
-import { NOTE_LINE_RULE } from '../../lines';
-import { SEARCH_WORDS } from '../../words';
+import { NOTE_LINE_RULE, NOTE_START, noteLines } from '../../lines';
 import { fieldSnippet, hitOf, isoOf, stretchSnippet } from '../hit';
 import type { KindSearcher, SearchPlan } from '../run';
 import {
@@ -36,17 +35,6 @@ const BARE_KINDS = NOTE_LINE_RULE.bareKinds.map((k) => `'${k}'`).join(', ');
 export const NOTE_LINES = sql.raw(
   `(a.kind = '${NOTE_LINE_RULE.kind}' or (a.kind in (${BARE_KINDS}) and a.subtype is null))`,
 );
-
-/** How much of a note found by who it's on shows, from its start (board 2's "Gate code 4471, dog in the yard"). */
-const OPENING = 120;
-/** A note's title: its first line, cut to about this. */
-const TITLE = 80;
-
-/** The first `n` characters of a text, its spaces made one, with "…" when it was cut. */
-function cut(text: string | null | undefined, n: number): string {
-  const whole = (text ?? '').replace(/\s+/g, ' ').trim();
-  return whole.length > n ? `${whole.slice(0, n).trimEnd()}…` : whole;
-}
 
 interface Row extends WindowRow {
   id: string | null;
@@ -81,7 +69,7 @@ function hitFrom(r: Row, plan: SearchPlan): SearchHit | null {
   const on = onOf(r);
   // A note on a customer in the bin, or on nothing that reads, has nowhere to open.
   if (!on || !r.id) return null;
-  const opening = cut(r.opening, OPENING);
+  const { title, opening } = noteLines(r.opening);
   const snippet = r.in_words
     ? stretchSnippet(r.snip, { before: r.snip_cut_before, after: r.snip_cut_after }, plan.p)
     : opening
@@ -91,7 +79,7 @@ function hitFrom(r: Row, plan: SearchPlan): SearchHit | null {
     kind: 'notes',
     id: r.id,
     // Its first line; the line under it says who it's on ("Note on Dana Smith · Oct 18").
-    title: cut(r.opening?.split('\n')[0], TITLE) || SEARCH_WORDS.untitledNote,
+    title,
     href: searchHref(plan.workspaceId, { type: 'activity', id: r.id, on: on.ref }),
     tier: 4,
     why: { field: r.in_words ? 'note' : 'customer', label: null, snippet, page: null },
@@ -117,7 +105,7 @@ export const notesSearcher: KindSearcher = {
               ${w.before ? sql`and a.occurred_at <= ${w.before}::timestamptz` : sql``}
             order by a.occurred_at desc, a.id desc`,
         (inWindow) =>
-          sql`select a.id, a.occurred_at, ${inBody} as in_words, substr(a.body, 1, 200) as opening,
+          sql`select a.id, a.occurred_at, ${inBody} as in_words, substr(a.body, 1, ${sql.raw(String(NOTE_START))}) as opening,
                 ${stretchOf(sql`a.body`, p.words[0] ?? null, 'snip')},
                 p.id as person_id, nullif(concat_ws(' ', p.first_name, p.last_name), '') as person_name,
                 co.id as company_id, co.name as company_name, l.id as lead_id, l.title as lead_title,

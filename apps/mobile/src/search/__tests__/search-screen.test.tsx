@@ -66,6 +66,7 @@ jest.mock('@/addons/registry', () => ({
       permission: 'realestate.use',
       More: () => null,
       search: (...args: unknown[]) => mockDealSearch(...args),
+      searchKinds: ['realestate.deals'],
     },
   ],
 }));
@@ -405,6 +406,88 @@ describe('Search everything on the phone', () => {
     await render(withBusiness());
     expect(await screen.findByTestId('search-needs-signal')).toHaveTextContent(
       SEARCH_WORDS.needsSignal('Messages'),
+    );
+    expect(screen.queryByTestId('search-empty')).toBeNull();
+  });
+
+  it('says when an add-on couldn’t be searched, never that nothing matched', async () => {
+    const failed = group('realestate', [], {
+      label: 'Real Estate Agent',
+      complete: false,
+      unavailable: 'failed',
+    });
+    post.mockImplementation((async (path: string) =>
+      path.endsWith('search.kind')
+        ? ok({
+            group: group('realestate.listings', [], {
+              label: 'Listings',
+              complete: false,
+              unavailable: 'failed',
+            }),
+            nextCursor: null,
+            standingCounts: null,
+            duplicates: [],
+          })
+        : ok({ ...answer([failed]), best: null, total: 0 })) as never);
+    await render(withBusiness());
+    expect(await screen.findByTestId('search-unavailable-realestate')).toHaveTextContent(
+      SEARCH_WORDS.failed('Real Estate Agent'),
+      { exact: false },
+    );
+    expect(screen.queryByTestId('search-empty')).toBeNull();
+    expect(screen.queryByTestId('search-none-active')).toBeNull();
+  });
+
+  it('says one add-on kind’s page couldn’t be searched, with Try again', async () => {
+    mockParams = { q: '418 smith', kind: 'realestate.listings' };
+    post.mockImplementation((async (path: string) =>
+      path.endsWith('search.kind')
+        ? ok({
+            group: group('realestate.listings', [], {
+              label: 'Listings',
+              complete: false,
+              unavailable: 'failed',
+            }),
+            nextCursor: null,
+            standingCounts: null,
+            duplicates: [],
+          })
+        : ok({ ...answer([]), best: null, total: 0 })) as never);
+    await render(withBusiness());
+    const line = await screen.findByTestId('search-unavailable-realestate.listings');
+    expect(line).toHaveTextContent(SEARCH_WORDS.failed('Listings'), { exact: false });
+    expect(line).toHaveTextContent(SEARCH_WORDS.tryAgain, { exact: false });
+    expect(screen.queryByTestId('search-empty')).toBeNull();
+  });
+
+  it('offers Try again only when it can help', async () => {
+    mockParams = { q: 'smith', kind: 'messages' };
+    post.mockImplementation((async (path: string) =>
+      path.endsWith('search.kind')
+        ? {
+            error: {
+              error: {
+                code: 'forbidden',
+                message: 'You can’t search Messages.',
+                disposition: 'final',
+                rule: 'search_kind_not_allowed',
+              },
+            },
+            response: { ok: false, status: 403 },
+          }
+        : ok(answer([group('contacts', [danaHit])]))) as never);
+    await render(withBusiness());
+    const error = await screen.findByTestId('search-error');
+    expect(error).toHaveTextContent('You can’t search Messages.');
+    expect(screen.queryByTestId('search-empty')).toBeNull();
+  });
+
+  it('says an add-on kind the copy doesn’t answer waits for signal, by its own name', async () => {
+    mockOnline = false;
+    mockParams = { q: '418 smith', kind: 'realestate.listings' };
+    await render(withBusiness());
+    expect(await screen.findByTestId('search-needs-signal')).toHaveTextContent(
+      SEARCH_WORDS.needsSignal('Listings'),
     );
     expect(screen.queryByTestId('search-empty')).toBeNull();
   });
