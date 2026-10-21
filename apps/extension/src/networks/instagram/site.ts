@@ -34,7 +34,7 @@ import { instagramNoticer } from './actions';
 import { followThem, likeTheirPost, openTheirChat, theirPosts, writeMessage } from './auto';
 import { readOwnProfile, writeBio } from './own-profile';
 import { readInstagram } from './read';
-import { openChat, scrollList } from './browse';
+import { openChat, openFollowers, scrollList } from './browse';
 import { readReplies } from './replies';
 import { unfollow } from './unfollow';
 import { HOST, instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
@@ -314,9 +314,11 @@ export const INSTAGRAM: LookingSite = {
   // Unfollowing those the person ticked who didn't follow back (part 12), by Following and Unfollow's own words.
   unfollow,
   // Its lists, for the person's asks (parts 12 and 13): their followers' box scrolled, and their chats' list too; a
-  // chat opened for Check, or by its row's name for Read my chats.
+  // chat opened for Check, or by its row's name for Read my chats. From 0.84.0 their followers' box opened by their
+  // account's count of followers, where Instagram doesn't open it from its address.
   lists: {
     scroll: (doc, href) => scrollList(doc, href),
+    showAll: (doc, href) => openFollowers(doc, href),
     openChat: (doc, _href, name) => openChat(doc, name),
   },
   // Who wrote back in their chats (part 13), as the person goes and as Read my chats goes.

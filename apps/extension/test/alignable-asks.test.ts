@@ -2,8 +2,9 @@
  * What the person asks of their computer on Alignable (partners stage 6c, part 4; src/jobs/alignable): their
  * connections saved from My Network, all of them once its tab of them all is pressed and its Show more has nothing
  * left; the connection requests they've got saved from its Requests; a connection's business page read for the AI's
- * check, only when it's theirs; and a business looked up before drafting. On pages drawn as the owner's Check
- * Alignable found them (0.68.0): `connection-row`s under `allies-picks-list`, beside `tab-all-connections`.
+ * check, only when it's theirs; a business looked up before drafting; and from 0.84.0 their chats read for the AI,
+ * noting who wrote last. On pages drawn as the owner's Check Alignable found them (0.68.0): `connection-row`s under
+ * `allies-picks-list`, beside `tab-all-connections`; and Messages as his Check of 21 Oct 2026 outlined it.
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,7 +12,12 @@ import { runAsk } from '../src/asks/run';
 import { readWarmLeads } from '../src/jobs/alignable/engaged';
 import { alignableListSave } from '../src/hfos/saves';
 import { KITS } from '../src/networks';
-import { openConversation, scrollList, showAllConnections } from '../src/networks/alignable/browse';
+import {
+  openConversation,
+  scrollConversations,
+  scrollList,
+  showAllConnections,
+} from '../src/networks/alignable/browse';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 
 // A person's pace between pages, skipped.
@@ -404,5 +410,149 @@ describe('warm leads from Alignable’s notifications', () => {
     expect(end.line).toBe(
       'Read your Alignable notifications: 3 new warm leads who liked, commented on or recommended you, on your list for today.',
     );
+  });
+});
+
+/** Messages as the owner's Check of 21 Oct 2026 outlined it: conversations down the side, rows that aren't links. */
+const sideRow = (name: string, preview: string | null, when: string) =>
+  `<div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>${name}</div>${
+    preview ? `<div>${preview}</div>` : ''
+  }</div></div><span data-testid="conversationDate">${when}</span></div></div>`;
+const theirs = (id: string, name: string, words: string) =>
+  `<div><a href="/biz/businesses/${id}?user=5"><img alt="" /></a><div><div><span>${name}</span><span>9:12 AM</span></div>
+    <div data-testid="rel-card-message"><div>${words}</div><svg role="img"></svg></div></div></div>`;
+const mine = (words: string) =>
+  `<div><div><div><span>You</span><span>9:40 AM</span></div>
+    <div data-testid="rel-card-message"><div>${words}</div><svg role="img"></svg></div></div><img alt="" /></div>`;
+const CONVERSATIONS: Record<string, readonly [string, string]> = {
+  'Dana Reyes': [
+    'B1',
+    `${mine('Want to swap referrals?')}${theirs('B1', 'Dana Reyes', 'Yes, Tuesday works.')}`,
+  ],
+  'Lee Park': [
+    'B2',
+    `${theirs('B2', 'Lee Park', 'Thanks for connecting!')}${mine('Likewise, Lee.')}`,
+  ],
+};
+const pane = (name: string) => {
+  const [id, rows] = CONVERSATIONS[name]!;
+  return `<div data-testid="channel-header-loaded"><header><div><div><img alt="" />
+      <a href="/biz/businesses/${id}?user=5&cyfid=6"><div>${name}</div></a></div></div></header></div>
+    <div><div><div><p>You and ${name} are connected</p>${rows}</div></div></div>
+    <div data-testid="full-view-write-message"><div contenteditable="true" placeholder="Write a message"></div>
+      <button aria-label="Send" data-testid="messaging-send-external"></button></div>`;
+};
+
+/** Messages, open on Dana's conversation: pressing a row opens its conversation beside the list. */
+function messages(): Document {
+  const doc = new JSDOM(
+    `<!doctype html><html><body><div data-testid="inbox">
+      <div id="side" style="overflow-y: auto">${sideRow('Dana Reyes', 'Yes, Tuesday works.', '2h')}
+        ${sideRow('Lee Park', 'Likewise, Lee.', '3d')}${sideRow('Sam Lee', null, '1w')}</div>
+      <div id="open">${pane('Dana Reyes')}</div></div></body></html>`,
+    { url: `${AL}/biz/conversations` },
+  ).window.document;
+  for (const row of doc.querySelectorAll<HTMLElement>('[data-testid="conversationInSidebar"]'))
+    row.addEventListener('click', () => {
+      const name = [...row.querySelectorAll('div')].find((d) => !d.children.length)!.textContent!;
+      if (CONVERSATIONS[name]) doc.querySelector('#open')!.innerHTML = pane(name);
+    });
+  return doc;
+}
+
+describe('Read my chats, on Alignable', () => {
+  it('opens a conversation by its row’s name, and scrolls the list down Messages’ side, never the page', () => {
+    const doc = messages();
+    expect(openConversation(doc, 'lee park')).toBe(true);
+    expect(doc.querySelector('[data-testid="channel-header-loaded"] a')!.textContent).toBe(
+      'Lee Park',
+    );
+    expect(openConversation(doc, 'Kim Bakes')).toBe(false);
+    const side = doc.querySelector<HTMLElement>('#side')!;
+    let top = 0;
+    Object.defineProperty(side, 'clientHeight', { get: () => 400 });
+    Object.defineProperty(side, 'scrollHeight', { get: () => 900 });
+    Object.defineProperty(side, 'scrollTop', { get: () => top });
+    side.scrollBy = (() => (top = 500)) as typeof side.scrollBy;
+    expect(scrollConversations(doc)).toBe(true);
+    expect(scrollConversations(doc)).toBe(false);
+  });
+
+  it('reads each conversation for the AI as Alignable’s, and notes the one whose last message is theirs', async () => {
+    const { tab, opened } = alignableTab({ '/biz/conversations': messages });
+    const store = new Map<string, unknown>();
+    const chromeHere = () =>
+      vi.stubGlobal('chrome', {
+        storage: {
+          local: {
+            get: async (k: string) => (store.has(k) ? { [k]: store.get(k) } : {}),
+            set: async (v: Record<string, unknown>) => {
+              for (const [k, value] of Object.entries(v)) store.set(k, value);
+            },
+          },
+        },
+      });
+    chromeHere();
+    const ask = tab.ask.bind(tab);
+    const asked: string[] = [];
+    // The tab's own work stands in for the page's, and puts back what it stood in for after: chrome too.
+    tab.ask = (async (message: { type: string }) => {
+      asked.push(message.type);
+      const answer = await ask(message as never);
+      chromeHere();
+      return answer;
+    }) as typeof tab.ask;
+    try {
+      const { job, sent } = alignableJob(tab, {
+        'hfos-collect-chats': () => ({ saved: 1, waiting: 1 }),
+        'hfos-replies-note': () => ({ replies: [] }),
+      });
+      const end = await runAsk({ kind: 'chats' }, job, 'alignable');
+      expect(opened).toEqual(['/biz/conversations']);
+      // Its rows pressed and its list scrolled: nothing else.
+      expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-open-chat', 'hfos-scroll-list']));
+      const chats = sent
+        .filter((s) => s.type === 'hfos-collect-chats')
+        .map(
+          (s) =>
+            s.input as {
+              platform: string;
+              chats: { name: string; thread: unknown; messages: { fromMe: boolean }[] }[];
+            },
+        );
+      // Sam Lee's has nothing in it yet, so it isn't opened.
+      expect(
+        chats.map((c) => [
+          c.platform,
+          c.chats[0]!.name,
+          c.chats[0]!.thread,
+          c.chats[0]!.messages.map((m) => m.fromMe),
+        ]),
+      ).toEqual([
+        ['alignable', 'Dana Reyes', { id: 'B1', encrypted: false }, [true, false]],
+        ['alignable', 'Lee Park', { id: 'B2', encrypted: false }, [false, true]],
+      ]);
+      // Dana wrote last, two hours ago; Lee's ends with the person's own.
+      expect(sent.filter((s) => s.type === 'hfos-replies-note').map((s) => s.input)).toEqual([
+        {
+          workspaceId: 'b',
+          platform: 'alignable',
+          looking: false,
+          seen: [
+            {
+              name: 'Dana Reyes',
+              threadKey: 'B1',
+              profile: { id: 'B1', username: null, url: `${AL}/biz/businesses/B1` },
+            },
+          ],
+        },
+      ]);
+      expect(end).toEqual({
+        line: 'Done: 2 chats sent for the AI to read. 1 chat had their message last. Chats read in the last day were left as they were.',
+        warned: false,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

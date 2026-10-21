@@ -6,30 +6,36 @@
  *   Following, Requested), whether they follow the person (Follow Back, "Follows you"), their followers, and their
  *   latest posts' links. From the owner's Check (0.62.0): the header's username in an `h2`, the name in a line of its
  *   own under it, the counts as links, and Following with its words beside an arrow.
- * - **Your followers** (the box over /<you>/followers/): each person's username, name and link, and whether the person
- *   follows them back: in their own list Instagram shows Follow beside those they don't, and Remove beside everyone.
+ * - **Your followers** (the box over /<you>/followers/, or over their account once its count is pressed): each
+ *   person's username, name and link, and whether the person follows them back: in their own list Instagram shows
+ *   Follow beside those they don't, and Remove beside everyone.
  * - **A post** (/p/<code>/): who posted it (its own link names them: /<name>/p/<code>/), its link, its caption, its
- *   likes ("1,234 likes", "Liked by … and 12 others"), its comments (who and what: each has its own link,
- *   /p/<code>/c/<id>/, on its time, and a Reply) and its place (/explore/locations/<id>/<name>/). From the owner's
- *   Check (0.62.0).
- * - **A hashtag's and a place's page:** their posts' links.
+ *   likes ("1,234 likes", "Liked by … and 12 others", or from the owner's Check of 21 Oct 2026 the number after its
+ *   Like in its bar), its comments (who and what: each has its own link, /p/<code>/c/<id>/, on its time, and a Reply)
+ *   and its place (/explore/locations/<id>/<name>/). From the owner's Check (0.62.0).
+ * - **A hashtag's and a place's page:** their posts' links; a hashtag's on the search Instagram sends it to now
+ *   (/explore/search/keyword/?q=#<tag>).
  * - **Notifications:** who followed the person, liked or commented on their posts (the kind and who; never what a
- *   comment says), and whether the person follows them, by the button beside it (part 15).
+ *   comment says), and whether the person follows them, by the button beside it (part 15). The accounts Instagram
+ *   suggests under them are never among them.
  * - **Messages** (/direct/inbox/, /direct/requests/): its chats, each with the other person's name (in a `title`),
  *   whether the last line is the person's ("You: …") and when, and which box shows (Primary, General or Requests).
  *   From the owner's Check (0.62.0): the rows are buttons, not links.
  * - **A chat** (/direct/t/<id>/): who it's with, its messages (theirs or the person's), and its box: a request asks
- *   them to Accept.
+ *   them to Accept. From the owner's Check of 21 Oct 2026: each message an article, their picture (a link to them)
+ *   beside the last of a run of theirs, a post one shares linking to whoever posted it, and its header a link to them
+ *   with their name in a heading.
  *
  * And what Check Instagram follows from page to page (part 9): the places, hashtags and chats a page links to.
  *
- * It reads by Instagram's own words, labels, roles and link addresses, never class names. Its followers list, a
- * hashtag, a place, notifications and a chat are read from Instagram's usual markup until the owner's next Check
- * outlines them (0.79.0 opens each), and they're tuned from that. Each is plain data: it crosses from the tab as JSON.
- * Check notes only how many of each it found, never what they say (../../jobs/report.ts).
+ * It reads by Instagram's own words, labels, roles and link addresses, never class names. Its followers list,
+ * notifications and a chat were read from Instagram's usual markup till the owner's Check of 21 Oct 2026 (0.83.0)
+ * outlined them, and they're tuned from that; a place's page is still to be outlined, as that Check found none to open.
+ * Each is plain data: it crosses from the tab as JSON. Check notes only how many of each it found, never what they say
+ * (../../jobs/report.ts).
  */
-import { clean } from '../facebook/dom';
 import { measuredSide } from '../facebook/chat';
+import { clean, isBefore, textLines } from '../facebook/dom';
 import { nameOf } from '../looking/read';
 import {
   accountOf,
@@ -72,6 +78,8 @@ const FOLLOWED_BY = /^followed by\b/i;
 const REMOVE = /^remove$/i;
 const REPLY = /^reply$/i;
 const ACCEPT = /^accept$/i;
+/** The heading over the accounts Instagram suggests. */
+const SUGGESTED = /^suggested for you$/i;
 /** Instagram's own words around a profile's lines: never a name. */
 export const OWN_WORDS =
   /^(posts?|followers?|following|follow|follow back|requested|message|edit profile|view archive|more|options|new|threads|meta verified|verified|follows you|remove|·|•|reply|see translation)$/i;
@@ -193,6 +201,11 @@ export interface ChatOpen {
   readonly with: Account | null;
   readonly name: string | null;
   readonly messages: readonly ChatMessage[];
+  /**
+   * Whose the last message is, written or not: a post or a reel one of them shares has no words of theirs to read, but
+   * is still who wrote last (the owner's Check, 21 Oct 2026). Null with none read.
+   */
+  readonly last: ChatMessage['from'] | null;
   /** Its box to write in, in sight. */
   readonly box: boolean;
   /** A request they sent the person, waiting for Accept. */
@@ -420,12 +433,46 @@ function rowsIn(
   return [...rows.values()];
 }
 
-/** The person's followers, in the box over /<you>/followers/: each, and whether they follow them back. */
+/**
+ * The box of followers over an account's page: the one over /<you>/followers/, or over their own account once its
+ * count of followers is pressed (the owner's Check, 21 Oct 2026: the counts aren't links to the list now, and the page
+ * at /<you>/followers/ showed their account without it), by its heading's own word.
+ */
+export function followersBox(doc: Document, base: string): Element | null {
+  const page = instagramUrl(base);
+  const kind = page ? kindOf(page) : null;
+  const boxes = [...doc.querySelectorAll('[role="dialog"]')];
+  const headed = boxes.find((box) =>
+    [...box.querySelectorAll('h1, h2, [role="heading"]')].some((h) =>
+      /^followers$/i.test(clean(h.textContent)),
+    ),
+  );
+  if (headed && (kind === 'followers' || kind === 'profile')) return headed;
+  return kind === 'followers' ? (boxes[0] ?? null) : null;
+}
+
+/**
+ * Their own account's count of followers, which opens the box of them over the page when pressed: the link in its
+ * header whose words end with Instagram's own "followers". Never "Followed by …" on someone else's account.
+ */
+export function followersCount(doc: Document): HTMLElement | null {
+  const header = mainOf(doc).querySelector('header');
+  if (!header) return null;
+  return (
+    [...header.querySelectorAll<HTMLElement>('a, [role="link"], [role="button"]')].find((el) =>
+      /^[\d,.]+\s*[km]?\s*followers$/i.test(clean(el.textContent)),
+    ) ?? null
+  );
+}
+
+/** The person's followers, in the box over their account: each, and whether they follow them back. */
 function followersOn(doc: Document, base: string): Follower[] {
   const page = instagramUrl(base);
-  if (!page || kindOf(page) !== 'followers') return [];
+  if (!page) return [];
   const listOwner = accountOf(page)?.username.toLowerCase();
-  const root = doc.querySelector('[role="dialog"]') ?? mainOf(doc);
+  const box = followersBox(doc, base);
+  if (!box && kindOf(page) !== 'followers') return [];
+  const root = box ?? mainOf(doc);
   return rowsIn(root, base)
     .filter(({ account }) => account.username.toLowerCase() !== listOwner)
     .map(({ row, account, name }) => {
@@ -463,9 +510,8 @@ export function authorOf(root: Element, base: string, code: string): Account | n
 }
 
 /** Its comments: each found by its own link on its time (/p/<code>/c/<id>/), with a Reply beside it. */
-function commentsIn(root: Element, base: string): { comments: Comment[]; first: Element | null } {
+function commentsIn(root: Element, base: string): { comments: Comment[]; parts: Element[] } {
   const comments: Comment[] = [];
-  let first: Element | null = null;
   const seen = new Set<Element>();
   for (const { a, url } of linksIn(root, base)) {
     if (!isCommentLink(url)) continue;
@@ -474,7 +520,6 @@ function commentsIn(root: Element, base: string): { comments: Comment[]; first: 
     for (let steps = 0; at && steps < 8 && !says(at, REPLY); steps++) at = at.parentElement;
     if (!at || seen.has(at)) continue;
     seen.add(at);
-    first ??= at;
     const by = linksIn(at, base)
       .map(({ a: link, url: u }) => ({ link, account: profileOf(u) }))
       .find(({ link, account }) => account && clean(link.textContent));
@@ -492,7 +537,7 @@ function commentsIn(root: Element, base: string): { comments: Comment[]; first: 
     comments.push({ ...by.account, text: said ?? '' });
     if (comments.length >= COMMENTS_MOST) break;
   }
-  return { comments, first };
+  return { comments, parts: [...seen] };
 }
 
 /**
@@ -520,9 +565,10 @@ function captionIn(root: Element, author: Account | null): string | null {
 }
 
 /** Its likes: "1,234 likes", the number on its Liked by link, "Liked by … and 12 others", or the number beside Like. */
-function likesIn(root: Element, base: string): number | null {
-  // A comment's own likes ("3 likes") sit by its Reply: never the post's.
+function likesIn(root: Element, base: string, comments: readonly Element[]): number | null {
+  // A comment's own likes ("3 likes") sit in the comment, by its Reply: never the post's.
   const inComment = (el: Element) => {
+    if (comments.some((comment) => comment.contains(el))) return true;
     for (let up = el.parentElement, n = 0; up && up !== root && n < 4; up = up.parentElement, n++)
       if (says(up, REPLY)) return true;
     return false;
@@ -543,13 +589,19 @@ function likesIn(root: Element, base: string): number | null {
       return named ? n + 1 : n;
     }
   }
-  // The post's own Like, in the bar with its Comment: a comment's Like has its Reply beside it instead.
-  const like = controlsIn(root).find(
-    ({ c, name }) =>
-      /^like$/i.test(name) && c.parentElement !== null && says(c.parentElement, /^comment$/i),
-  )?.c;
-  const beside = like?.nextElementSibling;
-  return beside ? countOf(beside.textContent) : null;
+  // The number beside the post's own Like, in its bar: the control after the Like is its count, and the one after that
+  // the bar's Comment, where a comment's Like has its Reply or the next comment after it. In page order, however many
+  // boxes Instagram wraps around each (the owner's Check, 21 Oct 2026: Like, "36.5K", Comment, "1.1K", Share). With
+  // the likes hidden, the Comment comes straight after the Like.
+  const controls = controlsIn(root);
+  for (const [i, { name }] of controls.entries()) {
+    if (!/^like$/i.test(name)) continue;
+    const after = controls.slice(i + 1);
+    const count = after.findIndex(({ name: n }) => countOf(n) === null);
+    if (count < 0 || !/^comment$/i.test(after[count]!.name)) continue;
+    return count > 0 ? countOf(after[0]!.name) : null;
+  }
+  return null;
 }
 
 function postOn(doc: Document, base: string): InstagramPost | null {
@@ -560,13 +612,13 @@ function postOn(doc: Document, base: string): InstagramPost | null {
   const code = partsOf(new URL(url))[1]!;
   const root = postRootOf(doc);
   const author = authorOf(root, base, code);
-  const { comments } = commentsIn(root, base);
+  const { comments, parts } = commentsIn(root, base);
   const placeLink = linksIn(root, base).find(({ url: u }) => LOCATION.test(u.pathname));
   return {
     url,
     author,
     caption: captionIn(root, author),
-    likes: likesIn(root, base),
+    likes: likesIn(root, base, parts),
     comments,
     place: placeLink
       ? {
@@ -590,12 +642,26 @@ const postsIn = (doc: Document, base: string): string[] =>
     ),
   ].slice(0, ROWS_MOST);
 
+/** A hashtag searched for: Instagram sends a hashtag's page to its search for it (?q=#smallbusiness). */
+const TAG_SEARCHED = /^#([^\s#/]{1,100})$/;
+
+/**
+ * A hashtag's page, and the search Instagram sends it to now (the owner's Check, 21 Oct 2026: #smallbusiness landed on
+ * /explore/search/keyword/?q=, with its posts' grid), read the same: its posts' links. Never a search for words.
+ */
 function tagOn(doc: Document, base: string): PostsPage | null {
   const page = instagramUrl(base);
-  if (!page || kindOf(page) !== 'tag') return null;
-  const name = decodeURIComponent(partsOf(page)[2] ?? '');
+  if (!page) return null;
+  const kind = kindOf(page);
+  const searched =
+    kind === 'search' ? TAG_SEARCHED.exec(clean(page.searchParams.get('q')))?.[1] : undefined;
+  const name = searched ?? (kind === 'tag' ? decodeURIComponent(partsOf(page)[2] ?? '') : '');
   if (!name) return null;
-  return { url: whole(`/explore/tags/${partsOf(page)[2]}/`), name, posts: postsIn(doc, base) };
+  return {
+    url: whole(`/explore/tags/${encodeURIComponent(name)}/`),
+    name,
+    posts: postsIn(doc, base),
+  };
 }
 
 function placeOn(doc: Document, base: string): PostsPage | null {
@@ -623,9 +689,14 @@ function engagedOn(doc: Document, base: string): Engaged[] {
   if (!page || kindOf(page) !== 'notifications') return [];
   const root = doc.querySelector('[role="dialog"]') ?? mainOf(doc);
   const found = new Map<string, Engaged>();
+  // The accounts Instagram suggests under its own heading, each with Follow, are nobody who engaged (the owner's
+  // Check, 21 Oct 2026: 30 of them under "Suggested for you", below a month of Meta's own notifications).
+  const headings = [...root.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')];
+  const suggested = (a: Element) =>
+    SUGGESTED.test(clean(headings.filter((h) => isBefore(h, a)).at(-1)?.textContent));
   for (const { a, url } of linksIn(root, base)) {
     const account = profileOf(url);
-    if (!account || !clean(a.textContent)) continue;
+    if (!account || !clean(a.textContent) || suggested(a)) continue;
     for (
       let up = a.parentElement, steps = 0;
       up && up !== root && steps < 6;
@@ -720,19 +791,69 @@ export function chatRows(doc: Document, base: string): ChatRow[] {
   return rows;
 }
 
-/** A message's own words: what's written in its row, without Instagram's lines around it. */
+/** Headings, where Instagram says for screen readers whose a message is. */
+const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+
+/** What's never a message's own words: its buttons (a shared post among them), its times, its headings. */
+const NOT_WRITTEN = `button, [role="button"], abbr, time, ${HEADINGS}`;
+
+/**
+ * A message's own words: what's written in its row, without Instagram's lines around it. An article of the newer
+ * layout holds the message alone, so all it says is theirs to say, a line a block (a hashtag's link in a line is part
+ * of it), but for a shared post's button.
+ */
 function messageText(row: Element): string {
+  if (row.getAttribute('role') === 'article')
+    return textLines(row, 60, NOT_WRITTEN).join('\n').slice(0, TEXT_MOST);
   return leafLines(row)
-    .filter(({ el }) => !el.closest('button, [role="button"], abbr, time, h1, h2, h3, h4, h5, h6'))
+    .filter(({ el }) => !el.closest(NOT_WRITTEN))
     .map(({ text }) => text)
     .filter((text) => !MINE.test(text) && !THEIRS.test(text) && !NOTICE.test(text))
     .join('\n')
     .slice(0, TEXT_MOST);
 }
 
-/** The person's and theirs, by what the row says for screen readers ("You sent"), else by the side it sits on. */
-function whoseRow(row: Element, conversation: Element, them: Account | null): 'me' | 'them' | null {
-  for (const { text } of leafLines(row)) {
+/** Whether a link leads to their account: /<name>/, or /<name> as a message's picture links it. */
+const toThem = (a: Element, them: Account, base: string): boolean =>
+  accountLinked(a, base)?.username.toLowerCase() === them.username.toLowerCase();
+
+/**
+ * The part of the page around one message that's about it alone: its row, or in Instagram's newer layout the part
+ * around its article as far up as it holds no other message, where their picture sits beside the last of theirs.
+ */
+function aroundMessage(message: Element, messages: readonly Element[]): Element {
+  if (message.getAttribute('role') === 'row') return message;
+  let part = message;
+  for (
+    let up = message.parentElement, steps = 0;
+    up && steps < 10;
+    up = up.parentElement, steps++
+  ) {
+    if (messages.some((other) => other !== message && up!.contains(other))) break;
+    // Never as far as the chat's own header, or its top with View profile, or its box: each links to them too.
+    if (up.querySelector('h1, h2, [role="textbox"], [contenteditable="true"]')) break;
+    part = up;
+  }
+  return part;
+}
+
+/**
+ * The person's and theirs: by what the message says for screen readers ("You sent"), by their picture beside it (a
+ * link to them, never beside the person's), else by the side of the conversation it sits on. In Instagram's newer
+ * layout (the owner's Check, 21 Oct 2026: each message an article, their picture beside the last of a run of theirs
+ * and none beside the person's), a message with none of these is the person's.
+ */
+function whoseRow(
+  row: Element,
+  part: Element,
+  conversation: Element,
+  them: Account | null,
+  base: string,
+): 'me' | 'them' | null {
+  const article = row.getAttribute('role') === 'article';
+  for (const { el, text } of leafLines(row)) {
+    // An article holds the message itself: only a heading in it is Instagram saying whose it is.
+    if (article && !el.closest(HEADINGS)) continue;
     if (MINE.test(text)) return 'me';
     if (THEIRS.test(text)) return 'them';
   }
@@ -741,15 +862,19 @@ function whoseRow(row: Element, conversation: Element, them: Account | null): 'm
     if (MINE.test(label)) return 'me';
     if (THEIRS.test(label)) return 'them';
   }
-  // Their picture, or a link to them, sits beside theirs; never beside the person's.
-  if (them && row.querySelector(`a[href="/${them.username}/"], a[href="/${them.username}"]`))
+  // Their picture, a link to them, beside the message: never one a post it shares links to inside it.
+  if (
+    them &&
+    linksIn(part, base).some(({ a }) => toThem(a, them, base) && (part === row || !row.contains(a)))
+  )
     return 'them';
   try {
     const side = measuredSide(row, conversation);
-    return side === 'right' ? 'me' : side === 'left' ? 'them' : null;
+    if (side) return side === 'right' ? 'me' : 'them';
   } catch {
-    return null;
+    // Not drawn: what the page says is all there is.
   }
+  return article ? 'me' : null;
 }
 
 /** A chat open on its own page: who it's with, its messages, its box, and whether it's a request to Accept. */
@@ -757,51 +882,75 @@ export function chatOn(doc: Document, base: string, own: string | null): ChatOpe
   const page = instagramUrl(base);
   if (!page || kindOf(page) !== 'chat') return null;
   const main = mainOf(doc);
-  const conversation =
-    [...main.querySelectorAll('[aria-label]')].find((el) =>
-      /^(messages in )?conversation (with|titled)\b/i.test(clean(el.getAttribute('aria-label'))),
-    ) ??
-    main.querySelector('[role="grid"]') ??
-    main;
-  // Who it's with: the one account other than the person's own its page links to (its header, View profile).
+  // The list of chats beside it is its own: never the chat's.
+  const inList = (el: Element) => el.closest('[role="navigation"]') !== null;
+  // Its messages: the conversation's rows, else in Instagram's newer layout its articles (the owner's Check, 0.83.0).
+  const labelled = [...main.querySelectorAll('[aria-label]')].find((el) =>
+    /^(messages in )?conversation (with|titled)\b/i.test(clean(el.getAttribute('aria-label'))),
+  );
+  const grid = labelled ?? main.querySelector('[role="grid"]');
+  const outer = (selector: string) =>
+    [...(grid ?? main).querySelectorAll(selector)].filter(
+      (el) => !inList(el) && !el.parentElement?.closest(selector),
+    );
+  const rows = outer('[role="row"]');
+  const messages = rows.length ? rows : outer('[role="article"]');
+  // Who it's with: the one account other than the person's own its page links to (its header, View profile, their
+  // picture beside their messages), never one a message shares a post of.
   const accounts = new Map<string, Account>();
-  for (const { url } of linksIn(main, base)) {
+  for (const { a, url } of linksIn(main, base)) {
     const account = profileOf(url);
-    if (account && account.username.toLowerCase() !== own?.toLowerCase())
+    if (!account || inList(a) || a.closest('[role="article"]')) continue;
+    if (account.username.toLowerCase() !== own?.toLowerCase())
       accounts.set(account.username.toLowerCase(), account);
   }
   const them = accounts.size === 1 ? [...accounts.values()][0]! : null;
+  const toThemNamed = them
+    ? linksIn(main, base).filter(({ a }) => !inList(a) && toThem(a, them, base))
+    : [];
   const header =
     main.querySelector('header, [role="banner"]') ??
-    (them
-      ? linksIn(main, base).find(({ url }) => profileOf(url)?.username === them.username)?.a
-      : null);
+    (toThemNamed.find(({ a }) => a.querySelector('h1, h2')) ?? toThemNamed[0])?.a ??
+    null;
   const name =
     clean(header?.querySelector('h1, h2, span[title]')?.textContent) ||
     clean(header?.textContent) ||
     them?.username ||
     null;
-  const rows = [...conversation.querySelectorAll('[role="row"]')].filter(
-    (row) => !row.parentElement?.closest('[role="row"]'),
-  );
-  const messages: ChatMessage[] = [];
-  for (const row of rows) {
-    const from = whoseRow(row, conversation, them);
-    const text = messageText(row);
-    if (!from || !text) continue;
-    messages.push({ from, text });
-  }
   const box = main.querySelector(
     '[role="textbox"], [contenteditable="true"], textarea[placeholder], textarea[aria-label]',
   );
+  // Which side a message sits on is against the conversation itself: the part around its messages and its box, never
+  // the list of chats beside it.
+  const conversation =
+    grid ?? closestAround([...messages, ...(box && !inList(box) ? [box] : [])]) ?? main;
+  const read: ChatMessage[] = [];
+  let last: ChatOpen['last'] = null;
+  for (const message of messages) {
+    const part = aroundMessage(message, messages);
+    const from = whoseRow(message, part, conversation, them, base);
+    if (!from) continue;
+    last = from;
+    const text = messageText(message);
+    if (text) read.push({ from, text });
+  }
   return {
     thread: threadOf(page),
     with: them,
     name: name && name.length <= 100 ? name : (them?.username ?? null),
-    messages: messages.slice(-MESSAGES_MOST),
+    messages: read.slice(-MESSAGES_MOST),
+    last,
     box: box !== null,
     request: says(main, ACCEPT),
   };
+}
+
+/** The nearest part of the page holding all of these, when there are any. */
+function closestAround(elements: readonly Element[]): Element | null {
+  const [first, ...rest] = elements;
+  for (let up: Element | null = first?.parentElement ?? null; up; up = up.parentElement)
+    if (rest.every((el) => up!.contains(el))) return up;
+  return null;
 }
 
 // ------------------------------------------------------------------------------------------------ who posted

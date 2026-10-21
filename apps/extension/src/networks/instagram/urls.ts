@@ -4,7 +4,8 @@
  * /explore/tags/<tag>/ for a hashtag, /explore/locations/<id>/<name>/ for a place, /explore/search/keyword/?q= for a
  * search, /explore/people/ for the accounts it suggests, /direct/inbox/, /direct/requests/ and /direct/t/<id>/ for
  * messages, and /accounts/edit/ for the person's own profile's form. Shared by the site, its readers (./read.ts) and
- * the noting of the person's own steps (./actions.ts).
+ * the noting of the person's own steps (./actions.ts). From the owner's Check of 21 Oct 2026: a hashtag's page sends
+ * the tab to a search for it (/explore/search/keyword/?q=%23<tag>), and /explore/locations/ alone is no list of places.
  */
 
 export const HOST = 'www.instagram.com';
@@ -68,18 +69,16 @@ export function instagramUrl(href: string, base?: string): URL | null {
 
 /** What kind of page an address is. */
 export function kindOf(url: URL): string {
-  const [first = '', second = ''] = partsOf(url).map((p) => p.toLowerCase());
+  const [first = '', second = '', third = ''] = partsOf(url).map((p) => p.toLowerCase());
   if (!first) return 'feed';
-  if (first === 'explore')
-    return second === 'tags'
-      ? 'tag'
-      : second === 'search'
-        ? 'search'
-        : second === 'locations'
-          ? 'place'
-          : second === 'people'
-            ? 'suggested'
-            : 'explore';
+  if (first === 'explore') {
+    if (second === 'tags') return 'tag';
+    if (second === 'search') return 'search';
+    // A place by its id. /explore/locations/ alone is no list of places now: Instagram draws an account named
+    // "explore" there (the owner's Check, 21 Oct 2026).
+    if (second === 'locations' && /^\d+$/.test(third)) return 'place';
+    return second === 'people' ? 'suggested' : 'explore';
+  }
   if (first === 'p' || first === 'reel' || first === 'tv') return 'post';
   // A reel opens in the reels player, at /reels/<code>/: its own page still.
   if (first === 'reels') return second ? 'post' : 'reels';

@@ -1,14 +1,17 @@
 /**
  * Alignable's own readers (src/networks/alignable/read.ts; partners stage 6c, part 1): on pages drawn as the owner's
- * Check Alignable outlined them (0.66.0, 19 Oct 2026), with their test ids, links and words where Alignable put them.
- * What a report of each says: how many of each, never what they say.
+ * Check Alignable outlined them (0.66.0, 19 Oct 2026; an open conversation's messages from his Check of 21 Oct 2026),
+ * with their test ids, links and words where Alignable put them. What a report of each says: how many of each, never
+ * what they say.
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { readAlignable } from '../src/networks/alignable/read';
+import { readReplies } from '../src/networks/alignable/replies';
 import { ALIGNABLE } from '../src/networks/alignable/site';
 import { outlineLooking, readLooking } from '../src/networks/looking/read';
 import { pageFound } from '../src/jobs/report';
+import { boxEverything } from './load';
 
 const AL = 'https://www.alignable.com';
 const page = (url: string, body: string) =>
@@ -429,7 +432,146 @@ describe('Messages', () => {
       profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
       box: true,
       send: true,
+      // A conversation with nothing written in it yet.
+      messages: [],
+      last: null,
     });
+  });
+});
+
+/**
+ * A conversation open on Messages, rebuilt element for element from the owner's Check of 21 Oct 2026 (0.83.0), with
+ * made-up words where its outline hid them: its header's link to the business it's with, the business card and a day
+ * above its messages, then each message's row. Theirs starts with their picture in a link to their business, then who
+ * and when, then its card; the person's own has who and when, its card, then a picture alone.
+ */
+const theirRow = (id: string, words: string, when: string) => `
+  <div><a href="/biz/businesses/${id}?user=5&cyfid=6&cyattr=7"><img alt="" /></a>
+    <div><div><span>Dana Reyes</span><span>${when}</span></div>
+      <div data-testid="rel-card-message"><div>${words}</div><svg role="img"></svg></div></div></div>`;
+const myRow = (words: string, when: string, picture = '<img alt="" />') => `
+  <div><div><div><span>You</span><span>${when}</span></div>
+      <div data-testid="rel-card-message"><div>${words}</div><svg role="img"></svg></div></div>
+    ${picture}</div>`;
+const conversation = (url: string, rows: string) =>
+  page(
+    url,
+    `<div data-testid="inbox"><div><div><header><h3>Messages</h3></header>
+      <div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>Dana Reyes</div><div>Glad to, Dana.</div></div></div>
+        <span data-testid="conversationDate">Oct 20</span></div></div></div></div>
+    <div><div data-testid="channel-header-loaded"><header><div><div><img alt="" />
+        <a href="/biz/businesses/42?user=5&cyfid=6&cyattr=7"><div>Dana Reyes</div></a></div>
+        <div data-testid="inbox-notes-tags"><button aria-expanded="false"><svg role="img"></svg>Tags</button></div></div>
+        <div><div data-testid="ellipses"><div></div></div></div></header></div>
+      <div><div><div><div>
+        <p>You and Dana Reyes are connected on Alignable</p>
+        <div>October 14, 2026</div>
+        <div><a href="/austin-tx/acme-plumbing?user=5"><span><img alt="Dana Reyes Acme Plumbing Co" /><svg role="img"></svg></span></a>
+          <div><div><a href="/austin-tx/acme-plumbing?user=5"><div>Dana Reyes</div><div>Owner at Acme Plumbing Co</div></a>
+            <a href="/austin-tx">Austin, TX</a></div>
+            <div><div><svg role="img" aria-hidden="true"></svg><div>12 mutual connections</div></div>
+              <div><img alt="Local business badge" /><div>On Alignable since 2019</div></div></div></div></div>
+        <div><div>October 20, 2026</div></div>
+        ${rows}
+      </div>
+      <div data-testid="wfm-see-why"><div><svg role="img" data-testid="small-orb"></svg>
+        <button aria-expanded="false" data-testid="see-why-toggle"><span>Why you might want to talk</span></button></div></div></div>
+      <div data-testid="full-view-write-message"><div><div dir="ltr">
+        <div role="presentation" dir="ltr" contenteditable="true" placeholder="Write a message"></div>
+        <textarea placeholder="Write a message"></textarea></div></div>
+        <button aria-label="Send" data-testid="messaging-send-external"><svg role="img"></svg></button></div></div></div></div>`,
+  );
+
+/** Messages as it opened, with their message and then the person's (the outline of /biz/conversations?_fan=…). */
+const INBOX_OPEN = () =>
+  conversation(
+    `${AL}/biz/conversations?_fan=1`,
+    `${theirRow('42', 'Hi Casey,<br><br>Thanks for connecting. We do a lot of water heaters in Austin.<br><br>Talk soon', '9:12 AM')}
+    ${myRow('Glad to, Dana. Want to swap referrals?', '9:40 AM')}`,
+  );
+
+describe('the conversation open on Messages, as the owner’s Check of 21 Oct 2026 drew it', () => {
+  for (const [shape, made] of [
+    ['as its outline drew it', (doc: Document) => doc],
+    ['with a bare box around every element', boxEverything],
+  ] as const) {
+    it(`reads each message as theirs or the person’s, what it says and when, and who wrote last, ${shape}`, () => {
+      const doc = made(INBOX_OPEN());
+      expect(readAlignable(doc, doc.location.href).chat).toEqual({
+        name: 'Dana Reyes',
+        profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+        box: true,
+        send: true,
+        messages: [
+          {
+            from: 'them',
+            text: 'Hi Casey,\nThanks for connecting. We do a lot of water heaters in Austin.\nTalk soon',
+            when: '9:12 AM',
+          },
+          { from: 'me', text: 'Glad to, Dana. Want to swap referrals?', when: '9:40 AM' },
+        ],
+        last: 'me',
+      });
+    });
+  }
+
+  it('reads a conversation’s only message as the person’s, never the business card above it as theirs', () => {
+    // The chat page's outline (/biz/conversations?with_business_id=…): one message, the person's.
+    const doc = conversation(
+      `${AL}/biz/conversations?_fat=1&with_business_id=42`,
+      myRow('Hi Dana, nice to meet you here.', '2:05 PM'),
+    );
+    expect(readAlignable(doc, doc.location.href).chat).toMatchObject({
+      messages: [{ from: 'me', text: 'Hi Dana, nice to meet you here.', when: '2:05 PM' }],
+      last: 'me',
+    });
+    // Their message alone: theirs by the picture in the link to their business.
+    const theirs = boxEverything(
+      conversation(
+        `${AL}/biz/conversations?_fat=1&with_business_id=42`,
+        theirRow('42', 'Do you work in Round Rock too?', '3:10 PM'),
+      ),
+    );
+    expect(readAlignable(theirs, theirs.location.href).chat).toMatchObject({
+      messages: [{ from: 'them', text: 'Do you work in Round Rock too?', when: '3:10 PM' }],
+      last: 'them',
+    });
+  });
+
+  it('never takes the person’s own picture for theirs when it links to their own business', () => {
+    const doc = conversation(
+      `${AL}/biz/conversations?_fan=1`,
+      `${theirRow('42', 'Thanks!', '9:12 AM')}
+      ${myRow('Any time.', '9:40 AM', '<a href="/biz/businesses/77"><img alt="" /></a>')}`,
+    );
+    expect(readAlignable(doc, doc.location.href).chat?.messages.map((m) => m.from)).toEqual([
+      'them',
+      'me',
+    ]);
+  });
+
+  it('tells who wrote back when the last message is theirs, by Alignable’s id for their business', () => {
+    const mine = INBOX_OPEN();
+    expect(readReplies(mine, mine.location.href)).toEqual([]);
+    const doc = conversation(
+      `${AL}/biz/conversations?_fan=1`,
+      `${myRow('Want to swap referrals?', '9:40 AM')}${theirRow('42', 'Yes, let’s talk Tuesday.', '11:02 AM')}`,
+    );
+    expect(readReplies(doc, doc.location.href)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '42',
+        profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+        when: null,
+      },
+    ]);
+  });
+
+  it('counts its messages in a report, never what they say or who', () => {
+    const doc = INBOX_OPEN();
+    const found = pageFound(readLooking(doc, doc.location.href, ALIGNABLE));
+    expect(found).toMatchObject({ chat: true, chatMessages: true, chatLast: true, chats: 1 });
+    expect(JSON.stringify(found)).not.toMatch(/water heaters|referrals|Dana/);
   });
 });
 

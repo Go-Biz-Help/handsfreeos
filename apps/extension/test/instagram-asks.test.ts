@@ -226,6 +226,43 @@ describe('Save my followers, on Instagram', () => {
       failed: true,
     });
   });
+
+  it('presses their count of followers once when the address shows their account without the box (21 Oct 2026)', async () => {
+    // Their account as the owner's Check found it at /<you>/followers/: its counts aren't links to the list.
+    const account = () => {
+      const doc = new JSDOM(
+        `<!doctype html><html><body>${MENU}<main role="main"><header>
+          <section><a role="link" href="#"><h2 dir="auto"><span>me.owner</span></h2></a>
+            <div><span dir="auto"><span>0</span> posts</span>
+              <a role="link" href="#" id="count"><span dir="auto"><span title="3">3</span> followers</span></a></div></section>
+          <section><a role="link" href="/accounts/edit/">Edit profile</a></section></header></main></body></html>`,
+        { url: `${IG}/me.owner/followers/` },
+      ).window.document;
+      let presses = 0;
+      doc.querySelector('#count')!.addEventListener('click', () => {
+        if (presses++) return;
+        const box = followers().querySelector('[role="dialog"]')!;
+        doc.body.append(doc.importNode(box, true));
+      });
+      return doc;
+    };
+    const { tab, opened } = instagramTab({ '/': home, '/me.owner/followers/': account });
+    const asked: string[] = [];
+    const ask = tab.ask.bind(tab);
+    tab.ask = (async (message: { type: string }) => {
+      asked.push(message.type);
+      return ask(message as never);
+    }) as typeof tab.ask;
+    const { job, sent } = instagramJob(tab, { 'hfos-save-friends': () => ({ added: 2 }) });
+    const end = await runAsk({ kind: 'friends' }, job, 'instagram');
+    expect(opened).toEqual(['/', '/me.owner/followers/']);
+    expect(asked.filter((t) => t === 'hfos-show-all')).toHaveLength(1);
+    const saved = sent.find((s) => s.type === 'hfos-save-friends')!.input as {
+      people: { profile: { username: string } }[];
+    };
+    expect(saved.people.map((p) => p.profile.username)).toEqual(['dana.reyes', 'sam.lee']);
+    expect(end).toMatchObject({ line: 'Saved 2 followers, 2 new.' });
+  });
 });
 
 /** Someone's page: its header's Following opens a box with Unfollow, which turns it back to Follow. */

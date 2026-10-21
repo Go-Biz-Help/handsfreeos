@@ -450,6 +450,7 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
 5. **The first network:** Alignable, parts 1 to 6.
 6. **The second:** Instagram, parts 1 to 6.
 7. **Chris tries each** on his own account, as he did LinkedIn, and the readers are tuned from what its Check sends
-   back.
+   back. From his Checks of 21 Oct 2026, extension 0.84.0 builds Alignable's chat reader (and its Read my chats) and
+   tunes Instagram's followers, chats, notifications, post likes and hashtags (docs/outreach.md, decision 78).
 
 Each step's migration goes on the hosted database before `main` (CLAUDE.md, "Database migrations").

@@ -180,30 +180,51 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
   }
 
   // What its steps and Find partners are built from (the plan's part 9, 0.79.0): their followers, a hashtag, a place,
-  // their notifications and a chat. Each is opened and read; nothing is pressed or written.
+  // their notifications and a chat. Each is opened and read; nothing is pressed or written but their own count of
+  // followers, to open the list of them (0.84.0).
   if (feed.own) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
-    // Instagram draws the list over their profile, a moment after it opens.
+    // Instagram draws the list over their profile, a moment after it opens; where it doesn't from the address, their
+    // count of followers opens it, pressed as a person does (the owner's Check, 21 Oct 2026, read their account
+    // without it).
     const opened = await c.open(`${feed.own.replace(/\/?$/, '/')}followers/`, 'your followers');
     if (isEnd(opened)) return opened;
-    const page = await c.readTill(opened, (p) => p.people.length > 0, 2);
+    let page = await c.readTill(opened, (p) => countOf(p, 'followers') > 0, 2);
     if (isEnd(page)) return page;
-    await c.note('your followers', page.people.length);
+    if (!countOf(page, 'followers') && (await job.tab.ask({ type: 'hfos-show-all' })).ok) {
+      page = await c.readTill(
+        await readOn('instagram')(job.tab),
+        (p) => countOf(p, 'followers') > 0,
+        3,
+      );
+      if (isEnd(page)) return page;
+    }
+    await c.note('your followers', countOf(page, 'followers'));
   } else c.nothingOn.push('your followers');
 
   if (stoppedEnd(job)) return stoppedEnd(job)!;
+  // Instagram sends a hashtag's page to its search for it now (the owner's Check, 21 Oct 2026): read the same.
   const tag = await c.open(`${INSTAGRAM}/explore/tags/${HASHTAG}/`, 'a hashtag');
   if (isEnd(tag)) return tag;
   await c.note('a hashtag', tag.posts.length);
 
-  // A place a post was tagged at, from the hashtag's posts or the post read before; else Instagram's list of places.
-  const place =
-    [tag, postPage].flatMap((p) => (p ? linksFound(p, 'locations') : []))[0] ??
-    `${INSTAGRAM}/explore/locations/`;
-  if (stoppedEnd(job)) return stoppedEnd(job)!;
-  const atPlace = await c.open(place, 'a place');
-  if (isEnd(atPlace)) return atPlace;
-  await c.note('a place', atPlace.posts.length);
+  // A place a post was tagged at, from the hashtag's page or the post read before, else from one of the hashtag's posts
+  // opened, as the day's look at places goes: /explore/locations/ alone is no list of places now (the owner's Check,
+  // 21 Oct 2026, found an account Instagram draws there).
+  let place = [tag, postPage].flatMap((p) => (p ? linksFound(p, 'locations') : []))[0] ?? null;
+  for (const { url } of place ? [] : tag.posts.slice(0, PLACE_POSTS)) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const opened = await c.open(url, 'a post from the hashtag');
+    if (isEnd(opened)) return opened;
+    place = linksFound(opened, 'locations')[0] ?? null;
+    if (place) break;
+  }
+  if (place) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const atPlace = await c.open(place, 'a place');
+    if (isEnd(atPlace)) return atPlace;
+    await c.note('a place', atPlace.posts.length);
+  } else c.nothingOn.push('a place');
 
   if (stoppedEnd(job)) return stoppedEnd(job)!;
   const notifications = await c.open(`${INSTAGRAM}/notifications/`, 'your notifications');
@@ -239,6 +260,8 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
 
 /** The hashtag Check opens: one every small business's posts are under. */
 const HASHTAG = 'smallbusiness';
+/** The hashtag's posts it opens, one at a time, for one tagged at a place. */
+const PLACE_POSTS = 2;
 
 /** The addresses one of Instagram's own readers found on a page (`InstagramFound`): places, hashtags or chats. */
 const linksFound = (page: LookingRead, list: 'locations' | 'tags' | 'threads'): string[] => {

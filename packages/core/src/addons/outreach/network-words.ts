@@ -254,7 +254,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'The rest wait for you.',
       ],
       collect: [
-        'Once a day, first: check connection requests and read my town’s posts',
+        'Once a day, first: check connection requests, and read my messages and my town’s posts',
         'These fill the list it works from. It checks your connections for good fits, and looks for partners, too.',
       ],
       joinGroups: [

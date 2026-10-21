@@ -12,7 +12,9 @@
  *   and it stops and says so; the job hands the step to the person.
  *
  * Drawn from the owner's outline of his own account (17 Oct 2026): the name, the counts, a link and Threads in the
- * header, Edit profile and View archive under it, a "New" highlight, and Posts, Saved and Tagged.
+ * header, Edit profile and View archive under it, a "New" highlight, and Posts, Saved and Tagged. His Check of 21 Oct
+ * 2026 showed Instagram's newer layout: the name under the username, beside the counts, and the bio's section starting
+ * with what he does (a line of its own, as on someone else's account), with no bio under it and no posts.
  */
 import { PROFILE_READ_LIMITS, type ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import { clean } from '../facebook/dom';
@@ -28,8 +30,9 @@ const SAVED = /\bprofile saved\b/i;
 /** Instagram's own words around the header's lines: never a name or a bio. */
 const OWN_WORDS =
   /^(posts?|followers?|following|edit profile|view archive|more|options|new|threads|follow|message|meta verified)$/i;
-/** A count, as the header prints it: "3,872", "28.2K". */
+/** A count, as the header prints it: "3,872", "28.2K"; and with its word, "0 posts". */
 const COUNT = /^\d[\d,.]*\s*[km]?$/i;
+const COUNTED = /^\d[\d,.]*\s*[km]?\s*(posts?|followers?|following)$/i;
 
 const cut = (text: string | null | undefined, most: number): string | null => {
   const t = clean(text);
@@ -40,6 +43,10 @@ const cut = (text: string | null | undefined, most: number): string | null => {
 const sectionsOf = (doc: Document): Element[] => [
   ...(mainOf(doc).querySelector('header')?.querySelectorAll('section') ?? []),
 ];
+
+/** The section with the username in its heading, and the counts: in Instagram's newer layout, the name too. */
+const nameSection = (doc: Document): Element | null =>
+  sectionsOf(doc).find((section) => section.querySelector('h1, h2')) ?? null;
 
 /** The section with the bio in it: after the one with the name and counts, never the buttons' or the highlights'. */
 function bioSection(doc: Document): Element | null {
@@ -88,11 +95,21 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
     };
   const header = mainOf(doc).querySelector('header');
   const section = bioSection(doc);
+  // The name: under the username, beside the counts, in Instagram's newer layout (the owner's Check, 21 Oct 2026, as
+  // someone else's account had it on 18 Oct), where the bio's section starts with what they do instead; else the bio's
+  // section's first line, as his own account had it on 17 Oct.
+  const named = (line: string) =>
+    line !== '' && !OWN_WORDS.test(line) && !COUNT.test(line) && !COUNTED.test(line);
+  const underUsername = [...(nameSection(doc)?.querySelectorAll('span[dir="auto"]') ?? [])]
+    .filter((span) => !span.closest('a, button, h1, h2') && !span.querySelector('span[dir="auto"]'))
+    .map((span) => clean(span.textContent))
+    .find(named);
   const name =
     cut(
-      [...(section?.querySelectorAll('[dir="auto"]') ?? [])]
-        .map((line) => clean(line.textContent))
-        .find((line) => line && !OWN_WORDS.test(line) && !COUNT.test(line)),
+      underUsername ??
+        [...(section?.querySelectorAll('[dir="auto"]') ?? [])]
+          .map((line) => clean(line.textContent))
+          .find(named),
       PROFILE_READ_LIMITS.line,
     ) ?? null;
   const links = [...(section?.querySelectorAll('a[href]') ?? [])]
@@ -100,8 +117,14 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
     .map((anchor) => clean(anchor.textContent))
     .filter((words) => words && !OWN_WORDS.test(words))
     .map((words) => `Link: ${words}`.slice(0, PROFILE_READ_LIMITS.line));
+  // Each highlight's name, never its picture's: the "New" one to add a highlight has an icon whose own title the page
+  // holds as words (his Check of 21 Oct 2026 read it as a highlight).
   const highlights = [...(header?.querySelectorAll('[role="menu"] li') ?? [])]
-    .map((item) => clean(item.textContent))
+    .map((item) => {
+      const copy = item.cloneNode(true) as Element;
+      for (const icon of copy.querySelectorAll('svg')) icon.remove();
+      return clean(copy.textContent);
+    })
     .filter((words) => words && !OWN_WORDS.test(words));
   const posts = [
     ...mainOf(doc).querySelectorAll('a[href*="/p/"] img[alt], a[href*="/reel/"] img[alt]'),

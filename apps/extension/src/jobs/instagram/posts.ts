@@ -5,8 +5,9 @@
  * HandsFreeOS makes the day's few from its area and its words for groups, local ones first, and gives the area's places
  * (`outreach.posts.words`, core's `postLooks`).
  *
- * - **Each hashtag:** its page (/explore/tags/<tag>/), and a few of its posts opened in turn at a person's pace, each
- *   read for who posted it, its caption, its likes and its place.
+ * - **Each hashtag:** its page (/explore/tags/<tag>/, which Instagram now sends to its search for it, read the same),
+ *   and a few of its posts opened in turn at a person's pace, each read for who posted it, its caption, its likes and
+ *   its place.
  * - **Places:** a post tagged at a place in the area leads to that place's page (/explore/locations/<id>/<name>/),
  *   read the same way, a couple a day. A place's page has an id of Instagram's that no name gives, so only a post
  *   leads to one.
@@ -24,7 +25,10 @@ import { counted } from '../../words';
 import { pause, paced, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { ended, INSTAGRAM, readInstagramIn, SCROLL_PACE_MS, signedOutEnd } from './read';
 
-/** A hashtag's page: Instagram may show it as a search for it, which reads the same. */
+/**
+ * A hashtag's page. Instagram sends it to its search for the hashtag now (the owner's Check, 21 Oct 2026:
+ * /explore/search/keyword/?q=#smallbusiness), whose grid of posts is read as the hashtag's.
+ */
 export const tagUrl = (tag: string) => `${INSTAGRAM}/explore/tags/${encodeURIComponent(tag)}/`;
 /** Posts it opens on each hashtag's or place's page, one at a time. */
 export const POSTS_OPENED_EACH = 4;

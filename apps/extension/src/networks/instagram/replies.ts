@@ -11,10 +11,12 @@ import type { ReplySighting } from '../facebook/replies';
 import { chatOn, chatRows, ownOf, type ChatOpen } from './read';
 import { instagramUrl, partsOf } from './urls';
 
-/** The chat open on its page, when its last message is theirs and it's with one account. */
+/**
+ * The chat open on its page, when its last message is theirs (written, or a post they shared) and it's with one
+ * account.
+ */
 export function lastFromThem(chat: ChatOpen | null): ReplySighting | null {
-  const last = chat?.messages[chat.messages.length - 1];
-  if (!chat?.with || !chat.thread || last?.from !== 'them') return null;
+  if (!chat?.with || !chat.thread || chat.last !== 'them') return null;
   return {
     name: chat.name ?? chat.with.username,
     threadKey: chat.thread,
