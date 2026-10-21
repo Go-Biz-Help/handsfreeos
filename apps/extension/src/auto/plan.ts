@@ -46,6 +46,11 @@ export const DAILY_JOBS = [
   'helpful',
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
+/**
+ * A once-a-day job only one network's runner does: Instagram's look at the accounts the person followed for who
+ * follows them back (../jobs/instagram/follow-backs.ts).
+ */
+export type OwnDailyJob = 'follow_backs';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;
@@ -71,7 +76,7 @@ export interface AutoState {
   /** How many of each it did today. */
   readonly done: Readonly<Partial<Record<DoneKind, number>>>;
   /** The once-a-day jobs it did today, each with how it went in words. Missing in a state kept by 0.11. */
-  readonly daily?: Readonly<Partial<Record<DailyJob, string>>>;
+  readonly daily?: Readonly<Partial<Record<DailyJob | OwnDailyJob, string>>>;
   /** What it did before the day today (./lists.ts), each with how it went in words. Missing in a state kept by 0.26. */
   readonly before?: TriedBefore;
   /**

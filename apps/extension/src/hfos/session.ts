@@ -467,6 +467,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.check.look', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-follow-backs-next':
+      return call(
+        api().POST('/v1/queries/outreach.follow_backs.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-partners-next':
       return call(
         api().POST('/v1/queries/outreach.partners.next', { body: ask.input }),

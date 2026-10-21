@@ -17697,6 +17697,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.follow_backs.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who the person’s computer looks at next on a follow network (Instagram’s) to see whether they follow the person back: those the person followed at least a day ago who haven’t followed back yet, not looked at in the last day, the longest since a look first, no more than the network’s looks a day (halved for a week after a warning there).
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_follow_backs_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.friends": {
         parameters: {
             query?: never;
@@ -67810,6 +67830,52 @@ export interface operations {
                         };
                         total: number;
                         unskipped: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_follow_backs_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 100 */
+                    most?: number;
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** Format: date-time */
+                            followedAt: string;
+                            name: string;
+                            platformId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            url: string;
+                            username: string | null;
+                        }[];
+                        perDay: number;
                     };
                 };
             };

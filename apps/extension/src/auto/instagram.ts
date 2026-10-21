@@ -8,15 +8,18 @@
  *   the beat brings (`days.instagram`); Stop for today there ends what it's doing at its next page, and its asks' too.
  *   It works only while Instagram is on for the person and Chrome allows it, while noting is on, while this computer
  *   is the one that works, and while the person's Instagram Sending choice isn't Off.
- * - **Lists first** (decision 60): before Instagram's first day, its followers are saved to their end, who to unfollow
- *   worked out for the person to tick, and the followers checked once (./lists.ts); after that the followers weekly.
- * - **Once a day,** as the person's Instagram choices say (`collect`): the newest followers (a follow-back is its
- *   accepting, so their first message comes), the followers checked for good fits (20 accounts a day to start, its
- *   kit's `checksPerDay`), their chats read for the AI with who wrote last noted, Find partners (Instagram's search,
- *   its hashtags and the accounts it suggests, then those found read for the AI's partner check), and from part 15
- *   the day's hashtags and places, made from the playbooks' area and words, whose posts go for the AI's check (a good
- *   one's author gets a like, then a follow), and their notifications' warm leads (whoever followed them is followed
- *   back; whoever liked or commented gets a like back, then a follow).
+ * - **Lists first** (decision 60): before Instagram's first day, its newest followers are saved (the newest 300, the
+ *   owner's design of 21 Oct 2026), who to unfollow worked out for the person to tick, and the followers checked once
+ *   (./lists.ts); after that the followers new since, weekly.
+ * - **Once a day,** as the person's Instagram choices say (`collect`): the followers new since the last save (a
+ *   follow-back is its accepting, so their first message comes), then up to 30 accounts the person followed looked at
+ *   for who follows them back (../jobs/instagram/follow-backs.ts), so the first message, the one to their Requests and
+ *   the unfollow list never wait on the whole list of followers; the followers checked for good fits (20 accounts a day
+ *   to start, its kit's `checksPerDay`), their chats read for the AI with who wrote last noted, Find partners
+ *   (Instagram's search, its hashtags and the accounts it suggests, then those found read for the AI's partner check),
+ *   and from part 15 the day's hashtags and places, made from the playbooks' area and words, whose posts go for the
+ *   AI's check (a good one's author gets a like, then a follow), and their notifications' warm leads (whoever followed
+ *   them is followed back; whoever liked or commented gets a like back, then a follow).
  * - **Then Instagram's list for today** (`outreach.today` with `platform: 'instagram'`), the kinds it does on its own
  *   (`auto`): a look at their account and a like on one or two of their recent posts (the warm-up), the first that
  *   nothing rules out (never one about grief, illness or trouble), a second only while the day's likes have room past
@@ -58,7 +61,8 @@ import { accountIn, checkFollowers, isTheirs, readThemOnInstagram } from '../job
 import { readInstagramWarmLeads } from '../jobs/instagram/engaged';
 import { lookUpOnInstagram } from '../jobs/instagram/lookup';
 import { searchInstagram } from '../jobs/instagram/partner-search';
-import { saveNewFollowers } from '../jobs/instagram/people';
+import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
+import { saveFollowers } from '../jobs/instagram/people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
@@ -88,6 +92,7 @@ import {
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type OwnDailyJob,
   type Work,
 } from './plan';
 import { askInLine, inTurn } from './turns';
@@ -104,21 +109,24 @@ export const INSTAGRAM_ALARM = 'hfos-auto-instagram';
 export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Instagram, in order: the newest followers first (`requests`: on Instagram, who followed back
- * is who accepted), then the checks, the chats, Find partners, and from part 15 the day's hashtags and places
- * (`posts`) and the notifications' warm leads (`helpful`, as Alignable's are).
+ * is who accepted), then who followed back seen on their own accounts (`follow_backs`), the checks, the chats, Find
+ * partners, and from part 15 the day's hashtags and places (`posts`) and the notifications' warm leads (`helpful`, as
+ * Alignable's are).
  */
 export const INSTAGRAM_DAILY = [
   'requests',
+  'follow_backs',
   'checks',
   'chats',
   'partners',
   'posts',
   'helpful',
-] as const satisfies readonly DailyJob[];
+] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
 
 const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Reading your newest followers on Instagram…',
+  follow_backs: 'Looking at the accounts you followed on Instagram for who followed you back…',
   checks: 'Checking your followers for good fits…',
   chats: 'Reading your Instagram chats for the AI…',
   partners: 'Searching Instagram for people who could partner with you, then reading them…',
@@ -127,6 +135,7 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
 };
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Your newest followers',
+  follow_backs: 'Who followed you back',
   checks: 'Check my followers',
   chats: 'Read my chats',
   partners: 'Find partners',
@@ -717,7 +726,9 @@ export const nextInstagramDaily = (state: Pick<AutoState, 'daily'>): InstagramDa
 export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
     case 'requests':
-      return saveNewFollowers(job);
+      return saveFollowers(job);
+    case 'follow_backs':
+      return lookForFollowBacks(job);
     case 'checks':
       return checkFollowers(job, NETWORKS.instagram.checksPerDay);
     case 'chats':
@@ -964,7 +975,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
     await setState({ working: false, tabId: tab.tabId, beforeNow: null });
   }
   const state = await stateNow();
-  // The followers saved whole, and the first check, stand for today's newest followers and checks.
+  // The newest followers saved, and the first check, stand for today's newest followers and checks.
   const daily =
     key === 'friends' ? 'requests' : key === 'checks' ? 'checks' : (null as DailyJob | null);
   const stands = !end.failed && daily ? { daily: { ...state.daily, [daily]: end.line } } : {};

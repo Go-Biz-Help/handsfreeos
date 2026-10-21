@@ -85,6 +85,12 @@ export type ChecksNextInput = Body<'/v1/queries/outreach.checks.next'>;
 export type ChecksNext = Ok<'/v1/queries/outreach.checks.next'>;
 export type CheckLookInput = Body<'/v1/commands/outreach.check.look'>;
 export type CheckLooked = Ok<'/v1/commands/outreach.check.look'>;
+/**
+ * Who to look at next on a follow network (Instagram's) to see whether they followed back: those the person followed
+ * who haven't yet (packages/core/src/addons/outreach/friends.ts, the owner's 21 Oct 2026).
+ */
+export type FollowBacksNextInput = Body<'/v1/queries/outreach.follow_backs.next'>;
+export type FollowBacksNext = Ok<'/v1/queries/outreach.follow_backs.next'>;
 /** Who could partner with the business, for the AI's partner check (decision 81). */
 export type PartnersNextInput = Body<'/v1/queries/outreach.partners.next'>;
 export type PartnersNext = Ok<'/v1/queries/outreach.partners.next'>;
@@ -283,6 +289,7 @@ export type HfosAsk =
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
   | { readonly type: 'hfos-checks-next'; readonly input: ChecksNextInput }
   | { readonly type: 'hfos-check-look'; readonly input: CheckLookInput }
+  | { readonly type: 'hfos-follow-backs-next'; readonly input: FollowBacksNextInput }
   | { readonly type: 'hfos-partners-next'; readonly input: PartnersNextInput }
   | { readonly type: 'hfos-partner-look'; readonly input: PartnerLookInput }
   /** Today's searches for partners on a network, and who one found (stage 4 of the partners plan). */
@@ -347,6 +354,7 @@ export interface HfosValues {
   readonly 'hfos-save-posts': PostsSaved;
   readonly 'hfos-checks-next': ChecksNext;
   readonly 'hfos-check-look': CheckLooked;
+  readonly 'hfos-follow-backs-next': FollowBacksNext;
   readonly 'hfos-partners-next': PartnersNext;
   readonly 'hfos-partner-look': PartnerLooked;
   readonly 'hfos-partner-searches': PartnerSearches;

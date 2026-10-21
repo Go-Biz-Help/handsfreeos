@@ -264,6 +264,8 @@ Get ready reads it and the AI checks it against the main offer, then writes it (
 - **Your posts:** the AI writes the caption and says what picture to take. You post it, from your phone if you like.
   Whoever likes or comments is a warm lead, and the AI drafts your answer to each comment.
 - **Unfollow:** people who didn't follow back within 3 weeks, at most 20 a day.
+- **Who followed back** is seen on their own account ("Follows you"), up to 30 a day, beside the newest followers
+  (Chris, 21 Oct 2026): reading the whole list of followers at a person's pace takes hours.
 
 ### Starting limits
 
@@ -451,6 +453,10 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
 6. **The second:** Instagram, parts 1 to 6.
 7. **Chris tries each** on his own account, as he did LinkedIn, and the readers are tuned from what its Check sends
    back. From his Checks of 21 Oct 2026, extension 0.84.0 builds Alignable's chat reader (and its Read my chats) and
-   tunes Instagram's followers, chats, notifications, post likes and hashtags (docs/outreach.md, decision 78).
+   tunes Instagram's followers, chats, notifications, post likes and hashtags (docs/outreach.md, decision 78). From
+   his first Save my followers the same day (about 200 in 11 minutes at Instagram's pace), 0.85.0 reads only the
+   newest followers, 300 the first time and then those new since, and sees who followed back on the accounts he
+   followed, 30 a day, so the first message, the one to Requests and unfollowing never wait on the whole list; and
+   Alignable's Read my chats presses each conversation's row on its name, as only the first had opened.
 
 Each step's migration goes on the hosted database before `main` (CLAUDE.md, "Database migrations").

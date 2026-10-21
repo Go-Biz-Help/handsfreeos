@@ -217,7 +217,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       ],
       collect: [
         'Once a day, first: save my newest followers, and read my messages and notifications',
-        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It checks your followers for good fits, looks at your area’s hashtags for posts and who wrote them, and looks for partners with Instagram’s search, too.',
+        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your area’s hashtags for posts and who wrote them, and looks for partners with Instagram’s search, too.',
       ],
       joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [

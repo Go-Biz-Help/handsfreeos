@@ -19,6 +19,7 @@ import {
   showAllConnections,
 } from '../src/networks/alignable/browse';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
+import type { ReportNote } from '../src/jobs/report';
 
 // A person's pace between pages, skipped.
 vi.mock('../src/jobs/job', async (original) => ({
@@ -433,6 +434,10 @@ const CONVERSATIONS: Record<string, readonly [string, string]> = {
     'B2',
     `${theirs('B2', 'Lee Park', 'Thanks for connecting!')}${mine('Likewise, Lee.')}`,
   ],
+  'Kim Bakes': [
+    'B3',
+    `${theirs('B3', 'Kim Bakes', 'Good to meet you!')}${mine('Same here, Kim.')}`,
+  ],
 };
 const pane = (name: string) => {
   const [id, rows] = CONVERSATIONS[name]!;
@@ -443,20 +448,33 @@ const pane = (name: string) => {
       <button aria-label="Send" data-testid="messaging-send-external"></button></div>`;
 };
 
-/** Messages, open on Dana's conversation: pressing a row opens its conversation beside the list. */
-function messages(): Document {
+/**
+ * Where Alignable hears a press of a row: on the row's outermost part (`row`), as these tests first had it; on the part
+ * inside it, as the owner's Read my chats of 21 Oct 2026 showed, where a press of the outermost part opened nothing
+ * (`inside`); or there, as the press starts (`mousedown`).
+ */
+type Listens = 'row' | 'inside' | 'mousedown';
+
+/**
+ * Messages, open on Dana's conversation: pressing a row opens its conversation beside the list, but for the rows of
+ * `deaf`, which open nothing.
+ */
+function messages(listens: Listens = 'row', deaf: readonly string[] = []): Document {
   const doc = new JSDOM(
     `<!doctype html><html><body><div data-testid="inbox">
       <div id="side" style="overflow-y: auto">${sideRow('Dana Reyes', 'Yes, Tuesday works.', '2h')}
-        ${sideRow('Lee Park', 'Likewise, Lee.', '3d')}${sideRow('Sam Lee', null, '1w')}</div>
+        ${sideRow('Lee Park', 'Likewise, Lee.', '3d')}${sideRow('Sam Lee', null, '1w')}${sideRow('Kim Bakes', 'Same here, Kim.', '2w')}</div>
       <div id="open">${pane('Dana Reyes')}</div></div></body></html>`,
     { url: `${AL}/biz/conversations` },
   ).window.document;
-  for (const row of doc.querySelectorAll<HTMLElement>('[data-testid="conversationInSidebar"]'))
-    row.addEventListener('click', () => {
-      const name = [...row.querySelectorAll('div')].find((d) => !d.children.length)!.textContent!;
+  for (const row of doc.querySelectorAll<HTMLElement>('[data-testid="conversationInSidebar"]')) {
+    const name = [...row.querySelectorAll('div')].find((d) => !d.children.length)!.textContent!;
+    if (deaf.includes(name)) continue;
+    const part = listens === 'row' ? row : row.firstElementChild!;
+    part.addEventListener(listens === 'mousedown' ? 'mousedown' : 'click', () => {
       if (CONVERSATIONS[name]) doc.querySelector('#open')!.innerHTML = pane(name);
     });
+  }
   return doc;
 }
 
@@ -467,7 +485,7 @@ describe('Read my chats, on Alignable', () => {
     expect(doc.querySelector('[data-testid="channel-header-loaded"] a')!.textContent).toBe(
       'Lee Park',
     );
-    expect(openConversation(doc, 'Kim Bakes')).toBe(false);
+    expect(openConversation(doc, 'Pat Kim')).toBe(false);
     const side = doc.querySelector<HTMLElement>('#side')!;
     let top = 0;
     Object.defineProperty(side, 'clientHeight', { get: () => 400 });
@@ -531,8 +549,9 @@ describe('Read my chats, on Alignable', () => {
       ).toEqual([
         ['alignable', 'Dana Reyes', { id: 'B1', encrypted: false }, [true, false]],
         ['alignable', 'Lee Park', { id: 'B2', encrypted: false }, [false, true]],
+        ['alignable', 'Kim Bakes', { id: 'B3', encrypted: false }, [false, true]],
       ]);
-      // Dana wrote last, two hours ago; Lee's ends with the person's own.
+      // Dana wrote last, two hours ago; Lee's and Kim's end with the person's own.
       expect(sent.filter((s) => s.type === 'hfos-replies-note').map((s) => s.input)).toEqual([
         {
           workspaceId: 'b',
@@ -548,11 +567,94 @@ describe('Read my chats, on Alignable', () => {
         },
       ]);
       expect(end).toEqual({
-        line: 'Done: 2 chats sent for the AI to read. 1 chat had their message last. Chats read in the last day were left as they were.',
+        line: 'Done: 3 chats sent for the AI to read. 1 chat had their message last. Chats read in the last day were left as they were.',
         warned: false,
       });
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  /** Read my chats on a Messages page, with the extension's storage and what it sent kept here. */
+  async function readChatsOn(page: () => Document) {
+    const { tab } = alignableTab({ '/biz/conversations': page });
+    const store = new Map<string, unknown>();
+    const chromeHere = () =>
+      vi.stubGlobal('chrome', {
+        storage: {
+          local: {
+            get: async (k: string) => (store.has(k) ? { [k]: store.get(k) } : {}),
+            set: async (v: Record<string, unknown>) => {
+              for (const [k, value] of Object.entries(v)) store.set(k, value);
+            },
+          },
+        },
+      });
+    chromeHere();
+    const ask = tab.ask.bind(tab);
+    tab.ask = (async (message: { type: string }) => {
+      const answer = await ask(message as never);
+      chromeHere();
+      return answer;
+    }) as typeof tab.ask;
+    try {
+      const { job, sent } = alignableJob(tab, {
+        'hfos-collect-chats': () => ({ saved: 1, waiting: 1 }),
+        'hfos-replies-note': () => ({ replies: [] }),
+      });
+      const reports: ReportNote[] = [];
+      const end = await runAsk(
+        { kind: 'chats' },
+        { ...job, report: async (note) => void reports.push(note ?? {}) },
+        'alignable',
+      );
+      const chats = sent
+        .filter((s) => s.type === 'hfos-collect-chats')
+        .map((s) => (s.input as { chats: { name: string }[] }).chats[0]!.name);
+      const read = Object.keys((store.get('hfos.chatsRead') ?? {}) as object);
+      return { end, chats, reports, read };
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+
+  it('opens each conversation where Alignable hears the press inside its row, as on his Messages (21 Oct 2026)', async () => {
+    for (const listens of ['inside', 'mousedown'] as const) {
+      const doc = messages(listens);
+      // A press of the row's outermost part, as 0.84.0 pressed it, opens nothing there.
+      doc.querySelectorAll<HTMLElement>('[data-testid="conversationInSidebar"]')[1]!.click();
+      expect(doc.querySelector('[data-testid="channel-header-loaded"] a')!.textContent).toBe(
+        'Dana Reyes',
+      );
+      // Pressed on its name, as a person's pointer lands, it opens.
+      expect(openConversation(doc, 'Lee Park')).toBe(true);
+      expect(doc.querySelector('[data-testid="channel-header-loaded"] a')!.textContent).toBe(
+        'Lee Park',
+      );
+      // Every conversation with messages is read, not only the one Messages opened on.
+      const { end, chats, reports } = await readChatsOn(() => messages(listens));
+      expect(chats).toEqual(['Dana Reyes', 'Lee Park', 'Kim Bakes']);
+      expect(end.line).toMatch(/^Done: 3 chats sent for the AI to read\./);
+      expect(reports).toEqual([]);
+    }
+  });
+
+  it('leaves a conversation its row didn’t open for next time, says so, and sends the page once', async () => {
+    const { end, chats, reports, read } = await readChatsOn(() =>
+      messages('inside', ['Lee Park', 'Kim Bakes']),
+    );
+    expect(chats).toEqual(['Dana Reyes']);
+    expect(end.line).toBe(
+      'Done: 1 chat sent for the AI to read. 1 chat had their message last. Alignable didn’t open 2 chats when their rows were pressed: they’re tried again next time. Chats read in the last day were left as they were.',
+    );
+    // Only Dana's is kept as read: Lee's and Kim's are tried again.
+    expect(read).toEqual(['alignable:dana reyes']);
+    expect(reports).toEqual([
+      {
+        job: 'chats.open',
+        note: 'A conversation’s row was pressed, and Messages didn’t open it.',
+        outline: true,
+      },
+    ]);
   });
 });

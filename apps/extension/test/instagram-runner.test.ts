@@ -403,20 +403,18 @@ describe('what it does on Instagram’s list', () => {
       'warm_up',
       'friend_request',
     ]);
-    // The newest followers first, then the checks, the chats, Find partners, the hashtags and the notifications.
+    // The newest followers first, then who followed back seen on their accounts, the checks, the chats, Find
+    // partners, the hashtags and the notifications.
     expect(nextInstagramDaily({ daily: {} })).toBe('requests');
-    expect(nextInstagramDaily({ daily: { requests: 'x', checks: 'y' } })).toBe('chats');
-    expect(nextInstagramDaily({ daily: { requests: 'x', checks: 'y', chats: 'z' } })).toBe(
-      'partners',
+    expect(nextInstagramDaily({ daily: { requests: 'x' } })).toBe('follow_backs');
+    expect(nextInstagramDaily({ daily: { requests: 'x', follow_backs: 'u' } })).toBe('checks');
+    const done = { requests: 'x', follow_backs: 'u', checks: 'y' };
+    expect(nextInstagramDaily({ daily: done })).toBe('chats');
+    expect(nextInstagramDaily({ daily: { ...done, chats: 'z' } })).toBe('partners');
+    expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w' } })).toBe('posts');
+    expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w', posts: 'v' } })).toBe(
+      'helpful',
     );
-    expect(
-      nextInstagramDaily({ daily: { requests: 'x', checks: 'y', chats: 'z', partners: 'w' } }),
-    ).toBe('posts');
-    expect(
-      nextInstagramDaily({
-        daily: { requests: 'x', checks: 'y', chats: 'z', partners: 'w', posts: 'v' },
-      }),
-    ).toBe('helpful');
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {
@@ -1132,6 +1130,61 @@ describe('Instagram’s growing (part 15)', () => {
     expect(end).toEqual({
       line: 'Read your Instagram notifications: 2 new warm leads who followed you or liked or commented on your posts, on your list for today.',
       warned: false,
+    });
+  });
+
+  it('once a day, looks at the accounts they followed for who follows them back, 30 at most (21 Oct 2026)', async () => {
+    // Dana's account says she follows them; Sam's doesn't yet.
+    const followed = (username: string, followsYou: boolean) =>
+      accountHtml({ username, button: 'Following' }).replace(
+        '</h2></a>',
+        `</h2></a>${followsYou ? '<span dir="auto">Follows you</span>' : ''}`,
+      );
+    world.pages = (url) =>
+      url === `${IG}/dana.reyes/`
+        ? { html: followed('dana.reyes', true) }
+        : url === `${IG}/sam.lee/`
+          ? { html: followed('sam.lee', false) }
+          : null;
+    const who = (username: string, name: string) => ({
+      profileId: PROFILE_ID,
+      name,
+      url: `${IG}/${username}/`,
+      platformId: null,
+      username,
+      followedAt: '2026-10-10T15:00:00.000Z',
+    });
+    world.hfos['hfos-follow-backs-next'] = () => ({
+      people: [who('dana.reyes', 'Dana Reyes'), who('sam.lee', 'Sam Lee')],
+      perDay: 30,
+    });
+    world.hfos['hfos-save-friends'] = () => ({ saved: 1, added: 0, changed: 1 });
+    const end = await runInstagramDaily('follow_backs', job());
+    expect(world.asked.find((a) => a.type === 'hfos-follow-backs-next')?.input).toEqual({
+      workspaceId: ME.businessId,
+      platform: 'instagram',
+      most: 30,
+    });
+    expect(
+      world.asked
+        .filter((a) => a.type === 'hfos-save-friends')
+        .map((a) => {
+          const input = a.input as { list: string; people: { profile: { username: string } }[] };
+          return [input.list, input.people[0]!.profile.username];
+        }),
+    ).toEqual([
+      ['friends', 'dana.reyes'],
+      ['sent', 'sam.lee'],
+    ]);
+    expect(end).toEqual({
+      line: 'Looked at 2 accounts you followed: 1 followed you back.',
+      warned: false,
+    });
+    // Counted on this computer: the day's 30 less those two.
+    world.asked.length = 0;
+    await runInstagramDaily('follow_backs', job());
+    expect(world.asked.find((a) => a.type === 'hfos-follow-backs-next')?.input).toMatchObject({
+      most: 28,
     });
   });
 });

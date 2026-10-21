@@ -1388,9 +1388,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       stays off till its runner (part 14, below). Today says **Follow them** there.
     - **A follow-back counts as accepting** on Instagram: its "friends" are the person's followers. **Save my
       followers** (`friends`, from 0.80.0, `src/jobs/instagram/`) opens their account from Instagram's menu, then their
-      followers, reads the box a screen at a time at a person's pace to its end, pressing nothing, and saves everyone as
+      followers, reads the box a screen at a time at a person's pace, pressing nothing, and saves everyone it read as
       Instagram's friends list (`outreach.friends.save`). Someone they followed who's among them is a friend, and
-      their first message comes as on the other networks ("Followed you back today").
+      their first message comes as on the other networks ("Followed you back today"). From 0.85.0 it reads only the
+      newest, and who followed back is seen on their own accounts too (below, **Instagram's newest followers**).
     - **No follow-back in 3 days: one short message** (the plan's "The steps"): someone followed 3 or more days ago who
       hasn't followed back and has had no message gets one first message on Today, marked as going to their Requests
       (`TodayItem.requests`, with no demo link): one text with no link, no video and no price, as Instagram passes only
@@ -1420,9 +1421,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       its day is started and its Sending isn't Off, and stops for the day on any Instagram warning ("Action blocked",
       "Try again later"), there alone; HandsFreeOS halves Instagram's limits for a week after one and takes follows off
       its list for two days, as on every network (`warningOf`, `dailyLimitsNow`). Before its first day it saves the
-      followers, works out who to unfollow and checks the followers once (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Then, once
-      a day: the newest followers (a follow-back is its accepting), the followers checked (20 accounts), its chats read
-      with who wrote last noted, and Find partners with Instagram's search (whoever posted what it shows for creators,
+      newest followers, works out who to unfollow and checks the followers once (`LIST_SAVES_ON`, `LIST_MARKS_ON`).
+      Then, once a day: the newest followers (a follow-back is its accepting), from 0.85.0 the accounts it followed
+      looked at for who follows back, the followers checked (20 accounts), its chats read with who wrote last noted,
+      and Find partners with Instagram's search (whoever posted what it shows for creators,
       the accounts it shows for businesses). On Today's list it does the warm-ups (a look at their account and a like on
       one of their recent posts, on that post's own page, and a second while the day's likes have room past the
       warm-ups left; the look alone where it sees no post) and the follows (their account's own Follow, read again to
@@ -1461,6 +1463,48 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         suggests to the person (`/explore/people/`), beside its search's own.
       - Its once-a-day choice's words say so ("Once a day, first: save my newest followers, and read my messages and
         notifications"). No ask is added: Instagram runs on its own, so Today shows no Find posts there, as on LinkedIn.
+    - **Instagram's newest followers** (Chris, 21 Oct 2026, extension 0.85.0, no migration). Save my followers read
+      his followers a screen at a time, 8 to 15 seconds apart, as Instagram blocks accounts that scroll fast, and saved
+      about 200 in 11 minutes: 10,000 would take 9 to 10 hours. The pace stays. His design:
+      - **The first save reads only the newest 300** (about a quarter of an hour): new followers are the warmest leads.
+      - **Each later save, and the runner's once a day, reads only those new since the last.** It stops once it
+        reaches the followers that were newest at the last save, usually within a minute, and at 300 all the same, so
+        a burst of new followers still ends. The extension remembers those (`hfos.followersRead`, by business and
+        Instagram account, forgotten on a fresh start), as it remembers chats read: HandsFreeOS keeps no order of the
+        followers to say which are newest. A save stopped part way isn't remembered, so the next reads them again.
+      - **A partial list never marks anyone gone.** `outreach.friends.save` only adds and updates the people it's given
+        (nothing in core takes a list for whole), so a capped or incremental save leaves everyone it didn't read as
+        they were: followers stay followers, and a follow still waiting keeps when it went. The reader of the box reads
+        up to 400 rows now: at 200, a read never got past the first 200 the box drew.
+      - **Follow-backs are seen on the person's own account** (`outreach.follow_backs.next`,
+        `src/jobs/instagram/follow-backs.ts`), not the list of followers: those the person followed at least a day ago
+        who are still waiting (`request_sent`, with a follow noted), not looked at in the last 20 hours, the longest
+        since a look first, at most 30 a day (its kit's `followBackLooksPerDay`, halved for a week after a warning),
+        at the checks' pace in its own window, pressing nothing, after Save my followers and as the runner's
+        once-a-day job after the newest followers. "Follows you" or Follow Back is saved as a list of one among the
+        followers (`friends`), the same accepting the list gives: "Followed you back" on Today, then the first
+        message, and off the unfollow list. Following or Requested is saved as a follow still waiting (`sent`), which
+        keeps `since` (so the one message to their Requests after 3 days and the unfollow list after 3 weeks go by when
+        they were followed) and moves `seen_at`, which is when they were last looked at. Follow (no longer followed) is
+        noted as ended already (`outreach.friend.end`, not counted). So follow-backs, the Requests message and the
+        unfollow list no longer need the whole list of followers. It also finds those who followed the person before
+        being followed back by them (a warm lead's "Followed you"), whom no newest followers show.
+      - **The looks don't count against `checksPerDay`** (20 profiles a day on Instagram): that's the accounts read for
+        the AI, its good-fit checks and its partner check, and sharing it would leave those fewer each day. A look reads
+        one account the person follows already, sends nothing on and presses nothing; it has its own 30, counted on the
+        computer across Save my followers and the runner (`hfos.followBacks`).
+      - The words say it: "Save your newest followers" before the first day, "It's saving your newest followers first",
+        and the once-a-day choice's note says it looks at the accounts they followed for who followed back.
+    - **Alignable's Read my chats, every conversation** (extension 0.85.0). His first Read my chats on Alignable (21 Oct
+      2026, 15:36 to 15:38 UTC) sent 1 chat of the 8 with messages (Messages had 16 conversations; Check's `chats: 16`,
+      `chatsPreview: 8`). The one sent was the conversation Messages opened on: its two messages, the last his, as the
+      inbox's outline showed it, and no other was saved (`file_chats`). The run's 2 minutes 17 seconds match a press of
+      each of the other 7 rows, each waited on twice for its conversation, which never opened. Its rows have
+      no button or link in them, and the press went to the row's outermost part (`conversationInSidebar`), which no part
+      inside it hears. The "no messages yet" skip was right (8 rows show a line under the name), and the list needed no
+      scrolling. Now a row is pressed on its name, the line a person's pointer lands on, with the press's down and up
+      before its click, so it reaches whichever part of the row Alignable listens on; a conversation its row didn't
+      open isn't kept as read, the run's line says how many, and the page goes to HandsFreeOS once with its outline.
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
