@@ -1572,6 +1572,7 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `GOOGLE_MAPS_SERVER_KEY`              | For service areas by distance or drawn on a map, and On my way's arrival time                                                                | The worker starts, and only ZIP-code service areas work: the teammate and the booking page can't place a street address. On my way texts a rough arrival time instead of Google's driving time.                                                                                                                                                                                                 | Google Cloud, **APIs & Services** → **Credentials**: an API key restricted to the **Geocoding API** and the **Routes API** (no referrer restriction; it is used from the worker). Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `GEOCODER`                            | No                                                                                                                                           | Who finds where an address is: `google` (the default once `GOOGLE_MAPS_SERVER_KEY` is set), `off` (the default without one), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                                              | Leave unset. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `VOICE_AGENT`                         | No                                                                                                                                           | Who listens and speaks when the AI teammate answers a call live (M18 step 5): `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `off` (the default without one: every call rings the team and goes to voicemail, as before), or `fake` for development. Production refuses `fake`.                                                                                                       | Leave unset: the same Deepgram key as transcripts. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `VOICE_LISTENER`                      | No                                                                                                                                           | Who hears the caller on a live call: `nova-3` (the default) ends their turn after a short pause; `flux` is Deepgram Flux, which decides from what they said and how. Flux is on trial: see "Trying Flux" in "How fast it answers on a call". Anything else stops the worker starting.                                                                                                           | `flux` to try it, unset to go back. The same Deepgram key. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `VOICE_MODEL`                         | No                                                                                                                                           | The model the teammate thinks with on a call, and in the test console's calls. Unset is Claude Haiku 5.5 (`claude-haiku-5-5`). A support admin can switch one business to another model in /admin without a redeploy. A faster model keeps the pauses on a call short: a reply starts being said as soon as its first sentence is written and checked.                                          | A Claude model id. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `WALLET_MODE`                         | No                                                                                                                                           | How far the usage wallet (M16) has gone: `off` (the default) records nothing; `shadow` prices and records every text, call and AI request and never warns or stops anything; `on` warns, and enforces for the businesses whose own flag is set.                                                                                                                                                 | `on` since 18 October 2026, after the shadow week. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `VERCEL_TOKEN`                        | Only for branded domains (a business’s own web address)                                                                                      | The worker starts and its `worker started` line shows `"siteHost":"off"`. **Settings** → **Workspace** offers nothing, which is the honest answer — a domain added with no host behind it would wait forever for records nobody fetches.                                                                                                                                                        | Vercel, **Account Settings** → **Tokens**, scoped to the team owning the web app project. See "A business’s own web address". Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -8916,7 +8917,8 @@ Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind an
 ### How fast it answers on a call
 
 Every turn of a call is timed, from the end of the caller's words to the first sound back. The worker logs one line
-a turn, `a call turn’s timings`: `loadMs` (the knowledge search and the budget check), `waitMs` (until the AI's
+a turn, `a call turn’s timings`: `heardMs` (from their last word until the listener said they'd finished; see
+"Trying Flux" below), `loadMs` (the knowledge search and the budget check), `waitMs` (until the AI's
 answer starts), `sentenceMs` (its first sentence written and checked), `voiceMs` (that sentence turned into sound)
 and `firstSoundMs` (all of it), with `thought` (the model reasoned before answering) and `readyTokens` and
 `freshTokens` (how much of its instructions the AI found ready, and how much it read fresh). The test console shows
@@ -8943,11 +8945,44 @@ What keeps the wait short:
   that call.
 
 When calls feel slow, the log line says where: a large `waitMs` with `thought: true` is the model thinking before
-it answers (calls ask it not to; a `VOICE_MODEL` that can't turn thinking off still does), and a large `loadMs` is
-the database.
+it answers (calls ask it not to; a `VOICE_MODEL` that can't turn thinking off still does), a large `loadMs` is
+the database, and a large `heardMs` is the listener waiting to be sure they'd finished.
 
 To hear it for yourself, use **Call live** in the test console: it runs on the same loop as a real call and shows
 each turn's `firstSoundMs` as **Where the time went**, so the timing you hear is a caller's.
+
+#### Trying Flux
+
+The worker hears callers with Deepgram's Nova-3 unless `VOICE_LISTENER` says `flux`. The two decide differently
+when a caller has finished:
+
+- **Nova-3** ends their turn after a 0.3 second pause (or a second of quiet in noise). It's quick, but a caller
+  who stops to think mid-sentence can be answered before they've finished.
+- **Flux** (`flux-general-multi`, with English and Spanish hinted) decides from what they said and how, so it
+  waits through a pause that's mid-thought and answers sooner after one that isn't. When it isn't sure, it waits
+  up to five seconds of quiet. It hears English, Spanish and a caller switching between them, like Nova-3.
+
+Everything else stays the same: the voices (Aura 2), the key (`DEEPGRAM_API_KEY`), talking over it, and the test
+console. Flux's pay-as-you-go price is about $0.0078 a minute against Nova-3's $0.0092 (check
+deepgram.com/pricing), so the `speech.live.minute` rate still covers it.
+
+To try it, set it on the worker and call in, or use **Call live**:
+
+```bash
+fly secrets set VOICE_LISTENER=flux --app handsfreeos-worker
+fly secrets unset VOICE_LISTENER --app handsfreeos-worker        # back to Nova-3
+```
+
+Setting or unsetting it restarts the worker, which hangs up any call in progress, so change it when the phones are
+quiet. Then compare, with each listener, a few turns that end in a pause mid-sentence ("I need, um… a quote for
+my AC") and a few plain questions:
+
+- **Where the time went** under each **Call live** turn shows **heard they’d stopped**, which is `heardMs`: how
+  long the listener took to decide. Nova-3's is a little over its 0.3 second pause on most turns; Flux's
+  should be shorter after a plain question and longer after "um…".
+- Whether it ever answered before you'd finished, which is what Flux should fix.
+- The worker's log, `a call turn’s timings`, for real calls: `heardMs` and `firstSoundMs`.
+- `Deepgram Flux warned` and `the call’s listener failed` in the log mean Flux had trouble with the stream.
 
 #### Live test calls
 

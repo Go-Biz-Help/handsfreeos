@@ -71,14 +71,33 @@ describe('what the worker sends back', () => {
   });
 
   it('says where a turn’s time went, from the end of their words to the first sound', () => {
+    const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
     const timing = parseTestCallMessage({
+      type: 'timing',
+      turn: 1,
+      timing: {
+        firstSoundMs: 1700,
+        heardMs: 400,
+        loadMs: 100,
+        waitMs: 600,
+        sentenceMs: 300,
+        voiceMs: 200,
+      },
+    });
+    expect(timing?.type).toBe('timing');
+    if (timing?.type !== 'timing') return;
+    expect(testCallTimingLine(timing.timing, seconds)).toBe(
+      'first sound 1.7 s after they stopped · heard they’d stopped 0.4 s · loading 0.1 s · the AI starts 0.6 s · first sentence 0.3 s · voice 0.2 s',
+    );
+    // An older worker, or a listener that doesn't say when their words ended.
+    const older = parseTestCallMessage({
       type: 'timing',
       turn: 1,
       timing: { firstSoundMs: 1300, loadMs: 100, waitMs: 600, sentenceMs: 300, voiceMs: 200 },
     });
-    expect(timing?.type).toBe('timing');
-    if (timing?.type !== 'timing') return;
-    expect(testCallTimingLine(timing.timing, (ms) => `${(ms / 1000).toFixed(1)} s`)).toBe(
+    if (older?.type !== 'timing') throw new Error('not a timing');
+    expect(older.timing.heardMs).toBeNull();
+    expect(testCallTimingLine(older.timing, seconds)).toBe(
       'first sound 1.3 s after they stopped · loading 0.1 s · the AI starts 0.6 s · first sentence 0.3 s · voice 0.2 s',
     );
   });
