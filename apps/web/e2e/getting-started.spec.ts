@@ -56,7 +56,7 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   );
   await expect(links.getByRole('link', { name: 'Open Google Play' })).toHaveAttribute(
     'href',
-    'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=onboarding',
+    'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Donboarding%26utm_campaign%3Dget_the_app',
   );
   await page.keyboard.press('Escape');
 

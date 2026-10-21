@@ -114,11 +114,12 @@ each with a QR code to scan from a computer:
 
 - iPhone (TestFlight, until the App Store version is out): `https://testflight.apple.com/join/GBEM8rJU`
 - Android (Google Play, since 2026-10-21):
-  `https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=onboarding`
+  `https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Donboarding%26utm_campaign%3Dget_the_app`
 
 They live in one place, `packages/core/src/onboarding/app-links.ts`, which the web, the phone's teammate list and
 the emails all read. When Chris says the App Store version is out, the iPhone link changes to it (and
-`apps/site/src/content/site.ts` gets it too). The website's Google Play link carries `pcampaignid=site` instead.
+`apps/site/src/content/site.ts` gets it too). The UTM tags in the `referrer` let Play Console's acquisition reports
+split installs by where the tap came from: `utm_source=onboarding` here, `utm_source=website` on the website.
 
 Two details:
 

@@ -33,11 +33,12 @@ export const urls = {
   deleteAccount: 'https://app.handsfreeos.com/delete-account',
   /**
    * Each store's link goes on the app page once it's set; until then that page says "coming soon" for it.
-   * Google Play's carries `pcampaignid=site`; the app's onboarding link carries `pcampaignid=onboarding`.
+   * Google Play's `referrer` holds UTM tags (`utm_source=website`, `utm_campaign=get_the_app`) for Play Console's
+   * acquisition reports; the app's onboarding link says `utm_source=onboarding`.
    */
   appStore: '',
   playStore:
-    'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=site',
+    'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Dwebsite%26utm_campaign%3Dget_the_app',
 } as const;
 
 /**

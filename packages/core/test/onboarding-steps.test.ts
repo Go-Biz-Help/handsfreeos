@@ -319,7 +319,7 @@ describe('the words', () => {
     expect(PHONE_APP_LINKS.testing).toBe(true);
     expect(PHONE_APP_LINKS.links.map((l) => l.url)).toEqual([
       'https://testflight.apple.com/join/GBEM8rJU',
-      'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=onboarding',
+      'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Donboarding%26utm_campaign%3Dget_the_app',
     ]);
     expect(stepWords(step(owner(facts()), 'app'))).toMatchObject({
       action: 'Get the links',
