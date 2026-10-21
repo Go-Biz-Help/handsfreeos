@@ -62,6 +62,11 @@ export interface WorkerEnv {
    * the team and going to voicemail; `fake` is the stand-in for development and tests.
    */
   readonly voiceAgent: 'deepgram' | 'fake' | 'off';
+  /**
+   * Who hears the caller on a live call with VOICE_AGENT=deepgram: `nova-3` (the default) waits for a set pause;
+   * `flux` decides itself when they've finished, which is on trial (VOICE_LISTENER).
+   */
+  readonly voiceListener: 'nova-3' | 'flux';
   /** The model that thinks on a call; unset is Claude Haiku 5.5. A faster one keeps the pauses short. */
   readonly voiceModel: string;
   /**
@@ -342,6 +347,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('VOICE_AGENT=fake is for development and tests only');
   if (voiceAgent === 'deepgram' && !deepgramApiKey)
     throw new Error('DEEPGRAM_API_KEY is required with VOICE_AGENT=deepgram');
+  const voiceListener = (env.VOICE_LISTENER ?? '').trim() || 'nova-3';
+  if (voiceListener !== 'nova-3' && voiceListener !== 'flux')
+    throw new Error('VOICE_LISTENER must be nova-3 or flux');
 
   // Branded domains (M17). `off` unless a token is there, because a business that adds a domain and then
   // waits forever for records that are never fetched is worse off than one that was never offered it.
@@ -634,6 +642,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     geocoder: geocoder as 'google' | 'fake' | 'off',
     googleMapsServerKey,
     voiceAgent: voiceAgent as 'deepgram' | 'fake' | 'off',
+    voiceListener,
     voiceModel: (env.VOICE_MODEL ?? '').trim() || 'claude-haiku-5-5',
     walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,

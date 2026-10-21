@@ -84,6 +84,7 @@ function timingOf(log: ReturnType<TurnClock['log']>): TestCallTiming {
   const ms = (v: unknown): number | null => (typeof v === 'number' && v >= 0 ? v : null);
   return {
     firstSoundMs: ms(log['firstSoundMs']),
+    heardMs: ms(log['heardMs']),
     loadMs: ms(log['loadMs']),
     waitMs: ms(log['waitMs']),
     sentenceMs: ms(log['sentenceMs']),
