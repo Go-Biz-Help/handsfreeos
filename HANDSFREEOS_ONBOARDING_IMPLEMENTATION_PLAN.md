@@ -26,7 +26,7 @@ Teammates get a short list of their own, and an agency sees where every client b
 | Who sees it                | **Owners and admins get the business guide. Teammates get a short list of their own** (the phone app, their calendar, sign-in) and the tour                               |
 | Agencies                   | **An agency sees every client's setup and can do steps for them**                                                                                                         |
 | Businesses that exist      | **They get the guide on Home too**, with what they've already done ticked                                                                                                 |
-| The phone app step         | **Sends the test links** (TestFlight and Google Play internal testing) **until Chris says to switch** to the store versions                                               |
+| The phone app step         | **Sends the test links** (TestFlight and Google Play internal testing) **until Chris says to switch** to the store versions. Android switched on 2026-10-21               |
 | Texting turned down later  | **A card on Home, plus the email that already goes out.** The guide stays gone                                                                                            |
 | When the AI step is done   | **The teammate exists and its knowledge isn't thin.** It stays in training until it has earned its approvals, as today                                                    |
 | Today's checklist items    | **Confirm email and Create business go. Passkey and Google sign-in become "Sign in faster" on everyone's list**, owners included                                          |
@@ -109,16 +109,17 @@ What only the device knows comes in with the request (`device: { signIn, app, no
 phone knows it is the app and whether notifications are allowed. A step `waiting` on someone else (the carriers, a
 provider checking an account, an import running) counts as done: the person's part is.
 
-**The phone app links.** Until the app is in the stores, "Get the phone app" opens a small sheet with one link
-for iPhone and one for Android, each with a QR code to scan from a computer:
+**The phone app links.** "Get the phone app" opens a small sheet with one link for iPhone and one for Android,
+each with a QR code to scan from a computer:
 
-- iPhone (TestFlight): `https://testflight.apple.com/join/GBEM8rJU`
-- Android (Google Play internal testing): `https://play.google.com/apps/internaltest/4701652122344223804`
+- iPhone (TestFlight, until the App Store version is out): `https://testflight.apple.com/join/GBEM8rJU`
+- Android (Google Play, since 2026-10-21):
+  `https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Donboarding%26utm_campaign%3Dget_the_app`
 
 They live in one place, `packages/core/src/onboarding/app-links.ts`, which the web, the phone's teammate list and
-the emails all read. When Chris says the store versions are out, that file changes to the store addresses (and
-`apps/site/src/content/site.ts` gets them too). Google Play's internal testing installs only for Google accounts on
-the test's tester list in Play Console; anyone else sees "app not available".
+the emails all read. When Chris says the App Store version is out, the iPhone link changes to it (and
+`apps/site/src/content/site.ts` gets it too). The UTM tags in the `referrer` let Play Console's acquisition reports
+split installs by where the tap came from: `utm_source=onboarding` here, `utm_source=website` on the website.
 
 Two details:
 
@@ -361,11 +362,8 @@ admin side's **Getting started** page (§11, step 10).
 
 ## 10. Open items
 
-None. The five from the first draft were settled on 2026-09-29 and are in §1. One thing to do outside the code:
-
-- **The Android testers list.** Google Play's internal test installs only for Google accounts added in Play
-  Console. Until the store version is out, each new business's owner (and their team) has to be added there, or the
-  Android link won't work for them.
+None. The five from the first draft were settled on 2026-09-29 and are in §1. The Android testers list that was
+here went with the Google Play release on 2026-10-21: anyone can install it now.
 
 ## 11. Build order
 
