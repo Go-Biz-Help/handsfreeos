@@ -2497,6 +2497,7 @@ What two machines change, compared with one:
 - About $4 a month more.
 - Up to 12 pooler clients for the API instead of 6. That is well inside the limits (see "How many connections the apps use" in "The database: Supabase (hosted)").
 - The limits on opening and accepting an invitation (30 and 10 a minute) are counted on each machine, so with two someone gets up to twice that.
+- Search's limits (90 and 60 searches a minute a person) and its 3 searches at once are counted on each machine too, so with two someone gets up to twice the searches, and search holds at most 6 of the API's 12 connections (see "Search on the API").
 
 #### One worker machine or two
 
@@ -2530,6 +2531,66 @@ Confirm the same way, then run `fly status --app handsfreeos-worker` again. You 
 #### Memory
 
 Each app has 512 MB, set under `[[vm]]` in its `fly.toml`. To change it, edit `memory` there, commit, and deploy. Change the file rather than running a one-off command, because each deploy applies what the file says.
+
+### Reading the words inside files
+
+Search finds a file by the words inside it as well as by its name. The worker reads them, with no AI and nothing to pay for, and keeps them in `app.file_texts`. No setting turns it on or off, and it needs nothing beyond `SUPABASE_SECRET_KEY`, which the worker already uses to download files.
+
+What it reads, and its limits:
+
+- **Text PDFs, plain text, CSV, Word (.docx) and Excel (.xlsx).** It looks at a file's first bytes, never its name or declared type, so a PDF named `.docx` is read as a PDF.
+- **Not read:** scanned PDFs (fewer than 40 characters a page on average are kept as `no_text`, with what little was found), photos, voice notes, videos and zips (never downloaded), the attachments on texts and emails, port papers and knowledge files. Their names are still found.
+- **25 MB at most** (`too_large` past it, without downloading), the most a person may upload. **100,000 characters** are kept (`truncated` past it), and where each PDF page or Excel sheet starts, so a result can say "page 3". No reader builds more than 200,000 characters from one file, so a small workbook that repeats one long cell can't run the 512 MB machine out of memory.
+- **Word and Excel** are read without a library: the zip is checked before anything is unpacked, at most 2,000 entries, 20 MB a part and 50 MB in all unpacked, and never a part that says it grows more than 200 times. Anything else is `unreadable`.
+- **One file at a time**, as a `file.text` job, queued when the file is added. A job that can't reach Storage tries again, up to 5 times; the last try keeps the file as `unreadable`, so it isn't asked for again. A save the database refuses shows in the log and the job's `last_error` as `file.save_text failed: <SQLSTATE>` (57014 is a statement cancelled or timed out), never with the file's words.
+
+**The catch-up.** The `file.text_sweep` job runs once a day, across every business: it queues the files that have no words yet (files from before this, or written straight into the database by an import), and every file again when the reader gets better (`FILE_READER` in `apps/worker/src/files/file-text.ts` goes up one). It queues 20 at a time, spread over five minutes, so a backlog never holds up reminders and AI replies, and comes back in ten minutes while there's more. A file that's deleted, in the Deleted bin or still uploading is never queued.
+
+**What's left to read.** On your computer, from the repository:
+
+```bash
+pnpm --filter @hfos/worker run files:read-backlog
+```
+
+It reads `DATABASE_URL_WORKER` from `apps/worker/.env`, so it shows your local database. To look at the hosted one, put the worker's hosted connection string (Fly Part 6) in front of the command for that run only, as `DATABASE_URL_WORKER='<connection string>' pnpm --filter @hfos/worker run files:read-backlog`. It only reads, in a read-only transaction. You should see `Every file has its words read (reader 1).`, or the count still to read (`500 or more` past 500) and how many in each business, oldest first. A count that stays the same from one day to the next means the sweep isn't running: check the worker's log for `file.text_sweep`.
+
+### Search on the API
+
+Search everything (docs/search.md) runs in the API, as the person searching, under row security. It needs no setting and no secret, and no extension is installed for it: it uses `pg_trgm`, which the database already had, and Postgres's own functions. Its two migrations, `20261027010300_search_windows.sql` and `20261027010400_file_texts.sql`, add indexes, functions, three policies, two triggers and the `app.file_texts` table, and go on the hosted database like any other (see "Apply new migrations"). Don't install `unaccent` or add a GIN or trigram index for search: row security can't use those indexes, and `unaccent` would make the web and the phone mark words in the wrong place.
+
+Its limits are set in the code:
+
+- **How often.** 90 searches a minute from one person (`search.everything`: the box and the Search page) and 60 of one kind (`search.kind`), set in `apps/api/src/routes.ts`. They're counted on each API machine, so with two someone gets up to twice that. Past them the API answers 429 with the rule `search_too_fast`: "You’re searching faster than HandsFreeOS can keep up. Wait a few seconds and try again."
+- **How many at once.** 3 searches at a time on each API machine (`SEARCH_SLOTS` in `apps/api/src/search-slots.ts`), so search never holds more than half of a machine's 6 database connections, or 6 of the API's 12 on two machines. A fourth waits up to a second, then gets 503 with the rule `search_busy`: "Search is busy for a moment. Try again in a few seconds." Other requests never wait for a slot.
+- **How long.** Each search has a budget, and each statement in it a cap (`SEARCH_BUDGETS` in `packages/core/src/search/server/run.ts`): the box 2 seconds and 1.5 a statement, the Search page 6 and 4, one kind's page 8 and 5, an add-on's own query 1.5 in the box and 3 on a page (`CONTRIBUTOR_MS`), and never under 50 ms. A kind that runs out of time shows "Messages took too long to search. Try again, or pick Messages on its own." while the rest still answers. Only when every kind ran out does the API answer 503 with the rule `search_took_too_long`. All of it sits well inside the 15-second limit on any one statement.
+
+The web and the phone try a 503 or a 429 again once, quietly, after 2 seconds.
+
+What it logs, never with what was typed:
+
+- `unhandled error`, with an `err` message such as `search contacts failed: 42P01`: a database error in that kind, named by its SQLSTATE and nothing else. `42P01` or `42883` (a table or a function that isn't there) means a search migration isn't on this database yet: follow "Apply new migrations". For any other code, look it up in Postgres's list of error codes.
+- `search: the realestate add-on answered nothing (too_slow)`, a plain line rather than JSON: an add-on's groups were left out of one search, with "Real Estate Agent couldn’t be searched just now. Try again in a minute." (the add-on's own name) in their place. The reason in brackets is `too_slow`, `skipped`, a refusal's rule or a SQLSTATE. Now and then is fine. On every search, the add-on's query is failing.
+- `search: the add-ons running here couldn’t be read (too_slow)`, a plain line too: the one read of which add-ons are on for the business failed, so no add-on was searched that time, and each add-on's groups show their "couldn’t be searched just now" line. Close matches stay off for that search. The reason in brackets reads as for the line above. Now and then is fine. On every search, look at the database: with `42P01` or `42883`, follow "Apply new migrations".
+
+**When to look again.** The Search page reads each business's newest 25,000 messages, and its newest 20,000 threads for who a thread is with, its number and its last line. Once a business's last year holds more than either, its older mail needs **Look further back**, and it's time to look again at a faster way to search very large businesses (docs/search.md, "What it costs, and when to look again"). One text sent to many customers starts a thread for each, so a business that sends them can pass 20,000 threads first. To check, open a new query in the SQL Editor (`https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/sql/new`) and run these two reads:
+
+```sql
+select workspace_id, count(*) as messages_this_year
+from app.messages
+where occurred_at > now() - interval '1 year'
+group by workspace_id
+order by messages_this_year desc
+limit 5;
+
+select workspace_id, count(*) as threads_this_year
+from app.conversations
+where last_message_at > now() - interval '1 year'
+group by workspace_id
+order by threads_this_year desc
+limit 5;
+```
+
+Each shows the five busiest businesses, busiest first. Under 25,000 messages and 20,000 threads each, there's nothing to do. Notes and form answers have windows of 20,000 too, with no limit on how far back, and are far from it today (docs/search.md, "What it costs, and when to look again"). Also watch how long searches take: in Fly's Grafana (see "Reading logs"), each `request completed` line from the API has its `responseTime` in milliseconds, and its `reqId` matches the `incoming request` line that names `/v1/queries/search.everything`. When more than one search in twenty takes over a second, it's time too.
 
 ### Rotating secrets
 

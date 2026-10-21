@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Ok } from '@/lib/api/types';
 import { formatDate } from '@/lib/format';
+import { settingAttrs } from './setting-anchor';
 
 type Tags = Ok<'/v1/queries/tag.list'>['tags'];
 type Status = Ok<'/v1/queries/contact_ai.status'>;
@@ -123,7 +124,7 @@ export function AiTagging({
 
   return (
     <div className="flex flex-col gap-5">
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('tags.list')}>
         <h2 className={heading}>Tags</h2>
         <p className={`${note} mb-4 mt-1`}>
           The labels you put on customers and leads. Add one from any customer’s page.
@@ -150,7 +151,7 @@ export function AiTagging({
         )}
       </Card>
 
-      <Card className="p-6" data-testid="ai-tagging">
+      <Card className="p-6" data-testid="ai-tagging" {...settingAttrs('tags.ai_tagging')}>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-accent-text" aria-hidden />
           <h2 className={heading}>Let the AI tag your customers</h2>
@@ -306,7 +307,7 @@ export function AiTagging({
         )}
       </Card>
 
-      <Card className="p-6">
+      <Card className="p-6" {...settingAttrs('tags.ai_changes')}>
         <h2 className={heading}>What the AI changed lately</h2>
         <p className={`${note} mb-4 mt-1`}>Newest first, each change with the AI’s reason.</p>
         {reviews.length ? (

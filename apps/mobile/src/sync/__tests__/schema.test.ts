@@ -99,6 +99,8 @@ describe('the phone’s schema', () => {
     expect(table('commands').insertOnly).toBe(true);
     expect(table('outbox').localOnly).toBe(true);
     expect(table('photo_uploads').localOnly).toBe(true);
+    // Recent searches never leave the phone.
+    expect(table('search_recent').localOnly).toBe(true);
     expect(
       table('outbox')
         .indexes.map((i) => i.name)

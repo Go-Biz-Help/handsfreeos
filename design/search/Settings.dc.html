@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search in Settings</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--accent-text)}a:hover{color:var(--accent-hover)}
+.nav{display:flex;height:34px;align-items:center;gap:10px;border-radius:8px;padding:0 10px;font-size:14px;font-weight:500;color:var(--text-2);text-decoration:none}
+.m{background:var(--accent-soft-2);color:var(--text);font-weight:600;border-radius:3px;padding:0 1px}
+.grp{padding:10px 10px 4px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.page{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;font-size:14px;font-weight:500;color:var(--text);text-decoration:none}
+.page:hover{background:var(--card-2);text-decoration:none;color:var(--text)}
+.hit{display:flex;flex-direction:column;gap:1px;margin-left:16px;padding:6px 10px;border-left:1px solid var(--border);font-size:13px;color:var(--text-2);text-decoration:none}
+.hit:hover{background:var(--card-2);text-decoration:none;color:var(--text)}
+.hit small{font-size:12px;color:var(--text-3)}
+.hit[aria-current="true"]{background:var(--accent-soft);color:var(--accent-text);border-left-color:var(--accent);border-radius:0 8px 8px 0}
+.hit[aria-current="true"] small{color:var(--accent-text)}
+.setrow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 24px;padding:16px 0;border-top:1px solid var(--border)}
+.setrow h3{margin:0;font-size:14px;font-weight:600}
+.setrow p{margin:2px 0 0;font-size:13px;color:var(--text-2)}
+.kbd{display:inline-flex;align-items:center;height:18px;padding:0 5px;border-radius:4px;border:1px solid var(--border-strong);background:var(--card-2);font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+</style>
+</helmet>
+<div style="position: relative; min-height: 960px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px;">
+
+  <aside style="flex: 0 0 240px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; background: var(--card); border-right: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.025em;">
+      <img src="ds/handsfreeos/assets/handsfreeos-mark.png" alt="" style="width: 22px; height: 22px;">
+      <span>HandsFree<b style="font-weight: inherit; color: var(--accent-text);">OS</b></span>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font: inherit; color: var(--text); text-align: left; cursor: pointer;">
+      <span class="hf-avatar hf-avatar--md hf-avatar--square" style="background: var(--accent-soft-2); color: var(--accent-text);">BP</span>
+      <span style="display: flex; flex-direction: column; min-width: 0; flex: 1;"><span style="font-size: 14px; font-weight: 600;">Bayou Plumbing</span><span style="font-size: 12px; color: var(--text-3);">Go Biz Help</span></span>
+    </button>
+    <div style="position: relative;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 10px; top: 9px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Search everything" placeholder="Search everything" style="width: 100%; box-sizing: border-box; height: 34px; padding: 0 40px 0 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); font: inherit; font-size: 13px; color: var(--text);">
+      <span class="kbd" style="position: absolute; right: 8px; top: 8px;">⌘K</span>
+    </div>
+    <nav aria-label="Workspace" style="display: flex; flex-direction: column; gap: 2px; margin-top: 6px;">
+      <a class="nav" href="#">Home</a>
+      <a class="nav" href="#">Inbox</a>
+      <a class="nav" href="#">Contacts</a>
+      <a class="nav" href="#">Pipeline</a>
+      <a class="nav" href="#">Calendar</a>
+      <a class="nav" href="#">Money</a>
+      <a class="nav" href="#" aria-current="page" style="background: var(--accent-soft); color: var(--accent-text);">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px 32px;">
+
+    <section class="hf-card" aria-label="Settings menu" style="flex: 0 1 232px; min-width: 0; padding: 8px;">
+      <div style="position: relative; margin-bottom: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 10px; top: 9px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input type="search" aria-label="Search settings" placeholder="Search settings" value="quiet" style="width: 100%; box-sizing: border-box; height: 34px; padding: 0 30px 0 32px; border-radius: 8px; border: 1px solid var(--accent); background: var(--card); font: inherit; font-size: 13px; color: var(--text); box-shadow: 0 0 0 3px var(--ring); outline: none;">
+        <button type="button" aria-label="Clear the search" style="position: absolute; right: 4px; top: 4px; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: var(--text-3); cursor: pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+      <p style="margin: 4px 10px 2px; font-size: 12.5px; color: var(--text-3);">3 settings on 2 pages</p>
+
+      <div class="grp">Messages</div>
+      <a class="page" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Texting &amp; calls</a>
+      <a class="hit" href="#" aria-current="true"><span><span class="m">Quiet</span> hours</span><small>Texting rules</small></a>
+
+      <div class="grp">Business</div>
+      <a class="page" href="#"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path></svg>Automations</a>
+      <a class="hit" href="#"><span>Follow up on leads that went <span class="m">quiet</span></span><small>Follow-ups</small></a>
+      <a class="hit" href="#"><span>Gone <span class="m">quiet</span> after</span><small>Follow-ups</small></a>
+
+      <div style="height: 1px; background: var(--border); margin: 10px 4px 6px;"></div>
+      <a href="#" style="display: block; padding: 4px 10px 6px; font-size: 13px; font-weight: 500;">Show every setting</a>
+    </section>
+
+    <div style="flex: 999 1 480px; min-width: 0;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Settings</h1>
+      <p style="margin: 4px 0 24px; font-size: 13px; color: var(--text-2);">Your account, and how this workspace is set up.</p>
+
+      <div class="hf-card" style="padding: 20px 24px; margin-bottom: 20px; opacity: 0.55;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.02em;">Voicemail</h2>
+        <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-2);">What callers hear when nobody picks up.</p>
+      </div>
+
+      <section class="hf-card" style="padding: 24px;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.02em;">Texting rules</h2>
+        <div style="margin-top: 8px;">
+          <div class="setrow" style="border-top: 0; margin: 0 -12px; padding: 16px 12px; border-radius: 10px; background: var(--accent-soft); box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent), 0 0 0 4px var(--ring);">
+            <div style="flex: 1 1 300px; min-width: 0;">
+              <h3><span class="m">Quiet</span> hours</h3>
+              <p>Automatic texts wait until morning. People on the team get a “send anyway?” check first.</p>
+              <div style="margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                <select class="hf-input hf-input--sm hf-select" aria-label="Quiet hours start" style="width: 120px;"><option>9:00 PM</option></select>
+                <span style="font-size: 13px; color: var(--text-3);">to</span>
+                <select class="hf-input hf-input--sm hf-select" aria-label="Quiet hours end" style="width: 120px;"><option>8:00 AM</option></select>
+                <span style="font-size: 12px; color: var(--text-3);">New Orleans time</span>
+              </div>
+            </div>
+            <button type="button" class="hf-switch" role="switch" aria-checked="true" aria-label="Quiet hours"><span class="hf-switch__knob"></span></button>
+          </div>
+          <div class="setrow">
+            <div style="flex: 1 1 300px; min-width: 0;">
+              <h3>Remind the team when a customer waits</h3>
+              <p>One email to whoever the conversation is assigned to, or to every owner and admin when nobody is.</p>
+            </div>
+            <select class="hf-input hf-input--sm hf-select" aria-label="Remind after" style="width: 150px;"><option>After 30 minutes</option></select>
+          </div>
+          <div class="setrow">
+            <div style="flex: 1 1 300px; min-width: 0;">
+              <h3>STOP, START and HELP</h3>
+              <p>Handled automatically. Opted-out customers can’t be texted until they text START.</p>
+            </div>
+            <span class="hf-badge hf-badge--gray">Always on</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

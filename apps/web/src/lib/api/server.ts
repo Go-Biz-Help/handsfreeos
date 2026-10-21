@@ -104,6 +104,18 @@ export const getMe = cache(async (): Promise<Me> => {
   return unwrap(result);
 });
 
+/**
+ * Whether the signed-in person answers HandsFreeOS support (`platform.me`). Only a hint for what a page lists, so a
+ * failure is null, no answer. Fetched once per request: the settings menu's search and the Account page both ask.
+ */
+export const getPlatformMe = cache(async () => {
+  const { api } = await apiServer();
+  return api
+    .POST('/v1/queries/platform.me', { body: {} })
+    .then(unwrap)
+    .catch(() => null);
+});
+
 /** The business a page is in, as its shell draws it: the sidebar, the menu, and the gate on add-ons' pages. */
 export interface WorkspaceShell {
   /** Its name, the person's role and permissions there, and the add-ons running there (0108). */

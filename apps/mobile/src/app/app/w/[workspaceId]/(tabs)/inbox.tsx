@@ -29,6 +29,7 @@ import {
 import { ConversationRow } from '@/components/inbox/conversation-row';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
+import { FilterChip } from '@/components/ui/filter-chip';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -41,6 +42,7 @@ import {
   useTeammate,
   type InboxItem,
 } from '@/inbox/use-inbox';
+import { SearchEverythingRow } from '@/search/rows';
 
 /** An Inbox that can't draw shows why, and the other tabs still work. */
 export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
@@ -52,7 +54,8 @@ type OwnBox = 'all' | 'other' | 'spam';
  * Inbox (the canvas's "The list"): Mine, Unassigned and All with their counts; Open, Snoozed and Closed; Unread; the
  * AI teammate's boxes; Other mail and Spam, and My mail for someone with an address of their own (M19); and the
  * conversations, newest first, read from the phone's copy with this phone's own changes over them. The list is
- * virtualized: only the rows on screen are drawn.
+ * virtualized: only the rows on screen are drawn. Its box filters conversations, and ends the list with Search
+ * everything for what was typed.
  *
  * My mail is the same list over the person's own mail, as on the web: its own Inbox, Other mail and Spam in place of
  * Mine, Unassigned and All, and Team inbox to go back.
@@ -292,6 +295,14 @@ export default function Inbox() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerClassName="pb-6"
+        ListFooterComponent={
+          <SearchEverythingRow
+            workspaceId={business.id}
+            q={q}
+            className="px-3.5"
+            testID="inbox-search-everything"
+          />
+        }
         ListEmptyComponent={
           loading ? null : (
             <View className="items-center gap-2 px-8 py-12" testID="inbox-empty">
@@ -307,38 +318,5 @@ export default function Inbox() {
         }
       />
     </Screen>
-  );
-}
-
-function FilterChip({
-  label,
-  on,
-  onPress,
-  icon,
-  testID,
-}: {
-  label: string;
-  on: boolean;
-  onPress: () => void;
-  icon?: React.ReactNode;
-  testID?: string;
-}) {
-  return (
-    <Pressable
-      role="button"
-      accessibilityState={{ selected: on }}
-      onPress={onPress}
-      hitSlop={{ top: 6, bottom: 6 }}
-      testID={testID}
-      className={cn(
-        'h-8 flex-row items-center gap-1.5 rounded-full border px-3',
-        on ? 'border-accent-soft-2 bg-accent-soft' : 'border-border-strong bg-card',
-      )}
-    >
-      {icon}
-      <Text className={cn('text-[13.5px] font-medium', on ? 'text-accent-text' : 'text-text-2')}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }

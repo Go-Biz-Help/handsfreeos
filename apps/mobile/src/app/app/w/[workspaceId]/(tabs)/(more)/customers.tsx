@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { holds, MORE_WORDS, PICKED_CONTACT_WORDS as PC } from '@hfos/core';
+import { CONTACTS_WORDS, holds, MORE_WORDS, PICKED_CONTACT_WORDS as PC } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
@@ -21,11 +21,13 @@ import {
   type PersonRow,
   type SearchHit,
 } from '@/customers/use-customers';
+import { SearchEverythingRow } from '@/search/rows';
 
 /**
  * Contacts, reached from More: people and companies from the phone's copy, and a search across customers, companies
- * and leads that works with no signal — by name, by number, and by a word someone wrote in a note. The button at the
- * top adds a customer picked from the phone's own contacts, one at a time.
+ * and leads that works with no signal — by name, by number, and by a word someone wrote in a note, ending with Search
+ * everything for what was typed. The button at the top adds a customer picked from the phone's own contacts, one at a
+ * time.
  */
 export default function Customers() {
   const { business, viewing } = useBusiness();
@@ -96,7 +98,7 @@ export default function Customers() {
           value={typed}
           onChangeText={setTyped}
           placeholder="Search by name, number or a word in a note"
-          accessibilityLabel="Search contacts"
+          accessibilityLabel={CONTACTS_WORDS.search}
           returnKeyType="search"
           autoCorrect={false}
           autoCapitalize="none"
@@ -146,6 +148,13 @@ export default function Customers() {
           initialNumToRender={12}
           keyboardShouldPersistTaps="handled"
           testID="customers-hits"
+          ListFooterComponent={
+            <SearchEverythingRow
+              workspaceId={business.id}
+              q={q}
+              testID="customers-search-everything"
+            />
+          }
           ListEmptyComponent={
             <Text className="py-10 text-center text-[13px] text-text-3" testID="customers-no-hits">
               {`Nothing on this phone matches “${q}”.`}

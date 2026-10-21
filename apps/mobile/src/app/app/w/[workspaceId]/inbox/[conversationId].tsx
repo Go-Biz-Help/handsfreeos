@@ -114,6 +114,9 @@ import { useNetwork } from '@/lib/network';
 type Row =
   ThreadEntry | { readonly kind: 'draft'; readonly key: string; readonly waiting: WaitingDraft };
 
+/** How long a search result's message stays rung. */
+const RING_MS = 4_000;
+
 /**
  * One conversation (the Inbox canvas's thread): who it's with and on which channel, who handles it, its texts, emails,
  * calls, voicemails and notes, the replies written here that haven't come back yet with when they go, the AI teammate's
@@ -135,6 +138,8 @@ function Thread() {
     draft?: string;
     /** "all": every line of the customer's woven into one timeline, to read (0089). */
     lanes?: string;
+    /** A search result's message (`?message=&at=`), rung once it's in the copy. */
+    message?: string;
   }>();
   const conversationId = params.conversationId;
   const { business, me, userId } = useBusiness();
@@ -313,6 +318,28 @@ function Thread() {
       list.push({ kind: 'draft', key: `draft-${waiting.draft.id}`, waiting });
     return list.reverse();
   }, [thread, drafts.visible, now]);
+
+  // A search result opens the thread at its message (`?message=`): once it's in the copy, the list scrolls to it and
+  // rings it for a few seconds, as the web's thread does.
+  const listRef = React.useRef<FlatList<Row>>(null);
+  const [ringed, setRinged] = React.useState<string | null>(null);
+  const ringOnce = React.useRef(false);
+  React.useEffect(() => {
+    if (ringOnce.current || !params.message) return;
+    const index = entries.findIndex((r) => r.kind === 'item' && r.item.id === params.message);
+    if (index < 0) return;
+    ringOnce.current = true;
+    setRinged(params.message);
+    setTimeout(
+      () => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }),
+      50,
+    );
+  }, [params.message, entries]);
+  React.useEffect(() => {
+    if (!ringed) return;
+    const t = setTimeout(() => setRinged(null), RING_MS);
+    return () => clearTimeout(t);
+  }, [ringed]);
 
   if (!c || !data) {
     return (
@@ -769,15 +796,24 @@ function Thread() {
           ) : (
             shown
           );
+        // A search result's message, rung for a moment.
+        const rung =
+          i.id === ringed ? (
+            <View className="rounded-2xl bg-accent-soft" testID={`ringed-${i.id}`}>
+              {rated}
+            </View>
+          ) : (
+            rated
+          );
         // "All lines" says which of the business's lines each one was on; one lane's thread says it once, above.
         const line = all && i.conversationId ? lineOf.get(i.conversationId) : undefined;
-        if (!line) return rated;
+        if (!line) return rung;
         return (
           <View>
             <Text className="pt-2 text-center text-[11px] text-text-3" testID={`line-${i.id}`}>
               {ALL_LINES_WORDS.line(i.direction, line)}
             </Text>
-            {rated}
+            {rung}
           </View>
         );
       }
@@ -868,8 +904,15 @@ function Thread() {
           <AttributionStrip workspaceId={business.id} conversationId={conversationId} />
         ) : null}
         <FlatList
+          ref={listRef}
           data={entries}
           inverted
+          onScrollToIndexFailed={(info) =>
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+              animated: true,
+            })
+          }
           keyExtractor={(row) => row.key}
           renderItem={renderRow}
           className="flex-1"

@@ -13,13 +13,11 @@ import {
   CONTACT_AI_GUIDE_MAX,
   DEFAULT_FOLLOW_UP_LADDER,
   DEFAULT_FOLLOW_UP_MONTHLY,
-  DEFAULT_NUDGE_TEMPLATE,
   DEFAULT_INTAKE_MESSAGE,
   DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
   DEFAULT_MAINTENANCE_TEMPLATE,
+  DEFAULT_NUDGE_TEMPLATE,
   DEFAULT_REENGAGE_TEMPLATE,
-  intakeMessageProblem,
-  maintenanceTemplateProblem,
   FOLLOW_UP_MAX_MINUTES,
   FOLLOW_UP_MAX_STEPS,
   FOLLOW_UP_MIN_MINUTES,
@@ -28,15 +26,17 @@ import {
   followUpStepMinutes,
   followUpStepWords,
   guessStageRole,
+  intakeMessageProblem,
+  maintenanceTemplateProblem,
   NUDGE_SAMPLE,
   QUIET_FOLLOW_UP_MINUTES,
-  STAGE_ROLE_LABELS,
-  STAGE_ROLES,
   renderIntakeMessage,
   renderMaintenance,
   renderNudge,
   shortBusinessName,
   smsSegments,
+  STAGE_ROLE_LABELS,
+  STAGE_ROLES,
   type AdjustPanel,
   type AttentionKind,
   type AttentionSettings,
@@ -48,6 +48,7 @@ import {
   type NudgePlaceholder,
   type NudgeProblemCode,
   type RoleOverride,
+  type SettingKey,
 } from '@hfos/core';
 import { Moon, Plus, ShieldCheck, X } from 'lucide-react';
 import Link from 'next/link';
@@ -65,6 +66,7 @@ import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { SetRow } from '../set-row';
 import { Check1, MoneyBox, NumberBox, tomorrowLabel } from './inputs';
+import { SETTING_TARGET, settingAttrs } from '../setting-anchor';
 
 type Save<T> = (
   change: (s: T) => T,
@@ -122,9 +124,24 @@ function Note({ children }: { children: ReactNode }) {
   return <p className="text-[13px] leading-[1.5] text-text-2">{children}</p>;
 }
 
-function Block({ title, children }: { title?: string; children: ReactNode }) {
+function Block({
+  title,
+  setting,
+  children,
+}: {
+  title?: string;
+  /** An Adjust field settings search finds on its own (core's catalogue, `adjust.*`). */
+  setting?: SettingKey;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-1 border-t border-border pt-4 first:border-t-0 first:pt-0">
+    <div
+      {...settingAttrs(setting)}
+      className={cn(
+        'flex flex-col gap-1 border-t border-border pt-4 first:border-t-0 first:pt-0',
+        setting && SETTING_TARGET,
+      )}
+    >
       {title ? <h3 className={heading}>{title}</h3> : null}
       {children}
     </div>
@@ -225,7 +242,13 @@ function HotLeadPanel({ env }: { env: PanelEnv }) {
         </Note>
       </Block>
       <Block title="Timing and value">
-        <SetRow first center title="Urgent after" description="How long a hot lead may wait.">
+        <SetRow
+          first
+          center
+          setting="adjust.urgent_after"
+          title="Urgent after"
+          description="How long a hot lead may wait."
+        >
           <NumberBox
             value={s.hot.urgentAfterMinutes}
             min={1}
@@ -244,6 +267,7 @@ function HotLeadPanel({ env }: { env: PanelEnv }) {
         </SetRow>
         <SetRow
           center
+          setting="adjust.big_job"
           title="A big job starts at"
           description="One of the smaller signs of a hot lead."
         >
@@ -270,6 +294,7 @@ function TypicalValueRow({ env }: { env: PanelEnv }) {
   return (
     <SetRow
       center
+      setting="adjust.typical_value"
       title="When a lead has no value, use"
       description={
         s.typicalJobValueCents !== null
@@ -669,7 +694,7 @@ function DayBeforePanel({ env }: { env: PanelEnv }) {
           . Texts wait for quiet hours to end, or go by email if that would be too late.
         </Note>
       </Block>
-      <Block title="Reply C to confirm">
+      <Block title="Reply C to confirm" setting="adjust.reply_c">
         <SetRow
           first
           title="Ask them to reply C"
@@ -1037,7 +1062,7 @@ function MaintenancePanel({ env }: { env: PanelEnv }) {
       <Block title="The message">
         <MaintenanceWording env={env} which="template" />
       </Block>
-      <Block title="For customers on a maintenance plan">
+      <Block title="For customers on a maintenance plan" setting="adjust.maintenance_plan">
         <MaintenanceWording env={env} which="planTemplate" />
       </Block>
     </>
@@ -1111,6 +1136,7 @@ function InvoicesPanel({ env }: { env: PanelEnv }) {
         </SetRow>
         <SetRow
           center
+          setting="adjust.ignore_balances"
           title="Ignore balances under"
           description="So a few dollars left on a bill doesn’t take up Home."
         >
@@ -1236,7 +1262,7 @@ function StagesPanel({ env }: { env: PanelEnv }) {
           for a stage deals should only reach by hand.
         </Note>
       </Block>
-      <Block title="What each stage means">
+      <Block title="What each stage means" setting="adjust.stage_meanings">
         <div data-testid="stage-roles">
           {openStages.length ? (
             openStages.map((p) => (
@@ -1611,7 +1637,7 @@ function StalePanel({ env }: { env: PanelEnv }) {
 
   return (
     <>
-      <Block title="Gone quiet after">
+      <Block title="Gone quiet after" setting="adjust.gone_quiet">
         <p className="text-xs text-text-3">
           Days with no text, email, call, chat or visit, either way. Missed calls don’t count.
         </p>
@@ -1747,6 +1773,7 @@ function ReengagePanel({ env }: { env: PanelEnv }) {
         <SetRow
           first
           center
+          setting="adjust.gone_cold"
           title="Gone cold after"
           description="No message either way for this long."
         >
@@ -1847,7 +1874,7 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
           quote always does. Anyone who asks not to be called again isn’t.
         </Note>
       </Block>
-      <Block title="When a voicemail box answers">
+      <Block title="When a voicemail box answers" setting="adjust.voicemail_box">
         <SetRow
           first
           title="What it does"
@@ -1914,7 +1941,7 @@ function AiTagsPanel({ env }: { env: PanelEnv }) {
           .
         </Note>
       </Block>
-      <Block title="How you tag customers">
+      <Block title="How you tag customers" setting="adjust.how_you_tag">
         <Textarea
           aria-label="How you tag customers"
           value={draft}

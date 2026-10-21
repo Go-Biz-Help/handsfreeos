@@ -74,6 +74,7 @@ import { RcsCard, type RcsPrefill } from './rcs-card';
 import { ReleaseNumberDialog } from './release-number-dialog';
 import { SetRow } from './set-row';
 import { TestTextDialog } from './test-text-dialog';
+import { settingAttrs } from './setting-anchor';
 
 type Status = PhoneSetupStatus;
 export type NumberType = 'local' | 'toll_free';
@@ -1733,7 +1734,7 @@ function Configured({
       data-testid="texting-configured"
     >
       <div className="flex flex-col gap-5">
-        <Card className="p-6">
+        <Card className="p-6" {...settingAttrs('texting.number')}>
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Business number</h2>
@@ -1787,7 +1788,7 @@ function Configured({
           </div>
         </Card>
 
-        <Card className="p-6">
+        <Card className="p-6" {...settingAttrs('texting.registration')}>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold tracking-tight">Carrier registration</h2>
             <Badge variant="ok">Approved</Badge>
@@ -1835,12 +1836,13 @@ function Configured({
           canManage={status.canManage}
         />
 
-        {/* Automations' "Edit quiet hours" links here. */}
-        <Card className="p-6" id="quiet-hours">
+        <Card className="p-6">
           <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>
           <div className="mt-2">
+            {/* Its id stays quiet-hours: Automations' "Edit quiet hours" links here. */}
             <SetRow
               first
+              setting="texting.quiet_hours"
               title="Quiet hours"
               description="Automatic texts wait until morning. People on the team get a “send anyway?” check first."
               body={
@@ -1895,6 +1897,7 @@ function Configured({
               />
             </SetRow>
             <SetRow
+              setting="texting.remind_waiting"
               title="Remind the team when a customer waits"
               description="One email to whoever the conversation is assigned to, or to every owner and admin when nobody is."
             >
@@ -1926,6 +1929,7 @@ function Configured({
             </SetRow>
             <SetRow
               center
+              setting="texting.stop_help"
               title="STOP, START and HELP"
               description="Handled automatically. Opted-out customers can’t be texted until they text START."
             >
@@ -2140,7 +2144,7 @@ function CallsCard({
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6" {...settingAttrs('texting.calls')}>
       <h2 className="text-lg font-semibold tracking-tight">When a customer calls</h2>
       <p className="mt-1 text-[13px] text-text-2">
         Everything below rings at the same time. The first to answer takes the call.
@@ -2265,7 +2269,7 @@ function CallsCard({
         </Button>
         <span className="text-xs text-text-3">{`${phones.length} of ${MAX_PHONES} phones`}</span>
       </div>
-      <SetRow center title="Ring for" className="mt-2">
+      <SetRow center setting="texting.ring_for" title="Ring for" className="mt-2">
         <Select
           selectSize="sm"
           className="w-[130px]"
@@ -2339,7 +2343,7 @@ function CallerIdCard({
   }
 
   return (
-    <Card className="p-6" data-testid="caller-id">
+    <Card className="p-6" data-testid="caller-id" {...settingAttrs('texting.caller_id')}>
       <h2 className="text-lg font-semibold tracking-tight">What forwarded phones show</h2>
       <p className="mt-1 text-[13px] text-text-2">
         When a customer calls and a phone above rings, its screen shows one of these. Either way,
@@ -2414,7 +2418,7 @@ function RecordingCard({
   }
 
   return (
-    <Card className="p-6" data-testid="call-recording">
+    <Card className="p-6" data-testid="call-recording" {...settingAttrs('texting.recording')}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Call recording</h2>
@@ -2495,7 +2499,7 @@ function VoicemailCard({
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6" {...settingAttrs('texting.voicemail')}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Voicemail</h2>

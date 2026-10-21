@@ -93,3 +93,56 @@ export function numberingChangeProblem(
 ): string | null {
   return prefixProblem(proposed.prefix) ?? nextNumberProblem(current.next, proposed.next);
 }
+
+// ---- Finding a document by its number (search) ----
+
+/**
+ * A document number as someone typed it to find one: `#1042`, `INV-001042`, `2026-1042`, `LS-0042`. `text` is what
+ * was typed, lower-cased and without a leading `#`; `counter` is its last run of digits without the zeros in front,
+ * read from the end because a prefix may hold digits of its own (`2026-`); `prefix` is what comes before the counter.
+ */
+export interface DocumentNumberProbe {
+  readonly text: string;
+  readonly prefix: string;
+  readonly counter: string | null;
+}
+
+/** What a number may look like: a prefix's letters, digits and hyphens, then the counter. */
+const TYPED_NUMBER = /^[a-z0-9-]{0,24}\d$/;
+
+/** The counter of a number, `INV-001042` → `1042`; null when it ends in no digits, or only zeros. */
+function counterOf(number: string): string | null {
+  const digits = /(\d+)$/.exec(number)?.[1];
+  const counter = digits?.replace(/^0+/, '') ?? '';
+  return counter === '' ? null : counter;
+}
+
+/** What someone typed, read as a document number, or null when it can't be one. */
+export function documentNumberProbe(typed: string): DocumentNumberProbe | null {
+  const text = (typed ?? '').trim().replace(/^#\s*/, '').toLowerCase();
+  if (!TYPED_NUMBER.test(text)) return null;
+  const counter = counterOf(text);
+  return { text, prefix: text.replace(/\d+$/, ''), counter };
+}
+
+/** A prefix with only its letters and digits, so `LS-`, `LS` and `ls.` are one prefix. */
+export const barePrefix = (prefix: string): string =>
+  prefix.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Whether a stored number is the one typed: the whole number, or the same counter under the same prefix, so padding
+ * doesn't matter, nor the punctuation in the prefix. A bare number has no prefix of its own and matches its counter
+ * under any: "1042" finds `2026-1042`, `INV-001042` and `1042`, while "LS-0042" and "LS0042" find only `LS-` numbers.
+ * Search's SQL makes the same test (`search/server/sql.ts`, `numberMatches`).
+ */
+export function documentNumberMatches(
+  stored: string | null | undefined,
+  probe: DocumentNumberProbe,
+): boolean {
+  if (!stored) return false;
+  const number = stored.toLowerCase();
+  if (number === probe.text) return true;
+  if (!probe.counter || counterOf(number) !== probe.counter) return false;
+  const prefix = barePrefix(probe.prefix);
+  return prefix === '' || barePrefix(number.replace(/\d+$/, '')) === prefix;
+}

@@ -1,9 +1,9 @@
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
 import { decodeTimeCursor, page } from '../kernel/pagination';
-import { TimelineListInput, TimelineListOutput } from '../schemas/activity';
+import { TimelineListInput, TimelineListOutput, type TimelineEntry } from '../schemas/activity';
 
-type Row = {
+export type TimelineRow = {
   id: string;
   kind: string;
   subtype: string | null;
@@ -19,6 +19,31 @@ type Row = {
   meta: Record<string, unknown>;
   sort_key: string;
 };
+
+/** The columns of a timeline line, as `timelineEntryOf` reads them; `a` is the activity, `u` its author. */
+export const TIMELINE_COLUMNS = sql`a.id, a.kind::text as kind, a.subtype, a.body, a.occurred_at, a.author_user_id,
+  coalesce(nullif(u.full_name, ''), u.email::text) as author_name, a.actor_type::text as actor_type,
+  a.person_id, a.company_id, a.lead_id, a.custom_record_id, a.meta,
+  to_char(a.occurred_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as sort_key`;
+
+/** A timeline line as the timeline shows it. */
+export const timelineEntryOf = (r: TimelineRow): TimelineEntry => ({
+  id: r.id,
+  entry: 'activity' as const,
+  kind: r.kind,
+  subtype: r.subtype,
+  body: r.body,
+  occurredAt: new Date(r.occurred_at).toISOString(),
+  actor: r.author_user_id
+    ? { id: r.author_user_id, fullName: r.author_name ?? 'Former member' }
+    : null,
+  actorType: r.actor_type,
+  personId: r.person_id,
+  companyId: r.company_id,
+  leadId: r.lead_id,
+  customRecordId: r.custom_record_id,
+  meta: r.meta ?? {},
+});
 
 export const timelineList = defineQuery({
   name: 'timeline.list',
@@ -38,12 +63,9 @@ export const timelineList = defineQuery({
           : input.recordType === 'custom_record'
             ? sql`a.custom_record_id`
             : sql`a.lead_id`;
-    const list = await rows<Row>(
+    const list = await rows<TimelineRow>(
       ctx.tx,
-      sql`select a.id, a.kind::text as kind, a.subtype, a.body, a.occurred_at, a.author_user_id,
-            coalesce(nullif(u.full_name, ''), u.email::text) as author_name, a.actor_type::text as actor_type,
-            a.person_id, a.company_id, a.lead_id, a.custom_record_id, a.meta,
-            to_char(a.occurred_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as sort_key
+      sql`select ${TIMELINE_COLUMNS}
           from app.activities a
           left join app.users u on u.id = a.author_user_id
           where a.workspace_id = ${input.workspaceId} and ${column} = ${input.recordId}
@@ -54,23 +76,7 @@ export const timelineList = defineQuery({
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
     return {
       nextCursor: result.nextCursor,
-      items: result.items.map((r) => ({
-        id: r.id,
-        entry: 'activity' as const,
-        kind: r.kind,
-        subtype: r.subtype,
-        body: r.body,
-        occurredAt: new Date(r.occurred_at).toISOString(),
-        actor: r.author_user_id
-          ? { id: r.author_user_id, fullName: r.author_name ?? 'Former member' }
-          : null,
-        actorType: r.actor_type,
-        personId: r.person_id,
-        companyId: r.company_id,
-        leadId: r.lead_id,
-        customRecordId: r.custom_record_id,
-        meta: r.meta ?? {},
-      })),
+      items: result.items.map(timelineEntryOf),
     };
   },
 });

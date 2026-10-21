@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { useAssistant } from './assistant-provider';
 import { AssistantMark } from './mark';
 
-/** "Ask HandsFreeOS ⌘J" under the sidebar's search field. */
+/** "Ask HandsFreeOS ⌘J" under the sidebar's Search everything box. */
 export function AskButton({ className }: { className?: string }) {
   const a = useAssistant();
   if (!a.enabled) return null;
@@ -25,12 +25,22 @@ export function AskButton({ className }: { className?: string }) {
     >
       <AssistantMark size={18} />
       <span className="min-w-0 truncate">Ask HandsFreeOS</span>
-      {a.shortcut ? (
-        <kbd className="ml-auto inline-flex h-5 flex-none items-center rounded-[6px] border border-border-strong bg-card-2 px-1 font-mono text-[11px] font-medium text-text-3">
-          {a.shortcut.label}
-        </kbd>
-      ) : null}
+      {a.shortcut ? <ShortcutKey className="ml-auto">{a.shortcut.label}</ShortcutKey> : null}
     </button>
+  );
+}
+
+/** A shortcut drawn in the side menu: ⌘J here, and ⌘K in the Search everything box above. */
+export function ShortcutKey({ children, className }: { children: string; className?: string }) {
+  return (
+    <kbd
+      className={cn(
+        'inline-flex h-5 flex-none items-center rounded-[6px] border border-border-strong bg-card-2 px-1 font-mono text-[11px] font-medium text-text-3',
+        className,
+      )}
+    >
+      {children}
+    </kbd>
   );
 }
 

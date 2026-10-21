@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search results page</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--accent-text)}a:hover{color:var(--accent-hover)}
+.nav{display:flex;height:34px;align-items:center;gap:10px;border-radius:8px;padding:0 10px;font-size:14px;font-weight:500;color:var(--text-2);text-decoration:none}
+.nav:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.m{background:var(--accent-soft-2);color:var(--text);font-weight:600;border-radius:3px;padding:0 1px}
+.kind{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;font-size:14px;font-weight:500;color:var(--text-2);text-decoration:none}
+.kind:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.kind span{margin-left:auto;font-size:12.5px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.kind[aria-current="page"]{background:var(--accent-soft);color:var(--accent-text)}
+.kind[aria-current="page"] span{color:var(--accent-text)}
+.card-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-head h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-0.01em}
+.card-head .n{font-size:13px;color:var(--text-3)}
+.card-head a{margin-left:auto;font-size:13px;font-weight:500}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;min-height:48px;padding:7px 16px;border-top:1px solid var(--border);color:var(--text);text-decoration:none;box-sizing:border-box}
+.row:first-of-type{border-top:0}
+.row:hover{background:var(--card-2);text-decoration:none;color:var(--text)}
+.who{display:flex;align-items:center;gap:12px;flex:1 1 240px;min-width:0}
+.who b{font-weight:500}
+.col{flex:0 1 170px;min-width:0;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{display:block;font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{display:block;padding:10px 16px;border-top:1px solid var(--border);background:var(--card-2);font-size:13px;font-weight:500;border-radius:0 0 12px 12px}
+.kbd{display:inline-flex;align-items:center;height:18px;padding:0 5px;border-radius:4px;border:1px solid var(--border-strong);background:var(--card-2);font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+</style>
+</helmet>
+<div style="position: relative; min-height: 1400px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px;">
+
+  <aside style="flex: 0 0 240px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; background: var(--card); border-right: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.025em;">
+      <img src="ds/handsfreeos/assets/handsfreeos-mark.png" alt="" style="width: 22px; height: 22px;">
+      <span>HandsFree<b style="font-weight: inherit; color: var(--accent-text);">OS</b></span>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font: inherit; color: var(--text); text-align: left; cursor: pointer;">
+      <span class="hf-avatar hf-avatar--md hf-avatar--square" style="background: var(--accent-soft-2); color: var(--accent-text);">BP</span>
+      <span style="display: flex; flex-direction: column; min-width: 0; flex: 1;"><span style="font-size: 14px; font-weight: 600;">Bayou Plumbing</span><span style="font-size: 12px; color: var(--text-3);">Go Biz Help</span></span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--text-3);"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg>
+    </button>
+    <div style="position: relative;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 10px; top: 9px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Search everything" placeholder="Search everything" style="width: 100%; box-sizing: border-box; height: 34px; padding: 0 40px 0 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); font: inherit; font-size: 13px; color: var(--text);">
+      <span class="kbd" style="position: absolute; right: 8px; top: 8px;">⌘K</span>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); font: inherit; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer;">
+      <img src="ds/handsfreeos/assets/handsfreeos-mark.png" alt="" style="width: 16px; height: 16px;">
+      <span style="flex: 1; text-align: left;">Ask HandsFreeOS</span>
+      <span class="kbd">⌘J</span>
+    </button>
+    <nav aria-label="Workspace" style="display: flex; flex-direction: column; gap: 2px; margin-top: 6px;">
+      <a class="nav" href="#">Home</a>
+      <a class="nav" href="#">Inbox</a>
+      <a class="nav" href="#">Contacts</a>
+      <a class="nav" href="#">Pipeline</a>
+      <a class="nav" href="#">Calendar</a>
+      <a class="nav" href="#">Money</a>
+      <a class="nav" href="#">Workflows</a>
+      <a class="nav" href="#">Forms</a>
+      <a class="nav" href="#">Knowledge</a>
+      <a class="nav" href="#">AI teammate</a>
+      <a class="nav" href="#">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px;">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Search</h1>
+    <p style="margin: 4px 0 16px; font-size: 13px; color: var(--text-2);">Everything in Bayou Plumbing you’re allowed to see.</p>
+    <div style="position: relative; max-width: 720px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 13px; top: 13px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Search everything" value="smith" class="hf-input hf-input--lg" style="padding-left: 40px;">
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin: 14px 0 20px;">
+      <span style="font-size: 14px; font-weight: 600;">26 results for “smith”</span>
+      <label class="hf-checkbox" style="font-size: 13px; color: var(--text-2);"><input type="checkbox">Include archived</label>
+      <label class="hf-checkbox" style="font-size: 13px; color: var(--text-2);"><input type="checkbox">Only mine</label>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px;">
+      <nav aria-label="Kinds of results" class="hf-card" style="flex: 1 1 200px; max-width: 240px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+        <a class="kind" href="#" aria-current="page">All <span>26</span></a>
+        <a class="kind" href="#">Contacts <span>7</span></a>
+        <a class="kind" href="#">Companies <span>1</span></a>
+        <a class="kind" href="#">Deals <span>3</span></a>
+        <a class="kind" href="#">Money <span>4</span></a>
+        <a class="kind" href="#">Calendar <span>2</span></a>
+        <a class="kind" href="#">Messages <span>5</span></a>
+        <a class="kind" href="#">Tasks <span>1</span></a>
+        <a class="kind" href="#">Notes <span>1</span></a>
+        <a class="kind" href="#">Files <span>1</span></a>
+        <a class="kind" href="#">Forms <span>1</span></a>
+        <sc-if value="{{ showListings }}" hint-placeholder-val="{{ true }}"><a class="kind" href="#">Listings <span>1</span></a></sc-if>
+        <div style="height: 1px; background: var(--border); margin: 6px 4px;"></div>
+        <p style="margin: 2px 10px 6px; font-size: 12.5px; color: var(--text-3);">Nothing in Knowledge.</p>
+      </nav>
+
+      <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+
+        <section class="hf-card">
+          <div class="card-head">
+            <span class="hf-tile hf-tile--sm hf-tone--accent"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>
+            <h2>Contacts</h2><span class="n">7</span><a href="ManyMatches.dc.html">Only contacts</a>
+          </div>
+          <div>
+            <a class="row" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-2);">DS</span><span style="min-width: 0;"><b>Dana <span class="m">Smith</span></b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">Water heater swap · Quote sent</span></span></span><span class="col">(504) 555-0142</span><span class="col">dana.smith@gmail.com</span><span class="col">Texted 2 days ago</span></a>
+            <a class="row" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-1);">MS</span><span style="min-width: 0;"><b>Marcus <span class="m">Smith</span></b> <span class="hf-badge hf-badge--ok">Client</span><span class="sub">3 jobs done · Metairie</span></span></span><span class="col">(504) 555-0188</span><span class="col">marcus.smith@gmail.com</span><span class="col">Paid Sep 30</span></a>
+            <a class="row" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-3);">JS</span><span style="min-width: 0;"><b>Jo <span class="m">Smith</span>ers</b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">Visit booked Thu, Oct 23</span></span></span><span class="col">(985) 555-0117</span><span class="col">—</span><span class="col">Booked yesterday</span></a>
+            <a class="row" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-4);">KL</span><span style="min-width: 0;"><b>Kim Le</b> <span class="hf-badge hf-badge--ok">Client</span><span class="sub">Works at <span class="m">Smith</span>field Property Mgmt</span></span></span><span class="col">(504) 555-0163</span><span class="col">kim@smithfieldpm.com</span><span class="col">Emailed Oct 9</span></a>
+          </div>
+          <a class="more" href="ManyMatches.dc.html">Show 3 more contacts</a>
+        </section>
+
+        <section class="hf-card">
+          <div class="card-head">
+            <span class="hf-tile hf-tile--sm hf-tone--accent"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg></span>
+            <h2>Deals</h2><span class="n">3</span><a href="#">Only deals</a>
+          </div>
+          <div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Water heater swap</b><span class="sub">Dana <span class="m">Smith</span></span></span></span><span class="col">Installs › Quote sent</span><span class="col">Sam Rivera</span><span class="hf-chip hf-chip--money">$2,450</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Whole-house repipe</b><span class="sub">Marcus <span class="m">Smith</span></span></span></span><span class="col">Won Sep 30</span><span class="col">Dale Okafor</span><span class="hf-chip hf-chip--money">$8,900</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Backflow test, 4 buildings</b><span class="sub"><span class="m">Smith</span>field Property Mgmt</span></span></span><span class="col">Service › New</span><span class="col">Sam Rivera</span><span class="hf-chip hf-chip--est">~$1,600</span></a>
+          </div>
+        </section>
+
+        <section class="hf-card">
+          <div class="card-head">
+            <span class="hf-tile hf-tile--sm hf-tone--success"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 18V6"></path></svg></span>
+            <h2>Money</h2><span class="n">4</span><a href="#">Only money</a>
+          </div>
+          <div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Invoice #1042</b><span class="sub">Marcus <span class="m">Smith</span></span></span></span><span class="col">Was due Oct 14</span><span class="hf-chip hf-chip--late">6 days late</span><span class="hf-chip hf-chip--money">$1,280</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Quote #388</b><span class="sub">Dana <span class="m">Smith</span></span></span></span><span class="col">Sent Oct 17</span><span class="hf-chip hf-chip--plain">Not opened</span><span class="hf-chip hf-chip--money">$2,450</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Payment · Card</b><span class="sub">Marcus <span class="m">Smith</span> · Invoice #1031</span></span></span><span class="col">Paid Sep 30</span><span class="hf-chip hf-chip--good">Paid</span><span class="hf-chip hf-chip--money">$8,900</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Invoice #1029</b><span class="sub">Jo <span class="m">Smith</span>ers</span></span></span><span class="col">Paid Aug 12</span><span class="hf-chip hf-chip--good">Paid</span><span class="hf-chip hf-chip--money">$240</span></a>
+          </div>
+        </section>
+
+        <section class="hf-card">
+          <div class="card-head">
+            <span class="hf-tile hf-tile--sm hf-tone--gray"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg></span>
+            <h2>Messages</h2><span class="n">5</span><a href="#">Only messages</a>
+          </div>
+          <div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Text · Dana <span class="m">Smith</span></b><span class="sub">“…it’s the house on <span class="m">Smith</span> Ave, the water heater’s leaking again”</span></span></span><span class="col" style="flex-basis: 90px; text-align: right;">2 days ago</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Email · Kim Le</b><span class="sub">“Backflow tests for the <span class="m">Smith</span>field buildings, can you quote all four?”</span></span></span><span class="col" style="flex-basis: 90px; text-align: right;">Oct 9</span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Call · Marcus <span class="m">Smith</span></b><span class="sub">Summary: asked about a payment plan for the repipe</span></span></span><span class="col" style="flex-basis: 90px; text-align: right;">Sep 22</span></a>
+          </div>
+          <a class="more" href="#">Show 2 more messages</a>
+        </section>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+          <section class="hf-card">
+            <div class="card-head"><h2>Calendar</h2><span class="n">2</span></div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Diagnostic visit</b><span class="sub">Thu, Oct 23 · 8:00–10:00 AM · Jo <span class="m">Smith</span>ers</span></span></span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Repipe, day 1</b><span class="sub">Sep 24 · Marcus <span class="m">Smith</span> · Done</span></span></span></a>
+          </section>
+          <section class="hf-card">
+            <div class="card-head"><h2>Tasks and notes</h2><span class="n">2</span></div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Call Marcus <span class="m">Smith</span> about the permit</b><span class="sub">Task · Due tomorrow · Sam Rivera</span></span></span></a>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Gate code 4471, dog in the yard</b><span class="sub">Note on Dana <span class="m">Smith</span> · Oct 18</span></span></span></a>
+          </section>
+          <section class="hf-card">
+            <div class="card-head"><h2>Files</h2><span class="n">1</span></div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Repipe permit.pdf</b><span class="sub">On Marcus <span class="m">Smith</span> · “Owner: Marcus <span class="m">Smith</span>, 2210 Clearview…”</span></span></span></a>
+          </section>
+          <section class="hf-card">
+            <div class="card-head"><h2>Forms</h2><span class="n">1</span></div>
+            <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>Request a quote</b><span class="sub">Answered by Jo <span class="m">Smith</span>ers · Oct 19 · “50 gallon, gas”</span></span></span></a>
+          </section>
+          <sc-if value="{{ showListings }}" hint-placeholder-val="{{ true }}">
+            <section class="hf-card">
+              <div class="card-head"><h2>Listings</h2><span class="n">1</span><span class="hf-badge hf-badge--gray" style="margin-left: auto;">Real Estate</span></div>
+              <a class="row" href="#"><span class="who"><span style="min-width: 0;"><b>418 <span class="m">Smith</span> Ave</b><span class="sub">Active · $389,000 · 3 bd · 2 ba</span></span></span></a>
+            </section>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showListings":{"editor":"boolean","default":true,"section":"Add-ons"},"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { showListings: this.props.showListings ?? true };
+  }
+}
+</script>
+</body>
+</html>

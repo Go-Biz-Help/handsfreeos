@@ -262,4 +262,5 @@ console.log(`
 Next:
   node scripts/supabase.mjs migration up --local     its permissions and schema, locally
   pnpm --filter @hfos/core exec vitest run test/addons/${id}.test.ts
-  Then read docs/addon-architecture.md: its kinds of records, its own tables, its screens and its AI tools.`);
+  Then read docs/addon-architecture.md: its kinds of records, its own tables, its screens, its AI tools, and
+  how it answers searches (the commented \`search\` in its manifest).`);

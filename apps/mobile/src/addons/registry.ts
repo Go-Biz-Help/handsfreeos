@@ -1,7 +1,11 @@
+import type { CopyGroup } from '@hfos/core';
 import type * as React from 'react';
+
+import type { CopyDb, PhoneAddonSearch } from '@/search/copy-sql';
 
 import { OutreachMore } from './outreach/more';
 import { RealestateMore } from './realestate/more';
+import { RE_COPY_KINDS, searchRealestateCopy } from './realestate/search';
 import { SalescoachMore } from './salescoach/more';
 
 /**
@@ -16,10 +20,26 @@ export interface PhoneAddon {
   readonly permission: string;
   /** Its places at the top of More. */
   readonly More: React.ComponentType;
+  /**
+   * What search finds in its part of the phone's copy with no signal, as core's groups for `searchCopy`
+   * (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "Phone: no signal"). Asked only of someone holding `permission`.
+   */
+  readonly search?: (db: CopyDb, ask: PhoneAddonSearch) => Promise<readonly CopyGroup[]>;
+  /**
+   * The group kinds `search` answers (`realestate.deals`): one kind's page for any other of its kinds says it needs
+   * signal with none, rather than that nothing matched.
+   */
+  readonly searchKinds?: readonly string[];
 }
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
-  { addonId: 'realestate', permission: 'realestate.use', More: RealestateMore },
+  {
+    addonId: 'realestate',
+    permission: 'realestate.use',
+    More: RealestateMore,
+    search: searchRealestateCopy,
+    searchKinds: RE_COPY_KINDS,
+  },
   { addonId: 'outreach', permission: 'outreach.use', More: OutreachMore },
   { addonId: 'salescoach', permission: 'salescoach.use', More: SalescoachMore },
 ];

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "knowledge-site": "tsx scripts/knowledge-site.ts"
+    "knowledge-site": "tsx scripts/knowledge-site.ts",
+    "files:read-backlog": "tsx scripts/files-read-backlog.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",

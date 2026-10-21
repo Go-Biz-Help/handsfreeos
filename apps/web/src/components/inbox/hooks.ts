@@ -1,5 +1,6 @@
 'use client';
 import { CONVERSATION_DONE, type InboxBoxKey, type InboxMailbox, type NoteEntry } from '@hfos/core';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -25,6 +26,15 @@ export interface InboxFilters {
 }
 
 const PAGE = 30;
+/**
+ * Opening a thread at an older message reads everything after it, this many at a time, for at most this many pages:
+ * 1,000 messages and calls. Past that, what lies between those and the newest page is left out until the thread is
+ * opened again from the inbox.
+ */
+const OPEN_AT_LIMIT = 100;
+const OPEN_AT_PAGES = 10;
+/** How long a message opened from a search stays ringed, as a setting found by settings search does. */
+const RING_MS = 4000;
 
 /**
  * The conversation list. The first page loads on every filter change; teammates' and customers' changes
@@ -280,6 +290,56 @@ export function useThread(
     [workspaceId, conversationId, allLanes, items],
   );
 
+  /**
+   * Opens the thread at a moment further back than its newest page (a search result's message): what was at or
+   * before it (`upTo`), and everything after it (`since`, paging back to it), so nothing between it and the newest
+   * page is left out. "Show earlier" carries on from the oldest shown. Answers whether it was read.
+   */
+  const openAt = useCallback(
+    async (at: string): Promise<boolean> => {
+      const lanes = allLanes ? { allLanes } : {};
+      const got: ThreadItem[] = [];
+      let earlier: string | null = null;
+      try {
+        const upTo = unwrap(
+          await apiBrowser().POST('/v1/queries/conversation.thread', {
+            body: { workspaceId, conversationId, upTo: at, limit: PAGE, ...lanes },
+          }),
+        );
+        got.push(...upTo.items);
+        earlier = upTo.nextCursor;
+        let next: string | null = null;
+        for (let page = 0; page < OPEN_AT_PAGES; page++) {
+          const out: ConversationThread = unwrap(
+            await apiBrowser().POST('/v1/queries/conversation.thread', {
+              body: {
+                workspaceId,
+                conversationId,
+                since: at,
+                limit: OPEN_AT_LIMIT,
+                ...(next ? { cursor: next } : {}),
+                ...lanes,
+              },
+            }),
+          );
+          got.push(...out.items);
+          next = out.nextCursor;
+          if (!next) break;
+        }
+      } catch {
+        return false;
+      }
+      setItems((old) => {
+        const map = new Map(old.map((i) => [i.id, i]));
+        for (const i of got) map.set(i.id, i);
+        return [...map.values()].sort(byTime);
+      });
+      setCursor(earlier);
+      return true;
+    },
+    [workspaceId, conversationId, allLanes],
+  );
+
   const ids = useMemo(() => new Set(items.map((i) => i.id)), [items]);
   // Pending texts drop out once the stored message is in the thread.
   const waiting = pending.filter((p) => !p.messageId || !ids.has(p.messageId));
@@ -292,6 +352,7 @@ export function useThread(
     loadEarlier,
     refresh: useCallback(() => setNonce((n) => n + 1), []),
     bringBack,
+    openAt,
     /** Takes an item out of the thread at once (a held text just cancelled). */
     forget: useCallback((id: string) => setItems((all) => all.filter((i) => i.id !== id)), []),
     addPending: useCallback(
@@ -315,6 +376,53 @@ export function useThread(
       [],
     ),
   };
+}
+
+/** A message's or a call's place in the thread, by the ids their cards carry. */
+const threadEntry = (id: string): HTMLElement | null =>
+  document.querySelector<HTMLElement>(
+    `[data-testid="message-${CSS.escape(id)}"], [data-testid="call-${CSS.escape(id)}"]`,
+  );
+const RING = ['ring-2', 'ring-accent', 'rounded-2xl'];
+
+/**
+ * A search result opens a thread at its message (`inbox/<id>?message=<messageId>&at=<when>`): when the message isn't
+ * in the newest page, the thread is read up to that moment and on from it (`openAt`); then the message is scrolled
+ * to and ringed for a few seconds. It follows the address, so another message in the thread already open is found
+ * too; each message is read for and ringed once. The thread renders per request, so this needs no Suspense boundary.
+ */
+export function useOpenedMessage(thread: {
+  readonly items: readonly ThreadItem[];
+  readonly openAt: (at: string) => Promise<boolean>;
+}) {
+  const query = useSearchParams();
+  const id = query.get('message');
+  const at = query.get('at');
+  // The message whose moment was last read, and the one last ringed.
+  const read = useRef<string | null>(null);
+  const ringed = useRef<string | null>(null);
+  const { items, openAt } = thread;
+
+  useEffect(() => {
+    if (!id || ringed.current === id) return;
+    if (!items.some((i) => i.id === id)) {
+      // Further back than what's shown: read the thread from there, once.
+      if (at && read.current !== id) {
+        read.current = id;
+        void openAt(at);
+      }
+      return;
+    }
+    ringed.current = id;
+    // Once the thread has drawn what it just read. Nothing to undo if the page goes first: the element goes with it.
+    window.requestAnimationFrame(() => {
+      const el = threadEntry(id);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center' });
+      el.classList.add(...RING);
+      window.setTimeout(() => el.classList.remove(...RING), RING_MS);
+    });
+  }, [id, at, items, openAt]);
 }
 
 /**

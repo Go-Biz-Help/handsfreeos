@@ -26,6 +26,7 @@ Three rules shape the design:
 | Lifecycle commands and queries          | `packages/core/src/commands/addon.ts`, `queries/addon.ts`, `schemas/addon.ts`                                                                                                                                                            |
 | What the pages say, and Home's pick     | `packages/core/src/addons/words.ts` (words and move rules both apps use), `suggest.ts`                                                                                                                                                   |
 | The Add-ons page and Home's card        | web: `apps/web/src/components/settings/add-ons/`, `components/home/addon-suggestion.tsx`; phone: `apps/mobile/src/add-ons/`, `components/add-ons/`                                                                                       |
+| Answering Search everything             | `packages/core/src/search/addon.ts` (what its query takes and answers), `search/server/addons.ts` (running it); `executeQueryWithin` in `kernel/execute.ts`                                                                              |
 | AI tools and `find_capabilities`        | `packages/core/src/addons/ai.ts`, `assistant/tools-addons.ts`; `apps/worker/src/assistant/tools-addons.ts`                                                                                                                               |
 | Worker: reconcile, delivery, guards     | `apps/worker/src/addons/`; the guards in `jobs.ts` and `deliveries.ts`                                                                                                                                                                   |
 | Web: registry, gate, slots, menu places | `apps/web/src/addons/`, `components/addons/`, `app/app/w/[workspaceId]/a/`; `packages/core/src/account/menu.ts`                                                                                                                          |
@@ -222,6 +223,36 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   - The teammate's settings have one switch per add-on (`config.addons.<id>.on`), off until an owner turns it on and
     offered only while the add-on runs. Never in a first message, a nudge, a website chat whose visitor hasn't proved
     who they are, or a phone call.
+- **Search** (Search everything, docs/search.md): an add-on's records are found through core's group for the
+  business's kinds of records with no work at all. One that finds its things better itself (a listing by its MLS
+  number) answers searches with one query of its own (`HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`, "Add-ons answer
+  searches").
+  - The manifest's `search` names the query (`<id>.search`), the groups it adds (`kinds`: a key, a singular, a plural
+    and a record icon; each is `<id>.<key>` to the chips and `search.kind`), the permission it runs for (one of its
+    own), and `covers`: its own kinds of records it finds better, whose group of core's steps aside whenever it
+    answered for every kind it has (its archived records still go under Archived), and stays for someone without its
+    permission, when chips asked it for only some of its kinds, or when it failed.
+  - The query is a `defineAddonQuery` for people alone, asking for the declared permission, taking core's
+    `AddonSearchInput` and answering `AddonSearchOutput` (the same objects, `search/addon.ts`), with no `ai`, and
+    marked **`route: false`**: the API never mounts it, so it runs only inside `search.everything` and `search.kind`,
+    under their rate limit and slot gate, and the API client never has it. `manifestIssues` checks the declaration and
+    `addonSearchIssues` the query; the generator's manifest has a commented stub.
+  - Core asks it after its own kinds, only while it runs here and for people holding its permission (every add-on
+    under a staff view-as, where row security decides), through the kernel: `executeQueryWithin` runs it as the
+    person, in the search's transaction and a savepoint of its own, its add-on checked to be on and its permission
+    checked again, each statement held to 1.5 seconds in the box and 3 on a page (so read in one or two). It gets
+    core's probes, never the text to read its own way, and ranks and marks with `tierOf`, `marksIn` and `snippetOf`,
+    so its hits sit on core's scale.
+  - What it answers is held to core's rules: only its own kinds, and only those asked for; a link only to one of its
+    own pages (`/a/<id>/…`) or the record a hit is about (`/customers/records/<recordId>`), with no `..` however it's
+    written; an archived hit only when archived ones were asked for; a snippet cut short with `snippetOf`, and a
+    cursor of 400 characters at most; a few a kind, and counts shown to 50 in the box and on the Search page.
+  - **A failure of any kind is kept to its own groups**: turned off mid-search, a timeout or an error drops only its
+    groups, with one line in their place ("Real Estate Agent couldn’t be searched just now. Try again in a minute."),
+    and is logged as its id and SQLSTATE at most, never its message, which can hold what was typed. On one of its
+    kinds' own pages it marks the page, and a timeout there refuses `search_took_too_long` as a core kind's page does;
+    that page is refused while it's off (`addon_inactive`) and to someone without its permission
+    (`search_kind_not_allowed`).
 - **Connections to other services** (Real Estate round five, step 1): an add-on's manifest names what it connects
   (`connectors`: a key such as `listing_data`, the permission it takes to manage it, `many` when a business may
   connect more than one at a time) and the services for each (`providers`: an id, a label, how each connects —

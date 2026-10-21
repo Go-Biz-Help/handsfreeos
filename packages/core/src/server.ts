@@ -44,6 +44,32 @@ export * from './addons/ai';
 export * from './addons/teammate';
 export * from './addons/roadmap-load';
 export { loadActiveAddons, loadOverrides } from './addons/load';
+// Search everything, server side: running a search, its budgets, the searchers' shape, and an error's SQLSTATE alone
+// (search/server).
+export {
+  MIN_STATEMENT_MS,
+  runSearch,
+  runSearchEverything,
+  runSearchKind,
+  SEARCH_BUDGETS,
+  SearchFailed,
+  SearchStopped,
+  sqlStateOf,
+  type FoundGroup,
+  type KindSearcher,
+  type RunOptions,
+  type SearchDb,
+  type SearchPlan,
+} from './search/server/run';
+export { SEARCHERS } from './search/server/kinds/index';
+// Add-ons answering a search: the catalogue tests' check, and the add-ons that answer.
+export {
+  ADDON_COUNT_CAP,
+  addonSearchIssues,
+  CONTRIBUTOR_MS,
+  searchContributors,
+  type SearchContributor,
+} from './search/server/addons';
 import { ADDON_SERVER_MODULES } from './addons/modules';
 import { composeOperations } from './addons/server';
 import { commands } from './commands/index';

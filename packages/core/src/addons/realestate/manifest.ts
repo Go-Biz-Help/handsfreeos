@@ -1481,6 +1481,20 @@ export const realestateAddon = defineAddon({
   settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },
+  // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, Search 4b): listings by address or MLS number, deals
+  // by name, client or address, buyers' homes, and properties no listing covers (ops/search.ts). Core leaves its own
+  // group of deals and properties out when this answered, and keeps it for anyone this doesn't run for.
+  search: {
+    query: 'realestate.search',
+    kinds: [
+      { key: 'listings', singular: 'Listing', plural: 'Listings', icon: 'home' },
+      { key: 'deals', singular: 'Deal', plural: 'Deals', icon: 'key' },
+      { key: 'homes', singular: 'Home', plural: 'Homes', icon: 'home' },
+      { key: 'properties', singular: 'Property', plural: 'Properties', icon: 'home' },
+    ],
+    covers: ['realestate_deal', 'realestate_property'],
+    permission: 'realestate.use',
+  },
   // Its places in the side menu, shown only while it runs and to people who may open them, and its panels on core's
   // pages: a customer's, a company's and a lead's deals, and a property's (Start a deal from any of them).
   ui: {

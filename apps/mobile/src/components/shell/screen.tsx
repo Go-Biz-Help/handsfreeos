@@ -22,11 +22,13 @@ export function Screen({
   back,
   trailing,
   ask,
+  search,
   scroll = true,
   contentClassName,
   header,
   children,
   testID,
+  scrollRef,
 }: {
   title?: string;
   subtitle?: string;
@@ -34,12 +36,16 @@ export function Screen({
   back?: Href;
   trailing?: React.ReactNode;
   ask?: boolean;
+  /** Search everything's button in the top bar: on by default where the business mark leads. */
+  search?: boolean;
   scroll?: boolean;
   contentClassName?: string;
   /** Sits between the strip and the scrolling content (Home's summary band). */
   header?: React.ReactNode;
   children?: React.ReactNode;
   testID?: string;
+  /** The scrolling content, for a screen that scrolls to a row (settings search's flash). */
+  scrollRef?: React.Ref<ScrollView>;
 }) {
   return (
     <View
@@ -56,6 +62,7 @@ export function Screen({
         back={back}
         trailing={trailing}
         ask={ask}
+        search={search}
       />
       <StatusStrip />
       <ViewStrip />
@@ -63,6 +70,7 @@ export function Screen({
       <CheckInBanner />
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           className="flex-1"
           contentContainerClassName={cn('gap-3 p-3 pb-8', contentClassName)}
           keyboardShouldPersistTaps="handled"

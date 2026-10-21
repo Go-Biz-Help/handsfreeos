@@ -1,5 +1,5 @@
 'use client';
-import { firstName, MAX_EMAIL_DOMAINS } from '@hfos/core';
+import { firstName, MAX_EMAIL_DOMAINS, type SettingKey } from '@hfos/core';
 import { AtSign, CircleAlert, Globe, Lock, Plus, RotateCw, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -30,6 +30,7 @@ import { publicEnv } from '@/lib/env';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GoogleLogo, MicrosoftLogo, providerName } from './provider-logos';
+import { settingAttrs } from './setting-anchor';
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -65,14 +66,17 @@ function Section({
   description,
   aside,
   children,
+  setting,
 }: {
   title: string;
   description: ReactNode;
   aside?: ReactNode;
   children: ReactNode;
+  /** Its key in settings search. */
+  setting?: SettingKey;
 }) {
   return (
-    <Card className="p-6">
+    <Card className="p-6" {...settingAttrs(setting)}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
@@ -170,6 +174,7 @@ function SendingAddress({
   return (
     <Section
       title="Sending address"
+      setting="email.sending_address"
       description="Customers see your business name, and their replies land in the inbox."
     >
       <div className="mt-4 flex flex-col gap-2" data-testid="email-addresses">
@@ -544,6 +549,7 @@ function OwnDomain({
   receivingOpen,
   inboundMxHost,
   onChanged,
+  setting,
 }: {
   workspaceId: string;
   domain: EmailDomainInfo | null;
@@ -556,6 +562,8 @@ function OwnDomain({
   receivingOpen: boolean;
   inboundMxHost: string;
   onChanged: () => void;
+  /** The first domain is the one settings search jumps to. */
+  setting?: SettingKey;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -662,6 +670,7 @@ function OwnDomain({
   return (
     <Section
       title={domain ? 'Your own domain' : 'Use your own domain'}
+      setting={setting}
       description={description}
       aside={
         status === 'verified' ? (
@@ -1037,6 +1046,7 @@ function Mailboxes({
   return (
     <Section
       title="Connected mailboxes"
+      setting="email.mailboxes"
       description="Email between these mailboxes and people in Contacts shows in the inbox and on the timeline. Other mail stays private."
     >
       <div className="mt-3" data-testid="mailboxes">
@@ -1146,6 +1156,7 @@ function Blocked({
   return (
     <Section
       title="Blocked addresses"
+      setting="email.blocked"
       description="We stop emailing an address after it bounces or reports spam, to protect your sending reputation."
     >
       <div className="mt-2.5" data-testid="blocked-addresses">
@@ -1295,6 +1306,7 @@ function Unmatched({
   return (
     <Section
       title="Mail from people not in Contacts"
+      setting="email.unknown_senders"
       description="Mail that came before Other mail did waits here. New mail from people not in Contacts is in Other mail, in the inbox."
     >
       <div className="mt-2.5" data-testid="unmatched-mail">
@@ -1377,6 +1389,7 @@ function SenderRules({
   return (
     <Section
       title="Where senders’ mail goes"
+      setting="email.sender_rules"
       description="Saved when someone moves an email and picks Always. Remove one and that sender’s new mail is sorted as usual."
     >
       <div className="mt-2.5" data-testid="sender-rules">
@@ -1465,9 +1478,10 @@ export function EmailPage({
           onChanged={refresh}
         />
         {/* Every domain the business has (up to three), and room for another. */}
-        {(status.domains.length ? status.domains : [null]).map((d) => (
+        {(status.domains.length ? status.domains : [null]).map((d, i) => (
           <OwnDomain
             key={d?.id ?? 'new'}
+            setting={i === 0 ? 'email.own_domain' : undefined}
             workspaceId={workspaceId}
             domain={d}
             sharedAddress={shared?.address ?? `your address @${status.sharedDomain}`}

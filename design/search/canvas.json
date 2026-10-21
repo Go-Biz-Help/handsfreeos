@@ -1,0 +1,39 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-20T02:05:00Z" },
+  "title": "Search everything",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 920, "title": "1 · Typing: results by kind", "expand": "fill" },
+    "AllResults.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 1400, "title": "2 · Press Enter: every result", "expand": "fill" },
+    "ManyMatches.dc.html": { "x": 3040, "y": 0, "w": 1440, "h": 980, "title": "3 · Many matches: telling people apart", "expand": "fill" },
+    "Searches.dc.html": { "x": 0, "y": 1820, "w": 1680, "h": 1500, "title": "4 · Different kinds of searches" },
+    "Phone.dc.html": { "x": 1760, "y": 1820, "w": 390, "h": 844, "title": "5 · On the phone" },
+    "PhoneKind.dc.html": { "x": 2230, "y": 1820, "w": 390, "h": 844, "title": "5b · Phone: one kind" },
+    "Settings.dc.html": { "x": 0, "y": 3740, "w": 1440, "h": 960, "title": "6 · Search in Settings", "expand": "fill" }
+  },
+  "order": [
+    "Main.dc.html",
+    "AllResults.dc.html",
+    "ManyMatches.dc.html",
+    "Searches.dc.html",
+    "Phone.dc.html",
+    "PhoneKind.dc.html",
+    "Settings.dc.html"
+  ],
+  "notes": {
+    "row1": { "x": 0, "y": -300, "text": "Search everything: on a computer", "kind": "title1", "maxW": 4480 },
+    "row2": { "x": 0, "y": 1520, "text": "Different searches, and the phone", "kind": "title1", "maxW": 2620 },
+    "row3": { "x": 0, "y": 3440, "text": "Search in Settings", "kind": "title1", "maxW": 1440 }
+  },
+  "designSystems": [
+    {
+      "title": "HandsFreeOS Design System",
+      "namespace": "handsfreeos",
+      "artifact": "https://claude.ai/artifact/Tu3wdWS8aQJSTDo22jDyvi",
+      "version": "1792092971-dfc4",
+      "copiedAt": "2026-10-20T02:05:00Z"
+    }
+  ]
+}

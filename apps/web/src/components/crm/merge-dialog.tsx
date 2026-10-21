@@ -41,11 +41,14 @@ export function MergeDialog({
   person,
   open,
   onOpenChange,
+  initialOtherId = null,
 }: {
   workspaceId: string;
   person: PersonDetail;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The other record, chosen already: Compare and merge on a search's duplicate banner (`?merge=<id>`). */
+  initialOtherId?: string | null;
 }) {
   const router = useRouter();
   const [picked, setPicked] = useState<PickedCustomer | null>(null);
@@ -55,10 +58,38 @@ export function MergeDialog({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!open || !initialOtherId || initialOtherId === person.id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/queries/person.get', {
+            body: { workspaceId, personId: initialOtherId },
+          }),
+        );
+        if (cancelled) return;
+        setOther(out.person);
+        setPicked({
+          id: out.person.id,
+          fullName: out.person.fullName,
+          detail: out.person.phone ?? out.person.email,
+        });
+      } catch (e) {
+        if (!cancelled) toast.error(errorMessage(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, initialOtherId, person.id, workspaceId]);
+
+  useEffect(() => {
     if (!picked) {
       setOther(null);
       return;
     }
+    // Chosen already, with its record read (`initialOtherId`).
+    if (other?.id === picked.id) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -75,7 +106,7 @@ export function MergeDialog({
     return () => {
       cancelled = true;
     };
-  }, [picked, workspaceId]);
+  }, [picked, other, workspaceId]);
 
   const reset = () => {
     setPicked(null);

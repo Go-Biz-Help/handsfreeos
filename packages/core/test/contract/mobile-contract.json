@@ -15086,6 +15086,104 @@
         },
         "required": ["workspaceId"]
       }
+    },
+    "search.everything": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "kinds": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$"
+            }
+          },
+          "perKind": {
+            "default": 3,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "depth": {
+            "default": "quick",
+            "type": "string",
+            "enum": ["quick", "full"]
+          },
+          "includeArchived": {
+            "default": false,
+            "type": "boolean"
+          },
+          "onlyMine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "settingsMatched": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "q"]
+      }
+    },
+    "search.kind": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "kind": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$"
+          },
+          "includeArchived": {
+            "default": false,
+            "type": "boolean"
+          },
+          "onlyMine": {
+            "default": false,
+            "type": "boolean"
+          },
+          "sort": {
+            "default": "best",
+            "type": "string",
+            "enum": ["best", "recent", "name"]
+          },
+          "standing": {
+            "type": "string",
+            "enum": ["lead", "client"]
+          },
+          "before": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["workspaceId", "q", "kind"]
+      }
     }
   },
   "tables": {

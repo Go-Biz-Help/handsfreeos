@@ -22,6 +22,7 @@ import {
   type MoneyIssue,
   type MoneySettings,
   type PaymentTerms,
+  type SettingKey,
 } from '@hfos/core';
 import {
   AlertCircle,
@@ -60,6 +61,7 @@ import {
   PaymentConnectionCard,
 } from './payment-connection-card';
 import { SetRow } from './set-row';
+import { settingAttrs } from './setting-anchor';
 
 const TERM_WORDS: Readonly<Record<PaymentTerms, string>> = {
   due_on_receipt: 'When they get it',
@@ -86,6 +88,7 @@ function Section({
   action,
   children,
   testId,
+  setting,
 }: {
   title: string;
   description?: ReactNode;
@@ -93,9 +96,11 @@ function Section({
   action?: ReactNode;
   children?: ReactNode;
   testId?: string;
+  /** Its key in settings search. */
+  setting?: SettingKey;
 }) {
   return (
-    <Card className="px-[22px] py-5" data-testid={testId}>
+    <Card className="px-[22px] py-5" data-testid={testId} {...settingAttrs(setting)}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-2.5">
           <Icon className="mt-0.5 h-[18px] w-[18px] flex-none text-text-3" strokeWidth={1.75} />
@@ -410,6 +415,7 @@ export function PaymentsSettings({
         <div className="flex min-w-0 flex-col gap-5">
           <Section
             title="Accounts you get paid into"
+            setting="payments.accounts"
             description="Money goes straight to your own account. HandsFreeOS never holds it."
             icon={Wallet}
             testId="pay-accounts"
@@ -466,6 +472,7 @@ export function PaymentsSettings({
 
           <Section
             title="Ways to pay"
+            setting="payments.ways_to_pay"
             description="What the customer sees on their page, in this order."
             icon={CreditCard}
             testId="pay-methods"
@@ -473,6 +480,7 @@ export function PaymentsSettings({
             <div className="mt-2">
               <SetRow
                 first
+                setting="payments.bank_transfer"
                 title={
                   <span className="flex flex-wrap items-center gap-2">
                     Bank transfer
@@ -497,6 +505,7 @@ export function PaymentsSettings({
               </SetRow>
               <SetRow
                 center
+                setting="payments.card"
                 title="Card"
                 description="Visa, Mastercard, Amex, Apple Pay and Google Pay. The money is there at once."
               >
@@ -508,6 +517,7 @@ export function PaymentsSettings({
               <SetRow
                 center
                 className="pb-0"
+                setting="payments.cash"
                 title="Cash and cheque"
                 description="Not offered to customers. You record one by hand from the invoice."
               >
@@ -525,12 +535,19 @@ export function PaymentsSettings({
 
           <Section
             title="Sales tax"
+            setting="payments.tax"
             description="One rate for the business. Each line on a document is marked taxable or not."
             icon={Receipt}
             testId="pay-tax"
           >
             <div className="mt-2">
-              <SetRow first center title="Rate" description="Up to 20%, to two decimal places.">
+              <SetRow
+                first
+                center
+                setting="payments.tax_rate"
+                title="Rate"
+                description="Up to 20%, to two decimal places."
+              >
                 <span className="flex items-center gap-1.5">
                   <TextBox
                     value={ratePercent(tax.rateBp)}
@@ -553,6 +570,7 @@ export function PaymentsSettings({
               </SetRow>
               <SetRow
                 center
+                setting="payments.tax_name"
                 title="What to call it on a document"
                 description="“Sales tax”, “TX sales tax”, “GST”."
               >
@@ -574,6 +592,7 @@ export function PaymentsSettings({
               <SetRow
                 center
                 className="pb-0"
+                setting="payments.taxable"
                 title="New items start taxable"
                 description="A new product or service is taxed unless you say otherwise."
               >
@@ -600,6 +619,7 @@ export function PaymentsSettings({
 
           <Section
             title="Numbering"
+            setting="payments.numbering"
             description="Numbers run in order, per business. A voided number is kept and never used again."
             icon={Hash}
             testId="pay-numbering"
@@ -682,6 +702,7 @@ export function PaymentsSettings({
         <div className="flex min-w-0 flex-col gap-5">
           <Section
             title="Your address"
+            setting="payments.address"
             description="It shows at the top of every estimate and invoice the customer sees, exactly as you write it here."
             icon={MapPin}
             testId="pay-address"
@@ -717,6 +738,7 @@ export function PaymentsSettings({
 
           <Section
             title="Terms and notes"
+            setting="payments.terms"
             description="When an invoice is due, how long an estimate stays good, and what every document ends with."
             icon={Receipt}
             testId="pay-terms"
@@ -725,6 +747,7 @@ export function PaymentsSettings({
               <SetRow
                 first
                 center
+                setting="payments.due"
                 title="Invoices are due"
                 description={
                   TERMS_DAYS[settings.terms] === 0
@@ -755,6 +778,7 @@ export function PaymentsSettings({
               </SetRow>
               <SetRow
                 center
+                setting="payments.estimate_valid"
                 title="Estimates stay good for"
                 description="After this it expires, and the customer’s page says so."
               >
@@ -817,6 +841,7 @@ export function PaymentsSettings({
 
           <Section
             title="Deposits"
+            setting="payments.deposits"
             description="What an estimate asks for before the work starts."
             icon={Banknote}
             testId="pay-deposit"
@@ -918,6 +943,7 @@ export function PaymentsSettings({
 
           <Section
             title="Invoice reminders"
+            setting="payments.reminders"
             description="Set when the invoice is sent, on the schedule you agree here. They go by text if the customer agreed to texts, otherwise by email, and they follow quiet hours."
             icon={AlertTriangle}
             testId="pay-reminders"

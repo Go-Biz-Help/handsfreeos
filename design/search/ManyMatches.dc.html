@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Many contacts with the same name</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--accent-text)}a:hover{color:var(--accent-hover)}
+.nav{display:flex;height:34px;align-items:center;gap:10px;border-radius:8px;padding:0 10px;font-size:14px;font-weight:500;color:var(--text-2);text-decoration:none}
+.m{background:var(--accent-soft-2);color:var(--text);font-weight:600;border-radius:3px;padding:0 1px}
+.kind{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:8px;font-size:14px;font-weight:500;color:var(--text-2);text-decoration:none}
+.kind:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.kind span{margin-left:auto;font-size:12.5px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.kind[aria-current="page"]{background:var(--accent-soft);color:var(--accent-text)}
+.kind[aria-current="page"] span{color:var(--accent-text)}
+.th,.tr{display:grid;grid-template-columns:minmax(220px,2.2fr) minmax(120px,1.1fr) minmax(160px,1.6fr) minmax(130px,1.2fr) minmax(120px,1fr);gap:12px;align-items:center;padding:0 16px;min-width:820px}
+.th{height:36px;font-size:12px;font-weight:600;color:var(--text-3);border-bottom:1px solid var(--border);background:var(--card-2)}
+.tr{min-height:56px;border-top:1px solid var(--border);color:var(--text);text-decoration:none;font-size:13px}
+.tr:hover{background:var(--card-2);text-decoration:none;color:var(--text)}
+.c{min-width:0;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who{display:flex;align-items:center;gap:12px;min-width:0}
+.who b{font-size:14px;font-weight:500;color:var(--text)}
+.sub{display:block;font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbd{display:inline-flex;align-items:center;height:18px;padding:0 5px;border-radius:4px;border:1px solid var(--border-strong);background:var(--card-2);font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+</style>
+</helmet>
+<div style="position: relative; min-height: 980px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px;">
+
+  <aside style="flex: 0 0 240px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 16px 12px; background: var(--card); border-right: 1px solid var(--border);">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 6px; font-size: 15px; font-weight: 600; letter-spacing: -0.025em;">
+      <img src="ds/handsfreeos/assets/handsfreeos-mark.png" alt="" style="width: 22px; height: 22px;">
+      <span>HandsFree<b style="font-weight: inherit; color: var(--accent-text);">OS</b></span>
+    </div>
+    <button type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font: inherit; color: var(--text); text-align: left; cursor: pointer;">
+      <span class="hf-avatar hf-avatar--md hf-avatar--square" style="background: var(--accent-soft-2); color: var(--accent-text);">BP</span>
+      <span style="display: flex; flex-direction: column; min-width: 0; flex: 1;"><span style="font-size: 14px; font-weight: 600;">Bayou Plumbing</span><span style="font-size: 12px; color: var(--text-3);">Go Biz Help</span></span>
+    </button>
+    <div style="position: relative;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 10px; top: 9px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Search everything" placeholder="Search everything" style="width: 100%; box-sizing: border-box; height: 34px; padding: 0 40px 0 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); font: inherit; font-size: 13px; color: var(--text);">
+      <span class="kbd" style="position: absolute; right: 8px; top: 8px;">⌘K</span>
+    </div>
+    <nav aria-label="Workspace" style="display: flex; flex-direction: column; gap: 2px; margin-top: 6px;">
+      <a class="nav" href="#">Home</a>
+      <a class="nav" href="#">Inbox</a>
+      <a class="nav" href="#">Contacts</a>
+      <a class="nav" href="#">Pipeline</a>
+      <a class="nav" href="#">Calendar</a>
+      <a class="nav" href="#">Money</a>
+      <a class="nav" href="#">Settings</a>
+    </nav>
+  </aside>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 40px;">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Search</h1>
+    <div style="position: relative; max-width: 720px; margin-top: 16px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: absolute; left: 13px; top: 13px; color: var(--text-3);"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" aria-label="Search everything" value="dana" class="hf-input hf-input--lg" style="padding-left: 40px;">
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin: 14px 0 20px;">
+      <span style="font-size: 14px; font-weight: 600;">9 contacts named “dana”</span>
+      <span style="font-size: 13px; color: var(--text-2);">Add a last name, a phone number or a street to narrow it.</span>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px;">
+      <nav aria-label="Kinds of results" class="hf-card" style="flex: 1 1 200px; max-width: 240px; padding: 8px; display: flex; flex-direction: column; gap: 2px;">
+        <a class="kind" href="#">All <span>31</span></a>
+        <a class="kind" href="#" aria-current="page">Contacts <span>9</span></a>
+        <a class="kind" href="#">Deals <span>6</span></a>
+        <a class="kind" href="#">Money <span>8</span></a>
+        <a class="kind" href="#">Calendar <span>3</span></a>
+        <a class="kind" href="#">Messages <span>5</span></a>
+      </nav>
+
+      <div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+          <div class="hf-segmented" role="tablist" aria-label="Leads or clients">
+            <button type="button" class="hf-segmented__item" role="tab" aria-selected="true">All 9</button>
+            <button type="button" class="hf-segmented__item" role="tab" aria-selected="false">Leads 5</button>
+            <button type="button" class="hf-segmented__item" role="tab" aria-selected="false">Clients 4</button>
+          </div>
+          <label style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2);">Sort
+            <select class="hf-input hf-input--sm hf-select" style="width: 190px;">
+              <option>Best match</option>
+              <option>Most recent contact</option>
+              <option>Name A–Z</option>
+            </select>
+          </label>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in oklab, var(--warning) 35%, var(--border)); background: var(--warning-soft); color: var(--warning-text); font-size: 13.5px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span style="flex: 1 1 280px;">Two Dana Smiths share the number (504) 555-0142. They may be the same person.</span>
+          <button type="button" class="hf-btn hf-btn--secondary hf-btn--sm">Compare and merge</button>
+        </div>
+
+        <section class="hf-card" style="overflow-x: auto;">
+          <div class="th"><span>Name</span><span>Phone</span><span>Email</span><span>Where</span><span>Last contact</span></div>
+          <a class="tr" href="#" style="border-top: 0;"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-2);">DS</span><span style="min-width: 0;"><b><span class="m">Dana</span> Smith</b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">Water heater swap · Quote sent</span></span></span><span class="c">(504) 555-0142</span><span class="c">dana.smith@gmail.com</span><span class="c">418 Smith Ave, Metairie</span><span class="c">Texted 2 days ago</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-2);">DS</span><span style="min-width: 0;"><b><span class="m">Dana</span> Smith</b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">From the website form · No deal yet</span></span></span><span class="c">(504) 555-0142</span><span class="c">—</span><span class="c">Metairie</span><span class="c">Form sent Oct 2</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-1);">DO</span><span style="min-width: 0;"><b><span class="m">Dana</span> Okafor</b> <span class="hf-badge hf-badge--ok">Client</span><span class="sub">Dale Okafor’s wife · 2 jobs done</span></span></span><span class="c">(504) 555-0199</span><span class="c">dana.okafor@yahoo.com</span><span class="c">Kenner</span><span class="c">Paid Oct 11</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-5);">DB</span><span style="min-width: 0;"><b><span class="m">Dana</span> Broussard</b> <span class="hf-badge hf-badge--ok">Client</span><span class="sub">Maintenance plan · Gold</span></span></span><span class="c">(985) 555-0130</span><span class="c">dbroussard@gmail.com</span><span class="c">Slidell</span><span class="c">Visit Sep 28</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-3);">DP</span><span style="min-width: 0;"><b><span class="m">Dana</span> Pham</b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">Works at Gulf Coast Realty</span></span></span><span class="c">(504) 555-0174</span><span class="c">dana@gulfcoastrealty.com</span><span class="c">New Orleans</span><span class="c">Called Sep 19</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-4);">DR</span><span style="min-width: 0;"><b><span class="m">Dana</span>e Robichaux</b> <span class="hf-badge hf-badge--ok">Client</span><span class="sub">Tankless install</span></span></span><span class="c">(504) 555-0110</span><span class="c">daerob@icloud.com</span><span class="c">Harahan</span><span class="c">Paid Aug 30</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-6);">JD</span><span style="min-width: 0;"><b>Jordan <span class="m">Dana</span>her</b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">Asked for a drain quote</span></span></span><span class="c">(985) 555-0151</span><span class="c">jdanaher@gmail.com</span><span class="c">Covington</span><span class="c">Emailed Aug 21</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-1);">DT</span><span style="min-width: 0;"><b><span class="m">Dana</span> Thibodeaux</b> <span class="hf-badge hf-badge--pending">Lead</span><span class="sub">Missed call, no message</span></span></span><span class="c">(504) 555-0102</span><span class="c">—</span><span class="c">—</span><span class="c">Called Jul 3</span></a>
+          <a class="tr" href="#"><span class="who"><span class="hf-avatar hf-avatar--md" style="background: var(--avatar-5);">DW</span><span style="min-width: 0;"><b><span class="m">Dana</span> Williams</b> <span class="hf-badge hf-badge--ok">Client</span><span class="sub">Water softener · 2023</span></span></span><span class="c">(504) 555-0125</span><span class="c">dwilliams@cox.net</span><span class="c">Metairie</span><span class="c">Paid May 2</span></a>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--card-2); font-size: 13px; color: var(--text-3); min-width: 820px; box-sizing: border-box;">
+            <span>Showing all 9</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

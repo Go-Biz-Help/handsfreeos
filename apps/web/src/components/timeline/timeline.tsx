@@ -1,13 +1,14 @@
 'use client';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { TIMELINE_WORDS } from '@hfos/core';
 import { VoicemailPlayer } from '@/components/calls/voicemail-player';
 import { AttachmentChip } from '@/components/inbox/attachment-chip';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,10 +96,25 @@ export function Timeline({
     }
   }
 
+  const opened = (
+    <OpenedEntry
+      workspaceId={workspaceId}
+      recordType={recordType}
+      myUserId={myUserId}
+      subjectName={subjectName}
+      timeZone={timeZone}
+    />
+  );
   if (items.length === 0)
-    return <EmptyState title={TIMELINE_WORDS.emptyTitle}>{TIMELINE_WORDS.emptyBody}</EmptyState>;
+    return (
+      <>
+        <EmptyState title={TIMELINE_WORDS.emptyTitle}>{TIMELINE_WORDS.emptyBody}</EmptyState>
+        {opened}
+      </>
+    );
   return (
     <div className="px-5 pb-2 pt-5 md:px-6" data-testid="timeline">
+      {opened}
       <ol className="relative ml-2 border-l border-border">
         {items.map((e) => {
           const body = timelineBody(e);
@@ -215,5 +231,69 @@ export function Timeline({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The timeline line a search result opens (`?activity=<id>`: a note found by its words, or by who it's on), in a
+ * dialog over the timeline, since it may sit far down the list or past its first page. It follows the address, so a
+ * result on the record already open opens too (every record page renders per request, so this needs no Suspense
+ * boundary), and is taken off it when the dialog closes, so a reload doesn't open it again.
+ */
+function OpenedEntry({
+  workspaceId,
+  recordType,
+  myUserId,
+  subjectName,
+  timeZone,
+}: {
+  workspaceId: string;
+  recordType: RecordType;
+  myUserId: string;
+  subjectName?: string;
+  timeZone?: string;
+}) {
+  const [entry, setEntry] = useState<TimelineEntry | null>(null);
+  const activityId = useSearchParams().get('activity');
+  useEffect(() => {
+    if (!activityId) return;
+    let cancelled = false;
+    apiBrowser()
+      .POST('/v1/queries/activity.get', { body: { workspaceId, activityId } })
+      .then(unwrap)
+      .then((out) => !cancelled && setEntry(out.activity))
+      .catch((e: unknown) => !cancelled && toast.error(errorMessage(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, activityId]);
+
+  function close() {
+    setEntry(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('activity');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  const body = entry ? timelineBody(entry) : null;
+  return (
+    <Dialog open={!!entry} onOpenChange={(open) => !open && close()}>
+      {entry ? (
+        <DialogContent
+          title={`${timelineActor(entry, subjectName)} ${describeTimeline(entry, recordType, myUserId, timeZone)}`}
+          description={
+            <time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time>
+          }
+          className="w-[min(560px,calc(100vw-32px))]"
+        >
+          <div
+            className="mt-3 max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-control bg-card-2 px-3 py-2.5 text-[13.5px] text-text empty:hidden"
+            data-testid="opened-activity"
+          >
+            {body}
+          </div>
+        </DialogContent>
+      ) : null}
+    </Dialog>
   );
 }

@@ -1021,6 +1021,7 @@ export const conversationThread = defineQuery({
     // Each branch pages on its own column (the thread indexes serve it) and stops at a page, then the two merge.
     const branchPage = (at: ReturnType<typeof sql>, id: ReturnType<typeof sql>) =>
       sql`${input.since ? sql`and ${at} > ${input.since}::timestamptz` : sql``}
+        ${input.upTo ? sql`and ${at} <= ${input.upTo}::timestamptz` : sql``}
         ${cursor ? sql`and (${at}, ${id}) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
         order by ${at} desc, ${id} desc
         limit ${input.limit + 1}`;

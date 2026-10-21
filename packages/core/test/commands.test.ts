@@ -169,6 +169,7 @@ describe('registry', () => {
       'file.delete',
       'file.lock',
       'file.store',
+      'file.save_text',
       'import.create',
       'import.start',
       'import.cancel',
@@ -866,6 +867,7 @@ describe('registry', () => {
       'lead.get',
       'task.list',
       'timeline.list',
+      'activity.get',
       'file.list',
       'file.fingerprints',
       'import.get',
@@ -1024,6 +1026,8 @@ describe('registry', () => {
       'onboarding.clients',
       'platform.onboarding.counts',
       'onboarding_setup.get',
+      'search.everything',
+      'search.kind',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

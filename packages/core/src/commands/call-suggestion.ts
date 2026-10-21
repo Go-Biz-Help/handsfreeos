@@ -1,17 +1,20 @@
 /**
  * What the AI made of a recorded call (HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md §9). `call_suggestion.record`
- * (the worker) keeps the summary on the transcript, writes it to the customer's timeline as a note, and stores the
+ * (the worker) keeps the summary on the transcript, writes it to the customer's timeline as a note (on the
+ * appointment's record too, so a tour on a private deal leaves a note sealed with the deal), and stores the
  * suggested tasks, follow-up and record change, which wait. `call_suggestion.decide` is a person's OK or no:
- * approving runs `task.create`, `message.send` or `person.update` as that person, with what they edited, in the
- * same transaction.
+ * approving runs `task.create` (on the record too, sealed with a private deal like the note), `message.send` or
+ * `person.update` as that person, with what they edited, in the same transaction.
  */
 import { and, asc, eq } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import {
   appointmentAttendees,
   appointments,
   appointmentStaff,
   appointmentTranscripts,
   callSuggestions,
+  customRecords,
   people,
 } from '@hfos/db/schema';
 import { z } from 'zod';
@@ -80,6 +83,24 @@ async function customerOf(
     .orderBy(asc(appointmentAttendees.createdAt))
     .limit(1);
   return { personId: first?.personId ?? null, leadId: a?.leadId ?? null };
+}
+
+/**
+ * The record the call was on, when it still reads for whoever acts. Binning a record leaves its appointments on it,
+ * and one in the Deleted bin reads for nobody, the worker included, so `activity.log` and `task.create` would refuse
+ * it as gone.
+ */
+async function recordThatReads(
+  tx: Parameters<typeof executeCommandWithin>[0]['tx'],
+  workspaceId: string,
+  customRecordId: string | null,
+): Promise<string | null> {
+  if (!customRecordId) return null;
+  const [r] = await tx
+    .select({ id: customRecords.id })
+    .from(customRecords)
+    .where(and(eq(customRecords.id, customRecordId), eq(customRecords.workspaceId, workspaceId)));
+  return r?.id ?? null;
 }
 
 type SuggestionKind = 'task' | 'follow_up' | 'record_change';
@@ -154,10 +175,16 @@ export const callSuggestionRecord = defineCommand({
     // Gone, or already reviewed (a retried job): nothing twice.
     if (!t || t.summary !== null) return { noted: false, suggestions: 0 };
     const [appt] = await ctx.tx
-      .select({ title: appointments.title, endsAt: appointments.endsAt })
+      .select({
+        title: appointments.title,
+        endsAt: appointments.endsAt,
+        customRecordId: appointments.customRecordId,
+        sealed: appointments.sealed,
+      })
       .from(appointments)
       .where(eq(appointments.id, input.appointmentId));
     if (!appt) return { noted: false, suggestions: 0 };
+    const record = await recordThatReads(ctx.tx, ws, appt.customRecordId);
     const review = input.review;
     await ctx.tx
       .update(appointmentTranscripts)
@@ -166,7 +193,10 @@ export const callSuggestionRecord = defineCommand({
 
     const who = await customerOf(ctx.tx, input.appointmentId);
     let noted = false;
-    if (who.personId || who.leadId) {
+    // A record in the Deleted bin (binning leaves its appointments on it) can't take the note, so it goes on the
+    // customer alone. A private record never goes in the bin; were one not to read, its summary would show to
+    // everyone there, so it stays on the transcript, and the suggestions still wait.
+    if ((who.personId || who.leadId) && !(appt.sealed && !record)) {
       await executeCommandWithin(ctx, activityLog, {
         workspaceId: ws,
         kind: 'note',
@@ -174,11 +204,13 @@ export const callSuggestionRecord = defineCommand({
         occurredAt: appt.endsAt.toISOString(),
         ...(who.personId ? { personId: who.personId } : {}),
         ...(who.leadId ? { leadId: who.leadId } : {}),
+        // A tour on a private deal: the note is sealed with the deal, so only its people read it.
+        ...(record ? { customRecordId: record } : {}),
       });
       noted = true;
     }
 
-    const rows: { kind: SuggestionKind; preview: Record<string, unknown> }[] = [
+    const suggested: { kind: SuggestionKind; preview: Record<string, unknown> }[] = [
       ...review.tasks.map((task) => ({
         kind: 'task' as const,
         preview: {
@@ -196,7 +228,7 @@ export const callSuggestionRecord = defineCommand({
         : []),
       ...(await recordChangeRow(ctx.tx, ws, who.personId, review.recordChanges)),
     ];
-    for (const r of rows) {
+    for (const r of suggested) {
       const [made] = await ctx.tx
         .insert(callSuggestions)
         .values({
@@ -215,7 +247,7 @@ export const callSuggestionRecord = defineCommand({
         after: { title: appt.title, kind: r.kind },
       });
     }
-    return { noted, suggestions: rows.length };
+    return { noted, suggestions: suggested.length };
   },
 });
 
@@ -306,21 +338,41 @@ export const callSuggestionDecide = defineCommand({
       if (s.kind === 'task') {
         const p = TaskPreview.parse({ ...preview, ...input.edits });
         preview = p;
-        // Given to the call's host, about its customer.
+        // On the call's record too, so a task from a tour on a private deal is sealed with the deal, as its summary
+        // note is. A private record never goes in the bin, and whoever sees its sealed appointment sees it, so one
+        // that doesn't read here was just taken away; made without it, the task would show to everyone.
+        const [appt] = await ctx.tx
+          .select({ customRecordId: appointments.customRecordId, sealed: appointments.sealed })
+          .from(appointments)
+          .where(eq(appointments.id, s.appointmentId));
+        const record = await recordThatReads(ctx.tx, ws, appt?.customRecordId ?? null);
+        if (appt?.sealed && !record)
+          throw HfosError.notFound(
+            'The record this call was on isn’t there anymore, so its task can’t be made. Refresh and try again.',
+          );
+        // Given to the call's host, about its customer; on a private record, only a host who is on it.
         const [host] = await ctx.tx
           .select({ userId: appointmentStaff.userId })
           .from(appointmentStaff)
           .where(eq(appointmentStaff.appointmentId, s.appointmentId))
           .orderBy(asc(appointmentStaff.role))
           .limit(1);
+        const [onRecord] =
+          host && record
+            ? await rows<{ ok: boolean }>(
+                ctx.tx,
+                sql`select private.user_sees_record(${host.userId}::uuid, ${record}::uuid) as ok`,
+              )
+            : [{ ok: true }];
         const made = await executeCommandWithin(ctx, taskCreate, {
           workspaceId: ws,
           title: p.title,
           ...(p.notes ? { notes: p.notes } : {}),
           dueAt: p.dueAt,
-          ...(host ? { assigneeUserId: host.userId } : {}),
+          ...(host && onRecord?.ok ? { assigneeUserId: host.userId } : {}),
           ...(who.personId ? { personId: who.personId } : {}),
           ...(who.leadId ? { leadId: who.leadId } : {}),
+          ...(record ? { customRecordId: record } : {}),
         });
         taskId = made.output.taskId;
       } else if (s.kind === 'record_change') {

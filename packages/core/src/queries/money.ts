@@ -88,9 +88,10 @@ const isMember = (ctx: QueryContext): boolean => !scopeCan(ctx.scope, 'money.man
 
 /**
  * The member rule for an estimate, as this query's own `where`. Estimates have no booking, so a member's reach
- * on one is the lead they own, or the customer they are assigned to (0104).
+ * on one is the lead they own, or the customer they are assigned to (0104). Search holds money to it too
+ * (`search/server/kinds/money.ts`), aliasing estimates `e`.
  */
-const estimateMemberClause = (ctx: QueryContext) =>
+export const estimateMemberClause = (ctx: QueryContext) =>
   isMember(ctx)
     ? sql` and private.money_member_sees(e.workspace_id, e.lead_id, null, e.person_id)`
     : sql``;
@@ -101,8 +102,8 @@ const subscriptionMemberClause = (ctx: QueryContext) =>
     ? sql` and private.money_member_sees(s.workspace_id, s.lead_id, null, s.person_id)`
     : sql``;
 
-/** The same rule for an invoice, which also reaches the visit they worked. */
-const invoiceMemberClause = (ctx: QueryContext) =>
+/** The same rule for an invoice, which also reaches the visit they worked. Search uses it too, aliasing invoices `i`. */
+export const invoiceMemberClause = (ctx: QueryContext) =>
   isMember(ctx)
     ? sql` and private.money_member_sees(i.workspace_id, i.lead_id, i.attendee_id, i.person_id)`
     : sql``;

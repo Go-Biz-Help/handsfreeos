@@ -1,5 +1,7 @@
 'use client';
 import {
+  ARCHIVE_WORDS,
+  archivedNotice,
   BIN_WORDS,
   can,
   customSummary,
@@ -19,7 +21,7 @@ import {
   Upload,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AddonSlot } from '@/components/addons/slot';
@@ -60,6 +62,7 @@ import type {
   TimelineList,
 } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { useRecordTab } from '@/lib/use-record-tab';
 import { CustomRecordDialog } from './custom-record-dialog';
 import { RecordIcon } from './record-icon';
 import { RelationshipsCard } from './relationships-card';
@@ -103,8 +106,8 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
   // records can only be archived.
   const canDelete = can(permissions, 'records.delete') && !record.addonId;
   const canWrite = can(permissions, 'records.write');
-  const wanted = useSearchParams().get('tab');
-  const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
+  // `?tab=`, or a search result's note or file, picks the tab, on this page already open too.
+  const [tab, setTab] = useRecordTab(TABS, 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -228,8 +231,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
             className="mt-4 rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
             data-testid="archived-notice"
           >
-            This {lowerLabel(kind.singular)} is archived: hidden from lists and searches, history
-            kept.{canModerate ? ' Restore from the menu to use it again.' : ''}
+            {archivedNotice(lowerLabel(kind.singular), canModerate)}
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
@@ -541,11 +543,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
       <Dialog open={archiving} onOpenChange={setArchiving}>
         <DialogContent
           title={archived ? `Restore ${record.name}?` : `Archive ${record.name}?`}
-          description={
-            archived
-              ? `It comes back into lists and searches.`
-              : `It leaves lists and searches. Its history, tasks, files and relationships are kept.`
-          }
+          description={archived ? ARCHIVE_WORDS.restoreRecord : ARCHIVE_WORDS.archiveRecord}
         >
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setArchiving(false)}>

@@ -30,6 +30,7 @@ import {
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CalendarConnectionCard } from './calendar-connection-card';
 import { MeetingConnectionCard } from './meeting-connection-card';
+import { SettingAnchor } from './setting-anchor';
 
 const RESULT: Record<string, { tone: 'success' | 'info' | 'error'; text: string }> = {
   connected: {
@@ -176,7 +177,12 @@ export function MyCalendar({
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section aria-labelledby="weekly-hours">
+        <SettingAnchor
+          as="section"
+          row
+          setting="my_calendar.weekly_hours"
+          aria-labelledby="weekly-hours"
+        >
           <div id="weekly-hours" className="mb-1 text-[13px] font-medium">
             Weekly hours
           </div>
@@ -209,10 +215,10 @@ export function MyCalendar({
               </Button>
             </div>
           ) : null}
-        </section>
+        </SettingAnchor>
 
         <div className="flex flex-col gap-4">
-          <section data-testid="time-off">
+          <SettingAnchor as="section" row setting="my_calendar.time_off" data-testid="time-off">
             <div className="mb-0.5 flex items-center justify-between">
               <span className="text-[13px] font-medium">Time off</span>
               <Button
@@ -258,9 +264,9 @@ export function MyCalendar({
                 ))}
               </ul>
             )}
-          </section>
+          </SettingAnchor>
 
-          <section>
+          <SettingAnchor as="section" row setting="my_calendar.connection">
             <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
               Calendar connection
             </div>
@@ -271,9 +277,9 @@ export function MyCalendar({
               canManage={canManage}
               firstName={firstName}
             />
-          </section>
+          </SettingAnchor>
 
-          <section>
+          <SettingAnchor as="section" row setting="my_calendar.video">
             <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
               Video meetings
             </div>
@@ -285,7 +291,7 @@ export function MyCalendar({
               firstName={firstName}
               result={meetingResult}
             />
-          </section>
+          </SettingAnchor>
         </div>
       </div>
 

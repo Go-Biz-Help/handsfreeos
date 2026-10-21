@@ -16,6 +16,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { BIN_WORDS, CONTACTS_WORDS, lowerLabel } from '@hfos/core';
 import { CustomRecordDialog } from '@/components/relationships/custom-record-dialog';
 import { RecordIcon } from '@/components/relationships/record-icon';
+import { useCan } from '@/components/shell/workspace-shell';
 import type {
   CompanyList,
   CompanySummary,
@@ -92,6 +93,27 @@ export function CustomersList({
   const [q, setQ] = useState(filters.q);
   const [adding, setAdding] = useState(false);
   useLiveRefresh(['person', 'company', 'tag', 'custom_record', 'relationship']);
+
+  /**
+   * "Add a contact" from a search that found nobody (`#add=person&name=…`): the dialog opens with what was typed as
+   * the name, when the list opens and whenever the fragment changes on it (the box, already on Contacts). It travels
+   * after `#`, so it never reaches the server, and the fragment is dropped once read.
+   */
+  const canWrite = useCan('records.write');
+  const [addName, setAddName] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const read = () => {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      if (hash.get('add') !== 'person') return;
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      if (!canWrite || tab !== 'people') return;
+      setAddName((hash.get('name') ?? '').trim().slice(0, 120));
+      setAdding(true);
+    };
+    read();
+    window.addEventListener('hashchange', read);
+    return () => window.removeEventListener('hashchange', read);
+  }, [canWrite, tab]);
 
   // Filters live in the URL so the server renders the right page and links are shareable.
   function navigate(next: Partial<CustomerFilters> & { tab?: 'people' | 'companies' }) {
@@ -292,7 +314,11 @@ export function CustomersList({
           workspaceId={workspaceId}
           tags={tags}
           open={adding}
-          onOpenChange={setAdding}
+          onOpenChange={(o) => {
+            setAdding(o);
+            if (!o) setAddName(undefined);
+          }}
+          defaultName={addName}
         />
       ) : tab === 'companies' ? (
         <CompanyDialog

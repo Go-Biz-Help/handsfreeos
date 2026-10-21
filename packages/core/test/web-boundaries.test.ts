@@ -9,6 +9,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { SETTINGS_GROUPS, SETTINGS_PAGES } from '../src';
 
 const WEB = resolve(__dirname, '../../../apps/web/src');
 const APP = join(WEB, 'app');
@@ -65,7 +66,11 @@ describe('the Add-ons page', () => {
     expect(read(join(WEB, 'components/shell/nav-links.tsx'))).toMatch(
       /if \(can\(permissions \?\? \[\], 'addons\.manage'\)\)\s*items\.push\(\{\s*key: 'add-ons'/,
     );
-    // No longer a Settings tab: the old address sends people to the page.
+    // No longer a Settings tab: the Settings menu is core's list, which holds no Add-ons page, and the old address
+    // sends people to the page.
+    expect(SETTINGS_PAGES.map((p) => p.label)).not.toContain('Add-ons');
+    expect(SETTINGS_PAGES.some((p) => /add-?ons/.test(p.path))).toBe(false);
+    expect(SETTINGS_GROUPS.map((g) => g.label)).not.toContain('Add-ons');
     expect(read(join(WEB, 'components/settings/settings-nav.tsx'))).not.toContain(
       "label: 'Add-ons'",
     );

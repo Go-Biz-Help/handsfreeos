@@ -1,8 +1,17 @@
-import { executeCommand, executeQuery, registry, type HumanActor } from '@hfos/core/server';
+import {
+  executeCommand,
+  executeQuery,
+  HfosError,
+  registry,
+  SEARCH_WORDS,
+  type HumanActor,
+  type Registry,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { requestMeta } from './context';
+import { acquireSlot, SEARCH_SLOT_WAIT_MS } from './search-slots';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -17,10 +26,46 @@ const RATE_LIMITED: Record<string, { max: number; timeWindow: string }> = {
   'invitation.preview': { max: 30, timeWindow: '1 minute' },
 };
 
-/** Mounts one POST route per registry entry. Commands and queries share the same JSON envelope. */
-export function registerOperations(app: FastifyInstance, db: Db): void {
+/**
+ * Search's own limits, a minute per person (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, How it works, 6). Counted
+ * after sign-in (`preHandler`), so they're keyed by who is searching rather than by an office's shared address, and
+ * refused with their own rule. In memory on each machine, so the real ceiling is double; accepted.
+ */
+const SEARCH_LIMITS: Record<string, number> = {
+  'search.everything': 90,
+  'search.kind': 60,
+};
+
+const searchRateLimit = (max: number) => ({
+  max,
+  timeWindow: '1 minute',
+  hook: 'preHandler' as const,
+  keyGenerator: (req: FastifyRequest) => req.actor?.userId ?? req.ip,
+  errorResponseBuilder: () => HfosError.rule('search_too_fast', 429, SEARCH_WORDS.tooFast),
+});
+
+/** A search, run inside one of this machine's search slots, or refused when none comes free in time. */
+async function inSearchSlot<T>(run: () => Promise<T>): Promise<T> {
+  const release = await acquireSlot(SEARCH_SLOT_WAIT_MS);
+  if (!release) throw HfosError.rule('search_busy', 503, SEARCH_WORDS.busy);
+  try {
+    return await run();
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Mounts one POST route per registry entry. Commands and queries share the same JSON envelope. `ops` is the composed
+ * registry; tests hand in their own.
+ */
+export function registerOperations(
+  app: FastifyInstance,
+  db: Db,
+  ops: Pick<Registry, 'commands' | 'queries'> = registry,
+): void {
   const typed = app.withTypeProvider<ZodTypeProvider>();
-  for (const cmd of registry.commands) {
+  for (const cmd of ops.commands) {
     // Commands only the worker or a workflow runs (the carrier's answers, inbound texts) never become routes.
     if (!(cmd.actors ?? ['human']).includes('human')) continue;
     const offline =
@@ -55,9 +100,10 @@ export function registerOperations(app: FastifyInstance, db: Db): void {
       },
     });
   }
-  for (const q of registry.queries) {
-    // Nor do queries only the worker or a workflow runs.
-    if (!(q.actors ?? ['human']).includes('human')) continue;
+  for (const q of ops.queries) {
+    // Nor do queries only the worker or a workflow runs, nor those that only ever run inside another (an add-on's
+    // answer to a search, `route: false`), so nobody calls one around the rate limit and slot gate of the one it's in.
+    if (!(q.actors ?? ['human']).includes('human') || q.route === false) continue;
     typed.route({
       method: 'POST',
       url: `/v1/queries/${q.name}`,
@@ -69,8 +115,15 @@ export function registerOperations(app: FastifyInstance, db: Db): void {
         body: q.input,
         response: { 200: q.output },
       },
-      config: RATE_LIMITED[q.name] ? { rateLimit: RATE_LIMITED[q.name] } : {},
-      handler: async (req) => executeQuery(db, q, req.body, req.actor!, requestMeta(req)),
+      config: SEARCH_LIMITS[q.name]
+        ? { rateLimit: searchRateLimit(SEARCH_LIMITS[q.name]!) }
+        : RATE_LIMITED[q.name]
+          ? { rateLimit: RATE_LIMITED[q.name] }
+          : {},
+      handler: async (req) =>
+        SEARCH_LIMITS[q.name]
+          ? inSearchSlot(() => executeQuery(db, q, req.body, req.actor!, requestMeta(req)))
+          : executeQuery(db, q, req.body, req.actor!, requestMeta(req)),
     });
   }
 }
