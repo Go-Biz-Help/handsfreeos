@@ -1,11 +1,9 @@
 /**
- * Where "Get the phone app" sends people. The app isn't in the stores yet, so these are the test links: TestFlight
- * for iPhone and Google Play's internal test for Android (Chris, 2026-09-29). When Chris says the store versions are
- * out, this file changes to the store addresses, `testing` goes false, and `apps/site/src/content/site.ts` gets them
- * too. Browser-safe.
+ * Where "Get the phone app" sends people. Android is on Google Play (Chris, 2026-10-21); iPhone is still the
+ * TestFlight test (Chris, 2026-09-29), so `testing` stays true. When Chris says the App Store version is out, the
+ * iPhone link changes to it, `testing` goes false, and `apps/site/src/content/site.ts` gets it too. Browser-safe.
  *
- * Google Play's internal test installs only for Google accounts on its tester list in Play Console; anyone else is
- * told the app isn't available.
+ * The Google Play link carries `pcampaignid=onboarding`; the website's carries `pcampaignid=site`.
  */
 export interface PhoneAppLink {
   readonly platform: 'ios' | 'android';
@@ -28,8 +26,8 @@ export const PHONE_APP_LINKS = {
     {
       platform: 'android',
       label: 'Android',
-      from: 'Google Play testing',
-      url: 'https://play.google.com/apps/internaltest/4701652122344223804',
+      from: 'Google Play',
+      url: 'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=onboarding',
     },
   ] satisfies readonly PhoneAppLink[],
 } as const;

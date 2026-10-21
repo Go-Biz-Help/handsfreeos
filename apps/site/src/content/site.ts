@@ -31,9 +31,13 @@ export const urls = {
   signUp: 'https://app.handsfreeos.com/sign-up',
   signIn: 'https://app.handsfreeos.com/sign-in',
   deleteAccount: 'https://app.handsfreeos.com/delete-account',
-  /** Both store links go live with the first release; until then the app page says "coming soon". */
+  /**
+   * Each store's link goes on the app page once it's set; until then that page says "coming soon" for it.
+   * Google Play's carries `pcampaignid=site`; the app's onboarding link carries `pcampaignid=onboarding`.
+   */
   appStore: '',
-  playStore: '',
+  playStore:
+    'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=site',
 } as const;
 
 /**

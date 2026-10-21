@@ -315,15 +315,15 @@ describe('the words', () => {
     );
   });
 
-  it('sends people to the test versions of the app until the store ones are out', () => {
+  it('sends Android to Google Play, and iPhone to TestFlight until the App Store one is out', () => {
     expect(PHONE_APP_LINKS.testing).toBe(true);
     expect(PHONE_APP_LINKS.links.map((l) => l.url)).toEqual([
       'https://testflight.apple.com/join/GBEM8rJU',
-      'https://play.google.com/apps/internaltest/4701652122344223804',
+      'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=onboarding',
     ]);
     expect(stepWords(step(owner(facts()), 'app'))).toMatchObject({
       action: 'Get the links',
-      detail: 'Test version for now: TestFlight on iPhone, Google Play testing on Android.',
+      detail: 'On Google Play for Android. A test version on TestFlight for iPhone, for now.',
     });
   });
 

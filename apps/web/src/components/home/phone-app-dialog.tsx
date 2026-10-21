@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 /**
- * "Get the phone app": a code to scan and a link for each phone. The links come from core (onboarding/app-links.ts),
- * the test versions until the app is in the stores.
+ * "Get the phone app": a code to scan and a link for each phone. The links come from core (onboarding/app-links.ts):
+ * Google Play for Android, and TestFlight for iPhone until the App Store version is out.
  */
 export function PhoneAppDialog({
   open,
@@ -76,9 +76,6 @@ export function PhoneAppDialog({
             </div>
           ))}
         </div>
-        {PHONE_APP_LINKS.testing ? (
-          <p className="mt-3 text-xs text-text-3">{GUIDE_WORDS.appAndroidNote}</p>
-        ) : null}
       </DialogContent>
     </Dialog>
   );

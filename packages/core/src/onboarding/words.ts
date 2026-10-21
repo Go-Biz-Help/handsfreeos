@@ -165,7 +165,7 @@ function todoLine(step: OnboardingStep, answers: OnboardingAnswers | null): Line
     case 'app':
       return PHONE_APP_LINKS.testing
         ? {
-            detail: 'Test version for now: TestFlight on iPhone, Google Play testing on Android.',
+            detail: 'On Google Play for Android. A test version on TestFlight for iPhone, for now.',
             action: 'Get the links',
           }
         : { detail: 'On the App Store and Google Play.', action: 'Get the app' };
@@ -400,9 +400,7 @@ export const GUIDE_WORDS = {
   finishedDone: 'Done',
   appTitle: 'Get the phone app',
   appTesting:
-    'It’s in testing for now. Scan a code with your phone’s camera, or open the link on your phone, then sign in with this account.',
-  appAndroidNote:
-    'If Google Play says the app isn’t available, ask us to add your Google account to the testers.',
+    'The iPhone app is in testing for now. Scan a code with your phone’s camera, or open the link on your phone, then sign in with this account.',
   appNotificationsNote: 'Notifications are turned on in the app itself, on your phone.',
   /**
    * On the card, while the guided setup isn't finished (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §7):

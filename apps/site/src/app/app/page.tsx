@@ -57,11 +57,36 @@ export default function AppPage() {
                 See pricing
               </Button>
             </div>
-            {/* Swap these lines for the store badges when the first release is approved. */}
+            {/* A store gets a link once its address is in site.ts. */}
             <p className="text-text-3 mt-5 text-sm">
-              {urls.appStore || urls.playStore
-                ? 'Download it from the App Store or Google Play.'
-                : 'Coming to the App Store and Google Play. The web app works on your phone in the meantime.'}
+              {urls.playStore ? (
+                <>
+                  Android:{' '}
+                  <a
+                    href={urls.playStore}
+                    className="text-accent-text font-semibold hover:underline"
+                  >
+                    get it on Google Play
+                  </a>
+                  .{' '}
+                </>
+              ) : (
+                'Android: coming to Google Play. '
+              )}
+              {urls.appStore ? (
+                <>
+                  iPhone:{' '}
+                  <a
+                    href={urls.appStore}
+                    className="text-accent-text font-semibold hover:underline"
+                  >
+                    get it on the App Store
+                  </a>
+                  .
+                </>
+              ) : (
+                'iPhone: coming to the App Store. The web app works on your phone in the meantime.'
+              )}
             </p>
           </div>
 

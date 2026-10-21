@@ -44,7 +44,7 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(number).toHaveAttribute('data-state', 'todo');
   await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
 
-  // The phone app's step opens the test links.
+  // The phone app's step opens the links: TestFlight for iPhone, Google Play for Android.
   await page
     .getByTestId('getting-started-app')
     .getByRole('button', { name: 'Get the links' })
@@ -54,7 +54,10 @@ test('a new owner works through Getting started on Home, hides it, and brings it
     'href',
     'https://testflight.apple.com/join/GBEM8rJU',
   );
-  await expect(links.getByRole('link', { name: 'Open Google Play testing' })).toBeVisible();
+  await expect(links.getByRole('link', { name: 'Open Google Play' })).toHaveAttribute(
+    'href',
+    'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&pcampaignid=onboarding',
+  );
   await page.keyboard.press('Escape');
 
   // The card offers the tour. Escape ends it, which counts as taken: the offer goes.
