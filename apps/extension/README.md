@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.79.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.80.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -48,12 +48,12 @@ A tab's kit is found by its address (`kitOf`), so the tab reads and notes by its
 background takes a tab's notes only from a network it knows, as that network's. What differs from one network to the
 next is in its kit, never in an `if`.
 
-| Network   | Folder                    | From install? | What it does there                                                                                                                                                    |
-| --------- | ------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                      |
-| LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                        |
-| Instagram | `src/networks/instagram/` | No: asked for | Still looked at (decision 78): reads only its warnings as you go, and its main pages for **Check Instagram** (0.58.0), trying each step up to its last press (0.59.0) |
-| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, and works its list on its own once you let it (0.77.0); **Check Alignable** reads its pages at /biz             |
+| Network   | Folder                    | From install? | What it does there                                                                                                                                                            |
+| --------- | ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                              |
+| LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                                |
+| Instagram | `src/networks/instagram/` | No: asked for | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick; its **Check Instagram** (0.58.0) tries each step up to its last press |
+| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, and works its list on its own once you let it (0.77.0); **Check Alignable** reads its pages at /biz                     |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -118,6 +118,24 @@ From 0.78.0 it reads your Alignable notifications once a day for who liked, comm
 them as warm leads (`src/jobs/alignable/engaged.ts`). It presses nothing there.
 From 0.79.0 Check Instagram also opens your followers, a hashtag, a place, your notifications and a chat, and reads
 each, pressing nothing, so Instagram's readers can be built from what they show (`src/networks/instagram/read.ts`).
+From 0.80.0 Instagram works by hand, as Alignable did before its runner (the Instagram plan's parts 10 to 12):
+
+- **Its readers** (`src/networks/instagram/read.ts`): someone's profile (their name and username, whether you follow
+  each other, their followers and latest posts), your followers in the box over your profile (whether you follow each
+  back), a post (who posted it, its caption, likes, comments and place), a hashtag's and a place's posts, your
+  notifications (who followed you, liked or commented), your messages (each chat, whose last line, which box) and a
+  chat (who it's with, its messages, a request to Accept). The profile and the post are built from the owner's outlines
+  of 18 Oct 2026; the rest from Instagram's usual markup, to be tuned from his next Check. Check Instagram opens a chat
+  by its row now, as its chats aren't links.
+- **Your own steps there** (`src/networks/instagram/actions.ts`): Follow or Follow Back (noted once the button says
+  Following or Requested), a post's Like, a comment sent from a post's box and a message sent in a chat, each to the
+  account by its name in Instagram's address. Never what you wrote, and never a step to yourself.
+- **Save my followers** (`src/jobs/instagram/`): opens your account from Instagram's menu, then your followers, reads
+  the box a screen at a time at a person's pace to its end and saves them; someone you followed who's among them has
+  followed back, which HandsFreeOS counts as accepting. It presses nothing.
+- **Unfollow the ones you ticked**, those who didn't follow back in your business's wait (3 weeks to start), 20 a day
+  at most, in a tab you can see: their Following, then Unfollow in its box, each by its own words. Nothing is
+  unfollowed on its own.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script
@@ -321,6 +339,15 @@ Answers to requests aren't outreach, so they don't count toward the daily limits
   the feed's **Start a post**); groups, which aren't noted with a step there yet.
 - **Who wrote back:** messaging's list, as you look at it, and the conversation open beside it, when the last line
   isn't yours (`src/networks/linkedin/replies.ts`); never a group, and never what they wrote. Sent as LinkedIn's.
+
+**On Instagram** (`src/networks/instagram/actions.ts`, from 0.80.0), while Instagram is on, as Instagram's:
+
+| Step    | Noted when you…                                                                          | To                                                                    |
+| ------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Follow  | press **Follow** or **Follow Back**, once the button says Following or Requested         | the account whose page it is, or the one account the row is about     |
+| Like    | press **Like** on a post (in the bar with its Comment; never a comment's Like or Unlike) | whoever posted it, by the post's own link (/<name>/p/<code>/)         |
+| Comment | press **Post** by a post's box with something written, or Enter once the box empties     | whoever posted it, or the one it starts by naming (@name)             |
+| Message | press **Send** in a chat with something written, or Enter once the box empties           | who the chat is with, with its id from /direct/t/<id>/; never a group |
 
 Social Outreach's Live and Activity tabs show today's steps against the daily limits and who wrote back. **Note my
 steps on Facebook**, in your settings in HandsFreeOS, turns noting off and on; it starts on. When HandsFreeOS can't

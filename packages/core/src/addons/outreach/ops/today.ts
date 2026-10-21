@@ -36,6 +36,7 @@ import {
   leftToday,
   RECOMMEND_PER_DAY,
   RECOMMEND_WORDS,
+  REQUESTS_WHY,
   TODAY_KIND_KEYS,
   TODAY_MOST,
   TODAY_WINDOW_DAYS,
@@ -248,6 +249,7 @@ export const today = defineAddonQuery(outreachAddon, {
       personId: null,
       demoBooked: false,
       partnerId: null,
+      requests: false,
       recent: [],
       ...more,
     });
@@ -616,8 +618,12 @@ export const today = defineAddonQuery(outreachAddon, {
       }
     }
 
-    // First message (decision 65): new friends who accepted the person's request, without a message yet.
+    // First message (decision 65): new friends who accepted the person's request, without a message yet. On a follow
+    // network (Instagram's) a follow-back is the accepting: someone they followed who's among their saved followers.
+    const kit = NETWORKS[input.platform];
+    const follows = kit.requestsMessageAfterDays !== null;
     const openersLeft = leftToday(limits, 'opener');
+    let openers = 0;
     if (openersLeft) {
       const accepted = await rows<{ id: string; name: string; url: string; since: Date | string }>(
         ctx.tx,
@@ -637,6 +643,7 @@ export const today = defineAddonQuery(outreachAddon, {
                 and fu.user_id = ${me})
             order by f.since desc limit ${openersLeft}`,
       );
+      openers = accepted.length;
       for (const p of accepted)
         items.push(
           item({
@@ -644,8 +651,66 @@ export const today = defineAddonQuery(outreachAddon, {
             name: p.name,
             profileId: p.id,
             profileUrl: p.url,
-            why: [`Accepted your request ${dayWords(p.since, now)}`],
+            why: [
+              follows
+                ? `Followed you back ${dayWords(p.since, now)}`
+                : `Accepted your request ${dayWords(p.since, now)}`,
+            ],
             demoLink: demoFor(p.id),
+          }),
+        );
+    }
+
+    // No follow-back in a few days, on a follow network (Instagram's, the Instagram and Alignable plan's "The steps"):
+    // one short first message, which lands in their Requests. No link and no video, one text: Instagram passes only one
+    // till they accept it. At most so many of the day's first messages go there, those sent there today counted.
+    const requestsAfter = kit.requestsMessageAfterDays;
+    const requestsCap = kit.requestsMessagesPerDay;
+    if (requestsAfter !== null && requestsCap !== null && openersLeft > openers) {
+      const [sentThere] = await rows<{ n: number }>(
+        ctx.tx,
+        sql`select count(*)::int as n from addon_outreach.touches t
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.step = 'first_message'
+              and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz
+              and not exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')`,
+      );
+      const left = Math.min(openersLeft - openers, Math.max(0, requestsCap - (sentThere?.n ?? 0)));
+      const waiting = left
+        ? await rows<{ id: string; name: string; url: string; since: Date | string }>(
+            ctx.tx,
+            sql`select p.id, p.name, p.url, f.since from addon_outreach.friends f
+                join addon_outreach.profiles p on p.id = f.profile_id
+                where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'request_sent'
+                  and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
+                    and ${ago(requestsAfter)}::timestamptz
+                  and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+                  and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                    and t.user_id = ${me} and t.kind = 'friend_request')
+                  and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                    and t.kind = 'message')
+                  and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
+                    and c.user_id = ${me})
+                  and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
+                    and fu.user_id = ${me})
+                  and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
+                    and r.user_id = ${me})
+                order by f.since desc limit ${left}`,
+          )
+        : [];
+      for (const p of waiting)
+        items.push(
+          item({
+            kind: 'opener',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            why: [
+              `You followed them ${dayWords(p.since, now)}, and they haven’t followed back`,
+              REQUESTS_WHY,
+            ],
+            requests: true,
           }),
         );
     }
@@ -770,7 +835,15 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Follow-ups and check-ins (decision 67): whoever went quiet after a step, when the next one is due, until they
     // answer, say no or are marked not a fit. A reply seen or a newer message of theirs waits for the person instead;
-    // a message the person wrote to them themselves lately puts it off a day.
+    // a message the person wrote to them themselves lately puts it off a day. On a follow network nothing more goes in
+    // a chat they haven't answered or accepted: a message to their Requests waits there, one only.
+    const answeredOrAccepted = follows
+      ? sql`(f.answer is not null
+          or exists (select 1 from addon_outreach.friends fr
+            where fr.profile_id = p.id and fr.user_id = ${me} and fr.state = 'friends')
+          or exists (select 1 from addon_outreach.replies r
+            where r.profile_id = p.id and r.user_id = ${me}))`
+      : sql`true`;
     if (followLeft > 0) {
       const quiet = await rows<{
         id: string;
@@ -797,6 +870,7 @@ export const today = defineAddonQuery(outreachAddon, {
               and not exists (select 1 from addon_outreach.replies r
                 where r.profile_id = f.profile_id and r.user_id = ${me} and r.seen_at > f.last_at)
               and (c.id is null or c.last_from_me or c.last_at <= f.last_at)
+              and ${answeredOrAccepted}
               and not exists (select 1 from addon_outreach.touches t
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
                   and t.at > greatest(f.last_at, ${ago(MANUAL_QUIET_HOURS / 24)}::timestamptz))

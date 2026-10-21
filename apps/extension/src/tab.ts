@@ -33,6 +33,8 @@ import type {
   OwnProfileAsk,
   TryAnswer,
   TryAsk,
+  UnfollowAnswer,
+  UnfollowAsk,
   WithdrawAnswer,
   WithdrawAsk,
 } from './messages';
@@ -169,6 +171,7 @@ export class WorkTab {
   async ask(message: CodeAsk): Promise<CodeAnswer>;
   async ask(message: TryAsk): Promise<TryAnswer>;
   async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
+  async ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
@@ -184,6 +187,7 @@ export class WorkTab {
       | CodeAsk
       | TryAsk
       | WithdrawAsk
+      | UnfollowAsk
       | BrowseAsk
       | Ask,
   ): Promise<
@@ -196,6 +200,7 @@ export class WorkTab {
     | CodeAnswer
     | TryAnswer
     | WithdrawAnswer
+    | UnfollowAnswer
     | BrowseAnswer
     | Answer
   > {
@@ -212,6 +217,7 @@ export class WorkTab {
         | CodeAnswer
         | TryAnswer
         | WithdrawAnswer
+        | UnfollowAnswer
         | BrowseAnswer
         | Answer;
     } catch {
@@ -226,6 +232,7 @@ export class WorkTab {
           | CodeAnswer
           | TryAnswer
           | WithdrawAnswer
+          | UnfollowAnswer
           | BrowseAnswer
           | Answer;
       } catch {

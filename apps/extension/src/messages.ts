@@ -174,6 +174,16 @@ export type WithdrawAnswer =
   | { readonly ok: true; readonly result: WithdrawResult }
   | { readonly ok: false; readonly error: string };
 
+/**
+ * On an Instagram account's own page, unfollow them, once the person ticked them (src/networks/instagram/unfollow.ts):
+ * its Following (or Requested), then Unfollow in the box Instagram opens, each by its own words. `not_found` when the
+ * page shows they aren't followed already; `none` when it couldn't.
+ */
+export type UnfollowAsk = { readonly type: 'hfos-unfollow' };
+export type UnfollowAnswer =
+  | { readonly ok: true; readonly result: 'done' | 'not_found' | 'none' }
+  | { readonly ok: false; readonly error: string };
+
 export type AutoAnswer =
   | { readonly ok: true; readonly result: AutoResult; readonly postUrl?: string | null }
   | { readonly ok: false; readonly error: string };

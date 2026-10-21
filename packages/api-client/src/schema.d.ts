@@ -69341,6 +69341,7 @@ export interface operations {
                                 fromMe: boolean;
                                 text: string;
                             }[];
+                            requests?: boolean;
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -69403,6 +69404,7 @@ export interface operations {
                                 fromMe: boolean;
                                 text: string;
                             }[];
+                            requests?: boolean;
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;

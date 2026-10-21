@@ -70,9 +70,9 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
  * part"): Facebook's every kind, Check Facebook among them (decision 77); LinkedIn's its invitations and connections,
  * checking connections for fits, reading chats, looking someone up, researching one person, reading the profile and
  * putting the headline in, withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn
- * (decision 74); Instagram's its Check alone, while it's looked at (decision 78), and Alignable's its connections and
- * requests, checks, research and look-ups too (partners stage 6c, part 4), beside its Check and profile. A kind a network
- * can't be asked is refused (`outreach_ask_not_on_network`).
+ * (decision 74); Instagram's its Check and profile, and from its part 12 its followers and unfollowing; and
+ * Alignable's its connections and requests, checks, research and look-ups too (partners stage 6c, part 4), beside its
+ * Check and profile. A kind a network can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   facebook: ASK_KIND_KEYS,
@@ -97,8 +97,9 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   ],
   // Looked at first (decision 78): Check Instagram and Check Alignable, till their steps are built from what they read;
   // and each one's profile, read and checked, and Instagram's bio or Alignable's About Us put in (decisions 80 and
-  // 82), before its steps.
-  instagram: ['checkup', 'profile_read', 'profile_edit'],
+  // 82), before its steps. From Instagram's part 12, its followers saved as its friends list (a follow-back counts as
+  // accepting), and the ones the person ticks who didn't follow back unfollowed (its tidying, `cancel`).
+  instagram: ['friends', 'cancel', 'checkup', 'profile_read', 'profile_edit'],
   // Alignable from its part 4 (partners stage 6c): its connections and the requests they've got saved, connections
   // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are.
   alignable: [
@@ -126,6 +127,7 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     profile_edit: 'Update your profile',
   },
   alignable: { profile_edit: 'Put your About Us in', posts: 'Find posts in your town' },
+  instagram: { friends: 'Save my followers', cancel: 'Unfollow the ones you ticked' },
 };
 
 /** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
@@ -209,8 +211,14 @@ export const ASK_KIND_SINCE_ON: Readonly<
     post: '0.43.0',
     checkup: '0.48.0',
   },
-  // Instagram's profile, read and its bio put in (decision 80).
-  instagram: { profile_read: '0.62.0', profile_edit: '0.62.0' },
+  // Instagram's profile, read and its bio put in (decision 80); its followers saved, and those ticked unfollowed (its
+  // part 12).
+  instagram: {
+    profile_read: '0.62.0',
+    profile_edit: '0.62.0',
+    friends: '0.80.0',
+    cancel: '0.80.0',
+  },
   // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
   // Its connections, requests, checks, research and look-ups: its part 4.
   alignable: {

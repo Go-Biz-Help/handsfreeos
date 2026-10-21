@@ -134,10 +134,11 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
               numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
               profile = excluded.profile, profile_check = excluded.profile_check`,
     );
-  // Their LinkedIn and Alignable profiles too, each network's its own: read and checked right, and ticked, each with
-  // its own parts (LinkedIn's headline and About, Alignable's About Us).
+  // Their LinkedIn, Instagram and Alignable profiles too, each network's its own: read and checked right, and ticked,
+  // each with its own parts (LinkedIn's headline and About, Instagram's name and link, Alignable's About Us).
   for (const [platform, items] of [
     ['linkedin', ['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts']],
+    ['instagram', ['picture', 'name', 'bio', 'link', 'featured', 'posts']],
     ['alignable', ['picture', 'about', 'bio', 'work', 'featured']],
   ] as const)
     await rows(

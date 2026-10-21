@@ -19,6 +19,7 @@ import type {
   PostsAnswer,
   TryAnswer,
   TryAsk,
+  UnfollowAnswer,
 } from '../../messages';
 import { isWholeAddress, type Kit } from '../kit';
 import { outlineLooking, readLooking, readWarnings } from './read';
@@ -74,6 +75,13 @@ async function browse(
         ? lists.showAll
         : lists.openChat;
   return { ok: go ? await go(document, location.href) : false };
+}
+
+/** Unfollows the account whose page the tab shows, where the site does (Instagram's tidying). */
+async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
+  if (!site.unfollow)
+    return { ok: false, error: `The extension doesn’t unfollow on ${site.name}.` };
+  return { ok: true, result: await site.unfollow(document) };
 }
 
 /** The runner's presses it answers: their posts, a like, Connect and a message. Never a comment. */
@@ -137,8 +145,10 @@ export function lookingKit(site: LookingSite): Kit {
                 ask.type === 'hfos-show-all' ||
                 ask.type === 'hfos-open-chat'
               ? browse(site, ask.type)
-              : ON_ITS_OWN_ASKS.has(ask.type)
-                ? onItsOwn(site, ask as OnItsOwnAsk)
-                : null,
+              : ask.type === 'hfos-unfollow'
+                ? unfollowHere(site)
+                : ON_ITS_OWN_ASKS.has(ask.type)
+                  ? onItsOwn(site, ask as OnItsOwnAsk)
+                  : null,
   };
 }

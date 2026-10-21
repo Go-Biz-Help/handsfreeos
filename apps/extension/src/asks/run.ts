@@ -89,8 +89,8 @@ import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { reporter, type Reporter, type ReportNote } from '../jobs/report';
 import { alignableAsk } from '../jobs/alignable';
+import { instagramAsk } from '../jobs/instagram';
 import { linkedInAsk } from '../jobs/linkedin';
-import { lookingAsk } from '../jobs/looking';
 import { lookupAndDraft } from '../jobs/lookup';
 import { profileEdit, profileRead } from '../jobs/profile';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
@@ -438,8 +438,8 @@ async function facebookAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
 const JOBS_ON: Readonly<Record<Platform, (task: AskTaken['task'], job: Job) => Promise<Ended>>> = {
   facebook: facebookAsk,
   linkedin: linkedInAsk,
-  // Still looked at (decision 78): their Check alone.
-  instagram: lookingAsk('instagram'),
+  // Its followers saved (part 12), beside its Check and profile.
+  instagram: instagramAsk,
   alignable: alignableAsk,
 };
 

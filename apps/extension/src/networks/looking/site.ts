@@ -125,6 +125,11 @@ export interface LookingSite {
   /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
   readonly noticer?: () => Noticer;
   /**
+   * Unfollowing the account whose page the tab shows, once the person ticked them (Instagram's tidying, its part 12):
+   * `done`, `not_found` when they aren't followed, or `none`.
+   */
+  readonly unfollow?: (doc: Document) => Promise<'done' | 'not_found' | 'none'>;
+  /**
    * Going through one of its lists, for the person's asks (Alignable's connections and requests, partners stage 6c):
    * scroll for more, its own Show more pressed where the list ends in one, and a list that opens on a few switched to
    * its tab of them all. Each says whether it could.

@@ -33,6 +33,8 @@ import type {
   OwnProfileAsk,
   TryAnswer,
   TryAsk,
+  UnfollowAnswer,
+  UnfollowAsk,
   WithdrawAnswer,
   WithdrawAsk,
 } from '../messages';
@@ -62,6 +64,7 @@ export interface JobTab {
   ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
+  ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */

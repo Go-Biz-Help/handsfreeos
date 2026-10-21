@@ -25,6 +25,7 @@ import {
   NETWORKS,
   PLATFORM_KEYS,
   PLATFORMS,
+  withArticle,
   WORKING_PLATFORMS,
   type Platform,
   type RunnerTick,
@@ -98,6 +99,10 @@ const an = (s: string) => `${/^[aeiou]/i.test(s) ? 'an' : 'a'} ${s}`;
 interface MoreWords {
   /** Today's step that says yes to someone's request to connect: "Confirm their request". */
   readonly confirm: string;
+  /** Today's step that asks to connect, where "Send a friend request" doesn't fit: "Follow them" on Instagram. */
+  readonly request?: string;
+  /** The Friends tab's ask to save their list, where "Save my friends list" doesn't fit: "Save my followers". */
+  readonly saveList?: string;
   /** Where its one-to-one chats open on the web, from a chat's id. */
   readonly chatUrl: (threadKey: string) => string;
   /** Along the way's switches, in its words: what each does, and a line about it. */
@@ -111,12 +116,18 @@ interface MoreWords {
   readonly helpful: boolean;
   /** Under the helpful post's choice on the network's page in Settings: what the AI writes there, and where it goes. */
   readonly postingAbout: string;
-  /** Tidying up's old requests: what they're called, its button, what's done, and why it matters there. */
+  /**
+   * Tidying up's old requests: what they're called, its button, what's done, why it matters there, and the word for
+   * when each was sent ("sent", "followed"); with the line about them when "Sent more than … and not answered" doesn't
+   * fit (Instagram's unfollowing).
+   */
   readonly oldRequests: {
     readonly title: string;
     readonly button: string;
     readonly done: string;
     readonly why: string;
+    readonly since?: string;
+    readonly about?: (weeks: string) => string;
   };
 }
 
@@ -188,10 +199,12 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       why: 'LinkedIn limits how many invitations can wait, so withdrawing old ones makes room for new ones.',
     },
   },
-  // Looked at first (decision 78): nothing below shows till their steps are built from what Check reads, and they're
-  // checked against it then.
+  // A follow network: a follow goes at once, a follow-back is the accepting, and tidying unfollows (the Instagram and
+  // Alignable plan's question 5). Its switches along the way show once its runner reads them.
   instagram: {
     confirm: 'Confirm their follow request',
+    request: 'Follow them',
+    saveList: 'Save my followers',
     chatUrl: (key) => `https://www.instagram.com/direct/t/${encodeURIComponent(key)}/`,
     ticks: {
       warmUp: [
@@ -215,11 +228,15 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
     where: 'In hashtags, places, and the followers of accounts like yours.',
     helpful: false,
     postingAbout: 'Instagram has no helpful post yet.',
+    // Unfollow, slowly (the plan's question 5): people who didn't follow back in the business's wait, 20 a day at most.
     oldRequests: {
-      title: 'Old follow requests',
-      button: 'Withdraw the ticked follow requests',
-      done: 'follow requests withdrawn',
-      why: 'A follow request to a private account waits till they answer; old ones are best withdrawn.',
+      title: 'Not following you back',
+      button: 'Unfollow the ticked',
+      done: 'unfollowed',
+      why: 'Unfollowing them slowly keeps you well under Instagram’s cap of 7,500 you can follow.',
+      since: 'followed',
+      about: (weeks) =>
+        `Followed more than ${weeks} ago and not following you back. Never anyone who wrote back, a customer, or anyone you followed before HandsFreeOS saw it.`,
     },
   },
   alignable: {
@@ -276,10 +293,14 @@ export function dailyWordsOn(
 export function todayKindsOn(platform: Platform): Readonly<Record<TodayKind, string>> {
   return {
     ...TODAY_KINDS,
-    friend_request: `Send ${an(NETWORKS[platform].words.friendRequest)}`,
+    friend_request: MORE[platform].request ?? `Send ${an(NETWORKS[platform].words.friendRequest)}`,
     confirm: MORE[platform].confirm,
   };
 }
+
+/** The Friends tab's ask to save the person's list on a network: "Save my connections list", "Save my followers". */
+export const saveListOn = (platform: Platform): string =>
+  MORE[platform].saveList ?? `Save my ${NETWORKS[platform].words.friends} list`;
 
 /**
  * What the extension may do on its own on a network, in its words (Sending, decision 26). Where its runner never
@@ -354,14 +375,18 @@ export function tidyWordsOn(platform: Platform) {
   const weeks = (n: number) => (n === 1 ? 'a week' : `${n} weeks`);
   return {
     title: 'Tidy up',
-    about: `Tick the ones to go. ${inNetworkWords(TIDY_PACE_WORDS, platform)}`,
+    // "In an Instagram tab", never "a Instagram".
+    about: `Tick the ones to go. ${inNetworkWords(TIDY_PACE_WORDS, platform).replace(`a ${kit.name} tab`, `${withArticle(kit.name)} tab`)}`,
     kinds: TIDY_ASK_KINDS.filter((k) => kit.tidyLimits[TIDY_STEP[k]] > 0),
     step: TIDY_STEP,
     cancel: {
       title: old.title,
       button: old.button,
       done: old.done,
-      about: (after: number) => `Sent more than ${weeks(after)} ago and not answered. ${old.why}`,
+      /** Beside each: "sent Oct 3", "followed Oct 3". */
+      since: old.since ?? 'sent',
+      about: (after: number) =>
+        `${old.about ? old.about(weeks(after)) : `Sent more than ${weeks(after)} ago and not answered.`} ${old.why}`,
     },
     unfriend: {
       title: `${cap(w.friends)} to unfriend`,

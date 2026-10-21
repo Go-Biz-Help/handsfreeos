@@ -18,7 +18,7 @@ describe('Instagram’s links to places, hashtags and chats', () => {
       <a href="/explore/tags/smallbusiness/">#smallbusiness</a>
       <a href="/direct/t/340282366841710300">dana.reyes</a>
       <a href="/explore/">Explore</a><a href="https://example.com/explore/tags/x/">elsewhere</a></main>`);
-    expect(readInstagram(doc, doc.location.href)).toEqual({
+    expect(readInstagram(doc, doc.location.href)).toMatchObject({
       locations: [`${IG}/explore/locations/212988663/austin-texas/`],
       tags: [`${IG}/explore/tags/smallbusiness/`],
       threads: [`${IG}/direct/t/340282366841710300/`],
