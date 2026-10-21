@@ -3,13 +3,14 @@
  * 43), with the extension's storage, HandsFreeOS and the job stood in for: one that goes to the end is done; one that
  * throws, or can't do what it was asked, is failed with its words; Stop on the web, Stop for today pressed in the panel,
  * a Facebook warning kept while it goes (from any tab) or seen on another computer each end it at its next page, with
- * how far it got; and one left under way when the extension starts again is ended as lost. Each network has its own
+ * how far it got; a code the network emailed is asked of HandsFreeOS and handed to the job once it's typed there; and one left under way when the extension starts again is ended as lost. Each network has its own
  * line: LinkedIn's takes its own asks beside Facebook's, only while LinkedIn is on and allowed, and a warning or Stop
  * for today on one network ends only that network's.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ASK_LOST_LINE,
+  askCodeWords,
   askSignInLine,
   askWarnedLine,
   type AskTaken,
@@ -113,7 +114,7 @@ vi.mock('../src/jobs/chats', () => ({
   },
 }));
 
-const { runAsks, recoverAsk, endOf, signInChanged } = await import('../src/asks/run');
+const { runAsks, recoverAsk, endOf, signInChanged, heardAsk } = await import('../src/asks/run');
 const { beat, LIVE_KEY, pressDay } = await import('../src/hfos/live');
 const { ASK_ENDS_KEY, ASK_KEY, askKeyOf, sendWaitingEnds } = await import('../src/hfos/asks');
 const { WARNED_KEY } = await import('../src/hfos/warned');
@@ -320,6 +321,75 @@ describe('an ask from taking it to its end', () => {
       }
     },
   );
+
+  it('asks HandsFreeOS for a code the network emailed, and hands the job the one typed there, once', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let got: unknown = 'none yet';
+      ending = async (j) => {
+        got = await j.code!(askCodeWords('alignable'));
+        return { line: 'Read 3 chats.', warned: false };
+      };
+      // Typed on the phone: the next look while it waits has it, once (outreach.ask.code keeps it there).
+      let typed: string | null = null;
+      answers['/v1/commands/outreach.ask.progress'] = (body) => {
+        const code = body.state === 'code' ? typed : null;
+        if (code) typed = null;
+        return { status: 200, data: { cancelled: false, reply: null, code } };
+      };
+      const { running } = await start();
+      letGo!();
+      await until(() =>
+        posted.some(
+          (p) => p.path === '/v1/commands/outreach.ask.progress' && p.body.state === 'code',
+        ),
+      );
+      expect(got).toBe('none yet');
+      typed = '482913';
+      // The live channel says one came: it looks at once, without waiting for the next look.
+      await heardAsk({ type: 'outreach.ask.coded', actorId: ME.userId, entityId: ASK_ID });
+      await running;
+      expect(got).toBe('482913');
+      const said = posted
+        .filter((p) => p.path === '/v1/commands/outreach.ask.progress')
+        .map((p) => [p.body.state, p.body.line]);
+      expect(said).toEqual([
+        ['working', expect.any(String)],
+        ['code', askCodeWords('alignable')],
+        ['code', askCodeWords('alignable')],
+        ['working', 'Putting the code in…'],
+      ]);
+      // Nothing here keeps it.
+      expect(JSON.stringify([...store.values()])).not.toContain('482913');
+      expect(ends()).toEqual([{ state: 'done', line: 'Read 3 chats.' }]);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives the job no code when Stop is pressed while it waits on one', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let got: unknown = 'none yet';
+      ending = async (j) => {
+        got = await j.code!(askCodeWords('alignable'));
+        return { line: 'Stopped.', warned: false };
+      };
+      answers['/v1/commands/outreach.ask.progress'] = (body) => ({
+        status: 200,
+        data: { cancelled: body.state === 'code', reply: null, code: null },
+      });
+      const { running } = await start();
+      letGo!();
+      await running;
+      expect(got).toBeNull();
+      expect(ends()).toEqual([{ state: 'failed', line: 'Stopped.' }]);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+  });
 
   it('ends on a Facebook warning kept while it goes, from any tab', async () => {
     const { running } = await start();

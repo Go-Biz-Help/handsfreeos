@@ -21,10 +21,17 @@
  *   (0.66.0, partners stage 6) the pages Alignable's steps and Find partners are built from next: the person's town, a
  *   search for businesses, a forum question, their connection requests and a chat with a connection, nothing written.
  */
-import type { AskTaken, AskTask } from '@hfos/core/addons/outreach/asks';
+import {
+  ASK_CODE_MINUTES,
+  askCodeRanOutWords,
+  askCodeWords,
+  type AskTaken,
+  type AskTask,
+} from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import {
   PROFILE_CHECK_WORDS as P,
+  profileCheckWordsOn,
   type ProfileRead,
 } from '@hfos/core/addons/outreach/profile-check';
 import { townOf } from '../networks/alignable/site';
@@ -35,7 +42,7 @@ import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } fro
 import { ownProfileNote } from './report';
 
 /** Reads the page in the job's window as the network's: anything else means it sent the window elsewhere. */
-const readOn =
+export const readOn =
   (platform: LookingPlatform) =>
   async (tab: JobTab): Promise<LookingRead> => {
     const page = await readPageIn(tab);
@@ -123,10 +130,12 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
   const posts = [...theirPosts, ...feed.posts, ...search.posts];
   const post =
     (posts.find((p) => new URL(p.url).pathname.startsWith('/p/')) ?? posts[0])?.url ?? null;
+  let postPage: LookingRead | null = null;
   if (post) {
     if (stoppedEnd(job)) return stoppedEnd(job)!;
     const page = await c.open(post, 'a post');
     if (isEnd(page)) return page;
+    postPage = page;
     await c.note('a post', null);
     await c.tryHere('like');
     await c.tryHere('comment');
@@ -170,14 +179,95 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
       );
   }
 
-  // Your messages.
+  // What its steps and Find partners are built from (the plan's part 9, 0.79.0): their followers, a hashtag, a place,
+  // their notifications and a chat. Each is opened and read; nothing is pressed or written but their own count of
+  // followers, to open the list of them (0.84.0).
+  if (feed.own) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    // Instagram draws the list over their profile, a moment after it opens; where it doesn't from the address, their
+    // count of followers opens it, pressed as a person does (the owner's Check, 21 Oct 2026, read their account
+    // without it).
+    const opened = await c.open(`${feed.own.replace(/\/?$/, '/')}followers/`, 'your followers');
+    if (isEnd(opened)) return opened;
+    let page = await c.readTill(opened, (p) => countOf(p, 'followers') > 0, 2);
+    if (isEnd(page)) return page;
+    if (!countOf(page, 'followers') && (await job.tab.ask({ type: 'hfos-show-all' })).ok) {
+      page = await c.readTill(
+        await readOn('instagram')(job.tab),
+        (p) => countOf(p, 'followers') > 0,
+        3,
+      );
+      if (isEnd(page)) return page;
+    }
+    await c.note('your followers', countOf(page, 'followers'));
+  } else c.nothingOn.push('your followers');
+
+  if (stoppedEnd(job)) return stoppedEnd(job)!;
+  // Instagram sends a hashtag's page to its search for it now (the owner's Check, 21 Oct 2026): read the same.
+  const tag = await c.open(`${INSTAGRAM}/explore/tags/${HASHTAG}/`, 'a hashtag');
+  if (isEnd(tag)) return tag;
+  await c.note('a hashtag', tag.posts.length);
+
+  // A place a post was tagged at, from the hashtag's page or the post read before, else from one of the hashtag's posts
+  // opened, as the day's look at places goes: /explore/locations/ alone is no list of places now (the owner's Check,
+  // 21 Oct 2026, found an account Instagram draws there).
+  let place = [tag, postPage].flatMap((p) => (p ? linksFound(p, 'locations') : []))[0] ?? null;
+  for (const { url } of place ? [] : tag.posts.slice(0, PLACE_POSTS)) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const opened = await c.open(url, 'a post from the hashtag');
+    if (isEnd(opened)) return opened;
+    place = linksFound(opened, 'locations')[0] ?? null;
+    if (place) break;
+  }
+  if (place) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const atPlace = await c.open(place, 'a place');
+    if (isEnd(atPlace)) return atPlace;
+    await c.note('a place', atPlace.posts.length);
+  } else c.nothingOn.push('a place');
+
+  if (stoppedEnd(job)) return stoppedEnd(job)!;
+  const notifications = await c.open(`${INSTAGRAM}/notifications/`, 'your notifications');
+  if (isEnd(notifications)) return notifications;
+  await c.note('your notifications', notifications.people.length);
+
+  // Your messages, and a chat in them: its box is only counted.
   if (stoppedEnd(job)) return stoppedEnd(job)!;
   const inbox = await c.open(`${INSTAGRAM}/direct/inbox/`, 'your messages');
   if (isEnd(inbox)) return inbox;
   await c.note('your messages', null);
+  const chat = linksFound(inbox, 'threads')[0];
+  if (chat) {
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const opened = await c.open(chat, 'a chat');
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
+    if (isEnd(page)) return page;
+    await c.note('a chat', page.boxes);
+  } else if (
+    !stoppedEnd(job) &&
+    (await job.tab.ask({ type: 'hfos-open-chat', threadId: 'first-with-words' })).ok
+  ) {
+    // Its chats' rows are buttons, not links (the owner's Check, 0.62.0): the first with words is opened by its row, as
+    // a person reading their messages does (0.80.0), and read once it's drawn its box.
+    const page = await c.readTill(await readOn('instagram')(job.tab), (p) => p.boxes > 0, 3);
+    if (isEnd(page)) return page;
+    await c.note('a chat', page.boxes);
+  } else c.nothingOn.push('a chat');
 
   return c.end();
 }
+
+/** The hashtag Check opens: one every small business's posts are under. */
+const HASHTAG = 'smallbusiness';
+/** The hashtag's posts it opens, one at a time, for one tagged at a place. */
+const PLACE_POSTS = 2;
+
+/** The addresses one of Instagram's own readers found on a page (`InstagramFound`): places, hashtags or chats. */
+const linksFound = (page: LookingRead, list: 'locations' | 'tags' | 'threads'): string[] => {
+  const links = page.found?.[list];
+  return Array.isArray(links) ? links.filter((l): l is string => typeof l === 'string') : [];
+};
 
 // ------------------------------------------------------------------------------------------------ Alignable
 
@@ -289,7 +379,10 @@ async function nextPages(
   if (town) {
     if (stoppedEnd(job)) return stoppedEnd(job);
     // Alignable opens a town at its own group, /groups/<town-st>, where its owners post (the owner's Check, 0.66.0).
-    const page = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    const opened = await c.open(`${ALIGNABLE}/${town}`, 'your town');
+    if (isEnd(opened)) return opened;
+    // Its posts are drawn a moment after the page: the owner's Check (0.67.0) read it while they were still loading.
+    const page = await c.readTill(opened, (p) => countOf(p, 'threads') > 0, 4);
     if (isEnd(page)) return page;
     await c.note('your town', countOf(page, 'threads'));
   } else c.nothingOn.push('your town');
@@ -301,6 +394,24 @@ async function nextPages(
   );
   if (isEnd(found)) return found;
   await c.note('a search for businesses', countOf(found, 'businesses'));
+  // The page a business's Recommend opens, for one found (0.75.0): the recommendation's noticer is checked against
+  // its outline. Opened only: nothing is written, and its Submit is never pressed.
+  const recommendable = (
+    found.found?.['businesses'] as readonly { profile?: { id?: string | null } }[] | undefined
+  )
+    ?.map((b) => b.profile?.id)
+    .find((id): id is string => !!id);
+  if (recommendable) {
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    const opened = await c.open(
+      `${ALIGNABLE}/biz/recommendations/new?id=${encodeURIComponent(recommendable)}`,
+      'a recommendation’s page',
+    );
+    if (isEnd(opened)) return opened;
+    const page = await c.readTill(opened, (p) => p.boxes > 0, 2);
+    if (isEnd(page)) return page;
+    await c.note('a recommendation’s page', page.boxes);
+  } else c.nothingOn.push('a recommendation’s page');
 
   const question = posts.find((p) => /\/forum\//i.test(new URL(p.url).pathname)) ?? posts[0];
   if (question) {
@@ -334,6 +445,14 @@ async function nextPages(
     const page = await c.readTill(opened, (p) => p.boxes > 0);
     if (isEnd(page)) return page;
     await c.note('a chat with a connection', page.found?.['chat'] ? 1 : 0);
+    // A chat with messages in it, opened from Messages' side (0.73.0): the chat reader is built from its outline, as
+    // a connection's own chat may have none yet (the owner's Check, 0.68.0, opened an empty one).
+    if (stoppedEnd(job)) return stoppedEnd(job);
+    if ((await job.tab.ask({ type: 'hfos-open-chat', threadId: 'first-with-words' })).ok) {
+      const read = await c.readTill(await readOn('alignable')(job.tab), (p) => p.boxes > 0, 3);
+      if (isEnd(read)) return read;
+      await c.note('a chat with messages', countOf(read, 'chats'));
+    } else c.nothingOn.push('a chat with messages');
   } else c.nothingOn.push('a chat with a connection');
   return null;
 }
@@ -363,21 +482,32 @@ const INSTAGRAM_FORM = `${INSTAGRAM}/accounts/edit/`;
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
 
 /** Opens a page of the network's for the person's own profile: their account's, or its form. */
-async function openForProfile(job: Job, url: string): Promise<JobEnd | LookingRead> {
+async function openForProfile(
+  job: Job,
+  url: string,
+  platform: LookingPlatform = 'instagram',
+): Promise<JobEnd | LookingRead> {
   await job.tab.open(url);
-  const page = await readOn('instagram')(job.tab);
+  const page = await readOn(platform)(job.tab);
   const warned = await warnedOn(job, page);
   if (warned) return warned;
-  if (page.signedOut) return signedOutEnd('instagram');
+  if (page.signedOut) return signedOutEnd(platform);
   return page;
 }
 
 /** Reads the profile the tab shows, as the AI's check reads it. */
-async function ownRead(job: Job): Promise<ProfileRead | JobEnd> {
+async function ownRead(
+  job: Job,
+  platform: LookingPlatform = 'instagram',
+): Promise<ProfileRead | JobEnd> {
   const answer = await job.tab.ask({ type: 'hfos-own-profile' });
   if (!answer.ok) return { line: answer.error, warned: false, failed: true };
   if (!('read' in answer))
-    return { line: 'Instagram didn’t show your profile.', warned: false, failed: true };
+    return {
+      line: `${NETWORKS[platform].name} didn’t show your profile.`,
+      warned: false,
+      failed: true,
+    };
   return answer.read;
 }
 
@@ -450,6 +580,116 @@ async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   return checked.failed ? checked : { line: P.editDone(bio), warned: false };
 }
 
+// ------------------------------------------------------------------------------------------------ your Alignable profile
+
+/** Alignable's own address for the person's profile: it shows it at their business's (the owner's Check, 0.62.0). */
+const ALIGNABLE_MINE = 'https://www.alignable.com/biz/businesses/my_profile';
+/** Tries at a code: a mistyped or an old one asks for the newest. */
+const CODE_TRIES = 3;
+
+/** Read my profile, on Alignable: their own profile, read, noted, and sent for the AI's check. */
+async function alignableProfileRead(job: Job): Promise<JobEnd> {
+  job.progress('Opening your Alignable profile…');
+  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+  if (isEnd(mine)) return mine;
+  job.progress('Reading your profile…');
+  const read = await ownRead(job, 'alignable');
+  if (isEnd(read)) return read;
+  await job.report?.({ ...ownProfileNote(read), outline: true });
+  if (job.stopped()) return { line: 'Stopped.', warned: false };
+  if (!read.name && !read.about)
+    return {
+      line: 'Alignable didn’t show your profile. Check you’re signed in to Alignable in this browser, then ask again.',
+      warned: false,
+      failed: true,
+    };
+  job.progress('Checking it with the AI…');
+  valueOf(await job.hfos({ type: 'hfos-profile-check', workspaceId: job.businessId, input: read }));
+  return { line: P.readDone, warned: false };
+}
+
+/**
+ * Put this one in, on Alignable: About Us, past the code Alignable emails (decision 82). Its Edit asks for the code;
+ * HandsFreeOS asks the person for it (`job.code`), and it goes in where Alignable asks, then About Us is written and
+ * saved. A code that didn't work asks for the newest. None in its 30 minutes hands them Try again: pressed, their
+ * profile is opened afresh and its Edit asks Alignable for a new one. Anything else the person does by hand, and
+ * presses Carry on. Then it's read again for a new check.
+ */
+async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
+  const about = task.about;
+  if (!about) return { line: 'Pick an About Us to put in first.', warned: false, failed: true };
+  job.progress('Opening your Alignable profile…');
+  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+  if (isEnd(mine)) return mine;
+  job.progress('Putting your About Us in…');
+  let result: string = 'none';
+  let again = false;
+  let wrong = 0;
+  for (;;) {
+    if (job.stopped()) return { line: 'Stopped.', warned: false };
+    const wrote = await job.tab.ask({ type: 'hfos-write-about', about });
+    result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
+    if (result !== 'code' || !job.code) break;
+    const code = await job.code(askCodeWords('alignable', again));
+    if (job.stopped()) return { line: 'Stopped.', warned: false };
+    if (!code) {
+      if (!job.handOver)
+        return {
+          line: `No code came from your email in ${ASK_CODE_MINUTES} minutes, so About Us wasn’t changed. Ask again, and Alignable emails a new one.`,
+          warned: false,
+          failed: true,
+        };
+      // None came in its time (Chris: "prompt the user to have the extension try again").
+      const reply = await job.handOver(askCodeRanOutWords('alignable'), {
+        note: `No code came in ${ASK_CODE_MINUTES} minutes.`,
+      });
+      if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+      // Their profile afresh: its Edit asks Alignable for a new code.
+      const reopened = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+      if (isEnd(reopened)) return reopened;
+      again = false;
+      continue;
+    }
+    job.progress('Putting the code in…');
+    const put = await job.tab.ask({ type: 'hfos-put-code', code });
+    const taken = put.ok ? put.code : 'none';
+    if (taken === 'none') {
+      result = 'none';
+      break;
+    }
+    if (taken === 'wrong' && ++wrong >= CODE_TRIES) break;
+    again = taken === 'wrong';
+    job.progress('Putting your About Us in…');
+  }
+  if (result !== 'done') {
+    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
+    await job.report?.({
+      note: `About Us didn’t go in (${
+        result === 'not_saved'
+          ? 'Save didn’t keep it'
+          : result === 'code'
+            ? 'Alignable kept asking for a code'
+            : 'no Edit, no box for About Us, or no Save'
+      }).`,
+      outline: true,
+    });
+    if (!job.handOver)
+      return {
+        line: 'Alignable didn’t let the extension change your About Us.',
+        warned: false,
+        failed: true,
+      };
+    const reply = await job.handOver(
+      'Put your About Us in: on your Alignable profile press Edit by About Us, paste what HandsFreeOS wrote, and press Save. Then press Carry on.',
+    );
+    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+  }
+  const checked = await alignableProfileRead(job);
+  return checked.failed
+    ? checked
+    : { line: profileCheckWordsOn('alignable').editAboutDone, warned: false };
+}
+
 /** What Instagram says when it isn't the person's own account in front of the extension. */
 const SIGNED_IN_INSTAGRAM = 'Check you’re signed in to Instagram in this browser, then ask again.';
 
@@ -459,8 +699,9 @@ function inFront(job: Job, work: (job: Job) => Promise<JobEnd>): Promise<JobEnd>
 }
 
 /**
- * What an ask on a network still looked at does: its Check, and nothing else yet (core asks it nothing else there, and
- * an ask of a kind this build doesn't do ends saying so).
+ * What an ask on Instagram or Alignable does that their own jobs don't: their Check, and their own profile read and put
+ * in (core asks nothing else there that their jobs don't do, and an ask of a kind this build doesn't do ends saying
+ * how to update).
  */
 export function lookingAsk(platform: LookingPlatform) {
   return async (task: AskTaken['task'], job: Job): Promise<JobEnd> => {
@@ -471,9 +712,14 @@ export function lookingAsk(platform: LookingPlatform) {
       return inFront(job, instagramProfileRead);
     if (platform === 'instagram' && task.kind === 'profile_edit')
       return inFront(job, (j) => instagramProfileEdit(j, task));
+    // Alignable's, before its steps: read, and About Us put in past the code it emails (decision 82).
+    if (platform === 'alignable' && task.kind === 'profile_read')
+      return inFront(job, alignableProfileRead);
+    if (platform === 'alignable' && task.kind === 'profile_edit')
+      return inFront(job, (j) => alignableProfileEdit(j, task));
     const name = NETWORKS[platform].name;
     return {
-      line: `The extension only reads ${name} for now, for Check ${name}: it can’t do that there yet.`,
+      line: `This build of HandsFreeOS Social can’t do that on ${name} yet. Download the newest one, unzip it over the old folder, press Reload on Chrome’s Extensions page, and ask again.`,
       warned: false,
       failed: true,
     };

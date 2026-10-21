@@ -88,6 +88,23 @@ describe('the lists due before the day', () => {
     expect(afterFirstSave({ ...checked, tidyAt: at(NOW), checksAt: at(NOW) })).toBeNull();
   });
 
+  it('on Alignable, its connections and requests got first, then one check: nothing sent to save or tidy up', () => {
+    expect(listsDue(NO_LISTS, NOW, TZ, 'alignable')).toEqual(['friends', 'requests']);
+    const saved = { ...NO_LISTS, friendsAt: at(NOW), requestsAt: at(NOW) };
+    expect(firstSaveDone(saved, 'alignable')).toBe(true);
+    expect(afterFirstSave(saved, 'alignable')).toBe('checks');
+    expect(afterFirstSave({ ...saved, checksAt: at(NOW) }, 'alignable')).toBeNull();
+    expect(preDayDone({ ...saved, checksAt: at(NOW) }, 'alignable')).toBe(true);
+    expect(preDaySteps(NO_LISTS, {}, 'alignable').map((step) => step.label)).toEqual([
+      'Save your connections',
+      'Save connection requests you got',
+      'Check your connections for good fits',
+    ]);
+    expect(listsWaitWords(NO_LISTS, true, 'alignable')).toBe(
+      'It’s saving your connections and connection requests first, the first time only. Your day starts once they’re saved.',
+    );
+  });
+
   it('takes only what it knows to note', () => {
     const ws = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
     expect(ListSavedInput.safeParse({ workspaceId: ws, list: 'sent' }).success).toBe(true);

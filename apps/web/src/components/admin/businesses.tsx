@@ -2,13 +2,17 @@
 import {
   DESK_BUSINESS_SORTS,
   DESK_BUSINESS_WORDS,
+  DESK_PLAN_WORDS,
   deskBusinessTotals,
   deskSectionLabel,
+  type BusinessAttentionValue,
+  type BusinessPlanValue,
 } from '@hfos/core';
 import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type MouseEvent } from 'react';
+import { BusinessQuickLook, type QuickLookStaff } from '@/components/admin/business-quick-look';
 import { Input } from '@/components/ui/input';
 
 export interface BusinessRow {
@@ -21,25 +25,38 @@ export interface BusinessRow {
   readonly createdAt: string;
   /** The founding offer whose seat is on this workspace, while it is. */
   readonly foundingSeat: string | null;
+  readonly plan: BusinessPlanValue | null;
+  /** What needs a look; empty when nothing does. */
+  readonly attention: readonly BusinessAttentionValue[];
 }
 
-/** Every business on HandsFreeOS. The three numbers at the top are the ones Chris will look at daily. */
+/** A plain click opens the quick look; a click meant for a new tab or window still opens the full page. */
+const opensInPlace = (e: MouseEvent) =>
+  e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
+/**
+ * Every business on HandsFreeOS. The three numbers at the top are the ones Chris will look at daily. A business opens
+ * in the quick look, over the list, and steps to the next from there.
+ */
 export function Businesses({
   businesses,
   totals,
   sort,
   search,
   nextCursor,
+  staff,
 }: {
   businesses: readonly BusinessRow[];
   totals: { businesses: number; newThisWeek: number; activeThisWeek: number };
   sort: string;
   search: string;
   nextCursor: string | null;
+  staff: QuickLookStaff;
 }) {
   const router = useRouter();
   const params = useSearchParams();
   const [term, setTerm] = useState(search);
+  const [looking, setLooking] = useState<string | null>(null);
   const go = (next: Record<string, string | null>) => {
     const q = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(next)) {
@@ -105,7 +122,16 @@ export function Businesses({
           <li key={b.workspaceId}>
             <Link
               href={`/admin/businesses/${b.workspaceId}`}
-              className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 py-3.5 hover:bg-card-2"
+              onClick={(e) => {
+                if (!opensInPlace(e)) return;
+                e.preventDefault();
+                setLooking(b.workspaceId);
+              }}
+              className={
+                looking === b.workspaceId
+                  ? 'flex flex-wrap items-baseline gap-x-2 gap-y-1 bg-card-2 px-4 py-3.5'
+                  : 'flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 py-3.5 hover:bg-card-2'
+              }
               data-testid={`business-row-${b.workspaceId}`}
             >
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{b.name}</span>
@@ -115,6 +141,16 @@ export function Businesses({
               <span className="text-[13px] text-text-3">
                 · {DESK_BUSINESS_WORDS.lastActive(b.lastActiveAt)}
               </span>
+              {b.attention.length ? (
+                <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-text">
+                  {DESK_BUSINESS_WORDS.needsALook}
+                </span>
+              ) : null}
+              {b.plan && !b.foundingSeat ? (
+                <span className="rounded-full bg-card-2 px-2 py-0.5 text-[11px] font-medium text-text-2">
+                  {DESK_PLAN_WORDS[b.plan]}
+                </span>
+              ) : null}
               {b.foundingSeat ? (
                 <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-text">
                   {b.foundingSeat}
@@ -150,6 +186,14 @@ export function Businesses({
           </button>
         </div>
       ) : null}
+
+      <BusinessQuickLook
+        rows={businesses}
+        openId={looking}
+        onOpen={setLooking}
+        onClose={() => setLooking(null)}
+        staff={staff}
+      />
     </div>
   );
 }

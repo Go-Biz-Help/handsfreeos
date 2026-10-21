@@ -32,7 +32,7 @@ import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { LIKE_PICK_ACTION, likePick } from './likes';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
-import { askProgressed } from './asks';
+import { askCoded, askProgressed, askSettled } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
 import { needNoted, sendWaits, WAITING_PUSH_JOB, waitingPushJob } from './waiting';
 import {
@@ -140,8 +140,12 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // pruning armed (./live.ts).
     'outreach.warning.seen': warningSeen,
     'outreach.live.changed': liveChanged,
-    // Something the person asked of their computer needs them: their phone hears it at once (./asks.ts).
+    // Something the person asked of their computer needs them: their phone hears it at once, and a code it waits on
+    // keeps a notification up till it's typed, the ask ends, or the code runs out (./asks.ts).
     'outreach.ask.progressed': askProgressed,
+    'outreach.ask.coded': askCoded,
+    'outreach.ask.ended': askSettled,
+    'outreach.ask.cancelled': askSettled,
     // Starting the day, or saving one's settings, arms the day's report; a new main offer tells whoever OK'd their
     // messages against an older one (./tracking.ts).
     'outreach.day.started': armDayReportFor,

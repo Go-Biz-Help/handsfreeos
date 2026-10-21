@@ -1,9 +1,9 @@
 import {
   askNameOn,
   ASK_KINDS_FOR,
-  ASK_REPLIES,
   ASK_SHOWN_STATES,
   ASK_TONES,
+  ASK_CODE_SENT_WORDS,
   ASK_TYPING_WORDS,
   ASK_WORDS,
   askedWords,
@@ -11,6 +11,7 @@ import {
   askNeedsYou,
   askOpen,
   askRepliesFor,
+  askReplyLabel,
   askWaitingWords,
   cantAskWhy,
   tooOldFor,
@@ -31,6 +32,7 @@ import { change, ChangeError } from '@/changes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
@@ -42,7 +44,7 @@ import { Note, Part, useOutreachAnswer, useOutreachContext } from './kit';
  * Asking the extension from the phone (decisions 43 and 44): the buttons on the Groups and Chats screens ask the
  * person's working computer to do something on Facebook (`outreach.ask.make`), the line under each says how it's
  * going, and a step handed to the person has **Carry on** and **Skip** (`outreach.ask.reply`), with **Stop**
- * (`outreach.ask.cancel`). The Live screen lists what was asked; Waiting for you, what needs the person. All of it
+ * (`outreach.ask.cancel`); one waiting on a code a network emailed them has a box for it (`outreach.ask.code`). The Live screen lists what was asked; Waiting for you, what needs the person. All of it
  * needs signal. The words and rules are core's (`@hfos/core/addons/outreach/asks`), the web's too. A button on a
  * network's screen asks that network (`platform`, Facebook's when it names none), only the kinds it can be asked.
  */
@@ -55,6 +57,7 @@ export function useAsks(
   tab: keyof typeof ASK_KINDS_FOR | null,
   screen: string,
   on = true,
+  everySeconds = ASKS_REFETCH_SECONDS,
 ): LiveAnswer<AsksOutput> {
   const ws = useOutreachContext().workspaceId;
   return useOutreachAnswer(
@@ -68,7 +71,7 @@ export function useAsks(
       : null,
     `asks:${ws}:${tab ?? 'all'}`,
     screen,
-    { everySeconds: ASKS_REFETCH_SECONDS },
+    { everySeconds },
   );
 }
 
@@ -98,6 +101,8 @@ export interface AskActions {
   ask(ask: AskInput, platform?: Platform): void;
   reply(ask: AskShown, reply: AskReply): void;
   stop(ask: AskShown): void;
+  /** Sends the code from their email for their computer to put in: true once it's sent. */
+  code?(ask: AskShown, code: string): Promise<boolean>;
 }
 
 function failed(e: unknown) {
@@ -109,14 +114,16 @@ export function useAskActions(asks: AsksOutput | null, reload: () => void): AskA
   const ws = useOutreachContext().workspaceId;
   const [busy, setBusy] = React.useState<string | null>(null);
   const run = React.useCallback(
-    async (key: string, act: () => Promise<string | null>) => {
+    async (key: string, act: () => Promise<string | null>): Promise<boolean> => {
       setBusy(key);
       try {
         const said = await act();
         if (said) toast.show(said);
         reload();
+        return true;
       } catch (e) {
         failed(e);
+        return false;
       } finally {
         setBusy(null);
       }
@@ -144,6 +151,11 @@ export function useAskActions(asks: AsksOutput | null, reload: () => void): AskA
         void run(`stop:${ask.askId}`, async () => {
           await change('outreach.ask.cancel', { workspaceId: ws, askId: ask.askId });
           return ASK_WORDS.stopped;
+        }),
+      code: (ask, code) =>
+        run(`code:${ask.askId}`, async () => {
+          await change('outreach.ask.code', { workspaceId: ws, askId: ask.askId, code });
+          return null;
         }),
     }),
     [busy, run, ws, asks],
@@ -212,13 +224,15 @@ export function AskButton({
 
 /**
  * How an ask is going: its state, its line and when; **Carry on** and **Skip** while a step is handed to the person,
- * and **Stop** while it's open. Typing says to type on the computer: HandsFreeOS never sees a password.
+ * the box for a code from their email while it waits on one, and **Stop** while it's open. Typing says to type on the
+ * computer: HandsFreeOS never sees a password.
  */
 export function AskLine({
   asks,
   ask,
   actions,
   named = false,
+  focusCode = false,
 }: {
   /** The business's clock and the computer, for when and the words while it waits. */
   asks: Pick<AsksOutput, 'timezone' | 'computer' | 'now'>;
@@ -226,6 +240,8 @@ export function AskLine({
   actions: AskActions;
   /** Say what was asked first, for the Live screen's and Waiting for you's lists. */
   named?: boolean;
+  /** The code's box takes the keyboard at once: the code's own screen. */
+  focusCode?: boolean;
 }) {
   const open = askOpen(ask.state);
   const replies = ask.state === 'stuck' && ask.reply === null ? askRepliesFor(ask.kind) : [];
@@ -266,6 +282,9 @@ export function AskLine({
         </Text>
       ) : null}
       {ask.state === 'stuck' && ask.reply ? <Note>{ASK_WORDS.youSaid(ask.reply)}</Note> : null}
+      {ask.state === 'code' && actions.code ? (
+        <CodeBox ask={ask} actions={actions} focus={focusCode} />
+      ) : null}
       {open ? (
         <View className="flex-row flex-wrap gap-2">
           {replies.map((r) => (
@@ -278,7 +297,7 @@ export function AskLine({
               disabled={actions.busy !== null}
               testID={`ask-${r}`}
             >
-              {ASK_REPLIES[r]}
+              {askReplyLabel(ask, r)}
             </Button>
           ))}
           <Button
@@ -294,6 +313,69 @@ export function AskLine({
         </View>
       ) : null}
     </Card>
+  );
+}
+
+/**
+ * The code a network emailed them, for their computer to put in: sent once, it says so till the computer takes it,
+ * with a way to type it again (a typo, or a newer email).
+ */
+function CodeBox({
+  ask,
+  actions,
+  focus = false,
+}: {
+  ask: AskShown;
+  actions: AskActions;
+  focus?: boolean;
+}) {
+  const [code, setCode] = React.useState('');
+  const [sent, setSent] = React.useState(false);
+  const busy = actions.busy === `code:${ask.askId}`;
+  const send = async () => {
+    if (await actions.code?.(ask, code)) {
+      setSent(true);
+      setCode('');
+    }
+  };
+  if (sent)
+    return (
+      <View className="flex-row flex-wrap items-center gap-2">
+        <Text className="text-[13px] leading-[18px] text-text-2" testID="ask-code-sent">
+          {ASK_CODE_SENT_WORDS}
+        </Text>
+        <Button size="sm" variant="ghost" onPress={() => setSent(false)}>
+          {ASK_WORDS.anotherCode}
+        </Button>
+      </View>
+    );
+  return (
+    <View className="gap-2">
+      <Input
+        value={code}
+        onChangeText={setCode}
+        placeholder={ASK_WORDS.code}
+        accessibilityLabel={ASK_WORDS.code}
+        autoFocus={focus}
+        autoComplete="one-time-code"
+        textContentType="oneTimeCode"
+        autoCapitalize="characters"
+        autoCorrect={false}
+        returnKeyType="send"
+        onSubmitEditing={() => void send()}
+        testID="ask-code"
+      />
+      <Button
+        size="sm"
+        className="self-start"
+        onPress={() => void send()}
+        loading={busy}
+        disabled={actions.busy !== null || code.trim() === ''}
+        testID="ask-code-send"
+      >
+        {ASK_WORDS.sendCode}
+      </Button>
+    </View>
   );
 }
 

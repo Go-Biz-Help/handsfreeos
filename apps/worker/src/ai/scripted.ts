@@ -1755,6 +1755,18 @@ function scriptedTodayDraft(message: string) {
       answer: last === 'Them' ? scriptedAnswer(theirs) : 'none',
       drafts: [`Thanks for getting back to me, ${first}.`],
     };
+  // A first message to someone's Requests on Instagram: one short text; a link is for the checks to drop, and a second
+  // text for them to join to the first.
+  if (message.includes('this message lands in their message Requests'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Hi ${first}, I help local owners get more booked calls. Open to hearing how?`,
+        `Hi ${first}, book a call here: https://cal.com/owner/demo`,
+        `Hi ${first}!\n\nOpen to more booked calls?`,
+      ],
+    };
   if (message.includes('Write a short message with the short video'))
     return {
       simple: false,

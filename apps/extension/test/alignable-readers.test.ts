@@ -1,14 +1,17 @@
 /**
  * Alignable's own readers (src/networks/alignable/read.ts; partners stage 6c, part 1): on pages drawn as the owner's
- * Check Alignable outlined them (0.66.0, 19 Oct 2026), with their test ids, links and words where Alignable put them.
- * What a report of each says: how many of each, never what they say.
+ * Check Alignable outlined them (0.66.0, 19 Oct 2026; an open conversation's messages from his Check of 21 Oct 2026),
+ * with their test ids, links and words where Alignable put them. What a report of each says: how many of each, never
+ * what they say.
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { readAlignable } from '../src/networks/alignable/read';
+import { readReplies } from '../src/networks/alignable/replies';
 import { ALIGNABLE } from '../src/networks/alignable/site';
 import { outlineLooking, readLooking } from '../src/networks/looking/read';
 import { pageFound } from '../src/jobs/report';
+import { boxEverything } from './load';
 
 const AL = 'https://www.alignable.com';
 const page = (url: string, body: string) =>
@@ -49,6 +52,18 @@ describe('Alignable’s addresses, as its pages lead', () => {
     const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
     expect(outline).toContain('/biz/connection_requests/quick_connect?business_id={');
     expect(outline).not.toContain('4242');
+  });
+
+  it('keeps its own words with a _ after /biz, and a like’s and a report’s, never a business’s name', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx`,
+      `<a href="/biz/thumbs_up?resource=9">Like</a><a href="/biz/flags/new?resource=9">Report</a>
+        <a href="/biz/acme/contacts">Contacts</a><a href="/biz/acme-roofing">Acme</a>`,
+    );
+    const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
+    expect(outline).toContain('/biz/thumbs_up?resource={');
+    expect(outline).toContain('/biz/flags/new?resource={');
+    expect(outline).not.toMatch(/acme/i);
   });
 });
 
@@ -331,6 +346,67 @@ describe('a business’s page', () => {
   });
 });
 
+describe('a forum question’s own post, written straight in a box of its own', () => {
+  it('reads its words between its author and its counts (the owner’s Check, 0.67.0)', () => {
+    const doc = page(
+      `${AL}/groups/austin-tx/need-a-plumber-12`,
+      `<section><a href="/groups/austin-tx"><span>Back to Austin Business Owners</span></a>
+        <div><div><div><div href="/austin-tx/best-bakery?user=6"><a aria-label="Sam’s profile" href="/austin-tx/best-bakery?user=6"></a></div>
+            <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a></div>
+              <div><span>2d</span></div></div></div>
+          <div>Who does great plumbing in Austin?<br>Old house, slow drains.</div>
+          <div><div><span>You and 2 others</span><a href="/biz/likes?resource=7"><span>3</span><span>Like</span></a></div><hr>
+            <div><a href="/biz/discussions/12">Comment</a>
+              <a href="/biz/connection_requests/make_connection?business_id=43&discussion_id=12&type=mgc"><div>Connect</div></a></div></div></div></div>
+      </section>`,
+    );
+    expect(readAlignable(doc, doc.location.href).threads).toMatchObject([
+      {
+        when: '2d',
+        text: 'Who does great plumbing in Austin? Old house, slow drains.',
+        likes: 3,
+        connect: true,
+      },
+    ]);
+  });
+});
+
+describe('My Network’s Requests', () => {
+  it('reads nobody from its table when it says there are none', () => {
+    const doc = page(
+      `${AL}/biz/my_network/connection_requests`,
+      `<div data-testid="requests-360-table"><div><span>Requests</span></div><table><thead><tr>
+        <th><div data-testid="name-header">Business name</div></th><th><div data-testid="reason-header"><div>Why they want to connect</div></div></th><th></th></tr></thead>
+        <tbody><tr><td><div data-testid="connection-requests-360-empty"><span>You have no new requests.</span>
+          <span>Complete your profile to get more.</span><a href="/biz/acme">Go to your profile</a></div></td></tr></tbody></table></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).requests).toEqual([]);
+  });
+
+  it('reads each request’s business, why they’d connect, and its Accept', () => {
+    const doc = page(
+      `${AL}/biz/my_network/connection_requests`,
+      `<div data-testid="requests-360-table"><table><tbody><tr>
+        <td><a href="/austin-tx/best-bakery?user=6&business_id=43"><span>Sam Lee</span></a><div>Best Bakery</div></td>
+        <td><p>We both serve homeowners in Austin.</p></td>
+        <td><button>Accept</button><button>Ignore</button></td></tr></tbody></table></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).requests).toEqual([
+      {
+        name: 'Sam Lee',
+        profile: {
+          id: '43',
+          username: 'austin-tx-best-bakery',
+          url: `${AL}/austin-tx/best-bakery`,
+        },
+        business: 'Best Bakery',
+        reason: 'We both serve homeowners in Austin.',
+        accept: true,
+      },
+    ]);
+  });
+});
+
 describe('Messages', () => {
   it('reads the conversations down the side, and the one open: who, its box and Send', () => {
     const doc = page(
@@ -356,6 +432,170 @@ describe('Messages', () => {
       profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
       box: true,
       send: true,
+      // A conversation with nothing written in it yet.
+      messages: [],
+      last: null,
     });
+  });
+});
+
+/**
+ * A conversation open on Messages, rebuilt element for element from the owner's Check of 21 Oct 2026 (0.83.0), with
+ * made-up words where its outline hid them: its header's link to the business it's with, the business card and a day
+ * above its messages, then each message's row. Theirs starts with their picture in a link to their business, then who
+ * and when, then its card; the person's own has who and when, its card, then a picture alone.
+ */
+const theirRow = (id: string, words: string, when: string) => `
+  <div><a href="/biz/businesses/${id}?user=5&cyfid=6&cyattr=7"><img alt="" /></a>
+    <div><div><span>Dana Reyes</span><span>${when}</span></div>
+      <div data-testid="rel-card-message"><div>${words}</div><svg role="img"></svg></div></div></div>`;
+const myRow = (words: string, when: string, picture = '<img alt="" />') => `
+  <div><div><div><span>You</span><span>${when}</span></div>
+      <div data-testid="rel-card-message"><div>${words}</div><svg role="img"></svg></div></div>
+    ${picture}</div>`;
+const conversation = (url: string, rows: string) =>
+  page(
+    url,
+    `<div data-testid="inbox"><div><div><header><h3>Messages</h3></header>
+      <div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>Dana Reyes</div><div>Glad to, Dana.</div></div></div>
+        <span data-testid="conversationDate">Oct 20</span></div></div></div></div>
+    <div><div data-testid="channel-header-loaded"><header><div><div><img alt="" />
+        <a href="/biz/businesses/42?user=5&cyfid=6&cyattr=7"><div>Dana Reyes</div></a></div>
+        <div data-testid="inbox-notes-tags"><button aria-expanded="false"><svg role="img"></svg>Tags</button></div></div>
+        <div><div data-testid="ellipses"><div></div></div></div></header></div>
+      <div><div><div><div>
+        <p>You and Dana Reyes are connected on Alignable</p>
+        <div>October 14, 2026</div>
+        <div><a href="/austin-tx/acme-plumbing?user=5"><span><img alt="Dana Reyes Acme Plumbing Co" /><svg role="img"></svg></span></a>
+          <div><div><a href="/austin-tx/acme-plumbing?user=5"><div>Dana Reyes</div><div>Owner at Acme Plumbing Co</div></a>
+            <a href="/austin-tx">Austin, TX</a></div>
+            <div><div><svg role="img" aria-hidden="true"></svg><div>12 mutual connections</div></div>
+              <div><img alt="Local business badge" /><div>On Alignable since 2019</div></div></div></div></div>
+        <div><div>October 20, 2026</div></div>
+        ${rows}
+      </div>
+      <div data-testid="wfm-see-why"><div><svg role="img" data-testid="small-orb"></svg>
+        <button aria-expanded="false" data-testid="see-why-toggle"><span>Why you might want to talk</span></button></div></div></div>
+      <div data-testid="full-view-write-message"><div><div dir="ltr">
+        <div role="presentation" dir="ltr" contenteditable="true" placeholder="Write a message"></div>
+        <textarea placeholder="Write a message"></textarea></div></div>
+        <button aria-label="Send" data-testid="messaging-send-external"><svg role="img"></svg></button></div></div></div></div>`,
+  );
+
+/** Messages as it opened, with their message and then the person's (the outline of /biz/conversations?_fan=…). */
+const INBOX_OPEN = () =>
+  conversation(
+    `${AL}/biz/conversations?_fan=1`,
+    `${theirRow('42', 'Hi Casey,<br><br>Thanks for connecting. We do a lot of water heaters in Austin.<br><br>Talk soon', '9:12 AM')}
+    ${myRow('Glad to, Dana. Want to swap referrals?', '9:40 AM')}`,
+  );
+
+describe('the conversation open on Messages, as the owner’s Check of 21 Oct 2026 drew it', () => {
+  for (const [shape, made] of [
+    ['as its outline drew it', (doc: Document) => doc],
+    ['with a bare box around every element', boxEverything],
+  ] as const) {
+    it(`reads each message as theirs or the person’s, what it says and when, and who wrote last, ${shape}`, () => {
+      const doc = made(INBOX_OPEN());
+      expect(readAlignable(doc, doc.location.href).chat).toEqual({
+        name: 'Dana Reyes',
+        profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+        box: true,
+        send: true,
+        messages: [
+          {
+            from: 'them',
+            text: 'Hi Casey,\nThanks for connecting. We do a lot of water heaters in Austin.\nTalk soon',
+            when: '9:12 AM',
+          },
+          { from: 'me', text: 'Glad to, Dana. Want to swap referrals?', when: '9:40 AM' },
+        ],
+        last: 'me',
+      });
+    });
+  }
+
+  it('reads a conversation’s only message as the person’s, never the business card above it as theirs', () => {
+    // The chat page's outline (/biz/conversations?with_business_id=…): one message, the person's.
+    const doc = conversation(
+      `${AL}/biz/conversations?_fat=1&with_business_id=42`,
+      myRow('Hi Dana, nice to meet you here.', '2:05 PM'),
+    );
+    expect(readAlignable(doc, doc.location.href).chat).toMatchObject({
+      messages: [{ from: 'me', text: 'Hi Dana, nice to meet you here.', when: '2:05 PM' }],
+      last: 'me',
+    });
+    // Their message alone: theirs by the picture in the link to their business.
+    const theirs = boxEverything(
+      conversation(
+        `${AL}/biz/conversations?_fat=1&with_business_id=42`,
+        theirRow('42', 'Do you work in Round Rock too?', '3:10 PM'),
+      ),
+    );
+    expect(readAlignable(theirs, theirs.location.href).chat).toMatchObject({
+      messages: [{ from: 'them', text: 'Do you work in Round Rock too?', when: '3:10 PM' }],
+      last: 'them',
+    });
+  });
+
+  it('never takes the person’s own picture for theirs when it links to their own business', () => {
+    const doc = conversation(
+      `${AL}/biz/conversations?_fan=1`,
+      `${theirRow('42', 'Thanks!', '9:12 AM')}
+      ${myRow('Any time.', '9:40 AM', '<a href="/biz/businesses/77"><img alt="" /></a>')}`,
+    );
+    expect(readAlignable(doc, doc.location.href).chat?.messages.map((m) => m.from)).toEqual([
+      'them',
+      'me',
+    ]);
+  });
+
+  it('tells who wrote back when the last message is theirs, by Alignable’s id for their business', () => {
+    const mine = INBOX_OPEN();
+    expect(readReplies(mine, mine.location.href)).toEqual([]);
+    const doc = conversation(
+      `${AL}/biz/conversations?_fan=1`,
+      `${myRow('Want to swap referrals?', '9:40 AM')}${theirRow('42', 'Yes, let’s talk Tuesday.', '11:02 AM')}`,
+    );
+    expect(readReplies(doc, doc.location.href)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '42',
+        profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+        when: null,
+      },
+    ]);
+  });
+
+  it('counts its messages in a report, never what they say or who', () => {
+    const doc = INBOX_OPEN();
+    const found = pageFound(readLooking(doc, doc.location.href, ALIGNABLE));
+    expect(found).toMatchObject({ chat: true, chatMessages: true, chatLast: true, chats: 1 });
+    expect(JSON.stringify(found)).not.toMatch(/water heaters|referrals|Dana/);
+  });
+});
+
+describe('the box Alignable asks for an emailed code in', () => {
+  const dialog = (words: string, boxes: string) =>
+    page(
+      `${AL}/austin-tx/acme-roofing?user=7`,
+      `<main><h1 title="Dana Reyes">Dana Reyes</h1></main>
+        <div role="dialog"><button aria-label="Close"></button><p>${words}</p>${boxes}
+          <button>Cancel</button><button>Continue</button></div>`,
+    );
+
+  it('finds it over their profile, as About Us’s Edit opened it (0.69.0)', () => {
+    const doc = dialog(
+      'We sent a verification code to your email. Enter it to keep editing.',
+      '<input type="text" />',
+    );
+    expect(readAlignable(doc, doc.location.href).codeBox).toBe(true);
+  });
+
+  it('never takes another box over the page for it', () => {
+    const editor = dialog('Tell people about your business.', '<input type="text" />');
+    expect(readAlignable(editor, editor.location.href).codeBox).toBe(false);
+    const two = dialog('Enter the code we emailed you.', '<input /><input />');
+    expect(readAlignable(two, two.location.href).codeBox).toBe(false);
   });
 });

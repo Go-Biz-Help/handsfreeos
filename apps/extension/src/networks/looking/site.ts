@@ -10,7 +10,12 @@
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
+import type { AboutResult, CodeResult } from '../alignable/own-profile';
+import type { AutoResult, TheirPost } from '../facebook/auto';
 import type { BioResult } from '../facebook/own-profile';
+import type { ReplySighting } from '../facebook/replies';
+import type { ProfileRef } from '../facebook/types';
+import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
 /** A network looked at: Instagram or Alignable. */
@@ -108,12 +113,72 @@ export interface LookingSite {
    */
   readonly placeOpening?: (name: string, url: URL) => PlaceOpening;
   /**
-   * The person's own profile, before the network's steps are (decision 80): read for the AI's check, and the bio put
-   * in where the extension can. Instagram's both; Alignable's read only, till Check has read its editors.
+   * The person's own profile, before the network's steps are (decision 80): read for the AI's check, and the bio or
+   * the About put in where the extension can. Instagram's bio; Alignable's About Us, past the code it emails (decision
+   * 82), put in where it asks for it.
    */
   readonly ownProfile?: {
     readonly read: (doc: Document, href: string) => ProfileRead;
     readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
+    readonly writeAbout?: (doc: Document, about: string) => Promise<AboutResult>;
+    readonly putCode?: (doc: Document, code: string) => Promise<CodeResult>;
+  };
+  /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
+  readonly noticer?: () => Noticer;
+  /**
+   * Unfollowing the account whose page the tab shows, once the person ticked them (Instagram's tidying, its part 12):
+   * `done`, `not_found` when they aren't followed, or `none`.
+   */
+  readonly unfollow?: (doc: Document) => Promise<'done' | 'not_found' | 'none'>;
+  /**
+   * Going through one of its lists, for the person's asks (Alignable's connections and requests, partners stage 6c):
+   * scroll for more, its own Show more pressed where the list ends in one, and a list that opens on a few switched to
+   * its tab of them all. Each says whether it could.
+   */
+  readonly lists?: {
+    readonly scroll: (doc: Document, href: string) => boolean | Promise<boolean>;
+    readonly showAll?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    /**
+     * A chat opened from the side of its messages: for Check to outline, one with messages in it; for Read my chats on
+     * Instagram, whose rows aren't links, the one whose row shows `name`.
+     */
+    readonly openChat?: (
+      doc: Document,
+      href: string,
+      name: string | null,
+    ) => boolean | Promise<boolean>;
+  };
+  /**
+   * The chats on the page whose last message is theirs (decision 22), for HandsFreeOS to hear who wrote back, as the
+   * person goes and as Read my chats goes (Instagram's, its part 13). A network without it tells of none.
+   */
+  readonly replies?: (doc: Document, href: string) => ReplySighting[];
+  /**
+   * The presses its runner makes on its own, once the person lets it (Alignable's, partners stage 6c, part 5; Instagram's,
+   * its part 14), each on the page it's for: their posts read on their page, a like on the one picked, their own Connect
+   * (Instagram's Follow), and a message in their conversation, which on Instagram their account's Message may open
+   * first. A network without them presses none of these.
+   */
+  readonly auto?: {
+    readonly theirPosts: (doc: Document, href: string, profile: ProfileRef) => TheirPost[];
+    readonly like: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+      pick: { readonly index: number; readonly url: string | null },
+    ) => Promise<{ readonly result: AutoResult; readonly postUrl: string | null }>;
+    readonly connect: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+    ) => AutoResult | Promise<AutoResult>;
+    readonly openMessage?: (doc: Document, href: string, profile: ProfileRef) => boolean;
+    readonly message: (
+      doc: Document,
+      href: string,
+      text: string,
+      profile: ProfileRef,
+    ) => Promise<AutoResult>;
   };
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;

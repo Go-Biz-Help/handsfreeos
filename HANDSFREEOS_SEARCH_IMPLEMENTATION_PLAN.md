@@ -1864,7 +1864,7 @@ its step **Built** here with what changed while building.
      copy of them in `packages/db`, which can't import core.
    - Docs: docs/forms.md (Results leaves out binned responses' answers), docs/deleting.md (form answers follow their
      response).
-   - **Built** (2026-10-20). Migration A is `20261027009700_search_windows.sql`, applied locally; it still has to go
+   - **Built** (2026-10-20). Migration A is `20261027010300_search_windows.sql`, applied locally; it still has to go
      on the hosted database ("Apply new migrations", docs/operations.md) before this reaches `main`. What changed
      while building:
      - **Σ and ς fold to σ.** Not an accent, but the local stack's database uses the ICU locale provider, whose
@@ -2324,7 +2324,7 @@ its step **Built** here with what changed while building.
      `searchWords` half), `packages/core/test/commands.test.ts`, `packages/core/test/search/kinds.test.ts`.
    - Docs: docs/operations.md (the file reader, its caps, the sweep and `files:read-backlog`), docs/deleting.md (a
      file's words follow it), docs/search.md.
-   - **Built** (2026-10-20). Migration B is `20261027009800_file_texts.sql`, applied locally; it still has to go on the
+   - **Built** (2026-10-20). Migration B is `20261027010400_file_texts.sql`, applied locally; it still has to go on the
      hosted database ("Apply new migrations", docs/operations.md) before this reaches `main`. No API change:
      `file.save_text` is the worker's alone and never a route, so `pnpm openapi` leaves `packages/api-client` as it
      was. What changed while building:

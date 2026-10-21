@@ -90,6 +90,8 @@ export const workspaces = app.table('workspaces', {
   }),
   /** The model its calls think with, picked by support in /admin; null is the worker's VOICE_MODEL. */
   phoneModel: text('phone_model'),
+  /** Who hears its callers (nova-3, flux), picked by support in /admin; null is the worker's VOICE_LISTENER. */
+  phoneListener: text('phone_listener'),
   /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
   isPlatform: boolean('is_platform').notNull().default(false),
   ...timestamps(),
@@ -732,7 +734,7 @@ export const files = app.table('files', {
 });
 
 /**
- * The words the worker read inside a file, for search (Search 5, 20261027009800). Read exactly when the file could
+ * The words the worker read inside a file, for search (Search 5, 20261027010400). Read exactly when the file could
  * be opened; never port papers or knowledge files; never published to phones. Written by `file.save_text` alone.
  */
 export const fileTexts = app.table('file_texts', {

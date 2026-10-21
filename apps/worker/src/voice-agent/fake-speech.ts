@@ -15,12 +15,13 @@
  * or a phone on a developer's computer) is heard as FAKE_HEARD, since there's nobody to listen. A clip it says is
  * a quiet WAV about as long as the words would take, so the app plays something and moves on.
  */
-import { linearOf } from '@hfos/core/server';
+import { linearOf, type PhoneListener } from '@hfos/core/server';
 import {
   voiceModel,
   type HeardClip,
   type ListenHandlers,
   type Listening,
+  type ListenOptions,
   type SpeakOptions,
   type SpeechServices,
   type VoiceClip,
@@ -110,15 +111,19 @@ export function createFakeSpeech(): SpeechServices & {
   readonly heard: string[];
   /** What was said down a call's open voice (openVoice), rather than by request. */
   readonly lined: string[];
+  /** Who each call asked to hear it (ListenOptions), in order: null is the worker's own. */
+  readonly listeners: (PhoneListener | null)[];
 } {
   const spoken: string[] = [];
   const heard: string[] = [];
   const lined: string[] = [];
+  const listeners: (PhoneListener | null)[] = [];
   return {
     name: 'fake',
     spoken,
     heard,
     lined,
+    listeners,
 
     async openVoice(options): Promise<VoiceLine> {
       let open = true;
@@ -140,7 +145,8 @@ export function createFakeSpeech(): SpeechServices & {
       };
     },
 
-    async listen(handlers: ListenHandlers): Promise<Listening> {
+    async listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening> {
+      listeners.push(options?.listener ?? null);
       let closed = false;
       const ear = fakeEar(handlers);
       return {

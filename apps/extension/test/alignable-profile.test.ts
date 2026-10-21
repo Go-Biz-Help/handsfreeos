@@ -96,7 +96,24 @@ describe('their own Alignable profile', () => {
       ],
       featured: ['Storm inspections: A free roof check within two days of any storm.'],
       posts: [],
+      recommendations: null,
     });
+  });
+
+  it('counts the recommendations it shows, none beside Alignable’s ask for one, and doesn’t guess otherwise', () => {
+    const read = (extra: string) => {
+      const doc = ownProfile();
+      (doc.querySelector('main, [role="main"]') ?? doc.body).insertAdjacentHTML('beforeend', extra);
+      return ALIGNABLE.ownProfile!.read(doc, `${AL}/columbus-oh/summit-roofing?user=77`)
+        .recommendations;
+    };
+    expect(read('<section><h2>12 Recommendations</h2></section>')).toBe(12);
+    expect(
+      read('<section><a href="/biz/recs"><span>Recommendations (3)</span></a></section>'),
+    ).toBe(3);
+    expect(read('<section><span>1,204 recommendations</span></section>')).toBe(1204);
+    // A profile with none shows only the ask (the owner's own, 0.71.0).
+    expect(read('<span><a href="/biz/word_of_mouth">Ask for a recommendation</a></span>')).toBe(0);
   });
 
   it('lists the pages its Edit links open: About Us’s, their details’ and a service’s', () => {
@@ -215,6 +232,29 @@ describe('their own Alignable profile', () => {
     expect(doc.querySelector('textarea')!.value).toBe('We fix roofs.');
     // A read of the page counts its boxes, so Check knows it's drawn.
     expect(readLooking(doc, doc.location.href, ALIGNABLE).boxes).toBe(2);
+  });
+
+  it('never presses About Us’s Edit on their profile, which emails them a code to go on, nor takes the gallery’s form for it', async () => {
+    // The owner's Check (0.67.0): About Us's page leads back to the profile, where only the gallery's form was, and
+    // its Edit opens a box asking for a code Alignable emails them (0.69.0).
+    const doc = page(
+      `${AL}/austin-tx/acme-roofing?user=7`,
+      `<main><div><div>About Us</div><a href="/biz/profile/about_us?source=about_us_section"><div>Edit</div></a></div>
+        <form><div data-testid="gallery-uploader-picker-dropzone"><input type="file" /></div>
+          <label for="t">Title</label><input id="t" type="text" /><label for="d">Description</label>
+          <textarea id="d" placeholder="Add description"></textarea><a>Cancel</a><input type="submit" /></form></main>`,
+    );
+    let pressed = false;
+    doc.querySelector('a[href*="about_us_section"]')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      pressed = true;
+    });
+    expect(await ALIGNABLE.looks.about!.look(doc, doc.location.href)).toMatchObject({
+      step: 'about',
+      works: true,
+      found: { button: true, emailsCode: true },
+    });
+    expect(pressed).toBe(false);
   });
 
   it('finds About Us’s Save drawn as the form’s own submit, as the owner’s Check found it (0.66.0)', () => {

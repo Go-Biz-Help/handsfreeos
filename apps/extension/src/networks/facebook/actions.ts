@@ -48,7 +48,8 @@ import {
   threadFromUrl,
 } from './urls';
 
-export type StepKind = 'friend_request' | 'like' | 'comment' | 'message';
+/** The steps noted; a recommendation is Alignable's (../alignable/actions.ts). */
+export type StepKind = 'friend_request' | 'like' | 'comment' | 'message' | 'recommend';
 
 /** A group someone was found in: its link, and its name when the page showed it. */
 export interface StepGroup extends GroupRef {

@@ -10,7 +10,7 @@ plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATIO
 phone together: the side menu's box with its dropdown and ⌘K, the Search page, the phone-width header's search
 outside the Inbox, the phone's Search button in its top bar, Search settings at the top of Settings on both, and
 Real Estate's groups through core's contract for add-ons. `/customers?q=` still filters Contacts, as it always has.
-Its two migrations, `20261027009700_search_windows.sql` and `20261027009800_file_texts.sql`, go on the hosted
+Its two migrations, `20261027010300_search_windows.sql` and `20261027010400_file_texts.sql`, go on the hosted
 database before it reaches `main` ("Apply new migrations", docs/operations.md). One call is still Chris's: the box's
 400 ms target (What it costs, below).
 
@@ -27,8 +27,8 @@ database before it reaches `main` ("Apply new migrations", docs/operations.md). 
 | Document numbers                      | `documentNumberProbe` and `documentNumberMatches` in `packages/core/src/money/numbering.ts`                                                                                                                                                                                                                                   |
 | Add-ons answering                     | `packages/core/src/search/addon.ts` (`AddonSearchInput`, `AddonSearchOutput`, an add-on's kinds and the links let through); `search/server/addons.ts` (which add-ons answer, asking each, holding its answer to core's rules, `addonSearchIssues`); `executeQueryWithin` in `kernel/execute.ts`; `route: false` on `QueryDef` |
 | The API's guards                      | `apps/api/src/routes.ts` (rate limits, and each search inside a slot) and `apps/api/src/search-slots.ts` (the slot gate)                                                                                                                                                                                                      |
-| The database                          | `supabase/migrations/20261027009700_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                                                                                                                                      |
-| The words inside files                | `supabase/migrations/20261027009800_file_texts.sql` (`app.file_texts`, `private.search_words`, the forget trigger, `private.files_without_text`); `file.save_text` (`commands/file-text.ts`)                                                                                                                                  |
+| The database                          | `supabase/migrations/20261027010300_search_windows.sql`: `private.search_fold`, the windows' indexes, and `form_answers_follow_response`                                                                                                                                                                                      |
+| The words inside files                | `supabase/migrations/20261027010400_file_texts.sql` (`app.file_texts`, `private.search_words`, the forget trigger, `private.files_without_text`); `file.save_text` (`commands/file-text.ts`)                                                                                                                                  |
 | The worker's file reader              | `apps/worker/src/files/file-text.ts` (the job, the sweep, `FILE_READER`) and `office-text.ts` (Word and Excel); `pnpm --filter @hfos/worker run files:read-backlog` lists what's left to read                                                                                                                                 |
 | Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, what results open, and the pure ones); `packages/core/test/addons/search-contract.test.ts` and `test/execute-query-within.test.ts` (add-ons answering); `apps/api/test/search-*.test.ts`; `packages/db/test/search-*.test.ts`                |
 | The load check                        | `scripts/search-load.mjs`, local stack only (What it costs, below)                                                                                                                                                                                                                                                            |
@@ -62,8 +62,8 @@ database before it reaches `main` ("Apply new migrations", docs/operations.md). 
   `route: false` query that core runs after its own kinds. Real Estate is the first.
 - **The API's guards**: a rate limit a person on each query, and a slot gate on each machine (How a search runs,
   below; docs/operations.md has them for running the API).
-- **Two migrations**: `20261027009700_search_windows.sql` (the fold, the windows' indexes, and a binned response's
-  answers hidden) and `20261027009800_file_texts.sql` (a file's words and who may read them). No new extension, no
+- **Two migrations**: `20261027010300_search_windows.sql` (the fold, the windows' indexes, and a binned response's
+  answers hidden) and `20261027010400_file_texts.sql` (a file's words and who may read them). No new extension, no
   text index, no column on a table phones copy, and no sync change.
 - **The worker's file reader**, which keeps the words inside text PDFs, plain text, CSV, Word and Excel files for
   Files to find.
@@ -311,7 +311,7 @@ phone. Change a tier rule in `rank.ts` or a kind's reasons in `explain.ts` (whic
 phone's `searchCopy` share), not in its SQL alone.
 
 **One fold, in core and in the database.** `FOLD_FROM` and `FOLD_TO` (`search/fold.ts`) and the two strings in
-`private.search_fold` (`20261027009700_search_windows.sql`) are one map, one letter for one letter, so a mark found
+`private.search_fold` (`20261027010300_search_windows.sql`) are one map, one letter for one letter, so a mark found
 in folded text fits the original and the phone ranks a row as the server does. A change to the map is a new
 migration that writes both strings again; `fold.test.ts` runs core and the database over every character of the
 common blocks and fails if they disagree. `private.search_fold` has no pinned search path on purpose, so Postgres

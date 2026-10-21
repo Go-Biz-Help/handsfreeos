@@ -6,8 +6,9 @@
  * - **Taking:** only the computer that works for the person gets one, the oldest first, each network's line its own
  *   (`platform`). It says which ask it has under way on that line, so HandsFreeOS ends any other it handed here before
  *   on that network (Chrome restarted mid-way) as lost, and never another network's.
- * - **How it's going:** a new state (working, needs you, typing) goes at once; a new line alone at most every
- *   `ASK_LINE_SECONDS`. The answer says whether the person pressed Stop, and their answer to a step handed to them.
+ * - **How it's going:** a new state (working, needs you, typing, a code) goes at once; a new line alone at most every
+ *   `ASK_LINE_SECONDS`. The answer says whether the person pressed Stop, their answer to a step handed to them, and
+ *   the code from their email they typed, once.
  * - **The end** goes with its own id and moment. With no connection it waits here (at most 20) and goes with the next
  *   beat; one refused for good is let go. Each says whose it is, so one person's never goes as another's.
  */
@@ -134,7 +135,7 @@ export async function take(
   );
 }
 
-/** How it's going: whether the person pressed Stop, and their answer to a step handed to them. */
+/** How it's going: whether the person pressed Stop, their answer to a step handed to them, and a code they typed. */
 export function progress(
   place: Place,
   askId: string,

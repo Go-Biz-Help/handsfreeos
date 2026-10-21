@@ -1,6 +1,7 @@
 /**
  * Deepgram for a live call (M18 step 5): Nova-3 listening over a websocket, and Aura 2 speaking over HTTP.
- * The same DEEPGRAM_API_KEY the recorded-call transcripts use.
+ * The same DEEPGRAM_API_KEY the recorded-call transcripts use. VOICE_LISTENER=flux listens with Flux instead
+ * (deepgram-flux.ts), and so does a business support switched to Flux in /admin; everything else stays the same.
  *
  * Listening:
  * - `language=multi` hears English and Spanish (and switching between them) without being told which.
@@ -16,15 +17,20 @@
  * Voice mode's clips (the web and the phone): a recording is one pre-recorded request, heard in English or
  * Spanish without being told which, and a clip to play is one Aura 2 request answered as an MP3.
  */
+import type { PhoneListener } from '@hfos/core/server';
 import type { Logger } from 'pino';
 import WebSocket from 'ws';
+import { listenWithFlux } from './deepgram-flux';
 import { openDeepgramVoice } from './deepgram-voice-line';
 import {
+  heardEndMs,
+  MULAW_BYTES_A_SECOND,
   voiceModel,
   type HeardClip,
   type HeardWords,
   type ListenHandlers,
   type Listening,
+  type ListenOptions,
   type SpeakOptions,
   type SpeechServices,
 } from './speech';
@@ -47,6 +53,7 @@ interface DeepgramResult {
     readonly alternatives?: readonly {
       readonly transcript?: string;
       readonly languages?: readonly string[];
+      readonly words?: readonly { readonly end?: number }[];
     }[];
   };
 }
@@ -104,8 +111,11 @@ export function heardClipOf(reply: DeepgramClipReply): HeardClip {
 const timeoutWith = (ms: number, signal?: AbortSignal) =>
   signal ? AbortSignal.any([signal, AbortSignal.timeout(ms)]) : AbortSignal.timeout(ms);
 
-/** One of Deepgram's messages, as words heard, or null when it's something else. */
-export function heardOf(m: DeepgramResult): HeardWords | null {
+/**
+ * One of Deepgram's messages, as words heard, or null when it's something else. `heardTo` is how much of the
+ * call's audio it had been sent by then, in seconds.
+ */
+export function heardOf(m: DeepgramResult, heardTo = 0): HeardWords | null {
   if (m.type !== 'Results') return null;
   const alt = m.channel?.alternatives?.[0];
   const text = (alt?.transcript ?? '').trim();
@@ -114,23 +124,30 @@ export function heardOf(m: DeepgramResult): HeardWords | null {
     final: !!m.is_final,
     endOfTurn: !!m.speech_final,
     language: alt?.languages?.[0] ?? null,
+    endOfTurnMs: m.speech_final ? heardEndMs(heardTo, alt?.words?.at(-1)?.end) : null,
   };
 }
 
 export function createDeepgramSpeech(deps: {
   readonly apiKey: string;
   readonly log: Logger;
+  /** Who hears a live call unless the business has its own (ListenOptions): Nova-3 or Flux (VOICE_LISTENER). */
+  readonly listener?: PhoneListener;
 }): SpeechServices {
   return {
     name: 'deepgram',
 
-    listen(handlers: ListenHandlers): Promise<Listening> {
+    listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening> {
+      if ((options?.listener ?? deps.listener) === 'flux')
+        return listenWithFlux({ apiKey: deps.apiKey, handlers, log: deps.log });
       return new Promise((resolve, reject) => {
         const ws = new WebSocket(`${LISTEN_URL}?${listenParams().toString()}`, {
           headers: { authorization: `Token ${deps.apiKey}` },
         });
         let open = false;
         let lastSent = Date.now();
+        /** All the audio of the call so far, in bytes: where the call is on Deepgram's clock. */
+        let heard = 0;
         const timer = setTimeout(() => {
           if (!open) {
             ws.terminate();
@@ -152,6 +169,7 @@ export function createDeepgramSpeech(deps: {
             send(audio) {
               if (ws.readyState !== WebSocket.OPEN) return;
               lastSent = Date.now();
+              heard += audio.length;
               ws.send(audio);
             },
             async close() {
@@ -173,8 +191,8 @@ export function createDeepgramSpeech(deps: {
           }
           if (m.type === 'SpeechStarted') return handlers.onSpeechStarted();
           if (m.type === 'UtteranceEnd') return handlers.onUtteranceEnd();
-          const heard = heardOf(m);
-          if (heard) handlers.onWords(heard);
+          const words = heardOf(m, heard / MULAW_BYTES_A_SECOND);
+          if (words) handlers.onWords(words);
         });
         ws.on('error', (e) => {
           stop();

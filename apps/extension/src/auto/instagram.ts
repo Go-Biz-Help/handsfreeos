@@ -1,0 +1,1049 @@
+/**
+ * Instagram's runner (the Instagram and Alignable plan's part 14, "On its own"): the extension on its own on Instagram,
+ * as LinkedIn's (./linkedin.ts) and Alignable's (./alignable.ts) runners are on theirs, beside them and Facebook's
+ * (./run.ts) and never waiting on any. It has its own line (its own turn with Instagram's asks, ./turns.ts), its own
+ * window, its own alarm and its own state (`hfos.auto.instagram`).
+ *
+ * - **Only while Instagram's day is started.** Instagram's Start my day, pressed in HandsFreeOS or on the phone, which
+ *   the beat brings (`days.instagram`); Stop for today there ends what it's doing at its next page, and its asks' too.
+ *   It works only while Instagram is on for the person and Chrome allows it, while noting is on, while this computer
+ *   is the one that works, and while the person's Instagram Sending choice isn't Off.
+ * - **Lists first** (decision 60): before Instagram's first day, its followers are saved to their end, who to unfollow
+ *   worked out for the person to tick, and the followers checked once (./lists.ts); after that the followers weekly.
+ * - **Once a day,** as the person's Instagram choices say (`collect`): the newest followers (a follow-back is its
+ *   accepting, so their first message comes), the followers checked for good fits (20 accounts a day to start, its
+ *   kit's `checksPerDay`), their chats read for the AI with who wrote last noted, Find partners (Instagram's search,
+ *   its hashtags and the accounts it suggests, then those found read for the AI's partner check), and from part 15
+ *   the day's hashtags and places, made from the playbooks' area and words, whose posts go for the AI's check (a good
+ *   one's author gets a like, then a follow), and their notifications' warm leads (whoever followed them is followed
+ *   back; whoever liked or commented gets a like back, then a follow).
+ * - **Then Instagram's list for today** (`outreach.today` with `platform: 'instagram'`), the kinds it does on its own
+ *   (`auto`): a look at their account and a like on one or two of their recent posts (the warm-up), the first that
+ *   nothing rules out (never one about grief, illness or trouble), a second only while the day's likes have room past
+ *   the warm-ups still to come; a follow a day after, with their account's own Follow; and the messages: drafted after
+ *   a look-up of their account, and sent once OK'd in their chat, typing only into its own box. The first message
+ *   goes once they follow back; the one to their Requests (part 12's rule) as one text, never split; follow-ups only in
+ *   a chat they've answered or accepted, as HandsFreeOS lists them. Comments wait for the person's OK each time
+ *   (public writing: they post them, and the extension notes them), and unfollowing stays the person's ticks, as
+ *   withdrawing old requests does on the other networks.
+ * - **At Instagram's pace:** a few minutes between steps, slower than LinkedIn's, within Instagram's low limits, which
+ *   HandsFreeOS keeps (its list holds only what they have room for).
+ * - **Stops on any Instagram warning** ("Action blocked", "Try again later"), for the day, on Instagram alone: the
+ *   other networks go on. HandsFreeOS halves its limits for a week and takes follows off its list for two days.
+ *
+ * Each step is noted as the extension's own (`auto`), as Instagram's (`platform: 'instagram'`). Anything its page
+ * doesn't let it do is handed to the person (`noteNeed`), never guessed.
+ */
+import { businessDay } from '@hfos/core/addons/outreach/automation';
+import type { MessageKind } from '@hfos/core/addons/outreach/automation';
+import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
+import { LIKE_POSTS_READ, likedText, neverLike } from '@hfos/core/addons/outreach/like-pick';
+import { standDownWords } from '@hfos/core/addons/outreach/live';
+import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
+import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
+import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
+import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { haltAsk } from '../asks/run';
+import { follow, loadSettings } from '../hfos/follow';
+import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
+import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
+import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { chatCollect } from '../hfos/saves';
+import { answer, api, call, Refused, savingTo } from '../hfos/session';
+import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
+import { chatMemory } from '../jobs/chats';
+import { chatPageOf, readInstagramChats } from '../jobs/instagram/chats';
+import { accountIn, checkFollowers, isTheirs, readThemOnInstagram } from '../jobs/instagram/checks';
+import { readInstagramWarmLeads } from '../jobs/instagram/engaged';
+import { lookUpOnInstagram } from '../jobs/instagram/lookup';
+import { searchInstagram } from '../jobs/instagram/partner-search';
+import { saveNewFollowers } from '../jobs/instagram/people';
+import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
+import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
+import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { checkPartners } from '../jobs/partners';
+import { reporter } from '../jobs/report';
+import { instagram } from '../networks';
+import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
+import { isWorking, statesNow } from '../networks/on';
+import { WorkTab } from '../tab';
+import { DAILY_CHATS } from './daily';
+import {
+  beforeDay,
+  beforeDayDoing,
+  beforeDayLine,
+  doBeforeDay,
+  markOf,
+  type BeforeDay,
+} from './lists';
+import {
+  freshState,
+  gapAfter,
+  INSTAGRAM_STATE_KEY,
+  isState,
+  needOf,
+  workKey,
+  workLeft,
+  type AutoState,
+  type DailyJob,
+  type DoneKind,
+  type Work,
+} from './plan';
+import { askInLine, inTurn } from './turns';
+
+const PLATFORM: Platform = 'instagram';
+const NAME = NETWORKS.instagram.name;
+
+export const INSTAGRAM_ALARM = 'hfos-auto-instagram';
+
+/**
+ * The kinds it does on its own on Instagram, in order (its kit's `runs.auto`): comments wait for the person's OK each
+ * time, and follow requests from private accounts are theirs to confirm.
+ */
+export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
+/**
+ * The once-a-day jobs on Instagram, in order: the newest followers first (`requests`: on Instagram, who followed back
+ * is who accepted), then the checks, the chats, Find partners, and from part 15 the day's hashtags and places
+ * (`posts`) and the notifications' warm leads (`helpful`, as Alignable's are).
+ */
+export const INSTAGRAM_DAILY = [
+  'requests',
+  'checks',
+  'chats',
+  'partners',
+  'posts',
+  'helpful',
+] as const satisfies readonly DailyJob[];
+type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
+
+const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
+  requests: 'Reading your newest followers on Instagram…',
+  checks: 'Checking your followers for good fits…',
+  chats: 'Reading your Instagram chats for the AI…',
+  partners: 'Searching Instagram for people who could partner with you, then reading them…',
+  posts: 'Looking at your area’s hashtags and places on Instagram for the AI…',
+  helpful: 'Reading your notifications for who followed you, or liked or commented on your posts…',
+};
+const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
+  requests: 'Your newest followers',
+  checks: 'Check my followers',
+  chats: 'Read my chats',
+  partners: 'Find partners',
+  posts: 'Your hashtags and places',
+  helpful: 'Who engaged with you',
+};
+
+/** Instagram's pace between steps: slower than LinkedIn's, as Instagram blocks fast (the plan's "The risk"). */
+export const INSTAGRAM_GAP_MS = { least: 3 * 60_000, most: 8 * 60_000 } as const;
+/** While Instagram draws what a press opened. */
+const SETTLE_MS = 2_000;
+/** A gap longer than this closes its window until the next step. */
+const KEEP_WINDOW_MS = 5 * 60_000;
+/** After something went wrong, or Instagram asked them to sign in, it tries again this much later. */
+const AGAIN_MS = 15 * 60_000;
+/** While noting is off, it looks again this often. */
+const LOOK_AGAIN_MS = 30 * 60_000;
+/** While an ask on Instagram goes first, it looks again after this. */
+const ASK_FIRST_MS = 2 * 60_000;
+/** Of their latest posts, the most a warm-up likes: one, or two while the day's likes have room. */
+const LIKES_MOST = 2;
+
+const tab = new WorkTab('window', instagram);
+/** Instagram's runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
+export const instagramRunnerTabId = (): number | null => tab.tabId;
+
+let busy = false;
+/** Instagram's Stop for today, or another computer working now: a job under way ends at its next page. */
+let stopAsked = false;
+let again = false;
+
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+const now = () => new Date().toISOString();
+const pickGap = (random: number) =>
+  Math.round(INSTAGRAM_GAP_MS.least + random * (INSTAGRAM_GAP_MS.most - INSTAGRAM_GAP_MS.least));
+
+// ------------------------------------------------------------------------------------------------- state
+
+async function stateNow(): Promise<AutoState> {
+  try {
+    const value: unknown = (await chrome.storage.local.get(INSTAGRAM_STATE_KEY))[
+      INSTAGRAM_STATE_KEY
+    ];
+    return isState(value) ? value : freshState(null);
+  } catch {
+    return freshState(null);
+  }
+}
+
+let writing: Promise<unknown> = Promise.resolve();
+function setState(change: Partial<AutoState>): Promise<AutoState> {
+  const write = writing.then(async () => {
+    const next = { ...(await stateNow()), ...change };
+    await chrome.storage.local.set({ [INSTAGRAM_STATE_KEY]: next });
+    return next;
+  });
+  writing = write.catch(() => undefined);
+  return write;
+}
+
+const say = (line: string, more: Partial<AutoState> = {}) =>
+  setState({ line, lineAt: Date.now(), needs: false, ...more });
+
+async function goAt(when: number | null): Promise<void> {
+  if (when === null) await chrome.alarms.clear(INSTAGRAM_ALARM);
+  else await chrome.alarms.create(INSTAGRAM_ALARM, { when: Math.max(when, Date.now() + 30_000) });
+  await setState({ nextAt: when });
+}
+
+async function closeWindow(): Promise<void> {
+  await tab.close();
+  await setState({ tabId: null });
+}
+
+// ------------------------------------------------------------------------------------------------- Instagram
+
+/**
+ * What a step came to: done, passed over (handed to the person with `need`), a stop for the day, or (`again`) a stop
+ * for now with nothing tried, when Instagram asked them to sign in.
+ */
+type Outcome =
+  | { readonly done: true; readonly line: string }
+  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly stop: string }
+  | { readonly again: string };
+
+const SIGNED_OUT =
+  'Stopped for now: Instagram asked you to sign in. Sign in to Instagram in this browser, and it tries again in a few minutes.';
+
+/** Stops for the day on Instagram's warning on the page, noting it in HandsFreeOS once as Instagram's. */
+async function warnedOn(page: InstagramPage, businessId: string): Promise<string | null> {
+  if (!page.warnings.length) return null;
+  const fresh = await keepWarning(page.warnings, PLATFORM);
+  if (fresh.length)
+    await answer({
+      type: 'hfos-warning',
+      input: warningInput(businessId, fresh, page.url, PLATFORM),
+    });
+  return warnedLine(page.warnings, NAME);
+}
+
+const read = () => readInstagramIn(tab);
+
+/** Their account as kept: by the name in its address. */
+function wantOf(profileUrl: string | null): ProfileRef | null {
+  const account = accountIn(profileUrl);
+  return account ? { id: null, username: account.username, url: account.url } : null;
+}
+
+/** Opens their account (a look they may see) and checks it's theirs, by the name in its address. */
+async function openAccount(
+  item: TodayListItem,
+  businessId: string,
+): Promise<
+  | { readonly page: InstagramPage; readonly noted: ProfileRef; readonly name: string }
+  | { readonly outcome: Outcome }
+> {
+  const want = wantOf(item.profileUrl);
+  if (!want) return { outcome: { done: false, line: `${item.name}: no Instagram account kept` } };
+  await tab.open(want.url);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { outcome: { stop } };
+  if (page.signedOut) return { outcome: { again: SIGNED_OUT } };
+  const shown = page.found.profile;
+  if (!shown || !isTheirs(shown, { username: want.username!, url: want.url }))
+    return {
+      outcome: {
+        done: false,
+        line: `${item.name}: Instagram showed a different account`,
+        need: true,
+      },
+    };
+  return { page, noted: want, name: shown.name ?? item.name };
+}
+
+/** Where a warm-up leads: the follow, or for a partner (decision 81) the ask about partnering. */
+const afterWarmUp = (item: TodayListItem) =>
+  item.kind === 'partner_warm_up'
+    ? {
+        without: 'the ask about partnering goes without',
+        next: 'the ask comes tomorrow',
+        now: 'the ask about partnering can go next',
+      }
+    : {
+        without: 'the follow goes without',
+        next: 'the follow comes tomorrow',
+        now: 'the follow can go next',
+      };
+
+/** Tells HandsFreeOS there was nothing to like: what comes after the warm-up needn't wait for one. */
+async function missed(item: TodayListItem, businessId: string): Promise<void> {
+  await call(
+    api().POST('/v1/commands/outreach.warm_up.missed', {
+      body: { workspaceId: businessId, profileId: item.profileId! },
+    }),
+    businessId,
+  );
+}
+
+/** Likes one post of theirs on its own page, and notes it: whether it's liked now, or the step's end. */
+async function likeOne(
+  item: TodayListItem,
+  businessId: string,
+  them: ProfileRef,
+  post: { readonly url: string; readonly text: string },
+): Promise<'liked' | 'already' | 'not' | { readonly stop: string } | { readonly again: string }> {
+  await tab.open(post.url);
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.signedOut) return { again: SIGNED_OUT };
+  const liked = await tab.ask({ type: 'hfos-like-post', profile: them, index: 0, url: post.url });
+  if (!liked.ok) throw new Error(liked.error);
+  if (liked.result === 'none' || liked.result === 'not_sent') return 'not';
+  if (liked.result === 'done') {
+    await pause(SETTLE_MS);
+    const after = await warnedOn(await read(), businessId);
+    if (after) return { stop: after };
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: them },
+        group: null,
+        postUrl: liked.postUrl ?? post.url,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: post.text, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return liked.result === 'done' ? 'liked' : 'already';
+}
+
+/**
+ * A look at their account, and a like on one or two of their recent posts, a day before the follow: the first that
+ * nothing rules out (never one about grief, illness or trouble), and the next one too while the day's likes have room
+ * past the warm-ups still to come (`spare`). One liked already counts. With no post to see (a private account, or none
+ * yet), or none right to like, the look alone is the warm-up, and HandsFreeOS hears there was nothing to like, so the
+ * follow needn't wait.
+ */
+async function warmUp(item: TodayListItem, businessId: string, spare: number): Promise<Outcome> {
+  const after = afterWarmUp(item);
+  const opened = await openAccount(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  const lookOnly = async (why: string): Promise<Outcome> => {
+    await missed(item, businessId);
+    return {
+      done: true,
+      line: `Looked at ${item.name}’s Instagram, ${why}: the look is the warm-up, so ${after.now}`,
+    };
+  };
+  const theirs = await tab.ask({
+    type: 'hfos-their-posts',
+    profile: opened.noted,
+    most: LIKE_POSTS_READ,
+  });
+  if (!theirs.ok) throw new Error(theirs.error);
+  const posts = theirs.posts.flatMap((p) => (p.url ? [{ url: p.url, text: p.text }] : []));
+  if (!posts.length) return lookOnly('with no post of theirs to see');
+  // The first that nothing rules out, then the next after it that nothing rules out either.
+  const safe = posts.filter((post) => !neverLike({ text: post.text, pictures: [] }));
+  if (!safe.length) return lookOnly('and none of their posts were right to like');
+  const most = spare > 0 ? LIKES_MOST : 1;
+  let liked = 0;
+  let already = 0;
+  for (const post of safe.slice(0, most)) {
+    if (liked + already > 0) await pause(SETTLE_MS);
+    const went = await likeOne(item, businessId, opened.noted, post);
+    if (typeof went === 'object') return went;
+    if (went === 'liked') liked++;
+    else if (went === 'already') already++;
+    else if (liked + already === 0) {
+      await missed(item, businessId);
+      return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
+    } else break;
+  }
+  return {
+    done: true,
+    line: !liked
+      ? `${item.name}’s post was liked already: ${after.next}`
+      : `Looked at ${item.name}’s Instagram and liked ${liked === 1 ? 'a post' : `${liked} posts`} of theirs: ${after.next}`,
+  };
+}
+
+/** A follow, with their account's own Follow (or Follow Back), then their account read again to see it went. */
+async function followThem(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const opened = await openAccount(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  const standing = opened.page.found.profile!.following;
+  if (standing === 'following' || standing === 'requested')
+    return { done: false, line: `${item.name}: you follow them already, or asked to` };
+  const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
+  if (!went.ok) throw new Error(went.error);
+  if (went.result === 'already')
+    return { done: false, line: `${item.name}: you follow them already, or asked to` };
+  if (went.result === 'none')
+    return { done: false, line: `${item.name}: couldn’t find Follow on their account`, need: true };
+  await pause(SETTLE_MS);
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  const standingNow = page.found.profile?.following;
+  if (went.result !== 'done' || (standingNow !== 'following' && standingNow !== 'requested'))
+    return { done: false, line: `${item.name}: Instagram didn’t take the follow`, need: true };
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'friend_request',
+        to: { name: opened.name, profile: opened.noted },
+        group: null,
+        postUrl: null,
+        thread: null,
+        replying: null,
+        auto: true,
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return {
+    done: true,
+    line:
+      standingNow === 'requested'
+        ? `Asked to follow ${item.name}: their account is private`
+        : `Followed ${item.name}`,
+  };
+}
+
+// ------------------------------------------------------------------------------------------------- messages
+
+/** A job in the runner's window, for the look-up and the once-a-day jobs, noting Instagram's warnings as its own. */
+function jobFor(businessId: string): Job {
+  return {
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    stopped: () => stopAsked,
+    progress: (line) => void say(line, { working: true }).catch(() => undefined),
+    async warn(words, url) {
+      const fresh = await keepWarning(words, PLATFORM);
+      if (fresh.length)
+        await answer({
+          type: 'hfos-warning',
+          input: warningInput(businessId, fresh, url, PLATFORM),
+        });
+    },
+  };
+}
+
+/**
+ * Opens the chat with them: its own page by the chat's id when it's kept, else their account's Message, which opens
+ * it over the page or on a page of its own. It must be with them, by the name in their account's address.
+ */
+async function openChat(
+  item: TodayListItem,
+  businessId: string,
+): Promise<
+  | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
+  | { readonly outcome: Outcome }
+> {
+  const want = wantOf(item.profileUrl);
+  if (item.threadKey) {
+    const url = chatUrlOn(PLATFORM, item.threadKey)!;
+    await tab.open(url);
+    await setState({ tabId: tab.tabId });
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { outcome: { stop } };
+    if (page.signedOut) return { outcome: { again: SIGNED_OUT } };
+    const chat = page.found.chat;
+    const them = chat?.with
+      ? !want || chat.with.username.toLowerCase() === want.username!.toLowerCase()
+      : chat?.name != null && chat.name.trim().toLowerCase() === item.name.trim().toLowerCase();
+    const profile =
+      want ?? (chat?.with ? { id: null, username: chat.with.username, url: chat.with.url } : null);
+    if (!chat || !them || !profile)
+      return {
+        outcome: { done: false, line: `${item.name}: Instagram showed a different chat` },
+      };
+    return { profile, thread: { id: item.threadKey, encrypted: false, url } };
+  }
+  const opened = await openAccount(item, businessId);
+  if ('outcome' in opened) return opened;
+  const pressed = await tab.ask({ type: 'hfos-open-message', profile: opened.noted });
+  if (!pressed.ok)
+    return {
+      outcome: { done: false, line: `${item.name}: couldn’t find Message on their account` },
+    };
+  await pause(SETTLE_MS);
+  // On a page of its own, the chat's id is in its address.
+  const page = await read();
+  const id = page.found.chat?.thread ?? null;
+  return {
+    profile: opened.noted,
+    thread: id ? { id, encrypted: false, url: chatUrlOn(PLATFORM, id)! } : null,
+  };
+}
+
+/** Their chat as it is now, before a reply is drafted: brought into HandsFreeOS as Instagram's. */
+async function bringInChat(
+  item: TodayListItem,
+  businessId: string,
+): Promise<{ readonly stop: string } | null> {
+  if (!item.threadKey) return null;
+  const opened = await openChat(item, businessId);
+  if ('outcome' in opened) return 'stop' in opened.outcome ? opened.outcome : null;
+  const chat = (await read()).found.chat;
+  const page = chat ? chatPageOf(chat) : null;
+  const built = page ? chatCollect(page, new Date(), null, PLATFORM) : null;
+  if (built)
+    await answer({
+      type: 'hfos-collect-chats',
+      input: { workspaceId: businessId, platform: PLATFORM, chats: [built] },
+    });
+  return null;
+}
+
+/** Drafts a message with the AI after looking them up on Instagram, and hands it to HandsFreeOS to wait or go. */
+async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.kind === 'reply' || item.kind === 'partner_reply') {
+    const stopped = await bringInChat(item, businessId);
+    if (stopped) return stopped;
+  }
+  const looked = await lookUpOnInstagram(jobFor(businessId), item.name, item.profileUrl);
+  if ('end' in looked)
+    return looked.end.warned ? { stop: looked.end.line } : { done: false, line: looked.end.line };
+  const drafted = await answer({
+    type: 'hfos-draft',
+    workspaceId: businessId,
+    input: {
+      kind: item.kind as MessageKind,
+      profileId: item.profileId,
+      chatId: item.chatId,
+      lookup: looked.lines,
+    },
+  });
+  if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
+  const { drafts, opener, simple, kind: draftedKind } = drafted.value as Drafts;
+  const kind = (draftedKind ?? item.kind) as MessageKind;
+  const text = drafts[0];
+  if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
+  const queued = await call(
+    api().POST('/v1/commands/outreach.send.queue', {
+      body: {
+        workspaceId: businessId,
+        profileId: item.profileId!,
+        kind,
+        chatId: item.chatId,
+        threadKey: item.threadKey,
+        text,
+        opener: kind === 'opener' ? opener : null,
+        simple: kind === 'reply' && simple,
+      },
+    }),
+    businessId,
+  );
+  return {
+    done: true,
+    line:
+      queued.state === 'approved'
+        ? `Wrote a message to ${item.name}: it goes soon`
+        : `Wrote a message to ${item.name}: it waits for your OK`,
+  };
+}
+
+/** Says how a send went in HandsFreeOS. One the person skipped meanwhile went anyway: nothing more to say. */
+async function sendDone(sendId: string, businessId: string, sent: boolean, why: string | null) {
+  try {
+    await call(
+      api().POST('/v1/commands/outreach.send.done', {
+        body: { workspaceId: businessId, sendId, sent, why },
+      }),
+      businessId,
+    );
+  } catch (error) {
+    if (!(error instanceof Refused) || error.problem.status !== 404) throw error;
+  }
+}
+
+/**
+ * Sends a message OK'd in their Instagram chat, as a few short texts when the person texts that way, and notes it.
+ * One to their Requests goes as one text: Instagram passes only one till they accept it.
+ */
+async function sendMessage(
+  item: TodayListItem,
+  businessId: string,
+  split: boolean,
+): Promise<Outcome> {
+  const send = item.send!;
+  const failed = async (line: string): Promise<Outcome> => {
+    const lead = `${item.name}: `;
+    await sendDone(
+      send.sendId,
+      businessId,
+      false,
+      line.startsWith(lead) ? line.slice(lead.length) : line,
+    );
+    return { done: false, line };
+  };
+  const chat = await openChat(item, businessId);
+  if ('outcome' in chat) return 'done' in chat.outcome ? failed(chat.outcome.line) : chat.outcome;
+  const parts = messageParts(send.text, split && item.requests !== true);
+  let partly: string | null = null;
+  for (const [i, part] of parts.entries()) {
+    if (i > 0) await pause(partPauseMs(part, Math.random()));
+    const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile });
+    const why = !wrote.ok
+      ? wrote.error
+      : wrote.result === 'none'
+        ? 'couldn’t find the box to write in'
+        : wrote.result !== 'done'
+          ? 'Instagram didn’t take the message'
+          : null;
+    if (why === null) continue;
+    if (i === 0) return failed(`${item.name}: ${why}`);
+    partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;
+    break;
+  }
+  // The chat's id, once its own page shows it.
+  const after = await read();
+  const id = chat.thread?.id ?? after.found.chat?.thread ?? null;
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'message',
+        to: { name: item.name, profile: chat.profile },
+        group: null,
+        postUrl: null,
+        thread: id ? { id, encrypted: false, url: chatUrlOn(PLATFORM, id)! } : null,
+        replying: item.kind === 'reply' || item.kind === 'partner_reply',
+        auto: true,
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  await sendDone(send.sendId, businessId, true, null);
+  await pause(SETTLE_MS);
+  const stop = await warnedOn(await read(), businessId);
+  if (stop) return { stop };
+  return { done: true, line: partly ?? `Sent ${item.name} a message` };
+}
+
+/**
+ * Does a piece of work: a step on the list, a draft, or a send. `spare` is how many likes the day has room for past
+ * the warm-ups still on the list, for a warm-up's second like.
+ */
+export function doWork(
+  work: Work,
+  businessId: string,
+  split: boolean,
+  spare = 0,
+): Promise<Outcome> {
+  if (work.do === 'draft') return draftMessage(work.item, businessId);
+  if (work.do === 'send') return sendMessage(work.item, businessId, split);
+  switch (work.item.kind) {
+    case 'warm_up':
+    case 'partner_warm_up':
+      return warmUp(work.item, businessId, spare);
+    case 'friend_request':
+      return followThem(work.item, businessId);
+    default:
+      // Never on its list for it (`INSTAGRAM_AUTO`): comments are the person's.
+      return Promise.resolve({
+        done: false,
+        line: `${work.item.name}: that’s yours to do on Instagram`,
+      });
+  }
+}
+
+const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
+  warm_up: 'Looking at the Instagram of',
+  partner_warm_up: 'Looking at the Instagram of',
+  friend_request: 'Following',
+};
+
+const doing = (work: Work) =>
+  work.do === 'step'
+    ? `${DOING[work.item.kind] ?? 'Working on'} ${work.item.name}…`
+    : work.do === 'draft'
+      ? `Writing a message to ${work.item.name}…`
+      : `Sending ${work.item.name} a message…`;
+
+const doneAs = (work: Work): DoneKind =>
+  work.do === 'step'
+    ? work.item.kind === 'partner_warm_up'
+      ? 'warm_up'
+      : (work.item.kind as DoneKind)
+    : work.do === 'draft'
+      ? 'drafted'
+      : 'sent';
+
+/** What's left on Instagram's list for it today: only the kinds it does there. */
+export function instagramWorkLeft(
+  list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
+    readonly partners?: readonly TodayListItem[];
+  },
+  tried: readonly string[],
+): Work[] {
+  return workLeft({ ...list, auto: list.auto.filter((k) => INSTAGRAM_AUTO.includes(k)) }, tried);
+}
+
+/** The likes the day has room for past one each for the warm-ups still to do: a warm-up's second like takes one. */
+export function spareLikes(list: Pick<TodayList, 'limits'>, left: readonly Work[]): number {
+  const warmUps = left.filter(
+    (w) => w.do === 'step' && (w.item.kind === 'warm_up' || w.item.kind === 'partner_warm_up'),
+  ).length;
+  return Math.max(0, list.limits.like.most - list.limits.like.done - warmUps);
+}
+
+// ------------------------------------------------------------------------------------------------- the once-a-day jobs
+
+/** The once-a-day job to do next on Instagram: the first not done today. */
+export const nextInstagramDaily = (state: Pick<AutoState, 'daily'>): InstagramDaily | null =>
+  INSTAGRAM_DAILY.find((job) => state.daily?.[job] === undefined) ?? null;
+
+/** Does one of Instagram's once-a-day jobs. */
+export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise<JobEnd> {
+  switch (kind) {
+    case 'requests':
+      return saveNewFollowers(job);
+    case 'checks':
+      return checkFollowers(job, NETWORKS.instagram.checksPerDay);
+    case 'chats':
+      return readInstagramChats(job, {
+        most: DAILY_CHATS,
+        memory: chatMemory,
+        again: 'The rest wait for tomorrow.',
+      });
+    case 'partners':
+      return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
+        platform: PLATFORM,
+        read: readThemOnInstagram,
+        search: searchInstagram,
+      });
+    case 'posts':
+      return lookAtTagsAndPlaces(
+        job,
+        valueOf(
+          await job.hfos({
+            type: 'hfos-post-words',
+            workspaceId: job.businessId,
+            platform: PLATFORM,
+          }),
+        ),
+      );
+    case 'helpful':
+      return readInstagramWarmLeads(job);
+  }
+}
+
+// ------------------------------------------------------------------------------------------------- the day
+
+/** Whether Instagram's day is started today, as the beat last said; null when HandsFreeOS hasn't said. */
+const dayOf = (kept: Kept | null) => kept?.days?.instagram ?? null;
+
+/** One go: where things stand, the next step when it's time, and when to go next. */
+async function go(): Promise<void> {
+  stopAsked = false;
+  const to = await savingTo();
+  if (!to) {
+    await goAt(null);
+    return closeWindow();
+  }
+  const found = await loadSettings(to.businessId);
+  if (!found) {
+    await goAt(null);
+    return closeWindow();
+  }
+  void follow(() => void tick()).catch(() => undefined);
+  const { settings, timezone } = found;
+  const choices = settings.networks.instagram;
+  let state = await stateNow();
+  const at = Date.now();
+  const today = businessDay(at, timezone);
+  if (state.day !== today) state = await setState(freshState(today, state.tabId));
+  await tab.adopt(state.tabId);
+  const kept = await keptFor(to);
+  // Off on Instagram, or Chrome hasn't let it on: nothing runs there.
+  if (!isWorking(instagram, await statesNow()) || choices.sending === 'off') {
+    await goAt(null);
+    return closeWindow();
+  }
+  if (kept && !kept.working) {
+    await closeWindow();
+    await say(standDownWords(kept.workingName));
+    return goAt(null);
+  }
+  const day = dayOf(kept);
+  if (!day || day.date !== today || day.state !== 'started') {
+    await closeWindow();
+    await setState({
+      started: false,
+      stopped: day?.date === today && day.state === 'stopped' ? (day.why ?? 'person') : null,
+    });
+    await say(
+      day?.date === today && day.state === 'stopped'
+        ? `Stopped on ${NAME} for today. It starts again when you press Start my day for ${NAME}.`
+        : `Waiting for you to start your day on ${NAME}: press Start my day for ${NAME} on Today in HandsFreeOS.`,
+    );
+    // The beat says when the day starts (`days.instagram`), and wakes this.
+    return goAt(null);
+  }
+  if (!state.started) state = await setState({ started: true, stopped: null });
+  if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
+    const warned = await warnedNow(PLATFORM);
+    await closeWindow();
+    await say(
+      `Stopped: ${NAME} warned you today${warned ? ` (“${warned.words[0]}”)` : ''}. The extension stops on ${NAME} until tomorrow.`,
+      { stopped: 'warning' },
+    );
+    return goAt(null);
+  }
+  if (!(await isNoting())) {
+    await closeWindow();
+    await say(
+      `Turn on noting your steps in Social Outreach → Settings in HandsFreeOS: the extension works on its own on ${NAME} only while it notes.`,
+      { needs: true },
+    );
+    return goAt(at + LOOK_AGAIN_MS);
+  }
+  // What the person asked on Instagram goes first: this looks again in a couple of minutes.
+  if (askInLine(PLATFORM)) {
+    await say(ASK_FIRST_WORDS);
+    return goAt(at + ASK_FIRST_MS);
+  }
+  const random = Math.random();
+  const soon = () => goAt(Date.now() + pickGap(random));
+
+  // Lists first (decision 60), Instagram's own.
+  const lists = valueOf(
+    await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId, platform: PLATFORM }),
+  );
+  if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
+  const before = beforeDay(lists, state.before ?? {}, at, timezone, PLATFORM);
+  if (before) {
+    const end = await inTurn('runner', () => beforeTheDay(before, to.businessId), PLATFORM);
+    const line = beforeDayLine(before, end, PLATFORM);
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(null);
+    }
+    void feed('job', `${NAME}: ${line}`);
+    if (before.do === 'save' && before.first && end.failed) {
+      await closeWindow();
+      await say(
+        `${line} Your first day on ${NAME} starts once your followers are saved, so it tries again in a few minutes.`,
+        { needs: true },
+      );
+      return goAt(Date.now() + AGAIN_MS);
+    }
+    await say(line);
+    return soon();
+  }
+
+  const daily = choices.collect ? nextInstagramDaily(state) : null;
+  if (daily) {
+    const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
+    if (end.warned) {
+      await closeWindow();
+      await say(end.line, { stopped: 'warning' });
+      return goAt(null);
+    }
+    const line = `${DAILY_NAMES[daily]}: ${end.line}`;
+    await say(line);
+    void feed('job', `${NAME}: ${line}`);
+    return soon();
+  }
+
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', {
+      body: { workspaceId: to.businessId, platform: PLATFORM },
+    }),
+    to.businessId,
+  );
+  const left = instagramWorkLeft(list, state.tried);
+  const work = left[0];
+  if (!work) {
+    await closeWindow();
+    await say(
+      state.tried.length
+        ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+        : `Nothing on your ${NAME} list for it to do yet.`,
+    );
+    return goAt(at + 60 * 60_000);
+  }
+  const { item } = work;
+  await say(doing(work), { working: true });
+  let outcome: Outcome;
+  try {
+    outcome = await inTurn(
+      'runner',
+      () => doWork(work, to.businessId, settings.voice?.split ?? true, spareLikes(list, left)),
+      PLATFORM,
+    );
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    outcome = {
+      done: false,
+      line: `${item.name}: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  } finally {
+    await setState({ working: false });
+  }
+  // Instagram asked them to sign in: nothing tried, and it looks again in a while.
+  if ('again' in outcome) {
+    await closeWindow();
+    await say(outcome.again, { needs: true });
+    return goAt(Date.now() + AGAIN_MS);
+  }
+  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
+  if ('done' in outcome && !outcome.done)
+    await reporter(tab, answer as Hfos, {
+      businessId: to.businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: work.do === 'step' ? work.item.kind : work.do,
+    })({ note: 'The step didn’t go.', outline: true });
+  state = await stateNow();
+  const kind = doneAs(work);
+  const done =
+    'done' in outcome && outcome.done
+      ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
+      : state.done;
+  await setState({ tried: [...state.tried, workKey(work)], done });
+  if ('stop' in outcome) {
+    await closeWindow();
+    await say(outcome.stop, { stopped: 'warning' });
+    return goAt(null);
+  }
+  await say(outcome.line);
+  const need =
+    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+  if (need) void noteNeed(need);
+  void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
+  if (stopAsked) {
+    await closeWindow();
+    return goAt(null);
+  }
+  const gap = Math.max(
+    pickGap(Math.random()),
+    gapAfter({ now: Date.now(), until: null, left: left.length - 1, started: true, random }),
+  );
+  if (gap > KEEP_WINDOW_MS) await closeWindow();
+  await goAt(Date.now() + gap);
+}
+
+/** Does what's due before Instagram's day, and keeps how it went. */
+async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd> {
+  const key = markOf(step);
+  await setState({ beforeNow: key });
+  await say(beforeDayDoing(step, PLATFORM), { working: true });
+  let end: JobEnd;
+  try {
+    end = await doBeforeDay(step, jobFor(businessId), PLATFORM);
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = {
+      line: error instanceof Error ? error.message : String(error),
+      warned: false,
+      failed: true,
+    };
+  } finally {
+    await setState({ working: false, tabId: tab.tabId, beforeNow: null });
+  }
+  const state = await stateNow();
+  // The followers saved whole, and the first check, stand for today's newest followers and checks.
+  const daily =
+    key === 'friends' ? 'requests' : key === 'checks' ? 'checks' : (null as DailyJob | null);
+  const stands = !end.failed && daily ? { daily: { ...state.daily, [daily]: end.line } } : {};
+  await setState({ before: { ...state.before, [key]: end.line }, ...stands });
+  return end;
+}
+
+/** Does a once-a-day job, and keeps how it went: one that went wrong isn't tried again today. */
+async function collect(kind: InstagramDaily, businessId: string): Promise<JobEnd> {
+  await say(DAILY_DOING[kind], { working: true });
+  let end: JobEnd;
+  try {
+    end = await runInstagramDaily(kind, jobFor(businessId));
+  } catch (error) {
+    if (error instanceof Refused) throw error;
+    end = {
+      line: error instanceof Error ? error.message : String(error),
+      warned: false,
+    };
+  } finally {
+    await setState({ working: false, tabId: tab.tabId });
+  }
+  const state = await stateNow();
+  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  return end;
+}
+
+/** The alarm went off, or Instagram's day changed: one go, never two at once. */
+export async function instagramTick(): Promise<void> {
+  if (busy) {
+    again = true;
+    return;
+  }
+  busy = true;
+  try {
+    await go();
+  } catch (error) {
+    const words =
+      error instanceof Refused
+        ? error.problem.message
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    console.error(`HandsFreeOS Social couldn’t work on its own on ${NAME}`, error);
+    await setState({ working: false }).catch(() => undefined);
+    await say(`Stopped for now: ${words} It tries again in a few minutes.`, { needs: true }).catch(
+      () => undefined,
+    );
+    await goAt(Date.now() + AGAIN_MS).catch(() => undefined);
+  } finally {
+    busy = false;
+    if (again) {
+      again = false;
+      void instagramTick();
+    }
+  }
+}
+
+const tick = instagramTick;
+
+/** When the background starts: it looks once, and the beat wakes it after. */
+export async function wakeInstagram(): Promise<void> {
+  const alarm = await chrome.alarms.get(INSTAGRAM_ALARM);
+  if (!alarm) await instagramTick();
+}
+
+/** Instagram's day as the last beat said it: a change starts it, or ends what it's doing at its next page. */
+let lastDay: string | null = null;
+onBeat((kept) => {
+  const day = dayOf(kept);
+  const said = day ? `${day.date}:${day.state}` : null;
+  if (said === lastDay) return;
+  const was = lastDay;
+  lastDay = said;
+  // The first beat after the background starts says nothing new.
+  if (was === null && said !== null && day?.state !== 'started') return;
+  if (day?.state === 'stopped' || !kept.working) stopAsked = true;
+  // Stop for today on Instagram ends Instagram's ask under way too, as LinkedIn's does LinkedIn's.
+  if (day?.state === 'stopped' && day.why !== 'warning')
+    haltAsk(PLATFORM, `Stopped: you pressed Stop for today on ${NAME}.`);
+  void instagramTick();
+});

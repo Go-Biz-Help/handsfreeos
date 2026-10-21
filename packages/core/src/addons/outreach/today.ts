@@ -12,7 +12,11 @@
  *   requests. A profile with no post to like goes without.
  * - **Confirm their request** (decision 30): friend requests the person got from people who fit a playbook well.
  * - **First message** (decision 65, ./conversation.ts): new friends who accepted the person's request a day or more
- *   ago (the playbook's pace) and haven't had a message yet. It asks straight out about the main offer.
+ *   ago (the playbook's pace) and haven't had a message yet. It asks straight out about the main offer. On a follow
+ *   network (Instagram's) a follow-back is the accepting; someone who hasn't followed back in 3 days (its kit's
+ *   `requestsMessageAfterDays`) gets one short message, marked as going to their Requests (`requests`): no link, no
+ *   video, one text, and at most 5 of the day's first messages (`requestsMessagesPerDay`). No follow-up goes in a chat
+ *   they haven't answered or accepted.
  * - **Reconnect** (decision 46): friends and people they've chatted with whom the AI found a good fit (./checks.ts),
  *   when neither side has written for a month. They count against the first messages.
  * - **Send the video** (decision 66): someone who said yes to the first message, when the playbook has a video.
@@ -79,6 +83,8 @@ export const TODAY_KINDS = {
   warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   confirm: 'Confirm their request',
+  // Alignable's, by hand only (the Instagram and Alignable plan's question 8): a customer or partner to vouch for.
+  recommend: 'Recommend them',
   // A partner's steps (./partners.ts, decision 81), on the list's own part (`partners`), in the same order.
   partner_reply: 'Reply to a partner',
   partner_details: 'Send the partner details',
@@ -119,9 +125,23 @@ export const isPartnerMessage = (kind: string): kind is PartnerMessageKind =>
 export const doneOnItsOwn = (kind: TodayKind, auto: readonly TodayKind[]) =>
   auto.includes(kind === 'partner_warm_up' ? 'warm_up' : kind);
 
-/** Which daily limit each kind counts against: a reply and a confirm count against none. */
+/** The businesses Today suggests recommending a day, where the network has recommendations (Alignable's). */
+export const RECOMMEND_PER_DAY = 1;
+/** Why a first message is marked as going to their Requests, on a follow network (Instagram's). */
+export const REQUESTS_WHY =
+  'Goes to their Requests: one short message with no link or video, as only one gets through till they accept';
+
+/** Why a business is suggested for a recommendation, and what to do. */
+export const RECOMMEND_WORDS = {
+  partner: 'Your partner',
+  customer: 'Your customer',
+  next: 'Press Recommend on their page and say what they did well, if you know their work.',
+} as const;
+
+/** Which daily limit each kind counts against: a reply, a confirm and a recommendation count against none. */
 export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   confirm: null,
+  recommend: null,
   warm_up: 'like',
   friend_request: 'friend_request',
   opener: 'first_message',
@@ -188,6 +208,12 @@ export const TodayItem = z.object({
   demoBooked: z.boolean(),
   /** For a partner's step (`partners`): their row on the Partners list (./partners.ts). */
   partnerId: z.uuid().nullable().optional(),
+  /**
+   * A first message on a follow network (Instagram's) to someone who hasn't followed the person back: it lands in their
+   * Requests, so it's one short message with no link and no video, and nothing follows it till they answer or accept.
+   * Left out by builds of the phone from before it: read as not.
+   */
+  requests: z.boolean().optional(),
   /**
    * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
    * to go. Null until it drafts one. One handed over, or to someone who needs the person, waits for an OK of its own:
@@ -431,11 +457,38 @@ const TASK: Record<CustomerDraftKind, string> = {
 };
 
 /**
+ * A first message on a follow network (Instagram's) to someone who hasn't followed the owner back (`TodayItem.requests`):
+ * it lands in their Requests, which passes only one text till they accept it. So it's one short message, with no link,
+ * no video and no price, and it asks one light question.
+ */
+export const REQUESTS_TASK =
+  'The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message. Keep it under 40 words and as one message: never split into texts. Say who the owner is and why they’re writing in a few words, from what the facts or their pages show when it fits; then ask straight out whether they’d be open to the offer’s outcome, in a few words. No link, no video, no web address and no price.';
+
+/** What a message to their Requests may be at most: one short text. */
+export const REQUESTS_MESSAGE_MOST = 300;
+
+/** A link or a web address, which a message to someone's Requests never carries. */
+const LINKED =
+  /\bhttps?:\/\/|\bwww\.|\b[a-z0-9-]+\.(com|net|org|io|co|us|biz|app|me|ly|link|site|online)\b/i;
+
+/** Whether a message can go to someone's Requests: one short text, with no link. */
+export const fitsRequests = (text: string): boolean =>
+  text.trim().length <= REQUESTS_MESSAGE_MOST && !LINKED.test(text) && !/\n\s*\n/.test(text.trim());
+
+/**
  * A kind's task on a network, in its words. A post off a group (LinkedIn's post search and feed, where the helpful post
  * goes on the person's own) is on the network, not in a group.
  */
 function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): string {
-  const task = inNetworkWords(TASK[kind], platform);
+  const said = inNetworkWords(TASK[kind], platform);
+  // On a follow network (Instagram's) a follow-back is the accepting.
+  const task =
+    kind === 'opener' && NETWORKS[platform].requestsMessageAfterDays !== null
+      ? said.replace(
+          /^They just accepted the owner’s [^.]+\./,
+          'They just followed the owner back.',
+        )
+      : said;
   if (platform === 'facebook' || inGroup) return task;
   const name = NETWORKS[platform].name;
   return task.replace(`in a ${name} group`, `on ${name}`);
@@ -487,16 +540,20 @@ export function todayDraftPrompt(input: {
   readonly now?: number;
   /** The network it goes on: Facebook unless said. */
   readonly platform?: Platform;
+  /** A first message to someone's Requests, on a follow network (`TodayItem.requests`): one short text, no link. */
+  readonly requests?: boolean;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
-  // A message in Messenger can go as a few texts; a comment is one, in public.
-  const texts = isMessageKind(input.kind);
+  const requests = input.requests === true && input.kind === 'opener';
+  // A message in Messenger can go as a few texts; a comment is one, in public, and so is a message to their Requests.
+  const texts = isMessageKind(input.kind) && !requests;
   const playbook = p
     ? [
         `Name: ${p.name}`,
         p.offer ? `Offer: ${p.offer}` : null,
-        p.link ? `Link: ${p.link}` : null,
+        // A message to their Requests carries no link (`REQUESTS_TASK`).
+        p.link && !requests ? `Link: ${p.link}` : null,
         p.audience ? `For: ${p.audience}` : null,
         p.niche ? `Niche: ${p.niche}` : null,
         p.proof?.length
@@ -557,7 +614,9 @@ export function todayDraftPrompt(input: {
     input.recent.length ? `<chat>\n${quoteData(chatLines(input.recent))}\n</chat>` : null,
     input.post?.group ? `<group>${quoteData(input.post.group)}</group>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
-    taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
+    requests
+      ? REQUESTS_TASK
+      : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
     where,
     useful,
     input.kind === 'pitch' && p?.link

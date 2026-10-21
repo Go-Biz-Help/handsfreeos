@@ -9,17 +9,20 @@ export default async function BusinessesPage({
 }) {
   const { q, sort, cursor } = await searchParams;
   const { api } = await apiServer();
-  const list = unwrap(
-    await api.POST('/v1/queries/platform.business.list', {
-      body: {
-        ...(q ? { search: q } : {}),
-        // The orders the page offers; anything else in the address is read as the default.
-        sort: deskBusinessSort(sort),
-        ...(cursor ? { cursor } : {}),
-        limit: 25,
-      },
-    }),
-  );
+  const [list, me] = await Promise.all([
+    api
+      .POST('/v1/queries/platform.business.list', {
+        body: {
+          ...(q ? { search: q } : {}),
+          // The orders the page offers; anything else in the address is read as the default.
+          sort: deskBusinessSort(sort),
+          ...(cursor ? { cursor } : {}),
+          limit: 25,
+        },
+      })
+      .then(unwrap),
+    api.POST('/v1/queries/platform.me', { body: {} }).then(unwrap),
+  ]);
   return (
     <Businesses
       businesses={list.businesses as unknown as BusinessRow[]}
@@ -27,6 +30,10 @@ export default async function BusinessesPage({
       sort={sort ?? 'newest'}
       search={q ?? ''}
       nextCursor={list.nextCursor}
+      staff={{
+        canViewAs: me.staff?.permissions.includes('platform.view_as') ?? false,
+        founder: me.staff?.founder ?? false,
+      }}
     />
   );
 }

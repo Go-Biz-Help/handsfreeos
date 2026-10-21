@@ -164,11 +164,12 @@ export async function postChecked(ctx: AddonEventContext): Promise<void> {
       name: string;
       person_id: string | null;
       group: string | null;
+      platform: Platform;
       skipped: boolean;
     }>(
       tx,
       sql`select po.user_id, po.posted, po.found, po.check_why, pr.name, pr.person_id, g.name as group,
-            po.skipped_at is not null as skipped
+            pr.platform, po.skipped_at is not null as skipped
           from addon_outreach.posts po
           join addon_outreach.profiles pr on pr.id = po.profile_id
           left join addon_outreach.groups g on g.id = po.group_id
@@ -180,8 +181,9 @@ export async function postChecked(ctx: AddonEventContext): Promise<void> {
       key: `post:${postId}`,
       userIds: [post.user_id],
       permission: 'outreach.use',
-      ...strongPostPushWords(post.name, post.group, post.check_why),
-      href: TODAY_HREF,
+      ...strongPostPushWords(post.name, post.group, post.check_why, post.platform),
+      // Today on the post's own network: each network's list is its own.
+      href: post.platform === 'facebook' ? TODAY_HREF : `${TODAY_HREF}&net=${post.platform}`,
       collapseKey: `post-${postId}`,
       personId: post.person_id,
     });

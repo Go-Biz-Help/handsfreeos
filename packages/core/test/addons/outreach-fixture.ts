@@ -7,6 +7,7 @@ import { rows, sql } from '@hfos/db/client';
 import { testDbs, type TestUser } from '@hfos/db/testing';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
+import { addDays, localDateOf, localInstant } from '../../src/calendar/engine/zoned';
 import {
   commands,
   executeCommand,
@@ -45,16 +46,19 @@ export const fromExtension = () => ({
 const gettingReady = new Set<string>();
 const GATED = new Set(['outreach.today', 'outreach.day.start', 'outreach.helpful.next']);
 
-/** A new business owned by `u`, with the add-on on. Its id. */
+/** A new business owned by `u`, with the add-on on, in Chicago unless given its time zone. Its id. */
 export async function outreachBusiness(
   u: TestUser,
   name: string,
-  opts: { readonly ready?: boolean } = {},
+  opts: { readonly ready?: boolean; readonly timezone?: string } = {},
 ): Promise<string> {
-  const made = await executeCommand(api(), organizationCreate, { businessName: name }, human(u), {
-    correlationId: randomUUID(),
-    channel: 'test',
-  });
+  const made = await executeCommand(
+    api(),
+    organizationCreate,
+    { businessName: name, ...(opts.timezone ? { timezone: opts.timezone } : {}) },
+    human(u),
+    { correlationId: randomUUID(), channel: 'test' },
+  );
   const id = made.output.workspaceId;
   await rows(
     admin(),
@@ -64,6 +68,13 @@ export async function outreachBusiness(
   if (opts.ready !== false) gettingReady.add(id);
   return id;
 }
+
+/**
+ * Noon yesterday where a business is (Chicago unless given): the day before for sure, even late on the 25-hour day
+ * the clocks go back, when 24 hours ago is still today.
+ */
+export const yesterdayNoon = (timezone = 'America/Chicago'): Date =>
+  new Date(localInstant(addDays(localDateOf(Date.now(), timezone), -1), '12:00', timezone));
 
 /** The main offer the fixture puts live: version 1, with no proof, so a playbook needs none either. */
 const READY_OFFER = {
@@ -123,22 +134,28 @@ export async function getReady(ws: string, userIds: readonly string[]): Promise<
               numbers_at = coalesce(addon_outreach.setup.numbers_at, excluded.numbers_at),
               profile = excluded.profile, profile_check = excluded.profile_check`,
     );
-  // Their LinkedIn profile too, each network's its own: read and checked right, and ticked, with its headline and About.
-  await rows(
-    admin(),
-    sql`update addon_outreach.setup s set network_profiles = s.network_profiles || jsonb_build_object('linkedin',
-          (select jsonb_build_object(
-            'ticks', jsonb_object_agg(item, jsonb_build_object(
-              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-              'version', (select live_version from app.main_offers where workspace_id = ${ws}))),
-            'check', jsonb_build_object(
-              'items', jsonb_object_agg(item, jsonb_build_object('ok', true, 'why', 'Looks right.', 'fix', null)),
-              'bios', '[]'::jsonb, 'coverLine', null, 'feature', '[]'::jsonb,
-              'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-              'version', (select live_version from app.main_offers where workspace_id = ${ws})))
-          from unnest(array['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts']) item))
-        where s.workspace_id = ${ws} and s.user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
-  );
+  // Their LinkedIn, Instagram and Alignable profiles too, each network's its own: read and checked right, and ticked,
+  // each with its own parts (LinkedIn's headline and About, Instagram's name and link, Alignable's About Us).
+  for (const [platform, items] of [
+    ['linkedin', ['picture', 'cover', 'bio', 'about', 'work', 'featured', 'posts']],
+    ['instagram', ['picture', 'name', 'bio', 'link', 'featured', 'posts']],
+    ['alignable', ['picture', 'about', 'bio', 'work', 'featured']],
+  ] as const)
+    await rows(
+      admin(),
+      sql`update addon_outreach.setup s set network_profiles = s.network_profiles || jsonb_build_object(${platform}::text,
+            (select jsonb_build_object(
+              'ticks', jsonb_object_agg(item, jsonb_build_object(
+                'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                'version', (select live_version from app.main_offers where workspace_id = ${ws}))),
+              'check', jsonb_build_object(
+                'items', jsonb_object_agg(item, jsonb_build_object('ok', true, 'why', 'Looks right.', 'fix', null)),
+                'bios', '[]'::jsonb, 'coverLine', null, 'feature', '[]'::jsonb,
+                'at', to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+                'version', (select live_version from app.main_offers where workspace_id = ${ws})))
+            from unnest(${`{${items.join(',')}}`}::text[]) item))
+          where s.workspace_id = ${ws} and s.user_id = any (${`{${userIds.join(',')}}`}::uuid[])`,
+    );
   // Their messages OK'd against the live version (Your messages).
   await rows(
     admin(),

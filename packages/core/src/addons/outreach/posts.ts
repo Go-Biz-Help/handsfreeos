@@ -17,7 +17,7 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import { GroupRef } from './activity';
-import { quoted, says } from './fit';
+import { placesIn, quoted, says } from './fit';
 import { WHEN_MOST } from './limits';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
@@ -79,11 +79,13 @@ export function strongPostPushWords(
   name: string,
   group: string | null,
   why: string | null,
+  platform: Platform = 'facebook',
 ): { title: string; body: string } {
   return {
     title: `${name} is asking for what you offer`,
     body: [
-      group ? `In ${group}.` : null,
+      // Off a group, on a network of its own (Alignable's town and forum, LinkedIn's search): that network.
+      group ? `In ${group}.` : platform === 'facebook' ? null : `On ${NETWORKS[platform].name}.`,
       why ? `${why.replace(/[.!?]?$/, '.')}` : null,
       'Answer it first: it’s at the top of your list for today.',
     ]
@@ -251,14 +253,50 @@ export const postCheckSystem = (platform: Platform = 'facebook') => {
 /** The most searches one Find posts makes on a network's post search. */
 export const POST_SEARCHES_MOST = 5;
 
-/** What to search a network's posts with, for its runner's once-a-day Find posts (`postSearchWords`). */
+/**
+ * What to search a network's posts with, for its runner's once-a-day Find posts (`postSearchWords`), and on Instagram
+ * the hashtags and places its look goes to (`postLooks`).
+ */
 export const PostWordsInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
 });
 export type PostWordsInput = z.input<typeof PostWordsInput>;
-export const PostWordsOutput = z.object({ words: z.array(z.string()) });
+export const PostWordsOutput = z.object({
+  words: z.array(z.string()),
+  /** The hashtags a day's look on Instagram opens (`postLooks`), without their #. */
+  tags: z.array(z.string()),
+  /** The playbooks' places, to tell a post's place in the area from any other. */
+  places: z.array(z.string()),
+});
 export type PostWordsOutput = z.output<typeof PostWordsOutput>;
+
+/** The playbooks a network's looks read: those that run on it, with the parts the words come from. */
+type LookPlaybooks = readonly {
+  readonly details: Pick<PlaybookDetails, 'signs' | 'groupWords' | 'area'> & {
+    readonly platforms?: readonly Platform[];
+  };
+}[];
+
+const runningOn = (playbooks: LookPlaybooks, platform: Platform) =>
+  playbooks.filter((p) => !p.details.platforms || p.details.platforms.includes(platform));
+
+/** Each once, whatever the capitals, in the order first given. */
+function eachOnce(items: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+const plain = (word: string) =>
+  word
+    .replace(/[“”"#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * What to search a network's posts with (LinkedIn's post search, latest first): the words the playbooks quote in
@@ -289,6 +327,80 @@ export function postSearchWords(
     words.push(clean);
   }
   return words.slice(0, POST_SEARCHES_MOST);
+}
+
+// ---- Instagram's hashtags and places (the Instagram and Alignable plan's "Where the people are", 3) ----
+
+/** The hashtags a day's look on Instagram opens, each a page of posts, at a person's pace. */
+export const TAG_LOOKS_PER_DAY = 3;
+/** The places in the area its hashtags' posts were tagged at, opened after them. */
+export const PLACE_LOOKS_PER_DAY = 2;
+/** The longest hashtag it makes: past it, nobody tags one. */
+const HASHTAG_MOST = 40;
+/** The most of the area's places it matches a post's place against. */
+const PLACES_MOST = 5;
+
+/**
+ * A hashtag of some words, without its #, as people tag them: "Round Rock" and "plumbing" make "roundrockplumbing".
+ * Null when what's left is too short or too long to be one anybody tags, or has no letter.
+ */
+export function hashtagOf(...words: readonly string[]): string | null {
+  const tag = words
+    .join('')
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_]/gu, '');
+  return tag.length >= 3 && tag.length <= HASHTAG_MOST && /\p{L}/u.test(tag) ? tag : null;
+}
+
+/**
+ * Where a day's look on Instagram goes (part 15). A playbook has no hashtags or places of its own: they come from
+ * what it says already, as Alignable's town comes from the person's profile.
+ *
+ * - **Hashtags:** local ones first, a place in the area with what the playbook searches for groups ("Austin" and
+ *   "plumbing" make #austinplumbing; "Austin homeowners" is #austinhomeowners as it is). Its signs' quoted words stand in
+ *   for its group words when it has none. Only with no area, or no words, do the words alone or the places alone go.
+ *   Each day takes the next few in turn, so the looks go round them all.
+ * - **Places:** the area's own ("Austin and Round Rock"), as fit reads it. A place's page has an id of Instagram's
+ *   that no name gives, so the look opens one only when a hashtag's post was tagged there.
+ */
+export function postLooks(
+  playbooks: LookPlaybooks,
+  platform: Platform,
+  day: number,
+): { tags: string[]; places: string[] } {
+  const these = runningOn(playbooks, platform);
+  const places = eachOnce(these.flatMap((p) => placesIn(p.details.area).map(plain))).slice(
+    0,
+    PLACES_MOST,
+  );
+  const topics = eachOnce(
+    these
+      .flatMap((p) =>
+        p.details.groupWords.length ? p.details.groupWords : p.details.signs.flatMap(quoted),
+      )
+      .map(plain)
+      .filter(Boolean),
+  );
+  const tagged = (made: readonly (string | null)[]) =>
+    eachOnce(made.filter((tag): tag is string => tag !== null));
+  // Words that name a place of the area already go as they are, never with another place before them.
+  const placed = (topic: string) => places.some((place) => says([topic], place));
+  const local = tagged(
+    places.flatMap((place) =>
+      topics.map((topic) => (placed(topic) ? hashtagOf(topic) : hashtagOf(place, topic))),
+    ),
+  );
+  const pool = local.length
+    ? local
+    : tagged([...topics.map((t) => hashtagOf(t)), ...places.map((p) => hashtagOf(p))]);
+  const start = pool.length ? (Math.max(0, Math.floor(day)) * TAG_LOOKS_PER_DAY) % pool.length : 0;
+  const tags = Array.from(
+    { length: Math.min(TAG_LOOKS_PER_DAY, pool.length) },
+    (_, i) => pool[(start + i) % pool.length]!,
+  );
+  return { tags, places };
 }
 
 export function postCheckPrompt(input: {

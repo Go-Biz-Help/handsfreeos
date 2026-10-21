@@ -27,10 +27,14 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  CodeAnswer,
+  CodeAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
   TryAnswer,
   TryAsk,
+  UnfollowAnswer,
+  UnfollowAsk,
   WithdrawAnswer,
   WithdrawAsk,
 } from '../messages';
@@ -57,8 +61,10 @@ export interface JobTab {
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
+  ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */
@@ -83,6 +89,12 @@ export interface Job {
   readonly handOver?: (says: string, note?: ReportNote) => Promise<HandOverReply>;
   /** The network asks for the person's password (or Facebook's PIN): said while the job waits; null once it's gone on. */
   readonly typing?: (line: string | null) => void;
+  /**
+   * The network emailed the person a code and asks for it: HandsFreeOS asks them (`line` says what to look for), their
+   * phone tells them, and they type it there. The code, once they have (it's handed over once, never kept here); null
+   * when none came in `ASK_CODE_MINUTES`, or the ask stopped. Only what the person asked for has one.
+   */
+  readonly code?: (line: string) => Promise<string | null>;
   /** Notes the page its tab shows in HandsFreeOS (decision 74, ./report.ts): what it found, and what it didn't. */
   readonly report?: Reporter;
 }

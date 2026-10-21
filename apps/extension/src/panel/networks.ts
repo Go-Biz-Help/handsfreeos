@@ -3,10 +3,17 @@
  * hasn't let the extension on yet gets a plain line and **Allow on LinkedIn**, which asks Chrome (Chrome asks only
  * from the person's own click, so the button is here); and a network that warned them today gets a red note naming
  * it. Facebook's warning is Next up's (./status.ts), where the runner works. A network that's off shows nothing.
- * LinkedIn's runner (src/auto/linkedin.ts) says what it's doing in a line of its own.
+ * LinkedIn's runner (src/auto/linkedin.ts), Alignable's (src/auto/alignable.ts) and Instagram's (src/auto/instagram.ts)
+ * each say what they're doing in a line of their own.
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
-import { isState, LINKEDIN_STATE_KEY, type AutoState } from '../auto/plan';
+import {
+  ALIGNABLE_STATE_KEY,
+  INSTAGRAM_STATE_KEY,
+  isState,
+  LINKEDIN_STATE_KEY,
+  type AutoState,
+} from '../auto/plan';
 import { warnedByNetwork, WARNED_KEY, type WarnedByNetwork } from '../hfos/warned';
 import { facebook, KIT_LIST, type Kit } from '../networks';
 import { isStates, NETWORKS_KEY, type NetworkStates } from '../networks/on';
@@ -15,9 +22,13 @@ import { button, h, type Child } from './dom';
 let box: HTMLElement | null = null;
 let states: NetworkStates | null = null;
 let warned: WarnedByNetwork = {};
-/** Each network's own runner, as it keeps itself: LinkedIn's. */
+/** Each network's own runner, as it keeps itself: LinkedIn's, Alignable's and Instagram's. */
 let runners: Partial<Record<Platform, AutoState>> = {};
-const RUNNER_KEYS: Partial<Record<Platform, string>> = { linkedin: LINKEDIN_STATE_KEY };
+const RUNNER_KEYS: Partial<Record<Platform, string>> = {
+  linkedin: LINKEDIN_STATE_KEY,
+  alignable: ALIGNABLE_STATE_KEY,
+  instagram: INSTAGRAM_STATE_KEY,
+};
 /** The networks Chrome was asked about from here and said no to, until it says yes. */
 const refused = new Set<Platform>();
 

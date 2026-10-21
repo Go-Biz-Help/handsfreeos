@@ -41193,6 +41193,108 @@
         }
       }
     },
+    "/v1/commands/phone_listener.set": {
+      "post": {
+        "operationId": "command_phone_listener_set",
+        "summary": "Support: pick who hears the caller on one business’s calls (Nova-3 or Flux), or put it back on the default.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.ai.manage. Emits phone_listener.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "listener": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "nova-3",
+                          "flux"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "listener"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "was": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "nova-3",
+                            "flux"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "listener": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "nova-3",
+                            "flux"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "was",
+                    "listener",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/own_business.set": {
       "post": {
         "operationId": "command_own_business_set",
@@ -81069,7 +81171,7 @@
     "/v1/commands/outreach.touch.save": {
       "post": {
         "operationId": "command_outreach_touch_save",
-        "summary": "Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment or a message, to whom and from which group. Adds nobody to Contacts.",
+        "summary": "Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment, a message or a recommendation on Alignable, to whom and from which group. Adds nobody to Contacts.",
         "tags": [
           "commands"
         ],
@@ -81102,7 +81204,8 @@
                       "friend_request",
                       "like",
                       "comment",
-                      "message"
+                      "message",
+                      "recommend"
                     ]
                   },
                   "profile": {
@@ -82922,7 +83025,7 @@
     "/v1/commands/outreach.posts.save": {
       "post": {
         "operationId": "command_outreach_posts_save",
-        "summary": "Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
+        "summary": "Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
         "tags": [
           "commands"
         ],
@@ -87404,6 +87507,7 @@
                             "working",
                             "stuck",
                             "typing",
+                            "code",
                             "done",
                             "failed",
                             "cancelled",
@@ -88359,7 +88463,7 @@
     "/v1/commands/outreach.ask.progress": {
       "post": {
         "operationId": "command_outreach_ask_progress",
-        "summary": "The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, or their password). Answers whether the person stopped it, and their answer to a step handed to them.",
+        "summary": "The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, their password, or a code from their email). Answers whether the person stopped it, their answer to a step handed to them, and the code they typed, once.",
         "tags": [
           "commands"
         ],
@@ -88386,7 +88490,8 @@
                     "enum": [
                       "working",
                       "stuck",
-                      "typing"
+                      "typing",
+                      "code"
                     ]
                   },
                   "line": {
@@ -88427,11 +88532,19 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "cancelled",
-                    "reply"
+                    "reply",
+                    "code"
                   ],
                   "additionalProperties": false
                 }
@@ -88599,6 +88712,7 @@
                         "working",
                         "stuck",
                         "typing",
+                        "code",
                         "done",
                         "failed",
                         "cancelled"
@@ -88735,6 +88849,319 @@
                             "working",
                             "stuck",
                             "typing",
+                            "code",
+                            "done",
+                            "failed",
+                            "cancelled",
+                            "expired",
+                            "lost"
+                          ]
+                        },
+                        "line": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "result": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "drafts": {
+                                  "maxItems": 5,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "maxLength": 2000
+                                  }
+                                },
+                                "kind": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "opener",
+                                        "reconnect",
+                                        "pitch",
+                                        "video",
+                                        "follow_up",
+                                        "check_in",
+                                        "reply",
+                                        "comment",
+                                        "warm_lead",
+                                        "partner_ask",
+                                        "partner_follow_up",
+                                        "partner_details",
+                                        "partner_reply"
+                                      ]
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "opener": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "playbookId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "style",
+                                            "own"
+                                          ]
+                                        },
+                                        "text": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 600
+                                        }
+                                      },
+                                      "required": [
+                                        "playbookId",
+                                        "kind",
+                                        "text"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "simple": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "lookedUp": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "queued": {
+                                  "default": false,
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "drafts",
+                                "kind",
+                                "opener",
+                                "simple",
+                                "lookedUp",
+                                "queued"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reply": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "carry_on",
+                                "skip"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "askedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "startedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "endedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "computerName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "askId",
+                        "platform",
+                        "kind",
+                        "target",
+                        "about",
+                        "via",
+                        "state",
+                        "line",
+                        "result",
+                        "reply",
+                        "askedAt",
+                        "startedAt",
+                        "endedAt",
+                        "computerName"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "ask"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.ask.code": {
+      "post": {
+        "operationId": "command_outreach_ask_code",
+        "summary": "The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 30 minutes at most, and taken once.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.ask.coded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "askId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "askId",
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ask": {
+                      "type": "object",
+                      "properties": {
+                        "askId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "platform": {
+                          "default": "facebook",
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "linkedin",
+                            "instagram",
+                            "alignable"
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "file_request",
+                            "file_download",
+                            "file_backup",
+                            "file_in",
+                            "requests",
+                            "friends",
+                            "groups",
+                            "group_search",
+                            "members",
+                            "posts",
+                            "chats",
+                            "checks",
+                            "group_checks",
+                            "join",
+                            "post",
+                            "cancel",
+                            "unfriend",
+                            "lookup",
+                            "research",
+                            "profile_read",
+                            "profile_edit",
+                            "checkup"
+                          ]
+                        },
+                        "target": {
+                          "type": "string"
+                        },
+                        "about": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "via": {
+                          "type": "string",
+                          "enum": [
+                            "web",
+                            "mobile",
+                            "extension"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "waiting",
+                            "working",
+                            "stuck",
+                            "typing",
+                            "code",
                             "done",
                             "failed",
                             "cancelled",
@@ -89042,6 +89469,7 @@
                             "working",
                             "stuck",
                             "typing",
+                            "code",
                             "done",
                             "failed",
                             "cancelled",
@@ -90120,6 +90548,29 @@
                                 "maxLength": 200
                               }
                             },
+                            "recommendations": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recommendNote": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "at": {
                               "type": "string",
                               "format": "date-time",
@@ -90897,6 +91348,29 @@
                                 "maxLength": 200
                               }
                             },
+                            "recommendations": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recommendNote": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "at": {
                               "type": "string",
                               "format": "date-time",
@@ -91656,6 +92130,29 @@
                                 "type": "string",
                                 "maxLength": 200
                               }
+                            },
+                            "recommendations": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recommendNote": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "at": {
                               "type": "string",
@@ -93031,6 +93528,150 @@
                   },
                   "required": [
                     "helpfulId",
+                    "added"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.engaged.save": {
+      "post": {
+        "operationId": "command_outreach_engaged_save",
+        "summary": "Who liked or commented on the person’s posts and answers, recommended them or started following them, on a network itself, as the extension read its notifications (Alignable’s and Instagram’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.engaged.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
+                  },
+                  "engaged": {
+                    "default": [],
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "profile": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "username": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "comment": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "when": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "comment",
+                            "reaction",
+                            "recommend",
+                            "follow"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "profile",
+                        "name",
+                        "kind"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "platform"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "added": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
                     "added"
                   ],
                   "additionalProperties": false
@@ -97262,6 +97903,7 @@
                       "newest",
                       "busiest",
                       "quietest",
+                      "attention",
                       "name"
                     ]
                   },
@@ -97347,6 +97989,40 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "plan": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "founding_free",
+                                  "founding_lifetime",
+                                  "monthly"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "attention": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "being_deleted",
+                                "wallet_suspended",
+                                "card_declined",
+                                "balance_out",
+                                "plan_trouble",
+                                "texting_rejected",
+                                "connection_broken",
+                                "texting_waiting",
+                                "thin_margin",
+                                "gone_quiet",
+                                "setup_stalled"
+                              ]
+                            }
                           }
                         },
                         "required": [
@@ -97360,7 +98036,9 @@
                           "lastActiveAt",
                           "openTicketCount",
                           "createdAt",
-                          "foundingSeat"
+                          "foundingSeat",
+                          "plan",
+                          "attention"
                         ],
                         "additionalProperties": false
                       }
@@ -97504,6 +98182,40 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "plan": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "founding_free",
+                                "founding_lifetime",
+                                "monthly"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "attention": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "being_deleted",
+                              "wallet_suspended",
+                              "card_declined",
+                              "balance_out",
+                              "plan_trouble",
+                              "texting_rejected",
+                              "connection_broken",
+                              "texting_waiting",
+                              "thin_margin",
+                              "gone_quiet",
+                              "setup_stalled"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -97517,7 +98229,9 @@
                         "lastActiveAt",
                         "openTicketCount",
                         "createdAt",
-                        "foundingSeat"
+                        "foundingSeat",
+                        "plan",
+                        "attention"
                       ],
                       "additionalProperties": false
                     },
@@ -97527,6 +98241,20 @@
                           "type": "string",
                           "enum": [
                             "claude-haiku-4-5"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "phoneListener": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "nova-3",
+                            "flux"
                           ]
                         },
                         {
@@ -97721,12 +98449,705 @@
                   "required": [
                     "business",
                     "phoneModel",
+                    "phoneListener",
                     "isPlatform",
                     "addonGrants",
                     "people",
                     "counts",
                     "tickets",
                     "setup"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/platform.business.glance": {
+      "post": {
+        "operationId": "query_platform_business_glance",
+        "summary": "One business at a glance: what needs a look, its plan, 30 days of activity, what its customers paid it, and what is connected.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.businesses.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "attention": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "being_deleted",
+                          "wallet_suspended",
+                          "card_declined",
+                          "balance_out",
+                          "plan_trouble",
+                          "texting_rejected",
+                          "connection_broken",
+                          "texting_waiting",
+                          "thin_margin",
+                          "gone_quiet",
+                          "setup_stalled"
+                        ]
+                      }
+                    },
+                    "deletionRequestedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "plan": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "plan": {
+                              "type": "string",
+                              "enum": [
+                                "founding_free",
+                                "founding_lifetime",
+                                "monthly"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "grace",
+                                "past_due",
+                                "canceled"
+                              ]
+                            },
+                            "priceCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "periodEnd": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "graceEndsAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "canceledAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "renewalStoppedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "renewalProblem": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "renewalFailedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "plan",
+                            "status",
+                            "priceCents",
+                            "periodEnd",
+                            "graceEndsAt",
+                            "canceledAt",
+                            "renewalStoppedAt",
+                            "renewalProblem",
+                            "renewalFailedAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "activity": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "traffic": {
+                      "type": "object",
+                      "properties": {
+                        "texts": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "calls": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "emails": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "aiReplies": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "texts",
+                        "calls",
+                        "emails",
+                        "aiReplies"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "theirMoney": {
+                      "type": "object",
+                      "properties": {
+                        "collected30dCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "refunded30dCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openInvoices": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openInvoiceCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "overdueInvoices": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "openDisputes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "collected30dCents",
+                        "refunded30dCents",
+                        "openInvoices",
+                        "openInvoiceCents",
+                        "overdueInvoices",
+                        "openDisputes"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "setup": {
+                      "type": "object",
+                      "properties": {
+                        "numbers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "registration": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "approved",
+                                    "waiting",
+                                    "rejected",
+                                    "draft"
+                                  ]
+                                },
+                                "since": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "reason": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "since",
+                                "reason"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "emailDomain": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "domain": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "domain",
+                                "status"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "emailAddresses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "mailboxes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "provider",
+                              "status"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "payments": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "provider",
+                              "status"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "calendarConnections": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "provider",
+                              "status"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "calendars": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "bookingPage": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "slug": {
+                                  "type": "string"
+                                },
+                                "enabled": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "slug",
+                                "enabled"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "aiTeammate": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "training",
+                                "automatic"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "meta": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "gettingStarted": {
+                          "type": "string",
+                          "enum": [
+                            "finished",
+                            "started",
+                            "not_started",
+                            "off"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "numbers",
+                        "registration",
+                        "emailDomain",
+                        "emailAddresses",
+                        "mailboxes",
+                        "payments",
+                        "calendarConnections",
+                        "calendars",
+                        "bookingPage",
+                        "aiTeammate",
+                        "meta",
+                        "gettingStarted"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "more": {
+                      "type": "object",
+                      "properties": {
+                        "cameFrom": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "at": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "status",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "addons": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "mainOffer": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "liveVersion": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "revision": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "liveVersion",
+                                "revision"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "supportAccess": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "requested",
+                                    "active",
+                                    "declined",
+                                    "ended"
+                                  ]
+                                },
+                                "expiresAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "status",
+                                "expiresAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "lastViewedAs": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "cameFrom",
+                        "addons",
+                        "mainOffer",
+                        "supportAccess",
+                        "lastViewedAs"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "problemReports": {
+                      "type": "object",
+                      "properties": {
+                        "open": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "recent": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "area": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "note": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "handled": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "area",
+                              "note",
+                              "createdAt",
+                              "handled"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "open",
+                        "recent"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "attention",
+                    "deletionRequestedAt",
+                    "plan",
+                    "activity",
+                    "traffic",
+                    "theirMoney",
+                    "setup",
+                    "more",
+                    "problemReports"
                   ],
                   "additionalProperties": false
                 }
@@ -182697,6 +184118,7 @@
                               "warm_up",
                               "friend_request",
                               "confirm",
+                              "recommend",
                               "partner_reply",
                               "partner_details",
                               "partner_follow_up",
@@ -182838,6 +184260,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "requests": {
+                            "type": "boolean"
                           },
                           "send": {
                             "anyOf": [
@@ -182957,6 +184382,7 @@
                               "warm_up",
                               "friend_request",
                               "confirm",
+                              "recommend",
                               "partner_reply",
                               "partner_details",
                               "partner_follow_up",
@@ -183098,6 +184524,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "requests": {
+                            "type": "boolean"
                           },
                           "send": {
                             "anyOf": [
@@ -183285,6 +184714,7 @@
                           "warm_up",
                           "friend_request",
                           "confirm",
+                          "recommend",
                           "partner_reply",
                           "partner_details",
                           "partner_follow_up",
@@ -183766,7 +185196,7 @@
     "/v1/queries/outreach.posts.words": {
       "post": {
         "operationId": "query_outreach_posts_words",
-        "summary": "The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.",
+        "summary": "The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens, local ones first, and the playbooks’ places, to tell a post tagged in the area.",
         "tags": [
           "queries"
         ],
@@ -183814,10 +185244,24 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "places": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
-                    "words"
+                    "words",
+                    "tags",
+                    "places"
                   ],
                   "additionalProperties": false
                 }
@@ -186085,7 +187529,7 @@
     "/v1/queries/outreach.live.team": {
       "post": {
         "operationId": "query_outreach_live_team",
-        "summary": "For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.",
+        "summary": "For owners and admins: each person who uses Social Outreach on one network (Facebook when left out), with what their extension is doing (working, waiting, stopped for today, offline), today’s counts there against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.",
         "tags": [
           "queries"
         ],
@@ -186101,6 +187545,16 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
                   }
                 },
                 "required": [
@@ -186125,6 +187579,15 @@
                       "type": "string",
                       "format": "date-time",
                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin",
+                        "instagram",
+                        "alignable"
+                      ]
                     },
                     "people": {
                       "type": "array",
@@ -186407,6 +187870,7 @@
                   "required": [
                     "timezone",
                     "now",
+                    "platform",
                     "people"
                   ],
                   "additionalProperties": false
@@ -186847,6 +188311,7 @@
                                       "working",
                                       "stuck",
                                       "typing",
+                                      "code",
                                       "done",
                                       "failed",
                                       "cancelled",
@@ -187951,6 +189416,7 @@
                               "working",
                               "stuck",
                               "typing",
+                              "code",
                               "done",
                               "failed",
                               "cancelled",
@@ -188892,6 +190358,29 @@
                                 "type": "string",
                                 "maxLength": 200
                               }
+                            },
+                            "recommendations": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "recommendNote": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "maxLength": 600
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "at": {
                               "type": "string",

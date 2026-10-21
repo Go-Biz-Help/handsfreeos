@@ -348,7 +348,7 @@ describe('forms: who reads and who writes', () => {
     ).toBe('42501');
   });
 
-  it('a sheet sent again writes its answers over the last ones, and reads them back (20261027009700)', async () => {
+  it('a sheet sent again writes its answers over the last ones, and reads them back (20261027010300)', async () => {
     // Answers now read only through a response the person can read, and sending writes them with
     // `on conflict do update`, which reads the answer already there. The phone's own sheet still can.
     const form = await live(wsA, orgA);

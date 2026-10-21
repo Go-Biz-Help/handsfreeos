@@ -151,7 +151,7 @@ export function searchProbes(typed: string, opts: { country?: CountryCode } = {}
 }
 
 /**
- * A text's words as `private.search_words` splits them (20261027009800_file_texts.sql), which is how the words read
+ * A text's words as `private.search_words` splits them (20261027010400_file_texts.sql), which is how the words read
  * inside a file are kept: folded, every run of anything that isn't a letter or a digit made one space, and a run of
  * digits without its leading zeros. So "INV-001042" gives "inv 1042", "(504) 555-0142" gives " 504 555 142" and
  * "dana.smith@gmail.com" gives "dana smith gmail com". A letter is what Postgres's `[:alnum:]` calls one: a letter

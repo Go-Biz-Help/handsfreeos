@@ -1,4 +1,10 @@
-import type { AskShown, AsksOutput } from '@hfos/core/addons/outreach/asks';
+import {
+  askCodeAlertWords,
+  askCodeRanOutWords,
+  askCodeWords,
+  type AskShown,
+  type AsksOutput,
+} from '@hfos/core/addons/outreach/asks';
 import type { ChatsOutput } from '@hfos/core/addons/outreach/chat-read';
 import type { GroupsOutput } from '@hfos/core/addons/outreach/groups';
 import { fireEvent, render, renderHook, screen, within } from '@testing-library/react-native';
@@ -6,13 +12,14 @@ import * as React from 'react';
 
 import { AskedPart, AskLine, type AskActions, useDoneReload } from '../asks';
 import { ChatsBody } from '../chats';
+import { CodeBody } from '../code';
 import { GroupsBody } from '../groups';
 import { id, TZ } from './mocks';
 
 /**
  * Asking the computer from the phone (decisions 43 and 44): the Groups and Chats screens' buttons ask the person's
  * working computer, as the web's do, each with the line of its latest ask; a step handed over has Carry on, Skip and
- * Stop; and the Live screen lists what was asked.
+ * Stop; one waiting on a code from their email has a box for it; and the Live screen lists what was asked.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
@@ -269,6 +276,20 @@ describe('An ask’s line on the phone', () => {
     expect(screen.getByText('Work laptop starts on it in a moment.')).toBeTruthy();
   });
 
+  it('takes the code a network emailed them, says it’s sent, and lets them type it again', async () => {
+    const code = jest.fn(async () => true);
+    const actions = { ...actionsOf(), code };
+    const waiting = ask({ kind: 'profile_edit', state: 'code', line: askCodeWords('alignable') });
+    await render(<AskLine asks={asksOf()} ask={waiting} actions={actions} />);
+    expect(screen.getByText(askCodeWords('alignable'))).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('ask-code'), '482 913');
+    await fireEvent.press(screen.getByTestId('ask-code-send'));
+    expect(code).toHaveBeenCalledWith(waiting, '482 913');
+    expect(await screen.findByText('Sent. Your computer is putting it in.')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Type it again'));
+    expect(screen.getByTestId('ask-code')).toBeTruthy();
+  });
+
   it('lists what was asked on the Live screen, or says nothing was', async () => {
     const actions = actionsOf();
     const { rerender } = await render(<AskedPart asks={asksOf()} actions={actions} />);
@@ -297,5 +318,92 @@ describe('An ask’s line on the phone', () => {
       asks: asksOf([ask({ askId: id(11), state: 'done' }), ask({ state: 'done' })]),
     });
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * The code's own screen (decision 82), where the notification opens: the box takes the keyboard while the code is
+ * asked for; once 30 minutes pass with none, Try again; once it's gone on, how it went; with no such ask, the Live tab.
+ */
+describe('the code’s screen', () => {
+  const coding = ask({
+    kind: 'profile_edit',
+    platform: 'alignable',
+    state: 'code',
+    line: askCodeWords('alignable'),
+  });
+
+  it('asks for the code with the box ready to type in', async () => {
+    const code = jest.fn(async () => true);
+    const actions = { ...actionsOf(), code };
+    await render(
+      <CodeBody
+        askId={coding.askId}
+        asks={asksOf([coding])}
+        error={null}
+        actions={actions}
+        onOpenLive={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('outreach-code-title')).toHaveTextContent(
+      askCodeAlertWords('alignable').title,
+    );
+    expect(screen.getByTestId('ask-code').props.autoFocus).toBe(true);
+    await fireEvent.changeText(screen.getByTestId('ask-code'), '482913');
+    await fireEvent.press(screen.getByTestId('ask-code-send'));
+    expect(code).toHaveBeenCalledWith(coding, '482913');
+  });
+
+  it('says the code ran out and has Try again, which asks the computer to get a new one', async () => {
+    const actions = actionsOf();
+    const ranOut = { ...coding, state: 'stuck' as const, line: askCodeRanOutWords('alignable') };
+    await render(
+      <CodeBody
+        askId={coding.askId}
+        asks={asksOf([ranOut])}
+        error={null}
+        actions={actions}
+        onOpenLive={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('outreach-code-title')).toHaveTextContent('Alignable’s code ran out');
+    expect(screen.queryByTestId('ask-code')).toBeNull();
+    expect(screen.getByTestId('ask-carry_on')).toHaveTextContent('Try again');
+    await fireEvent.press(screen.getByTestId('ask-carry_on'));
+    expect(actions.reply).toHaveBeenCalledWith(ranOut, 'carry_on');
+  });
+
+  it('says how it went once the computer has gone on', async () => {
+    const done = { ...coding, state: 'done' as const, line: 'Put in your About Us.', endedAt: NOW };
+    await render(
+      <CodeBody
+        askId={coding.askId}
+        asks={asksOf([done])}
+        error={null}
+        actions={actionsOf()}
+        onOpenLive={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('outreach-code-gone')).toBeTruthy();
+    expect(screen.queryByTestId('outreach-code-title')).toBeNull();
+    expect(screen.queryByTestId('ask-code')).toBeNull();
+  });
+
+  it('points to the Live tab when no ask waits on a code', async () => {
+    const onOpenLive = jest.fn();
+    await render(
+      <CodeBody
+        askId={id(99)}
+        asks={asksOf([coding])}
+        error={null}
+        actions={actionsOf()}
+        onOpenLive={onOpenLive}
+      />,
+    );
+    expect(screen.getByTestId('outreach-code-none')).toHaveTextContent(
+      /^Nothing’s waiting on a code now\./,
+    );
+    await fireEvent.press(screen.getByTestId('outreach-code-open-live'));
+    expect(onOpenLive).toHaveBeenCalled();
   });
 });

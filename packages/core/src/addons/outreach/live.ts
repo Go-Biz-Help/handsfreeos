@@ -22,6 +22,7 @@ import { addDays, localDateOf } from '../../calendar/engine/zoned';
 import { fmtDateShort, fmtTime } from '../../calendar/when';
 import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { LIST_MARK_KEYS, listsWaitWords, ListsSaved, type ListMark } from './lists';
+import { runsOnItsOwn } from './networks';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from './playbooks';
 import { WarningState } from './tidy';
 
@@ -305,13 +306,19 @@ export const LiveOutput = z.object({
 });
 export type LiveOutput = z.output<typeof LiveOutput>;
 
-export const LiveTeamInput = z.object({ workspaceId: z.uuid() });
+export const LiveTeamInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network whose days, counts and warnings it gives, as the person's own live view: Facebook's when left out. */
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+});
 export type LiveTeamInput = z.input<typeof LiveTeamInput>;
 
 /** Each person's status for owners and admins (decision 24): never their lines, feed or messages. */
 export const LiveTeamOutput = z.object({
   timezone: z.string(),
   now: moment,
+  /** The network it's about: on another than Facebook, only the people who have it on. */
+  platform: z.enum(PLATFORM_KEYS),
   people: z.array(
     z.object({
       userId: z.uuid(),
@@ -469,6 +476,9 @@ export function sendingOffWords(
   businessAllowsMore: boolean,
   platform: Platform = 'facebook',
 ): string {
+  // A network the extension doesn't work yet (one before its runner): nothing to pick, and nobody to ask.
+  if (!runsOnItsOwn(platform))
+    return `Your computer doesn’t work on ${PLATFORMS[platform]} on its own yet, so there’s no day to start there. Today’s list on ${PLATFORMS[platform]} is yours to do, and it notes each step you take.`;
   return businessAllowsMore
     ? `The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → ${PLATFORMS[platform]}.`
     : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → General.';

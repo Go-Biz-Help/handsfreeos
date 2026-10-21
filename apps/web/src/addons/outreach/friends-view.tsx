@@ -33,7 +33,7 @@ import {
   FRIENDS_PAGE,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
-import { tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
+import { saveListOn, tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
@@ -352,7 +352,7 @@ export function FriendsView({
             asks={asks}
             ask={{ kind: 'friends' }}
             platform={asking}
-            label={`Save my ${words.friends} list`}
+            label={saveListOn(asking)}
             testId="ask-friends"
           />
         </div>
@@ -979,7 +979,7 @@ function TidyList({
                     <span className="text-text-3">
                       {' · '}
                       {kind === 'cancel'
-                        ? `sent ${dateWords(p.since)}`
+                        ? `${T.cancel.since} ${dateWords(p.since)}`
                         : p.lastContact
                           ? `last contact ${dateWords(p.lastContact)}`
                           : 'no contact on record'}

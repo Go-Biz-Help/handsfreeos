@@ -4,8 +4,10 @@ import { seenWords } from '@hfos/core/addons/outreach/live';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
   ABOUT_MOST,
+  ASK_RECOMMENDATIONS_URL,
   checkCounts,
   hasPlaceholder,
+  RECOMMENDATIONS_WORDS as RW,
   type AnyProfileItem,
 } from '@hfos/core/addons/outreach/profile-check';
 import {
@@ -34,7 +36,7 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { AskButton, AskLine, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
-import { Note, useOutreachAnswer, useOutreachContext } from './kit';
+import { Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
 
 /**
  * Get ready on the phone (docs/outreach.md, decisions 63 and 64; packages/core/src/addons/outreach/readiness.ts):
@@ -554,6 +556,31 @@ export function ProfileList({
           <Note>{P.coverHint}</Note>
         </View>
       ) : null}
+      {platform === 'alignable' && check ? (
+        <View className="gap-1" testID="ready-recommendations">
+          <Text className="text-[14px] font-semibold">{RW.title}</Text>
+          <Note testID="ready-recommendations-count">
+            {RW.count(check.recommendations ?? null)}
+          </Note>
+          {check.recommendNote ? (
+            <View className="gap-1.5">
+              <Text className="text-[13.5px] font-medium">{RW.note}</Text>
+              <Text selectable className="text-[14px] leading-[20px]" testID="ready-recommend-note">
+                {check.recommendNote}
+              </Text>
+              <Note>{RW.noteHint}</Note>
+              <Button
+                size="md"
+                variant="secondary"
+                onPress={() => openOutside(ASK_RECOMMENDATIONS_URL)}
+                testID="ready-recommend-open"
+              >
+                {RW.open}
+              </Button>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       {check?.aboutDraft && P.about ? (
         <View className="gap-2" testID="ready-about">
           <View className="gap-0.5">
@@ -606,6 +633,10 @@ export function ProfileList({
                 testID="ready-all-use"
               />
             </View>
+          ) : null}
+          {/* With no bios (Alignable's), how the last one put in went shows here: its code's box among it. */}
+          {!check.bios.length && edit && asks && actions ? (
+            <AskLine asks={asks} ask={edit} actions={actions} />
           ) : null}
         </View>
       ) : null}

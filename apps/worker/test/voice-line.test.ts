@@ -205,6 +205,16 @@ describe('the stopwatch', () => {
     });
   });
 
+  it('counts the wait for the listener to hear they’d finished in the first sound, when it says', () => {
+    const clock = new TurnClock();
+    clock.heardMs = 400;
+    clock.onAsked(1);
+    clock.asked = clock.started + 40;
+    clock.firstAudio = clock.started + 990;
+    expect(clock.log()).toMatchObject({ heardMs: 400, firstSoundMs: 1390 });
+    expect(new TurnClock().log()).toMatchObject({ heardMs: null });
+  });
+
   it('has no steps when the AI was never asked', () => {
     expect(new TurnClock().steps()).toBeNull();
   });

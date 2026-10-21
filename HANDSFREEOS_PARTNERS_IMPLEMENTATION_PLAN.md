@@ -571,7 +571,8 @@ request when opened, so no Check opens it: the first real request shows what it 
    "referral partners" side, so no new field was needed.
 3. **6c, Alignable works** (its parts 1 to 6), built from what 6a sends back, with partners in it: reading its pages,
    noting your steps, its day in the apps, its asks, the runner and Find partners (your town's businesses by the
-   playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage last.
+   playbook's kinds, from its search), and the forum's questions. It leaves the "looking" stage at part 3, as
+   LinkedIn did, with nothing going on its own there till its runner (part 5).
    - **What 6a's Check read** (Chris, 19 Oct 2026): a town opens at its own group (`/groups/<town-st>`), whose posts
      each have Comment, Like and a Connect of their own; a forum question is a discussion at
      `/groups/<group>/<question>`, its answers each with Connect, and a box to answer in with Send. A search's results
@@ -583,8 +584,109 @@ request when opened, so no Check opens it: the first real request shows what it 
    - **Part 1, reading** (extension 0.67.0): Alignable's readers for all of these, counted in each of Check's notes,
      with Requests found in My Network's own menu, the pitch's box waited for, and About Us's Save found. The next
      Check shows whether the readers read the real pages, and what a Connect link's word is.
+   - **What 0.67.0's Check read** (Chris, 20 Oct 2026): the readers read the real pages: a search's 10 businesses each
+     with its owner, business, kind, place and Connect; 5 connections; 16 conversations and the open one's box and
+     Send; a business's page whole, its ideal partner too; a forum question's 5 answers. Connect is
+     `/biz/connection_requests/make_connection?business_id=…`: opening it makes the request, so it's pressed only as the
+     step itself. **The Elevator Pitch is a chat with Alignable's own AI**, not a box: it stays the person's to make
+     there. About Us's Edit opens its editor in the page; its address leads back to the profile, where the form found
+     was the gallery's. Requests was empty. The town's posts were still loading, and a forum question's own words are
+     a plain box between its author and its counts. 0.68.0 reads all of that, and the Requests table's rows.
+   - **What 0.68.0's Check read** (Chris, 20 Oct 2026): the town's posts and a forum question's words read; About Us's
+     Edit opens a box over the page with Cancel and **Continue**, a few steps of Alignable's own, as the Elevator
+     Pitch is a chat with its AI. Requests was empty again.
+   - **About Us asks for a code Alignable emails** (Chris, 20 Oct 2026): its box over the page is Alignable checking
+     it's them before a profile changes, and each press sent an email. So from 0.70.0 Check never presses it, and the
+     extension reads the code's box when it's open. **The code relay** (docs/outreach.md decision 82): the extension
+     asks HandsFreeOS for the code, the person is told on their phone to look in their email, types it in HandsFreeOS,
+     and the extension puts it in the box once and forgets it. Only they can read it, and it's gone once used or after
+     30 minutes. With it, **Get ready on Alignable** (extension 0.71.0) reads their profile for the AI's check (its
+     items: photo, About Us, Elevator Pitch, ideal customer and partner, services), the AI writes About Us whole, and
+     **Put this one in** puts it in past the code. The Elevator Pitch is made with Alignable's own assistant, so it
+     stays theirs to tick. From 0.72.0 the code's notification stays up for its 30 minutes, on Home and under the
+     phone's bell beside Ask HandsFreeOS, and opens the code's own screen; with no code by then, it asks them to
+     **Try again**, and Alignable emails a new one.
+   - **Part 2, noting your own steps** (extension 0.69.0): Connect, a post's and an answer's Like, Send in a forum
+     question's or a reply's box, and a message, each noted to the business it's for by Alignable's id, as on the
+     other networks (`src/networks/alignable/actions.ts`).
+   - **Part 4, asks** (extension 0.73.0): Save my connections (My Network, all of them past Ally's picks), Check my
+     connection requests, Check my connections and Research (each business's page read for the AI's check, 30 a day),
+     and a business looked up before drafting. Reading chats waited for its reader: the owner's Check opened an empty
+     chat, so Check Alignable now opens one with messages from Messages' side, and the reader is built from its outline.
+     Built in extension 0.84.0 from his Check of 21 Oct 2026: **Read my chats** reads each conversation's messages as
+     his or theirs, sends them for the AI and notes who wrote last, asked or once a day by the runner.
+   - **Part 3c, its town's posts and forum questions** (extension 0.74.0): Find posts in your town reads the person's
+     town page for the AI's check, as LinkedIn's search finds are read; the good ones come onto Today with a draft and
+     their writers to connect with. Answers to those asking for what the business offers are at most 2 a day, inside
+     the day's comments (the plan's limit; its kit's `forumAnswersPerDay`), each after the person's OK.
+   - **Part 3d, Recommend** (extension 0.75.0, a migration: `touches.kind` takes `recommend`): Today suggests one
+     business a day to recommend, a partner or a customer they've done work for, never one recommended already; the
+     person writes it on Alignable, and the extension notes it once it's sent.
+   - **Part 7, recommendations on Get ready** (extension 0.76.0): how many the profile shows, of the 5 it wants, and
+     the AI's note asking happy customers for one, to paste in Alignable's own Ask for Recommendations.
+   - **Part 5, the runner** (extension 0.77.0, `src/auto/alignable.ts`): Alignable works on its own as LinkedIn does,
+     so its Sending choices open. Its lists first; then once a day its requests, its connections checked, **Find
+     partners** (its search for businesses, then each found read for the partner check; businesses alone, as it has no
+     creators) and its town's posts; then warm-ups, connection requests and the messages OK'd. Comments and forum
+     answers wait for an OK each time, Recommend stays by hand only, and withdrawing old requests stays the person's:
+     no reader of the requests they've sent is built.
+   - **Part 6, growing** (extension 0.78.0, a migration): warm leads from Alignable's notifications (who liked,
+     commented on or recommended them), read once a day by its runner; a strong forum question's push names Alignable
+     and opens Today there; and Find partners on Alignable, with its business search, in the runner's daily work.
+   - **Part 3, in the app,** in five pieces: (a) nothing goes on its own on a network with no runner, so Alignable's
+     Sending stays off and its Settings page says each step is the person's own; its chats open at Alignable's own
+     address; (b) a playbook's town and kinds of business on Alignable; (c) Today's sources: the town's businesses,
+     search finds and forum questions; (d) Recommend (by hand) and forum answers as kinds, with their limits; (e) the
+     switch to `working`, with Sending kept off until the runner (part 5). Built: (a), then (e), so Chris can try
+     Alignable by hand while the rest comes; (b) needs no new field, as a playbook's words to search are its kinds of
+     business there and its area narrows the person's own town.
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
+   - **Part 9, Check's new reads** (extension 0.79.0): Check Instagram also opens their followers, a hashtag
+     (#smallbusiness), a place a post was tagged at (from 0.84.0 one of the hashtag's posts opened for one, as
+     /explore/locations/ is no list of places now), their notifications and a chat
+     in Messages, reading each and pressing nothing. Its readers (part 10) are built from what those outlines show,
+     as Alignable's were; Instagram's own reader (`src/networks/instagram/read.ts`) starts with the links Check
+     follows: places, hashtags and chats.
+   - **Part 10, reading** (extension 0.80.0): Instagram's own readers, as Alignable's are: someone's profile (name,
+     username, whether you follow each other, their followers and latest posts), your followers (whether you follow
+     each back), a post (who, its caption, likes, comments and place), a hashtag's and a place's posts, notifications
+     (who followed you, liked or commented), your messages (each chat, whose last line, which box) and a chat (who,
+     its messages, a request to Accept). The profile and the post are built from Chris's outlines of 18 Oct; the rest
+     from Instagram's usual markup, to be tuned from his next Check, which opens each. Tuned in extension 0.84.0 from
+     his Check of 21 Oct: the followers' box opened by his count of followers, a chat's messages as articles, a post's
+     likes after its Like, the suggestions under notifications left out, and a hashtag read on the search it lands on.
+   - **Part 11, noting your own steps** (extension 0.80.0): Follow or Follow Back (a follow, noted once the button
+     says Following or Requested), a post's Like, a comment sent from a post's box, and a message sent in a chat, each
+     to that account by its name in Instagram's address (`src/networks/instagram/actions.ts`).
+   - **Part 12, in the app** (extension 0.80.0, no migration: every kind, state and ask it uses was there already):
+     Instagram is `working`, by hand till its runner, as Alignable was. A follow-back counts as accepting: **Save my
+     followers** reads the person's followers and saves them as Instagram's friends list, and someone they followed
+     who's among them gets their first message. No follow-back in 3 days: one short message marked as going to their
+     Requests (no link, no video, one text; at most 5 of the day's 10 first messages; its kit's
+     `requestsMessageAfterDays` and `requestsMessagesPerDay`), and no follow-up in a chat they haven't answered or
+     accepted. Tidying unfollows, after the business's 3-week wait, 20 a day: never anyone who wrote back, a customer,
+     or someone kept; the person ticks who, and the extension unfollows them in a tab they can see.
+   - **Part 13, asks** (extension 0.81.0, no migration): every ask the plan lists for Instagram works there. Beside
+     Save my followers, unfollowing and the profile, its followers are checked for fits and one researched (each
+     account read for the AI, 20 a day), its chats read for the AI with who wrote last noted, and someone looked up
+     before drafting (`src/jobs/instagram/`). Its chats' rows aren't links, so Read my chats presses each by the name
+     it shows; it leaves the Requests box and group chats alone.
+   - **Part 14, the runner** (extension 0.82.0, `src/auto/instagram.ts`, no migration): Instagram works on its own as
+     Alignable does, so its Sending choices open. Its followers first; then once a day its newest followers, its
+     followers checked, its chats read, and **Find partners** with Instagram's search (whoever posted what it shows for
+     creators, the accounts it shows for businesses, then each read for the partner check); then warm-ups (a like on
+     one or two recent posts), follows and the messages OK'd, the one to Requests as one text. Comments wait for an OK
+     each time and the person posts them, as on Alignable; unfollowing stays the person's ticks. It stops for the day
+     on any Instagram warning.
+   - **Part 15, growing** (extension 0.83.0; migration 20261027010100, which only widens the warm leads' kinds with
+     `follow`): two more once-a-day jobs. **Hashtags and places:** a playbook has no fields for them, so HandsFreeOS
+     makes the day's three hashtags from its area and its words for groups, local ones first (#austinplumbing), and
+     the extension reads a few of each one's posts, then those of up to two places in the area its posts were tagged
+     at; the good posts' authors get a like, then a follow a day after. **Warm leads from the notifications:** who
+     followed the person is followed back at once, and who liked or commented gets a like back, then a follow
+     (`outreach.engaged.save`). **Find partners** also reads the hashtag of each creator search's words, and the
+     accounts Instagram suggests for businesses.
 
 ## Build order
 

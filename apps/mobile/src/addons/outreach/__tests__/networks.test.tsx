@@ -8,9 +8,11 @@ import {
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
+import { NETWORKS, type NetworkKit } from '@hfos/core/addons/outreach/networks';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
 import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
+import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -18,6 +20,7 @@ import { SAVE_PAUSE_MS } from '../autosave';
 import { LiveStrip } from '../hub';
 import { PipelineBody } from '../pipeline';
 import { SettingsPartBody } from '../settings';
+import { NetworkModes, NetworkTicks } from '../settings-bits';
 import { TodayBody } from '../today';
 import { id, ME, TZ } from './mocks';
 
@@ -52,6 +55,22 @@ jest.mock('@/components/shell/screen', () => ({
 }));
 
 const NOW = Date.parse('2026-10-10T15:00:00.000Z');
+const W_ALONG = OUTREACH_WORDS.sections.along;
+
+/**
+ * Every network has its runner now (Instagram's from its part 14): a network before its runner is Instagram as it was,
+ * its kit's `runs` stood in for while the test runs, then put back.
+ */
+async function beforeItsRunner(run: () => Promise<void>): Promise<void> {
+  const kit = NETWORKS.instagram as { runs: NetworkKit['runs'] };
+  const runs = kit.runs;
+  kit.runs = { auto: [], ticks: [] };
+  try {
+    await run();
+  } finally {
+    kit.runs = runs;
+  }
+}
 const LIMIT = { done: 1, most: 15 };
 
 const LIVE: LiveOutput = {
@@ -111,6 +130,54 @@ describe('Today’s strip, a row for each network', () => {
     await fireEvent.press(screen.getByTestId('today-network-linkedin-open'));
     expect(onShow).toHaveBeenCalled();
   });
+
+  it('says a list with no runner is the person’s own to do, with no Start my day or Settings to change it', async () => {
+    await beforeItsRunner(async () => {
+      const h = handlers();
+      await render(
+        <LiveStrip
+          platform="instagram"
+          live={{ ...LIVE, sending: 'off', canSend: true }}
+          error={null}
+          online
+          now={NOW}
+          pressed={null}
+          many={false}
+          shown
+          onShow={jest.fn()}
+          {...h}
+        />,
+      );
+      expect(screen.getByTestId('live-sending-off')).toHaveTextContent(
+        /doesn’t work on Instagram on its own yet/,
+      );
+      expect(screen.queryByTestId('live-settings')).toBeNull();
+      expect(screen.queryByTestId('live-start')).toBeNull();
+    });
+  });
+
+  it.each(['alignable', 'instagram'] as const)(
+    'offers %s’s Settings while its Sending is Off, now its runner works there',
+    async (platform) => {
+      const h = handlers();
+      await render(
+        <LiveStrip
+          platform={platform}
+          live={{ ...LIVE, sending: 'off', canSend: true }}
+          error={null}
+          online
+          now={NOW}
+          pressed={null}
+          many={false}
+          shown
+          onShow={jest.fn()}
+          {...h}
+        />,
+      );
+      expect(screen.getByTestId('live-sending-off')).not.toHaveTextContent(/on its own yet/);
+      expect(screen.getByTestId('live-settings')).toBeTruthy();
+    },
+  );
 
   it('says the network shown’s limits in its words, and its warning names it', async () => {
     await render(
@@ -555,7 +622,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'facebook');
   });
 
-  it('shows a network still looked at only Chrome’s say, what it does there for now, and its Check (decision 78)', async () => {
+  it('shows Instagram on its own, with Chrome’s say, its limits and its Check (its parts 12 and 14)', async () => {
     const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
     const instagramOn: AutomationOutput = {
       ...AUTOMATION,
@@ -580,20 +647,22 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(screen.getByTestId('settings-networks-instagram-chrome-blocked')).toHaveTextContent(
       'Chrome on Mac 12 isn’t allowed on Instagram yet. Open the extension’s panel on an Instagram page and press Allow on Instagram, then Allow in Chrome’s box.',
     );
-    expect(screen.getByTestId('settings-networks-instagram-looking')).toHaveTextContent(
-      /^Instagram is new to HandsFreeOS\. For now the extension only reads it/,
+    // Not looked at anymore, and on its own from its runner (part 14): Instagram's starting limits.
+    expect(screen.queryByTestId('settings-networks-instagram-looking')).toBeNull();
+    expect(screen.getByTestId('settings-networks-instagram-on-its-own')).not.toHaveTextContent(
+      /on its own yet/,
     );
-    // Nothing to choose yet, and no limits to show.
-    expect(screen.queryByTestId('settings-networks-instagram-sending-steps')).toBeNull();
-    expect(screen.queryByTestId('settings-networks-instagram-limits')).toBeNull();
+    expect(
+      screen.getByTestId('settings-networks-instagram-limit-friend_request'),
+    ).toHaveTextContent(/^20Follows$/);
     expect(screen.getByTestId('settings-networks-instagram-checkup')).toHaveTextContent(
-      /^Check InstagramPress this once, so the extension can learn Instagram from your own account\./,
+      /^Check Instagram/,
     );
     await fireEvent.press(screen.getByTestId('settings-networks-instagram-checkup-ask'));
     expect(actions.ask).toHaveBeenCalledWith({ kind: 'checkup' }, 'instagram');
   });
 
-  it('reads and checks the person’s profile there, on a network still looked at too (decision 80)', async () => {
+  it('reads and checks the person’s profile on Instagram (decision 80)', async () => {
     const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
     const instagramOn: AutomationOutput = {
       ...AUTOMATION,
@@ -781,4 +850,47 @@ describe('For your team on a network, for owners and admins', () => {
     expect(screen.getByTestId('settings-rules-network-linkedin')).not.toBeChecked();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeEnabled();
   });
+});
+
+/**
+ * A network the extension doesn't work on its own yet (Instagram as it was before its runner, stood in for): its page
+ * says so instead of offering Sending and Replies, has no helpful post to choose, and no switches along the way, as
+ * nothing reads them.
+ */
+describe('a network with no runner yet', () => {
+  const value: NetworkChoices = { ...NETWORKS_DEFAULTS.instagram, on: true };
+
+  it('says every step there is the person’s own, with nothing to pick', () =>
+    beforeItsRunner(async () => {
+      await render(
+        <>
+          <NetworkModes
+            platform="instagram"
+            value={value}
+            onChange={jest.fn()}
+            sendingAllowed={['off', 'steps', 'approve_all', 'everything']}
+            repliesAllowed={['draft', 'simple']}
+            boxed={false}
+            disabled={false}
+            testID="modes"
+          />
+          <NetworkTicks
+            platform="instagram"
+            value={value}
+            onChange={jest.fn()}
+            boxed={false}
+            disabled={false}
+            testID="ticks"
+          />
+        </>,
+      );
+      expect(screen.getByTestId('modes-on-its-own')).toHaveTextContent(
+        /doesn’t work on Instagram on its own yet/,
+      );
+      expect(screen.queryByTestId('modes-sending-steps')).toBeNull();
+      expect(screen.queryByTestId('modes-sending-off')).toBeNull();
+      expect(screen.queryByTestId('modes-replies-draft')).toBeNull();
+      expect(screen.queryByTestId('modes-posting-after_ok')).toBeNull();
+      expect(screen.queryByText(W_ALONG)).toBeNull();
+    }));
 });

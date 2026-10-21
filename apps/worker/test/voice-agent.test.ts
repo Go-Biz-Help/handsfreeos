@@ -486,6 +486,32 @@ describe('a call', () => {
     }
   });
 
+  it('listens with the listener support picked for the business', async () => {
+    const speech = w.s.speech as ReturnType<typeof createFakeSpeech>;
+    const setListener = (listener: string | null) =>
+      rows(
+        admin(),
+        sql`update app.workspaces set phone_listener = ${listener} where id = ${w.workspaceId}`,
+      );
+    await setListener('flux');
+    try {
+      const { xml, callSid } = await callIn();
+      const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+      await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+      expect(speech.listeners.at(-1)).toBe('flux');
+      call.hangUp();
+      await waitForRun(callSid, 'done');
+    } finally {
+      await setListener(null);
+    }
+    const { xml, callSid } = await callIn();
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    expect(speech.listeners.at(-1)).toBeNull();
+    call.hangUp();
+    await waitForRun(callSid, 'done');
+  });
+
   it('stops talking when the caller talks over it', async () => {
     const { xml, callSid } = await callIn();
     const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'), { play: false });
@@ -778,7 +804,7 @@ describe('the pieces', () => {
         speech_final: true,
         channel: { alternatives: [{ transcript: ' Hola ', languages: ['es'] }] },
       }),
-    ).toEqual({ text: 'Hola', final: true, endOfTurn: true, language: 'es' });
+    ).toEqual({ text: 'Hola', final: true, endOfTurn: true, language: 'es', endOfTurnMs: null });
     expect(heardOf({ type: 'Metadata' })).toBeNull();
   });
 

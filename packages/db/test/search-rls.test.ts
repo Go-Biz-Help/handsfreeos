@@ -1,10 +1,10 @@
 /**
  * What search reads, and the rules it adds (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, "The database").
  *   - A form response's answers hide while the response is in the Deleted bin (form_answers_follow_response,
- *     20261027009700): from everyone in the business, owners included, and they come back with it. Before, only the
+ *     20261027010300): from everyone in the business, owners included, and they come back with it. Before, only the
  *     response had a bin rule, so Forms → Results and anything reading answers by business still showed them.
  *   - The worker's policies don't change: it reads the answers it reads today.
- *   - A file's words (app.file_texts, 20261027009800) read exactly when the file could be opened: not another
+ *   - A file's words (app.file_texts, 20261027010400) read exactly when the file could be opened: not another
  *     business's, a sealed file's only for its record's people, not while it's in the bin, never port papers or
  *     knowledge files, and not on a turned-off add-on's record. Deleting a file for good forgets them, the bin keeps
  *     them, and emptying the bin or deleting the business takes them; any ever left for a file deleted for good stay

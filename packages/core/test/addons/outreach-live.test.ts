@@ -32,7 +32,9 @@ import {
   warningLine,
   warningPushWords,
 } from '../../src/addons/outreach/live';
+import { NETWORKS, type NetworkKit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { zonedParts } from '../../src/calendar/engine/zoned';
 import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
 
 const crmPlaybook = {
@@ -49,6 +51,14 @@ const fb = (username: string) => ({
   username,
   url: `https://www.facebook.com/${username}`,
 });
+/**
+ * Where the business is: Chicago, or Tokyo (14 or 15 hours ahead) when it's within 3 hours of midnight in Chicago. The
+ * moments these tests set a few minutes back, and the whole run, then fall on the business's today at any hour.
+ */
+const awayFromMidnight = (now = Date.now()) => {
+  const { hour } = zonedParts(now, 'America/Chicago');
+  return hour >= 3 && hour < 21 ? 'America/Chicago' : 'Asia/Tokyo';
+};
 
 describe('the live view’s words', () => {
   // Friday 9 October 2026, 2:14 PM in Chicago.
@@ -135,6 +145,23 @@ describe('the live view’s words', () => {
     );
     expect(sendingOffWords(false)).toContain('Ask an owner of this business');
     expect(sendingOffWords(true)).toContain('Settings → Facebook');
+    // A network with no runner yet (Instagram's before its part 14, stood in for): nothing to pick and nobody to ask;
+    // its list is the person's own to do.
+    const kit = NETWORKS.instagram as { runs: NetworkKit['runs'] };
+    const runs = kit.runs;
+    kit.runs = { auto: [], ticks: [] };
+    try {
+      expect(sendingOffWords(true, 'instagram')).toBe(
+        'Your computer doesn’t work on Instagram on its own yet, so there’s no day to start there. Today’s list on Instagram is yours to do, and it notes each step you take.',
+      );
+      expect(sendingOffWords(false, 'instagram')).not.toContain('Ask an owner');
+    } finally {
+      kit.runs = runs;
+    }
+    // Instagram has its runner (part 14): its Sending choice is picked on its own page.
+    expect(sendingOffWords(true, 'instagram')).toContain('Settings → Instagram');
+    // Alignable has its runner (part 5): its Sending choice is picked on its own page.
+    expect(sendingOffWords(true, 'alignable')).toContain('Settings → Alignable');
     expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');
     expect(sendingOffWords(false)).toContain('Settings → General');
   });
@@ -227,7 +254,7 @@ describe('live status and control', () => {
       createTestUser('outl-owner', { fullName: 'Morgan Owner' }),
       createTestUser('outl-member', { fullName: 'Riley Member' }),
     ]);
-    ws = await outreachBusiness(owner, 'Outreach Live Co');
+    ws = await outreachBusiness(owner, 'Outreach Live Co', { timezone: awayFromMidnight() });
     await admin()
       .insert(workspaceMemberships)
       .values({ workspaceId: ws, userId: member.id, role: 'member' });

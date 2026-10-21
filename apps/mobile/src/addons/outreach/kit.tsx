@@ -40,7 +40,9 @@ export type OutreachTab =
   | 'partners'
   | 'results'
   | 'playbooks'
-  | 'settings';
+  | 'settings'
+  // A code a network emailed, on its own screen (`&ask=`, decision 82).
+  | 'code';
 /** The tabs the phone leaves to the web: they have a lot to look through (the manifest's `ui.phone` `web`). */
 export type WebTab = 'activity' | 'friends';
 

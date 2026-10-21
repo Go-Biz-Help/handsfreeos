@@ -13,10 +13,11 @@
  * whole clips instead of a live stream: `transcribe` reads one recording the app made, and `voiceClip` answers
  * with a file the app plays (MP3).
  *
- * `deepgram` (deepgram-speech.ts) is the real one; `fake` (fake-speech.ts) is the stand-in for tests, which
- * treats the audio it's sent as the words themselves.
+ * `deepgram` (deepgram-speech.ts) is the real one, listening with Nova-3 or, with VOICE_LISTENER=flux, Flux
+ * (deepgram-flux.ts); `fake` (fake-speech.ts) is the stand-in for tests, which treats the audio it's sent as the
+ * words themselves.
  */
-import type { PhoneVoice } from '@hfos/core/server';
+import type { PhoneListener, PhoneVoice } from '@hfos/core/server';
 
 /** Words heard on the call. */
 export interface HeardWords {
@@ -27,6 +28,26 @@ export interface HeardWords {
   readonly endOfTurn: boolean;
   /** The language the words were in ('en', 'es'…), when the listener says. */
   readonly language: string | null;
+  /**
+   * With `endOfTurn`: how long after their last word the listener said they'd finished, when it says where that
+   * word ended (heardEndMs). The wait before the turn's own stopwatch starts.
+   */
+  readonly endOfTurnMs?: number | null;
+}
+
+/** 8 kHz μ-law is a byte a sample: a call's audio in bytes, divided by this, is its length in seconds. */
+export const MULAW_BYTES_A_SECOND = 8_000;
+
+/**
+ * How long after the caller's last word the listener said their turn was over, in milliseconds: the audio heard
+ * by then (`heardTo`, seconds from the start of the stream) less where that word ended. Null when the word's end
+ * isn't known.
+ */
+export function heardEndMs(heardTo: number, wordEnd: unknown): number | null {
+  // Flux's schema allows a number written as a string.
+  const end: unknown = typeof wordEnd === 'string' && wordEnd.trim() ? Number(wordEnd) : wordEnd;
+  if (typeof end !== 'number' || !Number.isFinite(end) || end < 0) return null;
+  return Math.max(0, Math.round((heardTo - end) * 1000));
 }
 
 /** A language as two lowercase letters ('es-419' → 'es'), or null when there's none to tell. */
@@ -42,6 +63,11 @@ export interface ListenHandlers {
   /** Silence after words that may never have been marked the end of a turn (noise, a trailing "um"). */
   readonly onUtteranceEnd: () => void;
   readonly onError: (e: Error) => void;
+}
+
+export interface ListenOptions {
+  /** Who hears the call, when support picked one for the business in /admin; null is the worker's VOICE_LISTENER. */
+  readonly listener?: PhoneListener | null;
 }
 
 export interface Listening {
@@ -97,7 +123,7 @@ export class LineBusy extends Error {
 
 export interface SpeechServices {
   readonly name: 'deepgram' | 'fake';
-  listen(handlers: ListenHandlers): Promise<Listening>;
+  listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening>;
   /** 8 kHz μ-law audio of `text`, in pieces as they're made. */
   speak(text: string, options: SpeakOptions): AsyncIterable<Buffer>;
   /** Opens a voice for a call (VoiceLine). Without it, every sentence is said with `speak`. */

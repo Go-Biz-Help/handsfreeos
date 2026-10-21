@@ -20,7 +20,7 @@ import {
 
 /**
  * The networks it knows, in Chris's order (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): Facebook and LinkedIn
- * work; Instagram and Alignable are looked at first (`stage`).
+ * work; Instagram and Alignable were looked at first (`stage`), and work now, by hand till their runners.
  */
 export const PLATFORMS = {
   facebook: 'Facebook',
@@ -75,19 +75,42 @@ export interface NetworkKit {
   readonly weeklyRequests: number | null;
   /** How many profiles the person's computer reads a day to check for good fits (decision 46). */
   readonly checksPerDay: number;
+  /**
+   * The most answers a day to posts asking for what the business offers, inside the daily comments: Alignable's forum,
+   * where owners ask for referrals, watches for the same business answering every question (the plan: 2 a day). Null
+   * where comments are the only limit.
+   */
+  readonly forumAnswersPerDay: number | null;
+  /**
+   * Whether a person writes recommendations of other businesses there (Alignable's): only by hand, for a business they
+   * know (the plan's question 8). Today suggests one a day, a customer or partner of theirs, and the extension notes it
+   * once it's sent.
+   */
+  readonly recommends: boolean;
+  /**
+   * Whether its runner looks at hashtags, and the places their posts were tagged at, for posts and who wrote them
+   * (Instagram's, its part 15): a few a day, made from the playbooks' area and words (./posts.ts `postLooks`).
+   */
+  readonly hashtags: boolean;
+  /**
+   * On a follow network (Instagram's), a message to someone who doesn't follow the person back lands in their Requests,
+   * and passes only one text till they accept it (the Instagram and Alignable plan's "The steps"): after how many days
+   * without a follow-back that one short message goes (no link, no video), and at most how many of the day's first
+   * messages go there. No follow-up goes in a chat they haven't answered or accepted. Null where a first message waits
+   * for them to accept.
+   */
+  readonly requestsMessageAfterDays: number | null;
+  readonly requestsMessagesPerDay: number | null;
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
    * What the extension's runner does there (the Instagram and Alignable plan's "steps per network"): the kinds on
    * today's list it does on its own, and the switches along the way it reads. Today marks only these as done on their
-   * own, and Settings show only these switches. A network still looked at does none yet.
+   * own, and Settings show only these switches. A network still looked at, or before its runner, does none yet.
    */
   readonly runs: { readonly auto: readonly RunnerKind[]; readonly ticks: readonly RunnerTick[] };
   readonly words: NetworkWords;
 }
-
-/** Nothing on its own: a network still looked at (decision 78). */
-const RUNS_NOTHING: NetworkKit['runs'] = { auto: [], ticks: [] };
 
 export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   facebook: {
@@ -101,6 +124,11 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: DAILY_LIMITS,
     weeklyRequests: null,
     checksPerDay: 40,
+    forumAnswersPerDay: null,
+    recommends: false,
+    hashtags: false,
+    requestsMessageAfterDays: null,
+    requestsMessagesPerDay: null,
     tidyLimits: TIDY_LIMITS,
     // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
     runs: {
@@ -131,6 +159,11 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: 80,
     checksPerDay: 40,
+    forumAnswersPerDay: null,
+    recommends: false,
+    hashtags: false,
+    requestsMessageAfterDays: null,
+    requestsMessagesPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
@@ -145,12 +178,13 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
       messageLike: 'the way people message someone they know from work',
     },
   },
-  // A follow network (the plan's "The networks after LinkedIn"): follow, like, comment, then a message, which waits in
-  // Requests till they follow back. Instagram blocks fast, so its limits start low. Its steps are built from what
-  // Check Instagram reads.
+  // A follow network (the plan's "The networks after LinkedIn"): follow, like, comment, then a message once they follow
+  // back; else one short message after 3 days, which waits in their Requests. Instagram blocks fast, so its limits
+  // start low. Its steps are built from what Check Instagram reads.
   instagram: {
     name: PLATFORMS.instagram,
-    stage: 'looking',
+    // Working from its part 12 (the app), as Alignable did before its runner, and on its own from part 14 (its runner).
+    stage: 'working',
     link: /^https:\/\/www\.instagram\.com\//,
     // An account's number, and its name in instagram.com/<this>/: letters, numbers, dots and underscores.
     profileId: /^[0-9]{1,30}$/,
@@ -162,8 +196,21 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 20,
+    forumAnswersPerDay: null,
+    recommends: false,
+    hashtags: true,
+    // No follow-back in 3 days: one short message to their Requests, at most 5 of the day's 10 first messages.
+    requestsMessageAfterDays: 3,
+    requestsMessagesPerDay: 5,
+    // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
+    // who follows them is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    runs: RUNS_NOTHING,
+    // auto/instagram.ts (part 14): warm-ups (a look at their account and a like on one or two of their recent posts)
+    // and follows. Comments wait for the person's OK each time, as they're public writing (the plan's "Anything public
+    // … waits for an OK", and Alignable's answers), so `comment` isn't here, and unfollowing stays the person's ticks.
+    // Of the switches along the way it reads the warm-up and the once-a-day jobs: no groups, no hourly look, and no
+    // follow requests to confirm.
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'follower',
       friends: 'followers',
@@ -177,7 +224,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   // referrals. Close to LinkedIn in shape; little is published, so its steps are built from what Check Alignable reads.
   alignable: {
     name: PLATFORMS.alignable,
-    stage: 'looking',
+    // Working from part 3 (the app), as LinkedIn was, and on its own from part 5 (its runner).
+    stage: 'working',
     link: /^https:\/\/www\.alignable\.com\//,
     profileId: /^[A-Za-z0-9_-]{1,64}$/,
     username: /^[A-Za-z0-9%_-]{1,100}$/,
@@ -186,8 +234,17 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 30,
+    forumAnswersPerDay: 2,
+    recommends: true,
+    hashtags: false,
+    requestsMessageAfterDays: null,
+    requestsMessagesPerDay: null,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    runs: RUNS_NOTHING,
+    // auto/alignable.ts (part 5): warm-ups (a look at their business page, and a like on a recent post of theirs when
+    // it shows one) and connection requests. Comments and forum answers wait for the person's OK each time, as they're
+    // public writing (the plan's question 9), and Recommend is only ever theirs. Of the switches along the way it reads
+    // the warm-up and the once-a-day jobs: it joins no groups and has no hourly look.
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -199,13 +256,21 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   },
 };
 
-/** The networks the extension works on, past their look: Facebook and LinkedIn. */
+/** The networks past their look: all four now. */
 export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
   (p) => NETWORKS[p].stage === 'working',
 );
 
 /** Whether a network is still being looked at: Check <network> reads it, and nothing else runs there yet. */
 export const isLooking = (platform: Platform): boolean => NETWORKS[platform].stage === 'looking';
+
+/**
+ * Whether the extension works a network on its own: its runner takes steps there and sends what's OK'd. Until it does
+ * (each network before its runner, as Instagram was till its part 14), every step and message there is the person's
+ * own, which the extension notes.
+ */
+export const runsOnItsOwn = (platform: Platform): boolean =>
+  NETWORKS[platform].runs.auto.length > 0;
 
 /**
  * A network's daily limits as they stand for the person: the business's own on that network, each at most the

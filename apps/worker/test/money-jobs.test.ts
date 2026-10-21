@@ -55,7 +55,6 @@ import { admin, moneyWorld, run, sentEstimate, sentInvoice, type MoneyWorld } fr
 let w: MoneyWorld;
 let customerEmail: string;
 
-const DAY = 86_400_000;
 const meta = (): RequestMeta => ({ correlationId: randomUUID(), channel: 'test' });
 const scopeOf = () => ({ workspaceId: w.workspaceId, organizationId: w.organizationId });
 const today = () => localDateOf(Date.now(), CHI);
@@ -251,8 +250,9 @@ describe('marking an invoice overdue', () => {
   it('waits for the due day to be over where the business is, and its grace day after that', async () => {
     const invoice = await sentInvoice(w, { dueOn: today() });
     const key = invoiceOverdueKey(invoice.id);
-    // The end of the due day in Houston, plus the one day of grace the Action Center gives it.
-    expect(await runAt(key)).toBe(overdueFrom(today(), CHI) + DAY);
+    // The end of the day of grace the Action Center gives after the due day in Houston: midnight there, however
+    // long that day is when the clocks change.
+    expect(await runAt(key)).toBe(overdueFrom(addDays(today(), 1), CHI));
     expect(await runAt(key)).toBe(at(2, '00:00'));
 
     // Run it now, as an impatient worker would: it only waits again, and the invoice is not late.

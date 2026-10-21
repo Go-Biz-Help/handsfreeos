@@ -6177,6 +6177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.ask.code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person types the code a network emailed them, for their computer to put in where the network asks for it. Only theirs, kept 30 minutes at most, and taken once.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.ask.coded.
+         */
+        post: operations["command_outreach_ask_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.ask.end": {
         parameters: {
             query?: never;
@@ -6227,7 +6247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, or their password). Answers whether the person stopped it, and their answer to a step handed to them.
+         * The browser extension says how an ask is going: its line, and whether it needs the person (a step it can’t find, their password, or a code from their email). Answers whether the person stopped it, their answer to a step handed to them, and the code they typed, once.
          * @description Risk level 0. Requires outreach.use. Emits outreach.ask.progressed.
          */
         post: operations["command_outreach_ask_progress"];
@@ -6551,6 +6571,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.download.saved.
          */
         post: operations["command_outreach_download_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.engaged.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who liked or commented on the person’s posts and answers, recommended them or started following them, on a network itself, as the extension read its notifications (Alignable’s and Instagram’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.engaged.saved.
+         */
+        post: operations["command_outreach_engaged_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7047,7 +7087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
@@ -7327,7 +7367,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment or a message, to whom and from which group. Adds nobody to Contacts.
+         * Note a step the person took on a social network themselves, as the extension saw it: a friend request, a like, a comment, a message or a recommendation on Alignable, to whom and from which group. Adds nobody to Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.touch.saved. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_touch_save"];
@@ -7871,6 +7911,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits person.updated. Can wait on a phone with no signal.
          */
         post: operations["command_person_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/phone_listener.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: pick who hears the caller on one business’s calls (Nova-3 or Flux), or put it back on the default.
+         * @description Risk level 3. Requires platform.ai.manage. Emits phone_listener.changed.
+         */
+        post: operations["command_phone_listener_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -17827,7 +17887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * For owners and admins: each person who uses Social Outreach, with what their extension is doing (working, waiting, stopped for today, offline), today’s counts against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.
+         * For owners and admins: each person who uses Social Outreach on one network (Facebook when left out), with what their extension is doing (working, waiting, stopped for today, offline), today’s counts there against their limits and how many things wait for them. Never what it says it’s doing, nor their messages.
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_live_team"];
@@ -18007,7 +18067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.
+         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens, local ones first, and the playbooks’ places, to tell a post tagged in the area.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_words"];
@@ -18491,6 +18551,26 @@ export interface paths {
          * @description Requires platform.businesses.read.
          */
         post: operations["query_platform_business_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.business.glance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business at a glance: what needs a look, its plan, 30 days of activity, what its customers paid it, and what is connected.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_business_glance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35220,7 +35300,81 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            target: string;
+                            /** @enum {string} */
+                            via: "web" | "mobile" | "extension";
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_ask_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    askId: string;
+                    code: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ask: {
+                            about: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            /** Format: uuid */
+                            askId: string;
+                            computerName: string | null;
+                            endedAt: string | null;
+                            /** @enum {string} */
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            line: string | null;
+                            /**
+                             * @default facebook
+                             * @enum {string}
+                             */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            reply: ("carry_on" | "skip") | null;
+                            result: {
+                                drafts: string[];
+                                /** @default null */
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                /** @default false */
+                                lookedUp: boolean;
+                                /** @default null */
+                                opener: {
+                                    /** @enum {string} */
+                                    kind: "style" | "own";
+                                    /** Format: uuid */
+                                    playbookId: string;
+                                    text: string;
+                                } | null;
+                                /** @default false */
+                                queued: boolean;
+                                /** @default false */
+                                simple: boolean;
+                            } | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -35279,7 +35433,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled";
+                        state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled";
                     };
                 };
             };
@@ -35441,7 +35595,7 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -35466,7 +35620,7 @@ export interface operations {
                     askId: string;
                     line: string;
                     /** @enum {string} */
-                    state: "working" | "stuck" | "typing";
+                    state: "working" | "stuck" | "typing" | "code";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35481,6 +35635,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         cancelled: boolean;
+                        /** @default null */
+                        code: string | null;
                         reply: ("carry_on" | "skip") | null;
                     };
                 };
@@ -35552,7 +35708,7 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -36802,6 +36958,52 @@ export interface operations {
                         } | null;
                         /** Format: uuid */
                         importId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_engaged_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    engaged?: {
+                        /** @default null */
+                        comment?: string | null;
+                        /** @enum {string} */
+                        kind: "comment" | "reaction" | "recommend" | "follow";
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
                     };
                 };
             };
@@ -38379,6 +38581,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -38516,6 +38720,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -38659,6 +38865,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -39064,7 +39272,7 @@ export interface operations {
                         url: string;
                     } | null;
                     /** @enum {string} */
-                    kind: "friend_request" | "like" | "comment" | "message";
+                    kind: "friend_request" | "like" | "comment" | "message" | "recommend";
                     name: string;
                     /**
                      * @default facebook
@@ -40202,6 +40410,40 @@ export interface operations {
                         /** Format: uuid */
                         personId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_phone_listener_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    listener: ("nova-3" | "flux") | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        listener: ("nova-3" | "flux") | null;
+                        was: ("nova-3" | "flux") | null;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -66992,7 +67234,7 @@ export interface operations {
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
-                            state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                            state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                             target: string;
                             /** @enum {string} */
                             via: "web" | "mobile" | "extension";
@@ -68264,6 +68506,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -68327,6 +68574,8 @@ export interface operations {
                             waiting: number;
                             warned: boolean;
                         }[];
+                        /** @enum {string} */
+                        platform: "facebook" | "linkedin" | "instagram" | "alignable";
                         timezone: string;
                     };
                 };
@@ -68861,6 +69110,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        places: string[];
+                        tags: string[];
                         words: string[];
                     };
                 };
@@ -68999,6 +69250,8 @@ export interface operations {
                                 };
                             };
                             nameDraft?: string | null;
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -69234,7 +69487,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        auto: ("reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -69242,7 +69495,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -69260,6 +69513,7 @@ export interface operations {
                                 fromMe: boolean;
                                 text: string;
                             }[];
+                            requests?: boolean;
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -69304,7 +69558,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -69322,6 +69576,7 @@ export interface operations {
                                 fromMe: boolean;
                                 text: string;
                             }[];
+                            requests?: boolean;
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -69539,7 +69794,7 @@ export interface operations {
                                 } | null;
                                 startedAt: string | null;
                                 /** @enum {string} */
-                                state: "waiting" | "working" | "stuck" | "typing" | "done" | "failed" | "cancelled" | "expired" | "lost";
+                                state: "waiting" | "working" | "stuck" | "typing" | "code" | "done" | "failed" | "cancelled" | "expired" | "lost";
                                 target: string;
                                 /** @enum {string} */
                                 via: "web" | "mobile" | "extension";
@@ -70965,6 +71220,7 @@ export interface operations {
                             note: string | null;
                         }[];
                         business: {
+                            attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];
                             /** Format: date-time */
                             createdAt: string;
                             foundingSeat: string | null;
@@ -70976,6 +71232,7 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
+                            plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
                             timezone: string;
                             /** Format: uuid */
                             workspaceId: string;
@@ -70996,6 +71253,7 @@ export interface operations {
                             /** Format: uuid */
                             userId: string;
                         }[];
+                        phoneListener: ("nova-3" | "flux") | null;
                         phoneModel: "claude-haiku-4-5" | null;
                         setup: {
                             aiTeammate: boolean;
@@ -71019,6 +71277,129 @@ export interface operations {
             };
         };
     };
+    query_platform_business_glance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activity: number[];
+                        attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];
+                        deletionRequestedAt: string | null;
+                        more: {
+                            addons: string[];
+                            cameFrom: {
+                                at: string | null;
+                                source: string;
+                                status: string;
+                            } | null;
+                            lastViewedAs: string | null;
+                            mainOffer: {
+                                liveVersion: number | null;
+                                revision: number;
+                            } | null;
+                            supportAccess: {
+                                expiresAt: string | null;
+                                /** @enum {string} */
+                                status: "requested" | "active" | "declined" | "ended";
+                            } | null;
+                        };
+                        plan: {
+                            canceledAt: string | null;
+                            graceEndsAt: string | null;
+                            periodEnd: string | null;
+                            /** @enum {string} */
+                            plan: "founding_free" | "founding_lifetime" | "monthly";
+                            priceCents: number;
+                            renewalFailedAt: string | null;
+                            renewalProblem: string | null;
+                            renewalStoppedAt: string | null;
+                            /** @enum {string} */
+                            status: "active" | "grace" | "past_due" | "canceled";
+                        } | null;
+                        problemReports: {
+                            open: number;
+                            recent: {
+                                area: string | null;
+                                /** Format: date-time */
+                                createdAt: string;
+                                handled: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                note: string | null;
+                            }[];
+                        };
+                        setup: {
+                            aiTeammate: ("off" | "training" | "automatic") | null;
+                            bookingPage: {
+                                enabled: boolean;
+                                slug: string;
+                            } | null;
+                            calendarConnections: {
+                                provider: string;
+                                status: string;
+                            }[];
+                            calendars: number;
+                            emailAddresses: number;
+                            emailDomain: {
+                                domain: string;
+                                status: string;
+                            } | null;
+                            /** @enum {string} */
+                            gettingStarted: "finished" | "started" | "not_started" | "off";
+                            mailboxes: {
+                                provider: string;
+                                status: string;
+                            }[];
+                            meta: string | null;
+                            numbers: string[];
+                            payments: {
+                                provider: string;
+                                status: string;
+                            }[];
+                            registration: {
+                                reason: string | null;
+                                since: string | null;
+                                /** @enum {string} */
+                                state: "approved" | "waiting" | "rejected" | "draft";
+                            } | null;
+                        };
+                        theirMoney: {
+                            collected30dCents: number;
+                            openDisputes: number;
+                            openInvoiceCents: number;
+                            openInvoices: number;
+                            overdueInvoices: number;
+                            refunded30dCents: number;
+                        };
+                        traffic: {
+                            aiReplies: number;
+                            calls: number;
+                            emails: number;
+                            texts: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_platform_business_list: {
         parameters: {
             query?: never;
@@ -71037,7 +71418,7 @@ export interface operations {
                      * @default newest
                      * @enum {string}
                      */
-                    sort?: "newest" | "busiest" | "quietest" | "name";
+                    sort?: "newest" | "busiest" | "quietest" | "attention" | "name";
                 };
             };
         };
@@ -71050,6 +71431,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         businesses: {
+                            attention: ("being_deleted" | "wallet_suspended" | "card_declined" | "balance_out" | "plan_trouble" | "texting_rejected" | "connection_broken" | "texting_waiting" | "thin_margin" | "gone_quiet" | "setup_stalled")[];
                             /** Format: date-time */
                             createdAt: string;
                             foundingSeat: string | null;
@@ -71061,6 +71443,7 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
+                            plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
                             timezone: string;
                             /** Format: uuid */
                             workspaceId: string;

@@ -9,12 +9,15 @@ import {
   stateTone,
   type LiveDay,
 } from '@hfos/core/addons/outreach/live';
+import { askableOn } from '@hfos/core/addons/outreach/asks';
 import {
   dailyWordsOn,
+  findPostsWordsOn,
   NETWORK_WORDS as NW,
   networkShown,
+  noRunnerWords,
 } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -29,6 +32,7 @@ import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+import { AskButton, useAskActions, useAsks } from './asks';
 import { OutreachFrame } from './frame';
 import {
   isSetUp,
@@ -59,10 +63,11 @@ import { useWaitingProps, WaitingBody } from './waiting';
  * below is its own (`outreach.today` with its `platform`). Pressing a network's name shows its list. Get ready is the
  * network shown's (its own profile counts), and each other row's Start my day waits on its own readiness.
  */
-export function TodayHub() {
+export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) {
   const ctx = useOutreachContext();
   const nets = useNetworksOn();
-  const [asked, setAsked] = React.useState<Platform | null>(null);
+  // The network an address names (a push about a post there): its list first.
+  const [asked, setAsked] = React.useState<Platform | null>(start);
   const net = networkShown(nets, asked);
   const many = nets.length > 1;
   const waiting = useWaitingProps();
@@ -121,7 +126,34 @@ export function TodayHub() {
       <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
         <TodayBody {...today} embedded hideSends={shownOnce} />
       </Part>
+      {askableOn(net, 'posts') && !runsOnItsOwn(net) ? <FindPosts platform={net} /> : null}
     </OutreachFrame>
+  );
+}
+
+/**
+ * Find posts, on a network the extension doesn't work on its own: the person asks for it here, and the good ones come
+ * onto the list. Where a runner works the network (Alignable's, from part 5), it reads the town's posts once a day
+ * itself, so the card doesn't show.
+ */
+function FindPosts({ platform }: { platform: Platform }) {
+  const asks = useAsks(null, W.rows.today);
+  const actions = useAskActions(asks.data, asks.reload);
+  const words = findPostsWordsOn(platform);
+  if (!asks.data) return null;
+  return (
+    <Card className="gap-2 px-4 py-4" testID="today-find-posts">
+      <Text className="text-[15px] font-semibold">{words.title}</Text>
+      <Note>{words.body}</Note>
+      <AskButton
+        asks={asks.data}
+        actions={actions}
+        ask={{ kind: 'posts' }}
+        platform={platform}
+        label={words.title}
+        testID="today-find-posts-ask"
+      />
+    </Card>
   );
 }
 
@@ -315,8 +347,10 @@ export function LiveStrip({
       ) : null}
       {live.sending === 'off' ? (
         <View className="gap-2">
-          <Note testID="live-sending-off">{W.sendingOff(live.canSend)}</Note>
-          {live.canSend && full ? (
+          <Note testID="live-sending-off">
+            {runsOnItsOwn(platform) ? W.sendingOff(live.canSend) : noRunnerWords(platform)}
+          </Note>
+          {live.canSend && full && runsOnItsOwn(platform) ? (
             <Button variant="secondary" size="md" onPress={onSettings} testID="live-settings">
               {W.tabs.settings}
             </Button>

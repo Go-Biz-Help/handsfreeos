@@ -11,6 +11,7 @@ import type { StepTry, TryStep } from './networks/tries';
 import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { LinkedInFilePart } from './hfos/files';
+import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { BioResult } from './networks/facebook/own-profile';
 import type { AutoResult, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
@@ -45,12 +46,18 @@ export type FetchAsk = StepAsk & {
  * says whether it could.
  */
 export type BrowseAsk =
-  | { readonly type: 'hfos-open-chat'; readonly threadId: string }
+  /**
+   * On Instagram, whose chats' rows aren't links (src/networks/instagram/browse.ts), `name` says which: the row that
+   * shows it.
+   */
+  | { readonly type: 'hfos-open-chat'; readonly threadId: string; readonly name?: string }
   | { readonly type: 'hfos-scroll-chats' }
   | { readonly type: 'hfos-scroll-feed' }
   | { readonly type: 'hfos-scroll-list' }
   /** A list of groups, or a search for them: scroll the page for more (src/jobs/groups.ts). */
-  | { readonly type: 'hfos-scroll-page' };
+  | { readonly type: 'hfos-scroll-page' }
+  /** A list that opens on a few (Alignable's My Network, on its picks): its tab of them all (src/jobs/alignable). */
+  | { readonly type: 'hfos-show-all' };
 
 export type BrowseAnswer = { readonly ok: boolean };
 
@@ -68,16 +75,21 @@ export type AutoAsk =
       readonly url: string | null;
     }
   | { readonly type: 'hfos-comment'; readonly text: string }
-  /** On LinkedIn, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts). */
+  /**
+   * On LinkedIn and Alignable, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts,
+   * src/networks/alignable/auto.ts).
+   */
   | { readonly type: 'hfos-message'; readonly text: string; readonly profile?: ProfileRef };
 
 /**
  * LinkedIn's runner's own steps besides those (src/networks/linkedin/auto.ts): Connect on their profile without a
  * note, whose answer is an `AutoAnswer`; and their profile's Message, which opens the conversation in a window over the
- * page, whose answer is a `BrowseAnswer`.
+ * page, whose answer is a `BrowseAnswer`. On Alignable (src/networks/alignable/auto.ts), `profile` says whose business
+ * page it is, and only its own Connect, carrying Alignable's id for it, is pressed.
  */
-export type ConnectAsk = { readonly type: 'hfos-connect' };
-export type OpenMessageAsk = { readonly type: 'hfos-open-message' };
+export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
+/** On Instagram (src/networks/instagram/auto.ts), `profile` says whose account's Message it is. */
+export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly profile?: ProfileRef };
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what
@@ -115,13 +127,21 @@ export type FeedPostAnswer =
 
 /**
  * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
- * LinkedIn is their headline, or LinkedIn's About (decision 80; src/networks/facebook/own-profile.ts,
- * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts).
+ * LinkedIn is their headline, or LinkedIn's About or Alignable's About Us (decision 80; src/networks/facebook/own-profile.ts,
+ * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts, src/networks/alignable/own-profile.ts).
  */
 export type OwnProfileAsk =
   | { readonly type: 'hfos-own-profile' }
   | { readonly type: 'hfos-write-bio'; readonly bio: string }
   | { readonly type: 'hfos-write-about'; readonly about: string };
+
+/**
+ * A code the person gave HandsFreeOS, put in where the network asks for the one it emailed them (Alignable's, before
+ * About Us changes; decision 82, src/networks/alignable/own-profile.ts).
+ */
+export type CodeAsk = { readonly type: 'hfos-put-code'; readonly code: string };
+export type CodeAnswer =
+  { readonly ok: true; readonly code: CodeResult } | { readonly ok: false; readonly error: string };
 
 export type OwnProfileAnswer =
   /** `load`: how loading the whole profile went, where the network draws it as it comes into view (LinkedIn). */
@@ -129,7 +149,8 @@ export type OwnProfileAnswer =
   /** `steps`: how each step of putting LinkedIn's headline in went, or its About. */
   | {
       readonly ok: true;
-      readonly result: BioResult;
+      /** `code`: Alignable asks for the code it emailed before About Us goes in. */
+      readonly result: BioResult | AboutResult;
       readonly steps?: HeadlineSteps;
       readonly aboutSteps?: AboutSteps;
     }
@@ -156,6 +177,16 @@ export type WithdrawAsk = { readonly type: 'hfos-withdraw'; readonly profile: Pr
 
 export type WithdrawAnswer =
   | { readonly ok: true; readonly result: WithdrawResult }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On an Instagram account's own page, unfollow them, once the person ticked them (src/networks/instagram/unfollow.ts):
+ * its Following (or Requested), then Unfollow in the box Instagram opens, each by its own words. `not_found` when the
+ * page shows they aren't followed already; `none` when it couldn't.
+ */
+export type UnfollowAsk = { readonly type: 'hfos-unfollow' };
+export type UnfollowAnswer =
+  | { readonly ok: true; readonly result: 'done' | 'not_found' | 'none' }
   | { readonly ok: false; readonly error: string };
 
 export type AutoAnswer =

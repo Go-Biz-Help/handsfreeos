@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, and 20261027009300 for finding partners by search):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, and 20261027009800 for a code from the person's email):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -985,6 +985,32 @@ export const reports = addonOutreach.table(
 );
 
 /**
+ * A code from the person's email that their computer asked for (an ask in `code`, ./asks.ts): kept for the
+ * extension to take once, and never after `expiresAt`. Theirs alone, on the database too (20261027009800).
+ */
+export const askCodes = addonOutreach.table(
+  'ask_codes',
+  {
+    askId: uuid('ask_id').primaryKey(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    givenAt: ts('given_at').notNull().defaultNow(),
+    expiresAt: ts('expires_at')
+      .notNull()
+      .default(sql`now() + interval '10 minutes'`),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.workspaceId, t.askId],
+      foreignColumns: [asks.workspaceId, asks.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
  * Where one person got to in Social Outreach's setup (./setup.ts, decisions 36 and 45). The extension signing in
  * makes a row too, so `startedAt`, not the row, says they started; their own settings saved do too (`settingsAt`).
  */
@@ -1349,7 +1375,8 @@ export const engagements = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    helpfulId: uuid('helpful_id').notNull(),
+    // Null for one seen on the network itself (Alignable's notifications), off any helpful post.
+    helpfulId: uuid('helpful_id'),
     profileId: uuid('profile_id').notNull(),
     kind: text('kind').notNull().$type<EngagementKind>(),
     comment: text('comment'),

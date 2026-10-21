@@ -28,7 +28,7 @@
  * pauses are a real call's.
  */
 import type { Logger } from 'pino';
-import type { ConversationHandoffReason, PhoneVoice } from '@hfos/core/server';
+import type { ConversationHandoffReason, PhoneListener, PhoneVoice } from '@hfos/core/server';
 import type { CallEnding, TurnOutcome } from './brain';
 import { CANT_GO_ON, GOODBYE, STILL_THERE, tongue, type CallLine } from './prompt';
 import {
@@ -102,6 +102,11 @@ export interface MindTurn {
  * mind sets the call up, answers each turn, and says what hanging up, handing on and finishing mean.
  */
 export interface CallMind {
+  /**
+   * Who hears the call, when support picked one for the business in /admin; null (or no answer) is the worker's
+   * VOICE_LISTENER. Asked first, before listening starts.
+   */
+  listener?(): Promise<PhoneListener | null>;
   /** Sets the call up, or says why it can't answer (the caller then gets what comes after the stream). */
   prepare(): Promise<MindReady | { readonly ok: false; readonly why: string }>;
   /** While the greeting plays: whatever gets the first turn ready sooner. */
@@ -285,13 +290,24 @@ export class CallSession {
     // The greeting's stopwatch: from the pickup to its first sound.
     this.clock = new TurnClock();
     this.clockTurn = 0;
+    // The business's own listener, when support picked one; the worker's when it didn't, or it can't be read.
+    const listener = await (this.mind.listener?.() ?? Promise.resolve(null)).catch((e: unknown) => {
+      this.log.warn(
+        { err: e },
+        'couldn’t read who hears a call, so the worker’s own listener does',
+      );
+      return null;
+    });
     try {
-      this.listening = await this.deps.speech.listen({
-        onWords: (w) => this.onWords(w),
-        onSpeechStarted: () => this.onSpeechStarted(),
-        onUtteranceEnd: () => this.maybeTurn(),
-        onError: (e) => this.log.warn({ err: e }, 'the call’s listener failed'),
-      });
+      this.listening = await this.deps.speech.listen(
+        {
+          onWords: (w) => this.onWords(w),
+          onSpeechStarted: () => this.onSpeechStarted(),
+          onUtteranceEnd: () => this.maybeTurn(),
+          onError: (e) => this.log.warn({ err: e, listener }, 'the call’s listener failed'),
+        },
+        { listener },
+      );
       this.listenedFrom = Date.now();
     } catch (e) {
       this.log.warn({ err: e }, 'couldn’t start listening to a call');
@@ -386,7 +402,7 @@ export class CallSession {
     this.mind.heard?.(w);
     if (w.language) this.language = w.language;
     if (w.final && w.text) this.heard.push(w.text);
-    if (w.endOfTurn) this.maybeTurn();
+    if (w.endOfTurn) this.maybeTurn(w.endOfTurnMs ?? null);
   }
 
   /** Its own voice heard back: what it's saying, or (two words at least) what it just finished saying. */
@@ -408,13 +424,14 @@ export class CallSession {
     this.mind.cut?.(speaking.turn);
   }
 
-  private maybeTurn(): void {
+  /** `heardMs`: how long the listener took to say they'd finished, when this turn starts from it saying so. */
+  private maybeTurn(heardMs: number | null = null): void {
     if (this.closed || !this.ready || this.thinking || !this.heard.length) return;
     if (this.speaking && !this.speaking.interruptible) return;
-    void this.runTurn();
+    void this.runTurn(heardMs);
   }
 
-  private async runTurn(): Promise<void> {
+  private async runTurn(heardMs: number | null): Promise<void> {
     this.thinking = true;
     const said = this.heard.join(' ').trim();
     this.heard = [];
@@ -422,6 +439,7 @@ export class CallSession {
     this.lines.push({ who: 'caller', text: said });
     const turn = ++this.turn;
     const clock = new TurnClock();
+    clock.heardMs = heardMs;
     this.clock = clock;
     this.clockTurn = turn;
     // The start of the reply, said while the model is still writing the rest.

@@ -15,7 +15,7 @@ import {
   tooOldFor,
 } from '../../src/addons/outreach/asks';
 import { CHECKS_PER_DAY, RESEARCH_WORDS, researchShown } from '../../src/addons/outreach/checks';
-import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
+import { outreachBusiness, refused, runAs, runWith, yesterdayNoon } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 
@@ -192,7 +192,8 @@ describe('researching someone', () => {
     // Tomorrow: the day's checks are yesterday's, and they go first.
     await rows(
       admin(),
-      sql`update addon_outreach.checks set looked_at = now() - interval '1 day' where workspace_id = ${ws}`,
+      sql`update addon_outreach.checks set looked_at = ${yesterdayNoon().toISOString()}::timestamptz
+          where workspace_id = ${ws}`,
     );
     const got = await next();
     expect(got.people[0]).toMatchObject({ name: 'Avery Lane', reason: 'asked' });

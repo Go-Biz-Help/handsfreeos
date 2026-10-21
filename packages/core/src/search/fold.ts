@@ -6,7 +6,7 @@
  * So a folded text is as long as the original, and a match found in it marks the same place in what's shown. A
  * letter outside the map stays as it is, a combining accent included.
  *
- * The database folds with the same map: `private.search_fold` (20261027009700_search_windows.sql) is
+ * The database folds with the same map: `private.search_fold` (20261027010300_search_windows.sql) is
  * `lower(translate(p, FOLD_FROM, FOLD_TO))`, with the two strings below copied in, and skips `translate` for text
  * that is all ASCII, since no ASCII letter is in the map. `test/search/fold.test.ts` runs
  * both over the same words and fails when they disagree, so a change here is a new migration with the new strings.

@@ -19,6 +19,10 @@
  * - **A step it can't find** it hands to the person: the tab comes to the front, Chrome pops up, their phone hears it,
  *   and it waits for **Carry on** (or **Skip**, for one person ticked), pressed in HandsFreeOS's Needs you on the web
  *   or the phone (decision 72; the panel says so, with a link), for half an hour at most.
+ * - **A code the network emailed them** (Alignable's, before a profile changes) it asks HandsFreeOS for: Chrome pops
+ *   up, their phone says to look in their email, and they type it in Needs you; the live channel brings it here at
+ *   once, or the next look does. It's handed over once and never kept here; none in `ASK_CODE_MINUTES`, and the job
+ *   says so.
  * - **Stops:** Stop pressed anywhere, another computer of theirs working now, or a sign-in, sign-out or business picked
  *   here ends it at its next page, with how far it got; nothing of it goes to HandsFreeOS while anyone else is signed
  *   in here. Stop for today (pressed here, on the web or on the phone) ends Facebook's, whose day the beat carries. A
@@ -33,6 +37,7 @@
  */
 import {
   ASK_CHATS,
+  ASK_CODE_MINUTES,
   ASK_LOST_LINE,
   ASK_STOPPED_LINE,
   ASK_STUCK_LINE,
@@ -83,8 +88,9 @@ import { joinGroups } from '../jobs/join';
 import { postHelpful } from '../jobs/helpful';
 import type { HandOverReply, Hfos, Job, JobEnd } from '../jobs/job';
 import { reporter, type Reporter, type ReportNote } from '../jobs/report';
+import { alignableAsk } from '../jobs/alignable';
+import { instagramAsk } from '../jobs/instagram';
 import { linkedInAsk } from '../jobs/linkedin';
-import { lookingAsk } from '../jobs/looking';
 import { lookupAndDraft } from '../jobs/lookup';
 import { profileEdit, profileRead } from '../jobs/profile';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
@@ -97,6 +103,9 @@ import { WorkTab } from '../tab';
 /** While a step waits for the person, HandsFreeOS is asked for their answer this often. */
 const LOOK_MS = 20_000;
 const STUCK_MS = ASK_STUCK_MINUTES * 60_000;
+/** A code is looked for more often (it's late in a few minutes), though the live channel usually brings it first. */
+const CODE_LOOK_MS = 10_000;
+const CODE_MS = ASK_CODE_MINUTES * 60_000;
 
 /** The network whose day the beat carries (a build of HandsFreeOS before networks had one day): Facebook's. */
 const BEAT_DAY: Platform = facebook.platform;
@@ -118,6 +127,8 @@ interface Under {
   warned: boolean;
   /** A step handed to the person waits on this. */
   answered: ((reply: HandOverReply) => void) | null;
+  /** A code from their email waits on this: the code, or null when it stopped. */
+  coded: ((code: string | null) => void) | null;
 }
 
 /** Each network's ask under way here: one a network at most. */
@@ -171,6 +182,7 @@ async function tell(u: Under, state: KeptAsk['state'], line: string, now = false
     const said = await progress(u.place, u.ask.askId, state, line);
     if (said.cancelled && u.halted === null) halt(u, ASK_STOPPED_LINE);
     else if (said.reply && u.answered && state !== 'working') answerWith_(u, said.reply);
+    else if (said.code && state === 'code') codeWith(u, said.code);
   } catch {
     // No connection: the next line, or the end, says it.
   }
@@ -181,6 +193,12 @@ function answerWith_(u: Under, got: HandOverReply): void {
   const then = u.answered;
   u.answered = null;
   then?.(got);
+}
+
+function codeWith(u: Under, code: string | null): void {
+  const then = u.coded;
+  u.coded = null;
+  then?.(code);
 }
 
 /** Ends a network's ask under way here at its next page, with these words: LinkedIn's Stop for today. */
@@ -196,6 +214,7 @@ function halt(u: Under, line: string, warned = false): void {
     u.warned = warned;
   }
   answerWith_(u, 'stop');
+  codeWith(u, null);
 }
 
 /**
@@ -271,6 +290,36 @@ async function handOver(
 }
 
 /**
+ * Asks the person for a code the network emailed them: a pop-up here and a push on their phone, and waits for the code
+ * they type in HandsFreeOS, looking for it every so often (the live channel usually brings it sooner). Null when none
+ * came in `ASK_CODE_MINUTES`, or the ask stopped; the job says what that means.
+ */
+async function askCode(u: Under, says: string): Promise<string | null> {
+  if (u.halted !== null) return null;
+  const waited = new Promise<string | null>((done) => (u.coded = done));
+  const words = askStuckPushWords('code', says);
+  void popUp({ id: popUpId(u.ask.askId), title: words.title, message: words.body });
+  await tell(u, 'code', says, true);
+  const until = Date.now() + CODE_MS;
+  let got: string | null = null;
+  while (Date.now() < until && u.halted === null) {
+    const next = await Promise.race([
+      waited,
+      new Promise<undefined>((done) => setTimeout(() => done(undefined), CODE_LOOK_MS)),
+    ]);
+    if (next !== undefined) {
+      got = next;
+      break;
+    }
+    await tell(u, 'code', says, true);
+  }
+  u.coded = null;
+  void chrome.notifications.clear(popUpId(u.ask.askId)).catch(() => undefined);
+  if (got !== null) await tell(u, 'working', 'Putting the code in…', true);
+  return got;
+}
+
+/**
  * Notes the page the ask's tab shows (decision 74): never for a file kind, whose pages are Facebook's own download
  * and password ones.
  */
@@ -310,6 +359,7 @@ function jobFor(u: Under): Job {
       void popUp({ id: popUpId(u.ask.askId), title: words.title, message: words.body });
       void tell(u, 'typing', ASK_TYPING_WORDS, true);
     },
+    code: (line) => askCode(u, line),
   };
 }
 
@@ -388,9 +438,9 @@ async function facebookAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
 const JOBS_ON: Readonly<Record<Platform, (task: AskTaken['task'], job: Job) => Promise<Ended>>> = {
   facebook: facebookAsk,
   linkedin: linkedInAsk,
-  // Still looked at (decision 78): their Check alone.
-  instagram: lookingAsk('instagram'),
-  alignable: lookingAsk('alignable'),
+  // Its followers saved (part 12), beside its Check and profile.
+  instagram: instagramAsk,
+  alignable: alignableAsk,
 };
 
 /** Does the ask with the job that does it on its network (Facebook's unless said). */
@@ -473,6 +523,7 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
     halted: null,
     warned: false,
     answered: null,
+    coded: null,
   };
   unders.set(platform, u);
   hearWarnings();

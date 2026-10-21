@@ -617,3 +617,217 @@ export function partnerLeadsSave(
     people: people.slice(0, PARTNER_LEADS_SAVE_MOST),
   };
 }
+
+// ------------------------------------------------------------------------------------------------- Alignable's
+
+const ALIGNABLE: Platform = 'alignable';
+
+/** What each of the person's Alignable lists is called, for "Saved 12 connection requests". */
+const ALIGNABLE_ITEM: Readonly<Record<FriendList, string>> = {
+  friends: 'connection',
+  requests: 'connection request',
+  sent: 'sent connection request',
+};
+export const alignableItem = (list: FriendList) => ALIGNABLE_ITEM[list];
+
+/** Someone on one of the person's Alignable lists: a business's owner, by their business's page. */
+export interface AlignableListed {
+  readonly name: string;
+  readonly profile: ProfileRef;
+}
+
+/**
+ * One of the person's Alignable lists, to save as Alignable's (partners stage 6c, part 4): their connections as their
+ * friends list and the requests they've got as requests. Each business once, by Alignable's id for it or its
+ * address in its town, in parts of FRIENDS_SAVE_MOST. A row without a business's page is left out.
+ */
+export function alignableListSave(
+  people: readonly AlignableListed[],
+  list: FriendList,
+  workspaceId: string,
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    const key = (person.profile.id ?? person.profile.username ?? person.profile.url).toLowerCase();
+    if (seen.has(key)) continue;
+    const who = whom({ name: person.name, profile: person.profile }, ALIGNABLE);
+    if (!who) continue;
+    seen.add(key);
+    kept.push({ ...who, mutualFriends: null });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why:
+        list === 'friends'
+          ? 'There are no connections on the page to save. Open My Network on Alignable, then try again.'
+          : `There are no ${alignableItem(list)}s on the page to save.`,
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({
+      workspaceId,
+      platform: ALIGNABLE,
+      list,
+      people: kept.slice(at, at + FRIENDS_SAVE_MOST),
+    });
+  return { ok: true, input: parts };
+}
+
+/**
+ * The posts on an Alignable page (its town's group, a forum question), to keep the ones worth an answer or a comment
+ * (partners stage 6c): each with who wrote it, its own discussion's link and what it says, in no group, as a
+ * network's search finds are. A post with no page of its own, or nobody named, is left out.
+ */
+export function alignablePostsSave(
+  threads: readonly {
+    readonly author: { readonly name: string; readonly profile: ProfileRef | null } | null;
+    readonly url: string | null;
+    readonly when: string | null;
+    readonly text: string;
+    readonly likes: number | null;
+  }[],
+  workspaceId: string,
+): Built<PostsSaveInput> {
+  const seen = new Set<string>();
+  const posts = threads.flatMap((thread) => {
+    if (!thread.author?.profile) return [];
+    const url = networkAddress(thread.url, ALIGNABLE);
+    const who = whom({ name: thread.author.name, profile: thread.author.profile }, ALIGNABLE);
+    const text = clipText(thread.text, POST_TEXT_MOST);
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: thread.when ? clip(thread.when, WHEN_MOST) : null,
+        text,
+        comments: null,
+        reactions: thread.likes,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'There are no posts on the page to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: ALIGNABLE,
+      group: null,
+      posts: posts.slice(0, POSTS_SAVE_MOST),
+      found: 'find',
+    },
+  };
+}
+
+// ------------------------------------------------------------------------------------------------- Instagram's
+
+const INSTAGRAM: Platform = 'instagram';
+
+/** Someone on the person's Instagram followers list: by their account's name and its address. */
+export interface InstagramListed {
+  readonly username: string;
+  readonly url: string;
+  readonly name: string | null;
+}
+
+/**
+ * The person's Instagram followers, to save as Instagram's friends list (the Instagram and Alignable plan's part 12): on
+ * Instagram the "friends" are the person's followers, so someone they followed who's among them has followed back,
+ * which counts as accepting. Each account once, by its name in its address, in parts of FRIENDS_SAVE_MOST. Someone
+ * with no name of their own is saved by their username, as Instagram shows them.
+ */
+export function instagramListSave(
+  people: readonly InstagramListed[],
+  workspaceId: string,
+): Built<FriendsSaveInput[]> {
+  const seen = new Set<string>();
+  const kept: FriendsSaveInput['people'] = [];
+  for (const person of people) {
+    const key = person.username.toLowerCase();
+    if (seen.has(key)) continue;
+    const who = whom(
+      {
+        name: person.name?.trim() || person.username,
+        profile: { id: null, username: person.username, url: person.url },
+      },
+      INSTAGRAM,
+    );
+    if (!who) continue;
+    seen.add(key);
+    kept.push({ ...who, mutualFriends: null });
+  }
+  if (!kept.length)
+    return {
+      ok: false,
+      why: 'There are no followers on the page to save. Open your followers on Instagram, then try again.',
+    };
+  const parts: FriendsSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += FRIENDS_SAVE_MOST)
+    parts.push({
+      workspaceId,
+      platform: INSTAGRAM,
+      list: 'friends',
+      people: kept.slice(at, at + FRIENDS_SAVE_MOST),
+    });
+  return { ok: true, input: parts };
+}
+
+/** A post on Instagram as its own page shows it: who posted it, its caption and its likes. */
+export interface InstagramPostRead {
+  readonly url: string;
+  readonly author: { readonly username: string; readonly url: string } | null;
+  readonly caption: string | null;
+  readonly likes: number | null;
+}
+
+/**
+ * The posts a look at Instagram's hashtags and places opened (part 15), to keep the ones worth a comment: each with who
+ * posted it, by their account's name, and its caption, in no group, as a network's search finds are. A post with
+ * nobody named, or no caption to read, is left out.
+ */
+export function instagramPostsSave(
+  posts: readonly InstagramPostRead[],
+  workspaceId: string,
+): Built<PostsSaveInput> {
+  const seen = new Set<string>();
+  const kept = posts.flatMap((post) => {
+    if (!post.author) return [];
+    const url = networkAddress(post.url, INSTAGRAM);
+    const who = whom(
+      {
+        name: post.author.username,
+        profile: { id: null, username: post.author.username, url: post.author.url },
+      },
+      INSTAGRAM,
+    );
+    const text = post.caption ? clipText(post.caption, POST_TEXT_MOST) : '';
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: null,
+        text,
+        comments: null,
+        reactions: post.likes,
+      },
+    ];
+  });
+  if (!kept.length) return { ok: false, why: 'There are no posts with words to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: INSTAGRAM,
+      group: null,
+      posts: kept.slice(0, POSTS_SAVE_MOST),
+      found: 'search',
+    },
+  };
+}

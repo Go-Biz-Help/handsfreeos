@@ -106,7 +106,14 @@ describe('each network on its own', () => {
   it('slows and stops only LinkedIn on a LinkedIn warning', async () => {
     const dana = await teammate('Riley Stone');
     await runAs(dana, ws, 'outreach.automation.save', {
-      settings: { ...AUTOMATION_DEFAULTS, sending: 'everything' },
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        sending: 'everything',
+        networks: {
+          ...AUTOMATION_DEFAULTS.networks,
+          linkedin: { ...AUTOMATION_DEFAULTS.networks.linkedin, on: true },
+        },
+      },
     });
     // Their training wheels came off already.
     await rows(
@@ -159,10 +166,21 @@ describe('each network on its own', () => {
     expect((await runAs(dana, ws, 'outreach.asks', {})).warnedToday).toBe(false);
     expect((await runAs(dana, ws, 'outreach.friends.tidy', {})).warning).toBeNull();
     const team = await runAs(owner, ws, 'outreach.live.team', {});
+    expect(team.platform).toBe('facebook');
     expect(team.people.find((p: { userId: string }) => p.userId === dana.id)).toMatchObject({
       warned: false,
       day: { state: 'none' },
     });
+    // The team's view of LinkedIn: her day there stopped by its warning, at LinkedIn's halved limits.
+    const onLinkedIn = await runAs(owner, ws, 'outreach.live.team', { platform: 'linkedin' });
+    expect(onLinkedIn.platform).toBe('linkedin');
+    expect(onLinkedIn.people.find((p: { userId: string }) => p.userId === dana.id)).toMatchObject({
+      warned: true,
+      day: { state: 'stopped', why: 'warning' },
+      limits: { friend_request: { most: 7 } },
+    });
+    // Only those who have LinkedIn on are on its list.
+    expect(onLinkedIn.people.some((p: { userId: string }) => p.userId === owner.id)).toBe(false);
     const [wheels] = await rows<{ done: boolean }>(
       admin(),
       sql`select wheels_done_at is not null as done from addon_outreach.automation
@@ -540,7 +558,7 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 
-  it('ask only Check of a network still looked at, of a build that knows it, and start no day there (decision 78)', async () => {
+  it('ask Instagram only what a build there does, its followers from 0.80.0 and its chats from 0.81.0, and start its day', async () => {
     const dana = await teammate('Rowan Ellis');
     const pc = randomUUID();
     const instagramOn = {
@@ -559,12 +577,34 @@ describe('each network’s own lists, asks and Today', () => {
       fresh: true,
       ask: { platform: 'instagram', kind: 'checkup' },
     });
-    // Nothing else is asked there yet, and it has no day to start.
+    // Save my followers and unfollowing come with 0.80.0; Instagram has no groups to ask about.
     expect(await refused(ask(dana, 'instagram', { kind: 'friends' }))).toBe(
+      'outreach_extension_too_old',
+    );
+    expect(await refused(ask(dana, 'instagram', { kind: 'groups' }))).toBe(
       'outreach_ask_not_on_network',
     );
+    await beat(dana, pc, '0.80.0');
+    expect(await ask(dana, 'instagram', { kind: 'friends' })).toMatchObject({
+      fresh: true,
+      ask: { platform: 'instagram', kind: 'friends' },
+    });
+    // Checking followers, research, reading chats and a look-up come with 0.81.0 (its part 13).
+    expect(await refused(ask(dana, 'instagram', { kind: 'chats' }))).toBe(
+      'outreach_extension_too_old',
+    );
+    for (const kind of ['checks', 'research', 'chats', 'lookup'] as const) {
+      expect(tooOldFor('0.80.0', kind, 'instagram')).toBe(true);
+      expect(tooOldFor('0.81.0', kind, 'instagram')).toBe(false);
+    }
+    await beat(dana, pc, '0.81.0');
+    expect(await ask(dana, 'instagram', { kind: 'chats' })).toMatchObject({
+      fresh: true,
+      ask: { platform: 'instagram', kind: 'chats' },
+    });
+    // Its day starts once they're ready, as any network's does: it isn't looked at anymore.
     expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'instagram' }))).toBe(
-      'outreach_network_looking',
+      'outreach_not_ready',
     );
   });
 
@@ -694,9 +734,11 @@ describe('each network’s own line of asks', () => {
       groups: null,
       words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
     });
-    // The same words for LinkedIn's runner, which finds posts once a day on its own.
+    // The same words for LinkedIn's runner, which finds posts once a day on its own; no hashtags, which are Instagram's.
     expect(await runAs(u, ws, 'outreach.posts.words', { platform: 'linkedin' })).toEqual({
       words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
+      tags: [],
+      places: [],
     });
     // Facebook's goes by groups, as before.
     const fb = await ask(u, 'facebook', { kind: 'posts' });

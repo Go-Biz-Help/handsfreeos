@@ -69,6 +69,7 @@ export type PostsSaveInput = Body<'/v1/commands/outreach.posts.save'>;
 export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
 /** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
+export type RepliesNoted = Ok<'/v1/commands/outreach.replies.note'>;
 /** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
 /**
@@ -111,6 +112,9 @@ export type HelpfulPostedInput = Body<'/v1/commands/outreach.helpful.posted'>;
 export type HelpfulPosted = Ok<'/v1/commands/outreach.helpful.posted'>;
 export type HelpfulEngagedInput = Body<'/v1/commands/outreach.helpful.engaged'>;
 export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
+export type NetworkEngagedInput = Body<'/v1/commands/outreach.engaged.save'>;
+export type NetworkEngaged = Ok<'/v1/commands/outreach.engaged.save'>;
+export type PostWords = Ok<'/v1/queries/outreach.posts.words'>;
 export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -268,7 +272,10 @@ export type HfosAsk =
       readonly list: ListMark;
       readonly platform?: Platform;
     }
-  /** What to search a network's posts with: its runner's Find posts (LinkedIn's post search). */
+  /**
+   * What to search a network's posts with: its runner's Find posts (LinkedIn's post search), and on Instagram the day's
+   * hashtags and the area's places.
+   */
   | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
@@ -289,6 +296,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-helpful-next'; readonly input: HelpfulNextInput }
   | { readonly type: 'hfos-helpful-posted'; readonly input: HelpfulPostedInput }
   | { readonly type: 'hfos-helpful-engaged'; readonly input: HelpfulEngagedInput }
+  | { readonly type: 'hfos-engaged-save'; readonly input: NetworkEngagedInput }
+  /** Who wrote last in the chats a job read (Instagram's Read my chats), as a tab tells of them as the person goes. */
+  | { readonly type: 'hfos-replies-note'; readonly input: RepliesNoteInput }
   | {
       readonly type: 'hfos-join-answers';
       readonly workspaceId: string;
@@ -330,7 +340,7 @@ export interface HfosValues {
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;
-  readonly 'hfos-post-words': { readonly words: readonly string[] };
+  readonly 'hfos-post-words': PostWords;
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;
@@ -349,6 +359,8 @@ export interface HfosValues {
   readonly 'hfos-helpful-next': HelpfulNext;
   readonly 'hfos-helpful-posted': HelpfulPosted;
   readonly 'hfos-helpful-engaged': HelpfulEngaged;
+  readonly 'hfos-engaged-save': NetworkEngaged;
+  readonly 'hfos-replies-note': RepliesNoted;
   readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-like-pick': LikePickOutput;
   readonly 'hfos-auto': AutoStatus;
@@ -432,6 +444,8 @@ export const ASK_EVENTS: ReadonlySet<string> = new Set([
   'outreach.ask.made',
   'outreach.ask.cancelled',
   'outreach.ask.replied',
+  // A code from their email typed in HandsFreeOS: the ask under way takes it at once.
+  'outreach.ask.coded',
 ]);
 
 /**

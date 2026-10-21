@@ -73,7 +73,7 @@ alter table app.file_texts enable row level security;
 -- A file's words are read exactly when the file could be opened: the inner read brings files_select (sealed) and
 -- files_not_binned with it, and the rest copies the storage read rule (20261027000400), with port papers and
 -- knowledge files never, and a hidden add-on kind's records never (custom_record_visible). Tied to the row, as
--- form_answers_follow_response is (20261027009700), so reading a business's words probes their files by key
+-- form_answers_follow_response is (20261027010300), so reading a business's words probes their files by key
 -- instead of reading every file the person can see first.
 create policy file_texts_select on app.file_texts for select to authenticated using (
   workspace_id in (select private.accessible_workspace_ids())

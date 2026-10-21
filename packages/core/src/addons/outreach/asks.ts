@@ -21,7 +21,14 @@ import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
 import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
-import { ABOUT_MOST, BIO_MOST_ON, hasPlaceholder, PROFILE_BIO_MOST } from './profile-check';
+import {
+  ABOUT_MOST,
+  ABOUT_NAME_ON,
+  BIO_MOST_ON,
+  hasPlaceholder,
+  NO_BIO_WRITES_ON,
+  PROFILE_BIO_MOST,
+} from './profile-check';
 import { allowedOn, REPORT_WORDS } from './reports';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
@@ -63,7 +70,9 @@ export const TIDY_ASK_KINDS = ['cancel', 'unfriend'] as const;
  * part"): Facebook's every kind, Check Facebook among them (decision 77); LinkedIn's its invitations and connections,
  * checking connections for fits, reading chats, looking someone up, researching one person, reading the profile and
  * putting the headline in, withdrawing old invitations, searching posts, putting up a post, and Check LinkedIn
- * (decision 74); Instagram's and Alignable's their Check alone, while they're looked at (decision 78). A kind a network
+ * (decision 74); Instagram's its Check and profile, from its part 12 its followers and unfollowing, and from its part
+ * 13 its checks, research, chats and look-ups; and Alignable's its connections and requests, checks, research and
+ * look-ups too (partners stage 6c, part 4), beside its Check and profile, and from 0.84.0 its chats. A kind a network
  * can't be asked is refused (`outreach_ask_not_on_network`).
  */
 export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
@@ -88,9 +97,38 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'checkup',
   ],
   // Looked at first (decision 78): Check Instagram and Check Alignable, till their steps are built from what they read;
-  // and Instagram's profile, read and checked, and its bio put in (decision 80), before its steps.
-  instagram: ['checkup', 'profile_read', 'profile_edit'],
-  alignable: ['checkup'],
+  // and each one's profile, read and checked, and Instagram's bio or Alignable's About Us put in (decisions 80 and
+  // 82), before its steps. From Instagram's part 12, its followers saved as its friends list (a follow-back counts as
+  // accepting), and the ones the person ticks who didn't follow back unfollowed (its tidying, `cancel`). From its part
+  // 13, its followers checked for fits and one researched, its chats read (noting who wrote last), and someone looked
+  // up before drafting, as LinkedIn's and Alignable's are.
+  instagram: [
+    'friends',
+    'checks',
+    'research',
+    'chats',
+    'lookup',
+    'cancel',
+    'checkup',
+    'profile_read',
+    'profile_edit',
+  ],
+  // Alignable from its part 4 (partners stage 6c): its connections and the requests they've got saved, connections
+  // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are. Its chats read
+  // (noting who wrote last) from 0.84.0, once its chat reader was built from the owner's Check of 21 Oct 2026.
+  alignable: [
+    'requests',
+    'friends',
+    'checks',
+    'lookup',
+    'research',
+    'chats',
+    // Its town's posts and forum questions (part 6's first piece): whoever asks for what the business offers.
+    'posts',
+    'checkup',
+    'profile_read',
+    'profile_edit',
+  ],
 };
 export const askableOn = (platform: Platform, kind: AskKind): boolean =>
   ASK_KINDS_ON[platform].includes(kind);
@@ -103,6 +141,8 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     post: 'Put up your helpful post on your feed',
     profile_edit: 'Update your profile',
   },
+  alignable: { profile_edit: 'Put your About Us in', posts: 'Find posts in your town' },
+  instagram: { friends: 'Save my followers', cancel: 'Unfollow the ones you ticked' },
 };
 
 /** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
@@ -114,7 +154,7 @@ const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
   facebook: 'bio',
   linkedin: 'headline',
   instagram: 'bio',
-  alignable: 'bio',
+  alignable: 'Elevator Pitch',
 };
 
 /**
@@ -129,17 +169,20 @@ export function profileEditWords(
   platform: Platform,
   edit: { readonly bio?: string | null; readonly about?: string | null },
 ): string | null {
-  if (edit.about && platform !== 'linkedin')
+  const aboutName = ABOUT_NAME_ON[platform];
+  if (edit.about && !aboutName)
     return `${PLATFORMS[platform]} has no About to put in. Put in the bio only.`;
+  if (edit.bio && NO_BIO_WRITES_ON.includes(platform))
+    return `${PLATFORMS[platform]}’s ${BIO_NAME_ON[platform]} is made with its own assistant, so your computer can’t put it in. Put in your ${aboutName ?? 'About'} only.`;
   if (edit.bio) {
     const tooLong = bioTooLongWords(platform, edit.bio);
     if (tooLong) return tooLong;
   }
   if (edit.about && edit.about.trim().length > ABOUT_MOST)
-    return `LinkedIn’s About takes up to ${ABOUT_MOST.toLocaleString('en-US')} characters, and this one has ${edit.about.trim().length.toLocaleString('en-US')}. Cut it to fit, then put it in.`;
+    return `${PLATFORMS[platform]}’s ${aboutName} takes up to ${ABOUT_MOST.toLocaleString('en-US')} characters, and this one has ${edit.about.trim().length.toLocaleString('en-US')}. Cut it to fit, then put it in.`;
   const unfilled = [
     edit.bio && hasPlaceholder(edit.bio) && `your ${BIO_NAME_ON[platform]}`,
-    edit.about && hasPlaceholder(edit.about) && 'your About',
+    edit.about && hasPlaceholder(edit.about) && `your ${aboutName ?? 'About'}`,
   ].filter((w): w is string => typeof w === 'string');
   if (unfilled.length)
     return `Fill in the parts in [brackets] in ${unfilled.join(' and ')} first: the AI writes them where it can’t know what’s true for you.`;
@@ -183,8 +226,31 @@ export const ASK_KIND_SINCE_ON: Readonly<
     post: '0.43.0',
     checkup: '0.48.0',
   },
-  // Instagram's profile, read and its bio put in (decision 80).
-  instagram: { profile_read: '0.62.0', profile_edit: '0.62.0' },
+  // Instagram's profile, read and its bio put in (decision 80); its followers saved, and those ticked unfollowed (its
+  // part 12); its checks, research, chats and look-ups (its part 13).
+  instagram: {
+    profile_read: '0.62.0',
+    profile_edit: '0.62.0',
+    friends: '0.80.0',
+    cancel: '0.80.0',
+    checks: '0.81.0',
+    research: '0.81.0',
+    chats: '0.81.0',
+    lookup: '0.81.0',
+  },
+  // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
+  // Its connections, requests, checks, research and look-ups: its part 4. Its chats: 0.84.0.
+  alignable: {
+    profile_read: '0.71.0',
+    profile_edit: '0.71.0',
+    requests: '0.73.0',
+    friends: '0.73.0',
+    checks: '0.73.0',
+    lookup: '0.73.0',
+    research: '0.73.0',
+    posts: '0.74.0',
+    chats: '0.84.0',
+  },
 };
 
 /** A target named by its network: as it is on Facebook, and with the network's name before it on any other. */
@@ -235,6 +301,8 @@ export const ASK_STATES = {
   working: 'Working on it',
   stuck: 'Needs you',
   typing: 'Needs you',
+  /** Waiting on a code the network emailed them, typed in HandsFreeOS (`outreach.ask.code`). */
+  code: 'Needs you',
   done: 'Done',
   failed: 'Didn’t finish',
   cancelled: 'Stopped',
@@ -252,11 +320,11 @@ export const ASK_SHOWN_STATE_KEYS = Object.keys(ASK_SHOWN_STATES) as [
   AskShownState,
   ...AskShownState[],
 ];
-export const OPEN_ASK_STATES = ['waiting', 'working', 'stuck', 'typing'] as const;
+export const OPEN_ASK_STATES = ['waiting', 'working', 'stuck', 'typing', 'code'] as const;
 /** Taken by a computer and not ended. */
-export const TAKEN_ASK_STATES = ['working', 'stuck', 'typing'] as const;
-/** Waiting on the person, at their computer. */
-export const NEEDS_YOU_STATES = ['stuck', 'typing'] as const;
+export const TAKEN_ASK_STATES = ['working', 'stuck', 'typing', 'code'] as const;
+/** Waiting on the person: at their computer, or for a code from their email. */
+export const NEEDS_YOU_STATES = ['stuck', 'typing', 'code'] as const;
 export const ASK_REPLIES = { carry_on: 'Carry on', skip: 'Skip' } as const;
 export type AskReply = keyof typeof ASK_REPLIES;
 export const ASK_REPLY_KEYS = Object.keys(ASK_REPLIES) as [AskReply, ...AskReply[]];
@@ -269,6 +337,12 @@ export const ASK_WAIT_HOURS = 24;
 export const ASK_LINE_SECONDS = 20;
 /** A step handed over that nobody carried on with stops after this. */
 export const ASK_STUCK_MINUTES = 30;
+/**
+ * A code from their email is kept this long for their computer to take, their computer waits this long for one, and
+ * the notification asking for it stays up this long (Chris: "that notification should remain active for the 30
+ * minutes that the code is active until someone enters the code").
+ */
+export const ASK_CODE_MINUTES = 30;
 /** A taken ask whose computer wasn't seen for this long, or that started this long ago, is lost. */
 export const ASK_LOST_MINUTES = 10;
 export const ASK_LOST_HOURS = 6;
@@ -619,6 +693,11 @@ export const AskProgressOutput = z.object({
   cancelled: z.boolean(),
   /** Their answer to the step handed to them, until a `working` progress takes it. */
   reply: z.enum(ASK_REPLY_KEYS).nullable(),
+  /**
+   * The code from their email, while it waits on one (`code`): handed over once, the first time it's asked after they
+   * typed it, and never again. Null till then, and from a server before codes.
+   */
+  code: z.string().nullable().default(null),
 });
 export type AskProgressOutput = z.output<typeof AskProgressOutput>;
 
@@ -639,6 +718,23 @@ export const AskReplyInput = z.object({
   reply: z.enum(ASK_REPLY_KEYS),
 });
 export type AskReplyInput = z.input<typeof AskReplyInput>;
+/** A code as the email gives it: 4 to 12 letters or numbers, with any spaces or dashes taken out. */
+export const AskCodeInput = z.object({
+  workspaceId: z.uuid(),
+  askId: z.uuid(),
+  code: z
+    .string()
+    .transform((s) => s.replace(/[\s-]+/g, ''))
+    .pipe(
+      z
+        .string()
+        .regex(
+          /^[A-Za-z0-9]{4,12}$/,
+          'That doesn’t look like the code. Type the letters or numbers the email shows, as they are.',
+        ),
+    ),
+});
+export type AskCodeInput = z.input<typeof AskCodeInput>;
 export const AskCancelInput = z.object({ workspaceId: z.uuid(), askId: z.uuid() });
 export type AskCancelInput = z.input<typeof AskCancelInput>;
 export const AskChangedOutput = z.object({ ask: AskShown });
@@ -827,11 +923,61 @@ export const askWarnedLine = (words: string | null, platform: Platform = 'facebo
 export const ASK_TYPING_WORDS =
   'Facebook is asking for your password or PIN. Type it on your computer, in the Facebook tab it opened.';
 
+/**
+ * Under a step waiting on a code, and the extension's line for it: the network emailed one, and they type it here.
+ * A code that didn't work asks for the newest one.
+ */
+export const askCodeWords = (platform: Platform, again = false): string =>
+  again
+    ? `That code didn’t work on ${PLATFORMS[platform]}. Look for the newest email from ${PLATFORMS[platform]}, and type its code here.`
+    : `${PLATFORMS[platform]} emailed you a code to check it’s you. Look in your email, and type the code here. Your computer puts it in.`;
+/** Under the code's box once it's sent, till the computer takes it. */
+export const ASK_CODE_SENT_WORDS = 'Sent. Your computer is putting it in.';
+/**
+ * The step handed to the person once no code came in `ASK_CODE_MINUTES` (Chris: "if the code is not entered in 30
+ * minutes the system should then prompt the user to have the extension try again"): answered Try again.
+ */
+export const askCodeRanOutWords = (platform: Platform): string =>
+  `No code came in ${ASK_CODE_MINUTES} minutes, so ${PLATFORMS[platform]}’s may have run out. Press Try again, and your computer asks ${PLATFORMS[platform]} for a new one.`;
+/** Whether a step handed over is the code that ran out: its Carry on reads Try again. */
+export const askCodeRanOut = (ask: {
+  readonly state: string;
+  readonly platform: Platform;
+  readonly line: string | null;
+}): boolean => ask.state === 'stuck' && ask.line === askCodeRanOutWords(ask.platform);
+/** What a reply's button says on an ask: Carry on, Skip, or Try again where the code ran out. */
+export const askReplyLabel = (ask: Parameters<typeof askCodeRanOut>[0], reply: AskReply): string =>
+  reply === 'carry_on' && askCodeRanOut(ask) ? 'Try again' : ASK_REPLIES[reply];
+/**
+ * Where the notification about a code opens: Social Outreach's page for that ask's code, on the phone and the web. An
+ * add-on alert opens one of the add-on's pages by a path under `/a/<id>/`, so the query goes after its slash.
+ */
+export const askCodeHref = (askId: string): string => `/a/outreach/?view=code&ask=${askId}`;
+/** The notification that stays up while a code is asked for, and the one once it ran out (an add-on alert each). */
+export const askCodeAlertWords = (
+  platform: Platform,
+  ranOut = false,
+): { title: string; detail: string } =>
+  ranOut
+    ? {
+        title: `${PLATFORMS[platform]}’s code ran out`,
+        detail: `Press Try again, and your computer asks ${PLATFORMS[platform]} for a new one.`,
+      }
+    : {
+        title: `${PLATFORMS[platform]} emailed you a code`,
+        detail: `Type it in HandsFreeOS, and your computer puts it in. It works for ${ASK_CODE_MINUTES} minutes.`,
+      };
+
 /** The push, and the extension's pop-up, when an ask first needs the person. */
 export function askStuckPushWords(
-  state: 'stuck' | 'typing',
+  state: 'stuck' | 'typing' | 'code',
   line: string | null,
 ): { title: string; body: string } {
+  if (state === 'code')
+    return {
+      title: 'Look in your email',
+      body: line || 'Your computer needs a code from your email. Type it in HandsFreeOS.',
+    };
   return {
     title: 'Your computer needs you',
     body:
@@ -850,6 +996,7 @@ export const ASK_TONES: Record<AskShownState, 'accent' | 'ok' | 'pending' | 'dan
   working: 'ok',
   stuck: 'pending',
   typing: 'pending',
+  code: 'pending',
   done: 'ok',
   failed: 'danger',
   lost: 'danger',
@@ -876,6 +1023,14 @@ export const ASK_WORDS = {
   stop: 'Stop',
   stopped: ASK_STOPPED_LINE,
   youSaid: (reply: AskReply) => `You said ${ASK_REPLIES[reply]}.`,
+  /** The box for a code from their email, while a step waits on one, and the phone's screen for it. */
+  code: 'Code from your email',
+  codeGone:
+    'Nothing’s waiting on a code now: your computer has gone on, or it ended. Here’s how it went.',
+  codeNone: 'Nothing’s waiting on a code now. What your computer does shows on the Live tab.',
+  openLive: 'Open the Live tab',
+  sendCode: 'Send code',
+  anotherCode: 'Type it again',
 } as const;
 
 export const NO_COMPUTER_ASK_WORDS =

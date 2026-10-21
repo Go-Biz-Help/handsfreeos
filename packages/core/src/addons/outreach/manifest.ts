@@ -117,6 +117,7 @@ export const outreachAddon = defineAddon({
       'outreach.ask.started',
       'outreach.ask.progressed',
       'outreach.ask.replied',
+      'outreach.ask.coded',
       'outreach.ask.cancelled',
       'outreach.ask.ended',
       'outreach.setup.saved',
@@ -134,6 +135,7 @@ export const outreachAddon = defineAddon({
       'outreach.helpful.skipped',
       'outreach.helpful.posted',
       'outreach.helpful.engaged',
+      'outreach.engaged.saved',
       'outreach.country.unskipped',
       'outreach.partner.looked',
       'outreach.partner.saved',
@@ -148,7 +150,8 @@ export const outreachAddon = defineAddon({
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's pruning
     // armed (decision 41, ./live.ts). A message waiting for the person's OK, and a step the extension needs them for,
     // reach their phone as their pushes setting says (decision 40, ./waiting.ts). An ask that first needs the person
-    // pushes to them at once (decision 43, ./asks.ts). A post asking for what the business offers pushes to the person
+    // pushes to them at once (decision 43, ./asks.ts), and one waiting on a code from their email keeps a notification
+    // up till the code comes, it ends, or the code runs out (decision 82). A post asking for what the business offers pushes to the person
     // who found it at once (decision 49, ./posts.ts). A helpful post asked for is written by the AI (decision 50,
     // ./helpful.ts). People found in a group or asking to be friends, and a change to the country setting, have the AI
     // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
@@ -171,6 +174,9 @@ export const outreachAddon = defineAddon({
       'outreach.live.changed',
       'outreach.need.noted',
       'outreach.ask.progressed',
+      'outreach.ask.coded',
+      'outreach.ask.ended',
+      'outreach.ask.cancelled',
       'outreach.group.saved',
       'outreach.friends.saved',
       'outreach.day.started',
@@ -200,6 +206,7 @@ export const outreachAddon = defineAddon({
   settings: { version: 1, permission: 'outreach.manage', workspace: OutreachSettingsSchema },
   // Its own tables, in `addon_outreach` (packages/core/src/addons/outreach/tables.ts mirrors them).
   tables: [
+    'ask_codes',
     'asks',
     'automation',
     'checks',
@@ -276,12 +283,12 @@ export const outreachAddon = defineAddon({
     ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
-    // network shown (`?net=`) with them; and a playbook. The activity and friends stay on the web, and their links
-    // open it.
+    // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); and a playbook. The
+    // activity and friends stay on the web, and their links open it.
     phone: [
       {
         path: '',
-        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q'],
+        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask'],
         web: { view: ['activity', 'friends'] },
       },
       { path: 'playbooks/:playbookId' },

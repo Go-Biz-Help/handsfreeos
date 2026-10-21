@@ -81,7 +81,10 @@ describe('a network’s words on screen', () => {
     // Settings show only the switches a network's runner reads; one still looked at has none yet.
     expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS);
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
-    expect(ticksShownOn('alignable')).toEqual([]);
+    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does.
+    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect']);
+    // Instagram's (part 14) the same: it confirms no follow requests, joins no groups and has no hourly look.
+    expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.
     const doing = { ...AUTOMATION_DEFAULTS, sending: 'steps' as const };
     expect(autoKinds(doing, 'facebook')).toEqual([
@@ -91,7 +94,19 @@ describe('a network’s words on screen', () => {
       'comment',
     ]);
     expect(autoKinds(doing, 'linkedin')).toEqual(['warm_up', 'friend_request', 'comment']);
-    expect(autoKinds(doing, 'instagram')).toEqual([]);
+    // Alignable's forum answers and comments wait for an OK each time: its runner warms up and connects.
+    expect(autoKinds(doing, 'alignable')).toEqual(['warm_up', 'friend_request']);
+    // Instagram's comments wait for an OK each time too, as public writing: its runner likes and follows.
+    expect(autoKinds(doing, 'instagram')).toEqual(['warm_up', 'friend_request']);
+    expect(sendingModesOn('instagram').steps).toBe(
+      'Follows and likes on their own; each message waits for one tap, and you post each comment',
+    );
+    expect(sendingModesOn('alignable').steps).toBe(
+      'Connection requests and likes on their own; each message waits for one tap, and you post each comment',
+    );
+    expect(sendingModesOn('alignable').everything).toBe(
+      'Everything on its own, messages too; you post each comment',
+    );
     expect(ticksOn('linkedin').confirmRequests[0]).toBe(
       'Accept invitations from people who fit a playbook',
     );
@@ -102,6 +117,10 @@ describe('a network’s words on screen', () => {
       'https://www.linkedin.com/messaging/thread/2-abc%3D/',
     );
     expect(chatUrlOn('linkedin', null)).toBeNull();
+    // Alignable keeps a chat by the other business's id, as its own Message link opens it.
+    expect(chatUrlOn('alignable', '8kA2')).toBe(
+      'https://www.alignable.com/biz/conversations?with_business_id=8kA2',
+    );
     expect(shareWords(3, 4)).toBe('75% of first messages');
     expect(shareWords(0, 0)).toBe('');
   });
@@ -163,20 +182,23 @@ describe('the networks a person works', () => {
     expect(readNetwork('myspace')).toBeNull();
   });
 
-  it('keeps a network still looked at off Today and the filters, while it can be turned on (decision 78)', () => {
-    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin']);
-    expect(PLATFORM_KEYS.filter(isLooking)).toEqual(['instagram', 'alignable']);
+  it('puts every network past its look on Today and the filters, once it’s turned on (decision 78)', () => {
+    // Alignable works from its part 3, and on its own from part 5; Instagram from its part 12, and on its own from 14.
+    expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(PLATFORM_KEYS.filter(isLooking)).toEqual([]);
     const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });
     expect(networksOn(instagram)).toEqual(['facebook', 'instagram']);
-    expect(networksShown(instagram)).toEqual(['facebook']);
-    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin']);
+    expect(networksShown(instagram)).toEqual(['facebook', 'instagram']);
+    expect(NETWORK_FILTERS).toEqual(['all', 'facebook', 'linkedin', 'instagram', 'alignable']);
     expect(networkOfLink('https://www.instagram.com/dana.reyes/')).toBe('instagram');
     expect(networkOfLink('https://www.alignable.com/austin-tx/acme-plumbing')).toBe('alignable');
     expect(NETWORK_WORDS.looking('Instagram')).toContain('press Check Instagram below once');
     expect(REPORT_WORDS.notAllowed('Chrome on Mac 12', 'instagram')).toContain(
       'on an Instagram page',
     );
-    expect(SETUP_WORDS.stepAbout.networks).toBe('Where you reach people: Facebook or LinkedIn');
+    expect(SETUP_WORDS.stepAbout.networks).toBe(
+      'Where you reach people: Facebook, LinkedIn, Instagram or Alignable',
+    );
   });
 
   it('changes one network’s choices, Facebook’s being the settings’ own', () => {
@@ -209,7 +231,9 @@ describe('the setup’s step to pick networks', () => {
       'extension',
       'groups',
     ]);
-    expect(SETUP_WORDS.stepAbout.networks).toBe('Where you reach people: Facebook or LinkedIn');
+    expect(SETUP_WORDS.stepAbout.networks).toBe(
+      'Where you reach people: Facebook, LinkedIn, Instagram or Alignable',
+    );
     const got = { playbooks: [], extensionAt: null, groups: { mine: 0, business: 0, latest: [] } };
     expect(setupSummary(got, withLinkedIn(true))[1]).toBe('Networks: Facebook, LinkedIn');
     expect(setupSummary(got, null)[1]).toBe('Networks: Facebook');
@@ -231,6 +255,28 @@ describe('asks named by their network', () => {
       'Your computer can’t do that on LinkedIn yet. Ask it on Facebook, or from that network’s own buttons.',
     );
     expect(cantAskWhy({ computer, warnedToday: false }, 'chats', 'linkedin')).toBeNull();
+    // Alignable from its part 4: its connections, requests, checks and look-ups, from 0.73.0; its chats from 0.84.0,
+    // once its chat reader was built from the owner's Check.
+    const now = { ...computer, version: '0.73.0' };
+    for (const kind of ['friends', 'requests', 'checks', 'research', 'lookup'] as const)
+      expect(cantAskWhy({ computer: now, warnedToday: false }, kind, 'alignable')).toBeNull();
+    expect(cantAskWhy({ computer: now, warnedToday: false }, 'chats', 'alignable')).toMatch(
+      /older build \(0\.73\.0\)/,
+    );
+    expect(
+      cantAskWhy(
+        { computer: { ...computer, version: '0.84.0' }, warnedToday: false },
+        'chats',
+        'alignable',
+      ),
+    ).toBeNull();
+    expect(
+      cantAskWhy(
+        { computer: { ...computer, version: '0.72.0' }, warnedToday: false },
+        'friends',
+        'alignable',
+      ),
+    ).not.toBeNull();
     expect(cantAskWhy({ computer, warnedToday: true }, 'chats')).not.toBeNull();
     expect(cantAskWhy({ computer, warnedToday: true }, 'chats', 'linkedin')).toBeNull();
     // A build from before LinkedIn can't be asked anything there.

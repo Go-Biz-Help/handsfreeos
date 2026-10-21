@@ -769,7 +769,8 @@ openers on group posts") and answered its questions the same day. These are sett
     in a tab. A page their profile links to counts as their business only when the line naming it says they own or
     founded it ("Owner at…"); otherwise it's told to the AI as where they work, a job. Built.
 22. **Phone alerts:** a push when the extension spots a reply, and a morning push at a time that's a setting (8am to
-    start). Built (the third of three parts).
+    start). Built (the third of three parts). The morning push counts every network the person works, as Today's
+    strip shows them: one network in its own words, more than one named ("on Facebook and Alignable").
 23. **Which openers work:** each playbook has two or three AI opener styles and the person's own openers. Drafts
     take turns with them, and a results card shows the replies and demos for each. Built.
 24. **The demo link is built now,** so a booking through it counts by itself. The "Demo booked" mark stays too.
@@ -1352,6 +1353,180 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       or training wheels show there yet.
     - **It has no day yet:** `outreach.day.start` refuses one (`outreach_network_looking`), and it isn't on Today's
       strip, the network filters, the setup's networks step or a playbook's (`WORKING_PLATFORMS`).
+    - **Alignable works from its part 3** (stage 6 of the partners plan, 20 Oct 2026), as LinkedIn did before its
+      runner: `stage: 'working'`, so it has a day, a row on Today's strip and the filters, a step in the setup and a
+      place on a playbook, its choices and limits in Settings, and its Check and profile as before. Until its runner
+      (part 5) every step there is the person's own: Today lists them, they do them on Alignable, and the extension
+      notes each (part 2). Start my day there says so (`sendingOffWords`). Instagram follows from its part 12 (below).
+    - **Check Instagram's new reads** (extension 0.79.0; the Instagram plan's part 9): it also opens the person's
+      followers, a hashtag, a place, their notifications and a chat, so its readers of who follows, hashtag and
+      place posts, who engaged and a chat's messages are built from what those outlines show. Its chats in Messages
+      are buttons, not links (his Check, 0.62.0), so from 0.80.0 Check opens the first with words by its row.
+    - **Instagram's readers** (extension 0.80.0; the Instagram plan's part 10; `src/networks/instagram/read.ts`), as
+      Alignable's are, each plain data, each counted in Check's notes and never said: someone's profile (their name
+      and username, whether the person follows them by Follow, Follow Back, Following or Requested, whether they follow
+      the person by Follow Back or "Follows you", their followers and latest posts); the person's followers in the box
+      over /<you>/followers/ (each one's username, name and link, and whether the person follows them back: Follow
+      beside them says not); a post (who posted it, by its own link /<name>/p/<code>/, its caption, its likes, its
+      comments by who and what, and its place); a hashtag's and a place's posts; notifications (who followed, liked or
+      commented, the kind only); Messages (each chat's name, whose its last line is, when, and which box: Primary,
+      General or Requests); and a chat (who it's with, its messages as the person's or theirs, its box, and whether
+      it's a request waiting for Accept). The profile and the post are built from his outlines of 18 Oct 2026; the
+      followers, a hashtag, a place, notifications and a chat from Instagram's usual markup, by its own words, labels,
+      roles and link addresses, and they're tuned from his next Check, which opens each: from his Check of 21 Oct 2026
+      in 0.84.0 (below, **His Checks of 21 Oct 2026**).
+    - **Noting the person's own steps on Instagram** (extension 0.80.0; part 11; `src/networks/instagram/actions.ts`):
+      Follow or Follow Back on a profile or a list's row is a follow, kept as a request (`friend_request`) to that
+      account, noted once the button says Following or Requested, so one Instagram blocked notes nothing; a post's
+      Like (never a comment's) with the post's link; a comment sent from a post's box with something written, to whoever
+      posted it or to the one it starts by naming (@name); and a message sent in a chat, with its id from
+      /direct/t/<id>/. Each is to the account by its name in Instagram's address, never to the person themselves, and
+      nothing anyone wrote is kept.
+    - **Instagram works from its part 12** (extension 0.80.0, no migration), as Alignable did before its runner:
+      `stage: 'working'` with `runs: RUNS_NOTHING`, so it has a day, a row on Today's strip and the filters, a step in
+      the setup and a place on a playbook, its limits in Settings, and every step there is the person's own; Sending
+      stays off till its runner (part 14, below). Today says **Follow them** there.
+    - **A follow-back counts as accepting** on Instagram: its "friends" are the person's followers. **Save my
+      followers** (`friends`, from 0.80.0, `src/jobs/instagram/`) opens their account from Instagram's menu, then their
+      followers, reads the box a screen at a time at a person's pace to its end, pressing nothing, and saves everyone as
+      Instagram's friends list (`outreach.friends.save`). Someone they followed who's among them is a friend, and
+      their first message comes as on the other networks ("Followed you back today").
+    - **No follow-back in 3 days: one short message** (the plan's "The steps"): someone followed 3 or more days ago who
+      hasn't followed back and has had no message gets one first message on Today, marked as going to their Requests
+      (`TodayItem.requests`, with no demo link): one text with no link, no video and no price, as Instagram passes only
+      one till they accept. At most 5 of the day's 10 first messages go there, those sent there today counted (its
+      kit's `requestsMessageAfterDays` and `requestsMessagesPerDay`, null on every other network). The AI's draft for
+      it follows the rule (`REQUESTS_TASK`; drafts with a link or a second text are dropped, `fitsRequests`), and so
+      does one of the business's own openers, or the AI writes it instead. No follow-up or check-in goes in a chat they
+      haven't answered or accepted: one waiting in their Requests waits there.
+    - **Unfollowing** on Instagram (the plan's question 5) is its tidying (`cancel_request`): people followed more than
+      the business's wait ago (3 weeks to start) who didn't follow back, 20 a day at most, never anyone who wrote back,
+      a customer, someone kept, or anyone followed before HandsFreeOS saw it. The Friends tab says **Not following you
+      back** and **Unfollow the ticked**; the person ticks who, and the extension unfollows them in a tab they can see,
+      pressing Following, then Unfollow in its box, each by its own words (`cancel`, from 0.80.0). Nothing is
+      unfollowed on its own.
+    - **Instagram's asks from part 13** (extension 0.81.0, `ASK_KINDS_ON.instagram`, `ASK_KIND_SINCE_ON`, no
+      migration): beside Save my followers, unfollowing and its profile, its followers checked for fits and one
+      researched (each account read for the AI: their name, what they do, their bio, how many follow them and what
+      Instagram says their latest posts show, 20 a day, its kit's `checksPerDay`), its chats read for the AI, and
+      someone looked up before drafting. Read my chats presses each chat's row in the person's messages by the name it
+      shows, as its rows aren't links, sends each one-to-one chat as Instagram's with its id from /direct/t/<id>/, and
+      notes who wrote last (`outreach.replies.note`), as a tab of the person's does as they go there now; the Requests
+      box and group chats are left alone. Instagram's own profile reader now reads someone's bio and their posts'
+      descriptions for these.
+    - **Instagram's runner from part 14** (extension 0.82.0, `src/auto/instagram.ts`; its kit's `runs`, no migration):
+      Instagram works on its own as LinkedIn and Alignable do, so its Sending choices open on its page in Settings
+      ("Follows and likes on their own; each message waits for one tap, and you post each comment"). It goes only while
+      its day is started and its Sending isn't Off, and stops for the day on any Instagram warning ("Action blocked",
+      "Try again later"), there alone; HandsFreeOS halves Instagram's limits for a week after one and takes follows off
+      its list for two days, as on every network (`warningOf`, `dailyLimitsNow`). Before its first day it saves the
+      followers, works out who to unfollow and checks the followers once (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Then, once
+      a day: the newest followers (a follow-back is its accepting), the followers checked (20 accounts), its chats read
+      with who wrote last noted, and Find partners with Instagram's search (whoever posted what it shows for creators,
+      the accounts it shows for businesses). On Today's list it does the warm-ups (a look at their account and a like on
+      one of their recent posts, on that post's own page, and a second while the day's likes have room past the
+      warm-ups left; the look alone where it sees no post) and the follows (their account's own Follow, read again to
+      see it says Following or Requested). It sends messages once OK'd, typed only into their chat's own box, the one to
+      their Requests as one text. **Comments stay by hand:** the plan says "Anything public, and every message, waits
+      for an OK to start", the code has no comment that waits for an OK and goes on its own (a comment in a runner's
+      `runs.auto` goes as soon as Sending allows it, as LinkedIn's do), and Alignable's public writing is kept by hand for
+      the same reason, so `comment` isn't in Instagram's `runs.auto` and Sending's words say so. **Unfollowing stays the
+      person's ticks**, as withdrawing old requests does on Facebook, LinkedIn and Alignable: the runner works out who
+      before the first day, and never unfollows on its own. Its limits are the plan's, all in its kit already (20
+      follows, 30 likes, 10 comments, 10 first messages with at most 5 to Requests, 15 follow-ups, 20 profiles
+      checked, 20 unfollows).
+    - **Instagram's growing from part 15** (extension 0.83.0; **migration `20261027010100_outreach_engagement_follows`**,
+      which only widens `addon_outreach.engagements.kind` with `follow`, always off any helpful post): two more of its
+      runner's once-a-day jobs, and two more places Find partners looks.
+      - **Hashtags and places.** A playbook has no fields for them, so they come from what it says already, as
+        Alignable's town comes from the person's profile (`postLooks` in `posts.ts`, given by `outreach.posts.words`
+        where its kit's `hashtags` says so): local hashtags first, a place in its area with its Words to search for
+        groups ("Austin" and "plumbing" make #austinplumbing; its signs' quoted words stand in when it has none), the
+        words alone or the places alone only when it has no area or no words, three a day in turn. Places are its
+        area's own (`placesIn`, as fit reads them): a place's page has an id of Instagram's that no name gives, so the
+        extension opens one (two a day at most) only when a hashtag's post was tagged at a place in the area. Each page
+        has 4 of its posts opened in turn at a person's pace and read for who posted it, its caption, its likes and its
+        place, and the posts are saved as a network's search finds are (no group, `found: 'search'`), kept only when
+        they say a playbook's words or ask for help, for the AI's check.
+      - **Their authors are warmed up, then followed.** On a follow network, whose comments wait for the person,
+        Today lists a like for each good post's author not warmed yet, for the runner to do, as many as tomorrow's
+        follows need (as the groups' people's are); a day after the like, their follow comes ("Wrote a post your
+        search on Instagram found"), and their post's comment stays the person's to write.
+      - **Warm leads from the notifications** (`helpful`, as Alignable's): who started following the person, and who
+        liked or commented on their posts, sent through `outreach.engaged.save` (never what anyone wrote). Someone who
+        followed is followed back at once, as they made the first move ("Followed you on Instagram"), unless the
+        notification's own button says the person follows them already; being among the saved followers doesn't count
+        as being followed back on a follow network. Someone who liked or commented gets a like back, then a follow.
+      - **Find partners** also reads the hashtag of each creator search's words, and once a run the accounts Instagram
+        suggests to the person (`/explore/people/`), beside its search's own.
+      - Its once-a-day choice's words say so ("Once a day, first: save my newest followers, and read my messages and
+        notifications"). No ask is added: Instagram runs on its own, so Today shows no Find posts there, as on LinkedIn.
+    - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
+      all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
+      fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
+      business looked up before drafting. Reading its chats waited for a reader built from a chat with messages in it,
+      which Check Alignable opens from Messages' side from 0.73.0; it's built from his Check of 21 Oct 2026 (below,
+      **Read my chats on Alignable**).
+    - **Read my chats on Alignable** (extension 0.84.0, `chats` in `ASK_KINDS_ON.alignable` from 0.84.0 in
+      `ASK_KIND_SINCE_ON`, no migration), as Instagram's part 13 is: its chat reader is built from the owner's Check
+      of 21 Oct 2026, whose outlines showed an open conversation's messages each a `rel-card-message` between its
+      header (`channel-header-loaded`) and its box (`full-view-write-message`). Theirs starts its row with their
+      picture in a link to their business (`/biz/businesses/<id>`), then who and when, then the card; the person's own
+      has who and when, the card, then a picture alone. The reader keeps each message as the person's or theirs, what
+      it says and when, the latest 20, and who wrote last, as Instagram's chat reader keeps them, never more. **Read
+      my chats** (`src/jobs/alignable/chats.ts`) presses each conversation's row down Messages' side by the name it
+      shows (its rows aren't links), at a person's pace, sends each one with messages in it as Alignable's, keyed by
+      Alignable's id for the business (the key its conversations open by), and notes who wrote last
+      (`outreach.replies.note`), as a tab of the person's does as they go there now. Its runner reads them once a day,
+      right after the connections are checked, as Instagram's does.
+    - **Its town's posts and forum questions** (extension 0.74.0, the `posts` ask, **Find posts in your town** on
+      Today): the extension finds the person's town from their own profile's address, opens its page and reads a few
+      screens of it, and saves each post and question as one found on the network (no group, `found: 'find'`), for
+      the AI's check as LinkedIn's search finds are. The good ones come onto Today with a draft, and their writers
+      get a connect step after a warm-up. Answers to the ones asking for what the business offers (`strong`) are at
+      most 2 a day there (its kit's `forumAnswersPerDay`), inside the day's comments, and Settings shows the line.
+      Each is still the person's OK: they post it on Alignable, and the extension notes it.
+    - **Recommend, by hand only** (the plan's question 8; extension 0.75.0): Today suggests one business a day to
+      recommend there (`recommend`, its kit's `recommends`), a partner of the person's or a customer they've done
+      work for (a paid invoice or a job done), never one they've recommended and never one on Never contact. A
+      different one each day, so one they'd rather not waits. They write it on Alignable, and the extension notes it
+      when the recommendation's page sends what's written (a touch of kind `recommend`, once a business). Don't pitch
+      holds back the outreach, never a recommendation. Check Alignable opens a recommendation's page from 0.75.0 too,
+      so its noticer is checked against Alignable's own form.
+    - **Recommendations on Get ready** (the plan's "at least 5"; extension 0.76.0): reading their own profile counts
+      the recommendations it shows (none beside Alignable's own ask for one, `/biz/word_of_mouth`), and the AI's check
+      writes a short note asking happy customers for one (`recommendNote`). Get ready shows "2 of 5 on your profile"
+      and the note to copy into Alignable's Ask for Recommendations, which it opens. It's a tip: it doesn't hold the
+      list back.
+    - **Its runner from part 5** (extension 0.77.0, `src/auto/alignable.ts`; its kit's `runs`): Alignable works on its
+      own as LinkedIn does, so its Sending choices open on its page in Settings. It goes only while its day is started
+      and its Sending isn't Off, and stops for the day on an Alignable warning, there alone. Before its first day it
+      saves the connections and the connection requests they've got, then checks the connections once. Then, once a
+      day: the requests, the connections checked (30 business pages), Find partners, and the town's posts (so Today's
+      Find posts card goes). Find partners searches its businesses (`/biz/search`) and reads those found for the
+      partner check; businesses alone, as it has no creators (`PARTNER_SEARCH_KINDS_ON`). On Today's list it does the
+      warm-ups (a look at their business page and a like on a recent post of theirs, or the look alone when there's
+      none) and the connection requests (their page's own Connect, by Alignable's id for the business, then their
+      page again to see it went). It sends messages once OK'd, typed only into that conversation's box. **Comments
+      and forum answers stay by hand:** each waits for the person's OK, as it's public writing (the plan's question
+      9), so `comment` isn't in its `runs.auto`, and Sending's choices say so. **Recommendations stay by hand only.**
+      Withdrawing old requests stays the person's too: no reader of the requests they've sent is built, as their
+      markup isn't known, so nothing works out which to withdraw. A reply is drafted from what HandsFreeOS knows: from
+      0.84.0, their conversation as the day's Read my chats last brought it in.
+    - **Warm leads from Alignable's notifications** (the plan's "whoever likes, comments on or recommends you";
+      extension 0.78.0, a migration: `engagements.helpful_id` may be empty and `kind` takes `recommend`): the
+      extension reads Notifications once a day for who liked or commented on the person's posts and answers and who
+      recommended them, and sends them (`outreach.engaged.save`), one row a person and kind, kept to the latest. Each
+      is a warm lead on Today ("Recommended you on Alignable"): a like of theirs back, then a connection request. A
+      comment off any helpful post isn't answered from Today, as there's no post to open.
+    - **A forum question asking for what the business offers** pushes as a strong post does (decision 49), saying
+      "On Alignable." and opening Today on Alignable (`?net=alignable`, on the phone too).
+    - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
+      `runs.auto`; none now, Instagram's runner coming last, in its part 14), even once it has a day: its Sending is off whatever was
+      picked (`withinRules`), so nothing is drafted to wait for a sender that isn't there, and its page in Settings
+      says every step there is the person's own (`noRunnerWords`), with no Replies, no helpful post where it has none
+      (`helpfulOn`), and no switches along the way till its runner reads them. An Alignable chat opens at `/biz/conversations?with_business_id=`, by the
+      other business's id, and Today's groups to read admins of are the list's own network's.
     - **In the extension** one reader serves both (`src/networks/looking/`), from each network's site
       (`src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`): its addresses, its own words, its
       warnings and the buttons it looks for. As the person goes its script reads only warnings, and notes none of
@@ -1394,6 +1569,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       button, My Ideal Customer and the ideal partner, the services), but its details' page was read before it had
       drawn anything. 0.63.0 reads that profile as the AI's check would, opens the Elevator Pitch and My Ideal Customer
       and closes them with nothing written, and reads About Us's page and his details' once each has drawn its boxes.
+    - **His Checks of 21 Oct 2026** (0.83.0; every step works on both), and what 0.84.0 does about what they read:
+      - **Alignable's chat:** its reader of an open conversation's messages is built from his outlines (above, **Read
+        my chats on Alignable**), and its Read my chats asked from 0.84.0.
+      - **Instagram's followers:** /<you>/followers/ showed his account without the box of followers over it, and its
+        counts aren't links to the list now (`href="#"`). Save my followers and Check press his own account's count of
+        followers once, as a person does, when the box doesn't show from the address, and read it there.
+      - **Its notifications:** 30 people, every one under Instagram's "Suggested for you", each with Follow, below a
+        month of Meta's own notifications: nobody had followed, liked or commented, so none was right. The reader now
+        leaves out whatever is under that heading, as an account's name there can say "replied".
+      - **A chat:** each message is an article, their picture (a link to them) beside the last of a run of theirs and
+        none beside the person's, a post one shares linking to whoever posted it, and the header a link to them with
+        their name in a heading. Who it's with leaves out the accounts a shared post links to; whose each message is
+        goes by their picture, then the side it sits on; a shared post has no words to keep but still says who wrote
+        last (`ChatOpen.last`).
+      - **A post's likes:** its bar is Like, its count ("36.5K"), Comment, its count, and so on, each wrapped in boxes
+        the outline leaves out, so the count is now the control after its Like, in page order.
+      - **A hashtag:** #smallbusiness's page sent the tab to Instagram's search for it
+        (/explore/search/keyword/?q=#smallbusiness), and its grid of posts is read as the hashtag's now, for Check and
+        the day's look at hashtags.
+      - **A place:** no post he'd read was tagged at one, so Check opened /explore/locations/, which is no list of
+        places now but an account named "explore". Check opens up to two of the hashtag's posts for one tagged at a
+        place instead, as the day's look does, so a place's page is still to be outlined.
+      - **His own account:** it has no posts ("0 posts", with Instagram's own box for sharing a first photo) and no bio:
+        the bio's section holds a one-word line in the place someone else's account shows what they do, a link and
+        Threads. The name was read from that line; it's the line under the username now, beside the counts, as on
+        someone else's account. The "New" button among the highlights was read as one, by its icon's title; it isn't.
     - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
       were from his (0.46.0 to 0.56.0).
 
@@ -1448,6 +1649,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     finds businesses with the same customers. Two searches a day on a network, the same words for the same kind once
     a week, none while three days of reads wait. Who they find is kept to read for the partner check
     (`partner_leads`, `outreach.partner.leads`), nobody added to Contacts, and let go once the AI has answered.
+82. **A code from your email, typed in HandsFreeOS** (Chris, 20 Oct 2026: "Alignable sends email verification codes
+    to verify profile updates. So we need a feature to send a notification to the user to go check that code in their
+    email and input it in HFOS so the extension can enter it in"). Where a network asks for a code it emailed (Alignable
+    does before About Us changes), the extension asks HandsFreeOS for it: the ask goes to **code** (Needs you), Chrome
+    pops up, and the person's phone says **Look in your email**. They type the code under the ask's line on the web or
+    the phone (`outreach.ask.code`), the live channel tells their computer at once, and it puts the code in. The code is
+    theirs alone, on the database too (`ask_codes`, nobody else reads it, owners included), handed to their computer
+    once and deleted as it's taken, never in a push, an event, the audit or a receipt, and never handed over after 30
+    minutes (`ASK_CODE_MINUTES`); the daily prune clears what's left. A code that didn't work asks for the newest one,
+    which pushes again. Check never presses an Edit that emails a code (0.70.0). Its first use is Alignable's About Us,
+    from Get ready (extension 0.71.0): read, written by the AI whole, and put in past the code.
+
+    **The code's notification stays up** (Chris, 20 Oct 2026: "the notification about entering the alignable code …
+    takes us to a screen that allows us to enter it and if we go away from it … there should be a notification button
+    … next to the Ask HandsFreeOS button … that notification should remain active for the 30 minutes that the code is
+    active until someone enters the code. also if the code is not entered in 30 minutes the system should then prompt
+    the user to have the extension try again"). Waiting on a code raises an add-on alert for the person alone
+    (critical, pushed at any hour, never emailed, due in 30 minutes), on Home and under the phone's **bell** beside
+    Ask HandsFreeOS, which counts the add-ons' alerts still open and lists them; each opens the code's own screen
+    (`?view=code&ask=`), its box ready to type in. It goes once the code's typed or the ask moves on or ends. With no
+    code in 30 minutes the extension hands the step over (`askCodeRanOutWords`) instead of failing it: the
+    notification becomes "Alignable's code ran out", and the step's Carry on reads **Try again**, which opens the
+    profile again and presses Edit, so the network emails a new code (extension 0.72.0).
 
 ## Rules worth knowing before changing anything
 
@@ -1568,7 +1792,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   A warning's words, its feed line and its push name the network. LinkedIn is in `PLATFORMS` so each network's can be
   kept apart. On LinkedIn the extension notes the person's own steps, who wrote back and LinkedIn's warnings, as
   LinkedIn's (0.34.0, apps/extension/README.md, "The networks"), and takes no ask there before 0.40.0
-  (`ASK_NETWORK_SINCE`); the team's live view, the activity panel and joining groups are Facebook's. A new place that
+  (`ASK_NETWORK_SINCE`); the activity panel and joining groups are Facebook's. The team's live view is the network on
+  screen's, as the person's own is (`outreach.live.team`'s `platform`): on any other than Facebook, only the people
+  who have it on. A new place that
   reads a warning, a day or the day's counts names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
   on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
@@ -1723,7 +1949,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   what was asked; stopped, warned or unable to, it's failed with the job's words. Rows of `asks` are private to their
   person on the database too, as `needs` are: a person reads and writes only their own, owners and admins included,
   who count the team's through `private.outreach_asks_waiting` (`test/addons/outreach-own-rows.test.ts`). A step it can't find is handed to the person (**Carry on**, **Skip**), with one push per ask for
-  each way it needs them (a step, or a password to type), on their add-ons switch, opening Live; half an hour with no answer stops it. Asks run outside working hours and after
+  each way it needs them (a step, or a password to type), on their add-ons switch, opening Live; half an hour with no answer stops it. A code the
+  network emailed them (decision 82) is a notification that stays up until it's typed, and waits 30 minutes, then
+  asks them to Try again. Asks run outside working hours and after
   Stop for today, since the person is asking now. They're kept a week, pruned with the feed.
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end

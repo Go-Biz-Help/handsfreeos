@@ -9,7 +9,7 @@ business's own kinds. An add-on's records stay archive-only.
 
 | What                       | Where                                                                                                                                                                                                                                  |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027009700` hides a binned response's answers; `20261027009800` a file's words |
+| Tables, rules and emptying | migration `20261027000400_deleted_bin.sql`; `20261027000500` keeps Social Outreach's profiles; `20261027000800` adds leads, companies and records; `20261027010300` hides a binned response's answers; `20261027010400` a file's words |
 | Commands                   | `packages/core/src/commands/bin.ts`: `person.delete`, `conversation.delete`, `appointment.delete`, `lead.delete`, `company.delete`, `custom_record.delete`, `bin.restore` and `bin.empty`                                              |
 | Reads                      | `packages/core/src/queries/bin.ts`: `bin.preview` (what goes with it) and `bin.list` (the bin)                                                                                                                                         |
 | What it says               | `packages/core/src/bin-words.ts`, for the web and the phone alike                                                                                                                                                                      |
@@ -55,12 +55,12 @@ marked rows from people, customers and the worker. Code that needs to read the b
 (`private.reading_bin()`); the worker does it through `readingBin`. A customer in the bin stays readable but frozen,
 so a bill that names them still shows the name.
 
-**A form response's answers follow it** (20261027009700). They're a row each with no `bin_item_id` of their own, so
+**A form response's answers follow it** (20261027010300). They're a row each with no `bin_item_id` of their own, so
 `form_answers_follow_response` hides them from people whenever their response is hidden: in the bin, they're gone
 from Forms → Results and from anything else that reads answers by form or by business, and Bring back shows them
 again. They go with the response when the bin is emptied. The worker's own policies don't change.
 
-**A file's words follow it** (20261027009800). The words the worker read inside a file for search, in
+**A file's words follow it** (20261027010400). The words the worker read inside a file for search, in
 `app.file_texts`, have no `bin_item_id` of their own either: `file_texts_select` reads them only while their file
 reads, so they're hidden while it's in the bin and back with Bring back. Deleting a file for good forgets them at once
 (`private.forget_file_text`, a trigger, since a person may only read them), and emptying the bin or deleting the

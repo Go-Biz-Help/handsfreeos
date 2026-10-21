@@ -18,8 +18,11 @@ import {
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import { playbookOffer } from '../../src/addons/outreach/playbook-assist';
 import {
+  RECOMMENDATIONS_WANTED,
+  RECOMMENDATIONS_WORDS,
   ABOUT_DRAFT_MOST,
   ABOUT_MOST,
+  ALIGNABLE_PROFILE_CHECK_SYSTEM,
   BIO_MOST_ON,
   checkedProfileCheck,
   hasPlaceholder,
@@ -267,6 +270,77 @@ describe('every network’s profile, optimized (decision 80)', () => {
     );
     expect(hasPlaceholder('More booked jobs for roofers')).toBe(false);
     expect(hasPlaceholder('[Your town]’s roofers')).toBe(true);
+  });
+
+  it('checks an Alignable profile by its own list, and writes About Us whole, never a pitch', () => {
+    expect(profileCheckSystem('alignable')).toBe(ALIGNABLE_PROFILE_CHECK_SYSTEM);
+    expect(ALIGNABLE_PROFILE_CHECK_SYSTEM).not.toMatch(/facebook|linkedin|instagram/i);
+    expect(ALIGNABLE_PROFILE_CHECK_SYSTEM).toContain('whole About Us');
+    expect(PROFILE_ITEMS_ON.alignable).toEqual(['picture', 'about', 'bio', 'work', 'featured']);
+    // As the extension reads it (src/networks/alignable/own-profile.ts): the pitch is Alignable's assistant's.
+    const al = ProfileRead.parse({
+      platform: 'alignable',
+      name: 'Casey Lee',
+      picture: 'A profile photo Alignable didn’t describe',
+      about: 'We fix roofs.',
+      intro: ['Title: Owner', 'Ideal customer: Homeowners, Columbus, OH'],
+      featured: ['Roof repair: leaks fixed in a day'],
+      recommendations: 2,
+    });
+    const prompt = profileCheckPrompt(al, offer);
+    expect(prompt).toContain('Score this Alignable profile.');
+    expect(prompt).toContain('about (About Us): We fix roofs.');
+    expect(prompt).toContain('featured (services):');
+    expect(prompt).toContain('recommendations: 2');
+    expect(ALIGNABLE_PROFILE_CHECK_SYSTEM).toContain('Ask for Recommendations');
+    const answer = {
+      items: Object.fromEntries(
+        PROFILE_ITEMS_ON.alignable.map((i) => [i, { ok: true, why: 'Looks right.', fix: 'x' }]),
+      ),
+      aboutDraft: 'We help Columbus homeowners keep the rain out. Book a call: [your link].',
+      feature: ['Roof inspections'],
+      recommendNote: 'Thanks for having us out — would you recommend us on Alignable?',
+    };
+    expect(profileCheckAsk('alignable').zod.safeParse(answer).success).toBe(true);
+    const check = checkedProfileCheck(answer as never, al, '2026-10-20T06:00:00.000Z', 1);
+    expect(Object.keys(check.items)).toEqual([...PROFILE_ITEMS_ON.alignable]);
+    expect(ProfileCheck.parse(check)).toEqual(check);
+    // The pitch isn't read, so it's never right; the person ticks it once it is.
+    expect(check.items.bio?.ok).toBe(false);
+    expect(check.items.about?.ok).toBe(true);
+    expect(check.aboutDraft).toBe(answer.aboutDraft);
+    // How many recommendations it showed, and the AI's note asking for more, with no long dashes.
+    expect(check.recommendations).toBe(2);
+    expect(check.recommendNote).toBe(
+      'Thanks for having us out, would you recommend us on Alignable?',
+    );
+    expect(RECOMMENDATIONS_WORDS.count(2)).toBe(
+      `2 of ${RECOMMENDATIONS_WANTED} on your profile. Ask a few happy customers for one.`,
+    );
+    expect(RECOMMENDATIONS_WORDS.count(7)).toBe('7 on your profile. That’s enough to start.');
+    expect(RECOMMENDATIONS_WORDS.count(null)).toContain('Read your profile again');
+    // No bios: Alignable's pitch can't be put in, even were the AI to write some.
+    expect(check.bios).toEqual([]);
+    expect(
+      checkedProfileCheck({ ...answer, bios: ['A pitch'] } as never, al, check.at, 1).bios,
+    ).toEqual([]);
+    // About Us goes in; a pitch never does.
+    expect(profileEditWords('alignable', { about: 'We fix roofs in Columbus.' })).toBeNull();
+    expect(profileEditWords('alignable', { bio: 'Roofs' })).toContain(
+      'Elevator Pitch is made with its own assistant',
+    );
+    expect(profileEditWords('alignable', { about: 'x'.repeat(ABOUT_MOST + 1) })).toContain(
+      'Alignable’s About Us takes up to 2,600 characters',
+    );
+    expect(profileEditWords('alignable', { about: 'Book at [your link].' })).toContain(
+      'in your About Us first',
+    );
+  });
+
+  it('reads Alignable’s profile and puts About Us in, from extension 0.71.0', () => {
+    expect(tooOldFor('0.70.0', 'profile_read', 'alignable')).toBe(true);
+    expect(tooOldFor('0.71.0', 'profile_read', 'alignable')).toBe(false);
+    expect(tooOldFor('0.71.0', 'profile_edit', 'alignable')).toBe(false);
   });
 
   it('reads Instagram’s profile and puts its bio in, from extension 0.62.0', () => {

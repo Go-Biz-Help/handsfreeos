@@ -1,4 +1,9 @@
-import { DESK_BUSINESS_WORDS, DESK_WALLET_STAGES, DESK_WALLET_WORDS } from '@hfos/core';
+import {
+  DESK_BUSINESS_WORDS,
+  DESK_QUICK_LOOK_WORDS,
+  DESK_WALLET_STAGES,
+  DESK_WALLET_WORDS,
+} from '@hfos/core';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
@@ -24,8 +29,9 @@ import {
 
 /**
  * Businesses on the phone's Support desk (the web's /admin/businesses): the directory with its totals, search, orders
- * and paging, and one business with its counts, people, balance, the model its calls think with and whether it is
- * HandsFreeOS's own. Every change is the web's command with the web's body, and only a role that may make it sees it.
+ * and paging, a business's quick look over it, and one business with its counts, people, balance, the model its calls
+ * think with and whether it is HandsFreeOS's own. Every change is the web's command with the web's body, and only a
+ * role that may make it sees it.
  */
 
 let mockParams: Record<string, string> = {};
@@ -69,6 +75,9 @@ const row = (over: Record<string, unknown> = {}) => ({
   lastActiveAt: minutesAgo(180),
   openTicketCount: 2,
   createdAt: '2026-08-01T15:00:00.000Z',
+  foundingSeat: null,
+  plan: 'monthly',
+  attention: ['card_declined'],
   ...over,
 });
 
@@ -82,6 +91,8 @@ const LIST = {
       memberCount: 1,
       lastActiveAt: null,
       openTicketCount: 0,
+      plan: null,
+      attention: [],
     }),
   ],
   nextCursor: null,
@@ -91,6 +102,7 @@ const LIST = {
 const DETAIL = {
   business: row(),
   phoneModel: null,
+  phoneListener: null,
   isPlatform: false,
   people: [
     {
@@ -140,6 +152,49 @@ const WALLET = {
   toppedUp30dCents: 5000,
 };
 
+/** The rest of the quick look: a business with a number, a card declined twice, and nothing else connected. */
+const GLANCE = {
+  attention: ['card_declined'],
+  deletionRequestedAt: null,
+  plan: {
+    plan: 'monthly',
+    status: 'active',
+    priceCents: 9700,
+    periodEnd: null,
+    graceEndsAt: null,
+    canceledAt: null,
+    renewalStoppedAt: null,
+    renewalProblem: null,
+    renewalFailedAt: null,
+  },
+  activity: Array.from({ length: 30 }, (_, i) => (i % 7) * 3),
+  traffic: { texts: 1204, calls: 86, emails: 310, aiReplies: 318 },
+  theirMoney: {
+    collected30dCents: 482_000,
+    refunded30dCents: 0,
+    openInvoices: 4,
+    openInvoiceCents: 126_000,
+    overdueInvoices: 0,
+    openDisputes: 0,
+  },
+  setup: {
+    numbers: ['+15125550148'],
+    registration: { state: 'approved', since: null, reason: null },
+    emailDomain: null,
+    emailAddresses: 1,
+    mailboxes: [],
+    payments: [],
+    calendarConnections: [],
+    calendars: 0,
+    bookingPage: null,
+    aiTeammate: null,
+    meta: null,
+    gettingStarted: 'finished',
+  },
+  more: { cameFrom: null, addons: [], mainOffer: null, supportAccess: null, lastViewedAs: null },
+  problemReports: { open: 0, recent: [] },
+};
+
 /** A support admin who may not mark HandsFreeOS's own business, as a staff role without it would be. */
 const notOwnMarker = {
   ...admin,
@@ -156,6 +211,7 @@ beforeEach(() => {
     '/v1/queries/platform.business.list': LIST,
     '/v1/queries/platform.business.get': DETAIL,
     '/v1/queries/platform.wallet.get': WALLET,
+    '/v1/queries/platform.business.glance': GLANCE,
     '/v1/commands/wallet.set_stage': {
       workspaceId: LONE_STAR,
       was: 'warn',
@@ -167,6 +223,12 @@ beforeEach(() => {
       workspaceId: LONE_STAR,
       was: null,
       model: 'claude-haiku-4-5',
+      changed: true,
+    },
+    '/v1/commands/phone_listener.set': {
+      workspaceId: LONE_STAR,
+      was: null,
+      listener: 'flux',
       changed: true,
     },
     '/v1/commands/own_business.set': {
@@ -248,10 +310,65 @@ describe('the directory', () => {
     expect(screen.getByTestId('business-search').props.value).toBe('bayou');
   });
 
-  it('opens a business from its row', async () => {
+  it('marks a business that needs a look, and the plan it is on', async () => {
+    await showDesk(<Businesses />, () => answers);
+    expect(await screen.findByTestId(`business-needs-look-${LONE_STAR}`)).toHaveTextContent(
+      DESK_BUSINESS_WORDS.needsALook,
+    );
+    expect(screen.getByTestId(`business-plan-${LONE_STAR}`)).toHaveTextContent('Monthly');
+    expect(screen.queryByTestId(`business-needs-look-${BAYOU}`)).toBeNull();
+    expect(screen.queryByTestId(`business-plan-${BAYOU}`)).toBeNull();
+  });
+
+  it('opens a business in its quick look, says what needs a look, and opens its screen from there', async () => {
+    answers['/v1/queries/platform.wallet.get'] = { ...WALLET, declinesInRow: 2 };
     await showDesk(<Businesses />, () => answers);
     await fireEvent.press(await screen.findByTestId(`business-row-${LONE_STAR}`));
+    expect(router.push).not.toHaveBeenCalled();
+    const flag = await screen.findByTestId('quick-look-flag-card_declined');
+    expect(flag).toHaveTextContent(/declined 2 times in a row/);
+    expect(screen.getByTestId('quick-look-flag-open_tickets')).toBeTruthy();
+    for (const path of [
+      '/v1/queries/platform.business.get',
+      '/v1/queries/platform.wallet.get',
+      '/v1/queries/platform.business.glance',
+    ])
+      expect(lastBody(path)).toEqual({ workspaceId: LONE_STAR });
+    expect(screen.getByTestId('quick-look-plan')).toHaveTextContent('Monthly');
+    expect(screen.getByTestId('quick-look-position')).toHaveTextContent(
+      DESK_QUICK_LOOK_WORDS.position(1, 2),
+    );
+    expect(screen.getByTestId('quick-look-setup-phone')).toHaveTextContent(
+      'Texting and calls(512) 555-0148Yes',
+    );
+    expect(screen.getByTestId('quick-look-setup-payments')).toHaveTextContent(
+      'Taking moneyNothing connectedNot yet',
+    );
+    expect(screen.getByTestId('quick-look-activity')).toHaveTextContent(/Texts1,204/);
+
+    await fireEvent.press(screen.getByTestId('quick-look-open'));
     expect(router.push).toHaveBeenCalledWith(`/app/admin/businesses/${LONE_STAR}`);
+  });
+
+  it('steps to the next business from the quick look', async () => {
+    await showDesk(<Businesses />, () => answers);
+    await fireEvent.press(await screen.findByTestId(`business-row-${LONE_STAR}`));
+    await screen.findByTestId('quick-look-flag-card_declined');
+    answers['/v1/queries/platform.business.get'] = {
+      ...DETAIL,
+      business: LIST.businesses[1],
+      tickets: [],
+    };
+    answers['/v1/queries/platform.wallet.get'] = WALLET;
+    answers['/v1/queries/platform.business.glance'] = { ...GLANCE, attention: [] };
+    await fireEvent.press(screen.getByTestId('quick-look-next'));
+    expect(await screen.findByTestId('quick-look-calm')).toHaveTextContent(
+      DESK_QUICK_LOOK_WORDS.nothingNeedsALook,
+    );
+    expect(lastBody('/v1/queries/platform.business.glance')).toEqual({ workspaceId: BAYOU });
+    expect(screen.getByTestId('quick-look-position')).toHaveTextContent(
+      DESK_QUICK_LOOK_WORDS.position(2, 2),
+    );
   });
 
   it('says it needs a signal, and asks again once the phone is back in signal', async () => {
@@ -293,10 +410,14 @@ describe('one business', () => {
       `Lone Star Group · signed up ${new Date('2026-08-01T15:00:00.000Z').toLocaleDateString()} · last active 3 hours ago`,
     );
     expect(screen.getByTestId('business-counts')).toHaveTextContent(
-      'Contacts340Leads12Conversations88Appointments21Invoices57',
+      'Contacts340Leads12Conversations88Appointments21Invoices57Collected, 30 days$4,820',
     );
-    expect(screen.getByTestId('business-setup-phone')).toHaveTextContent('Texting and callsYes');
-    expect(screen.getByTestId('business-setup-payments')).toHaveTextContent('Taking moneyNot yet');
+    expect(screen.getByTestId('business-setup-phone')).toHaveTextContent(
+      'Texting and calls(512) 555-0148Yes',
+    );
+    expect(screen.getByTestId('business-setup-payments')).toHaveTextContent(
+      'Taking moneyNothing connectedNot yet',
+    );
     expect(screen.getByTestId('business-people')).toHaveTextContent(
       'Dale Ramsey · owner30 minutestech@lonestarhvac.test · membernever',
       { exact: false },
@@ -307,6 +428,40 @@ describe('one business', () => {
     );
     await fireEvent.press(screen.getByTestId('business-ticket-1042'));
     expect(router.push).toHaveBeenCalledWith(`/app/admin/tickets/${TICKET}`);
+  });
+
+  it('says what needs a look, what it did lately, its plan, what its customers paid it, and the rest', async () => {
+    answers['/v1/queries/platform.wallet.get'] = { ...WALLET, declinesInRow: 2 };
+    answers['/v1/queries/platform.business.glance'] = {
+      ...GLANCE,
+      problemReports: {
+        open: 1,
+        recent: [
+          {
+            id: '44444444-4444-4444-8444-444444444444',
+            area: 'Invoices',
+            note: 'Send did nothing',
+            createdAt: minutesAgo(90),
+            handled: false,
+          },
+        ],
+      },
+    };
+    await showDesk(<Business />, () => answers);
+    expect(await screen.findByTestId('business-flag-card_declined')).toHaveTextContent(
+      /declined 2 times in a row/,
+    );
+    expect(screen.getByTestId('business-flag-problem_reports')).toBeTruthy();
+    expect(lastBody('/v1/queries/platform.business.glance')).toEqual({ workspaceId: LONE_STAR });
+    expect(screen.getByTestId('business-activity')).toHaveTextContent(/Texts1,204/);
+    expect(screen.getByTestId('business-plan-Plan')).toHaveTextContent('PlanMonthly, $97 a month');
+    expect(screen.getByTestId('business-their-money-Waiting to be paid')).toHaveTextContent(
+      /on 4 invoices/,
+    );
+    expect(screen.getByTestId('business-more-Industry')).toHaveTextContent('IndustryHVAC');
+    expect(screen.getByTestId('business-problems')).toHaveTextContent(
+      /Invoices: “Send did nothing”/,
+    );
   });
 
   it('says they have never written in', async () => {
@@ -444,6 +599,31 @@ describe('one business', () => {
     );
   });
 
+  it('picks who hears their callers, and asks for the business again', async () => {
+    await showDesk(<Business />, () => answers);
+    await fireEvent.press(await screen.findByTestId('phone-listener-flux'));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/phone_listener.set')).toEqual({
+        workspaceId: LONE_STAR,
+        listener: 'flux',
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(DESK_PHONE_WORDS.saved);
+    await waitFor(() => expect(sent('/v1/queries/platform.business.get')).toHaveLength(2));
+  });
+
+  it('puts who hears their callers back on the default', async () => {
+    answers['/v1/queries/platform.business.get'] = { ...DETAIL, phoneListener: 'flux' };
+    await showDesk(<Business />, () => answers);
+    await fireEvent.press(await screen.findByTestId('phone-listener-default'));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/phone_listener.set')).toEqual({
+        workspaceId: LONE_STAR,
+        listener: null,
+      }),
+    );
+  });
+
   it('marks HandsFreeOS’s own business, for a support admin who may', async () => {
     await showDesk(<Business />, () => answers);
     await fireEvent.press(await screen.findByTestId('own-business-yes'));
@@ -462,6 +642,8 @@ describe('one business', () => {
     expect(screen.queryByTestId('wallet-credit')).toBeNull();
     expect(screen.queryByTestId('phone-model-default')).toBeNull();
     expect(screen.getByTestId('phone-model-value')).toHaveTextContent('Default');
+    expect(screen.queryByTestId('phone-listener-flux')).toBeNull();
+    expect(screen.getByTestId('phone-listener-value')).toHaveTextContent('Default');
     expect(screen.queryByTestId('own-business-no')).toBeNull();
     expect(screen.getByTestId('own-business-value')).toHaveTextContent('No');
     // Looking at the business stays on the web, read-only with a reason.

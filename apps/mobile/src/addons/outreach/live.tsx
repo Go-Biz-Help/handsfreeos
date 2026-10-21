@@ -16,8 +16,13 @@ import {
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
-import { dailyWordsOn, networkShown } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  dailyWordsOn,
+  networkShown,
+  noRunnerWords,
+  teamWordsOn,
+} from '@hfos/core/addons/outreach/network-words';
+import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
@@ -128,9 +133,13 @@ export function useLiveProps(
   const team = useOutreachAnswer(
     ctx.manages && full
       ? async () =>
-          unwrap(await api.POST('/v1/queries/outreach.live.team', { body: { workspaceId: ws } }))
+          unwrap(
+            await api.POST('/v1/queries/outreach.live.team', {
+              body: { workspaceId: ws, platform },
+            }),
+          )
       : null,
-    `live-team:${ws}`,
+    `live-team:${ws}:${platform}`,
     W.team,
     { everySeconds: LIVE_REFETCH_SECONDS },
   );
@@ -323,8 +332,10 @@ export function LiveBody({
       <Card className="gap-2.5 px-4 py-3.5" testID="live-day">
         {live.sending === 'off' ? (
           <>
-            <Note testID="live-sending-off">{W.sendingOff(live.canSend)}</Note>
-            {live.canSend ? (
+            <Note testID="live-sending-off">
+              {runsOnItsOwn(platform) ? W.sendingOff(live.canSend) : noRunnerWords(platform)}
+            </Note>
+            {live.canSend && runsOnItsOwn(platform) ? (
               <Button variant="secondary" size="md" onPress={onSettings} testID="live-settings">
                 {W.rows.settings}
               </Button>
@@ -409,7 +420,7 @@ export function LiveBody({
 
 function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
   return (
-    <Part title={W.team} testID="live-team">
+    <Part title={teamWordsOn(team.platform).title} testID="live-team">
       {team.people.length ? (
         <List>
           {team.people.map((p) => {
@@ -441,7 +452,7 @@ function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
           })}
         </List>
       ) : (
-        <Note>{W.teamNone}</Note>
+        <Note>{teamWordsOn(team.platform).none}</Note>
       )}
     </Part>
   );

@@ -259,6 +259,10 @@ export function whenWords(at: string, now = Date.now(), timeZone?: string): stri
   return `on ${fmtMonthDay(day)}`;
 }
 
+/** "Facebook, LinkedIn or Alignable". */
+const orWords = (names: readonly string[]): string =>
+  names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
+
 /** The setup's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
 export const SETUP_WORDS = {
   title: 'Set up Social Outreach',
@@ -278,7 +282,7 @@ export const SETUP_WORDS = {
     playbooks: 'Who you’re looking for, how you sound, and what you offer',
     ready: 'Your main offer, a niche, your profile and your goal, for your best results',
     rules: 'What your team may do on its own, and how much a day',
-    networks: `Where you reach people: ${WORKING_PLATFORMS.map((p) => PLATFORMS[p]).join(' or ')}`,
+    networks: `Where you reach people: ${orWords(WORKING_PLATFORMS.map((p) => PLATFORMS[p]))}`,
     settings: 'What the extension does for you, how the AI writes, and when',
     extension: 'Put the extension in Chrome and sign in',
     groups: 'Bring in the Facebook groups you’re in',

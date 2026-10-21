@@ -28,7 +28,7 @@ import {
 
 /**
  * The timeline lines that are notes, for an activity aliased `a`, from core's one rule (`NOTE_LINE_RULE`): the same
- * condition, word for word, as `activities_notes_idx` (20261027009700_search_windows.sql), so the planner proves the
+ * condition, word for word, as `activities_notes_idx` (20261027010300_search_windows.sql), so the planner proves the
  * partial index from it. It reads `(a.kind = 'note' or (a.kind in ('call', 'visit') and a.subtype is null))`.
  */
 const BARE_KINDS = NOTE_LINE_RULE.bareKinds.map((k) => `'${k}'`).join(', ');

@@ -16,7 +16,7 @@
 import { z } from 'zod';
 import { addDays, localDateOf, localInstant } from '../../calendar/engine/zoned';
 import { MORNING_PUSH_HOUR } from './chat-read';
-import { PLATFORM_KEYS } from './networks';
+import { inNetworkWords, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import { PersonName, ProfileRef, ThreadKey } from './saves';
 import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 
@@ -93,6 +93,7 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   reply: ['reply', 'replies'],
   comment: ['post to comment on', 'posts to comment on'],
   warm_lead: ['comment to answer', 'comments to answer'],
+  recommend: ['business to recommend', 'businesses to recommend'],
   partner_reply: ['reply to a partner', 'replies to partners'],
   partner_details: ['partner to send the details to', 'partners to send the details to'],
   partner_follow_up: ['partner to follow up with', 'partners to follow up with'],
@@ -100,21 +101,33 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   partner_warm_up: ['partner to warm up', 'partners to warm up'],
 };
 
-/** The morning push: "6 on your list for today", and what they are. Null with nothing on the list. */
+/** "a, b and c". */
+const andWords = (parts: readonly string[]): string =>
+  parts.length === 1
+    ? parts[0]!
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+
+/**
+ * The morning push: "6 on your list for today", and what they are. Null with nothing on the list. Its `platforms` are
+ * the networks the list is from, each the person works: one says it in that network's words and where to start; more
+ * than one names them.
+ */
 export function morningPushWords(
   items: readonly Pick<TodayItem, 'kind'>[],
+  platforms: readonly Platform[] = ['facebook'],
 ): { title: string; body: string } | null {
   if (!items.length) return null;
   const counts = (Object.keys(TODAY_KINDS) as TodayKind[])
     .map((kind) => [kind, items.filter((i) => i.kind === kind).length] as const)
     .filter(([, count]) => count > 0)
     .map(([kind, count]) => `${count} ${COUNTED[kind][count === 1 ? 0 : 1]}`);
-  const list =
-    counts.length === 1
-      ? counts[0]!
-      : `${counts.slice(0, -1).join(', ')} and ${counts[counts.length - 1]}`;
+  const list = andWords(counts);
+  const one = platforms.length === 1 ? platforms[0]! : null;
+  const said = one ? inNetworkWords(list, one) : list;
   return {
     title: `${items.length} on your list for today`,
-    body: `${list.charAt(0).toUpperCase()}${list.slice(1)}. Open the extension on Facebook to start.`,
+    body: one
+      ? `${said.charAt(0).toUpperCase()}${said.slice(1)}. Open the extension on ${PLATFORMS[one]} to start.`
+      : `${said.charAt(0).toUpperCase()}${said.slice(1)}, on ${andWords(platforms.map((p) => PLATFORMS[p]))}. Open Today to start.`,
   };
 }

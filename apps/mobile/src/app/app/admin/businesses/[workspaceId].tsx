@@ -1,22 +1,31 @@
 import {
   DESK_BUSINESS_WORDS,
   DESK_OWN_BUSINESS_WORDS,
+  DESK_PHONE_LISTENER_WORDS,
   DESK_PHONE_MODEL_WORDS,
-  DESK_SETUP_WORDS,
+  DESK_QUICK_LOOK_WORDS,
   DESK_WALLET_STAGE_TONES,
   DESK_WALLET_STAGES,
   DESK_WALLET_WORDS,
-  deskBusinessCounts,
+  deskBusinessFlags,
   deskCreditCents,
   deskCreditReference,
   deskLastActive,
+  deskMoreLines,
+  deskPlanLines,
+  deskQuickLookCounts,
   deskReasonGiven,
+  deskSetupRows,
+  deskTheirMoneyLines,
   deskWalletLines,
   deskWalletMoves,
+  PHONE_LISTENER_LABELS,
+  PHONE_LISTENERS,
   PHONE_MODEL_LABELS,
   PHONE_MODELS,
   TICKET_STATUS_WORDS,
   type DeskWalletStage,
+  type PhoneListener,
   type PhoneModel,
 } from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -28,6 +37,13 @@ import { dayWords, whenWords } from '@/admin/words';
 import { desk, useLive, type Ok } from '@/admin/live';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import { DeskWaiting, Line, Section, Stats } from '@/components/admin/bits';
+import {
+  GlanceActivity,
+  GlanceFlags,
+  GlanceLines,
+  GlanceProblemReports,
+  GlanceSetup,
+} from '@/components/admin/business-glance';
 import { deskHref, useDesk, useDeskCan } from '@/components/admin/staff-context';
 import { Eye, KeyRound, UserRoundSearch } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
@@ -47,8 +63,10 @@ import { useColors } from '@/theme';
 type Wallet = Ok<'/v1/queries/platform.wallet.get'>;
 
 /**
- * One business, as a support person needs it (the web's /admin/businesses/<id>): who is in it, how much is in it, what
- * is switched on, their balance, the model their calls think with, and whether it is HandsFreeOS's own. Each change
+ * One business, as a support person needs it (the web's /admin/businesses/<id>): what needs a look, how much is in it
+ * and 30 days of what it did, what is set up and whether it works, who is in it, its plan, what its customers paid it,
+ * their balance, the model their calls think with, whether it is HandsFreeOS's own, the rest worth knowing on a call,
+ * and its tickets and problem reports. Each change
  * asks the business again once it has gone, as the web refreshes. Looking at the business itself happens on the web,
  * where it is read-only, with a reason and a time limit (the founder opens it as its owner there).
  */
@@ -62,13 +80,14 @@ export default function Business() {
   const canPickModel = useDeskCan('platform.ai.manage');
   const canMarkOwn = useDeskCan('platform.own_business.manage');
 
-  // Both at once, as the web's page asks them: a business with no balance to read is not a page to act on.
+  // All at once, as the web's page asks them: a business with no balance to read is not a page to act on.
   const live = useLive(
     () =>
       Promise.all([
         desk('/v1/queries/platform.business.get', { workspaceId: id }),
         desk('/v1/queries/platform.wallet.get', { workspaceId: id }),
-      ]).then(([detail, wallet]) => ({ detail, wallet })),
+        desk('/v1/queries/platform.business.glance', { workspaceId: id }),
+      ]).then(([detail, wallet, glance]) => ({ detail, wallet, glance })),
     id,
   );
 
@@ -85,7 +104,7 @@ export default function Business() {
       </Screen>
     );
 
-  const { detail, wallet } = live.data;
+  const { detail, wallet, glance } = live.data;
   const b = detail.business;
 
   return (
@@ -128,19 +147,20 @@ export default function Business() {
           </Button>
         ) : null}
 
-        <Stats items={deskBusinessCounts(detail.counts)} testID="business-counts" />
+        <GlanceFlags
+          flags={deskBusinessFlags({ ...b, tickets: detail.tickets }, glance, wallet)}
+          testID="business"
+        />
 
-        <Section title={DESK_BUSINESS_WORDS.whatIsSetUp} testID="business-setup">
-          {Object.entries(detail.setup).map(([key, on]) => (
-            <Line
-              key={key}
-              label={DESK_SETUP_WORDS[key] ?? key}
-              value={on ? DESK_BUSINESS_WORDS.setUpYes : DESK_BUSINESS_WORDS.setUpNotYet}
-              tone={on ? 'ok' : 'muted'}
-              testID={`business-setup-${key}`}
-            />
-          ))}
-        </Section>
+        <Stats items={deskQuickLookCounts(detail.counts, glance)} testID="business-counts" />
+
+        <GlanceActivity glance={glance} testID="business-activity" />
+
+        <GlanceSetup
+          title={DESK_BUSINESS_WORDS.whatIsSetUp}
+          setup={deskSetupRows(glance.setup)}
+          testID="business-setup"
+        />
 
         <Section title={DESK_BUSINESS_WORDS.theirPeople} testID="business-people">
           {detail.people.map((p) => (
@@ -166,6 +186,19 @@ export default function Business() {
           ) : null}
         </Section>
 
+        <GlanceLines
+          title={DESK_QUICK_LOOK_WORDS.theirPlan}
+          lines={deskPlanLines(glance.plan)}
+          testID="business-plan"
+        />
+
+        <GlanceLines
+          title={DESK_QUICK_LOOK_WORDS.whatCustomersPayThem}
+          detail={DESK_QUICK_LOOK_WORDS.whatCustomersPayThemExplain}
+          lines={deskTheirMoneyLines(glance)}
+          testID="business-their-money"
+        />
+
         <WalletSection
           workspaceId={b.workspaceId}
           businessName={b.name}
@@ -181,11 +214,24 @@ export default function Business() {
           onChanged={live.reload}
         />
 
+        <PhoneListenerSection
+          workspaceId={b.workspaceId}
+          phoneListener={detail.phoneListener}
+          canChange={canPickModel}
+          onChanged={live.reload}
+        />
+
         <OwnBusinessSection
           workspaceId={b.workspaceId}
           isPlatform={detail.isPlatform}
           canChange={canMarkOwn}
           onChanged={live.reload}
+        />
+
+        <GlanceLines
+          title={DESK_QUICK_LOOK_WORDS.moreAboutThem}
+          lines={deskMoreLines(b, glance, detail.phoneModel)}
+          testID="business-more"
         />
 
         <Section title={DESK_BUSINESS_WORDS.theirTickets} testID="business-tickets">
@@ -211,6 +257,8 @@ export default function Business() {
             ))
           )}
         </Section>
+
+        <GlanceProblemReports glance={glance} testID="business-problems" />
       </ScrollView>
     </Screen>
   );
@@ -529,6 +577,67 @@ function PhoneModelSection({
       ) : (
         <Text className="text-[13.5px]" testID="phone-model-value">
           {phoneModel ? PHONE_MODEL_LABELS[phoneModel] : DESK_PHONE_MODEL_WORDS.default}
+        </Text>
+      )}
+    </Section>
+  );
+}
+
+type ListenerChoice = PhoneListener | 'default';
+
+/**
+ * Who hears the caller on this business's calls: Nova-3 or Flux. Support flips it to hear how Flux does on the
+ * business's calls, without a restart, and flips it back; it takes effect from the next call.
+ */
+function PhoneListenerSection({
+  workspaceId,
+  phoneListener,
+  canChange,
+  onChanged,
+}: {
+  workspaceId: string;
+  phoneListener: PhoneListener | null;
+  canChange: boolean;
+  onChanged: () => void;
+}) {
+  const { busy, run } = useSwitch(onChanged);
+  const value: ListenerChoice = phoneListener ?? 'default';
+  return (
+    <Section
+      title={DESK_PHONE_LISTENER_WORDS.label}
+      detail={DESK_PHONE_LISTENER_WORDS.explain}
+      testID="business-phone-listener"
+    >
+      {canChange ? (
+        <Segmented<ListenerChoice>
+          label={DESK_PHONE_LISTENER_WORDS.label}
+          value={value}
+          onChange={(choice) =>
+            void run(() =>
+              desk('/v1/commands/phone_listener.set', {
+                workspaceId,
+                listener: choice === 'default' ? null : choice,
+              }),
+            )
+          }
+          options={[
+            {
+              value: 'default',
+              label: DESK_PHONE_LISTENER_WORDS.default,
+              testID: 'phone-listener-default',
+              disabled: busy,
+            },
+            ...PHONE_LISTENERS.map((l) => ({
+              value: l,
+              label: PHONE_LISTENER_LABELS[l],
+              testID: `phone-listener-${l}`,
+              disabled: busy,
+            })),
+          ]}
+        />
+      ) : (
+        <Text className="text-[13.5px]" testID="phone-listener-value">
+          {phoneListener ? PHONE_LISTENER_LABELS[phoneListener] : DESK_PHONE_LISTENER_WORDS.default}
         </Text>
       )}
     </Section>

@@ -46,11 +46,17 @@ import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks'
 import {
   chatUrlOn,
   dailyWordsOn,
+  findPostsWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
-import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  NETWORKS,
+  PLATFORMS,
+  runsOnItsOwn,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
 import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -111,6 +117,7 @@ const KIND_BADGE = {
   reply: 'pending',
   comment: 'accent',
   warm_lead: 'ok',
+  recommend: 'ok',
   partner_reply: 'pending',
   partner_details: 'accent',
   partner_follow_up: 'gray',
@@ -270,6 +277,9 @@ export function TodayView({
           ) : readiness ? null : (
             <TodayStart workspaceId={workspaceId} platform={platform} />
           )}
+          {askableOn(platform, 'posts') && !runsOnItsOwn(platform) ? (
+            <FindPostsCard workspaceId={workspaceId} platform={platform} asks={asks} />
+          ) : null}
           {partners.length ? (
             <section
               aria-labelledby="today-partners-title"
@@ -364,6 +374,39 @@ export function TodayView({
 
 /** What each of the empty list's steps asks the computer: shown only on a network that can be asked it. */
 const START_ASKS = { groups: 'groups', chats: 'chats', friends: 'checks' } as const;
+
+/**
+ * Find posts, on a network the extension doesn't work on its own: the person asks for it here, and the good ones come
+ * onto the list. Where a runner works the network (Alignable's, from part 5), it reads the town's posts once a day
+ * itself, so the card doesn't show.
+ */
+function FindPostsCard({
+  workspaceId,
+  platform,
+  asks,
+}: {
+  workspaceId: string;
+  platform: Platform;
+  asks: Asks;
+}) {
+  const words = findPostsWordsOn(platform);
+  return (
+    <Card className="p-5" data-testid="today-find-posts">
+      <h2 className="text-[15px] font-semibold">{words.title}</h2>
+      <p className="mt-1 text-[13px] text-text-2">{words.body}</p>
+      <div className="mt-3">
+        <AskButton
+          workspaceId={workspaceId}
+          asks={asks}
+          ask={{ kind: 'posts' }}
+          platform={platform}
+          label={words.title}
+          testId="today-find-posts-ask"
+        />
+      </div>
+    </Card>
+  );
+}
 
 /**
  * An empty list: what gives it something to work with, each a button to where it's done (decision 59), in its

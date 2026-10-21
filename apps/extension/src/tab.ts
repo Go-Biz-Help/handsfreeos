@@ -27,10 +27,14 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  CodeAnswer,
+  CodeAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
   TryAnswer,
   TryAsk,
+  UnfollowAnswer,
+  UnfollowAsk,
   WithdrawAnswer,
   WithdrawAsk,
 } from './messages';
@@ -164,8 +168,10 @@ export class WorkTab {
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  async ask(message: CodeAsk): Promise<CodeAnswer>;
   async ask(message: TryAsk): Promise<TryAnswer>;
   async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
+  async ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
@@ -178,8 +184,10 @@ export class WorkTab {
       | GroupPostAsk
       | FeedPostAsk
       | OwnProfileAsk
+      | CodeAsk
       | TryAsk
       | WithdrawAsk
+      | UnfollowAsk
       | BrowseAsk
       | Ask,
   ): Promise<
@@ -189,8 +197,10 @@ export class WorkTab {
     | GroupPostAnswer
     | FeedPostAnswer
     | OwnProfileAnswer
+    | CodeAnswer
     | TryAnswer
     | WithdrawAnswer
+    | UnfollowAnswer
     | BrowseAnswer
     | Answer
   > {
@@ -204,8 +214,10 @@ export class WorkTab {
         | JoinAnswer
         | GroupPostAnswer
         | OwnProfileAnswer
+        | CodeAnswer
         | TryAnswer
         | WithdrawAnswer
+        | UnfollowAnswer
         | BrowseAnswer
         | Answer;
     } catch {
@@ -217,8 +229,10 @@ export class WorkTab {
           | JoinAnswer
           | GroupPostAnswer
           | OwnProfileAnswer
+          | CodeAnswer
           | TryAnswer
           | WithdrawAnswer
+          | UnfollowAnswer
           | BrowseAnswer
           | Answer;
       } catch {

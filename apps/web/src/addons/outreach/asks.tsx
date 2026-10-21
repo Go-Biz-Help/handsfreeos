@@ -3,8 +3,8 @@
  * Asking the extension (docs/outreach.md, decision 43): what needs the browser is asked of the person's working
  * computer from here. The buttons on the Friends, Groups, Chats and Today tabs make an ask (`outreach.ask.make`); the
  * computer takes it, says how it's going, hands a step to the person when it can't find it, and says how it ended.
- * These are the shared pieces: the button, the line under it with **Carry on**, **Skip** and **Stop**, and the note
- * that says why the buttons wait. The rules and words are core's (packages/core/src/addons/outreach/asks.ts).
+ * These are the shared pieces: the button, the line under it with **Carry on**, **Skip** and **Stop**, the box for a
+ * code from their email, and the note that says why the buttons wait. The rules and words are core's (packages/core/src/addons/outreach/asks.ts).
  *
  * An ask is made on a network (Facebook when a screen names none): a button on a network's screen carries its
  * `platform`, shows only for the kinds that network can be asked (`ASK_KINDS_ON`), and its line is its own network's
@@ -15,11 +15,12 @@ import {
   askedWords,
   askOpen,
   askRepliesFor,
+  askReplyLabel,
   askWaitingWords,
   askNameOn,
-  ASK_REPLIES,
   ASK_SHOWN_STATES,
   ASK_TONES,
+  ASK_CODE_SENT_WORDS,
   ASK_TYPING_WORDS,
   ASK_WORDS,
   cantAskWhy,
@@ -29,13 +30,16 @@ import {
   latestAskOn,
   targetOf,
   type AskInput,
+  type AskReply,
   type AskShownState,
 } from '@hfos/core/addons/outreach/asks';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
+import { useId, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import type { Ask, Asks } from './types';
@@ -122,7 +126,8 @@ export function AskButton({
 
 /**
  * How an ask is going: its state, its line and when; **Carry on** and **Skip** while a step is handed to the person,
- * and **Stop** while it's open. Typing says to type on the computer: HandsFreeOS never sees a password.
+ * the box for a code from their email while it waits on one, and **Stop** while it's open. Typing says to type on the
+ * computer: HandsFreeOS never sees a password.
  */
 export function AskLine({
   workspaceId,
@@ -143,7 +148,7 @@ export function AskLine({
   const open = askOpen(ask.state);
   const replies = ask.state === 'stuck' && ask.reply === null ? askRepliesFor(ask.kind) : [];
   const at = ask.endedAt ?? ask.startedAt ?? ask.askedAt;
-  const reply = (r: keyof typeof ASK_REPLIES) =>
+  const reply = (r: AskReply) =>
     void act(`reply:${r}`, async () =>
       unwrap(
         await apiBrowser().POST('/v1/commands/outreach.ask.reply', {
@@ -188,7 +193,10 @@ export function AskLine({
         </p>
       ) : ask.line ? (
         <p
-          className={cn('mt-1.5', ask.state === 'stuck' ? 'text-warning-text' : 'text-text-2')}
+          className={cn(
+            'mt-1.5',
+            ask.state === 'stuck' || ask.state === 'code' ? 'text-warning-text' : 'text-text-2',
+          )}
           role={open ? 'status' : undefined}
           data-testid="ask-line-words"
         >
@@ -202,6 +210,7 @@ export function AskLine({
       {ask.state === 'stuck' && ask.reply ? (
         <p className="mt-1.5 text-text-3">{ASK_WORDS.youSaid(ask.reply)}</p>
       ) : null}
+      {ask.state === 'code' ? <CodeBox workspaceId={workspaceId} askId={ask.askId} /> : null}
       {open ? (
         <div className="mt-2 flex flex-wrap gap-2">
           {replies.map((r) => (
@@ -214,7 +223,7 @@ export function AskLine({
               disabled={busy !== null}
               data-testid={`ask-${r}`}
             >
-              {ASK_REPLIES[r]}
+              {askReplyLabel(ask, r)}
             </Button>
           ))}
           <Button
@@ -230,6 +239,66 @@ export function AskLine({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The code a network emailed them, for their computer to put in: sent once, it says so till the computer takes it,
+ * with a way to type it again (a typo, or a newer email).
+ */
+function CodeBox({ workspaceId, askId }: { workspaceId: string; askId: string }) {
+  const id = useId();
+  const { busy, act } = useAct();
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const send = (e: FormEvent) => {
+    e.preventDefault();
+    void act('code', async () => {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.ask.code', {
+          body: { workspaceId, askId, code },
+        }),
+      );
+      setSent(true);
+      setCode('');
+    });
+  };
+  if (sent)
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <p className="text-text-2" role="status" data-testid="ask-code-sent">
+          {ASK_CODE_SENT_WORDS}
+        </p>
+        <Button size="sm" variant="ghost" onClick={() => setSent(false)}>
+          {ASK_WORDS.anotherCode}
+        </Button>
+      </div>
+    );
+  return (
+    <form onSubmit={send} className="mt-2 flex flex-wrap items-center gap-2">
+      <label htmlFor={id} className="sr-only">
+        {ASK_WORDS.code}
+      </label>
+      <Input
+        id={id}
+        inputSize="sm"
+        className="w-44"
+        autoComplete="one-time-code"
+        placeholder={ASK_WORDS.code}
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        data-testid="ask-code"
+      />
+      <Button
+        size="sm"
+        type="submit"
+        loading={busy === 'code'}
+        disabled={busy !== null || code.trim() === ''}
+        data-testid="ask-code-send"
+      >
+        {ASK_WORDS.sendCode}
+      </Button>
+    </form>
   );
 }
 

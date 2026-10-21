@@ -28,6 +28,15 @@ describe('Social Outreach’s links', () => {
     });
   });
 
+  it('open the code’s own screen from its notification, with the ask it’s for (decision 82)', () => {
+    const ASK = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    expect(routeFor(`/app/w/${WS}/a/outreach/?view=code&ask=${ASK}`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/outreach?view=code&ask=${ASK}`,
+      businessId: WS,
+    });
+  });
+
   it('open a playbook on the phone', () => {
     expect(routeFor(`/app/w/${WS}/a/outreach/playbooks/${PB}`)).toMatchObject({
       kind: 'screen',
