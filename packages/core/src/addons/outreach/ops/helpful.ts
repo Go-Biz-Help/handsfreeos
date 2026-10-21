@@ -642,7 +642,7 @@ export async function approvedHelpful(ctx: Ctx, me: string, helpfulId: string) {
 export const networkEngaged = defineAddonCommand(outreachAddon, {
   name: 'outreach.engaged.save',
   description:
-    'Who liked or commented on the person’s posts and answers, or recommended them, on a network itself, as the extension read its notifications (Alignable’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.',
+    'Who liked or commented on the person’s posts and answers, recommended them or started following them, on a network itself, as the extension read its notifications (Alignable’s and Instagram’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.',
   risk: 1,
   input: NetworkEngagedInput,
   output: NetworkEngagedOutput,

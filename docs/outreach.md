@@ -1434,6 +1434,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       before the first day, and never unfollows on its own. Its limits are the plan's, all in its kit already (20
       follows, 30 likes, 10 comments, 10 first messages with at most 5 to Requests, 15 follow-ups, 20 profiles
       checked, 20 unfollows).
+    - **Instagram's growing from part 15** (extension 0.83.0; **migration `20261027010100_outreach_engagement_follows`**,
+      which only widens `addon_outreach.engagements.kind` with `follow`, always off any helpful post): two more of its
+      runner's once-a-day jobs, and two more places Find partners looks.
+      - **Hashtags and places.** A playbook has no fields for them, so they come from what it says already, as
+        Alignable's town comes from the person's profile (`postLooks` in `posts.ts`, given by `outreach.posts.words`
+        where its kit's `hashtags` says so): local hashtags first, a place in its area with its Words to search for
+        groups ("Austin" and "plumbing" make #austinplumbing; its signs' quoted words stand in when it has none), the
+        words alone or the places alone only when it has no area or no words, three a day in turn. Places are its
+        area's own (`placesIn`, as fit reads them): a place's page has an id of Instagram's that no name gives, so the
+        extension opens one (two a day at most) only when a hashtag's post was tagged at a place in the area. Each page
+        has 4 of its posts opened in turn at a person's pace and read for who posted it, its caption, its likes and its
+        place, and the posts are saved as a network's search finds are (no group, `found: 'search'`), kept only when
+        they say a playbook's words or ask for help, for the AI's check.
+      - **Their authors are warmed up, then followed.** On a follow network, whose comments wait for the person,
+        Today lists a like for each good post's author not warmed yet, for the runner to do, as many as tomorrow's
+        follows need (as the groups' people's are); a day after the like, their follow comes ("Wrote a post your
+        search on Instagram found"), and their post's comment stays the person's to write.
+      - **Warm leads from the notifications** (`helpful`, as Alignable's): who started following the person, and who
+        liked or commented on their posts, sent through `outreach.engaged.save` (never what anyone wrote). Someone who
+        followed is followed back at once, as they made the first move ("Followed you on Instagram"), unless the
+        notification's own button says the person follows them already; being among the saved followers doesn't count
+        as being followed back on a follow network. Someone who liked or commented gets a like back, then a follow.
+      - **Find partners** also reads the hashtag of each creator search's words, and once a run the accounts Instagram
+        suggests to the person (`/explore/people/`), beside its search's own.
+      - Its once-a-day choice's words say so ("Once a day, first: save my newest followers, and read my messages and
+        notifications"). No ask is added: Instagram runs on its own, so Today shows no Find posts there, as on LinkedIn.
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a

@@ -6,7 +6,9 @@
  * first; a warm-up looks at their account and likes one or two of their recent posts on each one's own page, never one
  * about grief, or counts the look alone when there's none; Follow is pressed only on their own account; a message goes
  * only once OK'd, typed only into their chat's own box, and one to their Requests as one text; Find partners searches
- * Instagram; and an Instagram warning stops it for the day. Each step is noted as the extension's own, as Instagram's.
+ * Instagram, the hashtag of its words and the accounts Instagram suggests; once a day it looks at the day's hashtags
+ * and the places in the area their posts were tagged at, and reads the notifications for warm leads (part 15); and an
+ * Instagram warning stops it for the day. Each step is noted as the extension's own, as Instagram's.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
@@ -186,7 +188,7 @@ beforeAll(() => {
     },
     runtime: {
       getPlatformInfo: async () => ({ os: 'mac' }),
-      getManifest: () => ({ version: '0.82.0' }),
+      getManifest: () => ({ version: '0.83.0' }),
     },
     alarms: {
       get: async (name: string) => (alarms.has(name) ? { name } : undefined),
@@ -401,12 +403,20 @@ describe('what it does on Instagram’s list', () => {
       'warm_up',
       'friend_request',
     ]);
-    // The newest followers first, then the checks, the chats and Find partners.
+    // The newest followers first, then the checks, the chats, Find partners, the hashtags and the notifications.
     expect(nextInstagramDaily({ daily: {} })).toBe('requests');
     expect(nextInstagramDaily({ daily: { requests: 'x', checks: 'y' } })).toBe('chats');
     expect(nextInstagramDaily({ daily: { requests: 'x', checks: 'y', chats: 'z' } })).toBe(
       'partners',
     );
+    expect(
+      nextInstagramDaily({ daily: { requests: 'x', checks: 'y', chats: 'z', partners: 'w' } }),
+    ).toBe('posts');
+    expect(
+      nextInstagramDaily({
+        daily: { requests: 'x', checks: 'y', chats: 'z', partners: 'w', posts: 'v' },
+      }),
+    ).toBe('helpful');
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {
@@ -723,32 +733,55 @@ describe('Find partners on Instagram', () => {
     <a href="/ivy.designs/p/C4eeeeeee/"><img alt=""></a><a href="/jo.paints/p/C5fffffff/"><img alt=""></a>
     <a href="/p/C6ggggggg/"><img alt=""></a></div></main>`;
 
+  /** The hashtag of the words: a post by someone new, and one by someone the search showed already. */
+  const tagHtml = `${MENU}<main><header><h1>#austinhomes</h1></header><div>
+    <a href="/lu.homes/p/C9iiiiiii/"><img alt=""></a><a href="/ivy.designs/p/C4eeeeeee/"><img alt=""></a></div></main>`;
+  /** The accounts Instagram suggests: one new, and one the search showed already. */
+  const suggestedHtml = `${MENU}<main><div>
+    <div><a href="/max.realty/"><span>max.realty</span></a><button><div dir="auto">Follow</div></button></div>
+    <div><a href="/hana.hill/"><span>hana.hill</span></a><button><div dir="auto">Follow</div></button></div>
+  </div></main>`;
+  const account = (username: string) => ({
+    name: username,
+    profile: { id: null, username, url: `${IG}/${username}/` },
+    lines: [],
+    followers: null,
+  });
+
   it('searches Instagram: whoever posted what it shows for creators, the accounts it shows for businesses', async () => {
     world.pages = (url) =>
       url === `${IG}/explore/search/keyword/?q=austin%20homes`
         ? { html: searchHtml }
         : url === `${IG}/p/C6ggggggg/`
           ? { html: postHtml('C6ggggggg', 'kai.builds') }
-          : null;
+          : url === `${IG}/explore/tags/austinhomes/`
+            ? { html: tagHtml }
+            : url === `${IG}/explore/people/`
+              ? { html: suggestedHtml }
+              : null;
     const creators = await searchInstagram(job(), 'creator', 'austin homes');
+    // Then the hashtag of the words (part 15), each poster once.
     expect((creators as readonly { name: string }[]).map((f) => f.name)).toEqual([
       'ivy.designs',
       'jo.paints',
       'kai.builds',
+      'lu.homes',
     ]);
     // The one post whose link didn't say, opened to see who posted it.
     expect(world.opened).toEqual([
       `${IG}/explore/search/keyword/?q=austin%20homes`,
       `${IG}/p/C6ggggggg/`,
+      `${IG}/explore/tags/austinhomes/`,
     ]);
-    expect(await searchInstagram(job(), 'business', 'austin homes')).toEqual([
-      {
-        name: 'hana.hill',
-        profile: { id: null, username: 'hana.hill', url: `${IG}/hana.hill/` },
-        lines: [],
-        followers: null,
-      },
+    // For businesses, the accounts Instagram suggests too, once a run.
+    const run = job();
+    expect(await searchInstagram(run, 'business', 'austin homes')).toEqual([
+      account('hana.hill'),
+      account('max.realty'),
     ]);
+    world.opened.length = 0;
+    expect(await searchInstagram(run, 'business', 'austin homes')).toEqual([account('hana.hill')]);
+    expect(world.opened).toEqual([`${IG}/explore/search/keyword/?q=austin%20homes`]);
   });
 
   it('once a day: today’s searches, who they found sent to keep, then each read for the AI’s partner check', async () => {
@@ -909,5 +942,163 @@ describe('its day', () => {
     expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toContain(
       'Instagram warned you today (“Action blocked”)',
     );
+  });
+});
+
+describe('Instagram’s growing (part 15)', () => {
+  const job = (): Job => ({
+    tab: new WorkTab('window'),
+    hfos: (async (ask: { readonly type: string }) => {
+      world.asked.push(ask);
+      const found = world.hfos[ask.type];
+      return { ok: true, value: found ? found(ask as Record<string, unknown>) : {} };
+    }) as unknown as Hfos,
+    businessId: ME.businessId,
+    stopped: () => false,
+    progress: () => undefined,
+    warn: async () => undefined,
+  });
+
+  /** A post on its own page, as a hashtag's leads to it: who posted it, its place, and its caption beside its time. */
+  const foundPostHtml = (
+    by: string,
+    caption: string,
+    place: readonly [id: string, slug: string, name: string] | null,
+  ) => `${MENU}<section><main role="main"><div><div><div>
+      <div><div><div><span dir="auto"><a role="link" href="/${by}/"><span dir="auto">${by}</span></a></span></div>
+        ${place ? `<a role="link" href="/explore/locations/${place[0]}/${place[1]}/"><span>${place[2]}</span></a>` : ''}</div>
+        <div role="button">Follow</div></div>
+        <div role="button" aria-expanded="false"><svg role="img" aria-label="More options"></svg></div></div>
+      <hr>
+      <div><div><div><a role="link" href="/${by}/"><img alt=""></a>
+        <div><span dir="auto"><div><div><a role="link" href="/${by}/"><span dir="auto">${by}</span></a>
+          <span>•</span><time>2d</time></div>
+          <span>${caption}</span></div></span></div></div></div>
+    </div></div></main></section>`;
+  const grid = (codes: readonly string[]) =>
+    `<div>${codes.map((c) => `<a href="/p/${c}/"><img alt=""></a>`).join('')}</div>`;
+
+  it('looks at the day’s hashtags, then the places in the area their posts were tagged at, and sends the posts to check', async () => {
+    world.pages = (url) =>
+      ({
+        [`${IG}/explore/tags/austinplumbing/`]: {
+          html: `${MENU}<main><header><h1>#austinplumbing</h1></header>${grid(['C7aaaaaaa', 'C7bbbbbbb'])}</main>`,
+        },
+        [`${IG}/p/C7aaaaaaa/`]: {
+          html: foundPostHtml(
+            'quinn.plumbing',
+            'Busy week of plumbing in Austin. Can anyone recommend a CRM?',
+            ['212988663', 'austin-texas', 'Austin, Texas'],
+          ),
+        },
+        [`${IG}/p/C7bbbbbbb/`]: {
+          html: foundPostHtml('paris.pipes', 'Plumbing in Paris today', [
+            '999',
+            'paris-france',
+            'Paris, France',
+          ]),
+        },
+        [`${IG}/explore/locations/212988663/austin-texas/`]: {
+          html: `${MENU}<main><h1>Austin, Texas</h1>${grid(['C8ccccccc', 'C7aaaaaaa'])}</main>`,
+        },
+        [`${IG}/p/C8ccccccc/`]: { html: foundPostHtml('rory.drains', 'Drain day', null) },
+      })[url] ?? null;
+    world.hfos['hfos-post-words'] = () => ({
+      words: ['plumbing'],
+      tags: ['austinplumbing'],
+      places: ['Austin', 'Round Rock'],
+    });
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      groupId: null,
+      posts: [],
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    const end = await runInstagramDaily('posts', job());
+    // Austin's place, never Paris's; a post opened once.
+    expect(world.opened).toEqual([
+      `${IG}/explore/tags/austinplumbing/`,
+      `${IG}/p/C7aaaaaaa/`,
+      `${IG}/p/C7bbbbbbb/`,
+      `${IG}/explore/locations/212988663/austin-texas/`,
+      `${IG}/p/C8ccccccc/`,
+    ]);
+    const saves = world.asked.filter((a) => a.type === 'hfos-save-posts');
+    expect(saves.map((a) => a.input)).toEqual([
+      {
+        workspaceId: ME.businessId,
+        platform: 'instagram',
+        group: null,
+        found: 'search',
+        posts: [
+          {
+            url: `${IG}/p/C7aaaaaaa/`,
+            author: { id: null, username: 'quinn.plumbing', url: `${IG}/quinn.plumbing/` },
+            name: 'quinn.plumbing',
+            when: null,
+            text: 'Busy week of plumbing in Austin. Can anyone recommend a CRM?',
+            comments: null,
+            reactions: null,
+          },
+          expect.objectContaining({ name: 'paris.pipes', text: 'Plumbing in Paris today' }),
+        ],
+      },
+      expect.objectContaining({
+        posts: [expect.objectContaining({ name: 'rory.drains', text: 'Drain day' })],
+      }),
+    ]);
+    expect(end).toEqual({
+      line: 'Looked at 1 hashtag and 1 place in your area on Instagram and read 3 posts: 3 posts sent for the AI to check. Who posted the good ones goes on your list for today: a like first, then a follow.',
+      warned: false,
+    });
+  });
+
+  it('says what to add when the playbooks have nothing to make hashtags from', async () => {
+    world.hfos['hfos-post-words'] = () => ({ words: [], tags: [], places: [] });
+    expect(await runInstagramDaily('posts', job())).toMatchObject({
+      line: expect.stringContaining('add your area'),
+      failed: true,
+    });
+    expect(world.opened).toEqual([]);
+  });
+
+  it('reads the notifications for warm leads: who followed, liked or commented, never one already followed', async () => {
+    world.pages = (url) =>
+      url === `${IG}/notifications/`
+        ? {
+            html: `${MENU}<main><div>
+              <div><a href="/dana.reyes/"><img alt=""></a>
+                <span><a href="/dana.reyes/">dana.reyes</a> started following you. <time>2d</time></span>
+                <button><div dir="auto">Follow Back</div></button></div>
+              <div><a href="/sam.lee/"><img alt=""></a>
+                <span><a href="/sam.lee/">sam.lee</a> liked your post. <time>3d</time></span>
+                <a href="/p/C3xyzabcd/"><img alt=""></a></div>
+              <div><a href="/ivy.cole/"><img alt=""></a>
+                <span><a href="/ivy.cole/">ivy.cole</a> started following you. <time>5d</time></span>
+                <button><div dir="auto">Following</div></button></div>
+            </div></main>`,
+          }
+        : null;
+    world.hfos['hfos-engaged-save'] = () => ({ added: 2 });
+    const end = await runInstagramDaily('helpful', job());
+    expect(world.asked.find((a) => a.type === 'hfos-engaged-save')?.input).toEqual({
+      workspaceId: ME.businessId,
+      platform: 'instagram',
+      engaged: [
+        {
+          profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
+          name: 'dana.reyes',
+          kind: 'follow',
+        },
+        {
+          profile: { id: null, username: 'sam.lee', url: `${IG}/sam.lee/` },
+          name: 'sam.lee',
+          kind: 'reaction',
+        },
+      ],
+    });
+    expect(end).toEqual({
+      line: 'Read your Instagram notifications: 2 new warm leads who followed you or liked or commented on your posts, on your list for today.',
+      warned: false,
+    });
   });
 });

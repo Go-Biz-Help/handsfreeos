@@ -48,7 +48,7 @@ import {
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
 import { RECONNECT_QUIET_DAYS } from '../checks';
-import { WARM_LEAD_DAYS } from '../helpful';
+import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
 import { automationOf } from './automation';
@@ -279,14 +279,20 @@ export const today = defineAddonQuery(outreachAddon, {
         }),
       );
 
+    // A follow network (Instagram's): a follow is its request, and someone among the person's followers follows them,
+    // which says nothing of whether the person follows them back.
+    const kit = NETWORKS[input.platform];
+    const follows = kit.requestsMessageAfterDays !== null;
+
     // Warm leads (decision 50): people who reacted to or commented on the person's helpful posts lately. A comment
     // waits for an answer; someone not a friend yet goes first for a like back, then a friend request, as anyone does.
+    // On a follow network, someone who followed the person is followed back at once: they made the first move.
     const warm = await rows<{
       id: string;
       name: string;
       url: string;
       friendship: string;
-      kind: 'comment' | 'reaction' | 'recommend';
+      kind: EngagementKind;
       comment: string | null;
       post_url: string | null;
       group_name: string | null;
@@ -305,7 +311,8 @@ export const today = defineAddonQuery(outreachAddon, {
             (exists (select 1 from addon_outreach.touches t
                 where t.profile_id = p.id and t.kind = 'friend_request')
               or exists (select 1 from addon_outreach.friends f
-                where f.profile_id = p.id and f.user_id = ${me})) as reached,
+                where f.profile_id = p.id and f.user_id = ${me}
+                  ${follows ? sql`and f.state not in ('friends', 'request_received')` : sql``})) as reached,
             exists (select 1 from addon_outreach.touches t
               where t.user_id = ${me} and t.kind = 'comment' and h.post_url is not null
                 and t.post_url = h.post_url and t.at >= e.seen_at) as answered
@@ -332,7 +339,9 @@ export const today = defineAddonQuery(outreachAddon, {
     const did = (w: (typeof warm)[number]) =>
       w.kind === 'recommend'
         ? `Recommended you${on(w)}`
-        : `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${on(w)}`;
+        : w.kind === 'follow'
+          ? `Followed you${on(w)}`
+          : `${w.kind === 'comment' ? 'Commented on' : 'Reacted to'} your post${on(w)}`;
     // Only a comment under a helpful post the extension can open again is answered there.
     const answers = warm
       .filter((w) => w.kind === 'comment' && w.comment && w.post_url && !w.answered)
@@ -356,8 +365,14 @@ export const today = defineAddonQuery(outreachAddon, {
     // Each person once, the comment over the reaction (comments come first).
     const once = new Map<string, (typeof warm)[number]>();
     for (const w of warm) if (!once.has(w.id)) once.set(w.id, w);
+    // Who followed the person, on a follow network: being among their followers isn't being followed back.
+    const followedYou = new Set(warm.filter((w) => w.kind === 'follow').map((w) => w.id));
     const toFriend = [...once.values()].filter(
-      (w) => !w.reached && !['friends', 'request_sent', 'request_received'].includes(w.friendship),
+      (w) =>
+        !w.reached &&
+        !(follows ? ['request_sent'] : ['friends', 'request_sent', 'request_received']).includes(
+          w.friendship,
+        ),
     );
     const warmIds = new Set(toFriend.map((w) => w.id));
     let warmRequests = 0;
@@ -365,7 +380,9 @@ export const today = defineAddonQuery(outreachAddon, {
     if (!requestsOff)
       for (const w of toFriend) {
         const liked = w.liked_at === null ? null : new Date(w.liked_at).getTime();
+        const followed = followedYou.has(w.id);
         const ready =
+          followed ||
           !settings.warmUp ||
           w.warm_up_missed_at !== null ||
           (liked !== null && liked <= now - WARM_UP_WAIT_HOURS * HOUR);
@@ -377,7 +394,11 @@ export const today = defineAddonQuery(outreachAddon, {
               name: w.name,
               profileId: w.id,
               profileUrl: w.url,
-              why: [did(w), ...(liked !== null ? ['You liked a post of theirs back'] : [])],
+              why: [
+                did(w),
+                ...(followed && w.kind !== 'follow' ? [`Followed you${on(w)}`] : []),
+                ...(liked !== null ? ['You liked a post of theirs back'] : []),
+              ],
               playbookName: w.playbook_name,
             }),
           );
@@ -399,10 +420,15 @@ export const today = defineAddonQuery(outreachAddon, {
     // People found by a search (the Instagram and Alignable plan's "people found by a search"): whoever wrote a post the
     // network's own search found, off any group, that the AI said was worth a comment. The comment, or a like, is their
     // warm-up: with Like a post first on, their request comes a day after it; before it, their post's comment is on the
-    // list instead. Ahead of the groups' people, whom nothing has warmed yet.
+    // list instead. Ahead of the groups' people, whom nothing has warmed yet. On a follow network (Instagram's, whose
+    // hashtags and places its runner looks at), whose comments wait for the person, a like of theirs is on the list
+    // too, for the runner to do: enough for tomorrow's follows, as the groups' people's are.
     let searchRequests = 0;
+    let searchLikes = 0;
     const searchLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
-    if (playbooks.length && !requestsOff && searchLeft) {
+    const searchLikesLeft =
+      follows && settings.warmUp ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes) : 0;
+    if (playbooks.length && !requestsOff && (searchLeft || searchLikesLeft)) {
       const searched = await rows<{
         id: string;
         name: string;
@@ -435,23 +461,54 @@ export const today = defineAddonQuery(outreachAddon, {
             order by p.id, po.seen_at desc
             limit ${CANDIDATES_MOST}`,
       );
-      const ready = searched.flatMap((p) => {
+      const fitted = searched.flatMap((p) => {
         if (warmIds.has(p.id)) return [];
         const warmedAt = p.warmed_at === null ? null : new Date(p.warmed_at).getTime();
-        if (
-          settings.warmUp &&
-          p.warm_up_missed_at === null &&
-          (warmedAt === null || warmedAt > now - WARM_UP_WAIT_HOURS * HOUR)
-        )
-          return [];
         const fit = bestFit(playbooks, {
           lines: [p.body, ...p.intro],
           mutualFriends: null,
           groupName: null,
         });
-        return fit.level === 'skip' ? [] : [{ p, fit, warmed: warmedAt !== null }];
+        return fit.level === 'skip' ? [] : [{ p, fit, warmedAt, warmed: warmedAt !== null }];
       });
-      ready.sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
+      fitted.sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name));
+      const ready = fitted.filter(
+        ({ p, warmedAt }) =>
+          !settings.warmUp ||
+          p.warm_up_missed_at !== null ||
+          (warmedAt !== null && warmedAt <= now - WARM_UP_WAIT_HOURS * HOUR),
+      );
+      if (searchLikesLeft) {
+        // Enough warmed up for tomorrow's follows: those waiting, and those liked lately, count.
+        const waiting = fitted.filter(
+          ({ p, warmedAt }) =>
+            warmedAt !== null &&
+            p.warm_up_missed_at === null &&
+            warmedAt > now - WARM_UP_WAIT_HOURS * HOUR,
+        );
+        const wanted = Math.max(0, limits.friend_request.most - waiting.length - warmLikes);
+        const cold = fitted.filter(
+          ({ p, warmedAt }) => warmedAt === null && p.warm_up_missed_at === null,
+        );
+        for (const { p, fit } of cold.slice(0, Math.min(searchLikesLeft, wanted))) {
+          searchLikes++;
+          warmIds.add(p.id);
+          items.push(
+            item({
+              kind: 'warm_up',
+              name: p.name,
+              profileId: p.id,
+              profileUrl: p.url,
+              why: [
+                `Wrote a post your search on ${kit.name} found`,
+                ...fit.reasons,
+                'Their friend request comes a day after',
+              ],
+              playbookName: fit.playbookName ?? p.playbook_name,
+            }),
+          );
+        }
+      }
       for (const { p, fit, warmed } of ready.slice(0, searchLeft)) {
         searchRequests++;
         warmIds.add(p.id);
@@ -478,7 +535,7 @@ export const today = defineAddonQuery(outreachAddon, {
       0,
       leftToday(limits, 'friend_request') - warmRequests - searchRequests,
     );
-    const likesLeft = Math.max(0, leftToday(limits, 'warm_up') - warmLikes);
+    const likesLeft = Math.max(0, leftToday(limits, 'warm_up') - warmLikes - searchLikes);
     if (playbooks.length && !requestsOff && (requestsLeft || (settings.warmUp && likesLeft))) {
       const found = await rows<{
         id: string;
@@ -602,7 +659,10 @@ export const today = defineAddonQuery(outreachAddon, {
         const waiting = fitted.filter(
           ({ p }) => likedBy(p) !== null && p.warm_up_missed_at === null,
         );
-        const wanted = Math.max(0, limits.friend_request.most - waiting.length - warmLikes);
+        const wanted = Math.max(
+          0,
+          limits.friend_request.most - waiting.length - warmLikes - searchLikes,
+        );
         const cold = fitted.filter(({ p }) => likedBy(p) === null && p.warm_up_missed_at === null);
         for (const { p, fit } of cold.slice(0, Math.min(likesLeft, wanted)))
           items.push(
@@ -620,8 +680,6 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // First message (decision 65): new friends who accepted the person's request, without a message yet. On a follow
     // network (Instagram's) a follow-back is the accepting: someone they followed who's among their saved followers.
-    const kit = NETWORKS[input.platform];
-    const follows = kit.requestsMessageAfterDays !== null;
     const openersLeft = leftToday(limits, 'opener');
     let openers = 0;
     if (openersLeft) {

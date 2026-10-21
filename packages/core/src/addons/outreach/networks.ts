@@ -88,6 +88,11 @@ export interface NetworkKit {
    */
   readonly recommends: boolean;
   /**
+   * Whether its runner looks at hashtags, and the places their posts were tagged at, for posts and who wrote them
+   * (Instagram's, its part 15): a few a day, made from the playbooks' area and words (./posts.ts `postLooks`).
+   */
+  readonly hashtags: boolean;
+  /**
    * On a follow network (Instagram's), a message to someone who doesn't follow the person back lands in their Requests,
    * and passes only one text till they accept it (the Instagram and Alignable plan's "The steps"): after how many days
    * without a follow-back that one short message goes (no link, no video), and at most how many of the day's first
@@ -121,6 +126,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 40,
     forumAnswersPerDay: null,
     recommends: false,
+    hashtags: false,
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
     tidyLimits: TIDY_LIMITS,
@@ -155,6 +161,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 40,
     forumAnswersPerDay: null,
     recommends: false,
+    hashtags: false,
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
@@ -191,6 +198,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 20,
     forumAnswersPerDay: null,
     recommends: false,
+    hashtags: true,
     // No follow-back in 3 days: one short message to their Requests, at most 5 of the day's 10 first messages.
     requestsMessageAfterDays: 3,
     requestsMessagesPerDay: 5,
@@ -228,6 +236,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     checksPerDay: 30,
     forumAnswersPerDay: 2,
     recommends: true,
+    hashtags: false,
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
     tidyLimits: { cancel_request: 20, unfriend: 0 },

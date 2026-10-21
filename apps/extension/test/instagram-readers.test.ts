@@ -266,17 +266,41 @@ describe('your notifications on Instagram', () => {
         <div><a href="/kim_bakes/"><img alt=""></a>
           <span><a href="/kim_bakes/">kim_bakes</a> commented: Do you do water heaters? <time>4d</time></span>
           <a href="/p/C3xyzabcd/"><img alt=""></a></div>
+        <div><a href="/ivy.cole/"><img alt=""></a>
+          <span><a href="/ivy.cole/">ivy.cole</a> started following you. <time>5d</time></span>
+          <button><div dir="auto">Following</div></button></div>
         <div><span>Suggested for you</span><a href="/someone/">someone</a></div>
       </div></main>`,
     );
     expect(read(doc).engaged).toEqual([
-      { username: 'dana.reyes', url: `${IG}/dana.reyes/`, kind: 'follow', post: null },
-      { username: 'sam.lee', url: `${IG}/sam.lee/`, kind: 'reaction', post: `${IG}/p/C3xyzabcd/` },
+      {
+        username: 'dana.reyes',
+        url: `${IG}/dana.reyes/`,
+        kind: 'follow',
+        post: null,
+        following: 'no',
+      },
+      {
+        username: 'sam.lee',
+        url: `${IG}/sam.lee/`,
+        kind: 'reaction',
+        post: `${IG}/p/C3xyzabcd/`,
+        following: null,
+      },
       {
         username: 'kim_bakes',
         url: `${IG}/kim_bakes/`,
         kind: 'comment',
         post: `${IG}/p/C3xyzabcd/`,
+        following: null,
+      },
+      // Followed back already: its button says so.
+      {
+        username: 'ivy.cole',
+        url: `${IG}/ivy.cole/`,
+        kind: 'follow',
+        post: null,
+        following: 'following',
       },
     ]);
     expect(JSON.stringify(read(doc))).not.toContain('water heaters');

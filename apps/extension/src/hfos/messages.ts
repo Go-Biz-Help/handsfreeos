@@ -114,6 +114,7 @@ export type HelpfulEngagedInput = Body<'/v1/commands/outreach.helpful.engaged'>;
 export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
 export type NetworkEngagedInput = Body<'/v1/commands/outreach.engaged.save'>;
 export type NetworkEngaged = Ok<'/v1/commands/outreach.engaged.save'>;
+export type PostWords = Ok<'/v1/queries/outreach.posts.words'>;
 export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -271,7 +272,10 @@ export type HfosAsk =
       readonly list: ListMark;
       readonly platform?: Platform;
     }
-  /** What to search a network's posts with: its runner's Find posts (LinkedIn's post search). */
+  /**
+   * What to search a network's posts with: its runner's Find posts (LinkedIn's post search), and on Instagram the day's
+   * hashtags and the area's places.
+   */
   | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
@@ -336,7 +340,7 @@ export interface HfosValues {
   readonly 'hfos-tidy': Tidy;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;
-  readonly 'hfos-post-words': { readonly words: readonly string[] };
+  readonly 'hfos-post-words': PostWords;
   readonly 'hfos-friend-end': FriendEnded;
   readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;

@@ -775,3 +775,59 @@ export function instagramListSave(
     });
   return { ok: true, input: parts };
 }
+
+/** A post on Instagram as its own page shows it: who posted it, its caption and its likes. */
+export interface InstagramPostRead {
+  readonly url: string;
+  readonly author: { readonly username: string; readonly url: string } | null;
+  readonly caption: string | null;
+  readonly likes: number | null;
+}
+
+/**
+ * The posts a look at Instagram's hashtags and places opened (part 15), to keep the ones worth a comment: each with who
+ * posted it, by their account's name, and its caption, in no group, as a network's search finds are. A post with
+ * nobody named, or no caption to read, is left out.
+ */
+export function instagramPostsSave(
+  posts: readonly InstagramPostRead[],
+  workspaceId: string,
+): Built<PostsSaveInput> {
+  const seen = new Set<string>();
+  const kept = posts.flatMap((post) => {
+    if (!post.author) return [];
+    const url = networkAddress(post.url, INSTAGRAM);
+    const who = whom(
+      {
+        name: post.author.username,
+        profile: { id: null, username: post.author.username, url: post.author.url },
+      },
+      INSTAGRAM,
+    );
+    const text = post.caption ? clipText(post.caption, POST_TEXT_MOST) : '';
+    if (!url || !who || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: null,
+        text,
+        comments: null,
+        reactions: post.likes,
+      },
+    ];
+  });
+  if (!kept.length) return { ok: false, why: 'There are no posts with words to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: INSTAGRAM,
+      group: null,
+      posts: kept.slice(0, POSTS_SAVE_MOST),
+      found: 'search',
+    },
+  };
+}
