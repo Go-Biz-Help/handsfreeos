@@ -17,6 +17,8 @@
  * good fits once, by the same steps with LinkedIn's jobs (../jobs/linkedin/). Alignable's (./alignable.ts) saves their
  * connections and the connection requests they've got, then checks their connections once, with its asks' jobs
  * (../jobs/alignable/): no reader of the requests they've sent is built, so there's nothing to tidy up first.
+ * Instagram's (./instagram.ts) saves their followers to the end, works out who to unfollow (those who didn't follow back
+ * in the business's wait, for the person to tick), then checks their followers once (../jobs/instagram/).
  */
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
@@ -38,6 +40,8 @@ import {
   saveConnections as saveAlignableConnections,
 } from '../jobs/alignable/people';
 import { checkFriends } from '../jobs/checks';
+import { checkFollowers } from '../jobs/instagram/checks';
+import { saveFollowers } from '../jobs/instagram/people';
 import { saveGroups } from '../jobs/groups';
 import { checkGroups } from '../jobs/groups-check';
 import { valueOf, type Job, type JobEnd } from '../jobs/job';
@@ -56,21 +60,6 @@ interface ListsOn {
   readonly checkName: string;
   readonly tidying: string;
   readonly tidied: (cancel: number, unfriend: number) => string;
-}
-
-/** A network still looked at (decision 78): it saves and checks nothing before a day it doesn't have yet. */
-function notYet(name: string): ListsOn {
-  const why = `The extension only reads ${name} for now, so there’s nothing to do before a day there.`;
-  return {
-    save: {},
-    doing: {},
-    names: {},
-    checks: async () => ({ line: why, warned: false, failed: true }),
-    checking: why,
-    checkName: `Check ${name}`,
-    tidying: why,
-    tidied: () => why,
-  };
 }
 
 const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
@@ -117,8 +106,21 @@ const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
         ? `Suggested ${counted(cancel, 'old invitation')} to withdraw. Tick the ones to go under Friends → Tidy up in HandsFreeOS, on LinkedIn.`
         : 'No old invitations to withdraw for now.',
   },
-  // Still looked at (decision 78): no day yet, so nothing to do before one.
-  instagram: notYet('Instagram'),
+  // Its runner (part 14): its followers, then who to unfollow worked out, then one check of the followers, at its own
+  // day's count. A follow-back is its accepting, so the newest followers are read again each day (./instagram.ts).
+  instagram: {
+    save: { friends: (job) => saveFollowers(job) },
+    doing: { friends: 'Saving your Instagram followers first…' },
+    names: { friends: 'Your followers' },
+    checks: (job) => checkFollowers(job, NETWORKS.instagram.checksPerDay),
+    checking: 'Checking your followers for good fits…',
+    checkName: 'Check my followers',
+    tidying: 'Working out who to unfollow on Instagram…',
+    tidied: (cancel) =>
+      cancel
+        ? `Suggested ${counted(cancel, 'person', 'people')} to unfollow who didn’t follow you back. Tick the ones to go under Friends → Tidy up in HandsFreeOS, on Instagram.`
+        : 'Nobody to unfollow for now.',
+  },
   // Its runner (part 5): its connections and the requests they've got, then one check of the connections, at its own
   // day's count. No reader of the requests they've sent is built, so it has nothing to tidy up first.
   alignable: {

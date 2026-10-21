@@ -200,7 +200,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
     },
   },
   // A follow network: a follow goes at once, a follow-back is the accepting, and tidying unfollows (the Instagram and
-  // Alignable plan's question 5). Its switches along the way show once its runner reads them.
+  // Alignable plan's question 5). Its runner (part 14) reads the warm-up and the once-a-day jobs.
   instagram: {
     confirm: 'Confirm their follow request',
     request: 'Follow them',
@@ -208,7 +208,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
     chatUrl: (key) => `https://www.instagram.com/direct/t/${encodeURIComponent(key)}/`,
     ticks: {
       warmUp: [
-        'Like one of their posts a day before following them',
+        'Like one or two of their posts a day before following them',
         'A like first makes a follow feel less out of the blue.',
       ],
       confirmRequests: [
@@ -216,8 +216,8 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'The rest wait for you.',
       ],
       collect: [
-        'Once a day, first: check follow requests and read my messages',
-        'These fill the list it works from.',
+        'Once a day, first: save my newest followers and read my messages',
+        'These fill the list it works from. It checks your followers for good fits, and looks for partners with Instagram’s search, too.',
       ],
       joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [

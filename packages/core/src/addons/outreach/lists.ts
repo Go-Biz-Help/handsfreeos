@@ -16,7 +16,9 @@
  * connections and their invitations either way, then the old invitations to withdraw and the good fits among their
  * connections; it has no groups to save first (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Alignable's (its runner, part 5) are
  * the person's connections and the connection requests they've got, then the good fits among their connections: no
- * reader of the requests they've sent is built, so there's nothing to work out for withdrawing.
+ * reader of the requests they've sent is built, so there's nothing to work out for withdrawing. Instagram's (its runner,
+ * part 14) are the person's followers, then who to unfollow (those who didn't follow back in the business's wait), then
+ * the good fits among their followers.
  */
 import { z } from 'zod';
 import { businessDay } from './automation';
@@ -37,15 +39,15 @@ export type ListMark = (typeof LIST_MARK_KEYS)[number];
 export const LIST_SAVES_ON: Readonly<Record<Platform, readonly ListSave[]>> = {
   facebook: LIST_SAVE_KEYS,
   linkedin: ['friends', 'requests', 'sent'],
-  // Looked at first (decision 78): no day yet, so nothing saved before it.
-  instagram: [],
+  // Its runner (part 14): the person's followers, its friends list; it reads no follow requests.
+  instagram: ['friends'],
   alignable: ['friends', 'requests'],
 };
 /** What each network notes as done before its first day, in order. */
 export const LIST_MARKS_ON: Readonly<Record<Platform, readonly ListMark[]>> = {
   facebook: LIST_MARK_KEYS,
   linkedin: ['friends', 'requests', 'sent', 'tidy', 'checks'],
-  instagram: [],
+  instagram: ['friends', 'tidy', 'checks'],
   alignable: ['friends', 'requests', 'checks'],
 };
 
@@ -198,7 +200,7 @@ const WAIT_NAMES_ON: Readonly<
       sent: 'the ones you’ve sent',
       groups: 'your groups',
     },
-    all: 'your followers and follow requests',
+    all: 'your followers',
   },
   alignable: {
     each: {
@@ -262,7 +264,7 @@ export const PRE_DAY_WORDS_ON: Readonly<Record<Platform, Readonly<Record<ListMar
     friends: 'Save your followers',
     requests: 'Save follow requests you got',
     sent: 'Save follow requests you sent',
-    tidy: 'Work out which old follow requests to withdraw',
+    tidy: 'Work out who to unfollow',
     checks: 'Check your followers for good fits',
   },
   alignable: {

@@ -4,7 +4,8 @@
  * only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads the
  * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
  * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
- * the person's own profile, its runner's presses (`auto`), and, on Instagram, who wrote back in its chats.
+ * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's), and, on Instagram, who wrote
+ * back in its chats.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
@@ -15,6 +16,7 @@ import type {
   CodeAnswer,
   CodeAsk,
   ConnectAsk,
+  OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
   PostsAnswer,
@@ -84,17 +86,22 @@ async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
   return { ok: true, result: await site.unfollow(document) };
 }
 
-/** The runner's presses it answers: their posts, a like, Connect and a message. Never a comment. */
-type OnItsOwnAsk = Exclude<AutoAsk, { readonly type: 'hfos-comment' }> | ConnectAsk;
+/** The runner's presses it answers: their posts, a like, Connect (Follow), Message and a message. Never a comment. */
+type OnItsOwnAsk =
+  Exclude<AutoAsk, { readonly type: 'hfos-comment' }> | ConnectAsk | OpenMessageAsk;
 const ON_ITS_OWN_ASKS = new Set([
   'hfos-their-posts',
   'hfos-like-post',
   'hfos-connect',
+  'hfos-open-message',
   'hfos-message',
 ]);
 
-/** One of its runner's presses, on a network whose site has them (Alignable's): none anywhere else. */
-async function onItsOwn(site: LookingSite, ask: OnItsOwnAsk): Promise<PostsAnswer | AutoAnswer> {
+/** One of its runner's presses, on a network whose site has them (Alignable's, Instagram's): none anywhere else. */
+async function onItsOwn(
+  site: LookingSite,
+  ask: OnItsOwnAsk,
+): Promise<PostsAnswer | AutoAnswer | BrowseAnswer> {
   const auto = site.auto;
   if (!auto)
     return { ok: false, error: `The extension doesn’t work on ${site.name} on its own yet.` };
@@ -107,7 +114,10 @@ async function onItsOwn(site: LookingSite, ask: OnItsOwnAsk): Promise<PostsAnswe
   if (!ask.profile)
     return { ok: false, error: `The extension didn’t say whose page it is on ${site.name}.` };
   if (ask.type === 'hfos-connect')
-    return { ok: true, result: auto.connect(document, href, ask.profile) };
+    return { ok: true, result: await auto.connect(document, href, ask.profile) };
+  // Their account's Message, which opens a chat with them (Instagram's): whether it could.
+  if (ask.type === 'hfos-open-message')
+    return { ok: auto.openMessage ? auto.openMessage(document, href, ask.profile) : false };
   return { ok: true, result: await auto.message(document, href, ask.text, ask.profile) };
 }
 

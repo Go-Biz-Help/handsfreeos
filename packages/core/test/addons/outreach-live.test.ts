@@ -32,6 +32,7 @@ import {
   warningLine,
   warningPushWords,
 } from '../../src/addons/outreach/live';
+import { NETWORKS, type NetworkKit } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { zonedParts } from '../../src/calendar/engine/zoned';
 import { outreachBusiness, refused, runAs, runWith } from './outreach-fixture';
@@ -144,11 +145,21 @@ describe('the live view’s words', () => {
     );
     expect(sendingOffWords(false)).toContain('Ask an owner of this business');
     expect(sendingOffWords(true)).toContain('Settings → Facebook');
-    // A network with no runner yet (Instagram): nothing to pick and nobody to ask; its list is the person's own to do.
-    expect(sendingOffWords(true, 'instagram')).toBe(
-      'Your computer doesn’t work on Instagram on its own yet, so there’s no day to start there. Today’s list on Instagram is yours to do, and it notes each step you take.',
-    );
-    expect(sendingOffWords(false, 'instagram')).not.toContain('Ask an owner');
+    // A network with no runner yet (Instagram's before its part 14, stood in for): nothing to pick and nobody to ask;
+    // its list is the person's own to do.
+    const kit = NETWORKS.instagram as { runs: NetworkKit['runs'] };
+    const runs = kit.runs;
+    kit.runs = { auto: [], ticks: [] };
+    try {
+      expect(sendingOffWords(true, 'instagram')).toBe(
+        'Your computer doesn’t work on Instagram on its own yet, so there’s no day to start there. Today’s list on Instagram is yours to do, and it notes each step you take.',
+      );
+      expect(sendingOffWords(false, 'instagram')).not.toContain('Ask an owner');
+    } finally {
+      kit.runs = runs;
+    }
+    // Instagram has its runner (part 14): its Sending choice is picked on its own page.
+    expect(sendingOffWords(true, 'instagram')).toContain('Settings → Instagram');
     // Alignable has its runner (part 5): its Sending choice is picked on its own page.
     expect(sendingOffWords(true, 'alignable')).toContain('Settings → Alignable');
     expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');

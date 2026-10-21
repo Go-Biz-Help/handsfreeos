@@ -7,7 +7,9 @@
  *   end, and saves everyone as Instagram's friends list. Someone they followed who's among them has followed back:
  *   HandsFreeOS counts that as accepting, and their first message comes as on the other networks.
  *
- * Nothing is pressed on Instagram: the box is only scrolled. It stops on any Instagram warning.
+ * Once a day, while it works on its own, its runner reads the first screens alone, where Instagram shows the newest
+ * (`saveNewFollowers`): who followed back lately. Nothing is pressed on Instagram: the box is only scrolled. It stops
+ * on any Instagram warning.
  */
 import { instagramListSave, type InstagramListed } from '../../hfos/saves';
 import { counted } from '../../words';
@@ -16,6 +18,8 @@ import { ended, gather, INSTAGRAM, readInstagramIn, SIGNED_IN, signedOutEnd } fr
 
 /** Followers are read to the end, up to this many screens of their box. */
 export const FOLLOWER_SCROLLS = 150;
+/** Once a day, the runner reads the first screens alone, where Instagram shows the newest: who followed back lately. */
+export const NEW_FOLLOWER_SCROLLS = 8;
 /** For Instagram to draw the box over their profile, and its first rows. */
 const BOX_MS = 2_500;
 /** How many times the box is looked for before it's taken as not there. */
@@ -28,8 +32,11 @@ const SIGNED_IN_LOWER = `${SIGNED_IN.charAt(0).toLowerCase()}${SIGNED_IN.slice(1
 
 const newOnes = (added: number) => (added ? `, ${added.toLocaleString()} new` : '');
 
-/** Opens the person's followers, reads them to the end, and saves them as their friends list. */
-export async function saveFollowers(job: Job): Promise<JobEnd> {
+/**
+ * Opens the person's followers, reads them to the end (or, for the newest, the first few screens), and saves them as
+ * their friends list.
+ */
+export async function saveFollowers(job: Job, newest = false): Promise<JobEnd> {
   job.progress('Opening Instagram…');
   await job.tab.open(`${INSTAGRAM}/`);
   const home = await readInstagramIn(job.tab);
@@ -50,7 +57,7 @@ export async function saveFollowers(job: Job): Promise<JobEnd> {
   }
   const got = await gather(
     job,
-    FOLLOWER_SCROLLS,
+    newest ? NEW_FOLLOWER_SCROLLS : FOLLOWER_SCROLLS,
     (page) => page.found.followers,
     keyOf,
     (count) => `Reading your followers… ${counted(count, 'follower')} so far.`,
@@ -68,6 +75,12 @@ export async function saveFollowers(job: Job): Promise<JobEnd> {
   for (const input of built.input)
     added += valueOf(await job.hfos({ type: 'hfos-save-friends', input })).added;
   const whole = got.whole && !job.stopped();
+  if (newest)
+    return {
+      line: `Saved your newest ${counted(got.items.length, 'follower')}${newOnes(added)}.`,
+      warned: false,
+      whole,
+    };
   const tail = whole ? '' : ' It stopped before the end of the list: ask again for the rest.';
   return {
     line: `Saved ${counted(got.items.length, 'follower')}${newOnes(added)}.${tail}`,
@@ -75,3 +88,9 @@ export async function saveFollowers(job: Job): Promise<JobEnd> {
     whole,
   };
 }
+
+/**
+ * Once a day on its own (../../auto/instagram.ts): the first screens of their followers, where Instagram shows the
+ * newest, so someone they followed who followed back lately gets their first message.
+ */
+export const saveNewFollowers = (job: Job): Promise<JobEnd> => saveFollowers(job, true);

@@ -667,6 +667,13 @@ request when opened, so no Check opens it: the first real request shows what it 
      account read for the AI, 20 a day), its chats read for the AI with who wrote last noted, and someone looked up
      before drafting (`src/jobs/instagram/`). Its chats' rows aren't links, so Read my chats presses each by the name
      it shows; it leaves the Requests box and group chats alone.
+   - **Part 14, the runner** (extension 0.82.0, `src/auto/instagram.ts`, no migration): Instagram works on its own as
+     Alignable does, so its Sending choices open. Its followers first; then once a day its newest followers, its
+     followers checked, its chats read, and **Find partners** with Instagram's search (whoever posted what it shows for
+     creators, the accounts it shows for businesses, then each read for the partner check); then warm-ups (a like on
+     one or two recent posts), follows and the messages OK'd, the one to Requests as one text. Comments wait for an OK
+     each time and the person posts them, as on Alignable; unfollowing stays the person's ticks. It stops for the day
+     on any Instagram warning.
 
 ## Build order
 

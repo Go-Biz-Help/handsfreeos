@@ -1,5 +1,5 @@
 /**
- * Social Outreach on Instagram (the Instagram and Alignable plan's part 12, and its "The steps"): a follow network.
+ * Social Outreach on Instagram (the Instagram and Alignable plan’s parts 12 and 14, and its "The steps"): a follow network.
  * Someone the person followed who's among their saved followers has followed back, which counts as accepting, and
  * their first message comes as on the other networks. Someone who hasn't followed back in 3 days gets one short message
  * marked as going to their Requests (no link, no video, one text), at most 5 of the day's 10 first messages, and no
@@ -10,8 +10,21 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { askNameOn } from '../../src/addons/outreach/asks';
-import { NETWORKS } from '../../src/addons/outreach/networks';
-import { todayKindsOn, tidyWordsOn } from '../../src/addons/outreach/network-words';
+import { autoKinds, AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
+import {
+  afterFirstSave,
+  listsWaitWords,
+  NO_LISTS,
+  preDaySteps,
+} from '../../src/addons/outreach/lists';
+import { NETWORKS, runsOnItsOwn } from '../../src/addons/outreach/networks';
+import {
+  sendingModesOn,
+  ticksOn,
+  ticksShownOn,
+  todayKindsOn,
+  tidyWordsOn,
+} from '../../src/addons/outreach/network-words';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import {
   fitsRequests,
@@ -62,6 +75,41 @@ describe('Instagram’s kit and words', () => {
     // Facebook's are as they were.
     expect(tidyWordsOn('facebook').cancel.about(3)).toBe(
       'Sent more than 3 weeks ago and not answered. Facebook pauses your requests when too many wait.',
+    );
+  });
+
+  it('likes and follows on its own once let, comments staying the person’s, its followers saved first (part 14)', () => {
+    expect(runsOnItsOwn('instagram')).toBe(true);
+    expect(NETWORKS.instagram.runs).toEqual({
+      auto: ['warm_up', 'friend_request'],
+      ticks: ['warmUp', 'collect'],
+    });
+    expect(
+      autoKinds(
+        { ...AUTOMATION_DEFAULTS.networks.instagram, on: true, sending: 'steps' },
+        'instagram',
+      ),
+    ).toEqual(['warm_up', 'friend_request']);
+    expect(sendingModesOn('instagram').everything).toBe(
+      'Everything on its own, messages too; you post each comment',
+    );
+    expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
+    expect(ticksOn('instagram').warmUp[0]).toBe(
+      'Like one or two of their posts a day before following them',
+    );
+    // Before its first day: the followers, then who to unfollow worked out for the person to tick, then one check.
+    expect(listsWaitWords(NO_LISTS, true, 'instagram')).toBe(
+      'It’s saving your followers first, the first time only. Your day starts once they’re saved.',
+    );
+    expect(preDaySteps(NO_LISTS, {}, 'instagram').map((s) => s.label)).toEqual([
+      'Save your followers',
+      'Work out who to unfollow',
+      'Check your followers for good fits',
+    ]);
+    const followers = { ...NO_LISTS, friendsAt: new Date().toISOString() };
+    expect(afterFirstSave(followers, 'instagram')).toBe('tidy');
+    expect(afterFirstSave({ ...followers, tidyAt: followers.friendsAt }, 'instagram')).toBe(
+      'checks',
     );
   });
 

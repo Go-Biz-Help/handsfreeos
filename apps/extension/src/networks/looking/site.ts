@@ -154,9 +154,10 @@ export interface LookingSite {
    */
   readonly replies?: (doc: Document, href: string) => ReplySighting[];
   /**
-   * The presses its runner makes on its own, once the person lets it (Alignable's, partners stage 6c, part 5), each on
-   * the page it's for: their posts read on their page, a like on the one picked, their own Connect, and a message in
-   * their conversation. A network without them presses none of these.
+   * The presses its runner makes on its own, once the person lets it (Alignable's, partners stage 6c, part 5; Instagram's,
+   * its part 14), each on the page it's for: their posts read on their page, a like on the one picked, their own Connect
+   * (Instagram's Follow), and a message in their conversation, which on Instagram their account's Message may open
+   * first. A network without them presses none of these.
    */
   readonly auto?: {
     readonly theirPosts: (doc: Document, href: string, profile: ProfileRef) => TheirPost[];
@@ -166,7 +167,12 @@ export interface LookingSite {
       profile: ProfileRef,
       pick: { readonly index: number; readonly url: string | null },
     ) => Promise<{ readonly result: AutoResult; readonly postUrl: string | null }>;
-    readonly connect: (doc: Document, href: string, profile: ProfileRef) => AutoResult;
+    readonly connect: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+    ) => AutoResult | Promise<AutoResult>;
+    readonly openMessage?: (doc: Document, href: string, profile: ProfileRef) => boolean;
     readonly message: (
       doc: Document,
       href: string,

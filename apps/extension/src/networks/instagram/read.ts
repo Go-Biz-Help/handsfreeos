@@ -209,6 +209,11 @@ export type InstagramFound = {
   /** Which box the messages show: Primary, General or Requests. */
   readonly box: Box | null;
   readonly chat: ChatOpen | null;
+  /**
+   * The posts on the page whose own links name who posted them (/<name>/p/<code>/), as a search, a hashtag or a place
+   * shows them (part 14, for Find partners): each post once, with its author.
+   */
+  readonly authors: readonly { readonly post: string; readonly author: Account }[];
 };
 
 export const NOTHING_FOUND: InstagramFound = {
@@ -224,6 +229,7 @@ export const NOTHING_FOUND: InstagramFound = {
   chats: [],
   box: null,
   chat: null,
+  authors: [],
 };
 
 // ------------------------------------------------------------------------------------------------ the page's parts
@@ -793,6 +799,22 @@ export function chatOn(doc: Document, base: string, own: string | null): ChatOpe
   };
 }
 
+// ------------------------------------------------------------------------------------------------ who posted
+
+/** The posts on the page whose own links name who posted them: each once, never the person's own. */
+function authorsOn(doc: Document, base: string, own: string | null): InstagramFound['authors'] {
+  const found = new Map<string, Account>();
+  for (const { url } of linksIn(mainOf(doc), base)) {
+    const name = postAuthorOf(url);
+    const post = name ? postOf(url) : null;
+    if (!name || !post || found.has(post) || name.toLowerCase() === own?.toLowerCase()) continue;
+    const author = profileOf(new URL(`${HOST}/${name}/`));
+    if (author) found.set(post, author);
+    if (found.size >= ROWS_MOST) break;
+  }
+  return [...found].map(([post, author]) => ({ post, author }));
+}
+
 // ------------------------------------------------------------------------------------------------ everything
 
 /** The person's own account, by the menu's Profile: never among those a page is about. */
@@ -834,5 +856,6 @@ export function readInstagram(doc: Document, href: string): InstagramFound {
     chats: chatRows(doc, href),
     box: boxOn(doc, href),
     chat: chatOn(doc, href, own),
+    authors: authorsOn(doc, href, own),
   };
 }

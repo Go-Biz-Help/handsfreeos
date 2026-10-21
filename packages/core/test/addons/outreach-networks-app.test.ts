@@ -83,7 +83,8 @@ describe('a network’s words on screen', () => {
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
     // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does.
     expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect']);
-    expect(ticksShownOn('instagram')).toEqual([]);
+    // Instagram's (part 14) the same: it confirms no follow requests, joins no groups and has no hourly look.
+    expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.
     const doing = { ...AUTOMATION_DEFAULTS, sending: 'steps' as const };
     expect(autoKinds(doing, 'facebook')).toEqual([
@@ -95,7 +96,11 @@ describe('a network’s words on screen', () => {
     expect(autoKinds(doing, 'linkedin')).toEqual(['warm_up', 'friend_request', 'comment']);
     // Alignable's forum answers and comments wait for an OK each time: its runner warms up and connects.
     expect(autoKinds(doing, 'alignable')).toEqual(['warm_up', 'friend_request']);
-    expect(autoKinds(doing, 'instagram')).toEqual([]);
+    // Instagram's comments wait for an OK each time too, as public writing: its runner likes and follows.
+    expect(autoKinds(doing, 'instagram')).toEqual(['warm_up', 'friend_request']);
+    expect(sendingModesOn('instagram').steps).toBe(
+      'Follows and likes on their own; each message waits for one tap, and you post each comment',
+    );
     expect(sendingModesOn('alignable').steps).toBe(
       'Connection requests and likes on their own; each message waits for one tap, and you post each comment',
     );
@@ -178,7 +183,7 @@ describe('the networks a person works', () => {
   });
 
   it('puts every network past its look on Today and the filters, once it’s turned on (decision 78)', () => {
-    // Alignable works from its part 3, and on its own from part 5; Instagram from its part 12, by hand till its runner (`runsOnItsOwn`).
+    // Alignable works from its part 3, and on its own from part 5; Instagram from its part 12, and on its own from 14.
     expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
     expect(PLATFORM_KEYS.filter(isLooking)).toEqual([]);
     const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });
