@@ -56,8 +56,11 @@ export const OPEN_HELPFUL_STATES = [
   'approved',
 ] as const satisfies readonly HelpfulState[];
 
-/** How someone engaged: with a helpful post (a comment or a reaction), or on the network itself (a recommendation too). */
-export const ENGAGEMENT_KINDS = ['comment', 'reaction', 'recommend'] as const;
+/**
+ * How someone engaged: with a helpful post (a comment or a reaction), or on the network itself, as its notifications
+ * say (a recommendation too, on Alignable; a follow, on Instagram: 20261027010100).
+ */
+export const ENGAGEMENT_KINDS = ['comment', 'reaction', 'recommend', 'follow'] as const;
 export type EngagementKind = (typeof ENGAGEMENT_KINDS)[number];
 
 // ------------------------------------------------------------------------------------------------- shapes

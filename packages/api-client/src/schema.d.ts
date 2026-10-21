@@ -6587,7 +6587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who liked or commented on the person’s posts and answers, or recommended them, on a network itself, as the extension read its notifications (Alignable’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.
+         * Who liked or commented on the person’s posts and answers, recommended them or started following them, on a network itself, as the extension read its notifications (Alignable’s and Instagram’s): each kept as a profile there, a warm lead for Today. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.engaged.saved.
          */
         post: operations["command_outreach_engaged_save"];
@@ -7087,7 +7087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the posts in a Facebook group’s feed, or found by LinkedIn’s post search, that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
@@ -18027,7 +18027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups.
+         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens, local ones first, and the playbooks’ places, to tell a post tagged in the area.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_words"];
@@ -36898,7 +36898,7 @@ export interface operations {
                         /** @default null */
                         comment?: string | null;
                         /** @enum {string} */
-                        kind: "comment" | "reaction" | "recommend";
+                        kind: "comment" | "reaction" | "recommend" | "follow";
                         name: string;
                         profile: {
                             id: string | null;
@@ -68940,6 +68940,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        places: string[];
+                        tags: string[];
                         words: string[];
                     };
                 };

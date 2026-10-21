@@ -12,8 +12,11 @@
  *   worked out for the person to tick, and the followers checked once (./lists.ts); after that the followers weekly.
  * - **Once a day,** as the person's Instagram choices say (`collect`): the newest followers (a follow-back is its
  *   accepting, so their first message comes), the followers checked for good fits (20 accounts a day to start, its
- *   kit's `checksPerDay`), their chats read for the AI with who wrote last noted, and Find partners (Instagram's
- *   search, then those found read for the AI's partner check).
+ *   kit's `checksPerDay`), their chats read for the AI with who wrote last noted, Find partners (Instagram's search,
+ *   its hashtags and the accounts it suggests, then those found read for the AI's partner check), and from part 15
+ *   the day's hashtags and places, made from the playbooks' area and words, whose posts go for the AI's check (a good
+ *   one's author gets a like, then a follow), and their notifications' warm leads (whoever followed them is followed
+ *   back; whoever liked or commented gets a like back, then a follow).
  * - **Then Instagram's list for today** (`outreach.today` with `platform: 'instagram'`), the kinds it does on its own
  *   (`auto`): a look at their account and a like on one or two of their recent posts (the warm-up), the first that
  *   nothing rules out (never one about grief, illness or trouble), a second only while the day's likes have room past
@@ -52,9 +55,11 @@ import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory } from '../jobs/chats';
 import { chatPageOf, readInstagramChats } from '../jobs/instagram/chats';
 import { accountIn, checkFollowers, isTheirs, readThemOnInstagram } from '../jobs/instagram/checks';
+import { readInstagramWarmLeads } from '../jobs/instagram/engaged';
 import { lookUpOnInstagram } from '../jobs/instagram/lookup';
 import { searchInstagram } from '../jobs/instagram/partner-search';
 import { saveNewFollowers } from '../jobs/instagram/people';
+import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { checkPartners } from '../jobs/partners';
@@ -99,13 +104,16 @@ export const INSTAGRAM_ALARM = 'hfos-auto-instagram';
 export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Instagram, in order: the newest followers first (`requests`: on Instagram, who followed back
- * is who accepted), then the checks, the chats, and Find partners.
+ * is who accepted), then the checks, the chats, Find partners, and from part 15 the day's hashtags and places
+ * (`posts`) and the notifications' warm leads (`helpful`, as Alignable's are).
  */
 export const INSTAGRAM_DAILY = [
   'requests',
   'checks',
   'chats',
   'partners',
+  'posts',
+  'helpful',
 ] as const satisfies readonly DailyJob[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
 
@@ -114,12 +122,16 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   checks: 'Checking your followers for good fits…',
   chats: 'Reading your Instagram chats for the AI…',
   partners: 'Searching Instagram for people who could partner with you, then reading them…',
+  posts: 'Looking at your area’s hashtags and places on Instagram for the AI…',
+  helpful: 'Reading your notifications for who followed you, or liked or commented on your posts…',
 };
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Your newest followers',
   checks: 'Check my followers',
   chats: 'Read my chats',
   partners: 'Find partners',
+  posts: 'Your hashtags and places',
+  helpful: 'Who engaged with you',
 };
 
 /** Instagram's pace between steps: slower than LinkedIn's, as Instagram blocks fast (the plan's "The risk"). */
@@ -720,6 +732,19 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
         read: readThemOnInstagram,
         search: searchInstagram,
       });
+    case 'posts':
+      return lookAtTagsAndPlaces(
+        job,
+        valueOf(
+          await job.hfos({
+            type: 'hfos-post-words',
+            workspaceId: job.businessId,
+            platform: PLATFORM,
+          }),
+        ),
+      );
+    case 'helpful':
+      return readInstagramWarmLeads(job);
   }
 }
 

@@ -216,8 +216,8 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'The rest wait for you.',
       ],
       collect: [
-        'Once a day, first: save my newest followers and read my messages',
-        'These fill the list it works from. It checks your followers for good fits, and looks for partners with Instagram’s search, too.',
+        'Once a day, first: save my newest followers, and read my messages and notifications',
+        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It checks your followers for good fits, looks at your area’s hashtags for posts and who wrote them, and looks for partners with Instagram’s search, too.',
       ],
       joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [

@@ -14,7 +14,7 @@
  *   Check (0.62.0).
  * - **A hashtag's and a place's page:** their posts' links.
  * - **Notifications:** who followed the person, liked or commented on their posts (the kind and who; never what a
- *   comment says).
+ *   comment says), and whether the person follows them, by the button beside it (part 15).
  * - **Messages** (/direct/inbox/, /direct/requests/): its chats, each with the other person's name (in a `title`),
  *   whether the last line is the person's ("You: …") and when, and which box shows (Primary, General or Requests).
  *   From the owner's Check (0.62.0): the rows are buttons, not links.
@@ -158,6 +158,11 @@ export interface Engaged extends Account {
   readonly kind: 'follow' | 'reaction' | 'comment';
   /** The post it's about, when the notification links to it. */
   readonly post: string | null;
+  /**
+   * Whether the person follows them, by the notification's own button (part 15): Following or Requested, or Follow
+   * and Follow Back; null when it has none.
+   */
+  readonly following: InstagramProfile['following'];
 }
 
 /** Which of Instagram's message boxes: Primary, General, or Requests (from people the person doesn't follow). */
@@ -650,7 +655,7 @@ function engagedOn(doc: Document, base: string): Engaged[] {
           .map(({ url: u }) => postOf(u))
           .find((p): p is string => p !== null) ?? null;
       const key = `${account.username.toLowerCase()}:${kind}`;
-      if (!found.has(key)) found.set(key, { ...account, kind, post });
+      if (!found.has(key)) found.set(key, { ...account, kind, post, following: followingIn(row) });
       break;
     }
     if (found.size >= ROWS_MOST) break;

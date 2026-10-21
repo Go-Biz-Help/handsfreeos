@@ -734,9 +734,11 @@ describe('each network’s own line of asks', () => {
       groups: null,
       words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
     });
-    // The same words for LinkedIn's runner, which finds posts once a day on its own.
+    // The same words for LinkedIn's runner, which finds posts once a day on its own; no hashtags, which are Instagram's.
     expect(await runAs(u, ws, 'outreach.posts.words', { platform: 'linkedin' })).toEqual({
       words: ['Owner', 'Founder', 'CEO', 'small business owners', 'business owners'],
+      tags: [],
+      places: [],
     });
     // Facebook's goes by groups, as before.
     const fb = await ask(u, 'facebook', { kind: 'posts' });

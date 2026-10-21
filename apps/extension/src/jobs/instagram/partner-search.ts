@@ -3,11 +3,14 @@
  * start of Find partners there each day (../partners.ts), as LinkedIn's and Alignable's are: Instagram's search for the
  * partner playbooks' words (/explore/search/keyword/?q=, as Check Instagram opens it), a few screens of it. For
  * creators, whoever posted what it shows, by the name each post's own link carries (/<name>/p/<code>/), else by opening
- * a few of those posts, one at a time at a person's pace; for businesses with the same customers, the accounts it
- * shows. Each is kept by the name in its address; how many follow them is read when they're read for the partner
- * check. Nothing is pressed but the page's own scrolling; it stops on any Instagram warning.
+ * a few of those posts, one at a time at a person's pace, and then the same on the hashtag of the words (part 15:
+ * "local businesses" is #localbusinesses); for businesses with the same customers, the accounts it shows, and once a
+ * run the accounts Instagram suggests to the person (/explore/people/), which are often like theirs. Each is kept by
+ * the name in its address; how many follow them is read when they're read for the partner check. Nothing is pressed but
+ * the page's own scrolling; it stops on any Instagram warning.
  */
 import type { PartnerSearchKind } from '@hfos/core/addons/outreach/partners';
+import { hashtagOf } from '@hfos/core/addons/outreach/posts';
 import type { Found } from '../../hfos/saves';
 import type { Account } from '../../networks/instagram/read';
 import { profileOf } from '../../networks/instagram/urls';
@@ -22,6 +25,7 @@ import {
   signedOutEnd,
   type InstagramPage,
 } from './read';
+import { tagUrl } from './posts';
 
 /** Instagram's search for some words, as Check Instagram opens it. */
 export const searchUrl = (words: string) =>
@@ -109,13 +113,40 @@ export async function postersOn(
   return [...items.values()];
 }
 
-/** One of Instagram's searches: for creators whoever posted what it showed, for businesses the accounts it showed. */
+/** The accounts Instagram suggests to the person: read once a run, its first screen. */
+export const SUGGESTED = `${INSTAGRAM}/explore/people/`;
+const suggestedIn = new WeakSet<Job>();
+
+/** Each once, by the name in their address, the first found first. */
+function eachOnce(found: readonly Found[]): Found[] {
+  const once = new Map<string, Found>();
+  for (const f of found) if (!once.has(keyOf(f))) once.set(keyOf(f), f);
+  return [...once.values()];
+}
+
+/**
+ * One of Instagram's searches: for creators whoever posted what it showed, then what the hashtag of its words shows;
+ * for businesses the accounts it showed, then, the first time in a run, the accounts Instagram suggests.
+ */
 export async function searchInstagram(
   job: Job,
   kind: PartnerSearchKind,
   words: string,
 ): Promise<readonly Found[] | JobEnd> {
-  if (kind === 'creator') return postersOn(job, searchUrl(words), `“${words}”`);
+  if (kind === 'creator') {
+    const searched = await postersOn(job, searchUrl(words), `“${words}”`);
+    const tag = hashtagOf(words);
+    if (ended(searched) || !tag || job.stopped()) return searched;
+    await pause(paced(SCROLL_PACE_MS));
+    let tagged: readonly Found[] | JobEnd;
+    try {
+      tagged = await postersOn(job, tagUrl(tag), `#${tag}`);
+    } catch {
+      // Instagram went elsewhere: the search's own posters still count.
+      return searched;
+    }
+    return ended(tagged) ? tagged : eachOnce([...searched, ...tagged]);
+  }
   await job.tab.open(searchUrl(words));
   const got = await gather(
     job,
@@ -124,5 +155,21 @@ export async function searchInstagram(
     keyOf,
     (n) => `Reading Instagram’s accounts for “${words}”… ${counted(n, 'account')} so far.`,
   );
-  return ended(got) ? got : got.items;
+  if (ended(got)) return got;
+  if (suggestedIn.has(job) || job.stopped()) return got.items;
+  suggestedIn.add(job);
+  await pause(paced(SCROLL_PACE_MS));
+  job.progress('Reading the accounts Instagram suggests to you…');
+  let page: InstagramPage;
+  try {
+    await job.tab.open(SUGGESTED);
+    page = await readInstagramIn(job.tab);
+  } catch {
+    // Instagram went elsewhere: the search's own accounts still count.
+    return got.items;
+  }
+  const warned = await warnedOn(job, page);
+  if (warned) return warned;
+  if (page.signedOut) return signedOutEnd();
+  return eachOnce([...got.items, ...accountsFound(page)]);
 }

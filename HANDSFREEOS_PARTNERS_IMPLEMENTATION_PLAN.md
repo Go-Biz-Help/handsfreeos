@@ -674,6 +674,14 @@ request when opened, so no Check opens it: the first real request shows what it 
      one or two recent posts), follows and the messages OK'd, the one to Requests as one text. Comments wait for an OK
      each time and the person posts them, as on Alignable; unfollowing stays the person's ticks. It stops for the day
      on any Instagram warning.
+   - **Part 15, growing** (extension 0.83.0; migration 20261027010100, which only widens the warm leads' kinds with
+     `follow`): two more once-a-day jobs. **Hashtags and places:** a playbook has no fields for them, so HandsFreeOS
+     makes the day's three hashtags from its area and its words for groups, local ones first (#austinplumbing), and
+     the extension reads a few of each one's posts, then those of up to two places in the area its posts were tagged
+     at; the good posts' authors get a like, then a follow a day after. **Warm leads from the notifications:** who
+     followed the person is followed back at once, and who liked or commented gets a like back, then a follow
+     (`outreach.engaged.save`). **Find partners** also reads the hashtag of each creator search's words, and the
+     accounts Instagram suggests for businesses.
 
 ## Build order
 
