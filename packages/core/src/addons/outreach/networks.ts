@@ -101,6 +101,14 @@ export interface NetworkKit {
    */
   readonly requestsMessageAfterDays: number | null;
   readonly requestsMessagesPerDay: number | null;
+  /**
+   * On a follow network (Instagram's), how many accounts the person followed the extension looks at a day to see who
+   * follows them back (the owner, 21 Oct 2026): their own account says so ("Follows you", Follow Back), so the
+   * follow-backs never wait on reading the whole list of their followers. Its own count, beside `checksPerDay`: a look
+   * reads one account they follow already, sends nothing for the AI and presses nothing. Null where a list of friends
+   * or connections says who accepted.
+   */
+  readonly followBackLooksPerDay: number | null;
   /** How many old requests it withdraws, and friends it removes, in a day once the person ticks them. */
   readonly tidyLimits: Readonly<Record<TidyKind, number>>;
   /**
@@ -129,6 +137,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     hashtags: false,
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
+    followBackLooksPerDay: null,
     tidyLimits: TIDY_LIMITS,
     // auto/run.ts: requests to confirm, likes, friend requests and comments; every switch along the way.
     runs: {
@@ -164,6 +173,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     hashtags: false,
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
+    followBackLooksPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
@@ -202,6 +212,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     // No follow-back in 3 days: one short message to their Requests, at most 5 of the day's 10 first messages.
     requestsMessageAfterDays: 3,
     requestsMessagesPerDay: 5,
+    // Who follows them back, from the accounts they followed, 30 a day at most (the owner, 21 Oct 2026).
+    followBackLooksPerDay: 30,
     // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
     // who follows them is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
@@ -239,6 +251,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     hashtags: false,
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
+    followBackLooksPerDay: null,
     tidyLimits: { cancel_request: 20, unfriend: 0 },
     // auto/alignable.ts (part 5): warm-ups (a look at their business page, and a like on a recent post of theirs when
     // it shows one) and connection requests. Comments and forum answers wait for the person's OK each time, as they're

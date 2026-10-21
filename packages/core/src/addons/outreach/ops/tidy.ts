@@ -1,7 +1,9 @@
 /**
  * Tidying the person's own friends, and the networks' warnings (../tidy.ts): the sent requests and friends the
  * extension may cancel or unfriend once the person ticks them, each one it did, and each warning a network showed
- * them. Each person's are their own, and a warning is its network's alone: the others go on.
+ * them. Each person's are their own, and a warning is its network's alone: the others go on. On a follow network
+ * (Instagram's), who the extension looks at to see whether they followed back (`outreach.follow_backs.next`), so
+ * nobody who did is suggested for unfollowing.
  */
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -13,6 +15,12 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
 import { limitNow, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
+import {
+  FOLLOW_BACK_AFTER_DAYS,
+  FOLLOW_BACK_AGAIN_HOURS,
+  FollowBacksNextInput,
+  FollowBacksNextOutput,
+} from '../friends';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, type Platform } from '../networks';
 import { friendEnds, warnings } from '../tables';
@@ -35,7 +43,8 @@ import { inWorkspace, keepFriendStates, keptProfile, once, pitchable, type Ctx }
 import { warnDay } from './day';
 import { playbooksInUse } from './friends';
 
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 
 /** Midnight today in the business's time zone. */
 export async function startOfToday(ctx: Ctx, now = Date.now()): Promise<Date> {
@@ -354,5 +363,58 @@ export const warningNote = defineAddonCommand(outreachAddon, {
   },
 });
 
+export const followBacksNext = defineAddonQuery(outreachAddon, {
+  name: 'outreach.follow_backs.next',
+  description:
+    'Who the person’s computer looks at next on a follow network (Instagram’s) to see whether they follow the person back: those the person followed at least a day ago who haven’t followed back yet, not looked at in the last day, the longest since a look first, no more than the network’s looks a day (halved for a week after a warning there).',
+  input: FollowBacksNextInput,
+  output: FollowBacksNextOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const now = Date.now();
+    const kit = NETWORKS[input.platform];
+    if (kit.followBackLooksPerDay === null) return { people: [], perDay: 0 };
+    const warning = await warningOf(ctx, me, input.platform, await startOfToday(ctx, now), now);
+    const perDay = limitNow(kit.followBackLooksPerDay, slowsNow(warning, now));
+    const ago = (ms: number) => new Date(now - ms).toISOString();
+    // Followed by the person (a step noted, never someone followed before HandsFreeOS saw it), still waiting. A look
+    // that saw them still waiting moves `seen_at` and keeps `since`, so they wait their turn again.
+    const found = await rows<{
+      id: string;
+      name: string;
+      url: string;
+      platform_id: string | null;
+      username: string | null;
+      since: Date | string;
+    }>(
+      ctx.tx,
+      sql`select p.id, p.name, p.url, p.platform_id, p.username, f.since
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
+            and p.platform = ${input.platform} and f.state = 'request_sent'
+            and f.since <= ${ago(FOLLOW_BACK_AFTER_DAYS * DAY)}::timestamptz
+            and f.seen_at <= ${ago(FOLLOW_BACK_AGAIN_HOURS * HOUR)}::timestamptz
+            and exists (select 1 from addon_outreach.touches t
+              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')
+          order by f.seen_at, f.since, p.id
+          limit ${Math.min(input.most, perDay)}`,
+    );
+    return {
+      people: found.map((p) => ({
+        profileId: p.id,
+        name: p.name,
+        url: p.url,
+        platformId: p.platform_id,
+        username: p.username,
+        followedAt: new Date(p.since).toISOString(),
+      })),
+      perDay,
+    };
+  },
+});
+
 export const tidyCommands = [friendEnd, warningNote] as const;
-export const tidyQueries = [friendsTidy] as const;
+export const tidyQueries = [friendsTidy, followBacksNext] as const;

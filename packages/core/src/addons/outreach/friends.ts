@@ -98,6 +98,48 @@ export const FriendsSaveOutput = z.object({
 });
 
 /**
+ * Who followed back, on a follow network (Instagram's; the owner, 21 Oct 2026): the extension opens the accounts the
+ * person followed, where Instagram says whether they follow the person ("Follows you", Follow Back), so a follow-back
+ * never waits on reading the whole list of their followers. Someone followed at least a day ago who hasn't followed
+ * back, and wasn't looked at in the last day or so, the longest since a look first. What each look saw is saved as a
+ * list of one (`outreach.friends.save`): a follow-back as their followers (`friends`), which is the accepting, and
+ * still waiting as the follows they've sent (`sent`), which keeps when they were followed and moves when they were
+ * last seen; a follow that's gone is noted as ended already (`outreach.friend.end`).
+ */
+export const FOLLOW_BACK_AFTER_DAYS = 1;
+/** Looked at again after this long: "the last day or so", so tomorrow's look at the same hour finds them. */
+export const FOLLOW_BACK_AGAIN_HOURS = 20;
+/** The most a computer asks for at once: more than a day's looks on any network. */
+export const FOLLOW_BACKS_MOST = 100;
+
+export const FollowBacksNextInput = z.object({
+  workspaceId: z.uuid(),
+  /** A follow network: Instagram's when left out. Anywhere else, nobody. */
+  platform: z.enum(PLATFORM_KEYS).default('instagram'),
+  /** How many it can look at now: fewer when today's looks have used some. */
+  most: z.number().int().min(1).max(FOLLOW_BACKS_MOST).default(FOLLOW_BACKS_MOST),
+});
+export type FollowBacksNextInput = z.input<typeof FollowBacksNextInput>;
+
+export const FollowBacksNextOutput = z.object({
+  people: z.array(
+    z.object({
+      profileId: z.uuid(),
+      name: z.string(),
+      url: z.string(),
+      /** Their number and their name in the network's addresses, as kept: what the look's save says they are. */
+      platformId: z.string().nullable(),
+      username: z.string().nullable(),
+      /** When the person followed them. */
+      followedAt: z.iso.datetime(),
+    }),
+  ),
+  /** The network's looks a day now: halved for a week after a warning there; 0 where it doesn't look. */
+  perDay: z.number().int().min(0),
+});
+export type FollowBacksNextOutput = z.output<typeof FollowBacksNextOutput>;
+
+/**
  * Keep, for the person's own friend, and Don't pitch and Never contact, for the business. Someone by the profile kept here, or by their
  * profile on Facebook and their name when the extension sets it from a page.
  */

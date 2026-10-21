@@ -17,8 +17,9 @@
  * connections; it has no groups to save first (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Alignable's (its runner, part 5) are
  * the person's connections and the connection requests they've got, then the good fits among their connections: no
  * reader of the requests they've sent is built, so there's nothing to work out for withdrawing. Instagram's (its runner,
- * part 14) are the person's followers, then who to unfollow (those who didn't follow back in the business's wait), then
- * the good fits among their followers.
+ * part 14) are the person's newest followers (the newest 300 the first time, then those new since: the owner, 21 Oct
+ * 2026), then who to unfollow (those who didn't follow back in the business's wait), then the good fits among their
+ * followers.
  */
 import { z } from 'zod';
 import { businessDay } from './automation';
@@ -39,7 +40,7 @@ export type ListMark = (typeof LIST_MARK_KEYS)[number];
 export const LIST_SAVES_ON: Readonly<Record<Platform, readonly ListSave[]>> = {
   facebook: LIST_SAVE_KEYS,
   linkedin: ['friends', 'requests', 'sent'],
-  // Its runner (part 14): the person's followers, its friends list; it reads no follow requests.
+  // Its runner (part 14): the person's newest followers, its friends list; it reads no follow requests.
   instagram: ['friends'],
   alignable: ['friends', 'requests'],
 };
@@ -195,12 +196,12 @@ const WAIT_NAMES_ON: Readonly<
   },
   instagram: {
     each: {
-      friends: 'your followers',
+      friends: 'your newest followers',
       requests: 'the follow requests you’ve got',
       sent: 'the ones you’ve sent',
       groups: 'your groups',
     },
-    all: 'your followers',
+    all: 'your newest followers',
   },
   alignable: {
     each: {
@@ -261,7 +262,7 @@ export const PRE_DAY_WORDS_ON: Readonly<Record<Platform, Readonly<Record<ListMar
   },
   instagram: {
     ...PRE_DAY_WORDS,
-    friends: 'Save your followers',
+    friends: 'Save your newest followers',
     requests: 'Save follow requests you got',
     sent: 'Save follow requests you sent',
     tidy: 'Work out who to unfollow',

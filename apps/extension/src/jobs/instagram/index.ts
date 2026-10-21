@@ -3,8 +3,9 @@
  * 13; core's `ASK_KINDS_ON.instagram`), each kind with the job that does it, in a window of its own at a person's pace,
  * reading only unless the kind says to press:
  *
- * - `friends`: their followers, from the box over their own account, scrolled slowly to the end and saved
- *   (./people.ts). On Instagram a follow-back counts as accepting.
+ * - `friends`: their newest followers, from the box over their own account, scrolled slowly and saved: the newest 300
+ *   the first time, then those new since (./people.ts); then the accounts they followed looked at for who follows them
+ *   back (./follow-backs.ts). On Instagram a follow-back counts as accepting.
  * - `checks` and `research`: accounts opened and read for the AI's check, on Instagram's own day's count (./checks.ts).
  * - `chats`: their chats in their messages, opened one at a time by their rows and sent for the AI, noting who wrote
  *   last (./chats.ts).
@@ -22,7 +23,7 @@ import { lookingAsk } from '../looking';
 import { readInstagramChats } from './chats';
 import { checkFollowers, researchOnInstagram } from './checks';
 import { lookupOnInstagram } from './lookup';
-import { saveFollowers } from './people';
+import { saveMyFollowers } from './people';
 import { unfollowTicked } from './unfollow';
 
 type Ended = JobEnd & { readonly result?: AskResult | null };
@@ -33,7 +34,7 @@ const looked = lookingAsk('instagram');
 export async function instagramAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
   switch (task.kind) {
     case 'friends':
-      return saveFollowers(job);
+      return saveMyFollowers(job);
     case 'checks':
       return checkFollowers(job, CHECKS_PER_DAY);
     case 'research':

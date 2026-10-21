@@ -738,11 +738,14 @@ export interface InstagramListed {
  * The person's Instagram followers, to save as Instagram's friends list (the Instagram and Alignable plan's part 12): on
  * Instagram the "friends" are the person's followers, so someone they followed who's among them has followed back,
  * which counts as accepting. Each account once, by its name in its address, in parts of FRIENDS_SAVE_MOST. Someone
- * with no name of their own is saved by their username, as Instagram shows them.
+ * with no name of their own is saved by their username, as Instagram shows them. A look at the account of someone they
+ * followed (../jobs/instagram/follow-backs.ts) saves them as a list of one: among their followers when it says they
+ * follow the person back, else among the follows they've sent (`sent`), still waiting.
  */
 export function instagramListSave(
   people: readonly InstagramListed[],
   workspaceId: string,
+  list: 'friends' | 'sent' = 'friends',
 ): Built<FriendsSaveInput[]> {
   const seen = new Set<string>();
   const kept: FriendsSaveInput['people'] = [];
@@ -770,7 +773,7 @@ export function instagramListSave(
     parts.push({
       workspaceId,
       platform: INSTAGRAM,
-      list: 'friends',
+      list,
       people: kept.slice(at, at + FRIENDS_SAVE_MOST),
     });
   return { ok: true, input: parts };

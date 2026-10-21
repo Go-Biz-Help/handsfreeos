@@ -17,8 +17,9 @@
  * good fits once, by the same steps with LinkedIn's jobs (../jobs/linkedin/). Alignable's (./alignable.ts) saves their
  * connections and the connection requests they've got, then checks their connections once, with its asks' jobs
  * (../jobs/alignable/): no reader of the requests they've sent is built, so there's nothing to tidy up first.
- * Instagram's (./instagram.ts) saves their followers to the end, works out who to unfollow (those who didn't follow back
- * in the business's wait, for the person to tick), then checks their followers once (../jobs/instagram/).
+ * Instagram's (./instagram.ts) saves their newest followers (the newest 300 the first time, then those new since: the
+ * owner, 21 Oct 2026), works out who to unfollow (those who didn't follow back in the business's wait, for the person
+ * to tick), then checks their followers once (../jobs/instagram/).
  */
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
@@ -106,12 +107,13 @@ const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
         ? `Suggested ${counted(cancel, 'old invitation')} to withdraw. Tick the ones to go under Friends → Tidy up in HandsFreeOS, on LinkedIn.`
         : 'No old invitations to withdraw for now.',
   },
-  // Its runner (part 14): its followers, then who to unfollow worked out, then one check of the followers, at its own
-  // day's count. A follow-back is its accepting, so the newest followers are read again each day (./instagram.ts).
+  // Its runner (part 14): its newest followers, then who to unfollow worked out, then one check of the followers, at
+  // its own day's count. A follow-back is its accepting, so the followers new since are read each day, and the accounts
+  // the person followed are looked at for who follows back (./instagram.ts).
   instagram: {
     save: { friends: (job) => saveFollowers(job) },
-    doing: { friends: 'Saving your Instagram followers first…' },
-    names: { friends: 'Your followers' },
+    doing: { friends: 'Saving your newest Instagram followers first…' },
+    names: { friends: 'Your newest followers' },
     checks: (job) => checkFollowers(job, NETWORKS.instagram.checksPerDay),
     checking: 'Checking your followers for good fits…',
     checkName: 'Check my followers',

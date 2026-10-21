@@ -69,11 +69,14 @@ async function apply(found: Automation): Promise<void> {
 export const STARTED_KEY = 'hfos.started';
 
 /**
- * What the extension keeps on the computer about a business's outreach: chats read, steps not yet sent, the day's
- * runner, asks, what waits, and the setup opened. Forgotten when the business starts Social Outreach fresh.
+ * What the extension keeps on the computer about a business's outreach: chats read, the Instagram followers that were
+ * newest at the last save and the day's looks for follow-backs, steps not yet sent, the day's runner, asks, what waits,
+ * and the setup opened. Forgotten when the business starts Social Outreach fresh: its followers are then read again.
  */
 export const KEPT_FOR_BUSINESS = [
   'hfos.chatsRead',
+  'hfos.followersRead',
+  'hfos.followBacks',
   'hfos.waiting',
   'hfos.groups',
   'hfos.auto',

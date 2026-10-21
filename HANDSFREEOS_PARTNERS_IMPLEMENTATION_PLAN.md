@@ -614,7 +614,9 @@ request when opened, so no Check opens it: the first real request shows what it 
      and a business looked up before drafting. Reading chats waited for its reader: the owner's Check opened an empty
      chat, so Check Alignable now opens one with messages from Messages' side, and the reader is built from its outline.
      Built in extension 0.84.0 from his Check of 21 Oct 2026: **Read my chats** reads each conversation's messages as
-     his or theirs, sends them for the AI and notes who wrote last, asked or once a day by the runner.
+     his or theirs, sends them for the AI and notes who wrote last, asked or once a day by the runner. His first run
+     read only the conversation Messages opened on, as its press missed the part of each row Alignable listens on;
+     0.85.0 presses each row on its name (docs/outreach.md, decision 78).
    - **Part 3c, its town's posts and forum questions** (extension 0.74.0): Find posts in your town reads the person's
      town page for the AI's check, as LinkedIn's search finds are read; the good ones come onto Today with a draft and
      their writers to connect with. Answers to those asking for what the business offers are at most 2 a day, inside

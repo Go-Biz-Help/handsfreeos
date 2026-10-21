@@ -56,20 +56,44 @@ export function scrollList(doc: Document): boolean {
 }
 
 /**
+ * A press as a person's makes it, on the part of the page under their pointer: down, up, then the click, each passing
+ * up through every part around it, so whichever of them the page listens on hears it.
+ */
+function pressAsAPerson(target: HTMLElement): void {
+  const view = target.ownerDocument.defaultView!;
+  const down = { bubbles: true, cancelable: true, composed: true, view, button: 0, buttons: 1 };
+  const up = { ...down, buttons: 0 };
+  // Chrome's pages have pointer events; a page built for the tests may not.
+  const Pointer =
+    (view as { readonly PointerEvent?: typeof MouseEvent }).PointerEvent ?? view.MouseEvent;
+  target.dispatchEvent(new Pointer('pointerdown', down));
+  target.dispatchEvent(new view.MouseEvent('mousedown', down));
+  target.dispatchEvent(new Pointer('pointerup', up));
+  target.dispatchEvent(new view.MouseEvent('mouseup', up));
+  target.click();
+}
+
+/**
  * Opens a conversation from Messages' side (`conversationInSidebar`), whose rows aren't links: for Check to outline,
  * the first one with words under its name, so a chat with messages in it (partners stage 6c: Alignable's chat reader
- * is built from it); for Read my chats (0.84.0), the one whose row shows `name`. Whether there was one to open. Opening
- * it is a press of the row, as a person reading their messages does.
+ * is built from it); for Read my chats (0.84.0), the one whose row shows `name`. Whether there was one to open.
+ *
+ * Opening it is a press of the row as a person reading their messages makes it: on its name, the line their pointer
+ * lands on, so the press passes up through every part of the row to the one Alignable listens on. A row has no button
+ * or link in it, and in 0.84.0 the press went to the row's outermost part, which no part inside it hears: the owner's
+ * Read my chats of 21 Oct 2026 read only the conversation Messages opened on, 1 of the 8 with messages (0.85.0).
+ * Nothing else in a row is ever pressed.
  */
 export function openConversation(doc: Document, name: string | null = null): boolean {
   const want = name ? clean(name).toLowerCase() : null;
   for (const row of doc.querySelectorAll<HTMLElement>(PART('conversationInSidebar'))) {
-    const lines = [...row.querySelectorAll('div')]
-      .filter((div) => div.children.length === 0)
-      .map((div) => clean(div.textContent))
-      .filter(Boolean);
-    if (want ? lines[0]?.toLowerCase() !== want : lines.length < 2) continue;
-    (row.querySelector<HTMLElement>('[role="button"], a, button') ?? row).click();
+    const lines = [...row.querySelectorAll<HTMLElement>('div')].filter(
+      (div) => div.children.length === 0 && clean(div.textContent),
+    );
+    const named = lines[0];
+    if (!named || (want ? clean(named.textContent).toLowerCase() !== want : lines.length < 2))
+      continue;
+    pressAsAPerson(named);
     return true;
   }
   return false;

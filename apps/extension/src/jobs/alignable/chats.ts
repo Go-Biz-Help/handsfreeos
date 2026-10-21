@@ -10,7 +10,10 @@
  * It notes who wrote last: a conversation whose last message is theirs goes to HandsFreeOS as a sighting
  * (`outreach.replies.note`), which counts it as a reply when it answers a message of the person's the extension noted.
  * It skips conversations with no messages yet and those read in the last day with nothing new, and stops after a run's
- * worth. Nothing is written or sent on Alignable. It stops on any Alignable warning.
+ * worth. A conversation whose row didn't open it isn't taken as read: its line says how many, the next run tries them
+ * again, and the page goes to HandsFreeOS once with its outline (decision 74), as the owner's Read my chats of 21 Oct
+ * 2026 opened only the conversation Messages opened on (../../networks/alignable/browse.ts, `openConversation`).
+ * Nothing is written or sent on Alignable. It stops on any Alignable warning.
  */
 import { CHATS_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
@@ -80,6 +83,8 @@ export async function readAlignableChats(
   job.progress('Opening your Alignable messages…');
   await tab.open(MESSAGES);
   let read = 0;
+  /** Conversations whose row was pressed and didn't open. */
+  let shut = 0;
   const tried = new Set<string>();
   const seen: ReplySighting[] = [];
   // The business of the conversation Messages opens on: pressing another row changes it.
@@ -136,20 +141,22 @@ export async function readAlignableChats(
     tried.add(key);
     job.progress(`Reading the chat with ${next.name}… ${counted(read, 'chat')} read so far.`);
     const pressed = (await tab.ask({ type: 'hfos-open-chat', threadId: '', name: next.name })).ok;
+    let opened = false;
     if (pressed) {
       await pause(OPEN_MS);
-      let opened = await readAlignableIn(tab);
-      if (!isRow(opened.found.chat, next, open)) {
+      let shown = await readAlignableIn(tab);
+      if (!isRow(shown.found.chat, next, open)) {
         await pause(OPEN_MS);
-        opened = await readAlignableIn(tab);
+        shown = await readAlignableIn(tab);
       }
-      const warnedThere = await warnedOn(job, opened);
+      const warnedThere = await warnedOn(job, shown);
       if (warnedThere) {
         await told();
         return warnedThere;
       }
-      const chat = opened.found.chat;
+      const chat = shown.found.chat;
       if (isRow(chat, next, open)) {
+        opened = true;
         open = chat.profile!.id;
         const built = chatCollect(chatPageOf(chat)!, new Date(), next.when, 'alignable');
         if (built) {
@@ -165,18 +172,31 @@ export async function readAlignableChats(
         if (theirs) seen.push({ ...theirs, when: next.when });
       }
     }
-    // One that didn't open waits for a day with something new.
-    await options.memory.remember(key, next.preview ?? next.when);
+    // Read: left till something's new, or a day has gone. One that didn't open is tried again next time.
+    if (opened) await options.memory.remember(key, next.preview ?? next.when);
+    else {
+      // The first that didn't open: the page, outline and all, for the readers to be put right (decision 74).
+      if (!shut)
+        await job.report?.({
+          job: 'chats.open',
+          note: 'A conversation’s row was pressed, and Messages didn’t open it.',
+          outline: true,
+        });
+      shut++;
+    }
     if (!job.stopped()) await pause(paced(PACE_MS));
   }
   await told();
   const wrote = seen.length ? ` ${counted(seen.length, 'chat')} had their message last.` : '';
+  const unopened = shut
+    ? ` Alignable didn’t open ${counted(shut, 'chat')} when ${shut === 1 ? 'its row was' : 'their rows were'} pressed: ${shut === 1 ? 'it’s' : 'they’re'} tried again next time.`
+    : '';
   return {
     line: job.stopped()
-      ? `Stopped. ${counted(read, 'chat')} sent for the AI to read.${wrote}`
+      ? `Stopped. ${counted(read, 'chat')} sent for the AI to read.${wrote}${unopened}`
       : read >= options.most
-        ? `${counted(read, 'chat')} sent for the AI to read.${wrote} ${options.again}`
-        : `Done: ${counted(read, 'chat')} sent for the AI to read.${wrote} Chats read in the last day were left as they were.`,
+        ? `${counted(read, 'chat')} sent for the AI to read.${wrote}${unopened} ${options.again}`
+        : `Done: ${counted(read, 'chat')} sent for the AI to read.${wrote}${unopened} Chats read in the last day were left as they were.`,
     warned: false,
   };
 }

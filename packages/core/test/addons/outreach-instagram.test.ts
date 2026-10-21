@@ -50,12 +50,16 @@ describe('Instagram’s kit and words', () => {
       requestsMessageAfterDays: 3,
       requestsMessagesPerDay: 5,
       tidyLimits: { cancel_request: 20, unfriend: 0 },
+      // Who followed back, from the accounts they followed: its own count, beside the 20 profiles checked a day.
+      followBackLooksPerDay: 30,
+      checksPerDay: 20,
     });
     for (const p of ['facebook', 'linkedin', 'alignable'] as const)
-      expect([NETWORKS[p].requestsMessageAfterDays, NETWORKS[p].requestsMessagesPerDay]).toEqual([
-        null,
-        null,
-      ]);
+      expect([
+        NETWORKS[p].requestsMessageAfterDays,
+        NETWORKS[p].requestsMessagesPerDay,
+        NETWORKS[p].followBackLooksPerDay,
+      ]).toEqual([null, null, null]);
   });
 
   it('says Follow them, Save my followers and Unfollow on Instagram', () => {
@@ -100,12 +104,16 @@ describe('Instagram’s kit and words', () => {
     expect(ticksOn('instagram').warmUp[0]).toBe(
       'Like one or two of their posts a day before following them',
     );
-    // Before its first day: the followers, then who to unfollow worked out for the person to tick, then one check.
+    expect(ticksOn('instagram').collect[1]).toContain(
+      'It looks at the accounts you followed to see who followed you back',
+    );
+    // Before its first day: the newest followers, then who to unfollow worked out for the person to tick, then one
+    // check.
     expect(listsWaitWords(NO_LISTS, true, 'instagram')).toBe(
-      'It’s saving your followers first, the first time only. Your day starts once they’re saved.',
+      'It’s saving your newest followers first, the first time only. Your day starts once they’re saved.',
     );
     expect(preDaySteps(NO_LISTS, {}, 'instagram').map((s) => s.label)).toEqual([
-      'Save your followers',
+      'Save your newest followers',
       'Work out who to unfollow',
       'Check your followers for good fits',
     ]);
@@ -505,5 +513,164 @@ describe('Instagram’s growing on Today (part 15)', () => {
       'Wrote a post your search on Instagram found',
     ]);
     expect((await quinn()).map(([kind]) => kind)).not.toContain('warm_up');
+  });
+});
+
+/**
+ * The owner's design of 21 Oct 2026: Save my followers reads only the newest (300 the first time, then those new since
+ * the last save), and who followed back is seen on their own account instead, so the first message, the one to their
+ * Requests and the unfollow list never wait on the whole list of followers.
+ */
+describe('Instagram’s newest followers, and follow-backs from their own accounts (21 Oct 2026)', () => {
+  let owner: TestUser;
+  let ws: string;
+
+  beforeAll(async () => {
+    owner = await createTestUser('outig-backs', { fullName: 'Robin Owner' });
+    ws = await outreachBusiness(owner, 'Outreach Follow Backs Co');
+    const details = PLAYBOOK_TEMPLATES.crm_demos.details;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'CRM demos',
+      template: 'crm_demos',
+      details: {
+        ...details,
+        platforms: ['instagram'],
+        link: 'https://cal.com/robin/demo',
+        pace: { ...details.pace, messageAfterDays: 0 },
+      },
+    });
+  }, 60_000);
+
+  afterAll(closeTestDbs);
+
+  const account = (username: string) => ({ id: null, username, url: `${IG}/${username}/` });
+  const follow = (username: string, name: string, at: Date) =>
+    runAs(
+      owner,
+      ws,
+      'outreach.touch.save',
+      { platform: 'instagram', kind: 'friend_request', profile: account(username), name },
+      at,
+    );
+  /** A list the extension saved: its newest followers (`friends`), or a look that saw a follow waiting (`sent`). */
+  const saved = (list: 'friends' | 'sent', people: readonly (readonly [string, string])[]) =>
+    runAs(owner, ws, 'outreach.friends.save', {
+      platform: 'instagram',
+      list,
+      people: people.map(([username, name]) => ({
+        name,
+        profile: account(username),
+        mutualFriends: null,
+      })),
+    });
+  const states = async () =>
+    Object.fromEntries(
+      (
+        await rows<{ username: string; state: string; since: Date }>(
+          admin(),
+          sql`select p.username, f.state, f.since from addon_outreach.friends f
+              join addon_outreach.profiles p on p.id = f.profile_id
+              where f.workspace_id = ${ws} and f.user_id = ${owner.id}`,
+        )
+      ).map((f) => [f.username, [f.state, new Date(f.since).toISOString()]]),
+    );
+  const next = async (input: Record<string, unknown> = {}) => {
+    const got = (await runAs(owner, ws, 'outreach.follow_backs.next', input)) as {
+      people: { name: string; username: string | null; followedAt: string }[];
+      perDay: number;
+    };
+    return { names: got.people.map((p) => p.name), perDay: got.perDay, people: got.people };
+  };
+  const today = async (names: readonly string[]) =>
+    ((await runAs(owner, ws, 'outreach.today', { platform: 'instagram' })).items as TodayItem[])
+      .filter((i) => names.includes(i.name))
+      .map((i) => [i.name, i.kind, i.requests, i.why[0]]);
+  const unfollowList = async () =>
+    (
+      (await runAs(owner, ws, 'outreach.friends.tidy', { platform: 'instagram' })).cancel as {
+        name: string;
+      }[]
+    ).map((c) => c.name);
+
+  it('saves part of the followers without marking anyone it didn’t read as gone', async () => {
+    await saved('friends', [
+      ['ana.old', 'Ana Old'],
+      ['ben.old', 'Ben Old'],
+    ]);
+    await follow('cara.waits', 'Cara Waits', ago(2));
+    const before = await states();
+    // Later: only the newest, Dee, is read and saved.
+    expect(await saved('friends', [['dee.new', 'Dee New']])).toMatchObject({
+      saved: 1,
+      added: 1,
+    });
+    const after = await states();
+    // Those it didn't read are as they were: followers still, and a follow still waiting since it went.
+    expect(after['ana.old']).toEqual(before['ana.old']);
+    expect(after['ben.old']).toEqual(before['ben.old']);
+    expect(after['cara.waits']).toEqual(before['cara.waits']);
+    expect(after['dee.new']![0]).toBe('friends');
+    const counts = (await runAs(owner, ws, 'outreach.friends', { platform: 'instagram' })).counts;
+    expect(counts).toMatchObject({ friends: 3, sent: 1 });
+  });
+
+  it('lists those followed a day ago or more who haven’t followed back, the longest since a look first', async () => {
+    await follow('eve.five', 'Eve Five', ago(5));
+    await follow('fay.half', 'Fay Half', new Date(Date.now() - DAY / 2));
+    // Cara (2 days ago) and Eve (5) wait; Fay was followed today, so she's left a day.
+    expect(await next()).toMatchObject({ names: ['Eve Five', 'Cara Waits'], perDay: 30 });
+    expect((await next({ most: 1 })).names).toEqual(['Eve Five']);
+    const [eve] = (await next()).people;
+    expect(eve).toMatchObject({ username: 'eve.five' });
+    expect(new Date(eve!.followedAt).getTime()).toBeLessThan(Date.now() - 4 * DAY);
+  });
+
+  it('notes a look that saw them still waiting, keeping when they were followed, and leaves them a day', async () => {
+    const before = await states();
+    expect(await saved('sent', [['eve.five', 'Eve Five']])).toMatchObject({
+      saved: 1,
+      added: 0,
+      changed: 0,
+    });
+    // Still followed 5 days ago: her Requests message and the unfollow list's wait go by that.
+    expect((await states())['eve.five']).toEqual(before['eve.five']);
+    expect((await next()).names).toEqual(['Cara Waits']);
+    expect(await today(['Eve Five'])).toEqual([
+      ['Eve Five', 'opener', true, 'You followed them 5 days ago, and they haven’t followed back'],
+    ]);
+  });
+
+  it('takes a follow-back seen on their account as accepting: the first message comes, and nobody unfollows them', async () => {
+    await follow('gus.old', 'Gus Old', ago(25));
+    await follow('hal.old', 'Hal Old', ago(25));
+    expect(await unfollowList()).toEqual(['Gus Old', 'Hal Old']);
+    // Gus's account says he follows them, with no list of followers saved.
+    expect(await saved('friends', [['gus.old', 'Gus Old']])).toMatchObject({ changed: 1 });
+    expect(await unfollowList()).toEqual(['Hal Old']);
+    expect(await today(['Gus Old'])).toEqual([
+      ['Gus Old', 'opener', false, 'Followed you back today'],
+    ]);
+    expect((await next()).names).not.toContain('Gus Old');
+    // Hal no longer followed when his account was looked at: ended already, not counted, and off both lists.
+    expect(
+      await runAs(owner, ws, 'outreach.friend.end', {
+        platform: 'instagram',
+        kind: 'cancel_request',
+        profile: account('hal.old'),
+        name: 'Hal Old',
+        already: true,
+      }),
+    ).toMatchObject({ counted: false });
+    expect(await unfollowList()).toEqual([]);
+    expect((await next()).names).not.toContain('Hal Old');
+  });
+
+  it('looks at half as many for a week after an Instagram warning, and at nobody off a follow network', async () => {
+    expect(await next({ platform: 'facebook' })).toMatchObject({ names: [], perDay: 0 });
+    await runAs(owner, ws, 'outreach.warning.note', {
+      platform: 'instagram',
+      words: ['Try again later'],
+    });
+    expect((await next()).perDay).toBe(15);
   });
 });

@@ -54,6 +54,11 @@ const HOST = 'https://www.instagram.com';
 const MOST = 20;
 /** Of a list's rows and a post's comments: enough to go on with, never a whole page's worth. */
 const ROWS_MOST = 200;
+/**
+ * Of the box of followers, which keeps every row it has drawn: past the newest 300 that Save my followers reads (the
+ * owner, 21 Oct 2026). At 200 a read never got past the first 200 drawn, however far the box was scrolled.
+ */
+const FOLLOWER_ROWS_MOST = 400;
 const COMMENTS_MOST = 40;
 /** A chat's latest messages. */
 const MESSAGES_MOST = 20;
@@ -404,6 +409,7 @@ export function profileOn(doc: Document, base: string): InstagramProfile | null 
 function rowsIn(
   root: Element,
   base: string,
+  most = ROWS_MOST,
 ): { row: Element; account: Account; name: string | null }[] {
   const rows = new Map<string, { row: Element; account: Account; name: string | null }>();
   for (const { a, url } of linksIn(root, base)) {
@@ -428,7 +434,7 @@ function rowsIn(
           !OWN_WORDS.test(text),
       )?.text ?? null;
     rows.set(key, { row, account, name });
-    if (rows.size >= ROWS_MOST) break;
+    if (rows.size >= most) break;
   }
   return [...rows.values()];
 }
@@ -473,7 +479,7 @@ function followersOn(doc: Document, base: string): Follower[] {
   const box = followersBox(doc, base);
   if (!box && kindOf(page) !== 'followers') return [];
   const root = box ?? mainOf(doc);
-  return rowsIn(root, base)
+  return rowsIn(root, base, FOLLOWER_ROWS_MOST)
     .filter(({ account }) => account.username.toLowerCase() !== listOwner)
     .map(({ row, account, name }) => {
       const names = controlsIn(row).map((c) => c.name);
