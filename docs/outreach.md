@@ -1404,6 +1404,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       back** and **Unfollow the ticked**; the person ticks who, and the extension unfollows them in a tab they can see,
       pressing Following, then Unfollow in its box, each by its own words (`cancel`, from 0.80.0). Nothing is
       unfollowed on its own.
+    - **Instagram's asks from part 13** (extension 0.81.0, `ASK_KINDS_ON.instagram`, `ASK_KIND_SINCE_ON`, no
+      migration): beside Save my followers, unfollowing and its profile, its followers checked for fits and one
+      researched (each account read for the AI: their name, what they do, their bio, how many follow them and what
+      Instagram says their latest posts show, 20 a day, its kit's `checksPerDay`), its chats read for the AI, and
+      someone looked up before drafting. Read my chats presses each chat's row in the person's messages by the name it
+      shows, as its rows aren't links, sends each one-to-one chat as Instagram's with its id from /direct/t/<id>/, and
+      notes who wrote last (`outreach.replies.note`), as a tab of the person's does as they go there now; the Requests
+      box and group chats are left alone. Instagram's own profile reader now reads someone's bio and their posts'
+      descriptions for these.
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a

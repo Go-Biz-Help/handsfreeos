@@ -13,6 +13,7 @@ import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import type { BioResult } from '../facebook/own-profile';
+import type { ReplySighting } from '../facebook/replies';
 import type { ProfileRef } from '../facebook/types';
 import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
@@ -137,9 +138,21 @@ export interface LookingSite {
   readonly lists?: {
     readonly scroll: (doc: Document, href: string) => boolean | Promise<boolean>;
     readonly showAll?: (doc: Document, href: string) => boolean | Promise<boolean>;
-    /** A chat with messages in it, opened from the side of its messages, for Check to outline. */
-    readonly openChat?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    /**
+     * A chat opened from the side of its messages: for Check to outline, one with messages in it; for Read my chats on
+     * Instagram, whose rows aren't links, the one whose row shows `name`.
+     */
+    readonly openChat?: (
+      doc: Document,
+      href: string,
+      name: string | null,
+    ) => boolean | Promise<boolean>;
   };
+  /**
+   * The chats on the page whose last message is theirs (decision 22), for HandsFreeOS to hear who wrote back, as the
+   * person goes and as Read my chats goes (Instagram's, its part 13). A network without it tells of none.
+   */
+  readonly replies?: (doc: Document, href: string) => ReplySighting[];
   /**
    * The presses its runner makes on its own, once the person lets it (Alignable's, partners stage 6c, part 5), each on
    * the page it's for: their posts read on their page, a like on the one picked, their own Connect, and a message in

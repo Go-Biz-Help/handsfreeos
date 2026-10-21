@@ -532,6 +532,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.engaged.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-replies-note':
+      return call(
+        api().POST('/v1/commands/outreach.replies.note', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-join-answers':
       return call(
         workerPost<JoinAnswerOutput>('/v1/addons/outreach/actions/outreach.join.answer', {

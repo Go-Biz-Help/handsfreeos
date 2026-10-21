@@ -1,8 +1,9 @@
 /**
  * Going through Instagram's lists for the person's asks (the Instagram and Alignable plan's part 12): their followers,
  * which Instagram draws in a box over their profile (/<you>/followers/), a few rows at a time as the box is scrolled.
- * Each call scrolls the box most of its height, as a person reading the list does; nothing is pressed. And, for Check
- * Instagram, a chat opened from the side of their messages, whose rows aren't links (the owner's Check, 0.62.0).
+ * Each call scrolls the box most of its height, as a person reading the list does; nothing is pressed. And a chat
+ * opened from the side of their messages, whose rows aren't links (the owner's Check, 0.62.0): for Check Instagram,
+ * and, from part 13, for Read my chats, which also scrolls that list for more.
  */
 import { clean } from '../facebook/dom';
 
@@ -44,19 +45,49 @@ export function scrollDialog(doc: Document): boolean {
   return true;
 }
 
+/** The rows of the list beside their messages: buttons, each with the other person's name in a `title`. */
+const chatRowsIn = (doc: Document): HTMLElement[] =>
+  [...doc.querySelectorAll<HTMLElement>('[role="button"]')].filter(
+    (row) => row.querySelector('span[title]') && !row.querySelector('[role="button"]'),
+  );
+
 /**
- * Opens a chat from the side of their messages, for Check to outline: the first row with words under its name (a chat
- * with messages in it). Its rows are buttons, each with the other person's name in a `title` and the time of its last
- * message (`abbr`). Opening it is a press of the row, as a person reading their messages does. Whether there was one.
+ * Opens a chat from the side of their messages: for Check to outline, the first row with words under its name (a chat
+ * with messages in it); for Read my chats (part 13), the row whose name is `name`. Its rows are buttons, each with
+ * the other person's name in a `title` and the time of its last message (`abbr`). Opening it is a press of the row, as
+ * a person reading their messages does. Whether there was one.
  */
-export function openChat(doc: Document): boolean {
-  for (const row of doc.querySelectorAll<HTMLElement>('[role="button"]')) {
-    if (!row.querySelector('span[title]') || !row.querySelector('abbr')) continue;
-    if (row.querySelector('[role="button"]')) continue;
-    const words = clean(row.textContent);
-    if (!words) continue;
+export function openChat(doc: Document, name: string | null = null): boolean {
+  const want = name ? clean(name).toLowerCase() : null;
+  for (const row of chatRowsIn(doc)) {
+    const named = row.querySelector('span[title]')!;
+    const shown = clean(named.getAttribute('title')) || clean(named.textContent);
+    if (want ? shown.toLowerCase() !== want : !row.querySelector('abbr') || !clean(row.textContent))
+      continue;
     row.click();
     return true;
   }
   return false;
 }
+
+/**
+ * Scrolls the list beside their messages most of its height for Instagram to draw more chats: the part around its rows
+ * that scrolls. Whether there was more to go.
+ */
+export function scrollChats(doc: Document): boolean {
+  const first = chatRowsIn(doc)[0];
+  for (let up = first?.parentElement; up; up = up.parentElement) {
+    if (!(up instanceof doc.defaultView!.HTMLElement) || !scrolls(up)) continue;
+    const room = up.scrollHeight - up.scrollTop - up.clientHeight;
+    if (room <= 4) return false;
+    up.scrollBy({ top: Math.max(200, up.clientHeight * SCREEN), behavior: 'smooth' });
+    return true;
+  }
+  return false;
+}
+
+/** A list on the page for the person's asks: their chats on their messages' pages, else the box over the page. */
+export const scrollList = (doc: Document, href: string): boolean =>
+  /^\/direct\//.test(new URL(href).pathname) && chatRowsIn(doc).length
+    ? scrollChats(doc)
+    : scrollDialog(doc);

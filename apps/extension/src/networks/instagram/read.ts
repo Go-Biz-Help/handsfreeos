@@ -55,6 +55,8 @@ const MESSAGES_MOST = 20;
 const TEXT_MOST = 2_000;
 /** A profile's latest posts. */
 const POSTS_MOST = 12;
+/** The lines under a profile's name: what they do, their bio. */
+const BIO_LINES = 8;
 
 const LOCATION = /^\/explore\/locations\/[^/]+(\/[^/]+)?\/?$/i;
 const TAG = /^\/explore\/tags\/[^/]+\/?$/i;
@@ -65,6 +67,8 @@ const FOLLOW_BACK = /^follow back$/i;
 const FOLLOWING = /^following$/i;
 const REQUESTED = /^requested$/i;
 const FOLLOWS_YOU = /^follows you$/i;
+/** "Followed by sam.lee and 2 others": who they share, never their bio. */
+const FOLLOWED_BY = /^followed by\b/i;
 const REMOVE = /^remove$/i;
 const REPLY = /^reply$/i;
 const ACCEPT = /^accept$/i;
@@ -107,6 +111,16 @@ export interface InstagramProfile extends Account {
   readonly followers: number | null;
   /** Their latest posts' links, as their grid shows them. */
   readonly posts: readonly string[];
+  /**
+   * The lines under their name, as shown (part 13, for the checks and the look-up): what they do, their bio and its
+   * link's words; never a count, "Followed by …" or Instagram's own words.
+   */
+  readonly bio: readonly string[];
+  /**
+   * What Instagram says each of their latest posts shows, beside `posts`: its picture's own description, which often
+   * carries its caption; null where it gave none.
+   */
+  readonly pictures: readonly (string | null)[];
 }
 
 /** Someone in the person's followers list. */
@@ -315,22 +329,45 @@ export function profileOn(doc: Document, base: string): InstagramProfile | null 
     ? (countOf(followersLink.a.querySelector('[title]')?.getAttribute('title')) ??
       countOf(clean(followersLink.a.textContent).replace(/\s*followers?$/i, '')))
     : null;
-  const posts = [
+  // Their grid: each post once, by its link, with what Instagram says its picture shows.
+  const grid = new Map<string, string | null>();
+  for (const { a, url } of linksIn(mainOf(doc), base)) {
+    if (header.contains(a)) continue;
+    const post = postOf(url);
+    if (!post || grid.has(post)) continue;
+    if (grid.size >= POSTS_MOST) break;
+    grid.set(post, clean(a.querySelector('img[alt]')?.getAttribute('alt')) || null);
+  }
+  const shownName = name && name.toLowerCase() !== account.username.toLowerCase() ? name : null;
+  // The lines under their name: what they do and their bio. Instagram draws a long bio in a part to press for more,
+  // so only links, buttons and headings are left out, with its own words, counts and who they share.
+  const bio = [
     ...new Set(
-      linksIn(mainOf(doc), base)
-        .filter(({ a }) => !header.contains(a))
-        .map(({ url }) => postOf(url))
-        .filter((p): p is string => p !== null),
+      leafLines(header)
+        .filter(
+          ({ el, text }) =>
+            !el.closest('a, button, h1, h2') &&
+            text !== shownName &&
+            text.toLowerCase() !== account.username.toLowerCase() &&
+            !OWN_WORDS.test(text) &&
+            !COUNTED.test(text) &&
+            countOf(text) === null &&
+            !FOLLOWS_YOU.test(text) &&
+            !FOLLOWED_BY.test(text),
+        )
+        .map(({ text }) => text.slice(0, TEXT_MOST)),
     ),
-  ].slice(0, POSTS_MOST);
+  ].slice(0, BIO_LINES);
   return {
     username: account.username,
     url: account.url,
-    name: name && name.toLowerCase() !== account.username.toLowerCase() ? name : null,
+    name: shownName,
     following,
     followsYou,
     followers,
-    posts,
+    posts: [...grid.keys()],
+    bio,
+    pictures: [...grid.values()],
   };
 }
 
@@ -632,7 +669,7 @@ function boxOn(doc: Document, base: string): Box | null {
 }
 
 /** The chats in the list beside their messages: rows with the other person's name in a `title` and a time. */
-function chatRows(doc: Document, base: string): ChatRow[] {
+export function chatRows(doc: Document, base: string): ChatRow[] {
   const page = instagramUrl(base);
   if (!page || partsOf(page)[0] !== 'direct') return [];
   const rows: ChatRow[] = [];

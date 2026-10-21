@@ -32,7 +32,8 @@ import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { instagramNoticer } from './actions';
 import { readOwnProfile, writeBio } from './own-profile';
 import { readInstagram } from './read';
-import { openChat, scrollDialog } from './browse';
+import { openChat, scrollList } from './browse';
+import { readReplies } from './replies';
 import { unfollow } from './unfollow';
 import { HOST, instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
 
@@ -310,11 +311,14 @@ export const INSTAGRAM: LookingSite = {
   noticer: instagramNoticer,
   // Unfollowing those the person ticked who didn't follow back (part 12), by Following and Unfollow's own words.
   unfollow,
-  // Its lists, for the person's asks (part 12): their followers' box scrolled, and a chat opened for Check.
+  // Its lists, for the person's asks (parts 12 and 13): their followers' box scrolled, and their chats' list too; a
+  // chat opened for Check, or by its row's name for Read my chats.
   lists: {
-    scroll: (doc) => scrollDialog(doc),
-    openChat: (doc) => openChat(doc),
+    scroll: (doc, href) => scrollList(doc, href),
+    openChat: (doc, _href, name) => openChat(doc, name),
   },
+  // Who wrote back in their chats (part 13), as the person goes and as Read my chats goes.
+  replies: readReplies,
   host: HOST,
   url: instagramUrl,
   kindOf,

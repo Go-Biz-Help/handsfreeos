@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.80.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.81.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -48,12 +48,12 @@ A tab's kit is found by its address (`kitOf`), so the tab reads and notes by its
 background takes a tab's notes only from a network it knows, as that network's. What differs from one network to the
 next is in its kit, never in an `if`.
 
-| Network   | Folder                    | From install? | What it does there                                                                                                                                                            |
-| --------- | ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                              |
-| LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                                |
-| Instagram | `src/networks/instagram/` | No: asked for | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick; its **Check Instagram** (0.58.0) tries each step up to its last press |
-| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, and works its list on its own once you let it (0.77.0); **Check Alignable** reads its pages at /biz                     |
+| Network   | Folder                    | From install? | What it does there                                                                                                                                                                                                                        |
+| --------- | ------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                                                                                          |
+| LinkedIn  | `src/networks/linkedin/`  | No: asked for | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                                                                                            |
+| Instagram | `src/networks/instagram/` | No: asked for | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0); its **Check Instagram** (0.58.0) tries each step up to its last press |
+| Alignable | `src/networks/alignable/` | No: asked for | Reads its pages, notes your steps, does what you ask, and works its list on its own once you let it (0.77.0); **Check Alignable** reads its pages at /biz                                                                                 |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -136,6 +136,20 @@ From 0.80.0 Instagram works by hand, as Alignable did before its runner (the Ins
 - **Unfollow the ones you ticked**, those who didn't follow back in your business's wait (3 weeks to start), 20 a day
   at most, in a tab you can see: their Following, then Unfollow in its box, each by its own words. Nothing is
   unfollowed on its own.
+
+From 0.81.0 it takes the rest of Instagram's asks from HandsFreeOS (the Instagram plan's part 13; `src/jobs/instagram/`),
+in a window of its own at a person's pace, pressing nothing but a chat's row in your messages:
+
+- **Check my followers** and **Research** (`checks.ts`): opens each account HandsFreeOS names, checks it's theirs by
+  the name in its address, and reads its header (their name, what they do, their bio, how many follow them) and what
+  Instagram says their latest posts show, for the AI's check, 20 a day to start (its kit's `checksPerDay`).
+- **Read my chats** (`chats.ts`): opens your messages (/direct/inbox/), presses each chat's row in the list beside them
+  by the name it shows (Instagram's rows aren't links), and sends each one-to-one chat's latest messages as
+  Instagram's, with its id from its address, scrolling the list for more. It notes who wrote last: a chat whose last
+  message is theirs goes to HandsFreeOS (`outreach.replies.note`), as a tab of yours does as you go (below, "Who wrote
+  back"). Group chats and your Requests box are left alone.
+- **Draft a message** (`lookup.ts`): their account read before the AI drafts to them, one page, then the window closes.
+- Save my followers and Unfollow, and your own profile read and its bio put in, as before.
 
 The background keeps which networks are on, and Chrome's leave, in `hfos.networks`, works it out again when your
 settings or who's signed in change and when you allow or take back a site in Chrome, and registers LinkedIn's script
@@ -357,7 +371,9 @@ windows and tabs are its own, never noted as yours.
 **Who wrote back** (decision 22): while noting is on, each tab looks at the chats on the page as it changes, at most
 every 10 seconds and not in the 20 seconds after you send one. On Facebook, Messenger's list (a line that doesn't
 start "You"), the chat open on its page, and small chat windows over any page, where the last message is theirs
-(`src/networks/facebook/replies.ts`); on LinkedIn, messaging's list and the conversation open beside it (above). The
+(`src/networks/facebook/replies.ts`); on LinkedIn, messaging's list and the conversation open beside it (above); on
+Instagram (0.81.0), a chat open on its own page whose last message is theirs, by its id and their account, and a row of
+the list that links to its chat (`src/networks/instagram/replies.ts`). The
 background sends who, as the tab's network's (the chat's id or their profile, never what they wrote), only chats from
 the last two days and each at most every 3 minutes (`src/hfos/replies.ts`). HandsFreeOS counts one only when it
 answers a message of yours it noted, and tells your phone unless you had that tab in front of you.

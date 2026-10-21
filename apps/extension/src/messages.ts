@@ -46,7 +46,11 @@ export type FetchAsk = StepAsk & {
  * says whether it could.
  */
 export type BrowseAsk =
-  | { readonly type: 'hfos-open-chat'; readonly threadId: string }
+  /**
+   * On Instagram, whose chats' rows aren't links (src/networks/instagram/browse.ts), `name` says which: the row that
+   * shows it.
+   */
+  | { readonly type: 'hfos-open-chat'; readonly threadId: string; readonly name?: string }
   | { readonly type: 'hfos-scroll-chats' }
   | { readonly type: 'hfos-scroll-feed' }
   | { readonly type: 'hfos-scroll-list' }

@@ -56,7 +56,7 @@ const FOLLOWING = `<button><div><div dir="auto">Following</div><svg role="img" a
   <div role="button">Message</div>`;
 
 describe('someone’s profile on Instagram', () => {
-  it('reads their name and username, that you follow them, their followers and their latest posts', () => {
+  it('reads their name and username, that you follow them, their followers, bio and latest posts', () => {
     expect(read(profile(FOLLOWING)).profile).toEqual({
       username: 'dana.reyes',
       url: `${IG}/dana.reyes/`,
@@ -65,6 +65,9 @@ describe('someone’s profile on Instagram', () => {
       followsYou: null,
       followers: 321_861,
       posts: [`${IG}/p/C1aaaaaaa/`, `${IG}/reel/C2bbbbbbb/`],
+      // What they do and their bio, for the checks and the look-up; never who they share.
+      bio: ['Plumber', 'Fixing Austin leaks since 2009'],
+      pictures: ['A new water heater', 'Before and after'],
     });
   });
 

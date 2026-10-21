@@ -662,6 +662,11 @@ request when opened, so no Check opens it: the first real request shows what it 
      `requestsMessageAfterDays` and `requestsMessagesPerDay`), and no follow-up in a chat they haven't answered or
      accepted. Tidying unfollows, after the business's 3-week wait, 20 a day: never anyone who wrote back, a customer,
      or someone kept; the person ticks who, and the extension unfollows them in a tab they can see.
+   - **Part 13, asks** (extension 0.81.0, no migration): every ask the plan lists for Instagram works there. Beside
+     Save my followers, unfollowing and the profile, its followers are checked for fits and one researched (each
+     account read for the AI, 20 a day), its chats read for the AI with who wrote last noted, and someone looked up
+     before drafting (`src/jobs/instagram/`). Its chats' rows aren't links, so Read my chats presses each by the name
+     it shows; it leaves the Requests box and group chats alone.
 
 ## Build order
 

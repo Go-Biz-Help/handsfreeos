@@ -9,7 +9,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { runAsk } from '../src/asks/run';
 import { instagramListSave } from '../src/hfos/saves';
 import { KITS } from '../src/networks';
-import { openChat, scrollDialog } from '../src/networks/instagram/browse';
+import { openChat, scrollDialog, scrollList } from '../src/networks/instagram/browse';
+import { readReplies } from '../src/networks/instagram/replies';
 import { unfollow } from '../src/networks/instagram/unfollow';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 
@@ -323,5 +324,263 @@ describe('Unfollowing the ones they ticked, on Instagram', () => {
       line: 'Done. Unfollowed: 1 person. Not followed already: 1. No longer on the list: 1.',
       warned: false,
     });
+  });
+});
+
+// ------------------------------------------------------------------------------------------------- part 13
+
+/** Someone's account, as the owner's Check outlined one: their name, what they do, their bio, counts and posts. */
+const account = (username: string, name: string) => () =>
+  new JSDOM(
+    `<!doctype html><html><body>${MENU}<main role="main"><header>
+      <section><a href="#"><h2 dir="auto"><span>${username}</span></h2></a>
+        <span dir="auto">${name}</span>
+        <div><a href="#"><span dir="auto"><span title="1,204">1.2K</span> followers</span></a></div></section>
+      <section><div dir="auto">Plumber</div><span dir="auto"><div role="button"><span dir="auto">Fixing Austin leaks since 2009</span></div></span>
+        <a href="/${username}/followers/mutualOnly"><span dir="auto">Followed by sam.lee</span></a></section>
+      <section><button><div dir="auto">Follow</div></button><div role="button">Message</div></section>
+    </header>
+    <div><a href="/${username}/p/C1aaaaaaa/"><img alt="A new water heater, fitted"></a>
+      <a href="/${username}/p/C1bbbbbbb/"><img alt=""></a></div></main></body></html>`,
+    { url: `${IG}/${username}/` },
+  ).window.document;
+
+describe('Check my followers and Research, on Instagram', () => {
+  const who = (username: string, name: string) => ({
+    profileId: `p-${username}`,
+    name,
+    url: `${IG}/${username}/`,
+  });
+
+  it('opens each account HandsFreeOS names, checks it’s theirs, and sends what it says for the AI', async () => {
+    const { tab, opened } = instagramTab({
+      '/dana.reyes/': account('dana.reyes', 'Dana Reyes'),
+      // Instagram showed another account for this one: missing, with no lines.
+      '/sam.lee/': account('kim_bakes', 'Kim Bakes'),
+    });
+    const { job, sent } = instagramJob(tab, {
+      'hfos-checks-next': () => ({
+        people: [who('dana.reyes', 'Dana Reyes'), who('sam.lee', 'Sam Lee')],
+        today: 0,
+        perDay: 20,
+      }),
+      'hfos-check-look': () => ({ checkId: 'c' }),
+    });
+    const end = await runAsk({ kind: 'checks' }, job, 'instagram');
+    expect(opened).toEqual(['/dana.reyes/', '/sam.lee/']);
+    expect(sent.find((s) => s.type === 'hfos-checks-next')!.input).toMatchObject({
+      platform: 'instagram',
+    });
+    expect(sent.filter((s) => s.type === 'hfos-check-look').map((s) => s.input)).toEqual([
+      {
+        workspaceId: 'b',
+        profileId: 'p-dana.reyes',
+        lines: [
+          'Dana Reyes (@dana.reyes)',
+          'Plumber',
+          'Fixing Austin leaks since 2009',
+          '1,204 followers',
+          'A post: A new water heater, fitted',
+        ],
+        missing: false,
+      },
+      { workspaceId: 'b', profileId: 'p-sam.lee', lines: [], missing: true },
+    ]);
+    expect(end).toEqual({
+      line: 'Done. Checked 1 person for the AI. Instagram didn’t show 1 account. The good fits show under Good fits on the Friends tab once it has read them.',
+      warned: false,
+    });
+  });
+
+  it('says when today’s checks are done, and researches one within them', async () => {
+    const { tab } = instagramTab({ '/dana.reyes/': account('dana.reyes', 'Dana Reyes') });
+    const full = instagramJob(tab, {
+      'hfos-checks-next': () => ({ people: [], today: 20, perDay: 20 }),
+    });
+    expect(await runAsk({ kind: 'checks' }, full.job, 'instagram')).toEqual({
+      line: 'That’s today’s 20 profiles on Instagram. It carries on tomorrow.',
+      warned: false,
+    });
+    const one = instagramJob(tab, {
+      'hfos-checks-next': (input) => {
+        expect(input).toMatchObject({ profileId: 'p-dana.reyes', most: 1, platform: 'instagram' });
+        return { people: [who('dana.reyes', 'Dana Reyes')], today: 3, perDay: 20 };
+      },
+      'hfos-check-look': () => ({ checkId: 'c' }),
+    });
+    expect(
+      await runAsk(
+        { kind: 'research', profileId: 'p-dana.reyes', name: 'Dana Reyes' },
+        one.job,
+        'instagram',
+      ),
+    ).toMatchObject({ line: expect.stringContaining('Checked 1 person for the AI.') });
+  });
+});
+
+describe('a look-up before drafting, on Instagram', () => {
+  it('reads their account, closes the window, and has the AI draft with what it said', async () => {
+    const { tab } = instagramTab({ '/dana.reyes/': account('dana.reyes', 'Dana Reyes') });
+    const { job, sent } = instagramJob(tab, {
+      'hfos-draft': () => ({
+        drafts: ['Hi Dana, how are the water heaters going?'],
+        kind: 'opener',
+        opener: null,
+        simple: false,
+      }),
+    });
+    const end = await runAsk(
+      {
+        kind: 'lookup',
+        draft: { kind: 'opener', profileId: 'p-dana', chatId: null, postId: null },
+        profileUrl: `${IG}/dana.reyes/`,
+        name: 'Dana Reyes',
+      },
+      job,
+      'instagram',
+    );
+    const drafted = sent.find((s) => s.type === 'hfos-draft')!.input as { lookup: string[] };
+    expect(drafted.lookup).toContain('Fixing Austin leaks since 2009');
+    expect(end).toMatchObject({
+      line: 'Wrote a draft after looking Dana Reyes up on Instagram.',
+      result: { drafts: ['Hi Dana, how are the water heaters going?'], lookedUp: true },
+    });
+  });
+});
+
+/** Their messages: two chats in the list beside them, rows that are buttons; and each chat's own page. */
+const inboxRow = (name: string, line: string, when: string) =>
+  `<div role="button"><div><img alt="user"></div><div><span dir="auto"><span title="${name}">${name}</span></span>
+    <div><span dir="auto"><span>${line}</span></span><span dir="auto"><abbr><span>${when}</span></abbr></span></div></div></div>`;
+const INBOX_ROWS = `<div role="navigation" aria-label="Thread list"><div>
+  ${inboxRow('Dana Reyes', 'Yes, what do you need?', '2h')}${inboxRow('Sam Lee', 'You: Thanks!', '3d')}</div></div>`;
+
+const chatPage = (id: string, username: string, name: string, theirsLast: boolean) => () =>
+  new JSDOM(
+    `<!doctype html><html><body>${MENU}<main><section>${INBOX_ROWS}
+      <div><div><a role="link" href="/${username}/"><span title="${name}">${name}</span></a></div>
+      <div aria-label="Messages in conversation with ${name}"><div role="grid">
+        <div role="row"><div role="gridcell"><h5><span>You sent</span></h5><div dir="auto">Hi, are you taking new clients?</div></div></div>
+        ${
+          theirsLast
+            ? `<div role="row"><div role="gridcell"><h5><span>${name.split(' ')[0]} sent</span></h5><div dir="auto">Yes, what do you need?</div></div></div>`
+            : ''
+        }
+      </div></div>
+      <div><div role="textbox" contenteditable="true" aria-label="Message"></div></div></div></section></main></body></html>`,
+    { url: `${IG}/direct/t/${id}/` },
+  ).window.document;
+
+describe('Read my chats, on Instagram', () => {
+  it('opens a chat by its row’s name, and scrolls the list of chats, never the page', () => {
+    const doc = new JSDOM(
+      `<!doctype html><html><body><div id="list" style="overflow-y: auto">${INBOX_ROWS}</div></body></html>`,
+      { url: `${IG}/direct/inbox/` },
+    ).window.document;
+    let pressed = '';
+    for (const row of doc.querySelectorAll<HTMLElement>('[role="button"]'))
+      row.addEventListener(
+        'click',
+        () => (pressed = row.querySelector('span[title]')!.getAttribute('title')!),
+      );
+    expect(openChat(doc, 'sam lee')).toBe(true);
+    expect(pressed).toBe('Sam Lee');
+    expect(openChat(doc, 'Kim Bakes')).toBe(false);
+    const list = doc.querySelector<HTMLElement>('#list')!;
+    let top = 0;
+    Object.defineProperty(list, 'clientHeight', { get: () => 400 });
+    Object.defineProperty(list, 'scrollHeight', { get: () => 900 });
+    Object.defineProperty(list, 'scrollTop', { get: () => top });
+    list.scrollBy = (() => (top = 500)) as typeof list.scrollBy;
+    expect(scrollList(doc, `${IG}/direct/inbox/`)).toBe(true);
+    expect(scrollList(doc, `${IG}/direct/inbox/`)).toBe(false);
+  });
+
+  it('tells who wrote last in the chat open, by its id and their account', () => {
+    const doc = chatPage('111', 'dana.reyes', 'Dana Reyes', true)();
+    expect(readReplies(doc, doc.location.href)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '111',
+        profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
+        when: null,
+      },
+    ]);
+    const mine = chatPage('222', 'sam.lee', 'Sam Lee', false)();
+    expect(readReplies(mine, mine.location.href)).toEqual([]);
+  });
+
+  it('reads each chat for the AI as Instagram’s, and notes the one whose last message is theirs', async () => {
+    const shown = {
+      dana: chatPage('111', 'dana.reyes', 'Dana Reyes', true),
+      sam: chatPage('222', 'sam.lee', 'Sam Lee', false),
+    };
+    const { tab, opened } = instagramTab({
+      '/direct/inbox/': () =>
+        new JSDOM(
+          `<!doctype html><html><body>${MENU}<main><section>${INBOX_ROWS}</section></main></body></html>`,
+          { url: `${IG}/direct/inbox/` },
+        ).window.document,
+    });
+    // A row pressed opens its chat's page: the tab shows it from then on.
+    const ask = tab.ask.bind(tab);
+    let doc: Document | null = null;
+    tab.ask = (async (message: { type: string; name?: string }) => {
+      if (message.type === 'hfos-open-chat') {
+        doc = shown[message.name === 'Dana Reyes' ? 'dana' : 'sam']();
+        return { ok: true };
+      }
+      if (message.type === 'hfos-scroll-list') return { ok: false };
+      if (message.type === 'hfos-read' && doc)
+        return { ok: true, result: KITS.instagram.readPage(doc, doc.location.href) };
+      return ask(message as never);
+    }) as typeof tab.ask;
+    const store = new Map<string, unknown>();
+    vi.stubGlobal('chrome', {
+      storage: {
+        local: {
+          get: async (k: string) => (store.has(k) ? { [k]: store.get(k) } : {}),
+          set: async (v: Record<string, unknown>) => {
+            for (const [k, value] of Object.entries(v)) store.set(k, value);
+          },
+        },
+      },
+    });
+    try {
+      const { job, sent } = instagramJob(tab, {
+        'hfos-collect-chats': () => ({ saved: 1, waiting: 1 }),
+        'hfos-replies-note': () => ({ replies: [] }),
+      });
+      const end = await runAsk({ kind: 'chats' }, job, 'instagram');
+      expect(opened).toEqual(['/direct/inbox/']);
+      const chats = sent
+        .filter((s) => s.type === 'hfos-collect-chats')
+        .map((s) => s.input as { platform: string; chats: { name: string; thread: unknown }[] });
+      expect(chats.map((c) => [c.platform, c.chats[0]!.name, c.chats[0]!.thread])).toEqual([
+        ['instagram', 'Dana Reyes', { id: '111', encrypted: false }],
+        ['instagram', 'Sam Lee', { id: '222', encrypted: false }],
+      ]);
+      // Dana wrote last, two hours ago; Sam's chat ends with the person's own.
+      expect(sent.filter((s) => s.type === 'hfos-replies-note').map((s) => s.input)).toEqual([
+        {
+          workspaceId: 'b',
+          platform: 'instagram',
+          looking: false,
+          seen: [
+            {
+              name: 'Dana Reyes',
+              threadKey: '111',
+              profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
+            },
+          ],
+        },
+      ]);
+      expect(end).toEqual({
+        line: 'Done: 2 chats sent for the AI to read. 1 chat had their message last. Chats read in the last day were left as they were.',
+        warned: false,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
