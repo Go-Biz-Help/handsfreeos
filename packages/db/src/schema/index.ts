@@ -84,6 +84,8 @@ export const workspaces = app.table('workspaces', {
   }),
   /** The model its calls think with, picked by support in /admin; null is the worker's VOICE_MODEL. */
   phoneModel: text('phone_model'),
+  /** Who hears its callers (nova-3, flux), picked by support in /admin; null is the worker's VOICE_LISTENER. */
+  phoneListener: text('phone_listener'),
   /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
   isPlatform: boolean('is_platform').notNull().default(false),
   ...timestamps(),
