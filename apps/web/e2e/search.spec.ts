@@ -445,10 +445,12 @@ test('what results open onto: a message in its thread, a task, a form’s answer
   for (let i = 1; i <= 32; i++)
     await textFromCustomer({ from: '+15045550199', to: number, body: `Following up, note ${i}` });
 
-  // The worker takes each text in turn: search once the last one is in.
+  // The worker takes each text in turn: search again until the last one is in. Each try reloads the page, since
+  // going to the same address after `#` only moves within the page and asks nothing.
   const message = page.getByTestId('search-card-messages').getByTestId('search-row-messages');
+  await page.goto(`/app/w/${workspaceId}/search#q=note%2032`);
   await expect(async () => {
-    await page.goto(`/app/w/${workspaceId}/search#q=note%2032`);
+    await page.reload();
     await expect(message).toContainText('note 32', { timeout: 5_000 });
   }).toPass({ timeout: 90_000 });
   await page.goto(`/app/w/${workspaceId}/search#q=zebrawood`);
