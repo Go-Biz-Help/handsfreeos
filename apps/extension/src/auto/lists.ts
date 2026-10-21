@@ -14,11 +14,13 @@
  * Each network has its own lists and its own first day (packages/core/src/addons/outreach/lists.ts, `LIST_SAVES_ON`):
  * LinkedIn's runner (./linkedin.ts) saves the person's connections, then the invitations they've got and the ones
  * they've sent, each to its end, then works out which old invitations to withdraw and checks their connections for
- * good fits once, by the same steps with LinkedIn's jobs (../jobs/linkedin/).
+ * good fits once, by the same steps with LinkedIn's jobs (../jobs/linkedin/). Alignable's (./alignable.ts) saves their
+ * connections and the connection requests they've got, then checks their connections once, with its asks' jobs
+ * (../jobs/alignable/): no reader of the requests they've sent is built, so there's nothing to tidy up first.
  */
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   afterFirstSave,
   atKey,
@@ -30,6 +32,11 @@ import {
   type ListSave,
   type ListsSaved,
 } from '@hfos/core/addons/outreach/lists';
+import { checkConnections as checkAlignableConnections } from '../jobs/alignable/checks';
+import {
+  checkRequests as saveAlignableRequests,
+  saveConnections as saveAlignableConnections,
+} from '../jobs/alignable/people';
 import { checkFriends } from '../jobs/checks';
 import { saveGroups } from '../jobs/groups';
 import { checkGroups } from '../jobs/groups-check';
@@ -112,7 +119,21 @@ const LISTS_ON: Readonly<Record<Platform, ListsOn>> = {
   },
   // Still looked at (decision 78): no day yet, so nothing to do before one.
   instagram: notYet('Instagram'),
-  alignable: notYet('Alignable'),
+  // Its runner (part 5): its connections and the requests they've got, then one check of the connections, at its own
+  // day's count. No reader of the requests they've sent is built, so it has nothing to tidy up first.
+  alignable: {
+    save: { friends: saveAlignableConnections, requests: saveAlignableRequests },
+    doing: {
+      friends: 'Saving your Alignable connections first…',
+      requests: 'Saving the connection requests you’ve got on Alignable first…',
+    },
+    names: { friends: 'Your connections', requests: 'Connection requests you’ve got' },
+    checks: (job) => checkAlignableConnections(job, NETWORKS.alignable.checksPerDay),
+    checking: 'Checking your connections for good fits…',
+    checkName: 'Check my connections',
+    tidying: 'Old connection requests on Alignable are yours to withdraw.',
+    tidied: () => 'Old connection requests on Alignable are yours to withdraw.',
+  },
 };
 
 /** What to do before the day: save a list, check the groups, work out Tidy up, or check friends once. */

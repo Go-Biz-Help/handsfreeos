@@ -81,7 +81,9 @@ describe('a network’s words on screen', () => {
     // Settings show only the switches a network's runner reads; one still looked at has none yet.
     expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS);
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
-    expect(ticksShownOn('alignable')).toEqual([]);
+    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does.
+    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect']);
+    expect(ticksShownOn('instagram')).toEqual([]);
     // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.
     const doing = { ...AUTOMATION_DEFAULTS, sending: 'steps' as const };
     expect(autoKinds(doing, 'facebook')).toEqual([
@@ -91,7 +93,15 @@ describe('a network’s words on screen', () => {
       'comment',
     ]);
     expect(autoKinds(doing, 'linkedin')).toEqual(['warm_up', 'friend_request', 'comment']);
+    // Alignable's forum answers and comments wait for an OK each time: its runner warms up and connects.
+    expect(autoKinds(doing, 'alignable')).toEqual(['warm_up', 'friend_request']);
     expect(autoKinds(doing, 'instagram')).toEqual([]);
+    expect(sendingModesOn('alignable').steps).toBe(
+      'Connection requests and likes on their own; each message waits for one tap, and you post each comment',
+    );
+    expect(sendingModesOn('alignable').everything).toBe(
+      'Everything on its own, messages too; you post each comment',
+    );
     expect(ticksOn('linkedin').confirmRequests[0]).toBe(
       'Accept invitations from people who fit a playbook',
     );
@@ -168,7 +178,7 @@ describe('the networks a person works', () => {
   });
 
   it('puts every network past its look on Today and the filters, once it’s turned on (decision 78)', () => {
-    // Alignable works from its part 3 and Instagram from its part 12, each by hand till its runner (`runsOnItsOwn`).
+    // Alignable works from its part 3, and on its own from part 5; Instagram from its part 12, by hand till its runner (`runsOnItsOwn`).
     expect(WORKING_PLATFORMS).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
     expect(PLATFORM_KEYS.filter(isLooking)).toEqual([]);
     const instagram = withNetwork(AUTOMATION_DEFAULTS, 'instagram', { on: true });

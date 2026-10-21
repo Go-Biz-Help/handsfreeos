@@ -234,6 +234,15 @@ export function idOfPage(root: ParentNode, base: string): string | null {
 const hasLink = (root: ParentNode, base: string, path: RegExp) =>
   linksIn(root, base).some(({ url }) => path.test(url.pathname));
 
+/**
+ * Whether a business's page has this link of its own: one carrying Alignable's id for it when the page has one, never
+ * another business's (one its page suggests, say).
+ */
+const ownLink = (root: ParentNode, base: string, path: RegExp, id: string | null) =>
+  linksIn(root, base).some(
+    ({ url }) => path.test(url.pathname) && (id === null || idIn(url) === id),
+  );
+
 export const CONNECT_AT = /^\/biz\/connection_requests\//i;
 export const MESSAGE_AT = /^\/biz\/conversations\/?$/i;
 
@@ -415,7 +424,7 @@ function whenIn(root: Element): string | null {
 }
 
 /** A post's likes: the count beside the word Like in its counts. */
-function likesIn(root: Element): number | null {
+export function likesIn(root: Element): number | null {
   for (const span of root.querySelectorAll('span')) {
     if (!/^like$/i.test(clean(span.textContent))) continue;
     const count = countOf(clean(span.previousElementSibling?.textContent));
@@ -426,11 +435,14 @@ function likesIn(root: Element): number | null {
 
 /**
  * The posts on the page: each found by its Comment, a link to its discussion (/biz/discussions/<id>), and read from the
- * nearest part around it that names its author. A discussion's own page has its post first, then its answers, each
- * read on its own (`answersOn`).
+ * nearest part around it that names its author (`root`, where its runner finds its Like: ./auto.ts). A discussion's own
+ * page has its post first, then its answers, each read on its own (`answersOn`).
  */
-function postsOn(doc: Document, base: string): Thread[] {
-  const found: Thread[] = [];
+export function postParts(
+  doc: Document,
+  base: string,
+): { readonly root: Element; readonly thread: Thread }[] {
+  const found: { readonly root: Element; readonly thread: Thread }[] = [];
   const seen = new Set<string>();
   for (const { a, url } of linksIn(doc, base)) {
     const [first, second, id] = parts(url);
@@ -448,17 +460,23 @@ function postsOn(doc: Document, base: string): Thread[] {
     // discussion's own page draws as a plain box of words (the owner's Check, 0.67.0).
     const words = root.querySelector('div[title]') ?? bodyOf(root, base);
     found.push({
-      author: author ? { name: author.name, profile: author.profile } : null,
-      url: key,
-      when: whenIn(root),
-      text: textOf(words),
-      likes: likesIn(root),
-      connect: hasLink(root, base, CONNECT_AT),
+      root,
+      thread: {
+        author: author ? { name: author.name, profile: author.profile } : null,
+        url: key,
+        when: whenIn(root),
+        text: textOf(words),
+        likes: likesIn(root),
+        connect: hasLink(root, base, CONNECT_AT),
+      },
     });
     if (found.length >= MOST) break;
   }
   return found;
 }
+
+const postsOn = (doc: Document, base: string): Thread[] =>
+  postParts(doc, base).map((part) => part.thread);
 
 /** A post's own part with its words: the first of its parts that names no business and holds no link of its own. */
 function bodyOf(root: Element, base: string): Element | null {
@@ -534,10 +552,11 @@ export function businessPage(doc: Document, base: string): BusinessPage | null {
           .filter(Boolean),
       ),
     ],
-    connect: hasLink(main, base, CONNECT_AT),
+    // Its own Connect and Message, by its id. Its Connect goes once it's asked: its runner looks for that after pressing.
+    connect: ownLink(main, base, CONNECT_AT, id),
     recommend: hasLink(main, base, /^\/biz\/recommendations\/new\/?$/i),
     refer: hasLink(main, base, /^\/forward_referral_card\//i),
-    message: hasLink(main, base, MESSAGE_AT),
+    message: ownLink(main, base, MESSAGE_AT, id),
   };
 }
 

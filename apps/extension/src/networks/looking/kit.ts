@@ -1,17 +1,22 @@
 /**
  * The kit of a network still looked at (../kit.ts; ./site.ts): Instagram's and Alignable's, built from their sites.
  * Their sites are asked for when the person turns the network on (an optional host permission), and their script runs
- * only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads only the
- * network's warnings as the person goes, notes none of their steps, and answers only Check <network>'s asks: a page
- * read and outlined, and a look for a step's button, never pressed.
+ * only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads the
+ * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
+ * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
+ * the person's own profile, and, on Alignable, its runner's presses (`auto`).
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
+  AutoAnswer,
+  AutoAsk,
   BrowseAnswer,
   CodeAnswer,
   CodeAsk,
+  ConnectAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PostsAnswer,
   TryAnswer,
   TryAsk,
   UnfollowAnswer,
@@ -79,6 +84,33 @@ async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
   return { ok: true, result: await site.unfollow(document) };
 }
 
+/** The runner's presses it answers: their posts, a like, Connect and a message. Never a comment. */
+type OnItsOwnAsk = Exclude<AutoAsk, { readonly type: 'hfos-comment' }> | ConnectAsk;
+const ON_ITS_OWN_ASKS = new Set([
+  'hfos-their-posts',
+  'hfos-like-post',
+  'hfos-connect',
+  'hfos-message',
+]);
+
+/** One of its runner's presses, on a network whose site has them (Alignable's): none anywhere else. */
+async function onItsOwn(site: LookingSite, ask: OnItsOwnAsk): Promise<PostsAnswer | AutoAnswer> {
+  const auto = site.auto;
+  if (!auto)
+    return { ok: false, error: `The extension doesn’t work on ${site.name} on its own yet.` };
+  const href = location.href;
+  if (ask.type === 'hfos-their-posts')
+    return { ok: true, posts: auto.theirPosts(document, href, ask.profile).slice(0, ask.most) };
+  if (ask.type === 'hfos-like-post')
+    return { ok: true, ...(await auto.like(document, href, ask.profile, ask)) };
+  // Connect and a message say whose they are: nothing is pressed without it.
+  if (!ask.profile)
+    return { ok: false, error: `The extension didn’t say whose page it is on ${site.name}.` };
+  if (ask.type === 'hfos-connect')
+    return { ok: true, result: auto.connect(document, href, ask.profile) };
+  return { ok: true, result: await auto.message(document, href, ask.text, ask.profile) };
+}
+
 const OWN_PROFILE_ASKS = new Set(['hfos-own-profile', 'hfos-write-bio', 'hfos-write-about']);
 
 export function lookingKit(site: LookingSite): Kit {
@@ -115,6 +147,8 @@ export function lookingKit(site: LookingSite): Kit {
               ? browse(site, ask.type)
               : ask.type === 'hfos-unfollow'
                 ? unfollowHere(site)
-                : null,
+                : ON_ITS_OWN_ASKS.has(ask.type)
+                  ? onItsOwn(site, ask as OnItsOwnAsk)
+                  : null,
   };
 }

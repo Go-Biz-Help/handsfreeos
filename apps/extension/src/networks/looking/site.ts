@@ -11,7 +11,9 @@
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
+import type { AutoResult, TheirPost } from '../facebook/auto';
 import type { BioResult } from '../facebook/own-profile';
+import type { ProfileRef } from '../facebook/types';
 import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
@@ -137,6 +139,27 @@ export interface LookingSite {
     readonly showAll?: (doc: Document, href: string) => boolean | Promise<boolean>;
     /** A chat with messages in it, opened from the side of its messages, for Check to outline. */
     readonly openChat?: (doc: Document, href: string) => boolean | Promise<boolean>;
+  };
+  /**
+   * The presses its runner makes on its own, once the person lets it (Alignable's, partners stage 6c, part 5), each on
+   * the page it's for: their posts read on their page, a like on the one picked, their own Connect, and a message in
+   * their conversation. A network without them presses none of these.
+   */
+  readonly auto?: {
+    readonly theirPosts: (doc: Document, href: string, profile: ProfileRef) => TheirPost[];
+    readonly like: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+      pick: { readonly index: number; readonly url: string | null },
+    ) => Promise<{ readonly result: AutoResult; readonly postUrl: string | null }>;
+    readonly connect: (doc: Document, href: string, profile: ProfileRef) => AutoResult;
+    readonly message: (
+      doc: Document,
+      href: string,
+      text: string,
+      profile: ProfileRef,
+    ) => Promise<AutoResult>;
   };
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;

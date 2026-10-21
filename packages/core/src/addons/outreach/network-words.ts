@@ -254,8 +254,8 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'The rest wait for you.',
       ],
       collect: [
-        'Once a day, first: check connection requests and read my messages',
-        'These fill the list it works from.',
+        'Once a day, first: check connection requests and read my town’s posts',
+        'These fill the list it works from. It checks your connections for good fits, and looks for partners, too.',
       ],
       joinGroups: [
         'Join good groups when my groups run low',
@@ -302,12 +302,23 @@ export function todayKindsOn(platform: Platform): Readonly<Record<TodayKind, str
 export const saveListOn = (platform: Platform): string =>
   MORE[platform].saveList ?? `Save my ${NETWORKS[platform].words.friends} list`;
 
-/** What the extension may do on its own on a network, in its words (Sending, decision 26). */
+/**
+ * What the extension may do on its own on a network, in its words (Sending, decision 26). Where its runner never
+ * comments (Alignable's answers wait for an OK each time), comments stay the person's whatever they pick.
+ */
 export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode, string>> {
-  return {
-    ...SENDING_MODES,
-    steps: `${cap(NETWORKS[platform].words.friendRequests)}, likes and comments on their own; each message waits for one tap`,
-  };
+  const kit = NETWORKS[platform];
+  const requests = cap(kit.words.friendRequests);
+  return kit.runs.auto.includes('comment')
+    ? {
+        ...SENDING_MODES,
+        steps: `${requests}, likes and comments on their own; each message waits for one tap`,
+      }
+    : {
+        ...SENDING_MODES,
+        steps: `${requests} and likes on their own; each message waits for one tap, and you post each comment`,
+        everything: 'Everything on its own, messages too; you post each comment',
+      };
 }
 
 /** Under what it does on its own on a network: its limits, its pace, and its warnings. */
@@ -315,8 +326,8 @@ export const onItsOwnAbout = (platform: Platform): string =>
   `It keeps your daily limits, goes at a person’s pace, and stops for the day on any warning from ${PLATFORMS[platform]}.`;
 
 /**
- * Today's card for Find posts on a network the extension doesn't work on its own yet (Alignable's town): what it
- * reads, and that the good ones come onto the list.
+ * Today's card for Find posts on a network the extension doesn't work on its own: what it reads, and that the good ones
+ * come onto the list. Alignable's runner reads its town's posts once a day itself, so the card doesn't show there.
  */
 export const findPostsWordsOn = (
   platform: Platform,
