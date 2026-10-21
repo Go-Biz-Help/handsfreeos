@@ -21,8 +21,11 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1 to 9 built (Build order), so search is on, on the web
-and the phone; stage 10 (the docs) still to build.
+**Where it stands (2026-10-21):** boards approved; all ten stages built (Build order), so search is on, on the web
+and the phone, and docs/search.md describes it. Each stage's **Built** note says what changed while building. Two
+things are still open: Migrations A and B go on the hosted database before `main` ("Apply new migrations",
+docs/operations.md), and the box's 400 ms target is Chris's call (stage 3's note, docs/search.md "What it
+costs, and when to look again").
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2794,6 +2797,48 @@ its step **Built** here with what changed while building.
       differences.
     - Files: `docs/search.md`, `CLAUDE.md`, `docs/addon-readiness-audit.md`, `docs/operations.md`,
       `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`.
+    - **Built** (2026-10-21). Docs only: no code, no migration and no API change, so `pnpm openapi` has nothing to do.
+      What changed while building:
+      - **docs/search.md:** "Where it stands" says what's built and on, and names the two things left (the hosted
+        migrations, the box's 400 ms). New: "The pieces" (the two queries, the searchers, core's shared logic, the
+        add-ons' contract, the API's guards, the two migrations, the worker's reader, the web, the phone, Settings
+        search); "What it costs, and when to look again", in place of "The load check", with the hosted numbers from
+        How it works, 2, what a fold costs (stage 1's and 5's notes), what a search holds, the load check's numbers,
+        the 400 ms still open, and the plan's two triggers for the finder (a business's full window covering less than
+        a year of messages, or search's p95 past 1 s), with the threads window beside the first, since one text sent
+        to many customers starts a thread for each; three rules (one fold in core and the database, nothing search
+        adds reaches PowerSync, the phone contract only grows); and "Not yet", this plan's list plus what the
+        building left for later (on the phone: the Lead or Client badge, Leads and Clients and the duplicate banner
+        with no signal, and ringing the note an `?activity=` link names). "Where things are" gains where search opens
+        from, and Search 9's tests.
+      - **The load check wasn't run again.** The business it seeds stays in the local database until
+        `pnpm db:reset`, and that database is shared with the other checkouts building this plan at the same time:
+        300,000 more messages would slow their tests, and their tests would skew its numbers. docs/search.md keeps
+        Search 3's numbers, dated, and says Search 4a's add-ons read and Search 5's file words window aren't in them.
+      - **The box's 400 ms is still open.** Stage 3 asked for Chris's decision before the screens were on; Search 9
+        switched them on without it. The docs say so, and `QUICK_P95_MS` still makes the script exit 1, as stage 3
+        left it.
+      - **CLAUDE.md:** the Read first row and `design/search` as planned. The Add-ons bullet also names `search.kind`,
+        where an add-on's kind has its own page, and points at "Search" in docs/addon-architecture.md for the
+        add-on's side.
+      - **docs/addon-readiness-audit.md:** federated search is marked built in both places it's named, §7 and Phase
+        3 of the build order.
+      - **docs/operations.md:** "Search on the API", under Hosting beside "Reading the words inside files": no setting,
+        secret or extension (only `pg_trgm`, already there, and never `unaccent` or a GIN index); the rate limits, the
+        slot gate and the budgets with their files and refusals; the three lines search logs (a kind's database error,
+        one add-on that answered nothing, and the add-ons running here not read); and when to look again, with two
+        reads for the SQL Editor (a business's messages and threads in the last year, against the 25,000 and 20,000
+        windows) and the API's `responseTime`. "What two machines change" gains search's limits and slots.
+      - **An add-on's failed line names it by its manifest's name:** "Real Estate Agent couldn’t be searched just
+        now", not "Real Estate…" as this plan's Words in core and stage 4a quote it (`failedGroup` labels the group
+        `manifest.name`). docs/search.md, docs/operations.md and docs/addon-architecture.md ("Search") quote it as it
+        shows; the plan's own quotes are left as written.
+      - **Not yet splits the attachments on texts and emails from the files left unread:** they're kept with the
+        message (`messages.media`), not as files, so not even their names are found, while a scan, photo or voice
+        note added to a record is a file and found by name.
+      - **Left as found:** `SEARCH_WORDS.standing` still copies `CONTACTS_WORDS`' Leads and Clients words, which the
+        phone's one-kind page reads. Stage 7's note asked the merge to point it at `CONTACTS_WORDS`; it's code, so
+        not this stage's.
 
 ## Answered
 

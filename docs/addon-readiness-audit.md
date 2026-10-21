@@ -244,7 +244,10 @@ the AI teammate and other add-ons all call them through the kernel.
   relationship types the add-on manages, with real foreign keys on both ends and cardinality enforced by
   the database. **Core never holds a foreign key into an add-on schema.**
 - **No universal entity table and no universal search index for now.** Anchored records are already
-  searchable through the custom-record search; a federated search can come later if it's needed.
+  searchable through the custom-record search; a federated search can come later if it's needed. **Built
+  (2026-10-20):** Search everything is that federated search, still with no index. Each kind is read where it
+  lives, as the person, and an add-on answers with groups of its own through its manifest's `search`
+  (`docs/search.md`; "Search" in `docs/addon-architecture.md`).
 
 ## 8. AI, Assistant and AI teammate integration
 
@@ -411,4 +414,4 @@ owner's decision, and are built.
 
 **Phase 3, as needed:** a shared integration-connection framework (OAuth, sealed tokens, provider webhook
 routes); entitlements and billing through Stripe; phone sync streams and screens per add-on; federated
-search; a notification service; job lanes and per-job timeouts.
+search (built: Search everything, `docs/search.md`); a notification service; job lanes and per-job timeouts.

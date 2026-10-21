@@ -6,19 +6,13 @@ of records, add-on records, settings, archived records and the Deleted bin, each
 plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`; the boards are in
 `design/search`.
 
-**Where it stands:** Search 3 is built: core's search over every kind but add-ons' and settings (contacts,
-companies, leads, money, messages and calls, Spam, the calendar, tasks, notes, file names, forms and their answers,
-knowledge, a business's own kinds, Archived, the Deleted bin and close matches), the queries its results open onto,
-and the API's guards. Search 4a is built: core's contract for an add-on to answer searches with groups of its own
-(Rules worth knowing before changing anything, below). Search 4b is built: Real Estate answers through it, with its
-listings, deals, buyers' homes and properties (Real Estate's groups, below). Search 5 is built: the worker reads the
-words inside files, and Files finds a file by them.
-Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the web, and at the top of
-Settings on the phone (Settings search, below). Search 7 and 8 built the web's Search page with its dropdown, and the
-phone's full-screen search with signal and without; Search 9 switched them on together: the side menu's box is Search
-everything with its dropdown and ⌘K, the phone-width header opens the Search page outside the Inbox, and the phone's
-top bar has its Search button (The web's screens and The phone, below). `/customers?q=` still filters Contacts, as
-it always has.
+**Where it stands (2026-10-21):** built, all ten stages of the plan, and on for every business, on the web and the
+phone together: the side menu's box with its dropdown and ⌘K, the Search page, the phone-width header's search
+outside the Inbox, the phone's Search button in its top bar, Search settings at the top of Settings on both, and
+Real Estate's groups through core's contract for add-ons. `/customers?q=` still filters Contacts, as it always has.
+Its two migrations, `20261027009700_search_windows.sql` and `20261027009800_file_texts.sql`, go on the hosted
+database before it reaches `main` ("Apply new migrations", docs/operations.md). One call is still Chris's: the box's
+400 ms target (What it costs, below).
 
 ## Where things are
 
@@ -37,7 +31,7 @@ it always has.
 | The words inside files                | `supabase/migrations/20261027009800_file_texts.sql` (`app.file_texts`, `private.search_words`, the forget trigger, `private.files_without_text`); `file.save_text` (`commands/file-text.ts`)                                                                                                                                  |
 | The worker's file reader              | `apps/worker/src/files/file-text.ts` (the job, the sweep, `FILE_READER`) and `office-text.ts` (Word and Excel); `pnpm --filter @hfos/worker run files:read-backlog` lists what's left to read                                                                                                                                 |
 | Tests                                 | `packages/core/test/search/` (the kinds, the gaps, who sees what, limits, plans, what results open, and the pure ones); `packages/core/test/addons/search-contract.test.ts` and `test/execute-query-within.test.ts` (add-ons answering); `apps/api/test/search-*.test.ts`; `packages/db/test/search-*.test.ts`                |
-| The load check                        | `scripts/search-load.mjs`, local stack only (The load check, below)                                                                                                                                                                                                                                                           |
+| The load check                        | `scripts/search-load.mjs`, local stack only (What it costs, below)                                                                                                                                                                                                                                                            |
 | Settings search                       | `packages/core/src/settings/`: `pages` (the Settings menu), `catalog` (every setting), `search` (`searchSettings`, links, grouping, the main search's Settings group), `words`                                                                                                                                                |
 | Settings search on the web            | `apps/web/src/components/settings/`: `settings-search.tsx` (the box), `use-setting-highlight.ts` (the jump and its ring), `setting-anchor.tsx` (`SettingAnchor`, `settingAttrs`), `SetRow`'s `setting`                                                                                                                        |
 | Settings search on the phone          | `apps/mobile/src/settings/`: `settings-search.tsx` (the results), `use-setting-flash.ts` (scrolling to a row and flashing it); `ListRow`'s `settingKey`                                                                                                                                                                       |
@@ -46,11 +40,39 @@ it always has.
 | The phone's own search                | `packages/core/src/search/copy.ts` (`searchCopy`, over the rows a phone keeps); `packages/core/src/crm/search-text.ts` (the search text a phone works out, for its pickers too)                                                                                                                                               |
 | Search on the phone                   | `apps/mobile/src/app/app/w/[workspaceId]/search.tsx` (the screen); `apps/mobile/src/search/`: `use-search.ts`, `copy-sql.ts`, `recent.ts`, `rows.tsx`; `FilterChip` in `components/ui`                                                                                                                                        |
 | Where a phone opens a result          | `apps/mobile/src/links/route-map.ts` (`/search#q=…`, forms, `?task=`, `?message=&at=`, `?activity=` and `?compose=`); Real Estate's deals offline: `apps/mobile/src/addons/realestate/search.ts`                                                                                                                              |
-| The phone's tests                     | `packages/core/test/search/copy.test.ts`; `apps/mobile/src/search/__tests__/`: `copy-sql.test.ts`, `search-screen.test.tsx`; `apps/mobile/src/links/__tests__/route-map.test.ts`                                                                                                                                              |
+| The phone's tests                     | `packages/core/test/search/copy.test.ts`; `apps/mobile/src/search/__tests__/`: `copy-sql.test.ts`, `search-screen.test.tsx`, `entry-points.test.tsx`; `apps/mobile/src/links/__tests__/route-map.test.ts`; Maestro's `apps/mobile/maestro/search.yaml`                                                                        |
 | The web's Search page                 | `apps/web/src/app/app/w/[workspaceId]/search/page.tsx` (the frame), `components/search/search-page.tsx` (everything) and `kind-page.tsx` (one kind)                                                                                                                                                                           |
 | The web's box and dropdown            | `apps/web/src/components/search/`: `search-provider.tsx` (⌘K, recent searches), `search-box.tsx`, `use-search.ts`, `panel.tsx`, `highlight.tsx`, `rows/` (a row per kind); `lib/keys.ts` (`isMac`)                                                                                                                            |
 | Where results open on the web         | The pages themselves follow their own part of the address: the inbox's thread, Tasks, a form, the timeline, the Files grid, a contact's page, the Deleted bin and Contacts (The web's screens, below)                                                                                                                         |
-| The web's tests                       | `apps/web/e2e/search.spec.ts`: the Search page by its address, and what each result opens onto                                                                                                                                                                                                                                |
+| The web's tests                       | `apps/web/e2e/search.spec.ts`: the box and its keys, the Search page by its address, and what each result opens onto; `search.mobile.spec.ts`: a phone-width screen's header and the Inbox's sheet                                                                                                                            |
+| Where search opens from               | Web: the side menu's box (`shell/sidebar.tsx`), the phone-width header (`shell/mobile-shell.tsx`), the layout filling `SearchProvider`. Phone: `AppBar`'s `search`, `searchScreenHref` (`search/href.ts`) and `SearchEverythingRow` (`search/rows.tsx`), last in Contacts' and Inbox's boxes                                  |
+
+## The pieces
+
+- **Two queries.** `search.everything` reads every kind at once, a few of each: the box asks at `quick` depth, the
+  Search page at `full`. `search.kind` reads one kind a page at a time, with its sorts. People only, under
+  `workspace.read`; nothing is written, and the AI has no search tool. Both are in the phone contract, so their
+  inputs only ever grow.
+- **A searcher for each kind** (`search/server/kinds/`): its candidates read as the person, through `step`, then the
+  winners' facts. Its gate is in `SEARCH_KINDS`, never in the searcher (The kinds, below).
+- **Core's shared logic** (`search/`, browser-safe): what was typed (`searchProbes`), the tiers and why each hit
+  matched (`rank`, `explain`), marks and snippets, close matches, links, the dropdown's choices and grey lines, the
+  words, and the fold. The server, the web and the phone run this one copy.
+- **The add-ons' contract**: an add-on whose manifest has `search` answers with groups of its own, through one
+  `route: false` query that core runs after its own kinds. Real Estate is the first.
+- **The API's guards**: a rate limit a person on each query, and a slot gate on each machine (How a search runs,
+  below; docs/operations.md has them for running the API).
+- **Two migrations**: `20261027009700_search_windows.sql` (the fold, the windows' indexes, and a binned response's
+  answers hidden) and `20261027009800_file_texts.sql` (a file's words and who may read them). No new extension, no
+  text index, no column on a table phones copy, and no sync change.
+- **The worker's file reader**, which keeps the words inside text PDFs, plain text, CSV, Word and Excel files for
+  Files to find.
+- **The web**: the box at the top of the side menu with its dropdown and ⌘K, and the Search page at `/search#q=…`,
+  with what's typed only ever after `#` (The web's screens, below).
+- **The phone**: a full-screen search from the top bar, asking the server with signal and searching its own copy
+  without (The phone, below).
+- **Settings search**: core's catalogue of every setting, searched on the device, from Settings in both apps and as
+  the main search's Settings group (Settings search, below).
 
 ## How a search runs
 
@@ -163,7 +185,7 @@ makes to it.
   never as HTML.
 
 **Where each result opens** (core's `searchHref`). Each page follows its own part of the address, so a result for the
-page already open works too, as the box will offer on every page: the thread, the timeline, the Files grid, a
+page already open works too, as the box offers on every page: the thread, the timeline, the Files grid, a
 contact's page and the Deleted bin through `useSearchParams` (each renders per request, so none needs a Suspense
 boundary), Contacts on `hashchange`, and the form and Tasks pages from their `searchParams`. Each ask is acted on once,
 not again as the page refreshes. A note, Text, Merge and Add a contact take theirs off the address once open, and a
@@ -181,12 +203,30 @@ task once its dialog closes, so a reload doesn't open them again:
 | The Deleted bin     | `settings/deleted-bin?item=<id>`                   | Reads further down the bin until the item shows, then rings it                                                                                        |
 | Add a contact       | `customers#add=person&name=…`                      | Add person with what was typed as the name, for `records.write`; the fragment is dropped once read                                                    |
 
-## The load check
+## What it costs, and when to look again
 
-`node scripts/search-load.mjs` seeds a business on the local stack with 300,000 messages, 50,000 notes and 20,000
-customers, and runs searches through the kernel as an owner, a member and a narrowed member: 200 from the box and 50
-from the Search page each. It refuses to start unless Supabase and every database it uses are on this machine. The
-plan asks for quick p95 under 400 ms and full under 2 s, and the script exits 1 past either.
+**On the hosted database** (checked 2026-10-20, How it works, 2 in the plan). An ILIKE over all 17,810 messages of the
+busiest business, 8.98 million characters, took 143 ms as `postgres` and 154 ms as its owner under row security:
+about 8 µs a message. Working out `to_tsvector` for each row took 1,072 ms, which is why long text is matched with
+LIKE in a window, never with full text worked out on the fly. Every business fits wholly in the full window today:
+the busiest has 17,810 messages against the window's 25,000, and the whole database holds about 1,700 timeline lines,
+about 1,000 threads and no form answers.
+
+**What a fold costs.** `private.search_fold` only lower-cases plain ASCII text, so 20,000 plain names folded twice
+take 40 to 60 ms. Text with an accent pays the whole map, about 2.4 µs a character, so about 40 µs a 17-letter name
+each time it's folded, which is why each searcher folds a name once. `foldPattern` finds a word in a file's 100,000
+characters in about 1.6 ms, against about 280 ms to fold them.
+
+**What a search holds.** One of its API machine's 6 database connections for one transaction, inside one of the
+machine's 3 search slots, each statement held to what's left of its budget (How a search runs): far inside the
+15-second statement ceiling and the 30-second limit on an idle transaction. The plan puts a box search at about 14
+short statements, typically 60 to 250 ms and 2 s at worst.
+
+**The load check.** `node scripts/search-load.mjs` seeds a business on the local stack with 300,000 messages, 50,000
+notes and 20,000 customers, and runs searches through the kernel as an owner, a member and a narrowed member: 200
+from the box and 50 from the Search page each. It refuses to start unless Supabase and every database it uses are on
+this machine, and the business it seeds stays in the local database until `pnpm db:reset`. The plan asks for quick
+p95 under 400 ms and full under 2 s, and the script exits 1 past either.
 
 Measured on 2026-10-20, after Search 3's review, on the local stack in a shared cloud container (one search at a
 time):
@@ -198,15 +238,29 @@ time):
 | Narrowed member | 530 ms          | 675 ms | 1,366 ms               | 1,620 ms |
 
 The Search page is inside its 2 s. **The box isn't inside its 400 ms** on a business this size, about 15 times the
-busiest one on the hosted database (17,810 messages): contacts, one statement over every customer of the business,
-take about 200 ms of it at 20,000 customers, and the rest is each kind's own statement and savepoint. No search
-timed out or was skipped. Two fixes found by this check are in the code: a window's matching rows are bounded by its
-edge in their index scan (it was a filter over every message of the business, 300 to 600 ms), and who a thread or a
-note is on is read by key, not by joining every customer.
+busiest one on the hosted database: contacts, one statement over every customer of the business, take about 200 ms
+of it at 20,000 customers, and the rest is each kind's own statement and savepoint. No search timed out or was
+skipped. Two fixes found by this check are in the code: a window's matching rows are bounded by its edge in their
+index scan (it was a filter over every message of the business, 300 to 600 ms), and who a thread or a note is on is
+read by key, not by joining every customer. It hasn't been run since: Search 4a's read of which add-ons run (only
+when one that answers searches may answer) and Search 5's file words window aren't in these numbers.
 
-**The box's miss needs Chris's decision** before the screens ship (Search 6): either its target moves to what was
-measured, or contacts get faster first. The plan's Not yet (revisit the faster path when the box's p95 passes 1 s on a
-real business) is a different trigger and doesn't stand in for the 400 ms.
+**The box's 400 ms is Chris's call, still open.** The plan asked for that call before the screens were on, and
+Search 9 switched them on without it: either the target moves to what was measured (the plan's How it works, 6 and
+Tests by package, this page and `QUICK_P95_MS` in the script, together), or contacts get faster first. Until then the
+script exits 1 by design.
+
+**When to look again at a faster finder.** The faster path under Not yet, below, is faster but not safer, and needs
+Chris's say-so. Look again when either of these happens on a real business:
+
+- its 25,000 newest messages, the full window, span less than a year, so last year's mail needs Look further back
+  (docs/operations.md, "Search on the API", has the reads that check). Its 20,000 newest threads can fall short
+  first: one text sent to many customers starts a thread for each, and who a thread is with is read in that window;
+- search's p95 passes 1 s (the API logs each request's `responseTime`).
+
+The load check's business is already past a second on the Search page (a p95 of 1.4 to 1.6 s), so a business
+growing toward 15 times today's busiest is when this comes up. The box's 400 ms is a different line and doesn't
+stand in for either.
 
 ## Rules worth knowing before changing anything
 
@@ -249,6 +303,23 @@ it matched, the marks and the lines are worked out in core's JavaScript, the sam
 phone. Change a tier rule in `rank.ts` or a kind's reasons in `explain.ts` (which the server's searchers and the
 phone's `searchCopy` share), not in its SQL alone.
 
+**One fold, in core and in the database.** `FOLD_FROM` and `FOLD_TO` (`search/fold.ts`) and the two strings in
+`private.search_fold` (`20261027009700_search_windows.sql`) are one map, one letter for one letter, so a mark found
+in folded text fits the original and the phone ranks a row as the server does. A change to the map is a new
+migration that writes both strings again; `fold.test.ts` runs core and the database over every character of the
+common blocks and fails if they disagree. `private.search_fold` has no pinned search path on purpose, so Postgres
+works it out inline (every name in it is written in full); `fold.test.ts` fails if it stops being inlined. Never
+`unaccent`: it isn't installed, and it turns ß into ss, which throws every mark after it out of line.
+
+**Nothing search adds reaches PowerSync.** No column on a table phones copy: PowerSync's first copy of a published
+table is `SELECT *`, so every column reaches its storage, and a stored column would also rewrite the table under
+ACCESS EXCLUSIVE. `app.file_texts` is never published (`sync-secrets.test.ts`). The phone searches what it already
+keeps.
+
+**The phone contract only grows.** Both queries are recorded in `test/contract/mobile-contract.json`: an input field
+is only ever added, with a default, and a kind or a badge is a string an old build skips. Record an addition with
+`UPDATE_CONTRACT=1` (`test/mobile-contract.test.ts`).
+
 **Archived** records come back only by their name or title, under Archived (Include archived folds them into their
 kind). A kind's own page leaves them out unless asked, and the Archived page lists only them.
 
@@ -264,8 +335,8 @@ permission are checked again; it gets core's probes, never what was typed, and r
 held to core's rules (its own kinds, links only to its own pages or the record a hit is about, however `..` is written,
 archived hits only when asked for, short snippets, counts shown to 50 in the box and on the Search page), and any
 failure of its (turned off mid-search, a timeout, an error) drops its groups alone, in their place one line with its
-name ("Real Estate couldn’t be searched just now"), logged as its id and SQLSTATE at most. On one of its kinds' own
-pages a timeout refuses `search_took_too_long`, as a core kind's does. `covers` takes its kinds of records out of
+name ("Real Estate Agent couldn’t be searched just now"), logged as its id and SQLSTATE at most. On one of its kinds'
+own pages a timeout refuses `search_took_too_long`, as a core kind's does. `covers` takes its kinds of records out of
 core's group only when it answered for every kind it has, and their archived ones still go under Archived: someone
 without its permission, or a search where it failed, still finds those records through core's group, opening the
 record page. Core never names an add-on: it reaches them
@@ -423,3 +494,36 @@ itself, or the test says which one is missing.
 the Quiet hours row itself rather than its card), `rcs` (the RCS emails and the composer), `founding` (the founding
 checkout) and `notifications` (the Assistant's tools). A new anchor is the key with hyphens
 (`texting.ring_for` is `#texting-ring-for`).
+
+## Not yet
+
+- **A faster path for very large businesses:** a security-definer finder that hands back candidate ids, checked again
+  by row security (`id = any($ids)` on the primary key), with expression GIN indexes behind it. Faster, not safer: it
+  has to copy who may see what exactly, or it tells a person which hidden rows hold a word, so it needs Chris's
+  say-so. When to look again is under What it costs, above.
+- **Reading more files:** scanned PDFs and photos (OCR or AI reading, a rate-card cost), voice notes, and legacy .doc
+  and .xls, which can't be uploaded anyway. Scans, photos and voice notes added to a record are files, so their names
+  are found.
+- **The attachments on texts and emails**, kept with the message rather than as files, aren't found at all, not even
+  by name.
+- **Folding accents in long text, and stemming.** Message and note text matches as it's stored.
+- **Searching inside what's in the Deleted bin.** Only each item's name is found.
+- **Sales Coach and Social Outreach answering searches.** Social Outreach has to keep each person to their own chats
+  in its query, because its row security lets anyone with `outreach.use` read them (`outreach/ops/chats.ts`).
+- **People an add-on keeps apart from Contacts** (open-house visitors, showing agents, Facebook profiles), which will
+  show only in that add-on's own group.
+- **An Assistant tool for Search everything.** Its `search_customers` still finds customers.
+- **More kinds:** products, templates, workflows, campaigns, menu places (a "Pages" kind), website-chat visitors and
+  intake lines. A hidden menu place is still reached by its links.
+- **Settings search inside each calendar's builder and the AI teammate's sections**, which need a `?module=` link on
+  both builders (decision 13).
+- **On the phone:** a bin mark on its copy, batched with the next sync change, so a customer in the bin stops reading
+  as archived; the Lead or Client badge, one kind's Leads and Clients chips and the duplicate banner with no signal
+  (`personIsClient` reads jobs, visits, plans and bills the phone keeps only in part); and ringing the note an
+  `?activity=` link names, which opens its customer for now.
+- **The hidden-add-on gap outside search:** `task.list`, the timeline, the calendar and the inbox still show the
+  tasks, notes, visits and threads on a turned-off add-on's records, since their policies check only sealing. Search
+  closes it in its own SQL (`RECORD_READS`); a restrictive policy for every reader is a separate security step.
+- **"Form sent" as a last contact** (boards 3 and 5b): nothing records that a form was sent to someone.
+- **An internal meeting's AI summary**, which no screen shows, so search doesn't either (decision 15); AI call
+  summaries in `app.ai_calls`; and calls by number without a thread.

@@ -248,10 +248,11 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
     written; an archived hit only when archived ones were asked for; a snippet cut short with `snippetOf`, and a
     cursor of 400 characters at most; a few a kind, and counts shown to 50 in the box and on the Search page.
   - **A failure of any kind is kept to its own groups**: turned off mid-search, a timeout or an error drops only its
-    groups, with one line in their place ("Real Estate couldn’t be searched just now. Try again in a minute."), and is
-    logged as its id and SQLSTATE at most, never its message, which can hold what was typed. On one of its kinds' own
-    pages it marks the page, and a timeout there refuses `search_took_too_long` as a core kind's page does; that page
-    is refused while it's off (`addon_inactive`) and to someone without its permission (`search_kind_not_allowed`).
+    groups, with one line in their place ("Real Estate Agent couldn’t be searched just now. Try again in a minute."),
+    and is logged as its id and SQLSTATE at most, never its message, which can hold what was typed. On one of its
+    kinds' own pages it marks the page, and a timeout there refuses `search_took_too_long` as a core kind's page does;
+    that page is refused while it's off (`addon_inactive`) and to someone without its permission
+    (`search_kind_not_allowed`).
 - **Connections to other services** (Real Estate round five, step 1): an add-on's manifest names what it connects
   (`connectors`: a key such as `listing_data`, the permission it takes to manage it, `many` when a business may
   connect more than one at a time) and the services for each (`providers`: an id, a label, how each connects —

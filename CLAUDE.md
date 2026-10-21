@@ -23,6 +23,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | A business's own kinds of records, and links | `docs/relationships.md`                                                                                           |
 | Deleting for good, and the Deleted bin       | `docs/deleting.md`                                                                                                |
 | Forms, surveys and quizzes                   | `docs/forms.md`                                                                                                   |
+| Search everything, and settings search       | `docs/search.md`, then `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`                                                |
 | The business's main offer                    | `docs/main-offer.md`, then `HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md` and the plans beside it                |
 | What the phone keeps offline                 | `apps/sync/README.md`                                                                                             |
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
@@ -36,7 +37,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Messenger and Instagram, and ad attribution  | `docs/meta-messaging.md`; Meta's setup is "Facebook and Instagram messages: Meta" in `docs/operations.md`         |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |
-| Screen designs                               | `design/m1` to `design/m10`, and `design/realestate`; the brand mark is in `design/brand`                         |
+| Screen designs                               | `design/m1` to `design/m10`, `design/realestate` and `design/search`; the brand mark is in `design/brand`         |
 | Hosting, providers, going live, and trouble  | `docs/operations.md`, over 11,000 lines, so jump to a section from its Contents                                   |
 | Connecting Google and Outlook calendars      | `docs/calendar-setup.md`                                                                                          |
 
@@ -80,6 +81,7 @@ Every refusal a person can read explains the problem and, when anything can be d
   - A customer's portal pages are the registry's `portal` entry, declared in `ui.portal`, and act through `usePortal()`.
   - Signed-out public pages are the registry's `public` entry, declared in `ui.public`, and run only `<id>.public.*` operations.
 - **The AI sees an operation only when it declares `ai`.** Look-ups and risk 0–1 changes run on their own. Risk 2–3 changes wait for a person's OK. Risk 4 is never offered.
+- **An add-on answers searches through `manifest.search`:** a `defineAddonQuery` marked `route: false`, which core runs inside `search.everything` (and `search.kind`), with its failures kept to its own groups. The add-on's side is "Search" in `docs/addon-architecture.md`.
 - **When an add-on's data changes shape,** add a `dataMigrations` step and bump `dataVersion`.
 - **Check the doc's "Not yet" list first.** It covers an add-on's own credentials, webhook routes, workflow steps and billing. If an add-on needs one of these, build it in core as its own step. Don't work around it inside the add-on.
 - **The owner's decisions are settled.** They're listed under "Rules worth knowing before changing anything": what asks first, what is kept, and who may delete.
