@@ -1,7 +1,7 @@
 /**
  * Deepgram for a live call (M18 step 5): Nova-3 listening over a websocket, and Aura 2 speaking over HTTP.
  * The same DEEPGRAM_API_KEY the recorded-call transcripts use. VOICE_LISTENER=flux listens with Flux instead
- * (deepgram-flux.ts); everything else stays the same.
+ * (deepgram-flux.ts), and so does a business support switched to Flux in /admin; everything else stays the same.
  *
  * Listening:
  * - `language=multi` hears English and Spanish (and switching between them) without being told which.
@@ -17,6 +17,7 @@
  * Voice mode's clips (the web and the phone): a recording is one pre-recorded request, heard in English or
  * Spanish without being told which, and a clip to play is one Aura 2 request answered as an MP3.
  */
+import type { PhoneListener } from '@hfos/core/server';
 import type { Logger } from 'pino';
 import WebSocket from 'ws';
 import { listenWithFlux } from './deepgram-flux';
@@ -29,6 +30,7 @@ import {
   type HeardWords,
   type ListenHandlers,
   type Listening,
+  type ListenOptions,
   type SpeakOptions,
   type SpeechServices,
 } from './speech';
@@ -129,14 +131,14 @@ export function heardOf(m: DeepgramResult, heardTo = 0): HeardWords | null {
 export function createDeepgramSpeech(deps: {
   readonly apiKey: string;
   readonly log: Logger;
-  /** Who hears a live call: Nova-3 (the default) or Flux (VOICE_LISTENER). */
-  readonly listener?: 'nova-3' | 'flux';
+  /** Who hears a live call unless the business has its own (ListenOptions): Nova-3 or Flux (VOICE_LISTENER). */
+  readonly listener?: PhoneListener;
 }): SpeechServices {
   return {
     name: 'deepgram',
 
-    listen(handlers: ListenHandlers): Promise<Listening> {
-      if (deps.listener === 'flux')
+    listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening> {
+      if ((options?.listener ?? deps.listener) === 'flux')
         return listenWithFlux({ apiKey: deps.apiKey, handlers, log: deps.log });
       return new Promise((resolve, reject) => {
         const ws = new WebSocket(`${LISTEN_URL}?${listenParams().toString()}`, {

@@ -18,7 +18,7 @@ import {
   workspaceMemberships,
   workspaces,
 } from '@hfos/db/schema';
-import { PHONE_MODELS } from '../ai-team/config';
+import { PHONE_LISTENERS, PHONE_MODELS } from '../ai-team/config';
 import { HfosError } from '../errors';
 import {
   isUsageKey,
@@ -231,6 +231,7 @@ export const platformBusinessGet = defineQuery({
     );
     return {
       phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
+      phoneListener: PHONE_LISTENERS.find((l) => l === row.w.phoneListener) ?? null,
       isPlatform: row.w.isPlatform,
       addonGrants: grants.map((g) => ({
         addonId: g.addon_id,

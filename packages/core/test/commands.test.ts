@@ -568,6 +568,7 @@ describe('registry', () => {
       'founding.set_cap',
       'founding.set_status',
       'phone_model.set',
+      'phone_listener.set',
       'own_business.set',
       'ai_provider.set_mode',
       'problem_report.send',

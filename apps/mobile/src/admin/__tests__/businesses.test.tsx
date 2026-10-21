@@ -102,6 +102,7 @@ const LIST = {
 const DETAIL = {
   business: row(),
   phoneModel: null,
+  phoneListener: null,
   isPlatform: false,
   people: [
     {
@@ -222,6 +223,12 @@ beforeEach(() => {
       workspaceId: LONE_STAR,
       was: null,
       model: 'claude-haiku-4-5',
+      changed: true,
+    },
+    '/v1/commands/phone_listener.set': {
+      workspaceId: LONE_STAR,
+      was: null,
+      listener: 'flux',
       changed: true,
     },
     '/v1/commands/own_business.set': {
@@ -592,6 +599,31 @@ describe('one business', () => {
     );
   });
 
+  it('picks who hears their callers, and asks for the business again', async () => {
+    await showDesk(<Business />, () => answers);
+    await fireEvent.press(await screen.findByTestId('phone-listener-flux'));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/phone_listener.set')).toEqual({
+        workspaceId: LONE_STAR,
+        listener: 'flux',
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(DESK_PHONE_WORDS.saved);
+    await waitFor(() => expect(sent('/v1/queries/platform.business.get')).toHaveLength(2));
+  });
+
+  it('puts who hears their callers back on the default', async () => {
+    answers['/v1/queries/platform.business.get'] = { ...DETAIL, phoneListener: 'flux' };
+    await showDesk(<Business />, () => answers);
+    await fireEvent.press(await screen.findByTestId('phone-listener-default'));
+    await waitFor(() =>
+      expect(lastBody('/v1/commands/phone_listener.set')).toEqual({
+        workspaceId: LONE_STAR,
+        listener: null,
+      }),
+    );
+  });
+
   it('marks HandsFreeOS’s own business, for a support admin who may', async () => {
     await showDesk(<Business />, () => answers);
     await fireEvent.press(await screen.findByTestId('own-business-yes'));
@@ -610,6 +642,8 @@ describe('one business', () => {
     expect(screen.queryByTestId('wallet-credit')).toBeNull();
     expect(screen.queryByTestId('phone-model-default')).toBeNull();
     expect(screen.getByTestId('phone-model-value')).toHaveTextContent('Default');
+    expect(screen.queryByTestId('phone-listener-flux')).toBeNull();
+    expect(screen.getByTestId('phone-listener-value')).toHaveTextContent('Default');
     expect(screen.queryByTestId('own-business-no')).toBeNull();
     expect(screen.getByTestId('own-business-value')).toHaveTextContent('No');
     // Looking at the business stays on the web, read-only with a reason.

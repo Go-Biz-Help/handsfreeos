@@ -41193,6 +41193,108 @@
         }
       }
     },
+    "/v1/commands/phone_listener.set": {
+      "post": {
+        "operationId": "command_phone_listener_set",
+        "summary": "Support: pick who hears the caller on one business’s calls (Nova-3 or Flux), or put it back on the default.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.ai.manage. Emits phone_listener.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "listener": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "nova-3",
+                          "flux"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "listener"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "was": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "nova-3",
+                            "flux"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "listener": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "nova-3",
+                            "flux"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "was",
+                    "listener",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/own_business.set": {
       "post": {
         "operationId": "command_own_business_set",
@@ -98146,6 +98248,20 @@
                         }
                       ]
                     },
+                    "phoneListener": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "nova-3",
+                            "flux"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "isPlatform": {
                       "type": "boolean"
                     },
@@ -98333,6 +98449,7 @@
                   "required": [
                     "business",
                     "phoneModel",
+                    "phoneListener",
                     "isPlatform",
                     "addonGrants",
                     "people",
