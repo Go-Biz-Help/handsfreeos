@@ -382,15 +382,16 @@ describe('what it does on Alignable’s list', () => {
       'friend_request',
     ]);
     expect(nextAlignableDaily({ daily: {} })).toBe('requests');
-    // Find partners right after the connections are checked, then the town's posts.
-    expect(nextAlignableDaily({ daily: { requests: 'x', checks: 'y' } })).toBe('partners');
-    expect(nextAlignableDaily({ daily: { requests: 'x', checks: 'y', partners: 'z' } })).toBe(
-      'posts',
-    );
+    // Their chats right after the connections are checked (0.84.0), as on Instagram; then Find partners, then the
+    // town's posts.
+    const done = { requests: 'x', checks: 'y' };
+    expect(nextAlignableDaily({ daily: done })).toBe('chats');
+    expect(nextAlignableDaily({ daily: { ...done, chats: 'c' } })).toBe('partners');
+    expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z' } })).toBe('posts');
     // Last, who engaged with them, from their notifications.
-    expect(
-      nextAlignableDaily({ daily: { requests: 'x', checks: 'y', partners: 'z', posts: 'w' } }),
-    ).toBe('helpful');
+    expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z', posts: 'w' } })).toBe(
+      'helpful',
+    );
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {

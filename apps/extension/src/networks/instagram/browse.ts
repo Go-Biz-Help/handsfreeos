@@ -1,11 +1,15 @@
 /**
  * Going through Instagram's lists for the person's asks (the Instagram and Alignable plan's part 12): their followers,
  * which Instagram draws in a box over their profile (/<you>/followers/), a few rows at a time as the box is scrolled.
- * Each call scrolls the box most of its height, as a person reading the list does; nothing is pressed. And a chat
- * opened from the side of their messages, whose rows aren't links (the owner's Check, 0.62.0): for Check Instagram,
- * and, from part 13, for Read my chats, which also scrolls that list for more.
+ * Each call scrolls the box most of its height, as a person reading the list does; nothing is pressed. Where Instagram
+ * doesn't open the box from its address, their account's count of followers is pressed to open it, as a person does
+ * (0.84.0: its counts aren't links to the list now). And a chat opened from the side of their messages, whose rows
+ * aren't links (the owner's Check, 0.62.0): for Check Instagram, and, from part 13, for Read my chats, which also
+ * scrolls that list for more.
  */
 import { clean } from '../facebook/dom';
+import { followersBox, followersCount, ownOf } from './read';
+import { accountOf, instagramUrl } from './urls';
 
 /** Most of the box's height at a time, as a person scrolls. */
 const SCREEN = 0.8;
@@ -91,3 +95,21 @@ export const scrollList = (doc: Document, href: string): boolean =>
   /^\/direct\//.test(new URL(href).pathname) && chatRowsIn(doc).length
     ? scrollChats(doc)
     : scrollDialog(doc);
+
+/**
+ * Opens the box of their followers over their own account when Instagram didn't from its address: a press of the
+ * account's count of followers, as a person does (the owner's Check, 21 Oct 2026: the counts aren't links to the list
+ * now, and /<you>/followers/ showed their account without it). Only on their own account, by the menu's Profile, and
+ * never with the box open already. Whether the box is there, or was asked for.
+ */
+export function openFollowers(doc: Document, href: string): boolean {
+  if (followersBox(doc, href)) return true;
+  const page = instagramUrl(href);
+  const account = page ? accountOf(page) : null;
+  const own = ownOf(doc, href);
+  if (!account || !own || account.username.toLowerCase() !== own.toLowerCase()) return false;
+  const count = followersCount(doc);
+  if (!count) return false;
+  count.click();
+  return true;
+}

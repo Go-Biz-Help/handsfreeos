@@ -12,9 +12,9 @@
  *   got are saved to their end, and the connections checked once (./lists.ts); after that the requests each morning
  *   and the connections weekly.
  * - **Once a day,** as the person's Alignable choices say (`collect`): the requests, the connections checked for good
- *   fits (30 business pages a day to start, its kit's `checksPerDay`), Find partners (Alignable's search for
- *   businesses, then those found read for the AI's partner check), and their town's posts and forum questions read
- *   for the AI.
+ *   fits (30 business pages a day to start, its kit's `checksPerDay`), from 0.84.0 their conversations read for the AI
+ *   with who wrote last noted, as Instagram's are, Find partners (Alignable's search for businesses, then those found
+ *   read for the AI's partner check), and their town's posts and forum questions read for the AI.
  * - **Then Alignable's list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own
  *   (`auto`): a look at their business page and a like on a recent post of theirs when the page shows one, or the
  *   look alone when it doesn't (warm-up); a connection request with their page's own Connect, the business checked by
@@ -46,6 +46,7 @@ import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
+import { readAlignableChats } from '../jobs/alignable/chats';
 import { checkConnections, isTheirs, readThemOnAlignable } from '../jobs/alignable/checks';
 import { lookUpOnAlignable } from '../jobs/alignable/lookup';
 import { searchAlignable } from '../jobs/alignable/partner-search';
@@ -54,6 +55,7 @@ import { readWarmLeads } from '../jobs/alignable/engaged';
 import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { chatMemory } from '../jobs/chats';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
 import { alignable } from '../networks';
@@ -61,6 +63,7 @@ import { businessRef, idIn, urlOf } from '../networks/alignable/read';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
+import { DAILY_CHATS } from './daily';
 import {
   beforeDay,
   beforeDayDoing,
@@ -95,12 +98,14 @@ export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
  */
 export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
- * The once-a-day jobs on Alignable, in order: Find partners right after the connections are checked, and last who
- * engaged with them, from their notifications (`helpful`: who engaged, here with no helpful post of their own).
+ * The once-a-day jobs on Alignable, in order, as Instagram's: the requests, the connections checked, their chats
+ * (0.84.0), Find partners, their town's posts, and last who engaged with them, from their notifications (`helpful`: who
+ * engaged, here with no helpful post of their own).
  */
 export const ALIGNABLE_DAILY = [
   'requests',
   'checks',
+  'chats',
   'partners',
   'posts',
   'helpful',
@@ -110,6 +115,7 @@ type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
 const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   requests: 'Checking your connection requests on Alignable…',
   checks: 'Checking your connections for good fits…',
+  chats: 'Reading your Alignable chats for the AI…',
   partners: 'Searching Alignable for businesses that could partner with you, then reading them…',
   posts: 'Reading your town’s posts and forum questions for the AI…',
   helpful: 'Reading your notifications for who liked, commented on or recommended you…',
@@ -117,6 +123,7 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
 const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   requests: 'Connection requests',
   checks: 'Check my connections',
+  chats: 'Read my chats',
   partners: 'Find partners',
   posts: 'Find posts in your town',
   helpful: 'Who engaged with you',
@@ -487,8 +494,8 @@ async function openChat(
 
 /**
  * Drafts a message with the AI after looking their business page up on Alignable, and hands it to HandsFreeOS to wait
- * or go. Alignable's chats aren't read yet (no reader of one is built), so a reply is drafted from what HandsFreeOS
- * knows.
+ * or go. A reply is drafted from what HandsFreeOS knows: their conversation as the day's Read my chats last brought it
+ * in (0.84.0).
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
   const looked = await lookUpOnAlignable(jobFor(businessId), item.name, item.profileUrl);
@@ -670,6 +677,12 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return checkRequests(job);
     case 'checks':
       return checkConnections(job, NETWORKS.alignable.checksPerDay);
+    case 'chats':
+      return readAlignableChats(job, {
+        most: DAILY_CHATS,
+        memory: chatMemory,
+        again: 'The rest wait for tomorrow.',
+      });
     case 'partners':
       return checkPartners(job, PARTNER_CHECKS_PER_DAY, {
         platform: PLATFORM,

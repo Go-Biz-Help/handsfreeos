@@ -3,7 +3,8 @@
  * Requests. My Network opens on Ally's picks, a few connections chosen for them (`allies-picks-list`), beside its tab
  * of them all (`tab-all-connections`, the owner's Check, 0.68.0), so the list is switched to that tab first. Then each
  * screen is scrolled for more, and where the list ends in Alignable's own Show more (or Load more), that's pressed:
- * it only shows more of the list. Nothing else is pressed.
+ * it only shows more of the list. Messages' conversations down its side are scrolled the same way, and each is opened
+ * by a press of its row (Read my chats, 0.84.0). Nothing else is pressed.
  */
 import { clean } from '../facebook/dom';
 import { PART } from './read';
@@ -55,19 +56,48 @@ export function scrollList(doc: Document): boolean {
 }
 
 /**
- * Opens a conversation from Messages' side (`conversationInSidebar`): the first one with words under its name, so a
- * chat with messages in it, for Check to outline (partners stage 6c: Alignable's chat reader is built from it). Whether
- * there was one to open. Opening it is a press of the row, as a person reading their messages does.
+ * Opens a conversation from Messages' side (`conversationInSidebar`), whose rows aren't links: for Check to outline,
+ * the first one with words under its name, so a chat with messages in it (partners stage 6c: Alignable's chat reader
+ * is built from it); for Read my chats (0.84.0), the one whose row shows `name`. Whether there was one to open. Opening
+ * it is a press of the row, as a person reading their messages does.
  */
-export function openConversation(doc: Document): boolean {
+export function openConversation(doc: Document, name: string | null = null): boolean {
+  const want = name ? clean(name).toLowerCase() : null;
   for (const row of doc.querySelectorAll<HTMLElement>(PART('conversationInSidebar'))) {
     const lines = [...row.querySelectorAll('div')]
       .filter((div) => div.children.length === 0)
       .map((div) => clean(div.textContent))
       .filter(Boolean);
-    if (lines.length < 2) continue;
+    if (want ? lines[0]?.toLowerCase() !== want : lines.length < 2) continue;
     (row.querySelector<HTMLElement>('[role="button"], a, button') ?? row).click();
     return true;
   }
   return false;
 }
+
+/** Whether an element scrolls: taller inside than it shows, and let to scroll by its style. */
+function scrolls(element: HTMLElement): boolean {
+  if (element.scrollHeight <= element.clientHeight + 4) return false;
+  const overflow = element.ownerDocument.defaultView?.getComputedStyle(element).overflowY ?? '';
+  return /auto|scroll|overlay/.test(overflow);
+}
+
+/**
+ * Scrolls Messages' side most of its height for Alignable to draw more conversations: the part around its rows that
+ * scrolls. Whether there was more to go.
+ */
+export function scrollConversations(doc: Document): boolean {
+  const first = doc.querySelector(PART('conversationInSidebar'));
+  for (let up = first?.parentElement; up; up = up.parentElement) {
+    if (!(up instanceof doc.defaultView!.HTMLElement) || !scrolls(up)) continue;
+    const room = up.scrollHeight - up.scrollTop - up.clientHeight;
+    if (room <= 4) return false;
+    up.scrollBy({ top: Math.max(200, up.clientHeight * SCREEN), behavior: 'smooth' });
+    return true;
+  }
+  return false;
+}
+
+/** A list on the page for the person's asks: the conversations down Messages' side there, else the page's. */
+export const scrollAny = (doc: Document): boolean =>
+  doc.querySelector(PART('conversationInSidebar')) ? scrollConversations(doc) : scrollList(doc);

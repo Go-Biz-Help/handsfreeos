@@ -1052,6 +1052,39 @@ describe('Instagram’s growing (part 15)', () => {
     });
   });
 
+  it('reads a hashtag’s posts on the search Instagram sends its page to now (21 Oct 2026)', async () => {
+    world.pages = (url) =>
+      ({
+        [`${IG}/explore/tags/austinplumbing/`]: {
+          // Its grid as the owner's Check outlined the search: posts by /p/<code>/, none naming who posted them.
+          html: `${MENU}<section><main role="main"><div><div><span dir="auto">#austinplumbing</span></div>
+            ${grid(['C7aaaaaaa'])}<div role="progressbar"></div></div></main></section>`,
+          at: `${IG}/explore/search/keyword/?q=%23austinplumbing`,
+        },
+        [`${IG}/p/C7aaaaaaa/`]: {
+          html: foundPostHtml('quinn.plumbing', 'Plumbing in Austin all week', null),
+        },
+      })[url] ?? null;
+    world.hfos['hfos-post-words'] = () => ({
+      words: ['plumbing'],
+      tags: ['austinplumbing'],
+      places: ['Austin'],
+    });
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      groupId: null,
+      posts: [],
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    const end = await runInstagramDaily('posts', job());
+    expect(world.opened).toEqual([`${IG}/explore/tags/austinplumbing/`, `${IG}/p/C7aaaaaaa/`]);
+    expect(
+      world.asked
+        .filter((a) => a.type === 'hfos-save-posts')
+        .map((a) => (a.input as { posts: { name: string }[] }).posts.map((p) => p.name)),
+    ).toEqual([['quinn.plumbing']]);
+    expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
+  });
+
   it('says what to add when the playbooks have nothing to make hashtags from', async () => {
     world.hfos['hfos-post-words'] = () => ({ words: [], tags: [], places: [] });
     expect(await runInstagramDaily('posts', job())).toMatchObject({

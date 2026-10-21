@@ -12,11 +12,13 @@
  * - **A business's page** (/<town-st>/<business>): its names, its town, its Elevator Pitch, About Us, My Ideal Customer
  *   and its ideal partner (who they say they refer with: Find partners' best clue), its tags, and which of Connect,
  *   Recommend, Refer and Message it shows.
- * - **Messages:** the conversations down the side (`conversationInSidebar`), and the one open: who, its box and Send.
+ * - **Messages:** the conversations down the side (`conversationInSidebar`), and the one open: who, its box and Send,
+ *   and from the owner's Check of 21 Oct 2026 (0.83.0) its messages, each the person's or theirs, and who wrote last.
  *
  * It reads by Alignable's own test ids, its links' addresses and its words, never class names. Everything here is what
  * the page showed. Check notes only how many of each it found, never what they say (../../jobs/report.ts).
  */
+import { measuredSide } from '../facebook/chat';
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { Named, ProfileRef } from '../facebook/types';
@@ -25,6 +27,9 @@ import { aboutUsOf, codeBoxIn, idealOf } from './own-profile';
 const HOST = 'https://www.alignable.com';
 /** How many of each a read keeps: enough to go on with, never a whole page's worth. */
 const MOST = 40;
+/** A conversation's latest messages, and as much of each as a reader keeps: Instagram's chat reader's. */
+const MESSAGES_MOST = 20;
+const TEXT_MOST = 2_000;
 /**
  * My Network's rows, all of them: Save my connections reads the list a screen at a time and keeps each once, so a read
  * that stopped at the first few would never get past them. Alignable's own cap is far above any small business's.
@@ -118,12 +123,23 @@ export interface ChatRow {
   readonly when: string | null;
 }
 
-/** The conversation open on Messages: with whom, and its box and Send. */
+/** A message in the conversation open: the person's or theirs, what it says, and when Alignable says it was sent. */
+export interface ChatMessage {
+  readonly from: 'me' | 'them';
+  readonly text: string;
+  readonly when: string | null;
+}
+
+/** The conversation open on Messages: with whom, its box and Send, its latest messages, and who wrote last. */
 export interface ChatOpen {
   readonly name: string | null;
   readonly profile: ProfileRef | null;
   readonly box: boolean;
   readonly send: boolean;
+  /** Oldest first, as far as the page has drawn them: its latest few. */
+  readonly messages: readonly ChatMessage[];
+  /** Whose the last message is: null with none read. */
+  readonly last: ChatMessage['from'] | null;
 }
 
 /**
@@ -580,6 +596,107 @@ function chatRows(doc: Document): ChatRow[] {
   });
 }
 
+/** The writing in a part of the page outside a message's card, a line a piece: who sent it, and when. */
+const besideCard = (part: Element, card: Element): string[] =>
+  [...part.querySelectorAll('*')]
+    .filter((el) => el.childElementCount === 0 && !card.contains(el) && !el.closest('svg'))
+    .map((el) => clean(el.textContent))
+    .filter(Boolean);
+
+/** The most lines a message's row has beside its card: who sent it, when, and one more Alignable may add. */
+const ROW_LINES = 3;
+
+/**
+ * A message's row (the owner's Check, 21 Oct 2026): the nearest part around its card (`rel-card-message`) with its
+ * sender's picture in it, never one holding another card or more writing than who sent it and when, so a conversation's
+ * first message never takes the business card above it for its own. However many boxes Alignable wraps around each,
+ * it's the same row. No picture: the row is as far as it goes.
+ */
+function rowOf(card: Element): { readonly row: Element; readonly picture: Element | null } {
+  let row: Element = card;
+  for (let up = card.parentElement, steps = 0; up && steps < 10; up = up.parentElement, steps++) {
+    const another = [...up.querySelectorAll(PART('rel-card-message'))].some((c) => c !== card);
+    if (another || besideCard(up, card).length > ROW_LINES) break;
+    row = up;
+    const picture = [...up.querySelectorAll('img')].find((img) => !card.contains(img));
+    if (picture) return { row, picture };
+  }
+  return { row, picture: null };
+}
+
+/** Whether two businesses are different ones, by whichever of Alignable's id and address both have. */
+const differ = (a: ProfileRef, b: ProfileRef) =>
+  (a.id !== null && b.id !== null && a.id !== b.id) ||
+  (a.username !== null && b.username !== null && a.username !== b.username);
+
+/**
+ * Whose a message is, by its sender's picture: theirs starts its row with their picture in a link to their business
+ * (the business the conversation is with, when its header says which), and the person's own ends it with a picture
+ * alone. A row with no picture goes by the side of the conversation it sits on: theirs against the left, the person's
+ * against the right. Null when nothing says.
+ */
+function whoseCard(
+  card: Element,
+  picture: Element | null,
+  them: ProfileRef | null,
+  conversation: Element,
+  base: string,
+): ChatMessage['from'] | null {
+  if (picture) {
+    const link = picture.closest('a[href]');
+    const url = link ? urlOf(link.getAttribute('href'), base) : null;
+    const to = url ? businessRef(url, idIn(url)) : null;
+    return to && !(them && differ(to, them)) ? 'them' : 'me';
+  }
+  try {
+    const side = measuredSide(card, conversation);
+    return side === 'left' ? 'them' : side === 'right' ? 'me' : null;
+  } catch {
+    return null;
+  }
+}
+
+/** What a message's card says, its lines kept apart: never Alignable's icons beside it. */
+function cardText(card: Element): string {
+  const copy = card.cloneNode(true) as Element;
+  for (const icon of copy.querySelectorAll('svg, button')) icon.remove();
+  for (const br of copy.querySelectorAll('br')) br.replaceWith('\n');
+  for (const block of copy.querySelectorAll('p, div')) block.append('\n');
+  return (copy.textContent ?? '')
+    .split('\n')
+    .map((line) => clean(line))
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, TEXT_MOST);
+}
+
+/**
+ * The open conversation's messages, oldest first: each card (`rel-card-message`, never one inside another), whose it
+ * is, what it says, and the time its row shows after who sent it. The latest few, as Instagram's chat reader keeps.
+ */
+function messagesIn(
+  doc: Document,
+  base: string,
+  them: ProfileRef | null,
+  write: Element | null,
+): ChatMessage[] {
+  const cards = [...doc.querySelectorAll(PART('rel-card-message'))].filter(
+    (card) => !card.parentElement?.closest(PART('rel-card-message')),
+  );
+  if (!cards.length) return [];
+  // The conversation, for which side a message sits on: the part around its messages and its box to write in.
+  const conversation = around(write ? [...cards, write] : cards) ?? doc.body;
+  return cards
+    .flatMap((card) => {
+      const { row, picture } = rowOf(card);
+      const from = whoseCard(card, picture, them, conversation, base);
+      const text = cardText(card);
+      if (!from || !text) return [];
+      return [{ from, text, when: besideCard(row, card)[1] ?? null }];
+    })
+    .slice(-MESSAGES_MOST);
+}
+
 export function chatOpen(doc: Document, base: string): ChatOpen | null {
   const header = doc.querySelector(PART('channel-header-loaded'));
   const write = doc.querySelector(PART('full-view-write-message'));
@@ -588,11 +705,15 @@ export function chatOpen(doc: Document, base: string): ChatOpen | null {
     ? linksIn(header, base).find(({ url }) => businessRef(url, idIn(url)) !== null)
     : undefined;
   const box = write?.querySelector<HTMLElement>('[contenteditable="true"], textarea');
+  const profile = link ? businessRef(link.url, idIn(link.url)) : null;
+  const messages = messagesIn(doc, base, profile, write);
   return {
     name: clean(link?.a.textContent) || null,
-    profile: link ? businessRef(link.url, idIn(link.url)) : null,
+    profile,
     box: !!box && visible(box),
     send: doc.querySelector(PART('messaging-send-external')) !== null,
+    messages,
+    last: messages[messages.length - 1]?.from ?? null,
   };
 }
 

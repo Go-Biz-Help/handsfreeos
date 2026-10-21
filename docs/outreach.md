@@ -1373,7 +1373,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       General or Requests); and a chat (who it's with, its messages as the person's or theirs, its box, and whether
       it's a request waiting for Accept). The profile and the post are built from his outlines of 18 Oct 2026; the
       followers, a hashtag, a place, notifications and a chat from Instagram's usual markup, by its own words, labels,
-      roles and link addresses, and they're tuned from his next Check, which opens each.
+      roles and link addresses, and they're tuned from his next Check, which opens each: from his Check of 21 Oct 2026
+      in 0.84.0 (below, **His Checks of 21 Oct 2026**).
     - **Noting the person's own steps on Instagram** (extension 0.80.0; part 11; `src/networks/instagram/actions.ts`):
       Follow or Follow Back on a profile or a list's row is a follow, kept as a request (`friend_request`) to that
       account, noted once the button says Following or Requested, so one Instagram blocked notes nothing; a post's
@@ -1463,8 +1464,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
-      business looked up before drafting. Reading its chats waits for a reader built from a chat with messages in it,
-      which Check Alignable opens from Messages' side from 0.73.0.
+      business looked up before drafting. Reading its chats waited for a reader built from a chat with messages in it,
+      which Check Alignable opens from Messages' side from 0.73.0; it's built from his Check of 21 Oct 2026 (below,
+      **Read my chats on Alignable**).
+    - **Read my chats on Alignable** (extension 0.84.0, `chats` in `ASK_KINDS_ON.alignable` from 0.84.0 in
+      `ASK_KIND_SINCE_ON`, no migration), as Instagram's part 13 is: its chat reader is built from the owner's Check
+      of 21 Oct 2026, whose outlines showed an open conversation's messages each a `rel-card-message` between its
+      header (`channel-header-loaded`) and its box (`full-view-write-message`). Theirs starts its row with their
+      picture in a link to their business (`/biz/businesses/<id>`), then who and when, then the card; the person's own
+      has who and when, the card, then a picture alone. The reader keeps each message as the person's or theirs, what
+      it says and when, the latest 20, and who wrote last, as Instagram's chat reader keeps them, never more. **Read
+      my chats** (`src/jobs/alignable/chats.ts`) presses each conversation's row down Messages' side by the name it
+      shows (its rows aren't links), at a person's pace, sends each one with messages in it as Alignable's, keyed by
+      Alignable's id for the business (the key its conversations open by), and notes who wrote last
+      (`outreach.replies.note`), as a tab of the person's does as they go there now. Its runner reads them once a day,
+      right after the connections are checked, as Instagram's does.
     - **Its town's posts and forum questions** (extension 0.74.0, the `posts` ask, **Find posts in your town** on
       Today): the extension finds the person's town from their own profile's address, opens its page and reads a few
       screens of it, and saves each post and question as one found on the network (no group, `found: 'find'`), for
@@ -1497,8 +1511,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       and forum answers stay by hand:** each waits for the person's OK, as it's public writing (the plan's question
       9), so `comment` isn't in its `runs.auto`, and Sending's choices say so. **Recommendations stay by hand only.**
       Withdrawing old requests stays the person's too: no reader of the requests they've sent is built, as their
-      markup isn't known, so nothing works out which to withdraw. Its chats aren't read yet, so a reply is drafted from
-      what HandsFreeOS knows.
+      markup isn't known, so nothing works out which to withdraw. A reply is drafted from what HandsFreeOS knows: from
+      0.84.0, their conversation as the day's Read my chats last brought it in.
     - **Warm leads from Alignable's notifications** (the plan's "whoever likes, comments on or recommends you";
       extension 0.78.0, a migration: `engagements.helpful_id` may be empty and `kind` takes `recommend`): the
       extension reads Notifications once a day for who liked or commented on the person's posts and answers and who
@@ -1555,6 +1569,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       button, My Ideal Customer and the ideal partner, the services), but its details' page was read before it had
       drawn anything. 0.63.0 reads that profile as the AI's check would, opens the Elevator Pitch and My Ideal Customer
       and closes them with nothing written, and reads About Us's page and his details' once each has drawn its boxes.
+    - **His Checks of 21 Oct 2026** (0.83.0; every step works on both), and what 0.84.0 does about what they read:
+      - **Alignable's chat:** its reader of an open conversation's messages is built from his outlines (above, **Read
+        my chats on Alignable**), and its Read my chats asked from 0.84.0.
+      - **Instagram's followers:** /<you>/followers/ showed his account without the box of followers over it, and its
+        counts aren't links to the list now (`href="#"`). Save my followers and Check press his own account's count of
+        followers once, as a person does, when the box doesn't show from the address, and read it there.
+      - **Its notifications:** 30 people, every one under Instagram's "Suggested for you", each with Follow, below a
+        month of Meta's own notifications: nobody had followed, liked or commented, so none was right. The reader now
+        leaves out whatever is under that heading, as an account's name there can say "replied".
+      - **A chat:** each message is an article, their picture (a link to them) beside the last of a run of theirs and
+        none beside the person's, a post one shares linking to whoever posted it, and the header a link to them with
+        their name in a heading. Who it's with leaves out the accounts a shared post links to; whose each message is
+        goes by their picture, then the side it sits on; a shared post has no words to keep but still says who wrote
+        last (`ChatOpen.last`).
+      - **A post's likes:** its bar is Like, its count ("36.5K"), Comment, its count, and so on, each wrapped in boxes
+        the outline leaves out, so the count is now the control after its Like, in page order.
+      - **A hashtag:** #smallbusiness's page sent the tab to Instagram's search for it
+        (/explore/search/keyword/?q=#smallbusiness), and its grid of posts is read as the hashtag's now, for Check and
+        the day's look at hashtags.
+      - **A place:** no post he'd read was tagged at one, so Check opened /explore/locations/, which is no list of
+        places now but an account named "explore". Check opens up to two of the hashtag's posts for one tagged at a
+        place instead, as the day's look does, so a place's page is still to be outlined.
+      - **His own account:** it has no posts ("0 posts", with Instagram's own box for sharing a first photo) and no bio:
+        the bio's section holds a one-word line in the place someone else's account shows what they do, a link and
+        Threads. The name was read from that line; it's the line under the username now, beside the counts, as on
+        someone else's account. The "New" button among the highlights was read as one, by its icon's title; it isn't.
     - **Each moves to `working`** once its readers and steps are built from what its Check sends back, as LinkedIn's
       were from his (0.46.0 to 0.56.0).
 

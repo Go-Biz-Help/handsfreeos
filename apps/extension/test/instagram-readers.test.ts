@@ -2,15 +2,19 @@
  * Instagram's own readers (src/networks/instagram/read.ts; the Instagram and Alignable plan's part 10): someone's
  * profile and a post on pages drawn as the owner's Check Instagram outlined them (0.62.0, 18 Oct 2026), with
  * Instagram's own words, labels, roles and link shapes where it put them; their followers, a hashtag, a place, their
- * notifications, their messages and a chat from Instagram's usual markup, till his next Check outlines them. What a
- * report of each says: how many of each, never what they say.
+ * notifications, their messages and a chat from Instagram's usual markup, then (below) as his Check of 21 Oct 2026
+ * outlined them. What a report of each says: how many of each, never what they say.
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { pageFound } from '../src/jobs/report';
-import { readInstagram } from '../src/networks/instagram/read';
+import { ownProfileNote, pageFound } from '../src/jobs/report';
+import { openFollowers } from '../src/networks/instagram/browse';
+import { readOwnProfile } from '../src/networks/instagram/own-profile';
+import { followersCount, readInstagram } from '../src/networks/instagram/read';
+import { readReplies } from '../src/networks/instagram/replies';
 import { INSTAGRAM } from '../src/networks/instagram/site';
 import { readLooking } from '../src/networks/looking/read';
+import { boxEverything } from './load';
 
 const IG = 'https://www.instagram.com';
 const page = (path: string, body: string) =>
@@ -368,6 +372,7 @@ describe('a chat on Instagram', () => {
         { from: 'me', text: 'Hi Dana, are you taking new clients?' },
         { from: 'them', text: 'Yes, what do you need?' },
       ],
+      last: 'them',
       box: true,
       request: false,
     });
@@ -385,5 +390,344 @@ describe('a chat on Instagram', () => {
     const found = pageFound(readLooking(doc, doc.location.href, INSTAGRAM));
     expect(found).toMatchObject({ chat: true, chatMessages: true, chats: 2 });
     expect(JSON.stringify(found)).not.toContain('new clients');
+  });
+});
+
+// ------------------------------------------------------------------------------------------------ 21 Oct 2026
+
+/**
+ * The pages the owner's Check Instagram of 21 Oct 2026 (0.83.0) outlined where the readers read nothing, rebuilt
+ * element for element from his outlines with made-up words where they hid them. Each is read as its outline drew it,
+ * and again with a bare box around every element, as the real page wraps more than an outline shows.
+ */
+const SHAPES = [
+  ['as its outline drew it', (doc: Document) => doc],
+  ['with a bare box around every element', boxEverything],
+] as const;
+
+/** His own account at /me.owner/followers/: its header, no box of followers over it, and no posts yet. */
+const ownAccount = (path = '/me.owner/followers/') =>
+  page(
+    path,
+    `${MENU}<section><main role="main"><div>
+      <header><div>
+        <section><div><div role="button"><div>Note…</div></div>
+          <div><button title="Change profile photo"><img alt="Change profile photo"></button>
+            <form role="presentation"><input></form></div></div></section>
+        <section><div><div><a role="link" href="#"><h2 dir="auto"><span>me.owner</span></h2></a>
+            <div role="button" aria-expanded="false"><svg role="img" aria-label="Options"></svg></div></div>
+          <span dir="auto">Casey</span>
+          <div><span dir="auto"><span>0</span> posts</span>
+            <a role="link" href="#"><span dir="auto"><span title="3,872"><span>3,872</span></span> followers</span></a>
+            <a role="link" href="#"><span dir="auto"><span>87</span> following</span></a></div></div></section></div>
+        <section><div><div dir="auto">Entrepreneur</div>
+          <div><div><svg role="img" aria-label="Link icon"></svg>
+            <a href="https://l.instagram.com/?u=https%3A%2F%2Fcaseyroofs.com"><div dir="auto">caseyroofs.com</div></a></div>
+            <a role="link" href="https://www.threads.com/@me.owner"><svg role="img" aria-label="Threads"></svg>
+              <span dir="auto"><span>me.owner</span></span></a></div></div></section>
+        <section></section>
+        <section><div><a role="link" href="/accounts/edit/">Edit profile</a>
+          <a role="link" href="/me.owner/stories/">View archive</a></div></section>
+        <section></section>
+        <section><div role="menu"><div role="presentation"><ul><li></li><li></li>
+          <li><div role="button"><div><canvas></canvas><svg role="img" aria-label="Plus icon"><title>Plus icon</title></svg></div>
+            <span dir="auto"><span>New</span></span></div></li></ul></div></div></section>
+        <section></section>
+      </header>
+      <div><div role="tablist"><a role="link" aria-selected="false" href="/me.owner/"><svg role="img" aria-label="Posts"></svg></a>
+        <a role="link" aria-selected="false" href="/me.owner/saved/"><svg role="img" aria-label="Saved"></svg></a>
+        <a role="link" aria-selected="false" href="/me.owner/tagged/"><svg role="img" aria-label="Tagged"></svg></a></div>
+        <div role="tabpanel"></div></div>
+      <div><form role="presentation"><input></form><div>
+        <div role="button" aria-label="Camera"><svg role="img" aria-label="When you share photos, they will appear here."></svg></div>
+        <h1 dir="auto">Share photos</h1><span dir="auto">When you share photos, they will appear on your profile.</span>
+        <div role="button">Share your first photo</div></div></div>
+    </div></main></section>`,
+  );
+
+/** What pressing their count of followers draws over the page: the box, headed Followers, with its rows. */
+const pressingOpensBox = (doc: Document) => {
+  followersCount(doc)!.addEventListener('click', () => {
+    const box = doc.createElement('div');
+    box.setAttribute('role', 'dialog');
+    box.innerHTML = `<div><h1>Followers</h1><input placeholder="Search"><div>
+      ${follower('dana.reyes', 'Dana Reyes', '<span>·</span><div role="button">Follow</div>')}
+      ${follower('sam.lee', 'Sam Lee', '')}</div></div>`;
+    doc.body.append(box);
+  });
+  return doc;
+};
+
+describe('your followers, as the owner’s Check of 21 Oct 2026 found the page', () => {
+  for (const [shape, made] of SHAPES)
+    it(`opens the box from their account’s count of followers when the address didn’t, ${shape}`, () => {
+      const doc = pressingOpensBox(made(ownAccount()));
+      expect(read(doc).followers).toEqual([]);
+      expect(openFollowers(doc, doc.location.href)).toBe(true);
+      expect(read(doc).followers.map((f) => [f.username, f.followBack])).toEqual([
+        ['dana.reyes', false],
+        ['sam.lee', true],
+      ]);
+      // Open already: nothing more is pressed.
+      expect(openFollowers(doc, doc.location.href)).toBe(true);
+      expect(doc.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    });
+
+  it('reads the box over their account too, and presses nothing on someone else’s', () => {
+    const own = pressingOpensBox(ownAccount('/me.owner/'));
+    expect(openFollowers(own, own.location.href)).toBe(true);
+    expect(read(own).followers).toHaveLength(2);
+    const theirs = page(
+      '/dana.reyes/',
+      ownAccount().body.innerHTML.replaceAll('me.owner/stories', 'dana.reyes/stories'),
+    );
+    let pressed = 0;
+    followersCount(theirs)!.addEventListener('click', () => pressed++);
+    expect(openFollowers(theirs, theirs.location.href)).toBe(false);
+    expect(pressed).toBe(0);
+  });
+});
+
+describe('your own account, as the owner’s Check of 21 Oct 2026 read it', () => {
+  it('reads the name under the username, never what they do for it, and no bio, highlight or post: there are none', () => {
+    const doc = ownAccount('/me.owner/');
+    const own = readOwnProfile(doc, doc.location.href);
+    expect(own).toEqual({
+      platform: 'instagram',
+      url: `${IG}/me.owner/`,
+      name: 'Casey',
+      picture: 'A profile photo Instagram didn’t describe',
+      bio: null,
+      intro: ['Link: caseyroofs.com'],
+      featured: [],
+      posts: [],
+    });
+    expect(ownProfileNote(own).note).toBe('Not read: the bio, highlights, any posts.');
+  });
+});
+
+describe('your notifications, as the owner’s Check of 21 Oct 2026 found them', () => {
+  /** One of the accounts Instagram suggests: its picture, its name and line, and Follow. */
+  const suggested = (username: string, name: string, line: string) =>
+    `<div><a role="link" href="/${username}/"><img alt="${username}'s profile picture"></a>
+      <div><a role="link" href="/${username}/"><span dir="auto">${username}</span></a>
+        <span dir="auto"><span>${name}</span></span><span dir="auto"><span>${line}</span></span></div>
+      <button><div dir="auto">Follow</div></button></div>`;
+  const meta = (words: string) =>
+    `<div><a role="link" href="https://www.facebook.com/meta"><img alt="Meta"></a>
+      <span dir="auto">${words}<span>2w</span></span></div>`;
+  const notifications = () =>
+    page(
+      '/notifications/',
+      `${MENU}<section><main role="main"><div aria-hidden="false"><div><div>
+        <div role="heading" aria-level="1"><span dir="auto">This month</span></div>
+        <div>${meta('Your account is now in Accounts Center.')}${meta('Check your privacy settings.')}
+          <div><div role="button"><img alt="Meta"></div><span dir="auto">Meta Verified is here.<span>3w</span></span></div></div></div>
+        <h4 dir="auto">Suggested for you</h4>
+        <div><div>${suggested('lee.park', 'Lee Park', 'Followed by sam.lee + 2 more')}
+          ${suggested('replied.media', 'Replied Media Co', 'Suggested for you')}
+          ${suggested('kim_bakes', 'Kim Bakes', 'Follows you')}</div>
+          <a role="link" href="/explore/people/">See all suggestions</a></div></div></main></section>`,
+    );
+
+  for (const [shape, made] of SHAPES)
+    it(`reads nobody from the accounts Instagram suggests or Meta’s own notifications, ${shape}`, () => {
+      const doc = made(notifications());
+      expect(read(doc).engaged).toEqual([]);
+      // Nobody followed, liked or commented this month: 30 people on the page, all of them suggested.
+      expect(readLooking(doc, doc.location.href, INSTAGRAM).people).toHaveLength(3);
+    });
+});
+
+/** A chat on its own page, as the owner's Check outlined one: the list of chats, its header, and its messages. */
+const chatRow = `<div role="button"><div><div><img alt="user"></div><div><span dir="auto"><span title="Dana Reyes">Dana Reyes</span></span>
+  <div><span dir="auto"><span>Dana sent an attachment.</span></span><div><span><span aria-hidden="true">·</span></span>
+    <span dir="auto"><abbr aria-label="6 days ago"><span>6d</span></abbr></span></div></div></div></div></div>`;
+/** What a message can share: someone's post, linked to whoever posted it, in a button. */
+const sharedPost = (by: string) =>
+  `<div role="button"><div><img alt=""><div><a role="link" href="/${by}/"><span dir="auto"><span>${by}</span></span></a>
+    <svg role="img" aria-label="Verified"></svg></div></div><div><img alt=""><svg role="img" aria-label="Clip"></svg></div>
+    <div role="none"></div></div>`;
+const article = (inside: string) =>
+  `<div role="article"><div role="none"><div role="none">${inside}</div></div></div>
+   <div role="group" aria-label="Message actions"><div><div role="button" aria-label="React to message" aria-expanded="false">
+     <svg role="img" aria-label="React to message"></svg></div></div></div>`;
+const words = (text: string) =>
+  `<div role="presentation"><span dir="auto"><div dir="auto">${text}</div></span></div>`;
+/** Their picture beside the last of a run of theirs: a link to them, as /<name> without its slash. */
+const picture = `<a role="link" aria-label="Open the profile page of dana.reyes" href="/dana.reyes"><img alt="dana.reyes"></a>`;
+const reaction = `<div><div role="none"><div role="none"><div role="button"><div role="none"><span>❤</span></div></div></div>
+  <div role="none"></div></div></div>`;
+const NEWER_CHAT = () =>
+  page(
+    '/direct/t/340282366841710300/',
+    `${MENU}<section><main role="main"><section><div><div>
+      <div role="navigation" aria-label="Thread list"><div><div>
+        <div role="button"><h2 dir="auto"><span>me.owner</span></h2><svg role="img" aria-label="Down chevron icon"></svg></div>
+        <div role="button"><svg role="img" aria-label="New message"></svg></div></div>
+        <div role="tablist"><div role="tab" aria-selected="true"><span dir="auto"><span>Primary</span></span></div>
+          <div role="tab" aria-selected="false"><span dir="auto"><span>General</span></span></div></div>
+        <label><svg role="img" aria-label="Search"></svg><input placeholder="Search"></label>
+        <div><div>${chatRow}</div></div></div></div>
+      <div><div data-pagelet="IGDInboxHeaderOffMsys"><div>
+          <a role="link" aria-label="Open the profile page of dana.reyes" href="/dana.reyes/"><div><div><img alt="dana.reyes"></div>
+            <div><h2 dir="auto"><span title="Dana Reyes">Dana Reyes</span></h2><span dir="auto"><span>dana.reyes</span></span></div></div></a>
+          <div><div role="button"><svg role="img" aria-label="Audio call"></svg></div>
+            <div role="button"><svg role="img" aria-label="Conversation information"></svg></div></div></div></div>
+        <div><div data-pagelet="IGDMessagesList"><div>
+            <div><div><img alt="dana.reyes"></div><div><h2 dir="auto"><span title="Dana Reyes">Dana Reyes</span></h2>
+              <span dir="auto">dana.reyes · Instagram</span><a role="link" href="/dana.reyes/">View profile</a></div></div>
+            <div>
+              <div><span dir="auto">Oct 14, 2026, 3:15 PM</span>
+                <div role="group"><div><div>${article(sharedPost('plumbing.tips'))}</div></div></div></div>
+              <div role="group"><div><div>${picture}<div>${article(words('Love this <img alt="😂"> so true for us <a role="link" href="/explore/tags/plumbing/">#plumbing</a>'))}</div></div>
+                ${reaction}</div></div>
+              <div><span dir="auto">Oct 15, 2026, 9:02 AM</span>
+                <div role="group"><div><div><div>${article(words('Ha, glad you liked it. Sent you a quote too'))}</div></div>
+                  ${reaction}</div></div></div>
+              <div><span dir="auto">Yesterday 4:30 PM</span>
+                <div role="group"><div><div>${picture}<div>${article(sharedPost('drain.pros'))}</div></div>
+                  ${reaction}</div></div></div>
+            </div>
+            <span dir="auto">Seen</span></div></div>
+          <div data-pagelet="IGDComposerForCannes"><div>
+            <div role="button" aria-expanded="false"><svg role="img" aria-label="Choose an emoji"></svg></div>
+            <div><div role="textbox" contenteditable="true"><p dir="auto"><br></p></div><div aria-hidden="true"><div>Message...</div></div></div>
+            <div><div role="button"><svg role="img" aria-label="Voice Clip"></svg></div><input>
+              <div role="button"><svg role="img" aria-label="Add Photo or Video"></svg></div></div></div></div></div></div>
+    </div></div></section></main></section>`,
+  );
+
+describe('a chat, as the owner’s Check of 21 Oct 2026 outlined one', () => {
+  for (const [shape, made] of SHAPES)
+    it(`reads who it’s with, its messages as theirs or yours, and who wrote last, ${shape}`, () => {
+      const doc = made(NEWER_CHAT());
+      expect(read(doc).chat).toEqual({
+        thread: '340282366841710300',
+        with: { username: 'dana.reyes', url: `${IG}/dana.reyes/` },
+        name: 'Dana Reyes',
+        // What a post someone shared says is never a message: the person's first, Dana's last.
+        messages: [
+          { from: 'them', text: 'Love this so true for us #plumbing' },
+          { from: 'me', text: 'Ha, glad you liked it. Sent you a quote too' },
+        ],
+        last: 'them',
+        box: true,
+        request: false,
+      });
+      // The list beside it still reads.
+      expect(read(doc).chats.map((c) => c.name)).toEqual(['Dana Reyes']);
+    });
+
+  it('tells who wrote last when it’s a post they shared, by the chat’s id and their account', () => {
+    const doc = NEWER_CHAT();
+    expect(readReplies(doc, doc.location.href)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '340282366841710300',
+        profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
+        when: null,
+      },
+    ]);
+    const found = pageFound(readLooking(doc, doc.location.href, INSTAGRAM));
+    expect(found).toMatchObject({
+      chatMessages: true,
+      chatName: true,
+      chatWith: true,
+      chatLast: true,
+    });
+    expect(JSON.stringify(found)).not.toMatch(/quote|plumbing|Dana/);
+  });
+});
+
+/** A post's own page, as the owner's Check outlined one: its pictures, its header, caption and comments, and its bar. */
+const comment = (username: string, id: string, text: string, likes: string) =>
+  `<div><div><a role="link" href="/${username}/"><img alt="${username}'s profile picture"></a>
+    <div><div><div><div><span dir="auto"><a role="link" href="/${username}/"><span dir="auto">${username}</span></a></span>
+      <span dir="auto"><a role="link" href="/p/C3xyzabcd/c/${id}/"><time title="Oct 7, 2026">2w</time></a></span></div>
+      <span dir="auto">${text}</span></div>
+      <div><div role="button"><span dir="auto"><span>${likes}</span></span></div>
+        <div role="button"><span dir="auto"><span>Reply</span></span></div></div></div>
+      <div role="button"><svg role="img" aria-label="Like"></svg></div></div></div>
+    <div role="button"><div><span dir="auto">View replies (2)</span></div></div></div>`;
+const NEWER_POST = () =>
+  page(
+    '/p/C3xyzabcd/',
+    `${MENU}<section><main role="main"><div><div><div><div>
+      <div role="presentation"><ul><li></li><li><div><div role="button"><img></div>
+        <button><svg role="img" aria-label="Tags"></svg></button>
+        <a role="link" href="/tagged.one/"><span><span>tagged.one</span></span></a></div></li></ul></div>
+      <button aria-label="Next"></button></div></div>
+    <div><div><div><span role="link"><img alt="dana.reyes's profile picture"></span><span role="link"><img alt="sam.lee's profile picture"></span></div>
+        <div><span dir="auto"><span><a role="link" href="/dana.reyes/"><span dir="auto">dana.reyes</span></a>
+          <svg role="img" aria-label="Verified"></svg></span><span>and</span><a role="link" href="#"><span>sam.lee</span></a></span>
+          <span dir="auto"></span></div>
+        <div role="button" aria-expanded="false"><svg role="img" aria-label="More options"></svg></div></div>
+      <hr>
+      <div><div><a role="link" href="/dana.reyes/"><img alt="dana.reyes's profile picture"></a>
+          <div><span dir="auto"><div><div><a role="link" href="/dana.reyes/"><div><span dir="auto">dana.reyes</span>
+            <svg role="img" aria-label="Verified"></svg></div></a><time title="Oct 7, 2026">2w</time></div>
+            <span>Five signs your water heater is about to go.<br><br>Number three surprises everyone.</span></div></span></div></div>
+        <div>${comment('sam.lee', '17900000000000001', 'Number four got us last winter', '3 likes')}
+          ${comment('kim_bakes', '17900000000000002', 'Do you do tankless?', '12 likes')}
+          <div><svg role="img" aria-label=""></svg><span dir="auto"><span>4</span> more comments</span></div>
+          <div role="progressbar"><svg role="img" aria-label="Loading"></svg></div></div></div>
+      <div><section><div>
+          <div role="button"><svg role="img" aria-label="Like"></svg></div><span role="button">36.5K</span>
+          <div role="button"><svg role="img" aria-label="Comment"></svg></div><span role="button">1.1K</span>
+          <div role="button"><svg role="img" aria-label="Repost"></svg><div role="none"></div></div><span role="button">993</span>
+          <div role="button"><svg role="img" aria-label="Share"></svg><div role="none"></div></div></div>
+          <div role="button"><div role="button"><svg role="img" aria-label="Save"></svg></div></div></section>
+        <div dir="auto"><a role="link" href="/dana.reyes/p/C3xyzabcd/"><span dir="auto"><time title="Oct 7, 2026">October 7</time></span></a></div></div>
+      <section><div><span role="link"><img alt=""></span><form><div>
+        <div role="button" aria-expanded="false"><svg role="img" aria-label="Emoji"></svg></div>
+        <textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></div></form></div></section></div>
+    <hr><div><div dir="auto">More posts from <a role="link" href="/dana.reyes/">dana.reyes</a></div>
+      <div><a role="link" href="/dana.reyes/p/C9other12/"><img alt="other"></a></div></div>
+    </div></main></section>`,
+  );
+
+describe('a post, as the owner’s Check of 21 Oct 2026 outlined one', () => {
+  for (const [shape, made] of SHAPES)
+    it(`reads its likes from the number after its Like, never a comment’s, ${shape}`, () => {
+      const post = read(made(NEWER_POST())).post!;
+      expect(post.likes).toBe(36_500);
+      expect(post.author).toEqual({ username: 'dana.reyes', url: `${IG}/dana.reyes/` });
+      expect(post.comments.map((c) => c.username)).toEqual(['sam.lee', 'kim_bakes']);
+    });
+});
+
+describe('a hashtag and a place, as the owner’s Check of 21 Oct 2026 found them', () => {
+  const searchGrid = (q: string) =>
+    page(
+      `/explore/search/keyword/?q=${encodeURIComponent(q)}`,
+      `${MENU}<section><main role="main"><div><div><span dir="auto">${q}</span>
+        <div role="button" aria-expanded="false"><svg role="img" aria-label="More"></svg></div></div>
+        <div><div><div><a role="link" href="/p/C1aaaaaaa/"><div><img alt=""></div><svg role="img" aria-label="Clip"></svg></a>
+          <a role="link" href="/p/C2bbbbbbb/"><video></video></a><a role="link" href="/p/C3ccccccc/"><div><img alt=""></div></a></div></div>
+          <div role="progressbar"><svg role="img" aria-label="Loading"></svg></div></div></div></main></section>`,
+    );
+
+  it('reads a hashtag’s posts on the search Instagram sends it to, never a search for words', () => {
+    expect(read(searchGrid('#smallbusiness')).tag).toEqual({
+      url: `${IG}/explore/tags/smallbusiness/`,
+      name: 'smallbusiness',
+      posts: [`${IG}/p/C1aaaaaaa/`, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`],
+    });
+    expect(read(searchGrid('small business')).tag).toBeNull();
+  });
+
+  it('takes /explore/locations/ alone for no place: Instagram draws an account named explore there', () => {
+    const doc = page(
+      '/explore/locations/',
+      `${MENU}<main role="main"><header><section><a role="link" href="#"><h2 dir="auto"><span>explore</span></h2></a></section>
+        <section><button><div dir="auto">Follow</div></button><div role="button">Message</div></section></header>
+        <div><a role="link" href="/explore/p/C4ddddddd/"><img alt=""></a></div></main>`,
+    );
+    expect(INSTAGRAM.kindOf(new URL(doc.location.href))).toBe('explore');
+    expect(read(doc).place).toBeNull();
+    expect(INSTAGRAM.kindOf(new URL(`${IG}/explore/locations/212988663/austin-texas/`))).toBe(
+      'place',
+    );
   });
 });
