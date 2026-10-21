@@ -19,8 +19,9 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   and the latest message with each person; a chat from it goes onto the customer's card from the Chats tab.
  * - The groups tab scores the groups the extension saved, and Today waits for a group's admins before it suggests
  *   anyone from it.
- * - A first-timer is sent to the setup, which remembers where they got to, says what's left to get ready, ticks when the
- *   extension signs in, and can be done again from Settings.
+ * - A first-timer is sent to the setup (decision 83): the main setup, then a short one for each network they turn on,
+ *   each step ticked from facts (the extension signing in, the rules kept, their goal saved), Skip leaving it to do,
+ *   Start saying what's still in the way, and Set up again on Settings.
  * - Settings has a page for each part, opened from its menu: General, then each network (decision 73). Every change
  *   saves as it's made, with no Save button, and is still there after a reload. A network's On for you saves at once
  *   with a line beside it (Chris, 2026-10-16); one that can't be saved goes back, saying why.
@@ -640,57 +641,55 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 20');
 });
 
-test('a first-timer is sent to the setup, which remembers where they got to and ticks when the extension signs in', async ({
+test('a first-timer is sent to the setup: the main setup, then each network, each step ticked from facts', async ({
   page,
 }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
   const { email } = await signUpAndConfirm(page, 'outreach-setup');
   const workspaceId = await createBusiness(page, { name: 'Maple Lane Plumbing' });
   await turnOnOutreach(page, email, workspaceId);
   const setup = page.getByTestId('outreach-setup');
+  const rail = (key: string) => page.getByTestId(`outreach-setup-rail-${key}`).first();
 
-  // Carry on from the banner: the playbooks, where a template opens the builder and comes back here.
-  await expect(page.getByTestId('outreach-setup-banner')).toContainText('0 of 7 done');
+  // The line on every tab names the next step; Carry on opens it (they started when they left it for later).
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText(
+    'Next: Main offer · 0 of 8 done.',
+  );
   await page.getByTestId('outreach-setup-carry-on').click();
-  // The welcome says what's ahead, then the first step.
-  await expect(setup).toHaveAttribute('data-screen', 'welcome');
-  await expect(page.getByTestId('outreach-setup-welcome')).toContainText('Your team’s rules');
-  await page.getByTestId('outreach-setup-start').click();
-  await expect(setup).toHaveAttribute('data-screen', 'playbooks');
-  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('1 of 7 · Playbooks');
+  await expect(setup).toHaveAttribute('data-screen', 'offer');
+  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('Your business · 1 of 4');
+  // The main offer is built on its own page, which comes back here.
+  await expect(page.getByTestId('outreach-setup-offer-open')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/main-offer/build?back=${encodeURIComponent(`/app/w/${workspaceId}/a/outreach/setup?step=offer`)}`,
+  );
+  await expect(rail('offer')).toHaveAttribute('data-state', 'todo');
+  await page.getByTestId('outreach-setup-skip').click();
+
+  // A playbook: a template opens the builder and comes back to this step.
+  await expect(setup).toHaveAttribute('data-screen', 'playbook');
   await expect(page.getByTestId('outreach-setup-template-crm_demos')).toHaveAttribute(
     'href',
-    `/app/w/${workspaceId}/a/outreach/playbooks/new?template=crm_demos&from=setup`,
+    `/app/w/${workspaceId}/a/outreach/playbooks/new?from=setup&template=crm_demos`,
   );
-  await page.getByTestId('outreach-setup-next').click();
+  // Skipped, it's still left to do.
+  await page.getByTestId('outreach-setup-skip').click();
+  await expect(rail('playbook')).toHaveAttribute('data-state', 'todo');
 
-  // Get ready (decision 63): what's left before the extension reaches anyone, to do now or later.
-  await expect(setup).toHaveAttribute('data-screen', 'ready');
-  await expect(page.getByTestId('ready-offer')).toHaveAttribute('data-state', 'todo');
-  await expect(page.getByTestId('ready-numbers')).toHaveAttribute('data-state', 'todo');
-  await page.getByTestId('outreach-setup-next').click();
+  // The short video is optional (decision 83): the business can say it doesn't use one.
+  await expect(setup).toHaveAttribute('data-screen', 'video');
+  await expect(rail('video')).toContainText('Optional');
+  await page.getByTestId('outreach-setup-no-video').click();
 
-  // The team's rules, kept as they are; then their networks, Facebook on to start; then their own settings.
+  // The team's rules, kept in one press, tick.
   await expect(setup).toHaveAttribute('data-screen', 'rules');
-  await expect(page.getByTestId('outreach-rules-save')).toHaveText('Keep these and carry on');
-  await page.getByTestId('outreach-rules-save').click();
-  await expect(setup).toHaveAttribute('data-screen', 'networks');
-  await expect(page.getByTestId('outreach-setup-network-facebook-on')).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await expect(page.getByTestId('outreach-setup-network-linkedin-on')).toHaveAttribute(
-    'aria-checked',
-    'false',
-  );
-  await page.getByTestId('outreach-setup-next').click();
-  await expect(setup).toHaveAttribute('data-screen', 'settings');
-  await page.getByTestId('outreach-setup-my-sending-steps').click();
-  await page.getByTestId('outreach-setup-next').click();
+  await expect(rail('video')).toHaveAttribute('data-state', 'done');
+  await expect(page.getByTestId('outreach-setup-rules')).toContainText('20 friend requests');
+  await page.getByTestId('outreach-setup-rules-keep').click();
 
-  // The extension: HandsFreeOS's own download, served by the app, with the steps to load it into Chrome; then it
-  // waits until the extension signs in.
+  // The extension: HandsFreeOS's own download, five steps with pictures, then it waits until the extension signs in.
   await expect(setup).toHaveAttribute('data-screen', 'extension');
+  await expect(rail('rules')).toHaveAttribute('data-state', 'done');
   const download = page.getByTestId('outreach-setup-download');
   await expect(download).toHaveAttribute(
     'href',
@@ -701,6 +700,7 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   );
   await expect(page.getByTestId('outreach-install-steps')).toContainText('Developer mode');
   await expect(page.getByTestId('outreach-install-steps')).toContainText('Load unpacked');
+  await expect(page.getByTestId('outreach-install-step-5')).toContainText(email);
   const zip = await page.request.get((await download.getAttribute('href'))!);
   expect(zip.status()).toBe(200);
   expect((await zip.body()).readUInt32LE(0)).toBe(0x04034b50);
@@ -708,24 +708,65 @@ test('a first-timer is sent to the setup, which remembers where they got to and 
   const { token } = await signInOwner(email);
   await api(token, 'commands', 'outreach.setup.save', { workspaceId, extension: true });
   await expect(page.getByTestId('outreach-setup-signed-in')).toBeVisible({ timeout: 15_000 });
+  await expect(rail('extension')).toHaveAttribute('data-state', 'done');
+  await page.getByTestId('outreach-setup-next').click();
 
-  // Left for later: Today says how far they got, and Carry on opens where they left off.
+  // Their messages wait on the offer and a niche; their goal saves and ticks.
+  await expect(setup).toHaveAttribute('data-screen', 'messages');
+  await page.getByTestId('outreach-setup-skip').click();
+  await expect(setup).toHaveAttribute('data-screen', 'numbers');
+  await page.getByTestId('ready-numbers-save').click();
+
+  // The networks they use: LinkedIn turned on gets a short setup of its own, after Facebook's.
+  await expect(setup).toHaveAttribute('data-screen', 'networks');
+  await expect(rail('numbers')).toHaveAttribute('data-state', 'done');
+  await page.getByTestId('outreach-setup-network-linkedin-on').click();
+  await expect(page.getByTestId('outreach-setup-networks-next')).toContainText(
+    'Next: set up Facebook and LinkedIn.',
+  );
+  await page.getByTestId('outreach-setup-networks-save').click();
+
+  // Facebook's short setup: the profile, what it does there, then the first day.
+  await expect(setup).toHaveAttribute('data-screen', 'facebook-profile');
+  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('Facebook · 1 of 3');
+  await expect(rail('linkedin')).toContainText('5 steps');
+  await page.getByTestId('outreach-setup-skip').click();
+  await expect(setup).toHaveAttribute('data-screen', 'facebook-choices');
+  // Nothing picked to start (decision 26): Save waits for a pick.
+  await expect(page.getByTestId('outreach-setup-choices-save')).toBeDisabled();
+  await page.getByTestId('outreach-setup-sending-steps').click();
+  await page.getByTestId('outreach-setup-choices-save').click();
+
+  // Start: what's still in the way says so, with where to fix it.
+  await expect(setup).toHaveAttribute('data-screen', 'facebook-start');
+  await expect(page.getByTestId('outreach-setup-blocker')).toBeVisible();
+  await expect(page.getByTestId('outreach-setup-fix')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/a/outreach/setup?step=offer`,
+  );
+  await expect(page.getByTestId('outreach-setup-start-day')).toBeDisabled();
+  await expect(page.getByTestId('outreach-setup-then')).toContainText('Then LinkedIn');
+
+  // LinkedIn's own setup starts with Chrome's Allow, waiting until the computer says it's let on.
+  await page.goto(`/app/w/${workspaceId}/a/outreach/setup?net=linkedin&step=allow`);
+  await expect(setup).toHaveAttribute('data-screen', 'linkedin-allow');
+  await expect(page.getByTestId('outreach-setup-counter')).toHaveText('LinkedIn · 1 of 5');
+  await expect(page.getByTestId('outreach-setup-allow-steps')).toContainText('linkedin.com');
+  await expect(page.getByTestId('outreach-setup-allow-waiting')).toBeVisible();
+
+  // Left for later: the line says what's next, and Carry on opens there, saying where they left off.
   await page.getByTestId('outreach-setup-later').click();
   await page.getByTestId('outreach-tab-today').click();
-  await expect(page.getByTestId('outreach-setup-banner')).toContainText('5 of 7 done');
+  await expect(page.getByTestId('outreach-setup-banner')).toContainText(
+    'Next: Main offer · 5 of 8 done.',
+  );
   await page.getByTestId('outreach-setup-carry-on').click();
-  await expect(setup).toHaveAttribute('data-screen', 'extension');
-  await expect(page.getByTestId('outreach-setup-resumed')).toBeVisible();
-  await page.getByTestId('outreach-setup-next').click();
-  await expect(setup).toHaveAttribute('data-screen', 'groups');
-  await page.getByTestId('outreach-setup-next').click();
-  await expect(page.getByTestId('outreach-setup-done')).toContainText('Extension: last checked in');
+  await expect(setup).toHaveAttribute('data-screen', 'offer');
 
-  // Finished: no banner, and Set up again on Settings opens the first step.
+  // Set up again on Settings opens the first step.
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
-  await expect(page.getByTestId('outreach-setup-banner')).toHaveCount(0);
   await page.getByTestId('outreach-setup-again-open').click();
-  await expect(setup).toHaveAttribute('data-screen', 'playbooks');
+  await expect(setup).toHaveAttribute('data-screen', 'offer');
 });
 
 test('a network’s On for you saves at once on its page, with a line beside it, and goes back when it can’t be saved', async ({

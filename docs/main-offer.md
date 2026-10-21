@@ -88,7 +88,9 @@ to 70.
   changing a live offer starts from it, on Who. The last step, **Review and go live**, scores; each part shows what's
   working, what's holding it back and the AI's fix, with a note for the AI and Keep this part as is; the owner's
   direction sits under them; and **Make a try** writes one beside the draft, compared part by part
-  (`&try=`) and taken in a part at a time. Then Go live, or, under the bar, Use it anyway with a reason.
+  (`&try=`) and taken in a part at a time. Then Go live, or, under the bar, Use it anyway with a reason. Opened from
+  somewhere else (Social Outreach's setup), `?back=` names where leaving it and going live go back to: a path in the same
+  business only, checked as sign-in's `next` is (`safeNext`); anything else goes to Settings → Main offer.
 - **On the phone**, Settings → This business → **Main offer** (the third exception to business setup staying on the
   web, 2026-10-16) shows for anyone holding a permission of an add-on that uses the offer (`coreFeatureHeld`, so it
   shows with no signal), with how the live version and the draft are doing under it. The screen needs signal: it asks

@@ -50,7 +50,6 @@ const ready: ReadyFacts = {
       niche: 'Roofers in Ohio',
       problem: 'Slow winters',
       proof: [],
-      videoLink: 'https://www.loom.com/share/abc123',
     },
   ],
   // The rest ticked by hand once done.
@@ -168,17 +167,10 @@ describe('getting ready', () => {
     );
   });
 
-  it('waits on the playbook’s short video, which an owner or admin links', () => {
-    const noVideo = { playbooks: [{ ...ready.playbooks[0]!, videoLink: null }] };
-    const messages = (f: Partial<ReadyFacts>) =>
-      readinessOf({ ...ready, ...noVideo, ...f }).items.find((i) => i.item === 'messages')!;
-    expect(messages({})).toMatchObject({ state: 'todo', left: READY_WORDS.left.messagesVideo });
-    expect(messages({ canPlaybooks: false })).toMatchObject({
-      state: 'waiting',
-      whose: 'business',
-      left: READY_WORDS.left.messagesVideoWaiting,
-    });
-    expect(readinessOf({ ...ready, ...noVideo }).ready).toBe(false);
+  it('never waits on a short video: it’s the business’s to add if it wants one (decision 83)', () => {
+    const messages = readinessOf(ready).items.find((i) => i.item === 'messages')!;
+    expect(messages).toMatchObject({ state: 'done', left: null });
+    expect(readinessOf({ ...ready, canPlaybooks: false }).ready).toBe(true);
   });
 });
 

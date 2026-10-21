@@ -349,9 +349,10 @@ connection is tried again sooner), so the setup's install step ticks by itself, 
 sign-in. Signing in, or picking another business, opens HandsFreeOS's setup in a new tab when HandsFreeOS's answer to
 that report says the person is a first-timer there (never saved their own settings and never started the setup), once
 per person and business on this computer (`hfos.setupOpened`), and never two tabs for two sign-ins at once
-(`src/hfos/setup.ts`). **Save my groups**, asked from the Groups tab or the setup's groups step, saves each group on
-Facebook's page of your own groups (facebook.com/groups/joins/) as one you're in (`src/jobs/groups.ts`), which is
-what the setup's groups step lists.
+(`src/hfos/setup.ts`). **Save my groups**, asked from the Groups tab, saves each group on Facebook's page of your own
+groups (facebook.com/groups/joins/) as one you're in (`src/jobs/groups.ts`); the setup has no groups step, since a
+network's first day reads them first. Each network's short setup in HandsFreeOS ticks its Allow step once this
+computer's check-in lists the network as allowed (the panel's **Allow on {network}**).
 
 Opening the panel, or coming back to it, makes this the computer that works for you (below, "What it tells
 HandsFreeOS"). Nothing is saved from it: the people you reach are kept by noting, and Add to Contacts, Demo booked,

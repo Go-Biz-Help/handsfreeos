@@ -55,7 +55,7 @@ import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
 import type { SendState } from './sends';
 import type { NeedState, NeedStep } from './waiting-words';
-import type { SetupStep } from './setup';
+import type { SetupReached } from './setup';
 import type { ReviewFix, TrackingNumbers } from './tracking';
 import type { Friendship, Platform, SavedMessage } from './saves';
 
@@ -1022,7 +1022,7 @@ export const setup = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    reached: text('reached').$type<SetupStep>(),
+    reached: text('reached').$type<SetupReached>(),
     startedAt: ts('started_at'),
     finishedAt: ts('finished_at'),
     bannerHiddenAt: ts('banner_hidden_at'),

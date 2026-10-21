@@ -7327,7 +7327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person finished a step of the Social Outreach setup (it never moves back), finished it, left it for later, hid its reminder, or the extension said it’s signed in.
+         * The person started the Social Outreach setup or left it for later, a first day started from it, its reminder was hidden, or the extension said it’s signed in.
          * @description Risk level 0. Requires outreach.use. Emits outreach.setup.saved.
          */
         post: operations["command_outreach_setup_save"];
@@ -18147,7 +18147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own Social Outreach setup: their steps, how far they got, whether the extension signed in, whether they saved their settings, the playbooks in use, their groups saved, and where to download the extension.
+         * The person’s own Social Outreach setup: where each of their steps stands (the main setup’s and each network’s), the next one left, whether the extension signed in, whether they saved their settings, the playbooks in use, their groups saved, and where to download the extension.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_setup"];
@@ -39202,7 +39202,14 @@ export interface operations {
                 content: {
                     "application/json": {
                         banner: boolean;
+                        business: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook";
+                            /** @enum {string} */
+                            state: "done" | "todo" | "again" | "waiting";
+                        }[];
                         canManage: boolean;
+                        computer: string | null;
                         extensionAt: string | null;
                         extensionLink: string | null;
                         finishedAt: string | null;
@@ -39218,14 +39225,51 @@ export interface operations {
                             }[];
                             mine: number;
                         };
+                        networks: {
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            steps: {
+                                left: string | null;
+                                optional: boolean;
+                                /** @enum {string} */
+                                state: "done" | "todo" | "again" | "waiting";
+                                /** @enum {string} */
+                                step: "allow" | "playbook" | "profile" | "choices" | "start";
+                            }[];
+                        }[];
+                        next: ({
+                            net: null;
+                            /** @enum {string} */
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                        } | {
+                            /** @enum {string} */
+                            net: "facebook" | "linkedin" | "instagram" | "alignable";
+                            /** @enum {string} */
+                            step: "allow" | "playbook" | "profile" | "choices" | "start";
+                        }) | null;
+                        noVideo: boolean;
                         playbooks: {
+                            /** Format: uuid */
+                            id: string;
                             name: string;
+                            networks: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            niche: boolean;
                             template: string | null;
+                            video: boolean;
                         }[];
                         reached: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups") | null;
+                        sendingAllowedMore: boolean;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups")[];
+                        states: {
+                            left: string | null;
+                            optional: boolean;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "again" | "waiting";
+                            /** @enum {string} */
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                        }[];
+                        steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks")[];
                     };
                 };
             };
@@ -69418,7 +69462,14 @@ export interface operations {
                 content: {
                     "application/json": {
                         banner: boolean;
+                        business: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook";
+                            /** @enum {string} */
+                            state: "done" | "todo" | "again" | "waiting";
+                        }[];
                         canManage: boolean;
+                        computer: string | null;
                         extensionAt: string | null;
                         extensionLink: string | null;
                         finishedAt: string | null;
@@ -69434,14 +69485,51 @@ export interface operations {
                             }[];
                             mine: number;
                         };
+                        networks: {
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            steps: {
+                                left: string | null;
+                                optional: boolean;
+                                /** @enum {string} */
+                                state: "done" | "todo" | "again" | "waiting";
+                                /** @enum {string} */
+                                step: "allow" | "playbook" | "profile" | "choices" | "start";
+                            }[];
+                        }[];
+                        next: ({
+                            net: null;
+                            /** @enum {string} */
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                        } | {
+                            /** @enum {string} */
+                            net: "facebook" | "linkedin" | "instagram" | "alignable";
+                            /** @enum {string} */
+                            step: "allow" | "playbook" | "profile" | "choices" | "start";
+                        }) | null;
+                        noVideo: boolean;
                         playbooks: {
+                            /** Format: uuid */
+                            id: string;
                             name: string;
+                            networks: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            niche: boolean;
                             template: string | null;
+                            video: boolean;
                         }[];
                         reached: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups") | null;
+                        sendingAllowedMore: boolean;
                         settingsSaved: boolean;
                         startedAt: string | null;
-                        steps: ("playbooks" | "ready" | "rules" | "networks" | "settings" | "extension" | "groups")[];
+                        states: {
+                            left: string | null;
+                            optional: boolean;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "again" | "waiting";
+                            /** @enum {string} */
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                        }[];
+                        steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks")[];
                     };
                 };
             };

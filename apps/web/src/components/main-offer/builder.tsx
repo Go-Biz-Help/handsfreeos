@@ -131,7 +131,8 @@ function stepAnswer(step: OfferStep, p: Parts): string | null {
  * on every box. Every move saves the draft; the live version keeps running until the last step publishes it.
  *
  * The last step reviews each part with the owner's notes and direction, and the AI's tries sit beside the draft to
- * compare and take parts from (HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md); `&try=` opens one.
+ * compare and take parts from (HANDSFREEOS_MAIN_OFFER_TRIES_IMPLEMENTATION_PLAN.md); `&try=` opens one. Opened from
+ * elsewhere (Social Outreach's setup), leaving and putting it live go back there (`doneHref`).
  */
 export function OfferBuilder({
   workspaceId,
@@ -142,6 +143,7 @@ export function OfferBuilder({
   tries,
   startAt,
   openTry,
+  doneHref,
 }: {
   workspaceId: string;
   businessName: string;
@@ -151,9 +153,11 @@ export function OfferBuilder({
   tries: MainOfferTry[];
   startAt: OfferStep;
   openTry: string | null;
+  /** Where leaving and putting it live go, when not its Settings page: the page it was opened from. */
+  doneHref?: string;
 }) {
   const router = useRouter();
-  const settingsHref = `/app/w/${workspaceId}/settings/main-offer`;
+  const settingsHref = doneHref ?? `/app/w/${workspaceId}/settings/main-offer`;
   const examples = offerExamples(industry).examples;
   const start = offer.draft?.parts ?? offer.live?.parts ?? MainOfferParts.parse({});
   const [parts, setParts] = useState<Parts>(start);

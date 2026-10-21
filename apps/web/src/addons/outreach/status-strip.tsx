@@ -61,7 +61,7 @@ type Press = 'start' | 'stop';
 /** The server's clock when no network's answer came: nothing is shown then. */
 const NO_ANSWER = '1970-01-01T00:00:00.000Z';
 
-const pressDay = async (workspaceId: string, platform: Platform, kind: Press) =>
+export const pressDay = async (workspaceId: string, platform: Platform, kind: Press) =>
   unwrap(
     kind === 'start'
       ? await apiBrowser().POST('/v1/commands/outreach.day.start', {
