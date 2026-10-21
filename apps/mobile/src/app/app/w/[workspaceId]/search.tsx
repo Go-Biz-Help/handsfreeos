@@ -46,10 +46,10 @@ import {
 
 /**
  * Search everything on the phone (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, boards 5 and 5b), full screen over the
- * business. Reached from a link for now (a web `/search#q=…` link opens it with `q` and `kind`); Search 9 adds the app
- * bar's button. The box is focused, with Cancel; the kinds as chips with their counts, the ones that wait for signal
- * greyed when there's none; the best match with Call and Text; a few of each kind, each with See all; the Settings
- * group; and See all results. One kind (a chip, or See all) is a list 25 at a time with Show 25 more, and for contacts
+ * business. Opened from the top bar's Search button, from "Search everything for “q”" under the Contacts and Inbox
+ * boxes, and from a link (a web `/search#q=…` link opens it with `q` and `kind`). The box is focused, with Cancel; the
+ * kinds as chips with their counts, the ones that wait for signal greyed when there's none; the best match with Call
+ * and Text; a few of each kind, each with See all; the Settings group; and See all results. One kind (a chip, or See all) is a list 25 at a time with Show 25 more, and for contacts
  * Leads or Clients and the banner when two share a number. With no signal it searches the phone's own copy and says
  * so, as the board does.
  */

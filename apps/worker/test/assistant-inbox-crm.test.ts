@@ -615,6 +615,10 @@ describe('archiving and bringing back', () => {
     expect(card.title).toBe('Archive Bob Reyes anyway?');
     expect(card.confirmLabel).toBe('Archive anyway');
     expect(field(card, 'Open leads')).toBe('1, archived too');
+    // Search still finds what's archived, so the card doesn't say it leaves searches.
+    expect(card.warnings.map((w) => w.text)).toContain(
+      'They leave Contacts but keep their history, and search finds them under Archived. Bring them back any time: Contacts, Show archived.',
+    );
     expect(await archived('people', bob)).toBe(false);
 
     const done = await commit('archive_or_restore', args);
@@ -1090,6 +1094,9 @@ describe('the business’s own records', () => {
       id: max,
     });
     expect(card.title).toBe('Archive Maximus?');
+    expect(card.warnings.at(-1)?.text).toBe(
+      'It leaves Pets, and search finds it under Archived. Its history, tasks, files and relationships stay.',
+    );
     await commit('archive_or_restore', { action: 'archive', what: 'record', id: max });
     expect(await archived('custom_records', max)).toBe(true);
     expect((await read('find_archived', { what: 'record' })).records).toEqual([

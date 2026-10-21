@@ -32,6 +32,7 @@ executionOrder:
     - Calendar - a time asked for with no signal shows as Not booked yet, and is booked once signal is back
     - Money - the list, an invoice, and cash recorded at the door with no signal
     - A customer's own screen - the head, the timeline, tags, files and a note
+    - Search everything - from the top bar a customer found and opened, and with no signal the phone's own copy
     - The pipeline one stage at a time, and moving a lead from its own page
     - Tasks - the web's groups and due words, and completing one
     - A customer's number, a note, a tag and a task changed with no signal all go once signal is back

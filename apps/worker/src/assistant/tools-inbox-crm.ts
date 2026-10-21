@@ -12,6 +12,7 @@
  * something nobody saw.
  */
 import {
+  archiveCardWords,
   checkCustomValue,
   customValueText,
   formatClock,
@@ -814,8 +815,7 @@ async function subjectOf(db: Db, ctx: ToolContext, what: Archivable, id: string)
         archived: !!person.archivedAt,
         openLeads: person.openLeads,
         openTasks: person.archivedAt ? 0 : await openTasks(db, ctx, { personId: id }),
-        away: 'They leave Contacts and searches but keep their history. Bring them back any time: Contacts, Show archived.',
-        back: 'They come back to Contacts and searches, and can go on new leads again.',
+        ...archiveCardWords('customer'),
         ...(person.mergedInto
           ? {
               cantRestore: `They were merged into ${person.mergedInto.fullName}, who has everything of theirs now.`,
@@ -832,8 +832,7 @@ async function subjectOf(db: Db, ctx: ToolContext, what: Archivable, id: string)
         archived: !!company.archivedAt,
         openLeads: company.openLeads,
         openTasks: company.archivedAt ? 0 : await openTasks(db, ctx, { companyId: id }),
-        away: 'It leaves Contacts and searches but keeps its history. Bring it back any time: Contacts → Companies, Show archived.',
-        back: 'It comes back to Contacts and searches.',
+        ...archiveCardWords('company'),
         href: p.company(id),
       };
     }
@@ -880,8 +879,7 @@ async function subjectOf(db: Db, ctx: ToolContext, what: Archivable, id: string)
         archived: !!record.archivedAt,
         openLeads: 0,
         openTasks: 0,
-        away: `It leaves ${record.type.plural} and searches; its history, tasks, files and relationships stay.`,
-        back: `It comes back to ${record.type.plural}.`,
+        ...archiveCardWords('record', record.type.plural),
         ...(record.type.archived
           ? {
               cantRestore: `${record.type.plural} are archived. Restore them in Settings → Relationships first.`,

@@ -22,6 +22,7 @@ export function Screen({
   back,
   trailing,
   ask,
+  search,
   scroll = true,
   contentClassName,
   header,
@@ -35,6 +36,8 @@ export function Screen({
   back?: Href;
   trailing?: React.ReactNode;
   ask?: boolean;
+  /** Search everything's button in the top bar: on by default where the business mark leads. */
+  search?: boolean;
   scroll?: boolean;
   contentClassName?: string;
   /** Sits between the strip and the scrolling content (Home's summary band). */
@@ -59,6 +62,7 @@ export function Screen({
         back={back}
         trailing={trailing}
         ask={ask}
+        search={search}
       />
       <StatusStrip />
       <ViewStrip />

@@ -1,6 +1,6 @@
 # Search everything
 
-The box at the top of the side menu becomes **Search everything**: contacts, companies, leads, money, messages,
+The box at the top of the side menu is **Search everything** (⌘K, or Ctrl K): contacts, companies, leads, money, messages,
 the calendar, tasks, notes, files and the words inside them, forms and their answers, knowledge, a business's own kinds
 of records, add-on records, settings, archived records and the Deleted bin, each only for people who may see it. The
 plan, its decisions and its build order are in `HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md`; the boards are in
@@ -14,11 +14,11 @@ and the API's guards. Search 4a is built: core's contract for an add-on to answe
 listings, deals, buyers' homes and properties (Real Estate's groups, below). Search 5 is built: the worker reads the
 words inside files, and Files finds a file by them.
 Search 6 is built and on screen: **Search settings** at the top of the Settings menu on the web, and at the top of
-Settings on the phone (Settings search, below). Search 8 is built but not linked: the phone's full-screen search,
-with signal and without (The phone, below), opens only from a link (a web `/search#q=…` link). Search 7 is built but not linked: the
-web's Search page answers at `/search#q=…`, every result opens where it should, and the dropdown's components are
-ready for Search 9 to mount (The web's screens, below). The main box and `/customers?q=` work as they did until
-Search 9 switches it on.
+Settings on the phone (Settings search, below). Search 7 and 8 built the web's Search page with its dropdown, and the
+phone's full-screen search with signal and without; Search 9 switched them on together: the side menu's box is Search
+everything with its dropdown and ⌘K, the phone-width header opens the Search page outside the Inbox, and the phone's
+top bar has its Search button (The web's screens and The phone, below). `/customers?q=` still filters Contacts, as
+it always has.
 
 ## Where things are
 
@@ -127,9 +127,10 @@ the next one.
 ## The web's screens
 
 **The Search page** is `/search#q=…&kind=…&archived=1&mine=1&sort=…&show=leads|clients&before=…`. The route renders
-the frame only: it reads no `searchParams` and asks the API for no results (decision 37), only for what the Settings
-group needs (the business's name, clock and settings, and whether the person is staff or runs an agency) until Search
-9's provider hands those down. The page reads the
+the frame only: it reads no `searchParams` and asks the API for nothing (decision 37). What the Settings group needs
+(the business's name, clock and settings, and whether the person is staff or runs an agency) comes from the layout's
+`SearchProvider`, which the business's layout fills from what it already asks for, plus `workspace.get` for the
+settings (a hint: without it a setting is found without its value). The page reads the
 fragment off `window.location.hash` when it opens and on `hashchange` and `popstate`, writes it back with
 `history.replaceState` 300 ms after typing stops (a new kind, or a new sort, is a `pushState`, so Back undoes it), and
 asks `search.everything` (the full window, 4 a kind) from the browser. A browser never sends what's after `#`, so
@@ -149,11 +150,15 @@ makes to it.
   threads, says how far back it looked, and Look further back adds the older window's results; Messages can Look in
   Spam. Settings' own page is the device's whole answer. Counts read in each kind's own nouns: "1 contact named
   “dana”", "2 things in the Deleted bin for “tom becnel”" (core's `kindNoun`).
-- **The box and its dropdown** (`search-box.tsx`, `panel.tsx`) are built and wait for Search 9 to mount them in the
-  side menu with `SearchProvider`: the chips, the best match with Call and Text, a few groups, Exact match and "Also
-  has 1042 in it", Also found, Archived and the bin when little else matched, ⌘K (Ctrl K) and the keys of "Keyboard"
-  in the plan. Recent searches stay in `localStorage` under the person and the business, at most 8; the provider and
-  the Search page remove anyone else's when they open, and signing out removes them all.
+- **The box and its dropdown** (`search-box.tsx`, `panel.tsx`) sit at the top of the side menu, inside the layout's
+  `SearchProvider`: the chips, the best match with Call and Text, a few groups, Exact match and "Also has 1042 in
+  it", Also found, Archived and the bin when little else matched, ⌘K (Ctrl K) and the keys of "Keyboard" in the plan.
+  ⌘K focuses the box wherever the side menu is drawn (from `md`); below it, it opens the Search page with its own box
+  focused. The box asks only while its panel is open. Recent searches stay in `localStorage` under the signed-in
+  person and the business, at most 8, shared by the box and the Search page through the provider, which removes
+  anyone else's when it mounts; signing out removes them all.
+- **On a phone-sized screen** the header's search button opens the Search page, titled "Search" with Back, except
+  in the Inbox, where it keeps its sheet that searches conversations and ends with "Search everything for “q”".
 - **Marks** are drawn by `highlight.tsx` as text inside `<mark>`, from the server's snippet ranges or core's `marksIn`,
   never as HTML.
 
@@ -320,7 +325,9 @@ host is on the record). A record in the Deleted bin reads for nobody, so the not
 ## The phone
 
 **One screen, full screen over the business** (boards 5 and 5b): `/app/w/<business>/search`, with `q` and `kind`.
-Until Search 9 adds the app bar's button it opens only from a link: the route map reads a web `/search#q=…&kind=…`
+It opens from the Search button in the top bar of a business's screens (`AppBar`'s `search`, on wherever the business
+mark leads), from "Search everything for “q”" at the end of the Contacts and Inbox boxes' own results (both stay
+filters of their lists), and from a link: the route map reads a web `/search#q=…&kind=…`
 link's pairs after `#` (a rule names the pairs it reads, `fragment`, and no other rule ever sees them) and keeps them
 on the phone's own address, so what was typed never leaves the phone that way either. The box is focused, with
 Cancel; the chips are the found kinds with their counts; then the best match with Call and Text (for whoever may use

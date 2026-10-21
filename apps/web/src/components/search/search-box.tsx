@@ -19,8 +19,9 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
+import { ShortcutKey } from '@/components/assistant/ask-button';
 import { cn } from '@/lib/utils';
-import { Kbd, NotAnswered, panelRows, SearchPanel, type PanelRow } from './panel';
+import { NotAnswered, panelRows, SearchPanel, type PanelRow } from './panel';
 import { useSearchContext } from './search-provider';
 import { useSearch, useSettingsGroup } from './use-search';
 
@@ -33,7 +34,7 @@ import { useSearch, useSettingsGroup } from './use-search';
  * Keys: ↑ ↓ move over the rows; ← → over the chips once a row is picked; ↵ opens the row picked, or the Search page
  * with none; ⌘↵ or Ctrl↵ always opens the page; Esc closes and keeps the text, a second Esc clears it; Tab leaves.
  *
- * Built in Search 7 and mounted by Search 9, inside `SearchProvider`; outside one it draws nothing.
+ * It sits at the top of the side menu, inside the layout's `SearchProvider`; outside one it draws nothing.
  */
 export function SearchBox({ className }: { className?: string }) {
   const search = useSearchContext();
@@ -55,7 +56,8 @@ export function SearchBox({ className }: { className?: string }) {
     perKind: chip === 'all' ? 3 : 5,
     depth: 'quick' as const,
   };
-  const s = useSearch(workspaceId, ask, settingsOf);
+  // Closed, the box keeps its words from page to page but asks nothing, so a refresh never sends a search unseen.
+  const s = useSearch(workspaceId, ask, settingsOf, { paused: !open });
   const typed = q.trim();
   const searching = typed.length >= SEARCH_MIN_CHARS;
   const dropdown = useMemo(
@@ -182,9 +184,9 @@ export function SearchBox({ className }: { className?: string }) {
             className="h-[34px] w-full rounded-control border border-border bg-card-2 pl-8 pr-14 text-[13px] text-text placeholder:text-placeholder focus:border-accent focus:bg-card focus:outline-none focus:ring-[3px] focus:ring-ring [&::-webkit-search-cancel-button]:hidden"
           />
           {search.shortcut ? (
-            <span className="pointer-events-none absolute right-2 top-2">
-              <Kbd>{search.shortcut.label}</Kbd>
-            </span>
+            <ShortcutKey className="pointer-events-none absolute right-2 top-[7px]">
+              {search.shortcut.label}
+            </ShortcutKey>
           ) : null}
         </form>
       </Popover.Anchor>
@@ -198,6 +200,11 @@ export function SearchBox({ className }: { className?: string }) {
           onCloseAutoFocus={(e) => e.preventDefault()}
           onInteractOutside={(e) => {
             // A press in the box itself is typing, not leaving.
+            if (anchor.current?.contains(e.target as Node)) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            // Esc in the box is the box's own: the first closes and keeps the text, a second clears it. Left to the
+            // popover too, the first did both, since the box then saw the panel already closed.
             if (anchor.current?.contains(e.target as Node)) e.preventDefault();
           }}
           className="z-40 max-h-[min(78vh,760px)] w-[min(620px,calc(100vw-24px))] overflow-y-auto rounded-card border border-border bg-card shadow-2"

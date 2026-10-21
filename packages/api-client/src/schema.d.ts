@@ -2567,7 +2567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Archive a record: hidden from lists and searches, its history, tasks, files and relationships kept.
+         * Archive a record: hidden from lists, found in search under Archived, its history, tasks, files and relationships kept.
          * @description Risk level 3. Requires records.archive. Emits custom_record.archived.
          */
         post: operations["command_custom_record_archive"];

@@ -50152,7 +50152,7 @@
     "/v1/commands/custom_record.archive": {
       "post": {
         "operationId": "command_custom_record_archive",
-        "summary": "Archive a record: hidden from lists and searches, its history, tasks, files and relationships kept.",
+        "summary": "Archive a record: hidden from lists, found in search under Archived, its history, tasks, files and relationships kept.",
         "tags": [
           "commands"
         ],

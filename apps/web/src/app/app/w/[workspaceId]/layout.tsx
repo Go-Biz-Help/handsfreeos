@@ -1,4 +1,4 @@
-import { can } from '@hfos/core';
+import { can, managesAnAgency } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
@@ -7,6 +7,7 @@ import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
 import { Tour } from '@/components/onboarding/tour';
+import { SearchProvider } from '@/components/search/search-provider';
 import { MenuEditor } from '@/components/shell/menu-editor';
 import { MenuProvider } from '@/components/shell/menu-provider';
 import { MobileShell } from '@/components/shell/mobile-shell';
@@ -35,19 +36,27 @@ export default async function WorkspaceLayout({
   params: Promise<{ workspaceId: string }>;
 }) {
   const { workspaceId } = await params;
-  const { api } = await apiServer();
-  const [me, { current, viewingAs, teammateView, staleView }, platform] = await Promise.all([
-    getMe(),
-    // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
-    // or the founder working in it as its owner, or anyone viewing it as a teammate (20261018000100).
-    getWorkspaceShell(workspaceId),
-    // Whether they answer HandsFreeOS support: only then does the workspace switcher link to the admin area. Only a
-    // hint, so a failure just leaves the link out; /admin asks again on every page.
-    api
-      .POST('/v1/queries/platform.me', { body: {} })
-      .then(unwrap)
-      .catch(() => null),
-  ]);
+  // Recent searches are the signed-in person's own, even while they view the app as a teammate.
+  const { api, signedInAs } = await apiServer();
+  const [me, { current, viewingAs, teammateView, staleView }, platform, workspace] =
+    await Promise.all([
+      getMe(),
+      // The business as this person sees it, or a support person looking at it (M13) with the banner that says so,
+      // or the founder working in it as its owner, or anyone viewing it as a teammate (20261018000100).
+      getWorkspaceShell(workspaceId),
+      // Whether they answer HandsFreeOS support: only then does the workspace switcher link to the admin area. Only a
+      // hint, so a failure just leaves the link out; /admin asks again on every page.
+      api
+        .POST('/v1/queries/platform.me', { body: {} })
+        .then(unwrap)
+        .catch(() => null),
+      // The business's settings, for the values Search everything's Settings group shows (quiet hours, opening
+      // hours). Only a hint too: without them a setting is still found, just without its value.
+      api
+        .POST('/v1/queries/workspace.get', { body: { workspaceId } })
+        .then(unwrap)
+        .catch(() => null),
+    ]);
   const staff = platform?.staff?.role ?? null;
   return (
     <LiveProvider workspaceId={workspaceId}>
@@ -70,44 +79,60 @@ export default async function WorkspaceLayout({
                 enabled={can(current.permissions, 'assistant.use') && !teammateView}
                 consentNeeded={me.assistantConsent.needed}
               >
-                {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}
-                <MenuProvider settings={me.user.settings}>
-                  <div className="flex min-h-screen flex-col bg-bg">
-                    <ThemeSync
-                      theme={parseTheme((me.user.settings as { theme?: unknown }).theme)}
-                    />
-                    {viewingAs ? (
-                      <ViewAsBanner
-                        workspaceId={workspaceId}
-                        businessName={viewingAs.businessName}
-                        expiresAt={viewingAs.expiresAt}
-                        acting={viewingAs.acting}
+                {/* Search everything: the sidebar's box and ⌘K, the Search page, and recent searches. */}
+                <SearchProvider
+                  business={{
+                    workspaceId,
+                    userId: signedInAs,
+                    name: current.name,
+                    timeZone: current.timezone,
+                    settings: workspace?.workspace.settings ?? null,
+                    staff: !!platform?.staff,
+                    agency: managesAnAgency({
+                      organizations: me.organizations,
+                      businesses: me.workspaces,
+                    }),
+                  }}
+                >
+                  {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}
+                  <MenuProvider settings={me.user.settings}>
+                    <div className="flex min-h-screen flex-col bg-bg">
+                      <ThemeSync
+                        theme={parseTheme((me.user.settings as { theme?: unknown }).theme)}
                       />
-                    ) : null}
-                    {teammateView ? (
-                      <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
-                    ) : null}
-                    {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
-                    <div className="flex min-h-0 flex-1">
-                      <Sidebar me={me} current={current} staff={staff} />
-                      <div className="flex min-w-0 flex-1 flex-col">
-                        <MobileShell me={me} current={current} staff={staff} />
-                        <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+                      {viewingAs ? (
+                        <ViewAsBanner
+                          workspaceId={workspaceId}
+                          businessName={viewingAs.businessName}
+                          expiresAt={viewingAs.expiresAt}
+                          acting={viewingAs.acting}
+                        />
+                      ) : null}
+                      {teammateView ? (
+                        <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
+                      ) : null}
+                      {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
+                      <div className="flex min-h-0 flex-1">
+                        <Sidebar me={me} current={current} staff={staff} />
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <MobileShell me={me} current={current} staff={staff} />
+                          <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+                        </div>
+                        <AssistantPanel />
                       </div>
-                      <AssistantPanel />
                     </div>
-                  </div>
-                  <MenuEditor
-                    workspaceId={workspaceId}
-                    permissions={current.permissions}
-                    addons={current.addons}
-                  />
-                </MenuProvider>
-                <CallOverlays />
-                {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
-                <ExtensionSignInPrompt />
-                {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
-                <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
+                    <MenuEditor
+                      workspaceId={workspaceId}
+                      permissions={current.permissions}
+                      addons={current.addons}
+                    />
+                  </MenuProvider>
+                  <CallOverlays />
+                  {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
+                  <ExtensionSignInPrompt />
+                  {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
+                  <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
+                </SearchProvider>
               </AssistantProvider>
             </CallProvider>
           </AttentionSummaryProvider>

@@ -42,6 +42,7 @@ import {
   useTeammate,
   type InboxItem,
 } from '@/inbox/use-inbox';
+import { SearchEverythingRow } from '@/search/rows';
 
 /** An Inbox that can't draw shows why, and the other tabs still work. */
 export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
@@ -53,7 +54,8 @@ type OwnBox = 'all' | 'other' | 'spam';
  * Inbox (the canvas's "The list"): Mine, Unassigned and All with their counts; Open, Snoozed and Closed; Unread; the
  * AI teammate's boxes; Other mail and Spam, and My mail for someone with an address of their own (M19); and the
  * conversations, newest first, read from the phone's copy with this phone's own changes over them. The list is
- * virtualized: only the rows on screen are drawn.
+ * virtualized: only the rows on screen are drawn. Its box filters conversations, and ends the list with Search
+ * everything for what was typed.
  *
  * My mail is the same list over the person's own mail, as on the web: its own Inbox, Other mail and Spam in place of
  * Mine, Unassigned and All, and Team inbox to go back.
@@ -293,6 +295,14 @@ export default function Inbox() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerClassName="pb-6"
+        ListFooterComponent={
+          <SearchEverythingRow
+            workspaceId={business.id}
+            q={q}
+            className="px-3.5"
+            testID="inbox-search-everything"
+          />
+        }
         ListEmptyComponent={
           loading ? null : (
             <View className="items-center gap-2 px-8 py-12" testID="inbox-empty">

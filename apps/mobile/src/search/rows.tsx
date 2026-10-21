@@ -5,6 +5,7 @@ import {
   SEARCH_WORDS,
   searchHref,
   searchProbes,
+  SEARCH_MIN_CHARS,
   settingEntry,
   settingPhoneTarget,
   SETTINGS_SEARCH_WORDS,
@@ -18,7 +19,7 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { openAppPath } from '@/components/assistant/parts';
-import { ExternalLink, MessageSquare, Phone } from '@/components/icons';
+import { ExternalLink, MessageSquare, Phone, Search } from '@/components/icons';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
@@ -27,6 +28,8 @@ import { startCall } from '@/inbox/calls';
 import { routeFor } from '@/links/route-map';
 import { openWeb } from '@/lib/open-web';
 import { cn } from '@/lib/utils';
+
+import { searchScreenHref } from './href';
 
 /**
  * Search's rows on the phone (boards 5 and 5b), drawn the same whether the server answered or the phone's own copy
@@ -333,5 +336,39 @@ export function SearchNote({
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * The last row under the Contacts and Inbox boxes, which stay filters of their own lists: "Search everything for
+ * “dana”", opening Search with what was typed. Nothing until there's enough to search.
+ */
+export function SearchEverythingRow({
+  workspaceId,
+  q,
+  className,
+  testID,
+}: {
+  workspaceId: string;
+  q: string;
+  className?: string;
+  testID?: string;
+}) {
+  const typed = q.trim().slice(0, 120);
+  if (typed.length < SEARCH_MIN_CHARS) return null;
+  return (
+    <Pressable
+      role="button"
+      onPress={() => router.push(searchScreenHref(workspaceId, typed) as Href)}
+      className={cn('min-h-14 flex-row items-center gap-3 py-2.5 active:opacity-80', className)}
+      testID={testID}
+    >
+      <View className="size-10 items-center justify-center rounded-card bg-accent-soft">
+        <Icon as={Search} className="size-5 text-accent-text" />
+      </View>
+      <Text className="min-w-0 flex-1 text-[15px] font-medium text-accent-text" numberOfLines={2}>
+        {SEARCH_WORDS.everythingFor(typed)}
+      </Text>
+    </Pressable>
   );
 }

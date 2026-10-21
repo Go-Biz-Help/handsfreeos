@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { api, signInOwner } from './booking-helpers';
 import { formWithAnswers } from './forms';
 import {
@@ -13,11 +13,12 @@ import {
 import { setUpTexting, textFromCustomer, TINY_PNG_BYTES } from './telephony';
 
 /**
- * Search everything's page, `/search#q=…` (design/search, boards 2, 3 and 4), reached by its address: Search 9 links
- * it from the side menu's box. What's typed lives after `#`, so the web's own server never sees it; the page asks
- * the API from the browser. Then what each new kind of result opens onto: a message in its thread, a task, a form's
- * answers, a note, a file on its record, the text composer, the merge dialog, an item in the Deleted bin, and a new
- * contact with what was typed as the name.
+ * Search everything (design/search): the side menu's box and its dropdown (board 1), with ⌘K, its chips and groups,
+ * the best match's Call and Text, its keys, an exact phone and an invoice number, and the kinds a member without the
+ * inbox or money never sees. Then the Search page, `/search#q=…` (boards 2, 3 and 4), by its address. What's typed
+ * lives after `#`, so the web's own server never sees it; the page asks the API from the browser. Then what each new
+ * kind of result opens onto: a message in its thread, a task, a form's answers, a note, a file on its record, the text
+ * composer, the merge dialog, an item in the Deleted bin, and a new contact with what was typed as the name.
  */
 
 type Json = Record<string, unknown>;
@@ -38,6 +39,183 @@ function webRequests(page: Page): string[] {
   });
   return sent;
 }
+
+/** Signs a new member of the business up from their invitation, in a browser of their own. */
+async function memberOf(
+  browser: Browser,
+  token: string,
+  workspaceId: string,
+  name: string,
+): Promise<{ page: Page; close: () => Promise<void> }> {
+  const mate = uniqueEmail('search-member');
+  const started = Date.now();
+  await api(token, 'commands', 'membership.invite', { workspaceId, email: mate, role: 'member' });
+  const mail = await waitForMail(mate, 'invited you to', { after: started });
+  const link = linkFrom(mail.text, /http:\/\/localhost:3000\/invite\/inv_[A-Za-z0-9_-]+/);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 832 } });
+  const page = await ctx.newPage();
+  await signUp(page, { name, email: mate });
+  await confirmEmail(page, mate);
+  await page.goto(link);
+  await page.getByTestId('accept-invite').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}`), { timeout: 45_000 });
+  return { page, close: () => ctx.close() };
+}
+
+test('the side menu’s box: ⌘K, chips and groups, the best match’s Call and Text, the keys, an exact phone and an invoice number, and no Messages or Money for a member without them', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(300_000);
+  const { email } = await signUpAndConfirm(page, 'search-box');
+  const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
+  const { token } = await signInOwner(email);
+  const run = <T = Json>(name: string, input: Json) =>
+    api<T>(token, 'commands', name, { workspaceId, ...input });
+
+  const dana = await run<{ personId: string }>('person.create', {
+    firstName: 'Dana',
+    lastName: 'Smith',
+    phone: '(504) 555-0142',
+    email: 'dana.smith@gmail.com',
+  });
+  await run('person.create', { firstName: 'Marcus', lastName: 'Smith', phone: '(504) 555-0188' });
+  await run('company.create', { name: 'Smithfield Property Mgmt' });
+  await run('lead.create', { title: 'Water heater swap', personId: dana.personId });
+  const { invoiceId } = await run<{ invoiceId: string }>('invoice.create', {
+    personId: dana.personId,
+    title: 'Zinnia porch repaint',
+    lines: [
+      {
+        productId: null,
+        name: 'Porch repaint',
+        description: null,
+        quantity: 1,
+        unitLabel: 'each',
+        unitPriceCents: 128_000,
+        taxable: false,
+        discountCents: 0,
+      },
+    ],
+  });
+  const invoice = await run<{ number: string }>('invoice.send', { invoiceId, channels: [] });
+  const number = await setUpTexting(page, workspaceId);
+  await textFromCustomer({
+    from: '+15045550142',
+    to: number,
+    body: 'Can you look at the zinnia bed sprinkler too?',
+  });
+
+  const sent = webRequests(page);
+  await page.goto(`/app/w/${workspaceId}`);
+  const box = page.getByTestId('shell-search');
+  const panel = page.getByTestId('search-panel');
+  await expect(box).toHaveAttribute('placeholder', 'Search everything');
+  // ⌘K (Ctrl K off a Mac) focuses the box from anywhere on the page, once the page is listening.
+  await expect(async () => {
+    await page.keyboard.press('ControlOrMeta+k');
+    await expect(box).toBeFocused({ timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+  await page.keyboard.type('smith');
+
+  // The chips with their counts, the best match taken out of its group, and the groups in core's order.
+  await expect(panel.getByTestId('search-chip-all')).toBeVisible();
+  await expect(panel.getByTestId('search-chip-contacts')).toContainText('2');
+  await expect(panel.getByTestId('search-chip-companies')).toContainText('1');
+  await expect(panel.getByTestId('search-chip-leads')).toContainText('1');
+  const best = panel.getByTestId('search-best');
+  await expect(best).toContainText('Smith');
+  await expect(best.locator('mark').first()).toHaveText(/smith/i);
+  await expect(panel.getByTestId('search-best-call')).toBeVisible();
+  await expect(panel.getByTestId('search-best-text')).toBeVisible();
+  await expect(panel.getByTestId('search-group-companies')).toContainText(
+    'Smithfield Property Mgmt',
+  );
+  await expect(panel.getByTestId('search-group-leads')).toContainText('Water heater swap');
+  await expect(panel.getByTestId('search-see-all')).toContainText('See all');
+
+  // A chip asks for its kind alone; the other chips stay to pick.
+  await panel.getByTestId('search-chip-contacts').click();
+  await expect(panel.getByTestId('search-chip-contacts')).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByTestId('search-group-companies')).toHaveCount(0);
+  await expect(panel.getByTestId('search-chip-companies')).toBeVisible();
+
+  // Esc closes and keeps the text; a second Esc clears it.
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(box).toHaveValue('smith');
+  await page.keyboard.press('Escape');
+  await expect(box).toHaveValue('');
+
+  // ↓ picks the best match and ↵ opens it.
+  await page.keyboard.type('smith');
+  await expect(best).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await expect(best).toHaveAttribute('aria-selected', 'true');
+  await expect(box).toHaveAttribute('aria-activedescendant', /.+/);
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/customers\/people\/[0-9a-f-]{36}$/);
+  await expect(panel).toBeHidden();
+
+  // ⌘↵ opens the Search page even with a row picked, what's typed after `#`.
+  await page.keyboard.press('ControlOrMeta+k');
+  await expect(box).toBeFocused();
+  await page.keyboard.type('smith');
+  await expect(best).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/search#q=smith$`));
+  await expect(page.getByTestId('search-card-contacts')).toContainText('Dana Smith');
+
+  // A phone typed with its punctuation: Exact match, Dana with the Phone chip, then what else has it.
+  await box.fill('504.555.0142');
+  await expect(panel.getByText('Exact match', { exact: true })).toBeVisible();
+  const exactDana = panel.getByTestId('search-hit-contacts').filter({ hasText: 'Dana Smith' });
+  await expect(exactDana.getByTestId('search-why')).toHaveText('Phone');
+  await expect(panel.getByTestId('search-hit-contacts')).toHaveCount(1);
+
+  // An invoice by its number, exactly.
+  await box.fill(invoice.number);
+  await expect(panel.getByTestId('search-hit-money')).toContainText(`Invoice #${invoice.number}`);
+
+  // Text on the best match opens the customer's text sheet.
+  await box.fill('dana smith');
+  await expect(best).toContainText('Dana Smith');
+  await panel.getByTestId('search-best-text').click();
+  await expect(page).toHaveURL(new RegExp(`/customers/people/${dana.personId}$`));
+  await expect(page.getByTestId('message-sheet')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // A word in a text and in an invoice's title: the owner sees Messages and Money (once the worker has the text).
+  await expect(async () => {
+    await box.fill('');
+    await box.fill('zinnia');
+    await expect(panel.getByTestId('search-chip-messages')).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 60_000 });
+  await expect(panel.getByTestId('search-chip-money')).toBeVisible();
+
+  // None of it reached the web's own server.
+  for (const typed of ['smith', '555.0142', 'zinnia', invoice.number.toLowerCase()])
+    expect(sent.filter((r) => r.includes(typed))).toEqual([]);
+
+  // A member whose business took away Use the inbox and See money: neither kind, nor Call and Text.
+  for (const permission of ['inbox.use', 'money.read'])
+    await run('permission.set_role', { role: 'member', permission, allowed: false });
+  const member = await memberOf(browser, token, workspaceId, 'Priya Natarajan');
+  const mate = member.page;
+  await mate.goto(`/app/w/${workspaceId}`);
+  const mateBox = mate.getByTestId('shell-search');
+  const matePanel = mate.getByTestId('search-panel');
+  await mateBox.fill('zinnia');
+  await expect(matePanel.getByTestId('search-empty')).toContainText('No matches for “zinnia”');
+  await expect(matePanel.getByTestId('search-chip-messages')).toHaveCount(0);
+  await expect(matePanel.getByTestId('search-chip-money')).toHaveCount(0);
+  await mateBox.fill('smith');
+  await expect(matePanel.getByTestId('search-best')).toContainText('Smith');
+  await expect(matePanel.getByTestId('search-best-call')).toHaveCount(0);
+  await expect(matePanel.getByTestId('search-best-text')).toHaveCount(0);
+  await member.close();
+});
 
 test('the Search page by its address: cards, one kind with its banner, the odd states, and nothing typed reaches the web’s server', async ({
   page,
@@ -210,7 +388,7 @@ test('the Search page by its address: cards, one kind with its banner, the odd s
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/customers$`));
   await expect(page.getByLabel('First name')).toHaveValue('zxqv');
   await page.keyboard.press('Escape');
-  // Already on Contacts, as the box will be: the fragment changes, and the dialog opens again.
+  // Already on Contacts, as the box can be: the fragment changes, and the dialog opens again.
   await expect(page.getByLabel('First name')).toHaveCount(0);
   await page.evaluate(() => {
     window.location.hash = 'add=person&name=qwerty';
@@ -238,24 +416,14 @@ test('the Search page by its address: cards, one kind with its banner, the odd s
     expect(sent.filter((s) => s.includes(typed))).toEqual([]);
 
   // A member can't look in the Deleted bin: no card for it, and it isn't named among the kinds that found nothing.
-  const mate = uniqueEmail('search-member');
-  const started = Date.now();
-  await api(token, 'commands', 'membership.invite', { workspaceId, email: mate, role: 'member' });
-  const mail = await waitForMail(mate, 'invited you to Bayou Plumbing Co.', { after: started });
-  const link = linkFrom(mail.text, /http:\/\/localhost:3000\/invite\/inv_[A-Za-z0-9_-]+/);
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 832 } });
-  const mem = await ctx.newPage();
-  await signUp(mem, { name: 'Priya Natarajan', email: mate });
-  await confirmEmail(mem, mate);
-  await mem.goto(link);
-  await mem.getByTestId('accept-invite').click();
-  await expect(mem).toHaveURL(new RegExp(`/app/w/${workspaceId}`), { timeout: 45_000 });
+  const member = await memberOf(browser, token, workspaceId, 'Priya Natarajan');
+  const mem = member.page;
   await mem.goto(`/app/w/${workspaceId}/search#q=smith`);
   await expect(mem.getByTestId('search-card-contacts')).toContainText('Marcus Smith');
   await expect(mem.getByTestId('search-nothing-in')).toHaveText(NOTHING_IN_FOR_SMITH);
   await expect(mem.getByTestId('search-card-bin')).toHaveCount(0);
   await expect(mem.getByTestId('search-kind-bin')).toHaveCount(0);
-  await ctx.close();
+  await member.close();
 });
 
 test('what results open onto: a message in its thread, a task, a form’s answers, a note, a file, and the text sheet', async ({
@@ -342,7 +510,7 @@ test('what results open onto: a message in its thread, a task, a form’s answer
   const activityId = new URL(page.url()).searchParams.get('activity')!;
   await page.keyboard.press('Escape');
   await expect(page).toHaveURL(new RegExp(`/customers/people/${kim.personId}$`));
-  // A result for the page already open, as the box will offer: the address changes, the page stays, the note opens.
+  // A result for the page already open, as the box offers: the address changes, the page stays, the note opens.
   await page.evaluate((id) => window.history.pushState(null, '', `?activity=${id}`), activityId);
   await expect(page.getByTestId('opened-activity')).toHaveText(
     'Slab leak likely, under the kitchen',

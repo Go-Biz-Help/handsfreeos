@@ -29,7 +29,7 @@ import { KindPage } from './kind-page';
 import { NotAnswered, NothingFound, TopLine, TryAgainLine } from './panel';
 import { PageRow, type RowContext } from './rows';
 import { KIND_TILES, KindTile } from './rows/parts';
-import { forgetOthersSearches, rememberSearch, type SearchBusiness } from './search-provider';
+import { useSearchContext, type SearchContextValue } from './search-provider';
 import { refusalOf, useSearch, useSettingsGroup } from './use-search';
 
 /** The Search page lists this many of each kind; "Show 3 more contacts" reads that kind's first page in place. */
@@ -64,19 +64,26 @@ const EMPTY_STATE: SearchPageState = {
  * it with counts and a line for the kinds that found nothing; Settings, Archived and the Deleted bin come last. With
  * `kind=` the right side is that kind alone (`KindPage`). The empty, close-match and nobody-active lines are core's
  * `dropdownOf`'s, decided after the device's Settings group is merged in.
+ *
+ * What it knows about the business, and the person's recent searches, come from the layout's `SearchProvider`, as the
+ * sidebar's box has them.
  */
-export function SearchPage({ business }: { business: SearchBusiness }) {
-  const { workspaceId, userId } = business;
+export function SearchPage() {
+  const search = useSearchContext();
+  return search ? <Results business={search} /> : null;
+}
+
+function Results({ business }: { business: SearchContextValue }) {
+  const { workspaceId } = business;
   const router = useRouter();
   const { permissions } = useWorkspaceShell();
   const [state, setState] = useState<SearchPageState>(EMPTY_STATE);
   const [typed, setTyped] = useState('');
-  const box = useRef<HTMLInputElement>(null);
+  const box = business.pageBoxRef;
   const root = useRef<HTMLDivElement>(null);
 
   // The address after `#`, when the page opens and whenever it changes (Back, or a link to another search).
   useEffect(() => {
-    forgetOthersSearches(userId);
     const read = () => {
       const next = readSearchFragment(window.location.hash);
       setState(next);
@@ -89,7 +96,7 @@ export function SearchPage({ business }: { business: SearchBusiness }) {
       window.removeEventListener('hashchange', read);
       window.removeEventListener('popstate', read);
     };
-  }, [userId]);
+  }, []);
 
   /** Changes the page's state and the address after `#` with it: a new kind is a step Back undoes, the rest isn't. */
   function update(patch: Partial<SearchPageState>, step: 'push' | 'replace' = 'replace') {
@@ -160,7 +167,7 @@ export function SearchPage({ business }: { business: SearchBusiness }) {
           .map((k) => k.label!)
       : [];
 
-  const remember = () => rememberSearch(userId, workspaceId, state.q);
+  const remember = () => business.remember(state.q);
   const go = (href: string) => {
     remember();
     router.push(href);
@@ -268,7 +275,7 @@ export function SearchPage({ business }: { business: SearchBusiness }) {
           e.preventDefault();
           const q = typed.trim().slice(0, 120);
           if (q !== state.q) update({ q, before: null });
-          rememberSearch(userId, workspaceId, q);
+          business.remember(q);
         }}
       >
         <Search

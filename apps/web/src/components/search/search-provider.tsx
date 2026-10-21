@@ -96,6 +96,8 @@ export interface SearchBusiness {
 export interface SearchContextValue extends SearchBusiness {
   /** The sidebar's box, for ⌘K. */
   readonly boxRef: RefObject<HTMLInputElement | null>;
+  /** The Search page's own box while it's open: ⌘K below `md` focuses it there rather than opening the page again. */
+  readonly pageBoxRef: RefObject<HTMLInputElement | null>;
   readonly recent: readonly string[];
   remember(q: string): void;
   clearRecent(): void;
@@ -105,17 +107,21 @@ export interface SearchContextValue extends SearchBusiness {
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
-/** Search everything's box and what it needs, or null outside a business (and until Search 9 mounts the provider). */
+/** Search everything's box and what it needs, or null outside a business. */
 export const useSearchContext = (): SearchContextValue | null => useContext(SearchContext);
 
-/** From `lg` the sidebar's box is there to focus; below it, ⌘K opens the Search page. */
-const COMPUTER = '(min-width: 1024px)';
+/**
+ * Whether a box is on screen to focus. The sidebar, and its box, are drawn from `md` (`sidebar.tsx`); below it the box
+ * is in the page but hidden, so ⌘K opens the Search page, or focuses its box there.
+ */
+const drawn = (box: HTMLInputElement | null): box is HTMLInputElement =>
+  !!box && box.getClientRects().length > 0;
 
 /**
  * Search everything around a business's pages: the box's ref for ⌘K (Ctrl K elsewhere), the business's settings for
  * the Settings group, and the person's recent searches. ⌘K copies the Assistant's ⌘J guard, and `preventDefault`
- * keeps Ctrl K from the browser's own search: on a computer it focuses and selects the sidebar's box, below `lg` it
- * opens the Search page with its box focused. ⌘J stays the Assistant's.
+ * keeps Ctrl K from the browser's own search: wherever the sidebar is drawn it focuses and selects the sidebar's box,
+ * below `md` it opens the Search page with its box focused. ⌘J stays the Assistant's.
  */
 export function SearchProvider({
   business,
@@ -126,6 +132,7 @@ export function SearchProvider({
 }) {
   const router = useRouter();
   const boxRef = useRef<HTMLInputElement | null>(null);
+  const pageBoxRef = useRef<HTMLInputElement | null>(null);
   const { workspaceId, userId } = business;
   const [recent, setRecent] = useState<readonly string[]>([]);
   const [mac, setMac] = useState<boolean | null>(null);
@@ -141,8 +148,8 @@ export function SearchProvider({
     const onKey = (e: KeyboardEvent) => {
       if (!isShortcut(e, 'k', onMac)) return;
       e.preventDefault();
-      const box = boxRef.current;
-      if (box && window.matchMedia(COMPUTER).matches) {
+      const box = drawn(boxRef.current) ? boxRef.current : pageBoxRef.current;
+      if (box) {
         box.focus();
         box.select();
       } else router.push(searchPageHref(workspaceId, { q: '' }));
@@ -164,6 +171,7 @@ export function SearchProvider({
     () => ({
       ...business,
       boxRef,
+      pageBoxRef,
       recent,
       remember,
       clearRecent: clear,

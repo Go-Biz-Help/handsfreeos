@@ -1,5 +1,7 @@
 'use client';
 import {
+  ARCHIVE_WORDS,
+  archivedNotice,
   BIN_WORDS,
   can,
   customSummary,
@@ -228,8 +230,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
             className="mt-4 rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
             data-testid="archived-notice"
           >
-            This {lowerLabel(kind.singular)} is archived: hidden from lists and searches, history
-            kept.{canModerate ? ' Restore from the menu to use it again.' : ''}
+            {archivedNotice(lowerLabel(kind.singular), canModerate)}
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
@@ -541,11 +542,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
       <Dialog open={archiving} onOpenChange={setArchiving}>
         <DialogContent
           title={archived ? `Restore ${record.name}?` : `Archive ${record.name}?`}
-          description={
-            archived
-              ? `It comes back into lists and searches.`
-              : `It leaves lists and searches. Its history, tasks, files and relationships are kept.`
-          }
+          description={archived ? ARCHIVE_WORDS.restoreRecord : ARCHIVE_WORDS.archiveRecord}
         >
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setArchiving(false)}>

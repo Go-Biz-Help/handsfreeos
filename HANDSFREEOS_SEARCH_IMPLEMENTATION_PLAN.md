@@ -21,8 +21,8 @@ This plan:
 The boards are in `design/search` (commit 18ce0f9), from the canvas "Search everything": 1 typing, 2 the Search page,
 3 many matches, 4 different searches, 5 and 5b the phone, 6 Settings.
 
-**Where it stands (2026-10-20):** boards approved; stages 1 to 8 built (Build order), the rest still to
-build.
+**Where it stands (2026-10-20):** boards approved; stages 1 to 9 built (Build order), so search is on, on the web
+and the phone; stage 10 (the docs) still to build.
 
 ## Decisions (Chris, 2026-10-20)
 
@@ -2718,6 +2718,70 @@ its step **Built** here with what changed while building.
      on the phone."
    - Docs: README.md's shell section (the box is Search everything; a hidden place is still reached by its links, since
      menu places aren't a kind yet, `README.md:195`).
+   - **Built** (2026-10-20). No migration and no sync change; `pnpm openapi` carried the new `custom_record.archive`
+     description into `packages/api-client` (`schema.d.ts` and `openapi.json`, nothing else). Not committed here: the
+     stage is one change set holding every entry point, to go in one commit. What changed while building:
+     - **The layout fills `SearchProvider`** from what it already asks for (the person signed in, not a teammate
+       they view as, for recent searches; the business's name and clock from the shell; staff from `platform.me`; the
+       agency from `account.me`) plus one `workspace.get` for the settings, which is only a hint: if it fails, a
+       setting is still found, without its value. The Search page's route now asks the API for nothing, as "Web: the
+       Search page" planned, and the page takes the business and the recent searches from the provider, so the box
+       and the page share one list (the page's own `forgetOthersSearches` went: the provider does it when it mounts).
+     - **⌘K follows the side menu, from `md`, not `lg`:** the sidebar, and its box with the drawn ⌘K, shows from `md`
+       (`sidebar.tsx`), so ⌘K focuses that box wherever it's on screen (the provider checks it's drawn) and opens the
+       Search page only below `md`. On the Search page there it focuses the page's own box (`pageBoxRef` in the
+       provider) rather than opening the page again over itself.
+     - **The box asks only while its panel is open,** and its Settings group changes only when what it reads does
+       (`useSettingsGroup` keys on their values). Mounted on every page and keeping its words after a result opens,
+       it otherwise sent a search unseen on every `router.refresh()`, since a refresh hands the layout's settings and
+       the shell's permissions down as new copies. Closed, it keeps its last answer for when it opens again.
+     - **Esc in the box, fixed once it was on screen:** the popover's own Esc handler closed the panel first, so the
+       box's handler then saw it closed and cleared the text, both on one press. The popover now leaves an Esc
+       pressed in the box to the box (`onEscapeKeyDown`), so the first closes and keeps the text and a second clears
+       it, as "Keyboard" says; `search.spec.ts` checks it.
+     - **The box's ⌘K is drawn as the Ask button's ⌘J:** `ask-button.tsx` exports `ShortcutKey`, which both use, as
+       "Web: the box and its dropdown" asks; that is the whole change to that file.
+     - **The phone-width header:** its button is `mobile-search` everywhere ("Search everything" outside the Inbox, a
+       link to `/search`; "Search conversations" inside it), and it isn't drawn on the Search page, whose box is right
+       there. Back on the Search page goes back, or to Home when there's nothing to go back to. The Inbox sheet's
+       "Search everything for “q”" shows from 2 characters, as everywhere search starts. The sheet only ever opens in
+       the Inbox now, so the old Contacts sheet and its description went with `search-field.tsx`; leaving the Inbox
+       with it open (the browser's Back) closes it and forgets what was typed, so it doesn't open again unasked.
+     - **Archiving's words are one copy in core:** `archivedNotice(noun, canRestore)` takes any noun ("pet" for a
+       business's own kind), and `ARCHIVE_WORDS` holds the archive and restore lines of both dialogs ("…and search
+       finds them under Archived."). The Assistant's archive and restore card had its own copy that still said
+       customers, companies and a business's own records leave searches
+       (`apps/worker/src/assistant/tools-inbox-crm.ts`); it now reads `archiveCardWords` beside `ARCHIVE_WORDS`, and
+       `assistant-inbox-crm.test.ts` checks the card. The worker's menu note reads `MENU_WORDS.hiddenHint` rather than
+       repeating it.
+     - **The Assistant's map:** besides the lines named, `EVERY_PAGE` gains what Search everything finds (and that a
+       hidden place isn't among it), and Settings' own box; `PHONE_APP` gains the phone's search and Settings search.
+       Tasks' "searching tasks" became "searching the Tasks page itself", since search now finds a task.
+     - **The phone:** `searchScreenHref` (`apps/mobile/src/search/href.ts`) is the one way to the search screen, and
+       `SearchEverythingRow` (in `search/rows.tsx`) is the last row of both boxes' lists, the Inbox's after its empty
+       state too. `Screen` passes `search` through to `AppBar`, so a screen can turn the button on or off. A test the
+       plan didn't list, `apps/mobile/src/search/__tests__/entry-points.test.tsx`, covers the button (on where the
+       business mark leads, off elsewhere unless asked) and the row. Maestro's `config.yaml` runs `search.yaml` after
+       the customer screen's flow; it turns signal off with the app's own test switch (`settings-no-signal.yaml`),
+       which both phones have, rather than `no-signal.yaml`. The seed has one Maria Lopez, and the best match takes
+       her out of the Contacts group, so the flow checks her in the best match and Contacts' chip. A result opens over
+       the search screen, which closes with Cancel, not Back, so the flow leaves both before each signal switch.
+     - **The privacy answers** carry the plan's reason word for word; Apple's row also names the code it rests on, as
+       every row there does.
+     - **Tests:** `crm.spec.ts`'s shell test checks `/customers?q=` first, while Contacts is still empty, then adds Pat
+       Ramsey, since the dropdown needs someone to show under Contacts. `search.spec.ts` gains the box's test (⌘K, chips
+       and groups, a chip asked alone, Esc twice, ↓ ↵, ⌘↵, an exact phone with the Phone chip, an invoice by number,
+       Text, Messages and Money for the owner and neither, nor Call and Text, for a member whose business turned off
+       Use the inbox and See money), and both its member steps share `memberOf`. `search.mobile.spec.ts` also checks
+       the header's Back, the Inbox sheet's way to Search everything, and that Back out of the Inbox closes its sheet.
+     - **More files than listed:** `apps/web/src/app/app/w/[workspaceId]/search/page.tsx`,
+       `apps/web/src/components/search/{search-provider,search-box,search-page}.tsx`,
+       `apps/mobile/src/components/shell/screen.tsx`, `apps/mobile/src/search/{href.ts,rows.tsx}`,
+       `apps/mobile/src/app/app/w/[workspaceId]/search.tsx` (its comment),
+       `apps/mobile/src/search/__tests__/entry-points.test.tsx`, `apps/mobile/maestro/config.yaml`,
+       `apps/web/src/components/search/use-search.ts`, `apps/worker/src/assistant/tools-inbox-crm.ts`,
+       `apps/worker/test/assistant-inbox-crm.test.ts`, `packages/api-client/openapi.json`, and docs/search.md, whose
+       "until Search 9" lines were no longer true.
 
 10. **Search 10: docs.**
     - Ships: docs/search.md complete (where things are, the pieces, "Rules worth knowing before changing anything", the

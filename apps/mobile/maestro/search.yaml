@@ -1,0 +1,101 @@
+appId: com.gobizhelp.handsfreeos
+name: Search everything - from the top bar a customer found and opened, and with no signal the phone's own copy
+tags:
+  - ci
+# Dale opens Search from Home's top bar, types a customer's name and opens her from the best match. With no signal the
+# same search runs on the phone's own copy, says so in the board's words, and still opens her. Nothing typed is kept
+# anywhere but the phone's own recent searches.
+#
+# Signal is taken away with the app's own test switch (Settings → Test tools), which both phones have in a test build.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+  NAME: Maria Lopez
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'app-bar-search'
+    timeout: 30000
+- tapOn:
+    id: 'app-bar-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-box'
+    timeout: 10000
+- tapOn:
+    id: 'search-box'
+- inputText: ${NAME}
+# With signal the server answers; she is the best match, with her name marked. The seed has one Maria Lopez, so the
+# best match takes her out of the Contacts group, and Contacts' chip still counts her.
+- extendedWaitUntil:
+    visible:
+      id: 'search-best-row'
+      text: '${NAME}.*'
+    timeout: 90000
+- assertVisible:
+    id: 'search-chip-contacts'
+- takeScreenshot: search-online
+- tapOn:
+    id: 'search-best-row'
+- extendedWaitUntil:
+    visible:
+      id: 'record-name'
+      text: ${NAME}
+    timeout: 20000
+# Back to the tabs: her screen sits over Search, which closes with Cancel, not Back.
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'search-cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'tab-home'
+    timeout: 10000
+# No signal: the same search reads the phone's copy, and the line at the top says so.
+- runFlow: subflows/settings-no-signal.yaml
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'app-bar-search'
+    timeout: 20000
+- tapOn:
+    id: 'app-bar-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-box'
+    timeout: 10000
+- tapOn:
+    id: 'search-box'
+- inputText: ${NAME}
+- extendedWaitUntil:
+    visible:
+      id: 'search-offline'
+    timeout: 30000
+- assertVisible: 'You’re offline, so this searched what’s on this phone\. Files, messages and money show once you’re back online\..*'
+- extendedWaitUntil:
+    visible:
+      id: 'search-best-row'
+    timeout: 30000
+- takeScreenshot: search-offline
+- tapOn:
+    id: 'search-best-row'
+- extendedWaitUntil:
+    visible:
+      id: 'record-name'
+      text: ${NAME}
+    timeout: 20000
+# Back to the tabs: her screen sits over Search, which closes with Cancel, not Back.
+- tapOn:
+    id: 'back'
+- tapOn:
+    id: 'search-cancel'
+- extendedWaitUntil:
+    visible:
+      id: 'tab-home'
+    timeout: 10000
+- runFlow: subflows/settings-signal-back.yaml

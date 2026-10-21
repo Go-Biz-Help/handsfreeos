@@ -6,7 +6,7 @@ import {
   type SearchEverythingOutput,
   type SearchGroup,
 } from '@hfos/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import type { SearchBusiness } from './search-provider';
@@ -52,21 +52,47 @@ export const refusalOf = (e: unknown): SearchRefusal => ({
 /**
  * The main search's Settings group for what's typed, gated as the Settings menu is for this person: core's
  * `searchSettings`, made a group by `settingsSearchGroup` with the business's own values ("9:00 PM to 8:00 AM").
+ *
+ * It changes only when what it reads does. Every `router.refresh()` hands the layout's settings and the shell's
+ * permissions down as new copies, and a new function here would have the box ask the server again each time.
  */
 export function useSettingsGroup(
   business: Pick<SearchBusiness, 'workspaceId' | 'settings' | 'timeZone' | 'staff' | 'agency'>,
 ): (q: string) => SearchGroup | null {
   const { permissions, addons } = useWorkspaceShell();
   const { workspaceId, settings, timeZone, staff, agency } = business;
-  return useCallback(
-    (q: string) =>
+  const read = JSON.stringify([
+    workspaceId,
+    settings,
+    timeZone,
+    staff,
+    agency,
+    permissions,
+    addons,
+  ]);
+  return useMemo(() => {
+    const [id, values, zone, isStaff, isAgency, grants, on] = JSON.parse(read) as [
+      string,
+      SearchBusiness['settings'],
+      string,
+      boolean,
+      boolean,
+      string[],
+      string[],
+    ];
+    return (q: string) =>
       settingsSearchGroup(
-        workspaceId,
-        searchSettings(q, { permissions, addons, staff, agency, surface: 'web' }),
-        { settings, timeZone },
-      ),
-    [workspaceId, settings, timeZone, staff, agency, permissions, addons],
-  );
+        id,
+        searchSettings(q, {
+          permissions: grants,
+          addons: on,
+          staff: isStaff,
+          agency: isAgency,
+          surface: 'web',
+        }),
+        { settings: values, timeZone: zone },
+      );
+  }, [read]);
 }
 
 export interface SearchAsk {
@@ -103,15 +129,19 @@ interface Shown {
 
 const NOTHING: Shown = { answer: null, settings: null, q: '', loading: false, refusal: null };
 
-/** Search everything as the person types: 250 ms after they pause (the box's), or `debounceMs`. */
+/**
+ * Search everything as the person types: 250 ms after they pause (the box's), or `debounceMs`. Nothing is asked while
+ * `paused` (the box with its panel closed, still holding what was typed), and the last answer stays for when it opens.
+ */
 export function useSearch(
   workspaceId: string,
   ask: SearchAsk,
   settingsOf: (q: string) => SearchGroup | null,
-  opts: { debounceMs?: number } = {},
+  opts: { debounceMs?: number; paused?: boolean } = {},
 ): SearchState {
   const q = ask.q.trim();
   const debounceMs = opts.debounceMs ?? 250;
+  const paused = !!opts.paused;
   const [shown, setShown] = useState<Shown>(NOTHING);
   const [nonce, setNonce] = useState(0);
   // One key for what's asked, so a new array of the same kinds doesn't ask again.
@@ -125,6 +155,7 @@ export function useSearch(
   ]);
 
   useEffect(() => {
+    if (paused) return;
     const [text, kinds, perKind, depth, includeArchived, onlyMine] = JSON.parse(asked) as [
       string,
       string[] | null,
@@ -172,7 +203,7 @@ export function useSearch(
       window.clearTimeout(timer);
       window.clearTimeout(quiet);
     };
-  }, [asked, nonce, workspaceId, settingsOf, debounceMs]);
+  }, [asked, nonce, workspaceId, settingsOf, debounceMs, paused]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   return { ...shown, retry };

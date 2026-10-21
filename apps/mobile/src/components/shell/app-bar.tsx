@@ -1,14 +1,16 @@
+import { SEARCH_WORDS } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronLeft, X } from '@/components/icons';
+import { ChevronLeft, Search, X } from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { businessMark, cn } from '@/lib/utils';
 
 import { askHref, usePhonePageRecord } from '@/assistant/page-record';
+import { searchScreenHref } from '@/search/href';
 
 import { BrandMark } from './brand';
 import { businessHref, useOptionalBusiness } from './business-context';
@@ -17,7 +19,8 @@ export type Leading = 'business' | 'back' | 'close' | 'none';
 
 /**
  * The top bar of every screen, as the phone boards draw it: the business mark at the left (it opens the switcher),
- * or Back or Close on a screen opened from another; the title; and Ask HandsFreeOS at the right, always one tap away.
+ * or Back or Close on a screen opened from another; the title; and Ask HandsFreeOS at the right, always one tap away,
+ * then Search everything on a business's own screens (design/m10, the top bar).
  */
 export function AppBar({
   title,
@@ -26,6 +29,7 @@ export function AppBar({
   back,
   trailing,
   ask = true,
+  search,
   testID,
 }: {
   title?: string;
@@ -36,6 +40,8 @@ export function AppBar({
   back?: Href;
   trailing?: React.ReactNode;
   ask?: boolean;
+  /** Search everything's button: on by default where the business mark leads. */
+  search?: boolean;
   testID?: string;
 }) {
   const insets = useSafeAreaInsets();
@@ -109,6 +115,18 @@ export function AppBar({
             className="size-11 items-center justify-center rounded-full active:bg-card-2"
           >
             <BrandMark size={24} />
+          </Pressable>
+        ) : null}
+        {/* Also while viewing as a teammate: their answers follow the view, as everything else on screen does. */}
+        {(search ?? leading === 'business') && ctx ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={SEARCH_WORDS.box}
+            testID="app-bar-search"
+            onPress={() => router.push(searchScreenHref(ctx.business.id) as Href)}
+            className="size-11 items-center justify-center rounded-full active:bg-card-2"
+          >
+            <Icon as={Search} className="size-[22px] text-text-2" />
           </Pressable>
         ) : null}
       </View>
