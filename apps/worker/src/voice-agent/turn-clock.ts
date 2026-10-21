@@ -7,7 +7,10 @@ import type { AiFirstBlock, AiUsage } from '@hfos/ai';
 import type { TestSteps } from '@hfos/core/server';
 
 export class TurnClock {
+  /** When the turn started: the listener said they'd finished (the greeting's: the call was picked up). */
   readonly started = Date.now();
+  /** Their last word, until the listener said they'd finished (null: it didn't say when their words ended). */
+  heardMs: number | null = null;
   /** The AI was asked: after the knowledge search and the budget check. */
   asked: number | null = null;
   /** Its answer started coming back. */
@@ -66,10 +69,14 @@ export class TurnClock {
     };
   }
 
-  /** A real call's log line: each step, and the whole wait from the end of their words to the first sound. */
+  /**
+   * A real call's log line: each step, and the whole wait from the end of their words to the first sound. Without
+   * `heardMs` the wait starts when the listener said they'd finished.
+   */
   log(): Record<string, number | boolean | null> {
     const s = this.steps();
     return {
+      heardMs: this.heardMs,
       loadMs: s?.loadMs ?? null,
       waitMs: s?.waitMs ?? null,
       sentenceMs: s?.sentenceMs ?? null,
@@ -77,7 +84,8 @@ export class TurnClock {
         this.firstAudio === null
           ? null
           : this.firstAudio - (this.firstSentence ?? this.answered ?? this.started),
-      firstSoundMs: this.firstAudio === null ? null : this.firstAudio - this.started,
+      firstSoundMs:
+        this.firstAudio === null ? null : this.firstAudio - this.started + (this.heardMs ?? 0),
       thought: this.thought,
       readyTokens: this.readyTokens,
       freshTokens: this.freshTokens,

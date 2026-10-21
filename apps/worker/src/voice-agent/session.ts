@@ -386,7 +386,7 @@ export class CallSession {
     this.mind.heard?.(w);
     if (w.language) this.language = w.language;
     if (w.final && w.text) this.heard.push(w.text);
-    if (w.endOfTurn) this.maybeTurn();
+    if (w.endOfTurn) this.maybeTurn(w.endOfTurnMs ?? null);
   }
 
   /** Its own voice heard back: what it's saying, or (two words at least) what it just finished saying. */
@@ -408,13 +408,14 @@ export class CallSession {
     this.mind.cut?.(speaking.turn);
   }
 
-  private maybeTurn(): void {
+  /** `heardMs`: how long the listener took to say they'd finished, when this turn starts from it saying so. */
+  private maybeTurn(heardMs: number | null = null): void {
     if (this.closed || !this.ready || this.thinking || !this.heard.length) return;
     if (this.speaking && !this.speaking.interruptible) return;
-    void this.runTurn();
+    void this.runTurn(heardMs);
   }
 
-  private async runTurn(): Promise<void> {
+  private async runTurn(heardMs: number | null): Promise<void> {
     this.thinking = true;
     const said = this.heard.join(' ').trim();
     this.heard = [];
@@ -422,6 +423,7 @@ export class CallSession {
     this.lines.push({ who: 'caller', text: said });
     const turn = ++this.turn;
     const clock = new TurnClock();
+    clock.heardMs = heardMs;
     this.clock = clock;
     this.clockTurn = turn;
     // The start of the reply, said while the model is still writing the rest.
