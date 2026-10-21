@@ -293,6 +293,13 @@ export const DESK_PHONE_MODEL_WORDS = {
   default: 'Default',
 } as const;
 
+export const DESK_PHONE_LISTENER_WORDS = {
+  label: 'Hearing their callers',
+  explain:
+    'Who hears their callers and decides when they’ve finished talking. Nova-3 waits for a short pause; Flux decides from what they said and how. Default is the worker’s VOICE_LISTENER, Nova-3 unless it’s set. It changes from the next call.',
+  default: 'Default',
+} as const;
+
 export const DESK_OWN_BUSINESS_WORDS = {
   title: 'HandsFreeOS’s own business',
   explain:

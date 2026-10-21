@@ -440,6 +440,18 @@ export const PHONE_MODEL_LABELS: Readonly<Record<PhoneModel, string>> = {
   'claude-haiku-4-5': 'Claude Haiku 4.5 (older)',
 };
 
+/**
+ * Who hears the caller on a business's calls, when HandsFreeOS support picked one for it in /admin (the column
+ * app.workspaces.phone_listener; null is the worker's VOICE_LISTENER): Deepgram's Nova-3, which ends a turn after a
+ * short pause, or Flux, which decides from what they said and how. Only support sets it, like the phone model.
+ */
+export const PHONE_LISTENERS = ['nova-3', 'flux'] as const;
+export type PhoneListener = (typeof PHONE_LISTENERS)[number];
+export const PHONE_LISTENER_LABELS: Readonly<Record<PhoneListener, string>> = {
+  'nova-3': 'Nova-3',
+  flux: 'Flux (on trial)',
+};
+
 /** How it sounds on a call. Each has an English and a Spanish voice, so it can answer in the caller's language. */
 export const PHONE_VOICES = ['warm', 'bright', 'calm', 'deep'] as const;
 export type PhoneVoice = (typeof PHONE_VOICES)[number];

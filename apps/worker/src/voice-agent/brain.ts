@@ -27,6 +27,7 @@ import {
   executeCommandIn,
   HfosError,
   loadTeammate,
+  PHONE_LISTENERS,
   runHeldAction,
   TEAMMATE_TURN_ENDERS,
   teammateTools,
@@ -761,6 +762,16 @@ export function realCall(deps: RealCallDeps, ticket: StreamTicket): CallMind {
   const log = deps.log.child({ callSid: ticket.callSid });
   let call: PreparedCall | null = null;
   return {
+    async listener() {
+      const scope = { workspaceId: ticket.workspaceId, organizationId: ticket.organizationId };
+      const [ws] = await asWorker(deps.db, scope, (tx) =>
+        rows<{ phone_listener: string | null }>(
+          tx,
+          sql`select phone_listener from app.workspaces where id = ${scope.workspaceId}`,
+        ),
+      );
+      return PHONE_LISTENERS.find((l) => l === ws?.phone_listener) ?? null;
+    },
     async prepare() {
       const prepared = await prepareCall(deps, ticket);
       if (!prepared.ok) return prepared;

@@ -440,6 +440,7 @@ import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
+import { phoneListenerCommands } from './phone-listener';
 import { problemReportCommands } from './problem-report';
 import { ownBusinessCommands } from './own-business';
 import { mailFolderCommands } from './mail-folder';
@@ -1074,6 +1075,7 @@ export const commands: readonly CommandDef[] = [
   ...walletCommands,
   ...foundingCommands,
   ...phoneModelCommands,
+  ...phoneListenerCommands,
   // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
   ...ownBusinessCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
@@ -1252,6 +1254,7 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
+export * from './phone-listener';
 export * from './problem-report';
 export * from './own-business';
 export * from './mail-folder';

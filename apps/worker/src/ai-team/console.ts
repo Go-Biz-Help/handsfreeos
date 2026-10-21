@@ -42,6 +42,7 @@ import {
   localDateOf,
   money,
   parseTeammateConfig,
+  PHONE_LISTENERS,
   plainSmsText,
   quietHoursState,
   quoteData,
@@ -55,6 +56,7 @@ import {
   workspaceMessaging,
   type AiCallPurpose,
   type DraftAction,
+  type PhoneListener,
   type ReplyCheck,
   type TeammateConfig,
   type TeammateRow,
@@ -158,8 +160,14 @@ export interface PreparedTest {
   readonly now: number;
   readonly timeZone: string;
   readonly runId: string;
-  /** A phone test: the call, and for one it places, why. Null for a written test. */
-  readonly phone: { readonly outbound: TestOutbound | null } | null;
+  /**
+   * A phone test: the call, for one it places, why, and who hears it on a live test call (support's pick for the
+   * business; null is the worker's). Null for a written test.
+   */
+  readonly phone: {
+    readonly outbound: TestOutbound | null;
+    readonly listener: PhoneListener | null;
+  } | null;
 }
 
 /** A call the teammate places in a phone test: why, and what it says (as a real one's app.ai_calls row gives). */
@@ -234,9 +242,15 @@ export async function prepareTest(
       },
     ]);
   const [ws] = await asWorker(deps.db, { workspaceId: input.workspaceId }, (tx) =>
-    rows<{ organization_id: string; timezone: string | null; phone_model: string | null }>(
+    rows<{
+      organization_id: string;
+      timezone: string | null;
+      phone_model: string | null;
+      phone_listener: string | null;
+    }>(
       tx,
-      sql`select organization_id, timezone, phone_model from app.workspaces where id = ${input.workspaceId}`,
+      sql`select organization_id, timezone, phone_model, phone_listener from app.workspaces
+          where id = ${input.workspaceId}`,
     ),
   );
   if (!ws)
@@ -310,7 +324,10 @@ export async function prepareTest(
     now,
     timeZone,
     runId: '',
-    phone: input.channel === 'phone' ? { outbound } : null,
+    phone:
+      input.channel === 'phone'
+        ? { outbound, listener: PHONE_LISTENERS.find((l) => l === ws.phone_listener) ?? null }
+        : null,
   };
   return opts.run === false ? prepared : { ...prepared, runId: await openTestRun(deps, prepared) };
 }

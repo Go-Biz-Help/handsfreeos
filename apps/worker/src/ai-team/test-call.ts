@@ -123,6 +123,8 @@ export function testCallMind(o: {
       return problem;
     },
 
+    listener: () => Promise.resolve(test.phone?.listener ?? null),
+
     async prepare() {
       o.send({ type: 'turn', turn: 0, said: '' });
       const t = await nextTestTurn(deps, test, []);

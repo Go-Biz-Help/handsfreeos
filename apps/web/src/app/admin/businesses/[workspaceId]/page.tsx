@@ -170,6 +170,7 @@ export default async function BusinessPage({
       <PhoneModelBlock
         workspaceId={workspaceId}
         phoneModel={detail.phoneModel}
+        phoneListener={detail.phoneListener}
         canChange={me.staff?.permissions.includes('platform.ai.manage') ?? false}
       />
 

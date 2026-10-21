@@ -3,7 +3,7 @@
  * and the admin side (businesses, health, looking at a business read-only). Browser-safe.
  */
 import { z } from 'zod';
-import { PHONE_MODELS } from '../ai-team/config';
+import { PHONE_LISTENERS, PHONE_MODELS } from '../ai-team/config';
 import { displayName, email, isoDateTime, uuid } from './common';
 
 export const TicketStatusValue = z.enum(['new', 'open', 'waiting_on_customer', 'solved', 'closed']);
@@ -328,10 +328,15 @@ export const BusinessGetInput = z.object({ workspaceId: uuid });
 /** A model support can pick for a business's calls; null is the worker's own (VOICE_MODEL). */
 export const PhoneModelValue = z.enum(PHONE_MODELS);
 
+/** Who support can pick to hear a business's callers; null is the worker's own (VOICE_LISTENER). */
+export const PhoneListenerValue = z.enum(PHONE_LISTENERS);
+
 export const BusinessGetOutput = z.object({
   business: BusinessRow,
   /** The model its calls think with, when support picked one; null is the worker's VOICE_MODEL. */
   phoneModel: PhoneModelValue.nullable(),
+  /** Who hears its callers, when support picked one; null is the worker's VOICE_LISTENER. */
+  phoneListener: PhoneListenerValue.nullable(),
   /** HandsFreeOS's own business (M19), which may use handsfreeos.com for its email. */
   isPlatform: z.boolean(),
   /** Add-ons still being built that staff handed this business to try (Real Estate, step 2). */
@@ -531,6 +536,20 @@ export const PhoneModelSetOutput = z.object({
   workspaceId: uuid,
   was: PhoneModelValue.nullable(),
   model: PhoneModelValue.nullable(),
+  /** False when it was already that, so a double-click is visibly a no-op. */
+  changed: z.boolean(),
+});
+
+export const PhoneListenerSetInput = z.object({
+  workspaceId: uuid,
+  /** Null puts it back on the worker's VOICE_LISTENER. */
+  listener: PhoneListenerValue.nullable(),
+});
+
+export const PhoneListenerSetOutput = z.object({
+  workspaceId: uuid,
+  was: PhoneListenerValue.nullable(),
+  listener: PhoneListenerValue.nullable(),
   /** False when it was already that, so a double-click is visibly a no-op. */
   changed: z.boolean(),
 });

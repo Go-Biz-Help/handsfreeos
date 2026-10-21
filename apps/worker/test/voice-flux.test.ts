@@ -12,7 +12,10 @@ import {
   listenWithFlux,
   type FluxMessage,
 } from '../src/voice-agent/deepgram-flux';
+import type { PhoneListener } from '@hfos/core/server';
 import { heardOf } from '../src/voice-agent/deepgram-speech';
+import { createFakeSpeech } from '../src/voice-agent/fake-speech';
+import { CallSession, type CallLink, type CallMind } from '../src/voice-agent/session';
 import { heardEndMs, type HeardWords, type Listening } from '../src/voice-agent/speech';
 
 const log = pino({ level: 'silent' });
@@ -223,5 +226,35 @@ describe('how long it took to hear they’d finished', () => {
     });
     expect(fluxHeardOf({ type: 'TurnInfo', event: 'EndOfTurn', transcript: ' ' }, 2)).toBeNull();
     expect(fluxHeardOf({ type: 'Connected' }, 2)).toBeNull();
+  });
+});
+
+describe('who hears a business’s calls', () => {
+  const link: CallLink = {
+    sendAudio: () => undefined,
+    sendMark: () => undefined,
+    clear: () => undefined,
+    close: () => undefined,
+  };
+  /** A call that only gets as far as listening: it can't answer, so it stops there. */
+  const mind = (listener?: () => Promise<PhoneListener | null>): CallMind => ({
+    ...(listener ? { listener } : {}),
+    prepare: () => Promise.resolve({ ok: false, why: 'only listening' }),
+    warm: () => Promise.resolve(),
+    think: () => Promise.reject(new Error('no turns')),
+    hangUp: () => Promise.resolve(),
+    transfer: () => Promise.resolve(),
+    finish: () => Promise.resolve(),
+    noteSpeech: () => Promise.resolve(),
+  });
+
+  it('is the business’s own pick, and the worker’s when there’s none or it can’t be read', async () => {
+    const speech = createFakeSpeech();
+    const call = (m: CallMind) => new CallSession({ speech, log }, link, m).start();
+    expect(await call(mind(() => Promise.resolve('flux')))).toBe(false);
+    await call(mind(() => Promise.resolve(null)));
+    await call(mind(() => Promise.reject(new Error('The database is away'))));
+    await call(mind());
+    expect(speech.listeners).toEqual(['flux', null, null, null]);
   });
 });
