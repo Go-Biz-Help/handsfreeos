@@ -46,7 +46,11 @@ export type FetchAsk = StepAsk & {
  * says whether it could.
  */
 export type BrowseAsk =
-  | { readonly type: 'hfos-open-chat'; readonly threadId: string }
+  /**
+   * On Instagram, whose chats' rows aren't links (src/networks/instagram/browse.ts), `name` says which: the row that
+   * shows it.
+   */
+  | { readonly type: 'hfos-open-chat'; readonly threadId: string; readonly name?: string }
   | { readonly type: 'hfos-scroll-chats' }
   | { readonly type: 'hfos-scroll-feed' }
   | { readonly type: 'hfos-scroll-list' }
@@ -84,7 +88,8 @@ export type AutoAsk =
  * page it is, and only its own Connect, carrying Alignable's id for it, is pressed.
  */
 export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
-export type OpenMessageAsk = { readonly type: 'hfos-open-message' };
+/** On Instagram (src/networks/instagram/auto.ts), `profile` says whose account's Message it is. */
+export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly profile?: ProfileRef };
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what

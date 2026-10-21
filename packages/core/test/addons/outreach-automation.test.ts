@@ -21,7 +21,12 @@ import {
   workWindow,
 } from '../../src/addons/outreach/automation';
 import { dailyLimitsNow } from '../../src/addons/outreach/limits';
-import { runsOnItsOwn } from '../../src/addons/outreach/networks';
+import {
+  NETWORKS,
+  runsOnItsOwn,
+  type NetworkKit,
+  type Platform,
+} from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs } from './outreach-fixture';
 
@@ -31,6 +36,18 @@ const fb = (username: string) => ({
   username,
   url: `https://www.facebook.com/${username}`,
 });
+
+/** A network as it was before its runner (Instagram's till its part 14): its kit's `runs` stood in for, then put back. */
+function beforeItsRunner<T>(platform: Platform, run: () => T): T {
+  const kit = NETWORKS[platform] as { runs: NetworkKit['runs'] };
+  const runs = kit.runs;
+  kit.runs = { auto: [], ticks: [] };
+  try {
+    return run();
+  } finally {
+    kit.runs = runs;
+  }
+}
 
 describe('working hours', () => {
   const hours = { start: 9, end: 17, days: [1, 2, 3, 4, 5] };
@@ -267,6 +284,10 @@ describe('the business’s rules', () => {
   });
 
   it('send nothing on their own on a network the extension doesn’t work yet, whatever was picked', () => {
+    // Every network has its runner now (Instagram's from its part 14): one before it is stood in for.
+    expect(
+      ['facebook', 'linkedin', 'instagram', 'alignable'].map((p) => runsOnItsOwn(p as Platform)),
+    ).toEqual([true, true, true, true]);
     const all = BusinessRules.parse({});
     const picked = {
       ...AUTOMATION_DEFAULTS.networks.instagram,
@@ -282,21 +303,29 @@ describe('the business’s rules', () => {
         linkedin: picked,
       },
     };
-    // Instagram is still looked at; Alignable has its runner from part 5.
-    expect(runsOnItsOwn('instagram')).toBe(false);
-    expect(runsOnItsOwn('alignable')).toBe(true);
-    expect(runsOnItsOwn('linkedin')).toBe(true);
-    const within = withinRules(settings, {
-      ...all,
-      networksAllowed: ['linkedin', 'instagram', 'alignable'],
+    beforeItsRunner('instagram', () => {
+      expect(runsOnItsOwn('instagram')).toBe(false);
+      expect(runsOnItsOwn('alignable')).toBe(true);
+      expect(runsOnItsOwn('linkedin')).toBe(true);
+      const within = withinRules(settings, {
+        ...all,
+        networksAllowed: ['linkedin', 'instagram', 'alignable'],
+      });
+      expect(within.networks.instagram.sending).toBe('off');
+      expect(within.networks.linkedin.sending).toBe('steps');
+      expect(within.networks.alignable.sending).toBe('steps');
+      expect(autoKinds(within.networks.instagram, 'instagram')).toEqual([]);
+      expect(messageKinds(within.networks.instagram)).toEqual([]);
+      // On Alignable, comments stay the person's: its runner warms up and connects.
+      expect(autoKinds(within.networks.alignable, 'alignable')).toEqual([
+        'warm_up',
+        'friend_request',
+      ]);
     });
-    expect(within.networks.instagram.sending).toBe('off');
-    expect(within.networks.linkedin.sending).toBe('steps');
-    expect(within.networks.alignable.sending).toBe('steps');
-    expect(autoKinds(within.networks.instagram, 'instagram')).toEqual([]);
-    expect(messageKinds(within.networks.instagram)).toEqual([]);
-    // On Alignable, comments stay the person's: its runner warms up and connects.
-    expect(autoKinds(within.networks.alignable, 'alignable')).toEqual([
+    // With its runner, Instagram's Sending stays as picked inside the rules, and it likes and follows on its own.
+    const within = withinRules(settings, { ...all, networksAllowed: ['instagram'] });
+    expect(within.networks.instagram.sending).toBe('steps');
+    expect(autoKinds(within.networks.instagram, 'instagram')).toEqual([
       'warm_up',
       'friend_request',
     ]);

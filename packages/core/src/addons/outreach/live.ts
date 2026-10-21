@@ -476,7 +476,7 @@ export function sendingOffWords(
   businessAllowsMore: boolean,
   platform: Platform = 'facebook',
 ): string {
-  // A network the extension doesn't work yet (Instagram, still looked at): nothing to pick, and nobody to ask.
+  // A network the extension doesn't work yet (one before its runner): nothing to pick, and nobody to ask.
   if (!runsOnItsOwn(platform))
     return `Your computer doesn’t work on ${PLATFORMS[platform]} on its own yet, so there’s no day to start there. Today’s list on ${PLATFORMS[platform]} is yours to do, and it notes each step you take.`;
   return businessAllowsMore

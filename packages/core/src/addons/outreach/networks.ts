@@ -101,14 +101,11 @@ export interface NetworkKit {
   /**
    * What the extension's runner does there (the Instagram and Alignable plan's "steps per network"): the kinds on
    * today's list it does on its own, and the switches along the way it reads. Today marks only these as done on their
-   * own, and Settings show only these switches. A network still looked at does none yet.
+   * own, and Settings show only these switches. A network still looked at, or before its runner, does none yet.
    */
   readonly runs: { readonly auto: readonly RunnerKind[]; readonly ticks: readonly RunnerTick[] };
   readonly words: NetworkWords;
 }
-
-/** Nothing on its own: a network still looked at (decision 78). */
-const RUNS_NOTHING: NetworkKit['runs'] = { auto: [], ticks: [] };
 
 export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   facebook: {
@@ -179,8 +176,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
   // start low. Its steps are built from what Check Instagram reads.
   instagram: {
     name: PLATFORMS.instagram,
-    // Working from its part 12 (the app), as Alignable did before its runner: nothing goes on its own there till its
-    // runner (`runsOnItsOwn`), so Today's list on it is the person's own to do, and the extension notes each step.
+    // Working from its part 12 (the app), as Alignable did before its runner, and on its own from part 14 (its runner).
     stage: 'working',
     link: /^https:\/\/www\.instagram\.com\//,
     // An account's number, and its name in instagram.com/<this>/: letters, numbers, dots and underscores.
@@ -201,7 +197,12 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
     // who follows them is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    runs: RUNS_NOTHING,
+    // auto/instagram.ts (part 14): warm-ups (a look at their account and a like on one or two of their recent posts)
+    // and follows. Comments wait for the person's OK each time, as they're public writing (the plan's "Anything public
+    // … waits for an OK", and Alignable's answers), so `comment` isn't here, and unfollowing stays the person's ticks.
+    // Of the switches along the way it reads the warm-up and the once-a-day jobs: no groups, no hourly look, and no
+    // follow requests to confirm.
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'follower',
       friends: 'followers',
@@ -256,7 +257,8 @@ export const isLooking = (platform: Platform): boolean => NETWORKS[platform].sta
 
 /**
  * Whether the extension works a network on its own: its runner takes steps there and sends what's OK'd. Until it does
- * (Instagram, still looked at), every step and message there is the person's own, which the extension notes.
+ * (each network before its runner, as Instagram was till its part 14), every step and message there is the person's
+ * own, which the extension notes.
  */
 export const runsOnItsOwn = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.length > 0;

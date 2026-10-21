@@ -4,16 +4,19 @@
  * only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads the
  * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
  * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
- * the person's own profile, and, on Alignable, its runner's presses (`auto`).
+ * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's), and, on Instagram, who wrote
+ * back in its chats.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
   AutoAnswer,
   AutoAsk,
   BrowseAnswer,
+  BrowseAsk,
   CodeAnswer,
   CodeAsk,
   ConnectAsk,
+  OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
   PostsAnswer,
@@ -61,19 +64,18 @@ async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
   return { ok: true, code: await put(document, ask.code) };
 }
 
-/** Its lists, for the person's asks: scrolled for more, or switched to their tab of them all. */
+/** Its lists, for the person's asks: scrolled for more, switched to their tab of them all, or a chat opened. */
 async function browse(
   site: LookingSite,
-  type: 'hfos-scroll-list' | 'hfos-show-all' | 'hfos-open-chat',
+  ask: Extract<BrowseAsk, { type: 'hfos-scroll-list' | 'hfos-show-all' | 'hfos-open-chat' }>,
 ): Promise<BrowseAnswer> {
   const lists = site.lists;
   if (!lists) return { ok: false };
-  const go =
-    type === 'hfos-scroll-list'
-      ? lists.scroll
-      : type === 'hfos-show-all'
-        ? lists.showAll
-        : lists.openChat;
+  if (ask.type === 'hfos-open-chat')
+    return {
+      ok: lists.openChat ? await lists.openChat(document, location.href, ask.name ?? null) : false,
+    };
+  const go = ask.type === 'hfos-scroll-list' ? lists.scroll : lists.showAll;
   return { ok: go ? await go(document, location.href) : false };
 }
 
@@ -84,17 +86,22 @@ async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
   return { ok: true, result: await site.unfollow(document) };
 }
 
-/** The runner's presses it answers: their posts, a like, Connect and a message. Never a comment. */
-type OnItsOwnAsk = Exclude<AutoAsk, { readonly type: 'hfos-comment' }> | ConnectAsk;
+/** The runner's presses it answers: their posts, a like, Connect (Follow), Message and a message. Never a comment. */
+type OnItsOwnAsk =
+  Exclude<AutoAsk, { readonly type: 'hfos-comment' }> | ConnectAsk | OpenMessageAsk;
 const ON_ITS_OWN_ASKS = new Set([
   'hfos-their-posts',
   'hfos-like-post',
   'hfos-connect',
+  'hfos-open-message',
   'hfos-message',
 ]);
 
-/** One of its runner's presses, on a network whose site has them (Alignable's): none anywhere else. */
-async function onItsOwn(site: LookingSite, ask: OnItsOwnAsk): Promise<PostsAnswer | AutoAnswer> {
+/** One of its runner's presses, on a network whose site has them (Alignable's, Instagram's): none anywhere else. */
+async function onItsOwn(
+  site: LookingSite,
+  ask: OnItsOwnAsk,
+): Promise<PostsAnswer | AutoAnswer | BrowseAnswer> {
   const auto = site.auto;
   if (!auto)
     return { ok: false, error: `The extension doesn’t work on ${site.name} on its own yet.` };
@@ -107,7 +114,10 @@ async function onItsOwn(site: LookingSite, ask: OnItsOwnAsk): Promise<PostsAnswe
   if (!ask.profile)
     return { ok: false, error: `The extension didn’t say whose page it is on ${site.name}.` };
   if (ask.type === 'hfos-connect')
-    return { ok: true, result: auto.connect(document, href, ask.profile) };
+    return { ok: true, result: await auto.connect(document, href, ask.profile) };
+  // Their account's Message, which opens a chat with them (Instagram's): whether it could.
+  if (ask.type === 'hfos-open-message')
+    return { ok: auto.openMessage ? auto.openMessage(document, href, ask.profile) : false };
   return { ok: true, result: await auto.message(document, href, ask.text, ask.profile) };
 }
 
@@ -130,7 +140,8 @@ export function lookingKit(site: LookingSite): Kit {
       `${site.platform}:${(profile.username ?? profile.id ?? profile.url).toLowerCase()}`,
     readPage: (doc, href) => readLooking(doc, href, site),
     readWarnings: (doc, href) => readWarnings(doc, href, site),
-    readReplies: () => [],
+    // Who wrote back, where its site reads it (Instagram's chats, its part 13).
+    readReplies: (doc, href) => site.replies?.(doc, href) ?? [],
     lookFor: () => 'warnings',
     noticer: () => site.noticer?.() ?? { click: () => null, enter: () => null },
     outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
@@ -144,7 +155,7 @@ export function lookingKit(site: LookingSite): Kit {
             : ask.type === 'hfos-scroll-list' ||
                 ask.type === 'hfos-show-all' ||
                 ask.type === 'hfos-open-chat'
-              ? browse(site, ask.type)
+              ? browse(site, ask as Parameters<typeof browse>[1])
               : ask.type === 'hfos-unfollow'
                 ? unfollowHere(site)
                 : ON_ITS_OWN_ASKS.has(ask.type)

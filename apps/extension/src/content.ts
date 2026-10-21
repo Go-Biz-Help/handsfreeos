@@ -21,6 +21,10 @@
  *   tab of all connections, their own About Us past the code it emails; and, once they let it work on its own
  *   (src/auto/alignable.ts), a like on a post of theirs, their own Connect, and the messages they OK'd, typed only
  *   into that conversation's box (src/networks/alignable/auto.ts).
+ * - On Instagram (src/networks/looking/kit.ts, from its site): scrolling their followers' box and their chats' list,
+ *   opening a chat by its row, unfollowing the ones they ticked, their own bio; and, once they let it work on its own
+ *   (src/auto/instagram.ts), a like on a post of theirs, Follow and Message on their account, and the messages they
+ *   OK'd, typed only into that chat's box (src/networks/instagram/auto.ts).
  *
  * As the person works, it notices the steps they take themselves (a friend request or an invitation to connect, a
  * like, a comment, a message, and their answer to a request they got: src/networks/facebook/actions.ts,

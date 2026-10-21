@@ -3,9 +3,10 @@
  * places and the followers of accounts like the business's (the plan's "The networks after LinkedIn"). Check Instagram
  * reads its pages and looks for Follow, Message, Like, the box to comment in and the bio's box, pressing none of them.
  * From the plan's part 10 its own readers read its pages (./read.ts), from part 11 the person's own steps there are
- * noted (./actions.ts), and from part 12 it works in the app, every step the person's own till its runner. Instagram's
- * terms forbid automated collection and it blocks fast ("Action blocked"), so the extension reads only what the person
- * asks, at a person's pace, and stops on any warning there.
+ * noted (./actions.ts), from part 12 it works in the app, and from part 14 its runner presses a few of its buttons on
+ * its own once the person lets it (./auto.ts). Instagram's terms forbid automated collection and it blocks fast
+ * ("Action blocked"), so the extension reads only what the person asks or lets it, at a person's pace, and stops on
+ * any warning there.
  *
  * Its addresses are in ./urls.ts.
  *
@@ -30,9 +31,11 @@ import {
 import type { LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { instagramNoticer } from './actions';
+import { followThem, likeTheirPost, openTheirChat, theirPosts, writeMessage } from './auto';
 import { readOwnProfile, writeBio } from './own-profile';
 import { readInstagram } from './read';
-import { openChat, scrollDialog } from './browse';
+import { openChat, scrollList } from './browse';
+import { readReplies } from './replies';
 import { unfollow } from './unfollow';
 import { HOST, instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
 
@@ -310,10 +313,22 @@ export const INSTAGRAM: LookingSite = {
   noticer: instagramNoticer,
   // Unfollowing those the person ticked who didn't follow back (part 12), by Following and Unfollow's own words.
   unfollow,
-  // Its lists, for the person's asks (part 12): their followers' box scrolled, and a chat opened for Check.
+  // Its lists, for the person's asks (parts 12 and 13): their followers' box scrolled, and their chats' list too; a
+  // chat opened for Check, or by its row's name for Read my chats.
   lists: {
-    scroll: (doc) => scrollDialog(doc),
-    openChat: (doc) => openChat(doc),
+    scroll: (doc, href) => scrollList(doc, href),
+    openChat: (doc, _href, name) => openChat(doc, name),
+  },
+  // Who wrote back in their chats (part 13), as the person goes and as Read my chats goes.
+  replies: readReplies,
+  // What its runner presses on its own (part 14), each only on its own page: a like on a post of theirs, Follow and
+  // Message under their name, and a message in their chat (./auto.ts). Never a comment.
+  auto: {
+    theirPosts,
+    like: likeTheirPost,
+    connect: followThem,
+    openMessage: openTheirChat,
+    message: writeMessage,
   },
   host: HOST,
   url: instagramUrl,

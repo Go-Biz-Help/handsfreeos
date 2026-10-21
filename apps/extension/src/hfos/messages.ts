@@ -69,6 +69,7 @@ export type PostsSaveInput = Body<'/v1/commands/outreach.posts.save'>;
 export type PostsSaved = Ok<'/v1/commands/outreach.posts.save'>;
 /** Chats whose last message is theirs, seen on Facebook (packages/core/src/addons/outreach/alerts.ts). */
 export type RepliesNoteInput = Body<'/v1/commands/outreach.replies.note'>;
+export type RepliesNoted = Ok<'/v1/commands/outreach.replies.note'>;
 /** What the person lets the extension do on its own, and their working hours (packages/core/src/addons/outreach/automation.ts). */
 export type Automation = Ok<'/v1/queries/outreach.automation'>;
 /**
@@ -292,6 +293,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-helpful-posted'; readonly input: HelpfulPostedInput }
   | { readonly type: 'hfos-helpful-engaged'; readonly input: HelpfulEngagedInput }
   | { readonly type: 'hfos-engaged-save'; readonly input: NetworkEngagedInput }
+  /** Who wrote last in the chats a job read (Instagram's Read my chats), as a tab tells of them as the person goes. */
+  | { readonly type: 'hfos-replies-note'; readonly input: RepliesNoteInput }
   | {
       readonly type: 'hfos-join-answers';
       readonly workspaceId: string;
@@ -353,6 +356,7 @@ export interface HfosValues {
   readonly 'hfos-helpful-posted': HelpfulPosted;
   readonly 'hfos-helpful-engaged': HelpfulEngaged;
   readonly 'hfos-engaged-save': NetworkEngaged;
+  readonly 'hfos-replies-note': RepliesNoted;
   readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-like-pick': LikePickOutput;
   readonly 'hfos-auto': AutoStatus;

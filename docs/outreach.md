@@ -1384,7 +1384,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Instagram works from its part 12** (extension 0.80.0, no migration), as Alignable did before its runner:
       `stage: 'working'` with `runs: RUNS_NOTHING`, so it has a day, a row on Today's strip and the filters, a step in
       the setup and a place on a playbook, its limits in Settings, and every step there is the person's own; Sending
-      stays off. Today says **Follow them** there.
+      stays off till its runner (part 14, below). Today says **Follow them** there.
     - **A follow-back counts as accepting** on Instagram: its "friends" are the person's followers. **Save my
       followers** (`friends`, from 0.80.0, `src/jobs/instagram/`) opens their account from Instagram's menu, then their
       followers, reads the box a screen at a time at a person's pace to its end, pressing nothing, and saves everyone as
@@ -1404,6 +1404,36 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       back** and **Unfollow the ticked**; the person ticks who, and the extension unfollows them in a tab they can see,
       pressing Following, then Unfollow in its box, each by its own words (`cancel`, from 0.80.0). Nothing is
       unfollowed on its own.
+    - **Instagram's asks from part 13** (extension 0.81.0, `ASK_KINDS_ON.instagram`, `ASK_KIND_SINCE_ON`, no
+      migration): beside Save my followers, unfollowing and its profile, its followers checked for fits and one
+      researched (each account read for the AI: their name, what they do, their bio, how many follow them and what
+      Instagram says their latest posts show, 20 a day, its kit's `checksPerDay`), its chats read for the AI, and
+      someone looked up before drafting. Read my chats presses each chat's row in the person's messages by the name it
+      shows, as its rows aren't links, sends each one-to-one chat as Instagram's with its id from /direct/t/<id>/, and
+      notes who wrote last (`outreach.replies.note`), as a tab of the person's does as they go there now; the Requests
+      box and group chats are left alone. Instagram's own profile reader now reads someone's bio and their posts'
+      descriptions for these.
+    - **Instagram's runner from part 14** (extension 0.82.0, `src/auto/instagram.ts`; its kit's `runs`, no migration):
+      Instagram works on its own as LinkedIn and Alignable do, so its Sending choices open on its page in Settings
+      ("Follows and likes on their own; each message waits for one tap, and you post each comment"). It goes only while
+      its day is started and its Sending isn't Off, and stops for the day on any Instagram warning ("Action blocked",
+      "Try again later"), there alone; HandsFreeOS halves Instagram's limits for a week after one and takes follows off
+      its list for two days, as on every network (`warningOf`, `dailyLimitsNow`). Before its first day it saves the
+      followers, works out who to unfollow and checks the followers once (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Then, once
+      a day: the newest followers (a follow-back is its accepting), the followers checked (20 accounts), its chats read
+      with who wrote last noted, and Find partners with Instagram's search (whoever posted what it shows for creators,
+      the accounts it shows for businesses). On Today's list it does the warm-ups (a look at their account and a like on
+      one of their recent posts, on that post's own page, and a second while the day's likes have room past the
+      warm-ups left; the look alone where it sees no post) and the follows (their account's own Follow, read again to
+      see it says Following or Requested). It sends messages once OK'd, typed only into their chat's own box, the one to
+      their Requests as one text. **Comments stay by hand:** the plan says "Anything public, and every message, waits
+      for an OK to start", the code has no comment that waits for an OK and goes on its own (a comment in a runner's
+      `runs.auto` goes as soon as Sending allows it, as LinkedIn's do), and Alignable's public writing is kept by hand for
+      the same reason, so `comment` isn't in Instagram's `runs.auto` and Sending's words say so. **Unfollowing stays the
+      person's ticks**, as withdrawing old requests does on Facebook, LinkedIn and Alignable: the runner works out who
+      before the first day, and never unfollows on its own. Its limits are the plan's, all in its kit already (20
+      follows, 30 likes, 10 comments, 10 first messages with at most 5 to Requests, 15 follow-ups, 20 profiles
+      checked, 20 unfollows).
     - **Its asks from part 4** (extension 0.73.0, `ASK_KINDS_ON.alignable`): its connections saved from My Network,
       all of them past Ally's picks; the connection requests they've got from its Requests; connections checked for
       fits and one researched, each business's page read for the AI (30 a day, its kit's `checksPerDay`); and a
@@ -1452,7 +1482,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **A forum question asking for what the business offers** pushes as a strong post does (decision 49), saying
       "On Alignable." and opening Today on Alignable (`?net=alignable`, on the phone too).
     - **Nothing goes on its own where the extension doesn't work the network** (`runsOnItsOwn`, its kit's
-      `runs.auto`; Instagram, now Alignable has its runner), even once it has a day: its Sending is off whatever was
+      `runs.auto`; none now, Instagram's runner coming last, in its part 14), even once it has a day: its Sending is off whatever was
       picked (`withinRules`), so nothing is drafted to wait for a sender that isn't there, and its page in Settings
       says every step there is the person's own (`noRunnerWords`), with no Replies, no helpful post where it has none
       (`helpfulOn`), and no switches along the way till its runner reads them. An Alignable chat opens at `/biz/conversations?with_business_id=`, by the

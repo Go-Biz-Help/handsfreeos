@@ -558,7 +558,7 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 
-  it('ask Instagram only what a build there does, its followers from 0.80.0, and start its day (its part 12)', async () => {
+  it('ask Instagram only what a build there does, its followers from 0.80.0 and its chats from 0.81.0, and start its day', async () => {
     const dana = await teammate('Rowan Ellis');
     const pc = randomUUID();
     const instagramOn = {
@@ -588,6 +588,19 @@ describe('each network’s own lists, asks and Today', () => {
     expect(await ask(dana, 'instagram', { kind: 'friends' })).toMatchObject({
       fresh: true,
       ask: { platform: 'instagram', kind: 'friends' },
+    });
+    // Checking followers, research, reading chats and a look-up come with 0.81.0 (its part 13).
+    expect(await refused(ask(dana, 'instagram', { kind: 'chats' }))).toBe(
+      'outreach_extension_too_old',
+    );
+    for (const kind of ['checks', 'research', 'chats', 'lookup'] as const) {
+      expect(tooOldFor('0.80.0', kind, 'instagram')).toBe(true);
+      expect(tooOldFor('0.81.0', kind, 'instagram')).toBe(false);
+    }
+    await beat(dana, pc, '0.81.0');
+    expect(await ask(dana, 'instagram', { kind: 'chats' })).toMatchObject({
+      fresh: true,
+      ask: { platform: 'instagram', kind: 'chats' },
     });
     // Its day starts once they're ready, as any network's does: it isn't looked at anymore.
     expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'instagram' }))).toBe(
