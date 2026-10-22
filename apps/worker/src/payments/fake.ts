@@ -310,7 +310,9 @@ export interface FakePageApi {
     method: PaymentMethodKind;
   }): Promise<FakeCharge | null>;
   /** A card session the page was opened for (the usage wallet's), or null. */
-  cardSession(sessionRef: string): { customerRef: string; sourceToken: string | null } | null;
+  cardSession(
+    sessionRef: string,
+  ): { customerRef: string; reference: string; sourceToken: string | null } | null;
   /** They typed a card on the stand-in's page: the session now has one, as the provider's would. */
   saveCard(input: { sessionRef: string; instrument: string }): string | null;
   /** A partner's account the stand-in's form was opened for, or null. */
@@ -417,7 +419,10 @@ export function createFakePayments(opts: {
   const held = new Set<string>();
   const customers = new Map<string, { name: string | null; cards: SavedMethod[] }>();
   /** Cards typed on the stand-in's own page: the session, and the token once somebody finishes it. */
-  const cardSessions = new Map<string, { customerRef: string; sourceToken: string | null }>();
+  const cardSessions = new Map<
+    string,
+    { customerRef: string; reference: string; sourceToken: string | null }
+  >();
   const settleMs = Math.max(0, opts.settleMs ?? 0);
   let seq = 0;
   let deliver: WebhookDeliver =
@@ -1232,7 +1237,11 @@ export function createFakePayments(opts: {
         async startCardSession(input) {
           requirePlatform(name);
           const sessionRef = nextId('cses');
-          cardSessions.set(sessionRef, { customerRef: input.customerRef, sourceToken: null });
+          cardSessions.set(sessionRef, {
+            customerRef: input.customerRef,
+            reference: input.reference,
+            sourceToken: null,
+          });
           const page = new URL(`${opts.publicUrl}/payments/fake/card`);
           page.searchParams.set('session', sessionRef);
           page.searchParams.set('return', input.returnUrl);
@@ -1243,7 +1252,11 @@ export function createFakePayments(opts: {
           requirePlatform(name);
           const session = cardSessions.get(sessionRef);
           if (!session) throw new PaymentError('No card session with that id.', 404, true);
-          return { sourceToken: session.sourceToken, customerRef: session.customerRef };
+          return {
+            sourceToken: session.sourceToken,
+            customerRef: session.customerRef,
+            reference: session.reference,
+          };
         },
 
         async saveMethod(input) {

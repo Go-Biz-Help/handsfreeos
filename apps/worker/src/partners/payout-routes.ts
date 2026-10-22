@@ -119,6 +119,7 @@ export function registerPartnerPayoutRoutes(app: FastifyInstance, deps: HttpDeps
       if (!input.sessionRef) {
         const session = await platform.startCardSession({
           customerRef: customer.customerRef,
+          reference: workspaceId,
           returnUrl: `${deps.webUrl}/app/w/${workspaceId}/settings/partners`,
           // One press, one session: a second press within the same second is the same page.
           idempotencyKey: `partner-payout-card:${workspaceId}:${Math.floor(Date.now() / 1000)}`,
@@ -128,6 +129,13 @@ export function registerPartnerPayoutRoutes(app: FastifyInstance, deps: HttpDeps
       if (input.sessionRef === 'cancelled') return { stage: 'cancelled' as const };
 
       const ended = await platform.readCardSession(input.sessionRef);
+      // Another business's session id, from their address bar, would put their card on this business.
+      if (ended.reference !== workspaceId)
+        throw HfosError.rule(
+          'partner_payouts_other_business',
+          409,
+          'That card page wasn’t opened from this business, so no card was added. Press Add a card under Card for partner payouts in Settings → Partners to start again.',
+        );
       if (!ended.sourceToken) return { stage: 'cancelled' as const };
       const customerRef = ended.customerRef ?? customer.customerRef;
       const saved = await platform.saveMethod({

@@ -219,6 +219,11 @@ export interface RefundResult {
 export interface CardSessionInput {
   /** The provider's customer the card is saved against, made by `ensureCustomer` first. */
   readonly customerRef: string;
+  /**
+   * Whose session it is: the business's id. The provider keeps it with the session and hands it back, so a
+   * session id from another business's address bar can't finish here.
+   */
+  readonly reference: string;
   /** Where the provider sends them when they are done, with `?card=<session>` on it (or `cancelled`). */
   readonly returnUrl: string;
   readonly idempotencyKey: string;
@@ -236,6 +241,8 @@ export interface CardSessionResult {
   readonly sourceToken: string | null;
   /** The customer it was saved against, as the provider has it. */
   readonly customerRef: string | null;
+  /** The `reference` it was started with, as the provider has it. */
+  readonly reference: string | null;
 }
 
 export interface SavedMethod {
