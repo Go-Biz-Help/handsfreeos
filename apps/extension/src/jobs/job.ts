@@ -31,12 +31,15 @@ import type {
   CodeAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PageThereAnswer,
+  PageThereAsk,
   TryAnswer,
   TryAsk,
   UnfollowAnswer,
   UnfollowAsk,
   WithdrawAnswer,
   WithdrawAsk,
+  WriteNameAsk,
 } from '../messages';
 
 /** The tab a job works in, on its network's pages: one of the extension's own (src/tab.ts). */
@@ -61,6 +64,8 @@ export interface JobTab {
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  ask(message: PageThereAsk): Promise<PageThereAnswer>;
+  ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;
   ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;

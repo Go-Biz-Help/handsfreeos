@@ -17,7 +17,9 @@ import {
   ASK_KIND_KEYS,
   notOnNetworkWords,
   bioTooLongWords,
+  hasNewProfileParts,
   PROFILE_ABOUT_SINCE,
+  PROFILE_PARTS_SINCE,
   profileEditWords,
   targetOn,
   ASK_LINE_SECONDS,
@@ -328,7 +330,20 @@ async function taskOf(
       };
     case 'profile_edit':
       return {
-        task: { kind: 'profile_edit', bio: ask.bio ?? null, about: ask.about ?? null },
+        task: {
+          kind: 'profile_edit',
+          bio: ask.bio ?? null,
+          about: ask.about ?? null,
+          name: ask.name ?? null,
+          username: ask.username ?? null,
+          links: ask.links ?? [],
+        },
+        target,
+        about: null,
+      };
+    case 'username_check':
+      return {
+        task: { kind: 'username_check', usernames: [...new Set(ask.usernames)] },
         target,
         about: null,
       };
@@ -379,7 +394,11 @@ export const askMake = defineAddonCommand(outreachAddon, {
       tooOldFor(working.version, ask.kind, platform) ||
       (ask.kind === 'profile_edit' &&
         ask.about !== undefined &&
-        !appVersionAtLeast(working.version, PROFILE_ABOUT_SINCE))
+        !appVersionAtLeast(working.version, PROFILE_ABOUT_SINCE)) ||
+      // Its name, username and links (decision 84): a build before them would put the bio in alone.
+      (ask.kind === 'profile_edit' &&
+        hasNewProfileParts(ask) &&
+        !appVersionAtLeast(working.version, PROFILE_PARTS_SINCE))
     )
       throw HfosError.rule('outreach_extension_too_old', 409, tooOldWords(working));
     if (onFacebook(ask.kind) && (await warnedToday(ctx, me, now, platform)))

@@ -14,7 +14,7 @@ import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
 import { MESSAGE_SAMPLES_ACTION, messageSamples } from './samples';
 import { VIDEO_SCRIPT_ACTION, videoScript } from './video';
-import { PROFILE_CHECK_ACTION, profileCheck } from './profile';
+import { PROFILE_CHECK_ACTION, PROFILE_MORE_ACTION, profileCheck, profileMore } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
 import { CHECK_PEOPLE_JOB, checkLooked, checkPeopleJob } from './checks';
 import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners';
@@ -181,6 +181,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [NICHE_FIT_ACTION]: nicheFit,
     // The person's own profile, read by their extension, checked by the AI (./profile.ts, decision 64).
     [PROFILE_CHECK_ACTION]: profileCheck,
+    // Show me more of one part of it, with the person's note (decision 84).
+    [PROFILE_MORE_ACTION]: profileMore,
     [MESSAGE_SAMPLES_ACTION]: messageSamples,
     [VIDEO_SCRIPT_ACTION]: videoScript,
     [TODAY_DRAFT_ACTION]: todayDraft,

@@ -135,6 +135,18 @@ export type OwnProfileAsk =
   | { readonly type: 'hfos-write-bio'; readonly bio: string }
   | { readonly type: 'hfos-write-about'; readonly about: string };
 
+/** LinkedIn's name, in its intro's First name and Last name (decision 84): answered as a bio's put in is. */
+export type WriteNameAsk = { readonly type: 'hfos-write-name'; readonly name: string };
+
+/**
+ * Whether anyone's at the address the tab shows (decision 84, ./networks/there.ts): false when the network says the
+ * page isn't there (a username that's free), true when a profile shows, null when it can't tell.
+ */
+export type PageThereAsk = { readonly type: 'hfos-page-there' };
+export type PageThereAnswer =
+  | { readonly ok: true; readonly there: boolean | null }
+  | { readonly ok: false; readonly error: string };
+
 /**
  * A code the person gave HandsFreeOS, put in where the network asks for the one it emailed them (Alignable's, before
  * About Us changes; decision 82, src/networks/alignable/own-profile.ts).

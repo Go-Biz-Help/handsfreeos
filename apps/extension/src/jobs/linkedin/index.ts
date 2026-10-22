@@ -29,6 +29,7 @@ import { bringInLinkedIn, getLinkedInFile } from './file';
 import { postOnLinkedIn } from './helpful';
 import { lookupOnLinkedIn } from './lookup';
 import { checkInvitations, saveConnections } from './people';
+import { checkUsernames } from '../profile-parts';
 import { findPostsBySearch } from './posts';
 import { linkedInProfileEdit, linkedInProfileRead } from './profile';
 import { withdrawInvitations } from './withdraw';
@@ -65,6 +66,8 @@ export async function linkedInAsk(task: AskTaken['task'], job: Job): Promise<End
       return linkedInProfileRead(job);
     case 'profile_edit':
       return linkedInProfileEdit(job, task);
+    case 'username_check':
+      return checkUsernames(job, 'linkedin', task.usernames);
     case 'cancel':
       return withdrawInvitations(job, task.profileIds);
     case 'posts':

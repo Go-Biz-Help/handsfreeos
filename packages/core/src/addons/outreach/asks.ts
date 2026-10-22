@@ -25,10 +25,15 @@ import {
   ABOUT_MOST,
   ABOUT_NAME_ON,
   BIO_MOST_ON,
+  cleanUsername,
   hasPlaceholder,
+  NAME_DRAFT_MOST,
+  NAME_MOST,
   NO_BIO_WRITES_ON,
   PROFILE_BIO_MOST,
+  usernameProblem,
 } from './profile-check';
+import { partHowOn, partName, PARTS_ON } from './profile-parts';
 import { allowedOn, REPORT_WORDS } from './reports';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
@@ -54,6 +59,7 @@ export const ASK_KINDS = {
   research: 'Research someone for fit',
   profile_read: 'Read your Facebook profile',
   profile_edit: 'Put your new bio in',
+  username_check: 'Check usernames are free',
   checkup: 'Check Facebook',
 } as const;
 export type AskKind = keyof typeof ASK_KINDS;
@@ -91,6 +97,7 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'research',
     'profile_read',
     'profile_edit',
+    'username_check',
     'cancel',
     'posts',
     'post',
@@ -112,6 +119,7 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'checkup',
     'profile_read',
     'profile_edit',
+    'username_check',
   ],
   // Alignable from its part 4 (partners stage 6c): its connections and the requests they've got saved, connections
   // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are. Its chats read
@@ -140,9 +148,14 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     posts: 'Find posts on LinkedIn',
     post: 'Put up your helpful post on your feed',
     profile_edit: 'Update your profile',
+    username_check: 'Check profile addresses are free',
   },
   alignable: { profile_edit: 'Put your About Us in', posts: 'Find posts in your town' },
-  instagram: { friends: 'Save my followers', cancel: 'Unfollow the ones you ticked' },
+  instagram: {
+    friends: 'Save my followers',
+    cancel: 'Unfollow the ones you ticked',
+    profile_edit: 'Update your profile',
+  },
 };
 
 /** A kind's name on a network: "Withdraw old invitations" on LinkedIn, "Cancel old friend requests" on Facebook. */
@@ -167,8 +180,34 @@ const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
  */
 export function profileEditWords(
   platform: Platform,
-  edit: { readonly bio?: string | null; readonly about?: string | null },
+  edit: {
+    readonly bio?: string | null;
+    readonly about?: string | null;
+    readonly name?: string | null;
+    readonly username?: string | null;
+    readonly links?: readonly string[] | null;
+  },
 ): string | null {
+  const network = PLATFORMS[platform];
+  // The rest of the profile (decision 84): only the parts the network lets the person's computer put in or open.
+  const canChange = (part: 'name' | 'username' | 'links') =>
+    PARTS_ON[platform].includes(part) && partHowOn(platform, part) !== 'tip';
+  if (edit.name) {
+    if (!canChange('name')) return `${network}’s name can’t be changed from here.`;
+    const most = platform === 'instagram' ? NAME_DRAFT_MOST : NAME_MOST;
+    if (edit.name.trim().length > most)
+      return `${network}’s name takes up to ${most} characters, and this one has ${edit.name.trim().length}. Cut it to fit, then put it in.`;
+  }
+  if (edit.username) {
+    const problem = usernameProblem(platform, edit.username);
+    if (problem) return problem;
+  }
+  if (edit.links?.length) {
+    if (!canChange('links')) return `${network}’s links can’t be changed from here.`;
+    const bad = edit.links.find((l) => !/^https:\/\/[^\s/]+\.[^\s]+$/i.test(l.trim()));
+    if (bad)
+      return `“${bad}” isn’t a whole link. Links start with https:// and a site, like https://example.com.`;
+  }
   const aboutName = ABOUT_NAME_ON[platform];
   if (edit.about && !aboutName)
     return `${PLATFORMS[platform]} has no About to put in. Put in the bio only.`;
@@ -183,14 +222,54 @@ export function profileEditWords(
   const unfilled = [
     edit.bio && hasPlaceholder(edit.bio) && `your ${BIO_NAME_ON[platform]}`,
     edit.about && hasPlaceholder(edit.about) && `your ${aboutName ?? 'About'}`,
+    edit.name && hasPlaceholder(edit.name) && 'your name',
   ].filter((w): w is string => typeof w === 'string');
   if (unfilled.length)
     return `Fill in the parts in [brackets] in ${unfilled.join(' and ')} first: the AI writes them where it can’t know what’s true for you.`;
   return null;
 }
 
+/** What an edit put in, once it's done: "Your bio is in.", "Your bio, username and links are in." */
+export function profileEditDoneWords(
+  platform: Platform,
+  edit: Parameters<typeof profileEditPartsWords>[1],
+): string {
+  const words = profileEditPartsWords(platform, edit);
+  const many = words.includes(' and ');
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)} ${many ? 'are' : 'is'} in.`;
+}
+
 /** The first build that writes LinkedIn's About beside its headline (decision 80). */
 export const PROFILE_ABOUT_SINCE = '0.62.0';
+/** The first build that puts in, or opens, a profile's name, username and links (decision 84). */
+export const PROFILE_PARTS_SINCE = '0.87.0';
+/** Whether an edit has parts only a build since `PROFILE_PARTS_SINCE` does. */
+export const hasNewProfileParts = (edit: {
+  readonly name?: string | null;
+  readonly username?: string | null;
+  readonly links?: readonly string[] | null;
+}): boolean => !!edit.name || !!edit.username || !!edit.links?.length;
+/** What an edit is about, in words: "your bio, name and links". */
+export function profileEditPartsWords(
+  platform: Platform,
+  edit: {
+    readonly bio?: string | null;
+    readonly about?: string | null;
+    readonly name?: string | null;
+    readonly username?: string | null;
+    readonly links?: readonly string[] | null;
+  },
+): string {
+  const parts = [
+    edit.bio && partName(platform, 'bio').toLowerCase(),
+    edit.about && partName(platform, 'about'),
+    edit.name && 'name',
+    edit.username && partName(platform, 'username').toLowerCase(),
+    edit.links?.length && 'links',
+  ].filter((p): p is string => typeof p === 'string');
+  if (parts.length <= 1) return `your ${parts[0] ?? 'profile'}`;
+  return `your ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 
 export function bioTooLongWords(platform: Platform, bio: string): string | null {
   const most = BIO_MOST_ON[platform];
@@ -292,8 +371,8 @@ export const ASK_KINDS_FOR = {
   pipeline: ['research'],
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
   chats: ['chats'],
-  today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit'],
-  settings: ['checkup', 'profile_read', 'profile_edit'],
+  today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit', 'username_check'],
+  settings: ['checkup', 'profile_read', 'profile_edit', 'username_check'],
 } as const satisfies Record<string, readonly AskKind[]>;
 
 export const ASK_STATES = {
@@ -442,6 +521,9 @@ export const AskDraft = z
 export type AskDraft = z.output<typeof AskDraft>;
 
 const plain = <K extends AskKind>(kind: K) => z.object({ kind: z.literal(kind) });
+/** The most links one edit puts in, and usernames one check looks at. */
+export const PROFILE_LINKS_MOST = 5;
+export const USERNAMES_CHECKED_MOST = 6;
 
 /** What's asked, one shape a kind. */
 export const AskInput = z.discriminatedUnion('kind', [
@@ -489,8 +571,38 @@ export const AskInput = z.discriminatedUnion('kind', [
       kind: z.literal('profile_edit'),
       bio: z.string().trim().min(1, 'Pick a bio first.').max(PROFILE_BIO_MOST).optional(),
       about: z.string().trim().min(1, 'Write your About first.').max(ABOUT_MOST).optional(),
+      /** The rest of the profile (decision 84): its name, username and links, put in or opened for the person. */
+      name: z.string().trim().min(1, 'Pick a name first.').max(NAME_MOST).optional(),
+      username: z
+        .string()
+        .trim()
+        .min(1, 'Pick a username first.')
+        .max(100)
+        .transform(cleanUsername)
+        .optional(),
+      links: z
+        .array(z.string().trim().min(1).max(500))
+        .min(1, 'Pick a link first.')
+        .max(PROFILE_LINKS_MOST)
+        .optional(),
     })
-    .refine((e) => e.bio !== undefined || e.about !== undefined, 'Pick a bio first.'),
+    .refine(
+      (e) =>
+        e.bio !== undefined ||
+        e.about !== undefined ||
+        e.name !== undefined ||
+        e.username !== undefined ||
+        e.links !== undefined,
+      'Pick a bio first.',
+    ),
+  /** Whether usernames are free on the network: the person's computer opens each one's address (decision 84). */
+  z.object({
+    kind: z.literal('username_check'),
+    usernames: z
+      .array(z.string().trim().min(1).max(100).transform(cleanUsername))
+      .min(1, 'Pick a username first.')
+      .max(USERNAMES_CHECKED_MOST),
+  }),
   /**
    * Open the network's main pages, read each, try each step up to its last press, and send a note of what was found
    * (decisions 74, 76 and 77, ./reports.ts): Check LinkedIn, and Check Facebook.
@@ -551,12 +663,17 @@ export const AskTask = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
   plain('profile_read'),
-  // What goes in: the bio (LinkedIn's headline), the About, or both. Builds before 0.62.0 read only a bio.
+  // What goes in: the bio (LinkedIn's headline), the About, or both. Builds before 0.62.0 read only a bio; from 0.87.0
+  // its name, username and links too (decision 84).
   z.object({
     kind: z.literal('profile_edit'),
     bio: z.string().nullable().default(null),
     about: z.string().nullable().default(null),
+    name: z.string().nullable().default(null),
+    username: z.string().nullable().default(null),
+    links: z.array(z.string()).default([]),
   }),
+  z.object({ kind: z.literal('username_check'), usernames: z.array(z.string()) }),
   plain('checkup'),
 ]);
 export type AskTask = z.output<typeof AskTask>;
@@ -817,6 +934,8 @@ export function askTarget(ask: AskAsked): string {
     }
     case 'research':
       return researchTarget(ask.profileId);
+    case 'username_check':
+      return `usernames:${[...new Set(ask.usernames)].sort().join(',')}`;
     default:
       return '';
   }
@@ -1050,6 +1169,7 @@ export const ASK_KIND_SINCE: Readonly<Partial<Record<AskKind, string>>> = {
   research: '0.27.0',
   profile_read: '0.32.0',
   profile_edit: '0.32.0',
+  username_check: '0.87.0',
   checkup: '0.48.0',
 };
 

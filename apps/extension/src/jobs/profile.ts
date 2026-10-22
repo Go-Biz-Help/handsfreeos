@@ -8,10 +8,18 @@
  *   reads the profile again for a new check. Where it can't find Edit bio it hands the step to them (**Carry on** once
  *   it's in), and reads it again after.
  *
+ * - **Its name, username and links** (decision 84): Accounts Center and Contact info are opened for the person, and
+ *   each step handed over with what to put in (./profile-parts.ts); then the profile is read again.
+ *
  * It stops when Facebook shows a warning (decision 25).
  */
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
-import type { AskTask } from '@hfos/core/addons/outreach/asks';
+import {
+  hasNewProfileParts,
+  profileEditDoneWords,
+  type AskTask,
+} from '@hfos/core/addons/outreach/asks';
+import { putInByHand } from './profile-parts';
 import { readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 import { ownProfileNote } from './report';
 
@@ -57,14 +65,37 @@ export async function profileRead(job: Job): Promise<JobEnd> {
   return (await openOwn(job)) ?? readAndCheck(job);
 }
 
-/** Put this one in: the bio they picked, on their profile, then read again for a new check. */
+/**
+ * Put these in: the bio they picked, on their profile, and the name, username and links they OK'd, each opened for
+ * them; then read again for a new check.
+ */
 export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
-  // Facebook's profile takes a bio, and nothing else the AI writes.
   const bio = task.bio;
-  if (!bio) return failed('Pick a bio to put in first.');
+  const more = hasNewProfileParts(task);
+  if (!bio && !more) return failed('Pick a bio to put in first.');
   job.progress('Opening your profile…');
   const opened = await openOwn(job);
   if (opened) return opened;
+  if (bio) {
+    const put = await putBio(job, bio);
+    if (put) return put;
+  }
+  if (more) {
+    const byHand = await putInByHand(job, 'facebook', task);
+    if (byHand) return byHand;
+    const again = await openOwn(job);
+    if (again) return again;
+  }
+  const checked = await readAndCheck(job);
+  if (checked.failed) return checked;
+  return {
+    line: bio && !more ? P.editDone(bio) : profileEditDoneWords('facebook', task),
+    warned: false,
+  };
+}
+
+/** The bio, on the profile the tab shows: by Edit bio, or by the person when it isn't there. Null once it's in. */
+async function putBio(job: Job, bio: string): Promise<JobEnd | null> {
   job.progress('Putting your new bio in…');
   const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio });
   const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
@@ -75,9 +106,7 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
       `Put your new bio in: press Edit bio on your profile, write “${bio}”, and press Save. Then press Carry on.`,
     );
     if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
-    const again = await openOwn(job);
-    if (again) return again;
+    return openOwn(job);
   }
-  const checked = await readAndCheck(job);
-  return checked.failed ? checked : { line: P.editDone(bio), warned: false };
+  return null;
 }

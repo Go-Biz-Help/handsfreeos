@@ -9,6 +9,7 @@ import {
   hasPlaceholder,
   RECOMMENDATIONS_WORDS as RW,
   type AnyProfileItem,
+  type ProfileCheck,
 } from '@hfos/core/addons/outreach/profile-check';
 import {
   CALLS_GOAL,
@@ -37,6 +38,8 @@ import { cn } from '@/lib/utils';
 
 import { AskButton, AskLine, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
 import { Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import { checkDue, PROFILE_PART_WORDS as PW } from '@hfos/core/addons/outreach/profile-parts';
+import { ProfileLook, ProfilePicturesNote, ProfileRestList } from './profile-whole';
 
 /**
  * Get ready on the phone (docs/outreach.md, decisions 63 and 64; packages/core/src/addons/outreach/readiness.ts):
@@ -431,6 +434,8 @@ export function ProfileList({
           />
         ) : null}
       </View>
+      {checkDue(check, Date.now()) ? <Note testID="ready-profile-due">{PW.due}</Note> : null}
+      <ProfileLook check={check as ProfileCheck | null} />
       <View className="gap-1">
         {P.items.map((words) => {
           const { item } = words;
@@ -640,7 +645,8 @@ export function ProfileList({
           ) : null}
         </View>
       ) : null}
-      {check?.nameDraft ? (
+      {/* A check from before the whole profile was (decision 84): its name to use, as it was. */}
+      {check?.nameDraft && !check.look ? (
         <View className="gap-1" testID="ready-name">
           <Text className="text-[14px] font-semibold">{P.name}</Text>
           <Text selectable className="text-[14px] leading-[20px]">
@@ -649,6 +655,14 @@ export function ProfileList({
           <Note>{P.nameHint}</Note>
         </View>
       ) : null}
+      {/* Its username, name and links, and its pictures (decision 84). */}
+      <ProfileRestList
+        platform={platform}
+        check={check as ProfileCheck | null}
+        asks={asks}
+        actions={actions}
+      />
+      <ProfilePicturesNote platform={platform} check={check as ProfileCheck | null} />
       {check?.feature.length ? (
         <View className="gap-1" testID="ready-feature">
           <Text className="text-[14px] font-semibold">{P.feature}</Text>

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signInOwner, WORKER } from './booking-helpers';
+import { api, signInOwner, WORKER } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
@@ -238,6 +238,44 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(profile.getByTestId('ready-profile-ai-cover')).toContainText('To change');
   await expect(profile.getByTestId('ready-profile-ai-picture')).toContainText('Looks right');
   await expect(profile.getByTestId('ready-bios')).toContainText('More booked calls for Roofing');
+  // The whole profile (decision 84): how it comes across, then Show me more bios, steered by a chip and their words.
+  await expect(profile.getByTestId('ready-profile-look')).toContainText('This reads as you.');
+  await profile.getByTestId('ready-more-bio-open').click();
+  const more = page.getByTestId('ready-more-bio');
+  await more.getByRole('button', { name: 'Warmer' }).click();
+  await expect(more.getByRole('button', { name: 'Warmer' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await more.getByRole('textbox').fill('Say crews, not companies');
+  await more.getByTestId('ready-more-bio-go').click();
+  await expect(more).toBeHidden();
+  await expect(profile.getByTestId('ready-bios')).toContainText('A new bio');
+  // A new username asks first. As the extension would, the computer found one taken and one free; the taken one can't
+  // be picked, and Show me more offers others to pick from.
+  await api(token, 'commands', 'outreach.profile.usernames_save', {
+    workspaceId,
+    platform: 'facebook',
+    found: [
+      { value: 'testowner', free: false },
+      { value: 'testowner.roofs', free: true },
+    ],
+  });
+  await page.reload();
+  await page.getByTestId('get-ready').getByTestId('ready-open-profile').click();
+  await profile.getByTestId('ready-username-open').click();
+  const usernames = page.getByTestId('ready-username-dialog');
+  await expect(usernames.getByRole('status')).toContainText('testowner is taken');
+  await expect(usernames.getByTestId('ready-username-testowner')).toBeDisabled();
+  await expect(usernames.getByTestId('ready-username-testowner.roofs')).toContainText('Free');
+  await usernames.getByTestId('ready-username-more').click();
+  await page.getByTestId('ready-more-username').getByRole('button', { name: 'Shorter' }).click();
+  await page.getByTestId('ready-more-username-go').click();
+  await usernames.getByTestId('ready-username-casey.roofs').click();
+  await expect(usernames.getByTestId('ready-username-casey.roofs')).toContainText('Not checked');
+  await usernames.getByTestId('ready-username-use').click();
+  await expect(usernames).toBeHidden();
+  await expect(profile.getByTestId('ready-part-username')).toContainText('casey.roofs');
   for (const item of ['cover', 'featured']) {
     await profile.getByTestId(`ready-profile-${item}`).click();
     await expect(profile.getByTestId(`ready-profile-${item}`)).toHaveAttribute(

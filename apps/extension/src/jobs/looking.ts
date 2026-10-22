@@ -25,6 +25,8 @@ import {
   ASK_CODE_MINUTES,
   askCodeRanOutWords,
   askCodeWords,
+  hasNewProfileParts,
+  profileEditDoneWords,
   type AskTaken,
   type AskTask,
 } from '@hfos/core/addons/outreach/asks';
@@ -39,6 +41,7 @@ import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import { checkUsernames, putInByHand } from './profile-parts';
 import { ownProfileNote } from './report';
 
 /** Reads the page in the job's window as the network's: anything else means it sent the window elsewhere. */
@@ -549,10 +552,32 @@ async function instagramProfileRead(job: Job): Promise<JobEnd> {
   return { line: P.readDone, warned: false };
 }
 
-/** Put this one in, on Instagram: the bio on its form, then the profile read again for a new check. */
+/**
+ * Put these in, on Instagram: the bio on its form, and its name, username and links, Accounts Center opened for the
+ * person (decision 84); then the profile read again for a new check.
+ */
 async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   const bio = task.bio;
-  if (!bio) return { line: 'Pick a bio to put in first.', warned: false, failed: true };
+  const more = hasNewProfileParts(task);
+  if (!bio && !more) return { line: 'Pick a bio to put in first.', warned: false, failed: true };
+  if (bio) {
+    const put = await instagramBio(job, bio);
+    if (put) return put;
+  }
+  if (more) {
+    const byHand = await putInByHand(job, 'instagram', task);
+    if (byHand) return byHand;
+  }
+  const checked = await instagramProfileRead(job);
+  if (checked.failed) return checked;
+  return {
+    line: bio && !more ? P.editDone(bio) : profileEditDoneWords('instagram', task),
+    warned: false,
+  };
+}
+
+/** The bio on Instagram's form, or by the person when the form isn't as expected. Null once it's in. */
+async function instagramBio(job: Job, bio: string): Promise<JobEnd | null> {
   job.progress('Opening your Instagram profile’s form…');
   const form = await openForProfile(job, INSTAGRAM_FORM);
   if (isEnd(form)) return form;
@@ -576,8 +601,7 @@ async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     );
     if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
   }
-  const checked = await instagramProfileRead(job);
-  return checked.failed ? checked : { line: P.editDone(bio), warned: false };
+  return null;
 }
 
 // ------------------------------------------------------------------------------------------------ your Alignable profile
@@ -712,6 +736,9 @@ export function lookingAsk(platform: LookingPlatform) {
       return inFront(job, instagramProfileRead);
     if (platform === 'instagram' && task.kind === 'profile_edit')
       return inFront(job, (j) => instagramProfileEdit(j, task));
+    // Whether usernames are free there (decision 84).
+    if (platform === 'instagram' && task.kind === 'username_check')
+      return checkUsernames(job, 'instagram', task.usernames);
     // Alignable's, before its steps: read, and About Us put in past the code it emails (decision 82).
     if (platform === 'alignable' && task.kind === 'profile_read')
       return inFront(job, alignableProfileRead);

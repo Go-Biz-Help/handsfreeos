@@ -23,8 +23,14 @@ describe('Check LinkedIn and Check Facebook', () => {
     expect(askableOn('facebook', 'checkup')).toBe(true);
     expect(askNameOn('checkup', 'linkedin')).toBe('Check LinkedIn');
     expect(askNameOn('checkup', 'facebook')).toBe('Check Facebook');
-    // Each network's page asks Check, and reads its profile and puts its words in (decision 80).
-    expect(ASK_KINDS_FOR.settings).toEqual(['checkup', 'profile_read', 'profile_edit']);
+    // Each network's page asks Check, reads its profile and puts its words in (decision 80), and checks usernames are
+    // free before one is picked (decision 84).
+    expect(ASK_KINDS_FOR.settings).toEqual([
+      'checkup',
+      'profile_read',
+      'profile_edit',
+      'username_check',
+    ]);
     expect(tooOldFor('0.47.0', 'checkup', 'linkedin')).toBe(true);
     expect(tooOldFor('0.48.0', 'checkup', 'linkedin')).toBe(false);
     // Check Facebook came nine builds after Check LinkedIn: a build between them is never asked it.

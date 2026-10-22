@@ -1974,6 +1974,28 @@ function scriptedProfileCheck(message: string) {
     ],
     coverLine: `More booked calls for ${work}`,
     feature: ['A customer’s review', 'Your booking link'],
+    // The whole profile (decision 84): a person who does the work when the bio names it, else a personal account.
+    look: one('bio').toLowerCase().includes(work)
+      ? { reads: 'person', ok: true, title: 'This reads as you.', clashes: [], unlike: [] }
+      : {
+          reads: 'personal',
+          ok: false,
+          title: 'This looks like a personal account with nothing about your work.',
+          clashes: ['Your bio says nothing about what you do.'],
+          unlike: ['line'],
+        },
+    names: [],
+    usernames: [],
+  };
+}
+
+/** Show me more (decision 84): three of the part asked, each new; usernames that keep Instagram's rules. */
+function scriptedProfileMore(message: string) {
+  const part = /^What to write: \d+ new (\w+)/m.exec(message)?.[1] ?? 'bio';
+  const round = /^- /gm.exec(unquote(quotedBlock(message, 'before') ?? '')) ? 'again' : 'first';
+  if (part === 'username') return { options: [`casey.${round}`, `casey_${round}`, 'casey.roofs'] };
+  return {
+    options: [`A new ${part}, ${round}.`, `Another ${part}, ${round}.`, `One more ${part}.`],
   };
 }
 
@@ -2056,6 +2078,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Write the video script\.$/, json: (message) => scriptedVideoScript(message) },
   { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
+  { when: /^Write the options\.$/m, json: (message) => scriptedProfileMore(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },
   {
     when: /Which post should they like\? Give its number, or none\.$/,

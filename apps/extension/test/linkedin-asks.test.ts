@@ -24,6 +24,7 @@ import {
   loadWholeProfile,
   readOwnProfile,
   writeHeadline,
+  writeName,
 } from '../src/networks/linkedin/own-profile';
 import { linkedin } from '../src/networks';
 import { DATA_PAGE } from '../src/networks/linkedin/data';
@@ -214,6 +215,26 @@ describe('putting the headline in', () => {
     doc.querySelector('[aria-label="Edit intro"]')!.setAttribute('aria-label', 'Edit profile');
     expect((await writeHeadline(doc, OWN, NEW)).result).toBe('done');
     expect(typed).toEqual(['f-headline']);
+  });
+
+  it('puts the name in through Edit intro, the first word in First name and the rest in Last name (decision 84)', async () => {
+    const { doc, typed } = editable(false);
+    let first = '';
+    let last = '';
+    doc.addEventListener(
+      'input',
+      (event) => {
+        const field = event.target as HTMLInputElement;
+        if (field.id === 'f-first') first = field.value;
+        if (field.id === 'f-last') last = field.value;
+      },
+      true,
+    );
+    expect(await writeName(doc, 'Casey Lee Smith')).toBe('done');
+    expect(typed).toEqual(['f-first', 'f-last']);
+    expect({ first, last }).toEqual({ first: 'Casey', last: 'Lee Smith' });
+    // One word is no first and last name: nothing's pressed.
+    expect(await writeName(editable(false).doc, 'Casey')).toBe('none');
   });
 
   it('presses nothing with no Edit intro, and says so for the person to do it', async () => {
@@ -727,7 +748,14 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
     const { tab, asked } = fakeTab(() => ({ fixture: 'linkedin-own-profile-full.html', at: OWN }));
     const { hfos, sent } = fakeHfos();
     const end = await onLinkedIn(
-      { kind: 'profile_edit', bio: 'I help roofers answer every lead', about: null },
+      {
+        kind: 'profile_edit',
+        bio: 'I help roofers answer every lead',
+        about: null,
+        name: null,
+        username: null,
+        links: [],
+      },
       jobWith(tab, hfos).job,
     );
     expect(asked).toContain('hfos-write-bio');
@@ -752,7 +780,17 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
         'carry_on'
       ),
     });
-    const end = await onLinkedIn({ kind: 'profile_edit', bio: 'I help roofers', about: null }, job);
+    const end = await onLinkedIn(
+      {
+        kind: 'profile_edit',
+        bio: 'I help roofers',
+        about: null,
+        name: null,
+        username: null,
+        links: [],
+      },
+      job,
+    );
     expect(handed).toEqual([
       'Put your new headline in: press the pencil by your name on your LinkedIn profile, write “I help roofers” under Headline, and press Save. Then press Carry on.',
     ]);

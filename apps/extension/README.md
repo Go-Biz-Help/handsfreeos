@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.86.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.87.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -187,6 +187,20 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
   the hashtag's posts for one tagged at a place instead.
 - **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
   button among your highlights is no highlight.
+
+From 0.87.0 Get ready's profile check covers the whole profile (the owner, 22 Oct 2026, docs/outreach.md decision 84):
+its name, username and links beside the bio (`src/jobs/profile-parts.ts`).
+
+- **Put these in.** The bio and LinkedIn's About go in as before. LinkedIn's name goes in by itself too, typed into
+  the intro's First name and Last name boxes beside the headline. A name or username on Facebook or Instagram, and
+  LinkedIn's address and links, the network wants you to change yourself: the extension opens the page where it's
+  changed (Accounts Center, LinkedIn's public profile settings, the profile itself) and hands the step over with what to
+  put in; press Carry on once it's in. Instagram's links are only in its phone app, so that step says so.
+- **Usernames are checked before you pick one.** For each username the AI offers, it opens that username's address and
+  reads the page: nobody there, it's free; a profile, it's taken; neither, it says it couldn't tell. It presses
+  nothing, and HandsFreeOS won’t let you pick one that’s taken.
+- **Pictures stay yours.** It never changes a photo or a cover (decision 64); HandsFreeOS makes a cover to download.
+- An older extension is told to update before it's asked for a name, username or links (`PROFILE_PARTS_SINCE`).
 
 From 0.86.0 Save my followers reads at most your newest 200, about ten minutes, the first time and every time after
 (the owner, 22 Oct 2026: 200 is plenty; 0.85.0 read 300).

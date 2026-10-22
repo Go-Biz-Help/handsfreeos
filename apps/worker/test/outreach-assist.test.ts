@@ -209,6 +209,45 @@ describe('your profile, checked by the AI', () => {
   it('is for everyone using the add-on, each their own', async () => {
     expect((await check(member)).statusCode).toBe(200);
   });
+
+  it('says how the whole profile comes across, and keeps the parts shown side by side', async () => {
+    const got = (await check(owner)).json();
+    expect(got.look).toMatchObject({ reads: 'person', ok: true });
+    expect(got.seen).toMatchObject({ name: 'Casey Owner', line: 'I help roofers get booked jobs' });
+  });
+
+  const more = async (u: TestUser, input: Record<string, unknown>) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.profile.more',
+      headers: { authorization: `Bearer ${await signInTestUser(u)}` },
+      payload: { workspaceId: ws, input },
+    });
+
+  it('writes more of one part with the person’s note, kept for the next check (decision 84)', async () => {
+    const res = await more(owner, { part: 'bio', chips: ['Warmer'], note: 'say Columbus' });
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    expect(got.options).toEqual(['A new bio, again.', 'Another bio, again.', 'One more bio.']);
+    expect(got.check.bios).toEqual(got.options);
+    expect(got.check.notes).toEqual({ bio: ['Warmer. say Columbus.'] });
+    // Facebook usernames take no underscores: that one's left out.
+    const names = (await more(owner, { part: 'username' })).json();
+    expect(names.options).toEqual(['casey.first', 'casey.roofs']);
+    // The next check follows the note, and keeps it.
+    const again = (await check(owner)).json();
+    expect(again.notes).toEqual({ bio: ['Warmer. say Columbus.'] });
+  });
+
+  it('asks for more only of a profile read already', async () => {
+    const fresh = await createTestUser('outreach-assist-fresh');
+    await testDbs()
+      .admin.db.insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: fresh.id, role: 'member' });
+    const res = await more(fresh, { part: 'bio' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.rule).toBe('outreach_profile_not_read');
+  });
 });
 
 describe('your messages, written by the AI', () => {

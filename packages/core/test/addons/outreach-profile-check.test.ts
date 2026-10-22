@@ -138,6 +138,16 @@ describe('the AI’s answer, checked', () => {
         aboutDraft: platform === 'facebook' ? null : words(ABOUT_DRAFT_MOST),
         coverLine: words(120),
         feature: [1, 2, 3].map(() => words(200)),
+        // The whole profile's look, and the names and usernames to use (decision 84).
+        look: {
+          reads: 'personal',
+          ok: false,
+          title: words(160),
+          clashes: [1, 2, 3, 4].map(() => words(240)),
+          unlike: ['name', 'username', 'line', 'link'],
+        },
+        names: [1, 2, 3].map(() => words(64)),
+        usernames: [1, 2, 3].map(() => words(30)),
       };
       // At 3 characters a token, fewer than English takes, and a quarter of the cap to spare.
       const tokens = Math.ceil(JSON.stringify(longest).length / 3);
@@ -259,6 +269,9 @@ describe('every network’s profile, optimized (decision 80)', () => {
       kind: 'profile_edit',
       bio: 'Roofers',
       about: null,
+      name: null,
+      username: null,
+      links: [],
     });
     expect(profileEditWords('linkedin', { bio: 'Roofers', about: 'I help roofers.' })).toBeNull();
     expect(profileEditWords('facebook', { about: 'I help roofers.' })).toContain('no About');
