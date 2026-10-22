@@ -8,7 +8,7 @@
  *   the beat brings (`days.instagram`); Stop for today there ends what it's doing at its next page, and its asks' too.
  *   It works only while Instagram is on for the person and Chrome allows it, while noting is on, while this computer
  *   is the one that works, and while the person's Instagram Sending choice isn't Off.
- * - **Lists first** (decision 60): before Instagram's first day, its newest followers are saved (the newest 300, the
+ * - **Lists first** (decision 60): before Instagram's first day, its newest followers are saved (the newest 200, the
  *   owner's design of 21 Oct 2026), who to unfollow worked out for the person to tick, and the followers checked once
  *   (./lists.ts); after that the followers new since, weekly.
  * - **Once a day,** as the person's Instagram choices say (`collect`): the followers new since the last save (a

@@ -5,9 +5,9 @@
  * - **Save my followers** (`friends`): opens their own account from Instagram's menu, then their followers, which
  *   Instagram draws newest first in a box over it (/<you>/followers/), and reads the box a screen at a time at a
  *   person's pace (`SCROLL_PACE_MS`, 8 to 15 seconds a screen, as Instagram blocks accounts that scroll fast). The
- *   first time it reads the newest 300 (about a quarter of an hour), as new followers are the warmest; after that, only
+ *   first time it reads the newest 200 (about ten minutes), as new followers are the warmest; after that, only
  *   those new since the last save: it stops once it reaches the followers that were newest then, which this computer
- *   remembers (`followerMemory`), usually within a minute, and at 300 all the same, so a burst of new followers still
+ *   remembers (`followerMemory`), usually within a minute, and at 200 all the same, so a burst of new followers still
  *   ends. Everyone it read is saved as Instagram's friends list, which only adds and updates: nobody it didn't read is
  *   taken for gone or unfollowed. Someone they followed who's among them has followed back: HandsFreeOS counts that as
  *   accepting, and their first message comes as on the other networks. Then it looks at the accounts they followed for
@@ -24,9 +24,9 @@ import { pause, valueOf, type Job, type JobEnd } from '../job';
 import { lookForFollowBacks } from './follow-backs';
 import { ended, gather, INSTAGRAM, readInstagramIn, SIGNED_IN, signedOutEnd } from './read';
 
-/** The most a save reads: the newest followers, about a quarter of an hour of screens at a person's pace. */
-export const FOLLOWERS_MOST = 300;
-/** Screens of the box at most, beside that: well past 300 followers, if Instagram draws a few a screen. */
+/** The most a save reads: the newest followers, about ten minutes of screens at a person's pace. */
+export const FOLLOWERS_MOST = 200;
+/** Screens of the box at most, beside that: well past 200 followers, if Instagram draws a few a screen. */
 export const FOLLOWER_SCROLLS = 60;
 /** For Instagram to draw the box over their profile, and its first rows. */
 const BOX_MS = 2_500;
@@ -71,7 +71,7 @@ export const followerMemory: FollowerMemory = {
         [FOLLOWERS_KEY]: { ...(await followersKept()), [key]: newest.slice(0, TOP) },
       });
     } catch {
-      // Not kept: the next save reads the newest 300 again, and saving them twice changes nothing.
+      // Not kept: the next save reads the newest 200 again, and saving them twice changes nothing.
     }
   },
 };
@@ -84,7 +84,7 @@ const SIGNED_IN_LOWER = `${SIGNED_IN.charAt(0).toLowerCase()}${SIGNED_IN.slice(1
 const newOnes = (added: number) => (added ? `, ${added.toLocaleString()} new` : '');
 
 /**
- * Opens the person's followers, reads the newest (up to those saved last time, or 300), and saves them as their
+ * Opens the person's followers, reads the newest (up to those saved last time, or 200), and saves them as their
  * friends list.
  */
 export async function saveFollowers(

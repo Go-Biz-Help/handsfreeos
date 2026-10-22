@@ -17,7 +17,7 @@
  * good fits once, by the same steps with LinkedIn's jobs (../jobs/linkedin/). Alignable's (./alignable.ts) saves their
  * connections and the connection requests they've got, then checks their connections once, with its asks' jobs
  * (../jobs/alignable/): no reader of the requests they've sent is built, so there's nothing to tidy up first.
- * Instagram's (./instagram.ts) saves their newest followers (the newest 300 the first time, then those new since: the
+ * Instagram's (./instagram.ts) saves their newest followers (the newest 200 the first time, then those new since: the
  * owner, 21 Oct 2026), works out who to unfollow (those who didn't follow back in the business's wait, for the person
  * to tick), then checks their followers once (../jobs/instagram/).
  */

@@ -455,7 +455,7 @@ Shared first, then each network as LinkedIn was built (one PR per part, decision
    back. From his Checks of 21 Oct 2026, extension 0.84.0 builds Alignable's chat reader (and its Read my chats) and
    tunes Instagram's followers, chats, notifications, post likes and hashtags (docs/outreach.md, decision 78). From
    his first Save my followers the same day (about 200 in 11 minutes at Instagram's pace), 0.85.0 reads only the
-   newest followers, 300 the first time and then those new since, and sees who followed back on the accounts he
+   newest followers, 300 the first time (200 from 0.86.0, the owner, 22 Oct) and then those new since, and sees who followed back on the accounts he
    followed, 30 a day, so the first message, the one to Requests and unfollowing never wait on the whole list; and
    Alignable's Read my chats presses each conversation's row on its name, as only the first had opened.
 

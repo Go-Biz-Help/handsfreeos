@@ -354,26 +354,26 @@ describe('Save my followers reads the newest (21 Oct 2026)', { timeout: 30_000 }
     return { job: stopAfter === Infinity ? job : stopping, memory, saved };
   };
 
-  it('reads the newest 300 the first time, and remembers the top of the list', async () => {
+  it('reads the newest 200 the first time, and remembers the top of the list', async () => {
     const people = many(1, 1_000);
     const { kept, memory } = memoryOf();
     const { job, saved } = saving(people, memory);
     const end = await saveFollowers(job, memory);
-    expect(FOLLOWERS_MOST).toBe(300);
-    expect(saved()).toEqual(people.slice(0, 300));
+    expect(FOLLOWERS_MOST).toBe(200);
+    expect(saved()).toEqual(people.slice(0, 200));
     expect(end).toEqual({
-      line: 'Saved your newest 300 followers, 300 new. Each save after reads only those new since.',
+      line: 'Saved your newest 200 followers, 200 new. Each save after reads only those new since.',
       warned: false,
       whole: false,
     });
     expect(kept[KEY]).toEqual(people.slice(0, 12));
   });
 
-  it('reads past the first 200 rows of a box that keeps every row it drew', async () => {
+  it('reads the newest 200 of a long box that keeps every row it drew', async () => {
     const people = many(1, 260);
     const { job, saved } = saving(people);
-    expect(await saveFollowers(job, memoryOf().memory)).toMatchObject({ whole: true });
-    expect(saved()).toHaveLength(260);
+    await saveFollowers(job, memoryOf().memory);
+    expect(saved()).toEqual(people.slice(0, 200));
   });
 
   it('later, reads only those new since, stopping once it reaches the followers newest last time', async () => {
@@ -391,12 +391,12 @@ describe('Save my followers reads the newest (21 Oct 2026)', { timeout: 30_000 }
     expect(kept[KEY]).toEqual(many(2_000, 12));
   });
 
-  it('stops at 300 all the same when a burst of new followers never reaches those saved before', async () => {
+  it('stops at 200 all the same when a burst of new followers never reaches those saved before', async () => {
     const people = [...many(5_000, 600), ...many(1, 12)];
     const { memory } = memoryOf({ [KEY]: many(1, 12) });
     const { job, saved } = saving(people, memory);
     await saveFollowers(job, memory);
-    expect(saved()).toHaveLength(300);
+    expect(saved()).toHaveLength(200);
   });
 
   it('remembers nothing from a save stopped part way, so the next one reads those newest again', async () => {

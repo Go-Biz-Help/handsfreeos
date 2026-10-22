@@ -55,8 +55,8 @@ const MOST = 20;
 /** Of a list's rows and a post's comments: enough to go on with, never a whole page's worth. */
 const ROWS_MOST = 200;
 /**
- * Of the box of followers, which keeps every row it has drawn: past the newest 300 that Save my followers reads (the
- * owner, 21 Oct 2026). At 200 a read never got past the first 200 drawn, however far the box was scrolled.
+ * Of the box of followers, which keeps every row it has drawn: room past the newest 200 that Save my followers reads
+ * (the owner, 21 and 22 Oct 2026), as its rows aren't all followers. At 200 a read never got past the first 200 drawn.
  */
 const FOLLOWER_ROWS_MOST = 400;
 const COMMENTS_MOST = 40;

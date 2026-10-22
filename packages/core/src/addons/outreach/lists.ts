@@ -17,7 +17,7 @@
  * connections; it has no groups to save first (`LIST_SAVES_ON`, `LIST_MARKS_ON`). Alignable's (its runner, part 5) are
  * the person's connections and the connection requests they've got, then the good fits among their connections: no
  * reader of the requests they've sent is built, so there's nothing to work out for withdrawing. Instagram's (its runner,
- * part 14) are the person's newest followers (the newest 300 the first time, then those new since: the owner, 21 Oct
+ * part 14) are the person's newest followers (the newest 200 the first time, then those new since: the owner, 21 Oct
  * 2026), then who to unfollow (those who didn't follow back in the business's wait), then the good fits among their
  * followers.
  */
