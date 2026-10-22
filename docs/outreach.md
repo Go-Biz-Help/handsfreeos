@@ -1782,7 +1782,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       steps say where to put each in.
     - **Usernames ask first:** "ok". A new one shows what changes (old links stop working, searches miss the old one,
       the network limits changes) before it's picked. Each is held to the network's rules (`USERNAME_RULES_ON`), and
-      checked free on the person's computer (`username_check`, a new kind of ask, migration 20261027010500): each
+      checked free on the person's computer (`username_check`, a new kind of ask, migration 20261027010600): each
       address opened and read for whether anyone's there (extension `networks/there.ts`), nothing pressed. A taken one
       offers the rest, and their own to type and check. Nothing changes unless they pick one.
     - **Show me more, with a note** (Chris: "is there a way to try more if we don't like the ones suggested and maybe
