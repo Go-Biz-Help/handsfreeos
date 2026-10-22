@@ -204,7 +204,11 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     const { job, checked, lines } = alignableJob(tab, ['999999', CODE]);
     vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
     try {
-      const going = runAsk({ kind: 'profile_edit', bio: null, about: ABOUT }, job, 'alignable');
+      const going = runAsk(
+        { kind: 'profile_edit', bio: null, about: ABOUT, name: null, username: null, links: [] },
+        job,
+        'alignable',
+      );
       for (let i = 0; i < 40; i++) await vi.advanceTimersByTimeAsync(1_000);
       expect(await going).toEqual({ line: 'Your About Us is in.', warned: false });
     } finally {
@@ -223,7 +227,11 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     const { job, lines, handed } = alignableJob(tab, [null, CODE], ['carry_on']);
     vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
     try {
-      const going = runAsk({ kind: 'profile_edit', bio: null, about: ABOUT }, job, 'alignable');
+      const going = runAsk(
+        { kind: 'profile_edit', bio: null, about: ABOUT, name: null, username: null, links: [] },
+        job,
+        'alignable',
+      );
       for (let i = 0; i < 40; i++) await vi.advanceTimersByTimeAsync(1_000);
       expect(await going).toEqual({ line: 'Your About Us is in.', warned: false });
     } finally {
@@ -241,7 +249,11 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     const doc = profile();
     const { tab } = alignableTab(doc);
     const { job } = alignableJob(tab, [null]);
-    const end = await runAsk({ kind: 'profile_edit', bio: null, about: ABOUT }, job, 'alignable');
+    const end = await runAsk(
+      { kind: 'profile_edit', bio: null, about: ABOUT, name: null, username: null, links: [] },
+      job,
+      'alignable',
+    );
     expect(end).toMatchObject({ failed: true, line: expect.stringContaining('No code came') });
     expect(doc.querySelector('#about')!.textContent).not.toBe(ABOUT);
   }, 20_000);

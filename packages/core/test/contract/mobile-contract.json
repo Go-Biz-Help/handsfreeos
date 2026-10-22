@@ -7463,9 +7463,49 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2600
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "links": {
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
                   }
                 },
                 "required": ["kind"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "username_check"
+                  },
+                  "usernames": {
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "required": ["kind", "usernames"]
               },
               {
                 "type": "object",
@@ -14255,7 +14295,7 @@
             "format": "uuid"
           },
           "kinds": {
-            "maxItems": 22,
+            "maxItems": 23,
             "type": "array",
             "items": {
               "type": "string",
@@ -14281,6 +14321,7 @@
                 "research",
                 "profile_read",
                 "profile_edit",
+                "username_check",
                 "checkup"
               ]
             }

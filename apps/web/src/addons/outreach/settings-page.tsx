@@ -87,6 +87,7 @@ import {
 import { StartFresh } from './start-fresh';
 import type { Asks, Automation, AutomationPeople, Live, Readiness } from './types';
 import { useAutosave, type Autosave, type SaveStatus } from './use-autosave';
+import { ProfilesSideBySide } from './profile-whole';
 
 /** The business's settings the Settings pages change, as they read them: the extension's link has its own box. */
 function teamOf(settings: unknown): TeamSettings {
@@ -241,15 +242,19 @@ function SettingsPages({
           <StartFresh workspaceId={workspaceId} />
         </>
       ) : (
-        <GeneralPage
-          workspaceId={workspaceId}
-          me={me}
-          mine={mine}
-          business={business}
-          person={person}
-          team={team}
-          statuses={statuses}
-        />
+        <>
+          <GeneralPage
+            workspaceId={workspaceId}
+            me={me}
+            mine={mine}
+            business={business}
+            person={person}
+            team={team}
+            statuses={statuses}
+          />
+          {/* Their own profiles on every network, side by side (decision 84). */}
+          {mine ? <ProfilesSideBySide workspaceId={workspaceId} /> : null}
+        </>
       )}
     </div>
   );

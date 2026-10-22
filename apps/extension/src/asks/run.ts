@@ -93,6 +93,7 @@ import { instagramAsk } from '../jobs/instagram';
 import { linkedInAsk } from '../jobs/linkedin';
 import { lookupAndDraft } from '../jobs/lookup';
 import { profileEdit, profileRead } from '../jobs/profile';
+import { checkUsernames } from '../jobs/profile-parts';
 import { checkRequests, saveFriends, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
 import { tidy } from '../jobs/tidy';
@@ -422,6 +423,8 @@ async function facebookAsk(task: AskTaken['task'], job: Job): Promise<Ended> {
       return profileRead(job);
     case 'profile_edit':
       return profileEdit(job, task);
+    case 'username_check':
+      return checkUsernames(job, 'facebook', task.usernames);
     case 'checkup':
       return checkFacebook(job);
     default:

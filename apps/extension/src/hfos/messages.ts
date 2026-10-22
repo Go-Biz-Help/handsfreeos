@@ -4,6 +4,7 @@
  * sign-in and never refresh it twice at once. Both ends are the extension's own; Facebook's tabs never see these.
  */
 import type { ProfileCheck, ProfileRead } from '@hfos/core/addons/outreach/profile-check';
+import type { ProfileUsernamesSaveInput } from '@hfos/core/addons/outreach/profile-parts';
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
@@ -30,6 +31,8 @@ export type ProfileInput = Body<'/v1/commands/outreach.profile.save'>;
 /** Chats read in Messenger for the AI (packages/core/src/addons/outreach/chat-collect.ts). */
 export type ChatsCollectInput = Body<'/v1/commands/outreach.chats.collect'>;
 export type ChatsCollected = Ok<'/v1/commands/outreach.chats.collect'>;
+/** What the person's computer found of some usernames, kept on their check (decision 84). */
+export type UsernamesSaved = Ok<'/v1/commands/outreach.profile.usernames_save'>;
 export type Me = Ok<'/v1/queries/account.me'>;
 /** A step noted on Facebook, and the day's numbers (packages/core/src/addons/outreach/activity.ts). */
 export type TouchInput = Body<'/v1/commands/outreach.touch.save'>;
@@ -254,6 +257,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-save-friends'; readonly input: FriendsSaveInput }
   | { readonly type: 'hfos-save-download'; readonly input: DownloadSaveInput }
   | { readonly type: 'hfos-save-groups'; readonly input: GroupsSaveInput }
+  /** Whether usernames are free on a network, as their addresses showed (decision 84). */
+  | { readonly type: 'hfos-usernames'; readonly input: ProfileUsernamesSaveInput }
   | { readonly type: 'hfos-save-group'; readonly input: GroupSaveInput }
   | { readonly type: 'hfos-groups'; readonly input: GroupsListInput }
   | {
@@ -340,6 +345,7 @@ export interface HfosValues {
   readonly 'hfos-save-friends': FriendsSaved;
   readonly 'hfos-save-download': DownloadSaved;
   readonly 'hfos-save-groups': GroupsSaved;
+  readonly 'hfos-usernames': UsernamesSaved;
   readonly 'hfos-save-group': GroupSaved;
   readonly 'hfos-groups': GroupsList;
   readonly 'hfos-draft': Drafts;

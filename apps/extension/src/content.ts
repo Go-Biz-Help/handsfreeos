@@ -46,6 +46,7 @@ import { kitHere, type Noticed, type Step, type Answered } from './networks';
 import { LOOK_EVERY_MS } from './networks/facebook/looking';
 import { isStates, isWorking, NETWORKS_KEY } from './networks/on';
 import { MARK_POSTS_KEY, NOTING_KEY, READ_CHATS_KEY, type TabNote } from './messages';
+import { pageThere } from './networks/there';
 
 /** How long after the page starts changing it's read again: a post is drawn in several steps. */
 const SETTLE_MS = 1500;
@@ -133,6 +134,11 @@ if (kit && !here.hfosSocialListening) {
         } catch (error) {
           respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
         }
+        return false;
+      }
+      // Whether anyone's at this address: how a username's checked before it's picked (decision 84).
+      if (ask.type === 'hfos-page-there') {
+        respond({ ok: true, there: pageThere(document, kit.platform) });
         return false;
       }
       if (!kit.work) {

@@ -495,6 +495,95 @@ describe('Get ready on the phone', () => {
     expect(code).toHaveBeenCalledWith(asking, '482913');
   });
 
+  it('says how the whole profile comes across (decision 84), and puts the name and a username picked after what changes in', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'instagram',
+      profileCheck: {
+        items: {
+          picture: fix('A group photo.', 'Use one of just you.'),
+          name: fix('Only a nickname.', 'Use your name.'),
+          bio: ok,
+          link: ok,
+          featured: ok,
+          posts: ok,
+        },
+        bios: [],
+        nameDraft: 'Chris | Roofing leads',
+        names: ['Chris | Roofing leads'],
+        usernames: [{ value: 'chris.roofs', free: true }],
+        look: {
+          reads: 'personal',
+          ok: false,
+          title: 'This looks like a personal account with nothing about your work.',
+          clashes: ['Your name here is a nickname.'],
+          unlike: ['name', 'username'],
+        },
+        seen: {
+          url: 'https://www.instagram.com/skater22/',
+          name: 'Chizzy',
+          username: 'skater22',
+          line: 'Skating',
+          links: [],
+        },
+        coverLine: null,
+        feature: [],
+        at: '2026-10-22T15:00:00.000Z',
+        version: 1,
+      },
+    } as ReadinessOutput;
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.87.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    // Its own render's queries: a test before this one unmounts its own.
+    const view = await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(view.getByTestId('ready-open-profile'));
+    expect(
+      within(view.getByTestId('ready-profile-look')).getByText(
+        'This looks like a personal account with nothing about your work.',
+      ),
+    ).toBeTruthy();
+    // The old name block is for checks from before: this one lists the name with the rest.
+    expect(view.queryByTestId('ready-name')).toBeNull();
+    const rest = view.getByTestId('ready-profile-rest');
+    expect(within(rest).getByText('Chris | Roofing leads')).toBeTruthy();
+    // A username asks first: what changes, then the one to use.
+    await fireEvent.press(view.getByTestId('ready-username-open'));
+    expect(within(view.getByTestId('ready-username-ask')).getByText(/@skater22/)).toBeTruthy();
+    await fireEvent.press(view.getByTestId('ready-username-use'));
+    await fireEvent.press(view.getByTestId('ready-rest-put-in'));
+    expect(actions.ask).toHaveBeenCalledWith(
+      { kind: 'profile_edit', name: 'Chris | Roofing leads', username: 'chris.roofs' },
+      'instagram',
+    );
+    // Pictures stay the person's: where they're changed.
+    expect(
+      within(view.getByTestId('ready-pictures')).getByText('Use one of just you.'),
+    ).toBeTruthy();
+  });
+
   it('says how the last headline put in went once, under them all, and none from before the latest read', async () => {
     const check = {
       items: Object.fromEntries(

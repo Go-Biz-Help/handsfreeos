@@ -31,6 +31,9 @@ import type {
   CodeAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PageThereAnswer,
+  PageThereAsk,
+  WriteNameAsk,
   TryAnswer,
   TryAsk,
   UnfollowAnswer,
@@ -168,6 +171,8 @@ export class WorkTab {
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
+  async ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;
+  async ask(message: PageThereAsk): Promise<PageThereAnswer>;
   async ask(message: CodeAsk): Promise<CodeAnswer>;
   async ask(message: TryAsk): Promise<TryAnswer>;
   async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
@@ -184,6 +189,8 @@ export class WorkTab {
       | GroupPostAsk
       | FeedPostAsk
       | OwnProfileAsk
+      | WriteNameAsk
+      | PageThereAsk
       | CodeAsk
       | TryAsk
       | WithdrawAsk
@@ -197,6 +204,7 @@ export class WorkTab {
     | GroupPostAnswer
     | FeedPostAnswer
     | OwnProfileAnswer
+    | PageThereAnswer
     | CodeAnswer
     | TryAnswer
     | WithdrawAnswer

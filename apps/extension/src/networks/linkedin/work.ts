@@ -30,6 +30,7 @@ import type {
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  WriteNameAsk,
   TryAnswer,
   TryAsk,
   PostsAnswer,
@@ -48,7 +49,13 @@ import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
 import { readComments, readReactions, writeFeedPost } from './compose';
 import { dataPage } from './data';
-import { loadWholeProfile, readOwnProfile, writeAbout, writeHeadline } from './own-profile';
+import {
+  loadWholeProfile,
+  readOwnProfile,
+  writeAbout,
+  writeHeadline,
+  writeName,
+} from './own-profile';
 import { classifyUrl } from './urls';
 import {
   tryComment,
@@ -72,6 +79,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-own-profile',
   'hfos-write-bio',
   'hfos-write-about',
+  'hfos-write-name',
   'hfos-withdraw',
   'hfos-their-posts',
   'hfos-like-post',
@@ -89,6 +97,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
 type WorkAsk =
   | Extract<BrowseAsk, { type: 'hfos-open-chat' | 'hfos-scroll-chats' | 'hfos-scroll-list' }>
   | OwnProfileAsk
+  | WriteNameAsk
   | TryAsk
   | WithdrawAsk
   | AutoAsk
@@ -105,7 +114,7 @@ const onProfile = (href: string) => {
 };
 
 /** The person's own profile: read it for the AI's check, or put the headline in. */
-async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
+async function ownProfileStep(ask: OwnProfileAsk | WriteNameAsk): Promise<OwnProfileAnswer> {
   if (!onProfile(location.href)) return { ok: false, error: 'LinkedIn didn’t open your profile.' };
   if (ask.type === 'hfos-own-profile') {
     // LinkedIn draws the parts below the top only as they come into view.
@@ -116,6 +125,9 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
     const { result, steps } = await writeAbout(document, location.href, ask.about);
     return { ok: true, result, aboutSteps: steps };
   }
+  // Its name, in the intro's First name and Last name (decision 84).
+  if (ask.type === 'hfos-write-name')
+    return { ok: true, result: await writeName(document, ask.name) };
   return { ok: true, ...(await writeHeadline(document, location.href, ask.bio)) };
 }
 
@@ -252,6 +264,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-own-profile':
     case 'hfos-write-bio':
     case 'hfos-write-about':
+    case 'hfos-write-name':
       return ownProfileStep(known);
     case 'hfos-withdraw':
       return withdrawStep(known);

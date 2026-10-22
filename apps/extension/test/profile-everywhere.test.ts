@@ -268,7 +268,14 @@ describe('Read my profile and Put this one in, on Instagram', () => {
     const { tab, opened } = instagramTab(pages);
     const { job, checked } = instagramJob(tab);
     const end = await runAsk(
-      { kind: 'profile_edit', bio: 'Booked inspections for Columbus roofers', about: null },
+      {
+        kind: 'profile_edit',
+        bio: 'Booked inspections for Columbus roofers',
+        about: null,
+        name: null,
+        username: null,
+        links: [],
+      },
       job,
       'instagram',
     );

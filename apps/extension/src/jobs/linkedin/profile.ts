@@ -12,7 +12,9 @@
  *
  * It stops on any LinkedIn warning.
  */
-import type { AskTask } from '@hfos/core/addons/outreach/asks';
+import { profileEditDoneWords, type AskTask } from '@hfos/core/addons/outreach/asks';
+import { partStepsWords } from '@hfos/core/addons/outreach/profile-parts';
+import { putInByHand } from '../profile-parts';
 import type { OwnProfileAnswer } from '../../messages';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
 import { valueOf, warnedOn, type Job, type JobEnd } from '../job';
@@ -71,10 +73,10 @@ export async function linkedInProfileRead(job: Job): Promise<JobEnd> {
  */
 async function putIn(
   job: Job,
-  part: 'headline' | 'About',
+  part: 'headline' | 'About' | 'name',
   write: () => Promise<OwnProfileAnswer>,
   byHand: string,
-  noteOf: (wrote: OwnProfileAnswer) => ReportNote,
+  noteOf: (wrote: OwnProfileAnswer) => ReportNote = () => ({}),
 ): Promise<JobEnd | null> {
   job.progress(`Putting your new ${part} in…`);
   const wrote = await write();
@@ -117,8 +119,28 @@ export async function linkedInProfileEdit(job: Job, task: EditTask): Promise<Job
     );
     if (ended) return ended;
   }
+  // Its name, in the intro's box (decision 84); its address and links, opened for the person.
+  const { name } = task;
+  if (name) {
+    if (job.stopped()) return { line: 'Stopped.', warned: false };
+    const ended = await putIn(
+      job,
+      'name',
+      () => job.tab.ask({ type: 'hfos-write-name', name }),
+      `${partStepsWords('linkedin', 'name', name)} Then press Carry on.`,
+    );
+    if (ended) return ended;
+  }
+  if (task.username || task.links.length) {
+    const byHand = await putInByHand(job, 'linkedin', task, new Set(['name']));
+    if (byHand) return byHand;
+    const again = await openOwn(job);
+    if (again) return again;
+  }
   const checked = await readAndCheck(job);
   if (checked.failed) return checked;
+  if (name || task.username || task.links.length)
+    return { line: profileEditDoneWords('linkedin', task), warned: false };
   const said = [bio ? `Your headline now says “${bio}”.` : null, about ? P.editAboutDone : null];
   return { line: said.filter(Boolean).join(' '), warned: false };
 }

@@ -563,6 +563,39 @@ export async function writeHeadline(
   return { result: 'not_saved', steps };
 }
 
+/** The intro box's name fields, as their labels say them. */
+const FIRST_NAME = /^first name\s*\*?$/i;
+const LAST_NAME = /^last name\s*\*?$/i;
+
+/**
+ * Puts the name in (decision 84): presses Edit intro, writes the first word in First name and the rest in Last name,
+ * presses Save, and waits for the box to close. Only with exactly one of each field and one Save; anything else and
+ * nothing is written, and the job hands the step to the person.
+ */
+export async function writeName(doc: Document, name: string): Promise<HeadlineResult> {
+  const [first, ...rest] = clean(name).split(' ');
+  const last = rest.join(' ');
+  if (!first || !last) return 'none';
+  const opened = await openIntro(doc);
+  const { box } = opened;
+  if (!box) return 'none';
+  const fields = shownFields(box);
+  const firsts = fields.filter((field) => FIRST_NAME.test(fieldLabel(field)));
+  const lasts = fields.filter((field) => LAST_NAME.test(fieldLabel(field)));
+  const saves = [...box.querySelectorAll<HTMLElement>(`${CONTROLS}, [type="submit"]`)].filter(
+    (control) => shown(control) && wordsOf(control).some((words) => SAVE.test(words)),
+  );
+  if (firsts.length !== 1 || lasts.length !== 1 || saves.length !== 1) return 'none';
+  if (!(await writeInto(doc, firsts[0]!, first)) || !(await writeInto(doc, lasts[0]!, last)))
+    return 'none';
+  saves[0]!.click();
+  for (let waited = 0; waited < WAIT_MS; waited += LOOK_MS) {
+    await pause(LOOK_MS);
+    if (!box.isConnected || !shown(box)) return 'done';
+  }
+  return 'not_saved';
+}
+
 /** Words to try writing with, then take out again: never saved. */
 const TRY_WORDS = 'Testing HandsFreeOS';
 

@@ -5,12 +5,13 @@
  * outreach-like happens. Each person reads and writes only their own.
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { mainOffers, mainOfferVersions } from '@hfos/db/schema';
+import { knowledgeSources, mainOffers, mainOfferVersions } from '@hfos/db/schema';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { MainOfferParts } from '../../../main-offer/parts';
+import type { CommandContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { dayList } from '../automation';
@@ -18,6 +19,15 @@ import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
 import { MessageSamples } from '../conversation';
 import { ProfileCheck } from '../profile-check';
+import {
+  carriedOver,
+  ProfileMoreSaveInput,
+  ProfilesInput,
+  ProfilesOutput,
+  ProfileUsernamesSaveInput,
+  withMore,
+  withUsernames,
+} from '../profile-parts';
 import {
   MessageSamplesSaveInput,
   MessagesOkInput,
@@ -31,7 +41,7 @@ import {
   type Readiness,
 } from '../readiness';
 import type { OtherPlatform } from '../automation';
-import type { Platform } from '../networks';
+import { PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
 import { automation, setup, type NetworkProfileKept, type NetworkProfilesKept } from '../tables';
 import { automationOf } from './automation';
 import { inWorkspace, type Ctx } from './common';
@@ -73,7 +83,7 @@ async function liveOffer(ctx: Ctx) {
 }
 
 /** A network's profile as kept: Facebook's in its own columns, every other network's in `network_profiles`. */
-function profileOf(row: Awaited<ReturnType<typeof setupRow>>, platform: Platform) {
+export function profileOf(row: Awaited<ReturnType<typeof setupRow>>, platform: Platform) {
   const kept = platform === 'facebook' ? null : row?.networkProfiles?.[platform];
   const ticks = platform === 'facebook' ? row?.profile : kept?.ticks;
   const check = platform === 'facebook' ? row?.profileCheck : kept?.check;
@@ -93,7 +103,7 @@ function withProfile(
   return { ...all, [platform]: { ...all[platform], ...change } };
 }
 
-async function setupRow(ctx: Ctx, me: string) {
+export async function setupRow(ctx: Ctx, me: string) {
   const [row] = await ctx.tx
     .select()
     .from(setup)
@@ -321,30 +331,131 @@ export const profileCheckSave = defineAddonCommand(outreachAddon, {
   scope: inWorkspace,
   emits: ['outreach.readiness.saved'],
   async handler(ctx, input) {
-    const at = changeMoment(ctx.meta);
-    const set =
-      input.platform === 'facebook'
-        ? { profileCheck: input.check }
-        : {
-            networkProfiles: withProfile(await setupRow(ctx, input.userId), input.platform, {
-              check: input.check,
-            }),
-          };
-    const [kept] = await ctx.tx
-      .insert(setup)
-      .values({ workspaceId: ctx.scope.workspaceId!, userId: input.userId, ...set, updatedAt: at })
-      .onConflictDoUpdate({
-        target: [setup.workspaceId, setup.userId],
-        set: { ...set, updatedAt: at },
-      })
-      .returning({ id: setup.id });
-    await ctx.emit({
-      type: 'outreach.readiness.saved',
-      entityType: 'outreach_setup',
-      entityId: kept!.id,
-      payload: { userId: input.userId, part: 'profile_check', platform: input.platform },
-    });
+    const row = await setupRow(ctx, input.userId);
+    // What the person said they want, and what was written before, stay from check to check (decision 84).
+    const check = carriedOver(input.check, profileOf(row, input.platform).check);
+    await saveProfileCheck(ctx, row, input.userId, input.platform, check);
     return readinessFor(ctx, input.userId, input.platform);
+  },
+});
+
+/** Keeps a network's check on the person's setup row: Facebook's in its column, every other's in `network_profiles`. */
+async function saveProfileCheck(
+  ctx: CommandContext,
+  row: Awaited<ReturnType<typeof setupRow>>,
+  userId: string,
+  platform: Platform,
+  check: ProfileCheck,
+): Promise<void> {
+  const at = changeMoment(ctx.meta);
+  const set =
+    platform === 'facebook'
+      ? { profileCheck: check }
+      : { networkProfiles: withProfile(row, platform, { check }) };
+  const [kept] = await ctx.tx
+    .insert(setup)
+    .values({ workspaceId: ctx.scope.workspaceId!, userId, ...set, updatedAt: at })
+    .onConflictDoUpdate({
+      target: [setup.workspaceId, setup.userId],
+      set: { ...set, updatedAt: at },
+    })
+    .returning({ id: setup.id });
+  await ctx.emit({
+    type: 'outreach.readiness.saved',
+    entityType: 'outreach_setup',
+    entityId: kept!.id,
+    payload: { userId, part: 'profile_check', platform },
+  });
+}
+
+const noCheckYet = (platform: Platform) =>
+  HfosError.rule(
+    'outreach_profile_not_read',
+    409,
+    `Your ${PLATFORMS[platform]} profile hasn’t been read yet. Press Read my profile first, then ask for more.`,
+  );
+
+/**
+ * Show me more (decision 84): a round the AI wrote of one part, kept on the person's check, newest first, with their
+ * note kept for the next check. The worker's alone, after the AI answers.
+ */
+export const profileMoreSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.profile.more_save',
+  description:
+    'Keeps more options the AI wrote for one part of a person’s own profile (its bio, name, username, cover line or About), with what they said they want of it.',
+  risk: 0,
+  input: ProfileMoreSaveInput,
+  output: ProfileCheck,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const row = await setupRow(ctx, input.userId);
+    const was = profileOf(row, input.platform).check;
+    if (!was) throw noCheckYet(input.platform);
+    const check = withMore(was, input.part, input.options, input.note);
+    await saveProfileCheck(ctx, row, input.userId, input.platform, check);
+    return check;
+  },
+});
+
+/**
+ * What the person's computer found of some usernames (decision 84): each free, taken, or not known, kept on their
+ * check. A username they typed themselves is kept with them.
+ */
+export const profileUsernamesSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.profile.usernames_save',
+  description:
+    'Keeps whether usernames are free on a network, as the person’s computer found when it opened each one’s address.',
+  risk: 0,
+  input: ProfileUsernamesSaveInput,
+  output: ProfileCheck,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const row = await setupRow(ctx, me);
+    const was = profileOf(row, input.platform).check;
+    if (!was) throw noCheckYet(input.platform);
+    const check = withUsernames(was, input.found);
+    await saveProfileCheck(ctx, row, me, input.platform, check);
+    return check;
+  },
+});
+
+/**
+ * Every network's latest check of the person's own profile, a booking link from a playbook running on each, and the
+ * business's website (decision 84): what the parts, the links to add and side by side are worked out from.
+ */
+export const profilesGet = defineAddonQuery(outreachAddon, {
+  name: 'outreach.profiles',
+  description:
+    'The person’s own profiles on every network as their latest checks read them, with the booking links and the business’s website, for side by side.',
+  input: ProfilesInput,
+  output: ProfilesOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  async handler(ctx) {
+    const me = requireHuman(ctx).userId;
+    const [row, playbooks, site] = await Promise.all([
+      setupRow(ctx, me),
+      Promise.all(PLATFORM_KEYS.map((p) => playbooksInUse(ctx, p))),
+      ctx.tx
+        .select({ url: knowledgeSources.url })
+        .from(knowledgeSources)
+        .where(eq(knowledgeSources.workspaceId, ctx.scope.workspaceId!)),
+    ]);
+    const entries = <T>(f: (p: Platform, i: number) => T) =>
+      Object.fromEntries(PLATFORM_KEYS.map((p, i) => [p, f(p, i)])) as Record<Platform, T>;
+    return {
+      checks: entries((p) => profileOf(row, p).check),
+      booking: entries(
+        (_, i) => playbooks[i]!.map((pb) => pb.details.link).find((l): l is string => !!l) ?? null,
+      ),
+      website: site[0]?.url ?? null,
+    };
   },
 });
 
@@ -436,7 +547,9 @@ export const readinessCommands = [
   readinessProfile,
   readinessNumbers,
   profileCheckSave,
+  profileMoreSave,
+  profileUsernamesSave,
   readinessMessages,
   messageSamplesSave,
 ] as const;
-export const readinessQueries = [readinessGet] as const;
+export const readinessQueries = [readinessGet, profilesGet] as const;

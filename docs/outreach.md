@@ -1071,7 +1071,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
     featured and the latest posts. The worker's AI (`outreach.profile.check`) checks them against the live main offer,
     item by item, and writes three bios (Facebook's short bio, up to 101 characters), a line for the cover and what to
-    feature. Only its answer is kept, on the person's setup row; what the page said goes no further. An item it says
+    feature. Only its answer is kept, on the person's setup row; what the page said goes no further (but the parts
+    shown side by side, from decision 84: the name, username, line, links and address). An item it says
     is right counts as done, and the person ticks the rest once they've changed them. **Put this one in**
     (`profile_edit`) has their computer press Edit bio, put the bio in, save, and read the profile again for a new
     check; where it can't, it hands the step to them (**Carry on**). The picture, the cover and what's featured stay
@@ -1755,6 +1756,53 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     five steps with drawn pictures and **Stuck?**; a network's Allow has three. No migration: `reached` is no longer
     written and an old one is still read (`SETUP_REACHED`), and an old `?step=` opens its new step (`readSetupStop`).
     Designed on the canvas "Social Outreach setup" (https://claude.ai/artifact/5hcaEL1hSTAUjKUn8JrSdU). Built.
+
+84. **Check my profile: the whole profile, as a person** (Chris, 22 Oct 2026: "we need to make sure the check my
+    profile feature has the ability to update the entire profiles including names, usernames, and images as well as
+    links, adding other socials if applicable, bios etc. For example my current instagram account isn't related to
+    my business but i don't want to make it my business page because i want to be seen as a person not a brand or
+    company so we need to be able to make the changes necessary to do that and also recognize through AI when that
+    needs to be done or when a profile isn't matching well or clashes in some way"). Decisions 64 and 80 checked each
+    part on its own; now:
+    - **How it comes across** (`look`): every network's check also judges the whole profile as a stranger sees it, as
+      a person who does this work (`person`, the only one that's right), a personal account with nothing about the
+      work, a company or brand more than a person, or too little to tell, and lists what clashes, with the work or
+      with the person's other profiles (`unlike`: their name, username, line or link). It stays their own account,
+      as a person, never a business page. The AI has the business's name, their other profiles as their last checks
+      read them, and their notes (`ProfileContext`). The look advises: Get ready still goes by decision 63's items.
+    - **Every part** (`PARTS_ON`, profile-parts.ts): beside the bio, the About and the checklist, the username, the
+      name and the links, each as it is and as written, with who does it (`PART_HOW_ON`): the person's computer puts
+      it in (`auto`: the bio, the About, LinkedIn's name in its intro's box), opens the page where it's changed and
+      hands the step over with what to paste (`steps`: names and usernames in Accounts Center on Facebook and
+      Instagram, LinkedIn's address, links on Facebook and LinkedIn), says it's only in the network's app (`app`:
+      Instagram's links), or it's theirs to do (`tip`). **Put these in** is their OK for the ones ticked, one
+      `profile_edit` (name, username and links from extension 0.87.0, `PROFILE_PARTS_SINCE`).
+    - **Pictures:** "leave rule". The extension still never changes a picture (decision 64). The AI judges the photo,
+      and the cover is made from its line, drawn in the app at the network's size (`COVER_SIZE_ON`) to download; the
+      steps say where to put each in.
+    - **Usernames ask first:** "ok". A new one shows what changes (old links stop working, searches miss the old one,
+      the network limits changes) before it's picked. Each is held to the network's rules (`USERNAME_RULES_ON`), and
+      checked free on the person's computer (`username_check`, a new kind of ask, migration 20261027010500): each
+      address opened and read for whether anyone's there (extension `networks/there.ts`), nothing pressed. A taken one
+      offers the rest, and their own to type and check. Nothing changes unless they pick one.
+    - **Show me more, with a note** (Chris: "is there a way to try more if we don't like the ones suggested and maybe
+      give feedback?"): three more of a username, name, bio or cover line (the About again, whole), unlike what was
+      written before, following the chips and words they gave (`MORE_CHIPS`, `outreach.profile.more`). The note is kept
+      (`notes`) and the next check follows it too; the ones before stay to go back to (`earlier`).
+    - **Links** come from what's known, never guessed (`linksToAdd`): a booking link of a playbook running there, the
+      business's website, and their own other profiles as their checks read them; one that doesn't read as them yet
+      is held back.
+    - **Side by side** (`profileMatch`, Settings → General): each network's name, username, line and link, what's
+      unlike the rest marked, and **Fix it on** each.
+    - **Once a month** (decision 80's promise, not built till now): a check over 30 days old says so beside **Read my
+      profile** (`checkDue`). It asks nothing of their computer on its own.
+
+    Kept with each check, the person's own: the parts compared (`seen`), the names and usernames to use (each free,
+    taken or not known), the notes and what came before. A new check keeps the notes, what came before, and what
+    their computer found of a username (`carriedOver`). A check from before this shows the checklist as it did. No
+    data version: it's all in the setup row's jsonb. Designed on the canvas "Social Outreach profile check"
+    (https://claude.ai/artifact/1t3H7FWim3zds5WWBDz9LN). Built; the new editors follow the pages' words, and haven't
+    been tried on a real account.
 
 ## Rules worth knowing before changing anything
 

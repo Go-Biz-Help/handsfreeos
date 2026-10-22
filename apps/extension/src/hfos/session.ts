@@ -395,6 +395,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.groups.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-usernames':
+      return call(
+        api().POST('/v1/commands/outreach.profile.usernames_save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-save-group':
       return call(
         api().POST('/v1/commands/outreach.group.save', { body: ask.input }),

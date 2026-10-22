@@ -33,6 +33,7 @@ import {
   hasPlaceholder,
   RECOMMENDATIONS_WORDS as RW,
   type AnyProfileItem,
+  type ProfileCheck,
 } from '@hfos/core/addons/outreach/profile-check';
 import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import Link from 'next/link';
@@ -50,6 +51,14 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine } from './asks';
+import { checkDue, PROFILE_PART_WORDS as PW } from '@hfos/core/addons/outreach/profile-parts';
+import {
+  MoreButton,
+  ProfileLookBox,
+  ProfilePictures,
+  ProfileRest,
+  useProfiles,
+} from './profile-whole';
 import type { Asks, Readiness } from './types';
 
 /** Monday first, as the working week reads. */
@@ -323,6 +332,9 @@ export function ProfileBody({
         : null;
   const ticked = P.items.filter((i) => right(i.item)).length;
   const again = readiness.items.find((i) => i.item === 'profile')?.state === 'look_again';
+  // The whole profile (decision 84): every network's checks, for what clashes and the links to add.
+  const whole = check as ProfileCheck | null;
+  const known = useProfiles(workspaceId, check?.at ?? null);
   const tick = async (item: AnyProfileItem) => {
     setBusy(item);
     try {
@@ -380,6 +392,12 @@ export function ProfileBody({
           />
         ) : null}
       </div>
+      {checkDue(check, Date.now()) ? (
+        <p className="text-[12.5px] text-warning-text" data-testid="ready-profile-due">
+          {PW.due}
+        </p>
+      ) : null}
+      <ProfileLookBox workspaceId={workspaceId} check={whole} />
       <ul className="divide-y divide-border">
         {P.items.map((words) => {
           const { item } = words;
@@ -432,9 +450,12 @@ export function ProfileBody({
       </ul>
       {check?.bios.length ? (
         <div className="grid gap-2" data-testid="ready-bios">
-          <div>
-            <p className="font-semibold">{P.bios}</p>
-            <p className="text-[13px] text-text-2">{P.biosHint}</p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-semibold">{P.bios}</p>
+              <p className="text-[13px] text-text-2">{P.biosHint}</p>
+            </div>
+            <MoreButton workspaceId={workspaceId} platform={platform} part="bio" />
           </div>
           {check.bios.map((option, i) => (
             <div
@@ -476,23 +497,6 @@ export function ProfileBody({
           ))}
           {/* How the last one put in went, once: an ask doesn't say which it was. */}
           {edit && asks ? <AskLine workspaceId={workspaceId} asks={asks} ask={edit} /> : null}
-        </div>
-      ) : null}
-      {check?.coverLine ? (
-        <div className="grid gap-1">
-          <p className="font-semibold">{P.coverLine}</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[14px]">“{check.coverLine}”</p>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => void copyText(check.coverLine!, P.coverCopied)}
-              data-testid="ready-cover-copy"
-            >
-              Copy
-            </Button>
-          </div>
-          <p className="text-[12.5px] text-text-3">{P.coverHint}</p>
         </div>
       ) : null}
       {platform === 'alignable' && check ? (
@@ -601,7 +605,8 @@ export function ProfileBody({
           ) : null}
         </div>
       ) : null}
-      {check?.nameDraft ? (
+      {/* A check from before the whole profile was (decision 84): its name to use, as it was. */}
+      {check?.nameDraft && !whole?.look ? (
         <div className="grid gap-1" data-testid="ready-name">
           <p className="font-semibold">{P.name}</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -618,6 +623,15 @@ export function ProfileBody({
           <p className="text-[12.5px] text-text-3">{P.nameHint}</p>
         </div>
       ) : null}
+      {/* Its username, name and links, and its pictures (decision 84). */}
+      <ProfileRest
+        workspaceId={workspaceId}
+        platform={platform}
+        check={whole}
+        known={known}
+        asks={asks}
+      />
+      <ProfilePictures workspaceId={workspaceId} platform={platform} check={whole} />
       {check?.feature.length ? (
         <div className="grid gap-1">
           <p className="font-semibold">{P.feature}</p>

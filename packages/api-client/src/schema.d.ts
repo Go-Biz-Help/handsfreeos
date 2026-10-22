@@ -7137,6 +7137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.profile.usernames_save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keeps whether usernames are free on a network, as the person’s computer found when it opened each one’s address.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_profile_usernames_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.readiness.messages": {
         parameters: {
             query?: never;
@@ -18091,6 +18111,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_words"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s own profiles on every network as their latest checks read them, with the booking links and the business’s website, for side by side.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_profiles"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35291,7 +35331,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -35365,7 +35405,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -35555,6 +35595,13 @@ export interface operations {
                         bio?: string;
                         /** @enum {string} */
                         kind: "profile_edit";
+                        links?: string[];
+                        name?: string;
+                        username?: string;
+                    } | {
+                        /** @enum {string} */
+                        kind: "username_check";
+                        usernames: string[];
                     } | {
                         /** @enum {string} */
                         kind: "checkup";
@@ -35586,7 +35633,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -35699,7 +35746,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -35774,7 +35821,7 @@ export interface operations {
                             /** Format: uuid */
                             askId: string;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                             /**
                              * @default facebook
                              * @enum {string}
@@ -35881,6 +35928,16 @@ export interface operations {
                                 bio: string | null;
                                 /** @enum {string} */
                                 kind: "profile_edit";
+                                /** @default [] */
+                                links: string[];
+                                /** @default null */
+                                name: string | null;
+                                /** @default null */
+                                username: string | null;
+                            } | {
+                                /** @enum {string} */
+                                kind: "username_check";
+                                usernames: string[];
                             } | {
                                 /** @enum {string} */
                                 kind: "checkup";
@@ -38474,6 +38531,135 @@ export interface operations {
             };
         };
     };
+    command_outreach_profile_usernames_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    found: {
+                        free: boolean | null;
+                        value: string;
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        aboutDraft?: string | null;
+                        /** Format: date-time */
+                        at: string;
+                        bios: string[];
+                        coverLine: string | null;
+                        coverLines?: string[];
+                        earlier?: {
+                            about?: string[];
+                            bio?: string[];
+                            cover?: string[];
+                            name?: string[];
+                        };
+                        feature: string[];
+                        items: {
+                            about?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            bio?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            cover?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            featured?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            link?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            name?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            picture?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            posts?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                            work?: {
+                                fix: string | null;
+                                ok: boolean;
+                                why: string;
+                            };
+                        };
+                        look?: {
+                            clashes: string[];
+                            ok: boolean;
+                            /** @enum {string} */
+                            reads: "person" | "personal" | "brand" | "unclear";
+                            title: string;
+                            /** @default [] */
+                            unlike: ("name" | "username" | "line" | "link")[];
+                        } | null;
+                        nameDraft?: string | null;
+                        names?: string[];
+                        notes?: {
+                            about?: string[];
+                            bio?: string[];
+                            cover?: string[];
+                            name?: string[];
+                            username?: string[];
+                        };
+                        recommendations?: number | null;
+                        recommendNote?: string | null;
+                        seen?: {
+                            line: string | null;
+                            links: string[];
+                            name: string | null;
+                            url: string | null;
+                            username: string | null;
+                        } | null;
+                        usernames?: {
+                            free: boolean | null;
+                            value: string;
+                        }[];
+                        version: number | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_readiness_messages: {
         parameters: {
             query?: never;
@@ -38552,6 +38738,13 @@ export interface operations {
                             at: string;
                             bios: string[];
                             coverLine: string | null;
+                            coverLines?: string[];
+                            earlier?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                            };
                             feature: string[];
                             items: {
                                 about?: {
@@ -38600,9 +38793,37 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            look?: {
+                                clashes: string[];
+                                ok: boolean;
+                                /** @enum {string} */
+                                reads: "person" | "personal" | "brand" | "unclear";
+                                title: string;
+                                /** @default [] */
+                                unlike: ("name" | "username" | "line" | "link")[];
+                            } | null;
                             nameDraft?: string | null;
+                            names?: string[];
+                            notes?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                                username?: string[];
+                            };
                             recommendations?: number | null;
                             recommendNote?: string | null;
+                            seen?: {
+                                line: string | null;
+                                links: string[];
+                                name: string | null;
+                                url: string | null;
+                                username: string | null;
+                            } | null;
+                            usernames?: {
+                                free: boolean | null;
+                                value: string;
+                            }[];
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -38691,6 +38912,13 @@ export interface operations {
                             at: string;
                             bios: string[];
                             coverLine: string | null;
+                            coverLines?: string[];
+                            earlier?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                            };
                             feature: string[];
                             items: {
                                 about?: {
@@ -38739,9 +38967,37 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            look?: {
+                                clashes: string[];
+                                ok: boolean;
+                                /** @enum {string} */
+                                reads: "person" | "personal" | "brand" | "unclear";
+                                title: string;
+                                /** @default [] */
+                                unlike: ("name" | "username" | "line" | "link")[];
+                            } | null;
                             nameDraft?: string | null;
+                            names?: string[];
+                            notes?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                                username?: string[];
+                            };
                             recommendations?: number | null;
                             recommendNote?: string | null;
+                            seen?: {
+                                line: string | null;
+                                links: string[];
+                                name: string | null;
+                                url: string | null;
+                                username: string | null;
+                            } | null;
+                            usernames?: {
+                                free: boolean | null;
+                                value: string;
+                            }[];
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -38836,6 +39092,13 @@ export interface operations {
                             at: string;
                             bios: string[];
                             coverLine: string | null;
+                            coverLines?: string[];
+                            earlier?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                            };
                             feature: string[];
                             items: {
                                 about?: {
@@ -38884,9 +39147,37 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            look?: {
+                                clashes: string[];
+                                ok: boolean;
+                                /** @enum {string} */
+                                reads: "person" | "personal" | "brand" | "unclear";
+                                title: string;
+                                /** @default [] */
+                                unlike: ("name" | "username" | "line" | "link")[];
+                            } | null;
                             nameDraft?: string | null;
+                            names?: string[];
+                            notes?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                                username?: string[];
+                            };
                             recommendations?: number | null;
                             recommendNote?: string | null;
+                            seen?: {
+                                line: string | null;
+                                links: string[];
+                                name: string | null;
+                                url: string | null;
+                                username: string | null;
+                            } | null;
+                            usernames?: {
+                                free: boolean | null;
+                                value: string;
+                            }[];
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -67246,7 +67537,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup")[];
+                    kinds?: ("file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup")[];
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -67269,7 +67560,7 @@ export interface operations {
                             computerName: string | null;
                             endedAt: string | null;
                             /** @enum {string} */
-                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                            kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                             line: string | null;
                             /**
                              * @default facebook
@@ -69228,6 +69519,419 @@ export interface operations {
             };
         };
     };
+    query_outreach_profiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        booking: {
+                            alignable: string | null;
+                            facebook: string | null;
+                            instagram: string | null;
+                            linkedin: string | null;
+                        };
+                        checks: {
+                            alignable: {
+                                aboutDraft?: string | null;
+                                /** Format: date-time */
+                                at: string;
+                                bios: string[];
+                                coverLine: string | null;
+                                coverLines?: string[];
+                                earlier?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                };
+                                feature: string[];
+                                items: {
+                                    about?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    bio?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    cover?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    featured?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    link?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    name?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    picture?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    posts?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    work?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                };
+                                look?: {
+                                    clashes: string[];
+                                    ok: boolean;
+                                    /** @enum {string} */
+                                    reads: "person" | "personal" | "brand" | "unclear";
+                                    title: string;
+                                    /** @default [] */
+                                    unlike: ("name" | "username" | "line" | "link")[];
+                                } | null;
+                                nameDraft?: string | null;
+                                names?: string[];
+                                notes?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                    username?: string[];
+                                };
+                                recommendations?: number | null;
+                                recommendNote?: string | null;
+                                seen?: {
+                                    line: string | null;
+                                    links: string[];
+                                    name: string | null;
+                                    url: string | null;
+                                    username: string | null;
+                                } | null;
+                                usernames?: {
+                                    free: boolean | null;
+                                    value: string;
+                                }[];
+                                version: number | null;
+                            } | null;
+                            facebook: {
+                                aboutDraft?: string | null;
+                                /** Format: date-time */
+                                at: string;
+                                bios: string[];
+                                coverLine: string | null;
+                                coverLines?: string[];
+                                earlier?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                };
+                                feature: string[];
+                                items: {
+                                    about?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    bio?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    cover?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    featured?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    link?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    name?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    picture?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    posts?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    work?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                };
+                                look?: {
+                                    clashes: string[];
+                                    ok: boolean;
+                                    /** @enum {string} */
+                                    reads: "person" | "personal" | "brand" | "unclear";
+                                    title: string;
+                                    /** @default [] */
+                                    unlike: ("name" | "username" | "line" | "link")[];
+                                } | null;
+                                nameDraft?: string | null;
+                                names?: string[];
+                                notes?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                    username?: string[];
+                                };
+                                recommendations?: number | null;
+                                recommendNote?: string | null;
+                                seen?: {
+                                    line: string | null;
+                                    links: string[];
+                                    name: string | null;
+                                    url: string | null;
+                                    username: string | null;
+                                } | null;
+                                usernames?: {
+                                    free: boolean | null;
+                                    value: string;
+                                }[];
+                                version: number | null;
+                            } | null;
+                            instagram: {
+                                aboutDraft?: string | null;
+                                /** Format: date-time */
+                                at: string;
+                                bios: string[];
+                                coverLine: string | null;
+                                coverLines?: string[];
+                                earlier?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                };
+                                feature: string[];
+                                items: {
+                                    about?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    bio?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    cover?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    featured?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    link?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    name?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    picture?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    posts?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    work?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                };
+                                look?: {
+                                    clashes: string[];
+                                    ok: boolean;
+                                    /** @enum {string} */
+                                    reads: "person" | "personal" | "brand" | "unclear";
+                                    title: string;
+                                    /** @default [] */
+                                    unlike: ("name" | "username" | "line" | "link")[];
+                                } | null;
+                                nameDraft?: string | null;
+                                names?: string[];
+                                notes?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                    username?: string[];
+                                };
+                                recommendations?: number | null;
+                                recommendNote?: string | null;
+                                seen?: {
+                                    line: string | null;
+                                    links: string[];
+                                    name: string | null;
+                                    url: string | null;
+                                    username: string | null;
+                                } | null;
+                                usernames?: {
+                                    free: boolean | null;
+                                    value: string;
+                                }[];
+                                version: number | null;
+                            } | null;
+                            linkedin: {
+                                aboutDraft?: string | null;
+                                /** Format: date-time */
+                                at: string;
+                                bios: string[];
+                                coverLine: string | null;
+                                coverLines?: string[];
+                                earlier?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                };
+                                feature: string[];
+                                items: {
+                                    about?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    bio?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    cover?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    featured?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    link?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    name?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    picture?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    posts?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                    work?: {
+                                        fix: string | null;
+                                        ok: boolean;
+                                        why: string;
+                                    };
+                                };
+                                look?: {
+                                    clashes: string[];
+                                    ok: boolean;
+                                    /** @enum {string} */
+                                    reads: "person" | "personal" | "brand" | "unclear";
+                                    title: string;
+                                    /** @default [] */
+                                    unlike: ("name" | "username" | "line" | "link")[];
+                                } | null;
+                                nameDraft?: string | null;
+                                names?: string[];
+                                notes?: {
+                                    about?: string[];
+                                    bio?: string[];
+                                    cover?: string[];
+                                    name?: string[];
+                                    username?: string[];
+                                };
+                                recommendations?: number | null;
+                                recommendNote?: string | null;
+                                seen?: {
+                                    line: string | null;
+                                    links: string[];
+                                    name: string | null;
+                                    url: string | null;
+                                    username: string | null;
+                                } | null;
+                                usernames?: {
+                                    free: boolean | null;
+                                    value: string;
+                                }[];
+                                version: number | null;
+                            } | null;
+                        };
+                        website: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_readiness: {
         parameters: {
             query?: never;
@@ -69311,6 +70015,13 @@ export interface operations {
                             at: string;
                             bios: string[];
                             coverLine: string | null;
+                            coverLines?: string[];
+                            earlier?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                            };
                             feature: string[];
                             items: {
                                 about?: {
@@ -69359,9 +70070,37 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            look?: {
+                                clashes: string[];
+                                ok: boolean;
+                                /** @enum {string} */
+                                reads: "person" | "personal" | "brand" | "unclear";
+                                title: string;
+                                /** @default [] */
+                                unlike: ("name" | "username" | "line" | "link")[];
+                            } | null;
                             nameDraft?: string | null;
+                            names?: string[];
+                            notes?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                                username?: string[];
+                            };
                             recommendations?: number | null;
                             recommendNote?: string | null;
+                            seen?: {
+                                line: string | null;
+                                links: string[];
+                                name: string | null;
+                                url: string | null;
+                                username: string | null;
+                            } | null;
+                            usernames?: {
+                                free: boolean | null;
+                                value: string;
+                            }[];
                             version: number | null;
                         } | null;
                         ready: boolean;
@@ -69919,7 +70658,7 @@ export interface operations {
                                 computerName: string | null;
                                 endedAt: string | null;
                                 /** @enum {string} */
-                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "checkup";
+                                kind: "file_request" | "file_download" | "file_backup" | "file_in" | "requests" | "friends" | "groups" | "group_search" | "members" | "posts" | "chats" | "checks" | "group_checks" | "join" | "post" | "cancel" | "unfriend" | "lookup" | "research" | "profile_read" | "profile_edit" | "username_check" | "checkup";
                                 line: string | null;
                                 /**
                                  * @default facebook
