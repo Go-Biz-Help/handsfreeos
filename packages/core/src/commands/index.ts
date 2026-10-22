@@ -707,7 +707,12 @@ export { DEFAULT_STAGES } from './pipeline.create';
 /** Explicit list on purpose: greppable, bundler-safe, and the order the docs list them in. */
 export { emailReceive, emailSuppressionRecord };
 export { videoLinkCreate, videoLinkStartUpload, videoLinkReceiveUpload };
-export { videoLinkTokenHash, videoUploadPath, fileUploadPath } from './video-link';
+export {
+  videoLinkStarted,
+  videoLinkTokenHash,
+  videoUploadPath,
+  fileUploadPath,
+} from './video-link';
 export { fileLinkCreate, leadSaveFileAnswer, fileFinishCopy };
 export { storedFilePath } from './file';
 

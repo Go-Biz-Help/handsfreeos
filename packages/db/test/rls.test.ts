@@ -636,6 +636,18 @@ describe('connection hygiene', () => {
         fn.proconfig?.some((c) => /^search_path=("")?$/.test(c)),
         `${fn.proname} must pin an empty search_path`,
       ).toBe(true);
+    // A function that runs as its owner is only for the roles granted it. Postgres lets PUBLIC run every new one,
+    // so each needs its own `revoke execute … from public` (20261027010500). Triggers can't be called directly.
+    const open = await rows<{ fn: string }>(
+      dbs.admin.db,
+      sql`select p.oid::regprocedure::text as fn from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where p.prosecdef and p.prorettype <> 'trigger'::regtype
+            and (n.nspname in ('app', 'private', 'platform') or n.nspname like 'addon\\_%')
+            and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+                        where a.grantee = 0 and a.privilege_type = 'EXECUTE')
+          order by 1`,
+    );
+    expect(open.map((f) => f.fn)).toEqual([]);
     const views = await rows(
       dbs.admin.db,
       sql`select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'app' and c.relkind = 'v' and coalesce(c.reloptions, '{}') @> array['security_invoker=true'] = false`,

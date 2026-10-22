@@ -167,6 +167,21 @@ describe('the customer’s page', () => {
     expect(errorOf(elsewhere).rule).toBe('wrong_place');
   });
 
+  it('never takes back a file this link didn’t hand out, like a photo the customer texted', async () => {
+    // A photo that came in by text, in its message's folder: the page can name any folder when it's done.
+    const messageId = randomUUID();
+    const photo = `${w.workspaceId}/messages/${messageId}/0.jpg`;
+    await w.s.store.upload('telephony', photo, Buffer.from('a photo of the unit'), 'image/jpeg');
+    const done = await post(w, `/public/video/${token}/done`, {
+      uploadId: messageId,
+      objectPath: photo,
+      name: 'clip.mp4',
+    });
+    expect(done.statusCode).toBe(400);
+    expect(errorOf(done).rule).toBe('wrong_place');
+    expect(await w.s.store.info('telephony', photo)).not.toBeNull();
+  });
+
   it('files what Storage measured, and takes back a file that turned out not to be a video', async () => {
     const started = await post(w, `/public/video/${token}/start`, {
       name: 'clip.mp4',

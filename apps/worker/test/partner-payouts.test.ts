@@ -229,6 +229,38 @@ describe('paying partners', () => {
     expect(b?.method_token).toBeTruthy();
   });
 
+  it('refuses a card page another business opened, and keeps this business’s card', async () => {
+    const card = () =>
+      rows<{ customer_ref: string; method_token: string | null }>(
+        admin(),
+        sql`select customer_ref, method_token from app.partner_payout_billing where workspace_id = ${w.workspaceId}`,
+      );
+    const before = await card();
+    // Another business's page, finished, with its id read off their address bar.
+    const platform = w.s.payments.providers.stripe.platform;
+    const { customerRef } = await platform.ensureCustomer({
+      customerRef: null,
+      name: 'Someone Else Plumbing',
+      email: null,
+      phone: null,
+      idempotencyKey: 'wallet-customer:someone-else',
+    });
+    const theirs = await platform.startCardSession({
+      customerRef,
+      reference: randomUUID(),
+      returnUrl: 'http://localhost:3000/app/w/someone-else/settings/partners',
+      idempotencyKey: 'partner-payout-card:someone-else:1',
+    });
+    fake().page.saveCard({ sessionRef: theirs.sessionRef, instrument: FAKE_CARDS.succeeds });
+
+    const res = await addCard({ sessionRef: theirs.sessionRef });
+    expect(res.statusCode, res.body).toBe(409);
+    expect((res.json() as { error: { rule: string } }).error.rule).toBe(
+      'partner_payouts_other_business',
+    );
+    expect(await card()).toEqual(before);
+  });
+
   it('lets a partner set up their bank on Stripe’s own form, and hears from Stripe when it’s ready', async () => {
     const { bearer, token } = await signIn(pia.personId);
     const payouts = (body: Record<string, unknown>, who: string | null = bearer) =>

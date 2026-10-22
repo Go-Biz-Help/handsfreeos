@@ -809,6 +809,7 @@ export function createStripePayments(opts: {
           body: {
             mode: 'setup',
             customer: input.customerRef,
+            client_reference_id: input.reference,
             payment_method_types: ['card'],
             // Nothing says "for charging later, unattended" — which is what a top-up is — because Checkout's own
             // SetupIntent is `off_session` already, and Stripe refuses `setup_intent_data[usage]` outright
@@ -827,9 +828,10 @@ export function createStripePayments(opts: {
         const session = obj(
           await api<Json>(null, `/checkout/sessions/${encodeURIComponent(sessionRef)}`),
         );
+        const reference = str(session['client_reference_id']);
         // Anything but `complete` is a session nobody finished, which is an answer and not a failure.
         if (String(session['status'] ?? '') !== 'complete')
-          return { sourceToken: null, customerRef: str(session['customer']) };
+          return { sourceToken: null, customerRef: str(session['customer']), reference };
         const intent = await api<Json>(
           null,
           `/setup_intents/${encodeURIComponent(String(session['setup_intent'] ?? ''))}`,
@@ -837,6 +839,7 @@ export function createStripePayments(opts: {
         return {
           sourceToken: str(obj(intent)['payment_method']),
           customerRef: str(session['customer']) ?? str(obj(intent)['customer']),
+          reference,
         };
       },
 
