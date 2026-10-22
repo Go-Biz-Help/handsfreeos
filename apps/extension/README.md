@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, on LinkedIn once they turn it on, and later Instagram, for the
 Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.85.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.86.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -187,6 +187,9 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
   the hashtag's posts for one tagged at a place instead.
 - **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
   button among your highlights is no highlight.
+
+From 0.86.0 Save my followers reads at most your newest 200, about ten minutes, the first time and every time after
+(the owner, 22 Oct 2026: 200 is plenty; 0.85.0 read 300).
 
 From 0.85.0 (the owner's design of 21 Oct 2026, docs/outreach.md decision 78, "Instagram's newest followers"):
 
@@ -733,7 +736,7 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 - **Only while Instagram's day is started** (`days.instagram`), Instagram is on and Chrome allows it, noting is on,
   this computer is the one that works, and your Instagram Sending choice isn't Off. Stop for today ends what it's doing
   at its next page, and an Instagram ask under way too.
-- **Lists first:** before Instagram's first day it saves your newest followers (the newest 300, from 0.85.0), works out
+- **Lists first:** before Instagram's first day it saves your newest followers (the newest 200, from 0.86.0), works out
   who to unfollow (those who didn't follow back in your business's wait, for you to tick under Friends → Tidy up), then
   checks your followers once (`src/auto/lists.ts`); then the followers new since, weekly.
 - **Once a day,** with **Once a day** on for Instagram: your followers new since the last save (Instagram shows the
@@ -1006,7 +1009,7 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   Facebook warning.
 - **Instagram's followers: the newest only, and follow-backs from their accounts** (the owner, 21 Oct 2026). Save my
   followers only scrolls the box of followers, 8 to 15 seconds a screen (`SCROLL_PACE_MS`), and reads only the newest:
-  300 the first time, then those new since the last save, 300 at most (`saveFollowers`). What it saves only adds and
+  200 the first time, then those new since the last save, 200 at most (`saveFollowers`). What it saves only adds and
   updates: nobody it didn't read is ever taken for gone or unfollowed. Who followed back is seen on their own account,
   30 a day at most, at the checks' pace, pressing nothing (`lookForFollowBacks`). `test/instagram-asks.test.ts` holds
   both.

@@ -3,7 +3,7 @@
  * 13; core's `ASK_KINDS_ON.instagram`), each kind with the job that does it, in a window of its own at a person's pace,
  * reading only unless the kind says to press:
  *
- * - `friends`: their newest followers, from the box over their own account, scrolled slowly and saved: the newest 300
+ * - `friends`: their newest followers, from the box over their own account, scrolled slowly and saved: the newest 200
  *   the first time, then those new since (./people.ts); then the accounts they followed looked at for who follows them
  *   back (./follow-backs.ts). On Instagram a follow-back counts as accepting.
  * - `checks` and `research`: accounts opened and read for the AI's check, on Instagram's own day's count (./checks.ts).

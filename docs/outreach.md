@@ -1472,9 +1472,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Instagram's newest followers** (Chris, 21 Oct 2026, extension 0.85.0, no migration). Save my followers read
       his followers a screen at a time, 8 to 15 seconds apart, as Instagram blocks accounts that scroll fast, and saved
       about 200 in 11 minutes: 10,000 would take 9 to 10 hours. The pace stays. His design:
-      - **The first save reads only the newest 300** (about a quarter of an hour): new followers are the warmest leads.
+      - **The first save reads only the newest 200** (about ten minutes): new followers are the warmest leads. (0.85.0
+        read 300; the owner, 22 Oct 2026: 200 is plenty, from 0.86.0.)
       - **Each later save, and the runner's once a day, reads only those new since the last.** It stops once it
-        reaches the followers that were newest at the last save, usually within a minute, and at 300 all the same, so
+        reaches the followers that were newest at the last save, usually within a minute, and at 200 all the same, so
         a burst of new followers still ends. The extension remembers those (`hfos.followersRead`, by business and
         Instagram account, forgotten on a fresh start), as it remembers chats read: HandsFreeOS keeps no order of the
         followers to say which are newest. A save stopped part way isn't remembered, so the next reads them again.
