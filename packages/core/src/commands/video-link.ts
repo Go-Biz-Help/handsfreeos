@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { sql } from '@hfos/db/client';
 import { conversations, messages, people, videoLinks } from '@hfos/db/schema';
@@ -63,6 +63,27 @@ export const videoUploadPath = (workspaceId: string, uploadId: string, contentTy
 /** Where a file a link asked for goes up (20261018000400): the same folder, as `file.<ext>`. */
 export const fileUploadPath = (workspaceId: string, uploadId: string, contentType: string) =>
   `${workspaceId}/messages/${uploadId}/file.${FILE_ANSWER_TYPES[contentType] ?? 'bin'}`;
+
+/**
+ * The id of a link's n-th upload, which is also the folder it goes up to and the message it arrives as. It comes
+ * from the link and its number rather than from chance, so a link can tell its own uploads from every other
+ * message's folder, a customer's texted photo included: the page names one when it's done, and could name any.
+ */
+export function videoLinkUploadId(videoLinkId: string, n: number): string {
+  const h = createHash('sha256').update(`video-link-upload:${videoLinkId}:${n}`).digest('hex');
+  // Shaped as a version 8 UUID, the kind RFC 9562 keeps for ids made like this, so it passes as one everywhere.
+  const variant = ((parseInt(h[16]!, 16) & 0x3) | 0x8).toString(16);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/** Whether an upload id is one this link handed out. */
+export const videoLinkStarted = (
+  link: { id: string; uploadsStarted: number },
+  uploadId: string,
+): boolean =>
+  Array.from({ length: link.uploadsStarted }, (_, n) => videoLinkUploadId(link.id, n)).includes(
+    uploadId,
+  );
 
 type Link = typeof videoLinks.$inferSelect;
 
@@ -212,7 +233,7 @@ export const videoLinkStartUpload = defineCommand({
       .update(videoLinks)
       .set({ uploadsStarted: link.uploadsStarted + 1 })
       .where(eq(videoLinks.id, link.id));
-    const uploadId = randomUUID();
+    const uploadId = videoLinkUploadId(link.id, link.uploadsStarted);
     const path = link.asksFor === 'file' ? fileUploadPath : videoUploadPath;
     return {
       uploadId,
@@ -237,6 +258,9 @@ export const videoLinkReceiveUpload = defineCommand({
     const workspaceId = ctx.scope.workspaceId!;
     const dedupeKey = `video-link:${input.uploadId}`;
     const link = await lockedLink(ctx, input.videoLinkId);
+    // Only an upload this link started: any other id is another message's folder, and its files aren't ours.
+    if (!videoLinkStarted(link, input.uploadId))
+      throw HfosError.rule('wrong_place', 400, VIDEO_LINK_WORDS.notArrived);
     const [dup] = await ctx.tx
       .select({ id: messages.id, conversationId: messages.conversationId })
       .from(messages)

@@ -241,6 +241,12 @@ describe('sending a video through it', () => {
       () => receive({ objectPath: `${wsId}/messages/${randomUUID()}/video.mov` }),
       'wrong_place',
     );
+    // Another message's folder, named as this upload's own: not an upload this link started.
+    const other = randomUUID();
+    await expectRule(
+      () => receive({ uploadId: other, objectPath: `${wsId}/messages/${other}/0.jpg` }),
+      'wrong_place',
+    );
     await admin()
       .update(conversations)
       .set({ status: 'closed', unreadCount: 0, awaitingReplySince: null })

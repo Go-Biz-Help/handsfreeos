@@ -22,6 +22,7 @@ import {
   videoLinkDay,
   videoLinkReceiveUpload,
   videoLinkStartUpload,
+  videoLinkStarted,
   videoLinkTokenHash,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -187,8 +188,13 @@ export async function registerVideoLinkRoutes(app: FastifyInstance, deps: HttpDe
       async (req) => {
         const body = DoneBody.parse(req.body);
         const { linkId, scope } = await find(req.params.token);
-        // Only the folder this upload was given: never a way to ask about another message's files.
-        if (!body.objectPath.startsWith(`${scope.workspaceId}/messages/${body.uploadId}/`))
+        // Only the folder this link gave this upload: never a way to ask about, or take back, another message's
+        // files. Checked before Storage is asked anything.
+        const { uploads_started } = await stateOf(linkId, scope);
+        if (
+          !videoLinkStarted({ id: linkId, uploadsStarted: uploads_started }, body.uploadId) ||
+          !body.objectPath.startsWith(`${scope.workspaceId}/messages/${body.uploadId}/`)
+        )
           throw HfosError.rule('wrong_place', 400, VIDEO_LINK_WORDS.notArrived);
         const stored = await deps.store.info('telephony', body.objectPath);
         if (!stored || stored.size === 0)
