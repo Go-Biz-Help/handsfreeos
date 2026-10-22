@@ -11,10 +11,13 @@
  *   charges it on our account and not on the business's Stripe connection (`platform-charges.test.ts` holds
  *   the header itself to account).
  * - **Who may.** A member may read a balance and may not put a card on one.
+ * - **Whose page.** A card page another business opened is refused: its id is on their address bar, and taking
+ *   it would put their card on this balance.
  * - **A business that has never spent anything.** This world has no wallet row at all, which is every business
  *   until its first text — and a card is usually the first thing anybody does to a balance. Only HandsFreeOS
  *   may open a wallet, so the route opens one; before it did, the first press was refused by Postgres.
  */
+import { randomUUID } from 'node:crypto';
 import { createTokenVerifier } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, signInTestUser, testDbs, testEnv } from '@hfos/db/testing';
@@ -149,6 +152,36 @@ describe('a card for the business’s own balance', () => {
     expect(((await addCard(ownerToken, { sessionRef })).json() as { stage: string }).stage).toBe(
       'cancelled',
     );
+  });
+
+  it('refuses a card page another business opened, and leaves this balance alone', async () => {
+    const before = await walletRow();
+    // Another business's page, finished, with its id read off their address bar.
+    const platform = w.s.payments.providers.stripe.platform;
+    const { customerRef } = await platform.ensureCustomer({
+      customerRef: null,
+      name: 'Someone Else Plumbing',
+      email: null,
+      phone: null,
+      idempotencyKey: 'wallet-customer:someone-else',
+    });
+    const theirs = await platform.startCardSession({
+      customerRef,
+      reference: randomUUID(),
+      returnUrl: 'http://localhost:3000/app/w/someone-else/settings/usage',
+      idempotencyKey: 'wallet-card:someone-else:1',
+    });
+    w.s.payments.fake.page.saveCard({
+      sessionRef: theirs.sessionRef,
+      instrument: FAKE_CARDS.succeeds,
+    });
+
+    const tried = await addCard(ownerToken, { sessionRef: theirs.sessionRef });
+    expect(tried.statusCode, tried.body).toBe(409);
+    expect((tried.json() as { error: { rule: string } }).error.rule).toBe(
+      'wallet_card_other_business',
+    );
+    expect(await walletRow()).toEqual(before);
   });
 
   it('is an owner’s and an admin’s, never a member’s, and never nobody’s', async () => {

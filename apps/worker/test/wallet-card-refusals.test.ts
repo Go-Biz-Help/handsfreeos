@@ -37,6 +37,7 @@ function stripeRefusing(status: number, body: unknown) {
 const start = (provider: ReturnType<typeof createStripePayments>) =>
   provider.platform.startCardSession({
     customerRef: 'cus_hfos_1',
+    reference: 'ws-1',
     returnUrl: 'https://app.test/app/w/ws-1/settings/usage',
     idempotencyKey: 'wallet-card:ws-1:1',
   });

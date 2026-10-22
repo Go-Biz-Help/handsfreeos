@@ -96,6 +96,7 @@ describe('the page a card is typed on', () => {
     });
     const session = await provider.platform.startCardSession({
       customerRef: 'cus_hfos_1',
+      reference: 'ws-1',
       returnUrl: 'https://app.test/app/w/ws-1/settings/usage',
       idempotencyKey: 'wallet-card:ws-1:1',
     });
@@ -111,6 +112,7 @@ describe('the page a card is typed on', () => {
     // and Stripe had never heard of it. Checkout's SetupIntent is `off_session` without being told.
     expect([...sent.keys()].sort()).toEqual([
       'cancel_url',
+      'client_reference_id',
       'customer',
       'mode',
       'payment_method_types[0]',
@@ -119,6 +121,8 @@ describe('the page a card is typed on', () => {
     // Setting a card up for later, and only a card.
     expect(sent.get('mode')).toBe('setup');
     expect(sent.get('customer')).toBe('cus_hfos_1');
+    // Whose page it is, handed back on the read, so another business's session id can't finish here.
+    expect(sent.get('client_reference_id')).toBe('ws-1');
     expect(sent.get('payment_method_types[0]')).toBe('card');
     expect(sent.get('success_url')).toBe(
       'https://app.test/app/w/ws-1/settings/usage?card={CHECKOUT_SESSION_ID}',
@@ -134,6 +138,7 @@ describe('the page a card is typed on', () => {
         id: 'cs_test_1',
         status: 'complete',
         customer: 'cus_hfos_1',
+        client_reference_id: 'ws-1',
         setup_intent: 'seti_1',
       },
       '/setup_intents/': { id: 'seti_1', payment_method: 'pm_new', customer: 'cus_hfos_1' },
@@ -141,6 +146,7 @@ describe('the page a card is typed on', () => {
     await expect(provider.platform.readCardSession('cs_test_1')).resolves.toEqual({
       sourceToken: 'pm_new',
       customerRef: 'cus_hfos_1',
+      reference: 'ws-1',
     });
     // Both reads are ours, and both are reads: nothing about a card is taken on trust from the browser.
     expect(calls).toHaveLength(2);
@@ -152,11 +158,17 @@ describe('the page a card is typed on', () => {
 
   it('answers with no card when nobody finished the page', async () => {
     const { provider } = stripeAnswering({
-      '/checkout/sessions/': { id: 'cs_test_1', status: 'open', customer: 'cus_hfos_1' },
+      '/checkout/sessions/': {
+        id: 'cs_test_1',
+        status: 'open',
+        customer: 'cus_hfos_1',
+        client_reference_id: 'ws-1',
+      },
     });
     await expect(provider.platform.readCardSession('cs_test_1')).resolves.toEqual({
       sourceToken: null,
       customerRef: 'cus_hfos_1',
+      reference: 'ws-1',
     });
   });
 });
@@ -250,6 +262,7 @@ describe('Square', () => {
     await expect(
       providers.square.platform.startCardSession({
         customerRef: 'cus_1',
+        reference: 'ws-1',
         returnUrl: 'https://app.test/app/w/ws-1/settings/usage',
         idempotencyKey: 'wallet-card:ws-1:1',
       }),
@@ -273,6 +286,7 @@ describe('the stand-in’s card page', () => {
     });
     const session = await stripe.platform.startCardSession({
       customerRef,
+      reference: 'ws-1',
       returnUrl: 'http://localhost:3000/app/w/ws-1/settings/usage',
       idempotencyKey: 'wallet-card:ws-1:1',
     });
@@ -282,6 +296,7 @@ describe('the stand-in’s card page', () => {
     await expect(stripe.platform.readCardSession(session.sessionRef)).resolves.toEqual({
       sourceToken: null,
       customerRef,
+      reference: 'ws-1',
     });
 
     fake.fake.page.saveCard({ sessionRef: session.sessionRef, instrument: FAKE_CARDS.succeeds });
