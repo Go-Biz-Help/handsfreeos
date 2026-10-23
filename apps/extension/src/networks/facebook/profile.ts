@@ -3,7 +3,8 @@
  * stand, and their latest posts. Facebook draws profiles two ways, and both are read:
  *
  * - the older one has the name as the page's `h1` and the bio and details in an "Intro" card beside the posts;
- * - the 2026 one has no `h1`: the name, counts, buttons, bio and details all sit at the top, above the tabs.
+ * - the 2026 one has no `h1`: the name, counts, buttons, bio and details all sit at the top, above the tabs. On your
+ *   own, from October 2026, Edit profile is a link rather than a button.
  *
  * The top is what comes before the tabs (All, About, Friends…). Where you stand comes from its buttons, and the intro
  * from its lines and any Intro card.
@@ -47,6 +48,20 @@ function friendshipIn(labels: readonly string[]): ProfilePage['friendship'] {
   for (const [pattern, friendship] of FRIENDSHIP)
     if (labels.some((label) => pattern.test(label))) return friendship;
   return 'unknown';
+}
+
+/**
+ * Your own profile's Edit profile as a link: from October 2026 it's no button but a link to the About tab's editor,
+ * labelled Edit profile with just "Edit" for its words, beside the cards' own edit links (an owner's page outline of
+ * 23 Oct 2026). Only your own profile has either.
+ */
+export function editProfileLinkIn(root: Element): boolean {
+  return [...root.querySelectorAll('a[href]')].some(
+    (a) =>
+      !inTopBar(a) &&
+      (/^edit profile$/i.test(clean(a.getAttribute('aria-label'))) ||
+        /[?&]fb_profile_edit_entry_point=/.test(a.getAttribute('href') ?? '')),
+  );
 }
 
 /** "(3) Jane Doe | Facebook" → "Jane Doe": the name in the page's title, when it has one. */
@@ -114,15 +129,19 @@ function headerAround(name: Element, root: Element): Element | null {
 
 /** What the top says about them besides their name and counts: the bio, then the details beside little icons. */
 function topLines(top: readonly Element[], name: string | null): string[] {
-  return top
-    .flatMap((box) => textLines(box, 40, NOT_TOP_TEXT))
-    .filter(
-      (line) =>
-        !(name && line.startsWith(name)) &&
-        !isFacebookLine(line) &&
-        !NOT_INTRO.test(line) &&
-        line.length <= 300,
-    );
+  return (
+    top
+      .flatMap((box) => textLines(box, 40, NOT_TOP_TEXT))
+      // The dot between the details in a row is no part of them.
+      .map((line) => line.replace(/^[·•]\s*/, ''))
+      .filter(
+        (line) =>
+          !(name && line.startsWith(name)) &&
+          !isFacebookLine(line) &&
+          !NOT_INTRO.test(line) &&
+          line.length <= 300,
+      )
+  );
 }
 
 /** The Intro card's lines: what follows the "Intro" title, up to the next card. */
@@ -208,7 +227,8 @@ export function readProfile(
     const header = around ? headerAround(around, root) : null;
     top = header ? [header] : [];
   }
-  const friendship = friendshipIn(top.flatMap(buttonLabels));
+  const fromButtons = friendshipIn(top.flatMap(buttonLabels));
+  const friendship = fromButtons === 'unknown' && editProfileLinkIn(root) ? 'self' : fromButtons;
   let mutualFriends: number | null = null;
   let followers: number | null = null;
   for (const line of top.flatMap((box) => textLines(box, 40))) {

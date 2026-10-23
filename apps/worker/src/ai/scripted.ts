@@ -1976,9 +1976,17 @@ function scriptedProfileCheck(message: string) {
     feature: ['A customer’s review', 'Your booking link'],
     // The whole profile (decision 84): a person who does the work when the bio names it, else a personal account.
     look: one('bio').toLowerCase().includes(work)
-      ? { reads: 'person', ok: true, title: 'This reads as you.', clashes: [], unlike: [] }
+      ? {
+          reads: 'person',
+          work: 'same',
+          ok: true,
+          title: 'This reads as you.',
+          clashes: [],
+          unlike: [],
+        }
       : {
           reads: 'personal',
+          work: 'none',
           ok: false,
           title: 'This looks like a personal account with nothing about your work.',
           clashes: ['Your bio says nothing about what you do.'],

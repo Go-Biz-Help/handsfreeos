@@ -1804,6 +1804,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     (https://claude.ai/artifact/1t3H7FWim3zds5WWBDz9LN). Built; the new editors follow the pages' words, and haven't
     been tried on a real account.
 
+    After Chris read every network on 23 Oct 2026 ("Facebook didn't work"; Instagram "recognized it wasnt a personal
+    profile style name ... but it didn't really recognize that the business wasn't really related to the right
+    business based on the offer or playbook"; side by side showed "only LinkedIn and Instagram ... even though it
+    shows that Alignable worked"):
+    - **Facebook's October 2026 profile** (extension 0.88.0, from the page outline his read sent): Edit profile is a
+      link now ("Edit"), not a button, so every read since 16 Oct had taken his profile for someone else's. It's read
+      by that link; the bio is the line above the details row (there's no Edit bio); the Personal details, Work and
+      Education cards stand for the Intro, and the Links card gives the links. With no Edit bio, a new bio is the
+      person's to put in.
+    - **The work, weighed** (`look.work`): same, other or none, against the main offer and the playbooks that run on
+      the network, which the check now has, with the person's own name. A profile about another business, brand or
+      line of work is never right, even as a person, and its first clash says what it's about instead. Names and
+      usernames come from their own name, never with a blank like "[First name]"; one with a blank isn't kept.
+    - **Side by side** shows every network the person has on, Alignable's too (it has no username), and one not read
+      yet says so, with a link to read it.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the

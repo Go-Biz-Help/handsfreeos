@@ -38631,6 +38631,8 @@ export interface operations {
                             title: string;
                             /** @default [] */
                             unlike: ("name" | "username" | "line" | "link")[];
+                            /** @default null */
+                            work: ("same" | "other" | "none") | null;
                         } | null;
                         nameDraft?: string | null;
                         names?: string[];
@@ -38801,6 +38803,8 @@ export interface operations {
                                 title: string;
                                 /** @default [] */
                                 unlike: ("name" | "username" | "line" | "link")[];
+                                /** @default null */
+                                work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
                             names?: string[];
@@ -38975,6 +38979,8 @@ export interface operations {
                                 title: string;
                                 /** @default [] */
                                 unlike: ("name" | "username" | "line" | "link")[];
+                                /** @default null */
+                                work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
                             names?: string[];
@@ -39155,6 +39161,8 @@ export interface operations {
                                 title: string;
                                 /** @default [] */
                                 unlike: ("name" | "username" | "line" | "link")[];
+                                /** @default null */
+                                work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
                             names?: string[];
@@ -69618,6 +69626,8 @@ export interface operations {
                                     title: string;
                                     /** @default [] */
                                     unlike: ("name" | "username" | "line" | "link")[];
+                                    /** @default null */
+                                    work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
                                 names?: string[];
@@ -69712,6 +69722,8 @@ export interface operations {
                                     title: string;
                                     /** @default [] */
                                     unlike: ("name" | "username" | "line" | "link")[];
+                                    /** @default null */
+                                    work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
                                 names?: string[];
@@ -69806,6 +69818,8 @@ export interface operations {
                                     title: string;
                                     /** @default [] */
                                     unlike: ("name" | "username" | "line" | "link")[];
+                                    /** @default null */
+                                    work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
                                 names?: string[];
@@ -69900,6 +69914,8 @@ export interface operations {
                                     title: string;
                                     /** @default [] */
                                     unlike: ("name" | "username" | "line" | "link")[];
+                                    /** @default null */
+                                    work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
                                 names?: string[];
@@ -70078,6 +70094,8 @@ export interface operations {
                                 title: string;
                                 /** @default [] */
                                 unlike: ("name" | "username" | "line" | "link")[];
+                                /** @default null */
+                                work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
                             names?: string[];

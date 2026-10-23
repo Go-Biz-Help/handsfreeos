@@ -285,6 +285,12 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   }
   await page.getByTestId('ready-profile-done').click();
   await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'done');
+  // Side by side on Settings (decision 84): each network read, as it was read.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  const sides = page.getByTestId('outreach-profiles-side-by-side');
+  await expect(sides).toContainText('Facebook');
+  await expect(sides).toContainText('Test Owner');
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=today`);
 
   // Your messages: the AI writes samples for the playbook in the owner's voice, and they OK how they read.
   await ready.getByTestId('ready-open-messages').click();

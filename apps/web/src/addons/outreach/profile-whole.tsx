@@ -1025,10 +1025,17 @@ export function ProfilePictures({
 }
 
 /** Every checked network side by side (decision 84), on Settings → General: what doesn't match marked. */
-export function ProfilesSideBySide({ workspaceId }: { workspaceId: string }) {
+export function ProfilesSideBySide({
+  workspaceId,
+  networks,
+}: {
+  workspaceId: string;
+  /** The networks the person has on: each shows, read or not yet. */
+  networks: readonly Platform[];
+}) {
   const known = useProfiles(workspaceId, null);
   if (!known) return null;
-  const cols = profileMatch(known).filter((c) => c.checked);
+  const cols = profileMatch(known, networks);
   const off = cols.reduce((n, c) => n + c.off.length, 0);
   return (
     <Card className="space-y-4 p-5" data-testid="outreach-profiles-side-by-side">
@@ -1036,7 +1043,7 @@ export function ProfilesSideBySide({ workspaceId }: { workspaceId: string }) {
         <h2 className="text-[17px] font-semibold tracking-tight">{MATCH_WORDS.title}</h2>
         <p className="text-[13px] text-text-2">{MATCH_WORDS.hint}</p>
       </div>
-      {cols.length === 0 ? (
+      {!cols.some((c) => c.checked) ? (
         <p className="text-[13.5px] text-text-2">{MATCH_WORDS.none}</p>
       ) : (
         <>
@@ -1077,6 +1084,12 @@ export function ProfilesSideBySide({ workspaceId }: { workspaceId: string }) {
                     {cols.map((c) => {
                       const v = c.values[part];
                       const isOff = c.off.includes(part);
+                      if (!c.checked)
+                        return (
+                          <td key={c.platform} className="px-3 py-2.5 align-top text-text-3">
+                            {part === 'name' ? MATCH_WORDS.notChecked : W.none}
+                          </td>
+                        );
                       return (
                         <td
                           key={c.platform}
@@ -1098,12 +1111,12 @@ export function ProfilesSideBySide({ workspaceId }: { workspaceId: string }) {
                   <td />
                   {cols.map((c) => (
                     <td key={c.platform} className="px-3 py-2.5">
-                      {c.off.length ? (
+                      {c.off.length || !c.checked ? (
                         <Link
                           href={outreachHref(workspaceId, { view: 'settings', part: c.platform })}
                           className="text-[13px] font-medium text-accent-text hover:underline"
                         >
-                          {MATCH_WORDS.fix(c.platform)}
+                          {c.checked ? MATCH_WORDS.fix(c.platform) : MATCH_WORDS.read(c.platform)}
                         </Link>
                       ) : null}
                     </td>
