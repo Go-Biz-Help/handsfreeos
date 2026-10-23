@@ -2,7 +2,8 @@
  * What the extension tells HandsFreeOS, as it goes (src/hfos/live.ts), with the extension's storage and HandsFreeOS
  * stood in for: a press in the panel updates the answer kept, so an older answer never undoes it; a long line is cut
  * short rather than refused; a press made with no connection goes with a later beat; and a beat's answer that stops
- * the day or moves the work to another computer has the runner end what it's doing.
+ * the day or moves the work to another computer has the runner end what it's doing; and a fresh install says so until
+ * HandsFreeOS has it.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveDay } from '@hfos/core/addons/outreach/live';
@@ -10,6 +11,7 @@ import { AUTO_STATE_KEY, freshState, type AutoState } from '../src/auto/plan';
 import { NETWORKS_KEY } from '../src/networks/on';
 import {
   beat,
+  COMPUTER_KEY,
   dayChange,
   LIVE_KEY,
   LIVE_PRESS_KEY,
@@ -187,6 +189,24 @@ describe('the beat', () => {
     const line = (sent!.body.status as { line: string }).line;
     expect(line).toHaveLength(300);
     expect(line.endsWith('…')).toBe(true);
+  });
+
+  it('says it’s a fresh install until a beat is answered, so it takes its old computer’s place once', async () => {
+    const fresh = () =>
+      posted
+        .filter((p) => p.path === '/v1/commands/outreach.live.beat')
+        .map((p) => (p.body.computer as { fresh: unknown }).fresh);
+    // No connection: still fresh at the next beat.
+    await beat(true);
+    answers['/v1/commands/outreach.live.beat'] = { status: 200, data: beatAnswer() };
+    await beat(true);
+    await beat(true);
+    expect(fresh()).toEqual([true, true, false]);
+    // An id kept by a build before 0.88.0 never says so.
+    posted.length = 0;
+    store.set(COMPUTER_KEY, { id: '00000000-0000-4000-8000-000000000009' });
+    await beat(true);
+    expect(fresh()).toEqual([false]);
   });
 
   it('says which networks Chrome lets it on, so HandsFreeOS can say what to press', async () => {

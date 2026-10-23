@@ -57,14 +57,12 @@ const FACEBOOK = ['https://www.facebook.com/*', 'https://web.facebook.com/*'];
 /** Accounts Center, where Facebook makes the person's download file (src/networks/facebook/fetch.ts). */
 const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
 /**
- * The networks whose sites Chrome lets the extension on only once the person allows them, from the panel, after
- * turning the network on in HandsFreeOS (src/networks/linkedin/kit.ts, src/networks/looking/kit.ts): optional, so an
- * update never asks everyone again, and the extension never runs on a site they don't use. Their script is registered
- * while each is on (src/networks/scripts.ts), never listed in `content_scripts`, and nothing of the extension's is ever
- * web-accessible: LinkedIn's pages look for extensions by the files they show. In the add-on's order: LinkedIn, then
- * Instagram and Alignable, still looked at (decision 78).
+ * The other networks' sites, from install too (decision 85 in docs/outreach.md, extension 0.88.0): LinkedIn, then
+ * Instagram and Alignable. Chrome no longer asks for each when it's turned on. Their script still runs only while each
+ * is on in HandsFreeOS, registered then (src/networks/scripts.ts), never listed in `content_scripts`, and nothing of
+ * the extension's is ever web-accessible: LinkedIn's pages look for extensions by the files they show.
  */
-const OPTIONAL = [
+const NETWORKS = [
   'https://www.linkedin.com/*',
   'https://www.instagram.com/*',
   'https://www.alignable.com/*',
@@ -83,6 +81,14 @@ const HFOS = [
     }),
   ),
 ];
+/**
+ * The public half of the extension's own key, so Chrome gives it the same id from whatever folder it's loaded from
+ * (decision 85). Without it, Chrome makes a hand-loaded extension's id from its folder: a zip unzipped somewhere new is
+ * a new extension, with nothing kept, and HandsFreeOS saw a new computer each time. Its id is
+ * gdgihcnpgggcaijdhnfnkfcfmhpmailc (test/manifest.test.ts). The private half isn't kept: nothing is packed with it.
+ */
+const KEY =
+  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnBX+oiurcICtgWcztlMQXYR4VgSNhqQjVEZNgdLcYpKFb9njz/vXCRwM4AZTDfE5ssvanl3T2fhRHldVE8gfyCTPqUwz0ck59I5vDHs2J7fPCLi/l5BnIzgv61Vle2xD/R54sxImXYPTvYBS2HR+hlBzxCSZ+ywZKV5VJun1qVJkK8ryf81zJCx34r8UJIYV5qZ38hj72xL55ESJ3SVUAkyFiKHSEk6j+7KhmuBSgu8U/lt5CyJucJa6w8r5CexxwraZ1mWiHMByfZ9zwWWhD4Zn7fGIWXvGf+hrK1IhCFlaBDpmvfGnchFaebM/aLhoC9X2Mp1CTXAZsIuVcbmy5wIDAQAB';
 const ICONS = {
   16: 'icons/icon-16.png',
   32: 'icons/icon-32.png',
@@ -95,9 +101,10 @@ const manifest = {
   name: 'HandsFreeOS Social (test)',
   short_name: 'HFOS Social',
   version,
+  key: KEY,
   // The stores take 132 characters at most.
   description:
-    'Works on Facebook, and LinkedIn when you turn it on, as set in HandsFreeOS: notes your steps and does what you ask. Test build.',
+    'Works on Facebook, LinkedIn, Instagram and Alignable as set in HandsFreeOS: notes your steps and does what you ask. Test build.',
   minimum_chrome_version: '116',
   icons: ICONS,
   action: { default_title: 'HandsFreeOS Social', default_icon: ICONS },
@@ -116,8 +123,7 @@ const manifest = {
     'notifications',
     'offscreen',
   ],
-  host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...HFOS, ...FILES],
-  optional_host_permissions: OPTIONAL,
+  host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...NETWORKS, ...HFOS, ...FILES],
   content_scripts: [
     { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },
   ],

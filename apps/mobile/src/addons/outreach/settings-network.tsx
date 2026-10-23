@@ -234,7 +234,7 @@ function NetworkComputer({
           </Text>
         </Card>
       ) : (
-        <Note testID={`${testID}-chrome`}>{SETTINGS_WORDS.allowInChrome(name)}</Note>
+        <Note testID={`${testID}-chrome`}>{SETTINGS_WORDS.builtIn(name)}</Note>
       )}
       {asks && actions && profile?.readiness ? (
         <NetworkProfile

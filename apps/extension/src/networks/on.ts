@@ -7,8 +7,9 @@
  *   it (`rules.networksAllowed`), as the extension last loaded them for whoever is signed in (../hfos/follow.ts).
  *   While nobody's signed in, or before they load, each network is as its kit starts: Facebook on, as it always was,
  *   and any other off.
- * - **Chrome:** a network whose sites are asked for when it's turned on (`optional`) works only once the person
- *   pressed Allow; Facebook's are the manifest's own.
+ * - **Chrome:** a network whose script is registered while it's on (`registered`: every one but Facebook) works only
+ *   while Chrome lets the extension on its sites. They're let on from install (decision 85), but the person can take
+ *   them back under the extension's Site access in Chrome; Facebook's are the manifest's own.
  *
  * The background keeps the answer in `hfos.networks` (./scripts.ts), where every tab's script reads it, and the panel
  * shows a network on in HandsFreeOS that Chrome hasn't allowed (../panel/networks.ts).
@@ -35,7 +36,7 @@ export interface NetworksSaid {
   readonly rules: { readonly networksAllowed?: readonly Platform[] };
 }
 
-type KitStart = Pick<Kit, 'platform' | 'startsOn' | 'optional'>;
+type KitStart = Pick<Kit, 'platform' | 'startsOn' | 'registered'>;
 
 /**
  * Whether HandsFreeOS says the person works a network, from their settings: on in them, and allowed by the business
@@ -49,7 +50,7 @@ export function onInHfos(kit: KitStart, said: NetworksSaid): boolean {
 
 /**
  * Each network as it stands: on in HandsFreeOS for whoever is signed in (`userId`; the kit's start while nobody is, or
- * their settings aren't loaded yet), and allowed by Chrome (`granted`, for the networks it asks for).
+ * their settings aren't loaded yet), and allowed by Chrome (`granted`, for the networks whose script is registered).
  */
 export function networkStates(
   kits: readonly KitStart[],
@@ -63,7 +64,7 @@ export function networkStates(
       kit.platform,
       {
         on: theirs ? onInHfos(kit, theirs) : kit.startsOn,
-        allowed: !kit.optional || granted[kit.platform] === true,
+        allowed: !kit.registered || granted[kit.platform] === true,
       },
     ]),
   ) as NetworkStates;
@@ -72,7 +73,7 @@ export function networkStates(
 /** Whether the extension works on a network now: on in HandsFreeOS and allowed by Chrome; as its kit starts when untold. */
 export function isWorking(kit: KitStart, states: NetworkStates | null | undefined): boolean {
   const state = states?.[kit.platform];
-  return state ? state.on && state.allowed : kit.startsOn && !kit.optional;
+  return state ? state.on && state.allowed : kit.startsOn && !kit.registered;
 }
 
 /** Whether a value kept as the networks' states looks like one. */

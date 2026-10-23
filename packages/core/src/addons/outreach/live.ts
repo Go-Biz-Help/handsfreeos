@@ -5,7 +5,8 @@
  * - **Computers:** each place the extension runs for a person is a computer, with an id it makes once and a plain name
  *   ("Chrome on Windows"). Settings follow the person; only one computer works at a time, the one they used most
  *   recently (the panel opened there, a step of their own, signing in, Start or Stop pressed there). The others stand
- *   by and say why.
+ *   by and say why. A fresh install takes the place of their computer by the same plain name rather than making
+ *   another (`replacedComputer`), and they can remove the ones they don't use (decision 85).
  * - **The beat:** every minute while Chrome is open, and soon after a change, the extension says it's there, what it
  *   shows (working, waiting, stopped…), its line ("Sending a friend request to Dana Cole…"), the next step's time,
  *   and the steps it took since (`outreach.live.beat`). A beat that changes nothing tells nobody.
@@ -187,6 +188,11 @@ export const LiveBeatInput = z.object({
     version: z.string().trim().max(20).nullable().default(null),
     /** The networks Chrome lets it on (decision 74); null from a build that doesn't say. */
     allowed: z.array(z.enum(PLATFORM_KEYS)).max(PLATFORM_KEYS.length).nullable().default(null),
+    /**
+     * Its id was made since its last answered beat: a fresh install, which takes the place of the person's computer
+     * by the same plain name (`replacedComputer`, decision 85). False from a build before 0.88.0.
+     */
+    fresh: z.boolean().default(false),
   }),
   /** The person used this computer just now: the panel opened, a step of their own, sign-in. */
   active: z.boolean().default(false),
@@ -266,6 +272,19 @@ export const ComputerRenameInput = z.object({
 });
 export type ComputerRenameInput = z.input<typeof ComputerRenameInput>;
 export const ComputerRenameOutput = z.object({ computerId: z.uuid(), name: z.string() });
+
+/** The most computers one remove takes: every one a person could have kept. */
+export const COMPUTERS_REMOVED_MOST = 200;
+export const ComputerRemoveInput = z.object({
+  workspaceId: z.uuid(),
+  /** The computers' row ids: one, or every one standing by. */
+  computerIds: z
+    .array(z.uuid())
+    .min(1, { error: 'Pick a computer to remove.' })
+    .max(COMPUTERS_REMOVED_MOST),
+});
+export type ComputerRemoveInput = z.input<typeof ComputerRemoveInput>;
+export const ComputerRemoveOutput = z.object({ removed: z.array(z.uuid()) });
 
 export const LiveInput = z.object({
   workspaceId: z.uuid(),
@@ -500,6 +519,25 @@ export function computerName(os: string | null | undefined): string {
       return 'Chrome';
   }
 }
+
+/**
+ * The computer a fresh install takes the place of (decision 85): the person's most recently seen one still called by
+ * this plain name, numbered or not ("Chrome on Mac", "Chrome on Mac 30"). Chrome empties the extension's storage when
+ * it's removed, so put in again on the same computer it makes a new id, and once made a new computer each time. One
+ * the person renamed is theirs to remove. Null when there's none.
+ */
+export function replacedComputer<T extends { readonly name: string; readonly lastSeenAt: Date }>(
+  mine: readonly T[],
+  name: string,
+): T | null {
+  const plain = name.toLowerCase();
+  const named = mine.filter((c) => c.name.toLowerCase().replace(/ \d+$/, '') === plain);
+  return named.sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())[0] ?? null;
+}
+
+/** The person's words when a remove takes the computer that works. */
+export const removeWorkingWords = (name: string) =>
+  `${name} is the computer working for you, so it stays. Open the extension’s panel on the computer you use now, then remove this one.`;
 
 /**
  * A new computer's name, numbered when the person has one by that name already: "Chrome on Windows 2". It stays

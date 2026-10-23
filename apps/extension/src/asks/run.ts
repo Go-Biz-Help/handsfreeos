@@ -506,7 +506,7 @@ export function notHereWords(
   if (state && !state.on)
     return `${name} is off for you, so the extension does nothing on it. Turn it on under Social Outreach → Settings in HandsFreeOS, then ask again.`;
   if (state && !state.allowed)
-    return `Chrome hasn’t let the extension on ${name} yet. Press Allow on ${name} in the extension’s panel, then ask again.`;
+    return `Chrome is keeping the extension off ${name}. Press Allow on ${name} in the extension’s panel, then ask again.`;
   return null;
 }
 

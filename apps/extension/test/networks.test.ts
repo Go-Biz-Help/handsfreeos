@@ -141,11 +141,11 @@ describe('a kit per network', () => {
     expect(facebook.workUrl('https://www.linkedin.com/feed/')).toBeNull();
   });
 
-  it('starts with Facebook on from install and LinkedIn off, asked for when it’s turned on', () => {
-    expect(facebook).toMatchObject({ startsOn: true, optional: false });
+  it('starts with Facebook on and LinkedIn off, its script registered only once it’s turned on', () => {
+    expect(facebook).toMatchObject({ startsOn: true, registered: false });
     expect(linkedin).toMatchObject({
       startsOn: false,
-      optional: true,
+      registered: true,
       hosts: ['https://www.linkedin.com/*'],
     });
     // Each network's tabs do its own steps: LinkedIn's, the asks' since 0.40.0.
@@ -196,12 +196,12 @@ describe('LinkedIn’s script', () => {
   it('is registered on LinkedIn’s site once both say so, and kept for the tabs and the panel', async () => {
     store.set(SETTINGS_KEY, settings(true));
     await syncNetworks();
-    // Chrome hasn't allowed it: nothing runs, and the panel shows the line to allow it.
+    // Chrome is keeping it off (its site access taken back): nothing runs, and the panel shows the line to allow it.
     expect(registered.has(id)).toBe(false);
     expect(store.get(NETWORKS_KEY)).toEqual({
       facebook: { on: true, allowed: true },
       linkedin: { on: true, allowed: false },
-      // Off for them, and not allowed by Chrome: never asked for till they're turned on.
+      // Off for them, and kept off by Chrome in this test.
       instagram: { on: false, allowed: false },
       alignable: { on: false, allowed: false },
     });
@@ -391,7 +391,7 @@ describe('the asks on each network', () => {
     expect(
       notHereWords({ platform: 'linkedin' }, { ...both, linkedin: { on: true, allowed: false } }),
     ).toBe(
-      'Chrome hasn’t let the extension on LinkedIn yet. Press Allow on LinkedIn in the extension’s panel, then ask again.',
+      'Chrome is keeping the extension off LinkedIn. Press Allow on LinkedIn in the extension’s panel, then ask again.',
     );
   });
 });
