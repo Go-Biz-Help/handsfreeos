@@ -1831,6 +1831,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       Facebook's own tracking tag (`?fbclid=…`), which it took for a strange address. A photo Facebook didn't
       describe is there, and right with nothing against it; a cover it didn't describe is to check by hand. Every
       link loses the network's tag (`withoutTracking`).
+    - **The names the business goes by** (Chris: "other users will be using it for their business so we need to know
+      what the name of the business we should be looking for in either the offer or playbook"; he picked the main
+      offer). His checks kept saying his profiles named "Go Biz Help, not HandsFreeOS", though Go Biz Help is his
+      company and HandsFreeOS what it sells. The main offer now keeps the names the business goes by (docs/main-offer.md,
+      `main_offer.save_names`), and the check takes every one as the business's, under `<business>`. With none saved
+      it's the business's name in HandsFreeOS, as before.
 
 85. **One extension, one computer, every network from install** (Chris, 23 Oct 2026: "why when i first install the
     Social Outreach extension i have to allow on LinkedIn, Instagram, and Alignable but not on Facebook? Also everytime

@@ -145,6 +145,8 @@ const offerWith = (over: Record<string, unknown> = {}) => ({
   bar: 7,
   revision: 5,
   direction: 'Lead with the AI teammate.',
+  names: ['Lone Star HVAC', 'Cool Breeze Air'],
+  businessName: 'Lone Star HVAC',
   live: LIVE,
   draft: DRAFT,
   ...over,
@@ -330,6 +332,11 @@ describe('everyone else, and what isn’t here', () => {
     );
     expect(screen.getByTestId('main-offer-draft')).toHaveTextContent(
       W.draftBy('Dale Ramsey'),
+      partly,
+    );
+    // The names the business goes by, which the web changes (decision 84 in docs/outreach.md).
+    expect(screen.getByTestId('main-offer-names')).toHaveTextContent(
+      'Lone Star HVAC · Cool Breeze Air',
       partly,
     );
     expect(screen.queryByTestId('offer-footer')).toBeNull();

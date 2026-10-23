@@ -137,6 +137,10 @@ describe('the whole profile, as the AI judges it', () => {
     for (const platform of ['facebook', 'linkedin', 'instagram', 'alignable'] as const) {
       expect(profileCheckSystem(platform)).toContain('a different business, brand or line of work');
       expect(profileCheckSystem(platform)).toContain('never a word in square brackets');
+      // Every name the business goes by is its own (the main offer's names, decision 84).
+      expect(profileCheckSystem(platform)).toContain(
+        'The business goes by every name under <business>',
+      );
       expect(
         (profileCheckAsk(platform).schema as { properties: { look: { required: string[] } } })
           .properties.look.required,

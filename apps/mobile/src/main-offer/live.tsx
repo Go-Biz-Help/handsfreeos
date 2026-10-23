@@ -2,7 +2,9 @@ import {
   clearsBar,
   formatDate,
   MAIN_OFFER_BAR,
+  MAIN_OFFER_NAMES_WORDS as NW,
   MAIN_OFFER_TRY_WORDS as TW,
+  namesGoneBy,
   MAIN_OFFER_WORDS as W,
   partSays,
   SCORED_PART_LABELS,
@@ -24,17 +26,22 @@ type Live = NonNullable<MainOffer['live']>;
 
 /**
  * The live version, to read (design/main-offer, 16): its line, each part with what's working and what's holding it
- * back, the owner's direction, and who uses it. For everyone who can't change the offer, as Settings → Main offer on
- * the web shows them.
+ * back, the owner's direction, the names the business goes by, and who uses it. For everyone who can't change the
+ * offer, as Settings → Main offer on the web shows them; the names are changed there.
  */
 export function LiveOffer({
   live,
   direction,
   comesWith,
+  names = [],
+  businessName = '',
 }: {
   live: Live;
   direction: string | null;
   comesWith: readonly string[];
+  /** The names the business goes by (decision 84 in docs/outreach.md), as saved: none is `businessName`. */
+  names?: readonly string[];
+  businessName?: string;
 }) {
   const clears = clearsBar(live.score);
   return (
@@ -109,6 +116,18 @@ export function LiveOffer({
           </View>
           <Text className="text-[13.5px] leading-[19px]">{direction}</Text>
           <Text className="text-[12.5px] text-text-3">{TW.directionKeptHint}</Text>
+        </Card>
+      ) : null}
+
+      {names.length || businessName ? (
+        <Card className="gap-2 px-4 py-3.5" testID="main-offer-names">
+          <Text className="font-semibold">{NW.title}</Text>
+          <Text className="text-[13.5px] leading-[19px]">
+            {names.length
+              ? namesGoneBy(names, businessName).join(' · ')
+              : NW.usingDefault(businessName)}
+          </Text>
+          <Text className="text-[12.5px] text-text-3">{NW.hint}</Text>
         </Card>
       ) : null}
 

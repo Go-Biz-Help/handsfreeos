@@ -374,10 +374,11 @@ export const PROFILE_CHECK_ASK = 'Score this Facebook profile.';
 const LOOK_RULES = [
   'Then judge the whole profile as a stranger sees it, under look. They want to be seen as a person who does this work, never as a company or a brand page, and the account stays their own.',
   '- reads: person when it plainly reads as a person who does this work; personal when it’s a personal account with little or nothing about the work; brand when it reads as a company or brand more than a person; unclear when there’s too little to tell.',
-  '- work: whether it’s about the work they’re reaching out for, under <main_offer> and <playbooks>. same when it is, whatever business name it uses; other when its name, username, link, bio or work line is about a different business, brand or line of work; none when it says nothing of any work. When it’s other, the first clash says what it’s about instead and that it isn’t the work they’re offering, like “This account is about Smith Bakery, not the roofing leads you’re offering”.',
+  '- work: whether it’s about the work they’re reaching out for, under <main_offer> and <playbooks>. same when it is; other when its name, username, link, bio or work line is about a different business, brand or line of work; none when it says nothing of any work. When it’s other, the first clash says what it’s about instead and that it isn’t the work they’re offering, like “This account is about Smith Bakery, not the roofing leads you’re offering”.',
   '- ok: true only when reads is person and work is same.',
   '- title: one short sentence on how it comes across, to them, like “This looks like a personal account with nothing about your work”.',
   '- clashes: up to 4 short sentences, each one thing that puts people off, has nothing to do with the work, or doesn’t match their other profiles under <other_profiles>: a different name, an old job or business, a username or line about something else. Say each to them, plainly.',
+  'The business goes by every name under <business>, separated by semicolons: a profile that names any of them names the business, so never call one of them a clash, or ask for another of them in its place. A business name that isn’t one of them is another business.',
   '- unlike: which of name, username, line and link don’t match their other profiles, only from what’s given there.',
   'What they’ve said they want, under <notes>, comes first: never write what they said they don’t want.',
 ];

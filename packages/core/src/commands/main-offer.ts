@@ -21,6 +21,7 @@ import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
   clearsBar,
+  cleanNames,
   MAIN_OFFER_BAR,
   MainOfferParts,
   MainOfferScore,
@@ -42,6 +43,8 @@ import {
   MainOfferSaveDirectionOutput,
   MainOfferSaveDraftInput,
   MainOfferSaveDraftOutput,
+  MainOfferSaveNamesInput,
+  MainOfferSaveNamesOutput,
   MainOfferScoreSaveInput,
   MainOfferScoreSaveOutput,
   MainOfferTryApplyInput,
@@ -308,6 +311,43 @@ export const mainOfferSaveDirection = defineCommand({
       broadcast: false,
     });
     return { revision };
+  },
+});
+
+/**
+ * The names the business goes by on people's profiles (docs/outreach.md, decision 84): its company, the brand it
+ * sells. Social Outreach's profile check looks for them; none is its name in HandsFreeOS. Not scored, so no revision
+ * moves.
+ */
+export const mainOfferSaveNames = defineCommand({
+  name: 'main_offer.save_names',
+  description:
+    'Save the names the business goes by on people’s profiles: its company and the brand it sells. Social Outreach’s profile check looks for them; with none, it looks for the business’s name in HandsFreeOS.',
+  risk: 1,
+  input: MainOfferSaveNamesInput,
+  output: MainOfferSaveNamesOutput,
+  permission: 'main_offer.manage',
+  scope: inWorkspace,
+  emits: ['main_offer.names_saved'],
+  async handler(ctx, input) {
+    await requireMainOfferInUse(ctx);
+    const row = await lockOffer(ctx);
+    const names = cleanNames(input.names);
+    if (names.join('\n') === row.names.join('\n')) return { names };
+    await ctx.tx
+      .update(mainOffers)
+      .set({ names })
+      .where(eq(mainOffers.workspaceId, row.workspaceId));
+    await ctx.emit({
+      type: 'main_offer.names_saved',
+      entityType: 'main_offer',
+      entityId: row.workspaceId,
+      payload: { count: names.length },
+      before: { names: row.names },
+      after: { names },
+      broadcast: false,
+    });
+    return { names };
   },
 });
 

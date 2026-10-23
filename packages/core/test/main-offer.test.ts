@@ -14,6 +14,7 @@ import {
   clearsBar,
   MainOfferParts,
   missingParts,
+  namesGoneBy,
   offerLineFrom,
   underBar,
   type MainOfferScore,
@@ -24,6 +25,7 @@ import {
   mainOfferPublish,
   mainOfferSaveDirection,
   mainOfferSaveDraft,
+  mainOfferSaveNames,
   mainOfferScoreSave,
   mainOfferTryApply,
   mainOfferTryList,
@@ -469,5 +471,51 @@ describe('the owner’s direction and the AI’s tries', () => {
     expect(e.message).toContain('from before version 1 went live');
     // The direction stays with the offer after it goes live.
     expect((await ask(mainOfferGet, ws(), t.owner)).direction).toContain('more than a CRM');
+  });
+});
+
+describe('the names the business goes by (docs/outreach.md, decision 84)', () => {
+  let t: Team;
+  const ws = () => ({ workspaceId: t.wsId });
+
+  beforeAll(async () => {
+    t = await setupTeam('main-offer-names');
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${t.wsId}, 'outreach', 'enabled', ${outreachAddon.version})`,
+    );
+  });
+
+  it('are the business’s name in HandsFreeOS until some are saved, each once, by owners and admins', async () => {
+    const first = await ask(mainOfferGet, ws(), t.member);
+    expect(first.names).toEqual([]);
+    expect(first.businessName).toBeTruthy();
+    expect(namesGoneBy(first.names, first.businessName)).toEqual([first.businessName]);
+    await expectHfos(
+      () => run(mainOfferSaveNames, { ...ws(), names: ['Summit Roof Leads'] }, t.member),
+      'forbidden',
+    );
+    // Each once, whatever its case, spaces tidied; no revision moves, as nothing's scored by them.
+    expect(
+      await run(
+        mainOfferSaveNames,
+        { ...ws(), names: [' Summit  Roof Leads ', 'summit roof leads', 'Roof Leads Pro'] },
+        t.owner,
+      ),
+    ).toEqual({ names: ['Summit Roof Leads', 'Roof Leads Pro'] });
+    const got = await ask(mainOfferGet, ws(), t.member);
+    expect(got).toMatchObject({ names: ['Summit Roof Leads', 'Roof Leads Pro'], revision: 0 });
+    expect(namesGoneBy(got.names, got.businessName)).toEqual([
+      'Summit Roof Leads',
+      'Roof Leads Pro',
+    ]);
+    // Too many is refused in words; none goes back to the business's own name.
+    await expectHfos(
+      () => run(mainOfferSaveNames, { ...ws(), names: ['a', 'b', 'c', 'd', 'e', 'f'] }, t.owner),
+      'validation',
+    );
+    expect(await run(mainOfferSaveNames, { ...ws(), names: [] }, t.owner)).toEqual({ names: [] });
+    expect((await ask(mainOfferGet, ws(), t.owner)).names).toEqual([]);
   });
 });

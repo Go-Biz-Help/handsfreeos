@@ -362,6 +362,7 @@ describe('registry', () => {
       'main_offer.score_save',
       'main_offer.publish',
       'main_offer.save_direction',
+      'main_offer.save_names',
       'main_offer.try_save',
       'main_offer.try_apply',
       'partners.save_settings',

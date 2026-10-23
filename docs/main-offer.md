@@ -28,7 +28,7 @@ to 70.
 | Schemas                                | `packages/core/src/schemas/main-offer.ts`                                                                                                                                                                                                                                         |
 | Shown only with an add-on that uses it | `CORE_FEATURES` and the manifest's `uses` (`addons/manifest.ts`); `coreFeatureOn`, `coreFeatureRunning`, `coreFeatureHeld` and `addonsUsing` (`addons/capabilities.ts`)                                                                                                           |
 | The plain-writing rules                | `packages/core/src/writing.ts` (`PLAIN_WRITING`, `noDashes`), Social Outreach's before                                                                                                                                                                                            |
-| Database                               | `20261027006100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`; `20261027007800_main_offer_tries.sql`: the direction, `app.main_offer_tries`                                                                                                                       |
+| Database                               | `20261027006100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`; `20261027007800_main_offer_tries.sql`: the direction, `app.main_offer_tries`; `20261027010800_main_offer_names.sql`: the names                                                                     |
 | The AI's help: prompts and checks      | `packages/core/src/main-offer/assist.ts` (the niche finder, Improve and Write it for me, the score, a try)                                                                                                                                                                        |
 | The AI's routes                        | `apps/worker/src/main-offer/routes.ts` (`/v1/main-offer/niche`, `/assist`, `/score`, `/try`); the scripted stand-in's `MAIN_OFFER_RULES`                                                                                                                                          |
 | Examples by line of work               | `packages/core/src/main-offer/examples.ts`                                                                                                                                                                                                                                        |
@@ -62,6 +62,14 @@ to 70.
 - **The direction** (`main_offer.save_direction`): the owner's own words for the whole offer, up to 2,000 characters,
   on `app.main_offers`. Empty clears it. Saving it moves the revision on, so a score from before is stale and the
   draft is scored again against it. It stays with the offer after a version goes live.
+- **The names the business goes by** (`main_offer.save_names`, `main_offer.manage`; Chris, 23 Oct 2026: other
+  businesses use HandsFreeOS for their own, so the profile check needs to know the name to look for): up to 5, each
+  up to 100 characters, on `app.main_offers` (`names`). Its company and the brand it sells, like "Go Biz Help" and
+  "HandsFreeOS". Each is kept once, whatever its case. None means the business's name in HandsFreeOS
+  (`namesGoneBy`), which `main_offer.get` returns beside them (`businessName`). They aren't scored or versioned, so
+  saving them moves no revision. Social Outreach's profile check takes every one as the business's (docs/outreach.md,
+  decision 84). Settings → Main offer shows them for everyone, and owners and admins add and remove them there, each
+  change saved at once (`components/main-offer/names.tsx`); the phone shows them on the live offer.
 - **A try** (`main_offer.try_save`, the worker's alone): a whole new version of the offer the AI wrote from the draft,
   the direction, the owner's notes on its parts and the parts to keep, with its own score, kept in
   `app.main_offer_tries` for the revision it read (`saved: false` when the draft moved on). It keeps the draft it
@@ -73,7 +81,7 @@ to 70.
   is refused (`main_offer_try_gone`), and so is one with no draft (`main_offer_no_draft`).
 - **Reading** (`main_offer.get`, `main_offer.versions`, `main_offer.tries`): everyone in the business. `get` says
   whether an add-on that uses it is on (`inUse`), which add-ons bring it (`comesWith`), the bar, the revision, the
-  direction, the live version and the draft with its score and what it still needs. `tries` lists the round's, the
+  direction, the names and the business's name, the live version and the draft with its score and what it still needs. `tries` lists the round's, the
   newest first, up to 20.
 - **Shown only with an add-on that uses it:** an add-on's manifest names the parts of core it uses (`uses:
 ['main_offer']`, Social Outreach's today). Core's capability `sales.main_offer` is in `workspace.get`'s capabilities

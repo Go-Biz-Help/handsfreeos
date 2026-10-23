@@ -427,6 +427,23 @@ export const MAIN_OFFER_TRY_WORDS = {
   editDirection: 'Edit your direction',
 } as const;
 
+/**
+ * The names the business goes by on people's profiles (docs/outreach.md, decision 84), beside the live offer: what
+ * Social Outreach's profile check looks for.
+ */
+export const MAIN_OFFER_NAMES_WORDS = {
+  title: 'Names you go by',
+  hint: 'The names people should see on your profiles: your company, and the brand you sell if it’s different. Social Outreach checks your profiles for them.',
+  usingDefault: (name: string) =>
+    `None added yet, so it looks for “${name}”, your business’s name here.`,
+  label: 'Add a name',
+  placeholder: 'Like your company or brand',
+  add: 'Add',
+  remove: (name: string) => `Remove ${name}`,
+  saved: 'Names saved',
+  most: (n: number) => `Up to ${n} names.`,
+} as const;
+
 /** "Under 7: who and guarantee", lowest first, or "Every part scores 7 or more": the score at a glance. */
 export function underBarTitle(score: MainOfferScore): string {
   const under = underBar(score);

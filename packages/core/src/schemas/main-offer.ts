@@ -66,6 +66,24 @@ export const MainOfferSaveDirectionInput = z.object({
 });
 export const MainOfferSaveDirectionOutput = z.object({ revision: z.int() });
 
+/**
+ * The names the business goes by on people's profiles (docs/outreach.md, decision 84): its company, the brand it
+ * sells. None is its name in HandsFreeOS.
+ */
+export const MainOfferSaveNamesInput = z.object({
+  workspaceId: uuid,
+  names: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1, 'Type a name, or remove the empty one.')
+        .max(MAIN_OFFER_LIMITS.name, `Keep each name under ${MAIN_OFFER_LIMITS.name} characters.`),
+    )
+    .max(MAIN_OFFER_LIMITS.names, `Up to ${MAIN_OFFER_LIMITS.names} names.`),
+});
+export const MainOfferSaveNamesOutput = z.object({ names: z.array(z.string()) });
+
 /** The worker's alone: a try the AI wrote from the draft at this revision, with its score. */
 export const MainOfferTrySaveInput = z.object({
   workspaceId: uuid,
@@ -159,6 +177,13 @@ export const MainOfferGetOutput = z.object({
   revision: z.int(),
   /** The owner's direction for the whole offer, read by every score and try; null when they gave none. */
   direction: z.string().nullable(),
+  /**
+   * The names the business goes by on people's profiles, as saved; none is `businessName`. Both default, so a phone
+   * read from an API without them still parses.
+   */
+  names: z.array(z.string()).default([]),
+  /** The business's name in HandsFreeOS: the one that stands while no names are saved. */
+  businessName: z.string().default(''),
   live: MainOfferVersionOut.nullable(),
   draft: z
     .object({
