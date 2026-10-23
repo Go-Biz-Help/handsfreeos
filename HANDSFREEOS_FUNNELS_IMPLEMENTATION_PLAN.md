@@ -28,18 +28,19 @@ pieces.
 
 ## Picks to confirm
 
-| Question                             | Pick                                                                                                                                                          |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What a personal link shows           | The first name in full. Email and phone show partly hidden ("we'll text 512-•••-0134, change it"), since a forwarded link would otherwise show them to anyone |
-| How long a personal link works       | 30 days, then it opens as the plain link (they type their details again)                                                                                      |
-| Loom and other players               | YouTube and Vimeo first: both report how far somebody got. Loom plays but can't gate or track, so the editor says so                                          |
-| How strict the video gate is         | A nudge, not proof: the viewer's browser reports progress, so a determined person can fake it. Good enough for "please watch first"                           |
-| When "stopped partway" fires         | 30 minutes with no activity on a started sheet whose person we know. Once per page reached, so coming back and stopping later fires again                     |
-| Missed Facebook leads                | Webhooks first, plus an hourly catch-up that asks Meta for each connected form's newest leads, since Meta can drop a webhook                                  |
-| How the AI reads Indeed's emails     | The AI pulls out the details, not fixed patterns, so a change to Indeed's layout doesn't break it                                                             |
-| How we know who joined the Zoom call | Each attendee gets their own Zoom join link when the host's Zoom plan allows registration; otherwise our own tracked Join link, matched by name too           |
-| When an attendee counts as a no-show | They never joined by the session's end. "Joined" is marked as it happens, so a workflow can text only the people who haven't joined 5 minutes in              |
-| The phone app                        | A form with a video or a booking step shows "open this one on the web", like a file or a payment does today. Staff don't fill funnels in on the phone         |
+| Question                             | Pick                                                                                                                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What a personal link shows           | The first name in full. Email and phone show partly hidden ("we'll text 512-•••-0134, change it"), since a forwarded link would otherwise show them to anyone               |
+| How long a personal link works       | 30 days, then it opens as the plain link (they type their details again)                                                                                                    |
+| Loom and other players               | YouTube and Vimeo first: both report how far somebody got. Loom plays but can't gate or track, so the editor says so                                                        |
+| How strict the video gate is         | A nudge, not proof: the viewer's browser reports progress, so a determined person can fake it. Good enough for "please watch first"                                         |
+| When "stopped partway" fires         | 30 minutes with no activity on a started sheet whose person we know. Once per page reached, so coming back and stopping later fires again                                   |
+| Missed Facebook leads                | Webhooks first, plus an hourly catch-up that asks Meta for each connected form's newest leads, since Meta can drop a webhook                                                |
+| How the AI reads Indeed's emails     | The AI pulls out the details, not fixed patterns, so a change to Indeed's layout doesn't break it                                                                           |
+| How we know who joined the Zoom call | Each attendee gets their own Join link on the business's domain (or ours), which records the click and sends them on to Zoom. Zoom's own join events come later, as a check |
+| What a click counts as               | "Clicked Join", not "in the call". Link previews and email scanners open links too, so only a real browser in the session's window counts                                   |
+| When an attendee counts as a no-show | They never clicked Join by the session's end. A click is marked as it happens, so a workflow can text only the people who haven't clicked 5 minutes in                      |
+| The phone app                        | A form with a video or a booking step shows "open this one on the web", like a file or a payment does today. Staff don't fill funnels in on the phone                       |
 
 ## What's already there
 
@@ -175,15 +176,24 @@ needs it per person.
 - **New workflow triggers,** each for that one person: `attendee.joined` ("Somebody joins a session"),
   `attendee.attended` and `attendee.no_show`. With a wait on `attendee.joined` and a 5-minute timeout, "Were you able
   to log on?" goes only to the people who haven't.
-- **How we know they joined:**
-  - **Their own Zoom link** where the host's Zoom plan allows registration: each attendee is a registrant, and
-    Zoom's `meeting.participant_joined` events name the registrant. Exact.
-  - **Otherwise our tracked Join link** in the confirmation and reminders (`/j/<key>`, redirecting to the meeting).
-    A click counts as joined, and a Zoom participant whose name matches confirms it. Works for Google Meet too.
-- **At the session's end** everyone booked who never joined becomes `no_show`, and everyone who did `attended`.
-- **Zoom's side:** the link-making Zoom app subscribes to `meeting.participant_joined` and `meeting.participant_left`
-  on the existing `/webhooks/zoom`, and may need `meeting:read` for registrants. A Zoom app change can mean another
-  Zoom review, so start it early.
+- **How we know they joined: their own Join link.** Each attendee's confirmation, reminders and the workflow's
+  texts carry `/j/<key>` instead of the Zoom address. It's on the business's own domain when one is serving
+  (`publicOrigin`, as form links are), so it reads as theirs ("book.yourbusiness.com/j/…", the same address their forms use), and on ours otherwise.
+  Opening it records who and when, then sends them on to the meeting. It needs no paid Zoom plan and no Zoom review,
+  works the same for Google Meet, and keeps the meeting's real address out of texts.
+  - **One key per attendee,** kept only as a hash, as with every other link. It works from an hour before the session
+    to its end; outside that it shows the session's time instead of sending them on.
+  - **Only a person counts.** Text apps and email scanners open links to make previews, which would mark everyone as
+    joined. So the link answers with a small "Joining your session…" page that sends the browser on with a script:
+    previews don't run it, and known preview and scanner visitors are left out too.
+  - **A forwarded link** still records against the attendee it was made for. That's rare and harmless here.
+  - **A click isn't "in the call".** Somebody can click and get stuck, which is exactly when "Were you able to log
+    on?" helps. Staff can still tick attendance by hand.
+- **At the session's end** everyone booked who never clicked becomes `no_show`, and everyone who did `attended`.
+- **Later, as a check: Zoom's own events.** The link-making Zoom app can subscribe to `meeting.participant_joined`
+  and `meeting.participant_left` on the existing `/webhooks/zoom`, matched to attendees by registrant (where the
+  host's plan allows registration) or name. That turns "clicked" into "was in the call for 40 minutes". It needs a
+  Zoom app change and maybe another Zoom review, so it's the last stage, not a blocker.
 
 ## The database
 
@@ -204,7 +214,7 @@ The hosted database gets each migration before `main` does ("Apply new migration
 - **Meta:** App Review for the lead permissions, with a screencast of a test lead arriving. This can take days or
   weeks, so submit as soon as stage 4 works on the stand-in. Add a "Lead ads" part to "Facebook and Instagram
   messages: Meta" in `docs/operations.md`, and a line to the privacy page's `#meta` section.
-- **Zoom:** the participant events and any new scope on the link-making app, and its review.
+- **Zoom (last stage only):** the participant events and any new scope on the link-making app, and its review.
 - **Nothing for Indeed** beyond a forwarding rule in the business's own inbox when it isn't connected.
 
 ## Build order
@@ -217,8 +227,8 @@ Staged PRs, each shippable:
    for leads.
 4. **Facebook lead ads** on the stand-in, then App Review. Zapier drops off once approved.
 5. **Indeed by email.**
-6. **Attendance:** per-attendee marking and triggers first (staff can tick), then tracked Join links, then Zoom's
-   events.
+6. **Attendance:** per-attendee marking and triggers with the tracked Join links (staff can tick too). Zoom's own
+   events follow as a separate PR once Zoom approves.
 
 Run `pnpm openapi` after each new command or query.
 
@@ -231,7 +241,8 @@ Run `pnpm openapi` after each new command or query.
   the new person; attendance per attendee under RLS.
 - **Worker:** a Facebook lead webhook fetches, dedupes and records consent; the catch-up finds a lead the webhook
   missed; an Indeed email becomes a lead and a non-applicant Indeed email doesn't; the stopped job fires once per
-  page; Zoom participant events mark the right attendee.
+  page; a Join link records the right attendee, ignores a link preview, and serves on the business's domain; Zoom
+  participant events mark the right attendee.
 - **Browser (`apps/web/e2e/funnel.spec.ts`):** a personal link skips the name, the video holds Next until 80% on the
   stand-in player, the contact saves at step 3, a session books inside the form, and the confirmation carries the
   Zoom link.
