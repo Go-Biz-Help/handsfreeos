@@ -12,7 +12,6 @@ import { SETUP_OPENED_KEY, SETUP_REPORTED_KEY } from '../src/hfos/setup';
 import { WAITING_TOLD_KEY } from '../src/hfos/waiting';
 import { FILE_KEY } from '../src/jobs/file';
 import { FOLLOW_BACKS_KEY } from '../src/jobs/instagram/follow-backs';
-import { FOLLOWERS_KEY } from '../src/jobs/instagram/people';
 
 const BUSINESS = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
 const store = new Map<string, unknown>();
@@ -56,7 +55,8 @@ describe('starting fresh', () => {
       SETUP_OPENED_KEY,
       SETUP_REPORTED_KEY,
       FILE_KEY,
-      FOLLOWERS_KEY,
+      // The Instagram followers newest at the last save, kept by 0.85.0 to 0.88.0.
+      'hfos.followersRead',
       FOLLOW_BACKS_KEY,
     ])
       expect(KEPT_FOR_BUSINESS).toContain(key);

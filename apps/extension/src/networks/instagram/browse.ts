@@ -1,7 +1,9 @@
 /**
  * Going through Instagram's lists for the person's asks (the Instagram and Alignable plan's part 12): their followers,
  * which Instagram draws in a box over their profile (/<you>/followers/), a few rows at a time as the box is scrolled.
- * Each call scrolls the box most of its height, as a person reading the list does; nothing is pressed. Where Instagram
+ * Each call scrolls a box most of its height, as a person reading the list does; the box of followers, which keeps
+ * every row it has drawn, to its end, so each screen draws the next rows whatever the box's height (0.89.0: most of a
+ * short box's height drew a few followers a screen). Nothing is pressed. Where Instagram
  * doesn't open the box from its address, their account's count of followers is pressed to open it, as a person does
  * (0.84.0: its counts aren't links to the list now). And a chat opened from the side of their messages, whose rows
  * aren't links (the owner's Check, 0.62.0): for Check Instagram, and, from part 13, for Read my chats, which also
@@ -28,17 +30,24 @@ function scrollerIn(box: Element): HTMLElement | null {
   return null;
 }
 
+/** Instagram's own mark for rows still on their way, by its label or role. */
+const loadingIn = (box: Element): boolean =>
+  box.querySelector('[role="progressbar"], [aria-label^="loading" i]') !== null;
+
 /**
- * Scrolls the box over the page (their followers) down most of its height for Instagram to draw more of the list;
- * with no box, the page itself. Whether there was more to go: none once the list has ended.
+ * Scrolls the box over the page down most of its height for Instagram to draw more of the list, or to its end (their
+ * followers, `toEnd`); with no box, the page itself. Whether there was more to go: none once the list has ended, and
+ * so not while Instagram still shows it's drawing more.
  */
-export function scrollDialog(doc: Document): boolean {
+export function scrollDialog(doc: Document, toEnd = false): boolean {
   const box = doc.querySelector('[role="dialog"]');
   const scroller = box ? scrollerIn(box) : null;
   if (scroller) {
     const room = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
-    if (room <= 4) return false;
-    scroller.scrollBy({ top: Math.max(200, scroller.clientHeight * SCREEN), behavior: 'smooth' });
+    if (room <= 4) return toEnd && loadingIn(box!);
+    if (toEnd) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+    else
+      scroller.scrollBy({ top: Math.max(200, scroller.clientHeight * SCREEN), behavior: 'smooth' });
     return true;
   }
   if (box) return false;
@@ -90,11 +99,14 @@ export function scrollChats(doc: Document): boolean {
   return false;
 }
 
-/** A list on the page for the person's asks: their chats on their messages' pages, else the box over the page. */
+/**
+ * A list on the page for the person's asks: their chats on their messages' pages, else the box over the page, their
+ * followers' to its end.
+ */
 export const scrollList = (doc: Document, href: string): boolean =>
   /^\/direct\//.test(new URL(href).pathname) && chatRowsIn(doc).length
     ? scrollChats(doc)
-    : scrollDialog(doc);
+    : scrollDialog(doc, followersBox(doc, href) !== null);
 
 /**
  * Opens the box of their followers over their own account when Instagram didn't from its address: a press of the

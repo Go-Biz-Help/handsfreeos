@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.88.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.89.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -188,6 +188,17 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
   the hashtag's posts for one tagged at a place instead.
 - **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
   button among your highlights is no highlight.
+
+From 0.89.0 (the owner's save of 23 Oct 2026 read 87 followers in twelve minutes, and started over from the top):
+
+- **Its window is in front while it reads your followers,** then yours is put back: Instagram draws more of the box
+  only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another.
+- **It scrolls the box to its end each screen,** still 8 to 15 seconds apart, so each screen draws the next rows
+  whatever the box's height: the newest 200 take a few minutes. The box keeps every row it drew, so none is skipped.
+- **HandsFreeOS says where the last save got to,** not this computer. Each screen is saved as it's read, and a later
+  save stops at a screen whose followers were all saved before, so a new install or another computer stops there too
+  (`hfos.followersRead` isn't kept now; a fresh start forgets the old one). A save stopped part way keeps what it read,
+  and the next one reads only those new since.
 
 From 0.88.0 (the owner, 23 Oct 2026, docs/outreach.md decision 85) it's one extension, one computer, every network:
 
