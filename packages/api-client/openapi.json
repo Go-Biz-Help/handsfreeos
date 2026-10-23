@@ -90995,6 +90995,22 @@
                                         "unclear"
                                       ]
                                     },
+                                    "work": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "same",
+                                            "other",
+                                            "none"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "ok": {
                                       "type": "boolean"
                                     },
@@ -91027,6 +91043,7 @@
                                   },
                                   "required": [
                                     "reads",
+                                    "work",
                                     "ok",
                                     "title",
                                     "clashes",
@@ -92049,6 +92066,22 @@
                                         "unclear"
                                       ]
                                     },
+                                    "work": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "same",
+                                            "other",
+                                            "none"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "ok": {
                                       "type": "boolean"
                                     },
@@ -92081,6 +92114,7 @@
                                   },
                                   "required": [
                                     "reads",
+                                    "work",
                                     "ok",
                                     "title",
                                     "clashes",
@@ -92966,6 +93000,22 @@
                                 "unclear"
                               ]
                             },
+                            "work": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "same",
+                                    "other",
+                                    "none"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "ok": {
                               "type": "boolean"
                             },
@@ -92998,6 +93048,7 @@
                           },
                           "required": [
                             "reads",
+                            "work",
                             "ok",
                             "title",
                             "clashes",
@@ -93785,6 +93836,22 @@
                                         "unclear"
                                       ]
                                     },
+                                    "work": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "same",
+                                            "other",
+                                            "none"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "ok": {
                                       "type": "boolean"
                                     },
@@ -93817,6 +93884,7 @@
                                   },
                                   "required": [
                                     "reads",
+                                    "work",
                                     "ok",
                                     "title",
                                     "clashes",
@@ -192638,6 +192706,22 @@
                                         "unclear"
                                       ]
                                     },
+                                    "work": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "same",
+                                            "other",
+                                            "none"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
                                     "ok": {
                                       "type": "boolean"
                                     },
@@ -192670,6 +192754,7 @@
                                   },
                                   "required": [
                                     "reads",
+                                    "work",
                                     "ok",
                                     "title",
                                     "clashes",
@@ -193527,6 +193612,22 @@
                                             "unclear"
                                           ]
                                         },
+                                        "work": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "same",
+                                                "other",
+                                                "none"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "ok": {
                                           "type": "boolean"
                                         },
@@ -193559,6 +193660,7 @@
                                       },
                                       "required": [
                                         "reads",
+                                        "work",
                                         "ok",
                                         "title",
                                         "clashes",
@@ -194158,6 +194260,22 @@
                                             "unclear"
                                           ]
                                         },
+                                        "work": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "same",
+                                                "other",
+                                                "none"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "ok": {
                                           "type": "boolean"
                                         },
@@ -194190,6 +194308,7 @@
                                       },
                                       "required": [
                                         "reads",
+                                        "work",
                                         "ok",
                                         "title",
                                         "clashes",
@@ -194789,6 +194908,22 @@
                                             "unclear"
                                           ]
                                         },
+                                        "work": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "same",
+                                                "other",
+                                                "none"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "ok": {
                                           "type": "boolean"
                                         },
@@ -194821,6 +194956,7 @@
                                       },
                                       "required": [
                                         "reads",
+                                        "work",
                                         "ok",
                                         "title",
                                         "clashes",
@@ -195420,6 +195556,22 @@
                                             "unclear"
                                           ]
                                         },
+                                        "work": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "same",
+                                                "other",
+                                                "none"
+                                              ]
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "ok": {
                                           "type": "boolean"
                                         },
@@ -195452,6 +195604,7 @@
                                       },
                                       "required": [
                                         "reads",
+                                        "work",
                                         "ok",
                                         "title",
                                         "clashes",

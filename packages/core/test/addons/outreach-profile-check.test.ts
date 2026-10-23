@@ -141,6 +141,7 @@ describe('the AI’s answer, checked', () => {
         // The whole profile's look, and the names and usernames to use (decision 84).
         look: {
           reads: 'personal',
+          work: 'other',
           ok: false,
           title: words(160),
           clashes: [1, 2, 3, 4].map(() => words(240)),

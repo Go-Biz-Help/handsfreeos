@@ -22,6 +22,7 @@ describe('reading your own profile', () => {
         picture: 'May be an image of 1 person, smiling',
         cover: "May be an image of text that says 'Roofs done right'",
         bio: 'Dad, golfer, coffee',
+        links: [],
         intro: ['Owner at Summit Roof Leads', 'Lives in Columbus, Ohio'],
         featured: [
           'Booked 14 inspections in 30 days',
@@ -34,6 +35,46 @@ describe('reading your own profile', () => {
 
   it('knows it’s your own: Edit profile, not Add friend', () => {
     expect(readPage(load('own-profile.html', URL), URL).profile?.friendship).toBe('self');
+  });
+});
+
+describe('reading your own profile in October 2026’s layout', () => {
+  // Rebuilt from an owner's page outline of 23 Oct 2026, which 0.87.0 took for someone else's profile.
+  const PAGE = 'own-profile-2026-10.html';
+
+  it('knows it’s your own by Edit profile, now a link that says “Edit”', () => {
+    for (const doc of [load(PAGE, URL), boxEverything(load(PAGE, URL))])
+      expect(readPage(doc, URL).profile?.friendship).toBe('self');
+  });
+
+  it('reads the bio above the details, the cards for its intro, and the Links card', () => {
+    for (const doc of [load(PAGE, URL), boxEverything(load(PAGE, URL))]) {
+      expect(readOwnProfile(doc, URL, classifyUrl(URL))).toEqual({
+        url: 'https://www.facebook.com/casey.owner.7',
+        name: 'Casey Owner',
+        // Neither has a description on this page.
+        picture: 'A picture Facebook didn’t describe',
+        cover: null,
+        bio: 'Dad, golfer, coffee. I help Columbus roofers book more inspections.',
+        // Facebook's l.php wrapper taken off.
+        links: ['https://summitroofleads.com/'],
+        intro: [
+          'Lives in Columbus, Ohio',
+          'Summit Roof Leads',
+          'From Dayton, Ohio',
+          'Joined March 2011',
+          'Owner at Summit Roof Leads March 2019 to present',
+          'Studied business at Ohio State University',
+        ],
+        featured: [],
+        posts: ['Another roof done before the storm. Proud of the crew.'],
+      });
+    }
+  });
+
+  it('has no Edit bio, so a new bio is handed to the person', async () => {
+    const doc = load(PAGE, URL);
+    expect(await writeBio(doc, 'I help roofers fill their calendars.')).toBe('none');
   });
 });
 

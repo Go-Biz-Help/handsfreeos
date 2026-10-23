@@ -111,11 +111,94 @@ describe('the whole profile, as the AI judges it', () => {
     expect(prompt).toContain('- username: Just my name.');
     expect(prompt).toContain('username: caseyskates22');
     expect(prompt.endsWith('Score this Instagram profile.')).toBe(true);
+    // Not known: said so, never left for the AI to fill in.
+    expect(prompt).toContain('<you>(not known)</you>');
+  });
+
+  it('weighs the work against the network’s playbooks, and writes names from the person’s own', () => {
+    const prompt = profileCheckPrompt(ig, null, {
+      business: 'Summit Roof Leads',
+      you: 'Casey Lee',
+      playbooks: [
+        {
+          name: 'Roofers in Columbus',
+          offer: 'A free 15-minute call',
+          audience: 'Owners of roofing companies',
+          niche: 'Roofers with 2 to 10 crew',
+        },
+      ],
+      others: [],
+      notes: {},
+    });
+    expect(prompt).toContain('<you>Casey Lee</you>');
+    expect(prompt).toContain('- Roofers in Columbus: A free 15-minute call');
+    expect(prompt).toContain('niche: Roofers with 2 to 10 crew');
+    for (const platform of ['facebook', 'linkedin', 'instagram', 'alignable'] as const) {
+      expect(profileCheckSystem(platform)).toContain('a different business, brand or line of work');
+      expect(profileCheckSystem(platform)).toContain('never a word in square brackets');
+      expect(
+        (profileCheckAsk(platform).schema as { properties: { look: { required: string[] } } })
+          .properties.look.required,
+      ).toContain('work');
+    }
+  });
+
+  it('is never right when it’s about another business, even as a person', () => {
+    const other = checkedProfileCheck(
+      {
+        ...igAnswer,
+        look: {
+          reads: 'person',
+          work: 'other',
+          ok: true,
+          title: 'This reads as a person, but for a different business.',
+          clashes: ['This account is about Smith Bakery, not the roofing leads you’re offering.'],
+          unlike: [],
+        },
+      } as never,
+      ig,
+      '2026-10-23T10:00:00.000Z',
+      1,
+    );
+    expect(other.look).toMatchObject({ reads: 'person', work: 'other', ok: false });
+    expect(other.look?.clashes[0]).toContain('Smith Bakery');
+    const same = checkedProfileCheck(
+      { ...igAnswer, look: { ...igAnswer.look, reads: 'person', work: 'same', ok: true } } as never,
+      ig,
+      '2026-10-23T10:00:00.000Z',
+      1,
+    );
+    expect(same.look).toMatchObject({ work: 'same', ok: true });
+  });
+
+  it('never keeps a name or username with a blank to fill in', () => {
+    const blanks = checkedProfileCheck(
+      {
+        ...igAnswer,
+        nameDraft: '[First name] | Helps [who] get [result]',
+        names: ['[First name] | Roofing in Columbus', 'Casey Lee | Roofing leads'],
+        usernames: ['[first.name].roofs', 'casey.lee.roofs'],
+      } as never,
+      ig,
+      '2026-10-23T10:00:00.000Z',
+      1,
+    );
+    expect(blanks.nameDraft).toBeNull();
+    expect(blanks.names).toEqual(['Casey Lee | Roofing leads']);
+    expect(blanks.usernames).toEqual([{ value: 'casey.lee.roofs', free: null }]);
+    expect(checkedMore('instagram', 'name', ['[First name] | Roofs', 'Casey | Roofs'], [])).toEqual(
+      ['Casey | Roofs'],
+    );
+    expect(checkedMore('instagram', 'username', ['[casey].roofs', 'casey.roofs'], [])).toEqual([
+      'casey.roofs',
+    ]);
   });
 
   it('is right only as a person who does this work, and keeps what it read of the parts compared', () => {
     expect(check.look).toEqual({
       reads: 'personal',
+      // Not asked of this answer: a check from before it was.
+      work: null,
       // Only `person` is right, whatever the AI said.
       ok: false,
       title: 'This looks like a personal account with nothing about your work, yet.',
@@ -362,6 +445,29 @@ describe('side by side', () => {
       ok: false,
       values: { name: 'Case', username: 'caseyskates22', link: null },
       off: ['name', 'username', 'link'],
+    });
+  });
+
+  it('shows Alignable beside the rest, and a network that’s on but not read yet', () => {
+    const alignable = ProfileCheck.parse({
+      ...check,
+      seen: {
+        url: 'https://www.alignable.com/columbus-oh/summit-roof-leads',
+        name: 'Casey Lee',
+        username: null,
+        line: null,
+        links: [],
+      },
+    });
+    const cols = profileMatch(known({ checks: { ...known().checks, alignable } }), [
+      'facebook',
+      'linkedin',
+    ]);
+    expect(cols.map((c) => c.platform)).toEqual(['facebook', 'linkedin', 'instagram', 'alignable']);
+    expect(cols[1]).toMatchObject({ platform: 'linkedin', checked: false, ok: null });
+    expect(cols[3]).toMatchObject({
+      checked: true,
+      values: { name: 'Casey Lee', username: null },
     });
   });
 });

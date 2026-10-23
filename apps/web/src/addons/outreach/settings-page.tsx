@@ -253,7 +253,12 @@ function SettingsPages({
             statuses={statuses}
           />
           {/* Their own profiles on every network, side by side (decision 84). */}
-          {mine ? <ProfilesSideBySide workspaceId={workspaceId} /> : null}
+          {mine ? (
+            <ProfilesSideBySide
+              workspaceId={workspaceId}
+              networks={networksOn(person.value, rules.networksAllowed)}
+            />
+          ) : null}
         </>
       )}
     </div>

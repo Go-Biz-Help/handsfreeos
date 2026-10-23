@@ -212,7 +212,7 @@ describe('your profile, checked by the AI', () => {
 
   it('says how the whole profile comes across, and keeps the parts shown side by side', async () => {
     const got = (await check(owner)).json();
-    expect(got.look).toMatchObject({ reads: 'person', ok: true });
+    expect(got.look).toMatchObject({ reads: 'person', work: 'same', ok: true });
     expect(got.seen).toMatchObject({ name: 'Casey Owner', line: 'I help roofers get booked jobs' });
   });
 

@@ -5,11 +5,18 @@
  * the person's setup row (`outreach.profile.check_save`). What the page said goes no further than this call, but the
  * parts shown side by side (decision 84). It counts against the business's daily AI limit like any other use.
  *
- * The whole profile (decision 84): the AI also has the business's name, the person's other profiles as their last
- * checks read them, and what they've said they want of each part, so it can say how the profile comes across and what
- * clashes. Show me more (`outreach.profile.more`) writes three more of one part, with the person's note.
+ * The whole profile (decision 84): the AI also has the business's name, the person's own name, the playbooks that run
+ * on the network, the person's other profiles as their last checks read them, and what they've said they want of each
+ * part, so it can say how the profile comes across, whether it's about the work they offer, and what clashes. Show me
+ * more (`outreach.profile.more`) writes three more of one part, with the person's note.
  */
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
+import {
+  PlaybookDetails,
+  runsOn,
+  upgradePlaybookDetails,
+} from '@hfos/core/addons/outreach/playbooks';
 import { profileCheckSave, profileMoreSave } from '@hfos/core/addons/outreach/ops/readiness';
 import {
   checkedProfileCheck,
@@ -54,17 +61,40 @@ async function profileContext(
   platform: Platform,
 ): Promise<{ readonly context: ProfileContext; readonly before: ProfileCheck | null }> {
   const ws = ctx.scope.workspaceId!;
-  const { business, row } = await asWorker(ctx.db, ctx.scope, async (tx) => {
+  const { business, you, row, kept } = await asWorker(ctx.db, ctx.scope, async (tx) => {
     const [b] = await rows<{ name: string }>(
       tx,
       sql`select name from app.workspaces where id = ${ws}`,
+    );
+    const [u] = await rows<{ full_name: string | null }>(
+      tx,
+      sql`select full_name from app.users where id = ${ctx.userId}`,
     );
     const [r] = await rows<{ profile_check: unknown; network_profiles: unknown }>(
       tx,
       sql`select profile_check, network_profiles from addon_outreach.setup
           where workspace_id = ${ws} and user_id = ${ctx.userId}`,
     );
-    return { business: b, row: r };
+    const p = await rows<{ name: string; details: unknown }>(
+      tx,
+      sql`select name, details from addon_outreach.playbooks
+          where workspace_id = ${ws} and archived_at is null and ${FOR_CUSTOMERS} order by created_at`,
+    );
+    return { business: b, you: u, row: r, kept: p };
+  });
+  // The playbooks that run on this network, for whether the profile is about the work they offer there.
+  const playbooks = kept.flatMap((p) => {
+    const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
+    return read.success && runsOn(read.data, platform)
+      ? [
+          {
+            name: p.name,
+            offer: read.data.offer,
+            audience: read.data.audience,
+            niche: read.data.niche ?? null,
+          },
+        ]
+      : [];
   });
   const others = (row?.network_profiles ?? {}) as Record<string, { check?: unknown } | undefined>;
   const checkOn = (p: Platform): ProfileCheck | null =>
@@ -73,6 +103,8 @@ async function profileContext(
   return {
     context: {
       business: business?.name ?? null,
+      you: you?.full_name?.trim() || null,
+      playbooks,
       others: PLATFORM_KEYS.filter((p) => p !== platform).flatMap((p) => {
         const seen = checkOn(p)?.seen;
         return seen ? [{ platform: p, seen }] : [];
@@ -159,6 +191,7 @@ export const profileMore: AddonWorkerAction<ProfileMoreInput> = {
               part: input.part,
               offer: live?.offer ?? null,
               business: context.business,
+              you: context.you ?? null,
               seen: check.seen ?? null,
               before,
               notes: [...(check.notes?.[input.part] ?? []), ...(note ? [note] : [])],

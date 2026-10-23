@@ -516,6 +516,7 @@ describe('Get ready on the phone', () => {
         usernames: [{ value: 'chris.roofs', free: true }],
         look: {
           reads: 'personal',
+          work: 'none',
           ok: false,
           title: 'This looks like a personal account with nothing about your work.',
           clashes: ['Your name here is a nickname.'],

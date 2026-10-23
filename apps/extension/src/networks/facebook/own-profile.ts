@@ -6,6 +6,9 @@
  *   image of 1 person, smiling"), the short bio, the intro's lines, what's featured, and the latest posts. The picture
  *   and the cover are told apart by what labels them ("Cover photo", "Profile picture"), else by order: the cover
  *   comes first at the top. The bio is the line above **Edit bio**; with **Add bio** there's none.
+ * - **October 2026's layout** (from an owner's page outline of 23 Oct 2026): no Edit bio and no Intro card. The bio is
+ *   the line above the details row at the top; the Personal details, Work and Education cards after the tabs are its
+ *   intro, and the Links card its links (Facebook's l.php wrapper taken off).
  * - **Putting a bio in:** it presses **Edit bio** (or **Add bio**), writes the bio in the box that opens in place of
  *   what was there, presses **Save**, and waits for the bio to show. With no such button, or no box, it says so, and
  *   the job hands the step to the person.
@@ -14,7 +17,7 @@
  * names, and was tuned from page outlines, not yet tried on a real account.
  */
 import { PROFILE_READ_LIMITS, type ProfileRead } from '@hfos/core/addons/outreach/profile-check';
-import { clean, elementsIn, isHeading, labelOf, textLines } from './dom';
+import { clean, elementsIn, isBefore, isHeading, labelOf, tabsIn, textLines } from './dom';
 import { shown } from './fetch';
 import { typeInto } from './join';
 import { readProfile } from './profile';
@@ -98,10 +101,35 @@ export function bioButton(doc: Document): HTMLElement | null {
   );
 }
 
-/** The short bio: the line just above Edit bio, in the box they share. Null with Add bio, or no button. */
+/**
+ * The bio in October 2026's layout, which has no Edit bio: the line just above the details row (a list of little icons
+ * and words), at the top before the tabs. Null when there's no such line.
+ */
+function bioAboveDetails(main: Element): string | null {
+  const tabs = tabsIn(main);
+  for (const list of main.querySelectorAll('[role="list"]')) {
+    if (tabs && !isBefore(list, tabs)) break;
+    let holder: Element = list;
+    while (!holder.previousElementSibling && holder.parentElement && holder.parentElement !== main)
+      holder = holder.parentElement;
+    const above = holder.previousElementSibling;
+    if (!above || above.querySelector('[role="button"], button, a, h1, h2, h3, img, [role="list"]'))
+      continue;
+    const line = clean(above.textContent);
+    if (line && !UI_WORDS.has(line.toLowerCase()) && !isFacebookText(line))
+      return cut(line, PROFILE_READ_LIMITS.bio);
+  }
+  return null;
+}
+
+/**
+ * The short bio: the line just above Edit bio, in the box they share; with no Edit bio, the line above the details row
+ * (October 2026). Null with Add bio.
+ */
 export function bioOf(doc: Document): string | null {
   const button = bioButton(doc);
-  if (!button || /^add/i.test(labelOf(button))) return null;
+  if (!button) return bioAboveDetails(mainOf(doc));
+  if (/^add/i.test(labelOf(button))) return null;
   let box: Element | null = button.parentElement;
   for (let steps = 0; box && steps < 5; steps++, box = box.parentElement) {
     const lines = textLines(box, 20).filter(
@@ -141,6 +169,64 @@ function featuredOf(main: Element): string[] {
     .slice(0, PROFILE_READ_LIMITS.featured);
 }
 
+/** October 2026's cards after the tabs that stand for the Intro, and the one with their links. */
+const INTRO_CARDS = /^(personal details|work|education)$/i;
+const LINKS_CARD = /^links$/i;
+
+function cardTitles(main: Element, title: RegExp): Element[] {
+  return [...main.querySelectorAll('h2, h3, [role="heading"]')].filter((h) =>
+    title.test(clean(h.textContent)),
+  );
+}
+
+/** The list a card's title heads: the first one in the nearest box around the title that has one. */
+function cardList(title: Element): Element | null {
+  let card: Element | null = title;
+  for (let steps = 0; card && steps < 12; steps++) {
+    card = card.parentElement;
+    const list = card?.querySelector('[role="list"]');
+    if (list) return list;
+  }
+  return null;
+}
+
+/** What the Personal details, Work and Education cards say, an item a line: "Owner at Summit Roof Leads …". */
+function cardsIntro(main: Element): string[] {
+  const lines: string[] = [];
+  for (const title of cardTitles(main, INTRO_CARDS))
+    for (const item of cardList(title)?.querySelectorAll('[role="listitem"]') ?? []) {
+      const line = textLines(item, 6, '[aria-hidden="true"]').join(' ');
+      if (line && !UI_WORDS.has(line.toLowerCase()) && !isFacebookText(line)) lines.push(line);
+    }
+  return lines;
+}
+
+/** An address off Facebook: as it is, or the one inside Facebook's l.php link. Null for Facebook's own pages. */
+function outsideLink(href: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(href, 'https://www.facebook.com');
+  } catch {
+    return null;
+  }
+  if (/(^|\.)facebook\.com$/i.test(url.hostname)) {
+    const inner = url.pathname === '/l.php' ? url.searchParams.get('u') : null;
+    return inner ? outsideLink(inner) : null;
+  }
+  return /^https?:$/.test(url.protocol) ? url.href.slice(0, 500) : null;
+}
+
+/** The Links card's addresses: their own sites and other accounts. */
+function linksOf(main: Element): string[] {
+  const found: string[] = [];
+  for (const title of cardTitles(main, LINKS_CARD))
+    for (const a of cardList(title)?.querySelectorAll('a[href]') ?? []) {
+      const url = outsideLink(a.getAttribute('href') ?? '');
+      if (url && !found.includes(url)) found.push(url);
+    }
+  return found.slice(0, PROFILE_READ_LIMITS.links);
+}
+
 /** The person's own profile as the AI's check reads it (`ProfileRead`), from the page the tab shows. */
 export function readOwnProfile(doc: Document, url: string, address: PageAddress): ProfileRead {
   const main = mainOf(doc);
@@ -152,7 +238,8 @@ export function readOwnProfile(doc: Document, url: string, address: PageAddress)
     name,
     ...picturesOf(main, name),
     bio,
-    intro: read.profile.intro
+    links: linksOf(main),
+    intro: [...new Set([...read.profile.intro, ...cardsIntro(main)])]
       .filter((l) => l !== bio && !EDIT_BIO.test(l))
       .map((l) => l.slice(0, PROFILE_READ_LIMITS.line))
       .slice(0, PROFILE_READ_LIMITS.intro),
