@@ -608,7 +608,7 @@ describe('a line of asks per network', () => {
     expect(endOf_(LINKEDIN_ASK)).toEqual([
       {
         state: 'failed',
-        line: 'Chrome hasn’t let the extension on LinkedIn yet. Press Allow on LinkedIn in the extension’s panel, then ask again.',
+        line: 'Chrome is keeping the extension off LinkedIn. Press Allow on LinkedIn in the extension’s panel, then ask again.',
       },
     ]);
   });

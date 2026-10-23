@@ -1,7 +1,6 @@
 /**
  * The kit of a network still looked at (../kit.ts; ./site.ts): Instagram's and Alignable's, built from their sites.
- * Their sites are asked for when the person turns the network on (an optional host permission), and their script runs
- * only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads the
+ * Their sites are let on from install (decision 85), and their script runs only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads the
  * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
  * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
  * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's), and, on Instagram, who wrote
@@ -128,7 +127,7 @@ export function lookingKit(site: LookingSite): Kit {
     platform: site.platform,
     network: NETWORKS[site.platform],
     hosts: site.hosts,
-    optional: true,
+    registered: true,
     startsOn: false,
     owns: (href) => isWholeAddress(href) && site.url(href) !== null,
     workUrl: (href) => site.url(href)?.toString() ?? null,

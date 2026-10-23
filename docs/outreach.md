@@ -415,7 +415,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   them (Waiting for you's count, linking there), a Facebook warning, and a feed of today's steps, all live. **Start my day** and **Stop for today** there
   keep the person's day in HandsFreeOS (`addon_outreach.days`), and the computer that works follows within seconds
   over the live channel. Each install of the extension is a computer (`addon_outreach.computers`) with a plain name
-  ("Chrome on Windows"), renamable on the tab; only the one the person used last works, and the others stand by and
+  ("Chrome on Windows"), renamable and removable on the tab (a fresh install takes its old computer's place, decision
+  85); only the one the person used last works, and the others stand by and
   say why. With no word from it for 3 minutes the tab says "Your computer is offline: nothing runs until Chrome is
   open. Last seen 2:14 PM." While it's shown, the tab asks again every minute, so a computer still beating never
   looks offline. A warning stops the day there too and pushes to the person's phone once that day. Owners
@@ -680,6 +681,7 @@ Operations, all through the kernel:
 | `outreach.day.start`, `outreach.day.stop`             | `outreach.use`    | Start my day or Stop for today, the person's own; an older press never undoes a newer one, and one from another day changes nothing. Start after a warning: `outreach_warned_today`; with nothing on its own: `outreach_sending_off`                                                                                                |
 | `outreach.lists`, `outreach.lists.saved`              | `outreach.use`    | When the person's own friends list, requests got and sent, and groups were last saved, and the first group check, Tidy up and friend check after; the extension notes each (Lists first, decision 60)                                                                                                                               |
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                                                                                                                                                                                                                |
+| `outreach.computer.remove`                            | `outreach.use`    | Remove the person's computers, one or every one standing by; never the one that works (`outreach_computer_working`)                                                                                                                                                                                                                 |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed                                                                                                                                                                                                                      |
 | `outreach.live.team`                                  | `outreach.manage` | Each person's status, computer, counts and how many wait; never their lines or messages                                                                                                                                                                                                                                             |
 | `outreach.waiting`                                    | `outreach.use`    | Waiting for you: replies handed over, messages to OK, steps it needs them for, requests to decide; asked by the worker too                                                                                                                                                                                                          |
@@ -1808,7 +1810,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     profile style name ... but it didn't really recognize that the business wasn't really related to the right
     business based on the offer or playbook"; side by side showed "only LinkedIn and Instagram ... even though it
     shows that Alignable worked"):
-    - **Facebook's October 2026 profile** (extension 0.88.0, from the page outline his read sent): Edit profile is a
+    - **Facebook's October 2026 profile** (extension 0.89.0, from the page outline his read sent): Edit profile is a
       link now ("Edit"), not a button, so every read since 16 Oct had taken his profile for someone else's. It's read
       by that link; the bio is the line above the details row (there's no Edit bio); the Personal details, Work and
       Education cards stand for the Intro, and the Links card gives the links. With no Edit bio, a new bio is the
@@ -1819,6 +1821,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       usernames come from their own name, never with a blank like "[First name]"; one with a blank isn't kept.
     - **Side by side** shows every network the person has on, Alignable's too (it has no username), and one not read
       yet says so, with a link to read it.
+
+85. **One extension, one computer, every network from install** (Chris, 23 Oct 2026: "why when i first install the
+    Social Outreach extension i have to allow on LinkedIn, Instagram, and Alignable but not on Facebook? Also everytime
+    i install it creates a new "computer" even though it's the same computer and browser", then "build both as well as
+    making all the platforms built in"). His Live tab listed Chrome on Mac 1 to 31, one for each time he put the
+    extension in. Chrome makes a hand-loaded extension's id from its folder and empties its storage when it's removed,
+    so each install made a new install id, and HandsFreeOS a new computer. From extension 0.88.0:
+    - **Every network from install.** LinkedIn's, Instagram's and Alignable's sites are the manifest's host
+      permissions, as Facebook's are, no longer optional ones asked for with **Allow on <network>**. Each one's script
+      is still registered only while it's on in HandsFreeOS (a network that's off runs nothing), and nothing is
+      web-accessible. **Allow on <network>** stays for a person who takes a site back under the extension's Site
+      access in Chrome; the setup's Allow step ticks itself once the extension says Chrome lets it there, and the
+      settings say there's nothing to allow (`SETTINGS_WORDS.builtIn`). This undoes the rule of the networks plan's
+      "New sites, asked for when turned on": the extension is loaded by hand, so an update asks nobody, and a store
+      build would ask once, at install.
+    - **Its own id.** The manifest carries the extension's key, so its id is gdgihcnpgggcaijdhnfnkfcfmhpmailc from any
+      folder. The private half isn't kept: nothing is packed with it. Moving to it changes the id once (a new
+      install, signed out), which the next part covers.
+    - **A fresh install takes its old computer's place** (`replacedComputer`). A new install id is `fresh` until its
+      first beat is answered; a beat from a fresh id HandsFreeOS doesn't know takes over the person's most recently
+      seen computer whose name is the same plain name, numbered or not ("Chrome on Mac", "Chrome on Mac 30"), keeping
+      its row, name, feed and whether it works, rather than making another. One they renamed is never taken: renaming
+      is how to keep two computers of the same kind apart. A build before 0.88.0 never says fresh.
+    - **Remove the ones you don't use** (`outreach.computer.remove`, risk 1, migration 20261027010700): on the Live
+      tab and Settings → Your computer, **Remove** beside each one standing by, and **Remove the N standing by** once
+      asked to confirm. Never the one that works (`outreach_computer_working`, which says to open the panel on the
+      computer used now first); one still running comes back as new at its next beat. A person deletes only their
+      own (a restrictive policy, as for reading them); their feed lines go with them and an ask one took keeps no
+      computer. The phone shows the others and doesn't remove them.
 
 ## Rules worth knowing before changing anything
 

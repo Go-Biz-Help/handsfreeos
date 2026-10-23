@@ -25,6 +25,8 @@ import {
   OFFLINE_MINUTES,
   offlineWords,
   preDayNow,
+  removeWorkingWords,
+  replacedComputer,
   seenWords,
   sendingOffWords,
   shownState,
@@ -140,6 +142,23 @@ describe('the live view’s words', () => {
     expect(computerName('cros')).toBe('Chrome on a Chromebook');
     expect(computerName('android')).toBe('Chrome');
     expect(numberedName('Chrome on Mac', ['Chrome on Windows'])).toBe('Chrome on Mac');
+    // A fresh install takes the place of the one by its plain name seen last, numbered or not; never a renamed one.
+    const seen = (name: string, minutesAgo: number) => ({
+      name,
+      lastSeenAt: new Date(Date.UTC(2026, 9, 22, 23) - minutesAgo * MIN),
+    });
+    const mine = [
+      seen('Chrome on Mac 30', 5),
+      seen('Chrome on Mac 31', 1),
+      seen('Studio Mac', 0),
+      seen('Chrome on Windows', 0),
+    ];
+    expect(replacedComputer(mine, 'Chrome on Mac')?.name).toBe('Chrome on Mac 31');
+    expect(replacedComputer(mine, 'Chrome on Linux')).toBeNull();
+    expect(replacedComputer([seen('Chrome', 3)], 'Chrome on Mac')).toBeNull();
+    expect(removeWorkingWords('Chrome on Mac 31')).toBe(
+      'Chrome on Mac 31 is the computer working for you, so it stays. Open the extension’s panel on the computer you use now, then remove this one.',
+    );
     expect(numberedName('Chrome on Mac', ['chrome on mac', 'Chrome on Mac 2'])).toBe(
       'Chrome on Mac 3',
     );
@@ -720,5 +739,76 @@ describe('live status and control', () => {
     expect(after.groupChecksAt).not.toBeNull();
     expect((await runAs(member, ws, 'outreach.live', {})).lists).toEqual(after);
     expect((await runAs(owner, ws, 'outreach.lists', {})).groupsAt).toBeNull();
+  });
+
+  it('lets a fresh install take its old computer’s place, and the person remove the ones they don’t use', async () => {
+    const mover = await createTestUser('outl-mover', { fullName: 'Jo Mover' });
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: mover.id, role: 'member' });
+    const mac = (id: string, fresh = false) => ({
+      computer: { id, name: 'Chrome on Mac', version: '0.88.0', fresh },
+    });
+    const theirs = async () =>
+      rows<{ id: string; name: string; install_id: string }>(
+        admin(),
+        sql`select id, name, install_id from addon_outreach.computers
+            where workspace_id = ${ws} and user_id = ${mover.id} order by created_at`,
+      );
+    const [first, second, again, onceMore, older] = [
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+    ];
+    // Two installs, each a computer; the first works, and is seen last.
+    await beat(mover, first, { ...mac(first), active: true });
+    await beat(mover, second, mac(second));
+    const firstId = (await beat(mover, first, mac(first))).computerId;
+
+    // Put in again: its storage was emptied, so it made a new id. It takes the first's place, and still works.
+    expect(await beat(mover, again, mac(again, true))).toMatchObject({
+      computerId: firstId,
+      name: 'Chrome on Mac',
+      working: true,
+    });
+    expect((await theirs()).map((c) => [c.name, c.install_id])).toEqual([
+      ['Chrome on Mac', again],
+      ['Chrome on Mac 2', second],
+    ]);
+    // Renamed, the second is theirs to remove: the next fresh install takes the plain one's place again.
+    const secondId = (await computerRow(second)).id;
+    await runAs(mover, ws, 'outreach.computer.rename', {
+      computerId: secondId,
+      name: 'Studio Mac',
+    });
+    expect((await beat(mover, onceMore, mac(onceMore, true))).computerId).toBe(firstId);
+    // One from a build before 0.88.0 never says it's fresh: a computer of its own, as before.
+    expect((await beat(mover, older, mac(older))).name).toBe('Chrome on Mac 2');
+    expect(await theirs()).toHaveLength(3);
+
+    // Removing: never the one that works, nor someone else's.
+    expect(
+      await refused(runAs(mover, ws, 'outreach.computer.remove', { computerIds: [firstId] })),
+    ).toBe('outreach_computer_working');
+    expect(
+      await refused(runAs(owner, ws, 'outreach.computer.remove', { computerIds: [secondId] })),
+    ).toBe('not_found');
+    const olderId = (await computerRow(older)).id;
+    const quiet = await told('outreach.computer.removed');
+    expect(
+      new Set(
+        (
+          await runAs(mover, ws, 'outreach.computer.remove', {
+            computerIds: [secondId, olderId],
+          })
+        ).removed,
+      ),
+    ).toEqual(new Set([secondId, olderId]));
+    expect(await told('outreach.computer.removed')).toBe(quiet + 2);
+    expect((await theirs()).map((c) => c.id)).toEqual([firstId]);
+    // One still running comes back as new at its next beat.
+    expect((await beat(mover, older, mac(older))).computerId).not.toBe(olderId);
   });
 });

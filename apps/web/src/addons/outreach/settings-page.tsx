@@ -551,7 +551,7 @@ function NetworkPage({
               className="rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13px] text-accent-text"
               data-testid={`${testId}-chrome`}
             >
-              {S.allowInChrome(name)}
+              {S.builtIn(name)}
             </p>
           )}
           {looking ? (

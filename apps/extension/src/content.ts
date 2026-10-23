@@ -111,10 +111,11 @@ if (kit && !here.hfosSocialListening) {
     (ask: { readonly type?: unknown }, sender, respond: (answer: unknown) => void) => {
       if (sender.id !== chrome.runtime.id || typeof ask?.type !== 'string') return false;
       if (!working) {
-        const allow = kit.optional ? `, then press Allow on ${name} in the extension’s panel` : '';
+        // Chrome lets every network's sites from install (decision 85), and a page it keeps the extension off runs
+        // no script at all: off here means off in HandsFreeOS.
         respond({
           ok: false,
-          error: `${name} is off for you, so the extension does nothing on it. Turn it on under Social Outreach → Settings in HandsFreeOS${allow}.`,
+          error: `${name} is off for you, so the extension does nothing on it. Turn it on under Social Outreach → Settings in HandsFreeOS.`,
         });
         return false;
       }

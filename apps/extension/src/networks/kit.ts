@@ -83,10 +83,11 @@ export interface Kit {
   /** Its sites, as Chrome's match patterns: where its script runs, and what Chrome must let the extension on. */
   readonly hosts: readonly string[];
   /**
-   * Its sites are asked for when the person turns it on (the manifest's optional host permissions), never on
-   * install: Chrome then lets the extension there only once they press Allow.
+   * Its script is registered only while it's on (../scripts.ts), never the manifest's own. Its sites are let on from
+   * install, as Facebook's are, since 0.88.0 (decision 85); the person can still take them back under the extension's
+   * Site access in Chrome, and then the panel offers Allow.
    */
-  readonly optional: boolean;
+  readonly registered: boolean;
   /** Whether it's on while HandsFreeOS hasn't said: Facebook, as it always was; any other network starts off. */
   readonly startsOn: boolean;
   /** Whether an address is one of its pages: a tab whose steps and warnings count there. */
