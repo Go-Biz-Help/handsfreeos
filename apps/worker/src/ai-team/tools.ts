@@ -40,6 +40,7 @@ import {
   leadSaveFileAnswer,
   leadUpdate,
   nextQuestion,
+  NOT_IN_CHAT_TYPES,
   parseStoredForm,
   responseProblems,
   loadTerritories,
@@ -573,7 +574,16 @@ async function formForTeammate(
   );
   if (!row || row.status !== 'live') return { error: 'That form isn’t taking answers.' };
   if (!row.in_chat) return { error: 'That form isn’t one you may ask in a conversation.' };
-  return { formId: row.id, definition: parseStoredForm(row.definition) };
+  const definition = parseStoredForm(row.definition);
+  // A video can't be watched in a conversation; the form is sent as a link instead.
+  const unaskable = definition.pages
+    .flatMap((p) => p.questions)
+    .find((q) => NOT_IN_CHAT_TYPES.has(q.type));
+  if (unaskable)
+    return {
+      error: `“${unaskable.title}” is a video, which can’t be watched in a conversation, so don’t ask this form here.`,
+    };
+  return { formId: row.id, definition };
 }
 
 interface Sheet {

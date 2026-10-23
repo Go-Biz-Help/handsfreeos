@@ -3,8 +3,10 @@ import {
   ANSWER_TARGETS,
   CHOICE_TYPES,
   findQuestion,
+  parseVideoUrl,
   QUESTION_LABELS,
   targetAccepts,
+  VIDEO_HOST_NAMES,
   type AnswerTargetKey,
   type FormDefinition,
   type FormOp,
@@ -79,7 +81,7 @@ export function QuestionSettings({
             onChange={(e) => patch({ help: e.target.value })}
           />
         </Field>
-        {question.type !== 'content' ? (
+        {question.type !== 'content' && question.type !== 'video' ? (
           <div className="flex items-center justify-between gap-4">
             <div>
               <Label htmlFor="q-required">Must be answered</Label>
@@ -118,6 +120,10 @@ export function QuestionSettings({
             />
           </Field>
         </Card>
+      ) : null}
+
+      {question.type === 'video' ? (
+        <VideoSettings config={config} patchConfig={patchConfig} readOnly={readOnly} />
       ) : null}
 
       {question.type === 'signature' ? (
@@ -213,10 +219,82 @@ export function QuestionSettings({
         </Card>
       ) : null}
 
-      {question.type !== 'content' && question.type !== 'payment' ? (
+      {question.type !== 'content' && question.type !== 'payment' && question.type !== 'video' ? (
         <WhereItGoes question={question} patch={patch} catalogs={catalogs} readOnly={readOnly} />
       ) : null}
     </div>
+  );
+}
+
+/** The link, and whether Next waits until they've watched enough. */
+function VideoSettings({
+  config,
+  patchConfig,
+  readOnly,
+}: {
+  config: Record<string, unknown>;
+  patchConfig: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+}) {
+  const url = String(config.url ?? '');
+  const source = url.trim() ? parseVideoUrl(url) : null;
+  const minPercent = typeof config.minPercent === 'number' ? config.minPercent : null;
+  return (
+    <Card className="space-y-4 p-4">
+      <Field
+        label="The video’s link"
+        htmlFor="q-video-url"
+        hint={
+          !url.trim()
+            ? 'Paste a YouTube, Vimeo or Loom link. An unlisted YouTube video works well.'
+            : !source
+              ? 'That isn’t a link we can play. Use a YouTube, Vimeo or Loom link to one video.'
+              : source.tracked
+                ? `A ${VIDEO_HOST_NAMES[source.provider]} video. We can tell how much of it they watched.`
+                : `A ${VIDEO_HOST_NAMES[source.provider]} video. It plays, but we can’t tell how much was watched, so it can’t hold the Next button.`
+        }
+      >
+        <Input
+          id="q-video-url"
+          value={url}
+          placeholder="https://www.youtube.com/watch?v=…"
+          disabled={readOnly}
+          onChange={(e) => patchConfig({ url: e.target.value })}
+          data-testid="video-url"
+        />
+      </Field>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Label htmlFor="q-video-gate">Watch before moving on</Label>
+          <Hint>Next waits until they’ve watched this much. Off lets them move on any time.</Hint>
+        </div>
+        <Switch
+          label="Watch before moving on"
+          checked={minPercent !== null}
+          disabled={readOnly || (source !== null && !source.tracked)}
+          onChange={(on) => patchConfig({ minPercent: on ? 80 : null })}
+          testId="video-gate"
+        />
+      </div>
+      {minPercent !== null ? (
+        <Field label="How much of it" htmlFor="q-video-percent" hint="As a percentage, 1 to 100.">
+          <Input
+            id="q-video-percent"
+            type="number"
+            min={1}
+            max={100}
+            className="w-28"
+            value={String(minPercent)}
+            disabled={readOnly}
+            onChange={(e) => {
+              const n = Math.round(Number(e.target.value));
+              if (Number.isFinite(n) && n >= 1 && n <= 100) patchConfig({ minPercent: n });
+            }}
+            data-testid="video-percent"
+          />
+        </Field>
+      ) : null}
+    </Card>
   );
 }
 

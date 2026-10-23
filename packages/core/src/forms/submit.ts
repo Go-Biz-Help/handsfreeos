@@ -21,6 +21,7 @@ import {
   type AnswerValue,
 } from './questions';
 import type { RecordedAnswer } from './render';
+import { watchedWords } from './video';
 
 // ---- Who answered ----
 
@@ -236,6 +237,8 @@ function numberFor(answer: RecordedAnswer): string | null {
 /** The answer as words, for the text summaries and the export. */
 function textFor(answer: RecordedAnswer): string | null {
   if (answer.labels.length) return answer.labels.join(', ');
+  if (answer.type === 'video' && typeof answer.value === 'number')
+    return watchedWords(answer.value);
   if (typeof answer.value === 'string') return answer.value.slice(0, 5000);
   if (typeof answer.value === 'number') return String(answer.value);
   if (typeof answer.value === 'boolean') return answer.value ? 'Yes' : 'No';

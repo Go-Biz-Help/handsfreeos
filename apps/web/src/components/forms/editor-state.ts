@@ -164,6 +164,7 @@ const DEFAULT_TITLES: Partial<Record<QuestionType, string>> = {
   signature: 'Sign here',
   content: 'Something to read',
   payment: 'Payment',
+  video: 'Watch this first',
 };
 
 /** A question of that type with the smallest sensible config, ready to drop on a page. */

@@ -12,7 +12,7 @@ import {
   type AnswerValue,
   type FormDefinition,
 } from '@hfos/core';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -22,6 +22,7 @@ import { ApiError } from '@/lib/api/errors';
 import { TURNSTILE_SITE_KEY } from '@/lib/api/public-booking';
 import { saveSheet, sendSheet, startSheet, type SentForm } from '@/lib/api/public-forms';
 import { QuestionField } from './question-field';
+import { StepButtons, StepProgress, useFormSteps } from './steps';
 
 /**
  * The form a customer fills in. It runs core's own engine — the same `formState` and `answerProblem` the
@@ -82,6 +83,7 @@ export function PublicForm({
   const starting = useRef<Promise<{ responseId: string; token: string }> | null>(null);
 
   const state = formState(definition, answers);
+  const steps = useFormSteps(definition, state, resumed?.answers ?? null);
 
   useEffect(() => {
     // Only ever on to a web page: a `javascript:` address here would run on this origin.
@@ -99,23 +101,39 @@ export function PublicForm({
     return starting.current;
   }
 
+  async function save(sheetAnswers: AnswerSheet) {
+    try {
+      const open = await sheetNow();
+      await saveSheet(site, slug, open.responseId, {
+        token: open.token,
+        answers: sheetAnswers as Record<string, unknown>,
+      });
+    } catch {
+      // Saving as they go is a convenience; sending is what matters, and that reports for itself.
+    }
+  }
+
   function answer(questionId: string, value: AnswerValue) {
     setAnswers((a) => ({ ...a, [questionId]: value }));
     if (closed) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const open = await sheetNow();
-          await saveSheet(site, slug, open.responseId, {
-            token: open.token,
-            answers: { ...answers, [questionId]: value } as Record<string, unknown>,
-          });
-        } catch {
-          // Saving as they go is a convenience; sending is what matters, and that reports for itself.
-        }
-      })();
-    }, 1200);
+    const next = { ...answers, [questionId]: value };
+    saveTimer.current = setTimeout(() => void save(next), 1200);
+  }
+
+  /** On to the next page once this one will do, saving what they have so far as they go. */
+  function next() {
+    const problems = steps.next();
+    if (problems.length) {
+      setTried(true);
+      document
+        .getElementById(`q-${problems[0]!.questionId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setTried(false);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (Object.keys(state.answers).length) void save(state.answers);
   }
 
   async function send() {
@@ -124,6 +142,8 @@ export function PublicForm({
       (q) => answerProblem(q, state.answers[q.id] ?? null) !== null,
     );
     if (problems.length) {
+      // A page they already passed can still have something to do: a sheet picked up from an older version.
+      steps.showQuestion(problems[0]!.id);
       document
         .getElementById(`q-${problems[0]!.id}`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -209,7 +229,9 @@ export function PublicForm({
         </p>
       ) : (
         <>
-          {definition.settings.showProgress && state.questions.length > 2 ? (
+          {steps.stepped && definition.settings.showProgress ? (
+            <StepProgress steps={steps} />
+          ) : !steps.stepped && definition.settings.showProgress && state.questions.length > 2 ? (
             <div className="mt-5 h-1 w-full overflow-hidden rounded-full bg-card-2">
               <div
                 className="h-full bg-accent transition-all"
@@ -219,7 +241,7 @@ export function PublicForm({
           ) : null}
 
           <div className="mt-6 space-y-6">
-            {state.pages.map((page) => (
+            {steps.shown.map((page) => (
               <section key={page.page.id} className="space-y-6">
                 {page.page.title ? (
                   <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
@@ -239,122 +261,142 @@ export function PublicForm({
             ))}
           </div>
 
-          {definition.calculations.length ? (
-            <div className="mt-6 space-y-1 rounded-card bg-card-2 p-4" data-testid="form-totals">
-              {definition.calculations.map((calculation) => (
-                <p key={calculation.id} className="flex justify-between text-[14px] text-text-2">
-                  <span>{calculation.name}</span>
-                  <span className="font-medium text-text">
-                    {calculation.format === 'money'
-                      ? money(Math.round((state.calculations[calculation.id] ?? 0) * 100))
-                      : calculation.format === 'percent'
-                        ? `${state.calculations[calculation.id] ?? 0}%`
-                        : (state.calculations[calculation.id] ?? 0)}
-                  </span>
-                </p>
-              ))}
-            </div>
-          ) : null}
+          {!steps.isLast ? (
+            <StepButtons steps={steps} onNext={next} />
+          ) : (
+            <>
+              {definition.calculations.length ? (
+                <div
+                  className="mt-6 space-y-1 rounded-card bg-card-2 p-4"
+                  data-testid="form-totals"
+                >
+                  {definition.calculations.map((calculation) => (
+                    <p
+                      key={calculation.id}
+                      className="flex justify-between text-[14px] text-text-2"
+                    >
+                      <span>{calculation.name}</span>
+                      <span className="font-medium text-text">
+                        {calculation.format === 'money'
+                          ? money(Math.round((state.calculations[calculation.id] ?? 0) * 100))
+                          : calculation.format === 'percent'
+                            ? `${state.calculations[calculation.id] ?? 0}%`
+                            : (state.calculations[calculation.id] ?? 0)}
+                      </span>
+                    </p>
+                  ))}
+                </div>
+              ) : null}
 
-          {/*
+              {/*
             The words come from core (messaging/consent.ts), not from here, because the booking page asks
             the same thing and a carrier reads both. What was here before — "It's OK to text me about this"
             — named nobody, mentioned no cost and offered no way out, which is an opt-in record that would
             not survive being asked about.
           */}
-          {definition.settings.identity !== 'anonymous' ? (
-            <div className="mt-6">
-              <Checkbox
-                className="text-[13px] font-medium"
-                label={consentWords.title}
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-                data-testid="form-sms-consent"
-              />
-              <p className="ml-[26px] mt-1 text-xs text-text-3">
-                {consentWords.detail}{' '}
-                {consentWords.policyUrl ? (
-                  <a
-                    className="underline"
-                    href={consentWords.policyUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Privacy policy
-                  </a>
-                ) : null}
-                {consentWords.termsUrl ? (
-                  <>
-                    {' · '}
-                    <a
-                      className="underline"
-                      href={consentWords.termsUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Terms
-                    </a>
-                  </>
-                ) : null}
-              </p>
-              {/* Offers have their own box, never ticked for them: agreeing to hear about the job they asked
-                  for is not agreeing to hear about a special (core's offersConsentWords). */}
-              {offers ? (
-                <>
+              {definition.settings.identity !== 'anonymous' ? (
+                <div className="mt-6">
                   <Checkbox
-                    className="mt-3 text-[13px] font-medium"
-                    label={offers.title}
-                    checked={offersConsent}
-                    onChange={(e) => setOffersConsent(e.target.checked)}
-                    data-testid="form-offers-consent"
+                    className="text-[13px] font-medium"
+                    label={consentWords.title}
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    data-testid="form-sms-consent"
                   />
-                  <p className="ml-[26px] mt-1 text-xs text-text-3">{offers.detail}</p>
-                </>
+                  <p className="ml-[26px] mt-1 text-xs text-text-3">
+                    {consentWords.detail}{' '}
+                    {consentWords.policyUrl ? (
+                      <a
+                        className="underline"
+                        href={consentWords.policyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Privacy policy
+                      </a>
+                    ) : null}
+                    {consentWords.termsUrl ? (
+                      <>
+                        {' · '}
+                        <a
+                          className="underline"
+                          href={consentWords.termsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Terms
+                        </a>
+                      </>
+                    ) : null}
+                  </p>
+                  {/* Offers have their own box, never ticked for them: agreeing to hear about the job they asked
+                  for is not agreeing to hear about a special (core's offersConsentWords). */}
+                  {offers ? (
+                    <>
+                      <Checkbox
+                        className="mt-3 text-[13px] font-medium"
+                        label={offers.title}
+                        checked={offersConsent}
+                        onChange={(e) => setOffersConsent(e.target.checked)}
+                        data-testid="form-offers-consent"
+                      />
+                      <p className="ml-[26px] mt-1 text-xs text-text-3">{offers.detail}</p>
+                    </>
+                  ) : null}
+                </div>
               ) : null}
-            </div>
-          ) : null}
 
-          {/* Hidden from people; robots fill it in and get a polite nothing. */}
-          <label className="sr-only" aria-hidden="true">
-            Website
-            <input
-              tabIndex={-1}
-              autoComplete="off"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-            />
-          </label>
+              {/* Hidden from people; robots fill it in and get a polite nothing. */}
+              <label className="sr-only" aria-hidden="true">
+                Website
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                />
+              </label>
 
-          {botSiteKey ? (
-            <div className="mt-4">
-              <Turnstile siteKey={botSiteKey} onToken={setBotToken} resetKey={botReset} />
-            </div>
-          ) : botCheck ? (
-            <p className="mt-4 text-[13px] text-danger-text">
-              This form isn’t fully set up, so it can’t be sent just now.
-            </p>
-          ) : null}
+              {botSiteKey ? (
+                <div className="mt-4">
+                  <Turnstile siteKey={botSiteKey} onToken={setBotToken} resetKey={botReset} />
+                </div>
+              ) : botCheck ? (
+                <p className="mt-4 text-[13px] text-danger-text">
+                  This form isn’t fully set up, so it can’t be sent just now.
+                </p>
+              ) : null}
 
-          {failed ? (
-            <p role="alert" className="mt-4 text-[13px] text-danger-text">
-              {failed}
-            </p>
-          ) : null}
+              {failed ? (
+                <p role="alert" className="mt-4 text-[13px] text-danger-text">
+                  {failed}
+                </p>
+              ) : null}
 
-          <Button
-            className="mt-6 w-full"
-            onClick={send}
-            disabled={sending || (botCheck !== null && !botToken)}
-            data-testid="form-send"
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} /> : null}
-            {definition.settings.submitLabel}
-          </Button>
-          {definition.settings.identity === 'anonymous' ? (
-            <p className="mt-3 text-center text-[12.5px] text-text-3">
-              This one is anonymous. Nothing here says who you are.
-            </p>
-          ) : null}
+              <div className="mt-6 flex items-center gap-2">
+                {steps.stepped && steps.index > 0 ? (
+                  <Button variant="secondary" onClick={steps.back} data-testid="form-back">
+                    <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                    Back
+                  </Button>
+                ) : null}
+                <Button
+                  className="flex-1"
+                  onClick={send}
+                  disabled={sending || (botCheck !== null && !botToken)}
+                  data-testid="form-send"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} /> : null}
+                  {definition.settings.submitLabel}
+                </Button>
+              </div>
+              {definition.settings.identity === 'anonymous' ? (
+                <p className="mt-3 text-center text-[12.5px] text-text-3">
+                  This one is anonymous. Nothing here says who you are.
+                </p>
+              ) : null}
+            </>
+          )}
         </>
       )}
     </Card>

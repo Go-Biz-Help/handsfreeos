@@ -437,6 +437,47 @@ describe('sending it', () => {
     expect(problems.map((p) => p.questionId)).toContain(qid('name'));
   });
 
+  it('holds a sheet back until they have watched enough of a video, and words what they watched', async () => {
+    const form = await publishedForm('Watch first', [
+      addQuestion(
+        undefined as never,
+        question('Our story', {
+          id: qid('video'),
+          type: 'video',
+          config: { url: 'https://youtu.be/dQw4w9WgXcQ', minPercent: 80 },
+        }),
+      ),
+    ]);
+    const answers = { [qid('name')]: 'Dana', [qid('phone')]: '(512) 555-0177' };
+    const early = await start(form.formId);
+    const error = await expectHfos(
+      () => submit(early, { ...answers, [qid('video')]: 40 }),
+      'form_answers_invalid',
+      400,
+    );
+    const problems = (error.details as { problems: { questionId: string; message: string }[] })
+      .problems;
+    expect(problems).toContainEqual({
+      questionId: qid('video'),
+      message: 'Watch at least 80% of the video to go on.',
+    });
+
+    const started = await start(form.formId);
+    await submit(started, { ...answers, [qid('video')]: 85 });
+    const [watched] = await admin()
+      .select()
+      .from(formAnswers)
+      .where(
+        and(
+          eq(formAnswers.responseId, started.responseId),
+          eq(formAnswers.questionId, qid('video')),
+        ),
+      );
+    expect(watched!.questionType).toBe('video');
+    expect(Number(watched!.numberValue)).toBe(85);
+    expect(watched!.textValue).toBe('Watched 85%');
+  });
+
   it('insists on a way to reach them when the form says it must', async () => {
     const form = await publishedForm('Who are you');
     const started = await start(form.formId);

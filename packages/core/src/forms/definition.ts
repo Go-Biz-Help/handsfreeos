@@ -29,6 +29,7 @@ import {
   targetAccepts,
   type QuestionType,
 } from './questions';
+import { videoLinkProblem } from './video';
 
 export const FORM_DEFINITION_VERSION = 1;
 
@@ -86,6 +87,7 @@ export const Question = z.discriminatedUnion('type', [
   question('signature'),
   question('content'),
   question('payment'),
+  question('video'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -244,6 +246,11 @@ export const FormSettings = z.object({
   identity: z.enum(['required', 'optional', 'anonymous']).default('required'),
   /** One question per screen, the way the AI teammate asks them. */
   oneQuestionAtATime: z.boolean().default(false),
+  /**
+   * One page per screen, with Back and Next, instead of every page down one long screen: a funnel that walks
+   * somebody through a video, their details, a longer video and a few questions, one step at a time.
+   */
+  onePageAtATime: z.boolean().default(false),
   showProgress: z.boolean().default(true),
   /** Come back later and carry on (a link they can keep). Never on an anonymous form. */
   saveAndResume: z.boolean().default(true),
@@ -405,6 +412,15 @@ export function formProblems(definition: FormDefinition): string[] {
   definition.results.forEach((r) =>
     checkGroup(r.showIf, `The rule on “${r.name}”`, questions.length),
   );
+
+  for (const question of questions) {
+    if (question.type !== 'video') continue;
+    const problem = videoLinkProblem(
+      question.title,
+      question.config as { url: string; minPercent: number | null },
+    );
+    if (problem) problems.push(problem);
+  }
 
   for (const question of questions) {
     if (question.type !== 'payment') continue;

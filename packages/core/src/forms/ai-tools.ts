@@ -93,7 +93,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
       ),
       json: nullable(
         str(
-          'The question’s own settings as a JSON object (choices, min, max, statement…), or null.',
+          'The question’s own settings as a JSON object (choices, min, max, statement…), or null. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on.',
         ),
       ),
       showIfJson: nullable(
@@ -133,7 +133,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'add_page',
     description:
-      'Add a page. Only worth it for a long form; most forms are one page, and "one question at a time" is a setting rather than a page each.',
+      'Add a page. Only worth it for a long form or a step-by-step funnel (a video, then their details, then more); most forms are one page, and "one question at a time" is a setting rather than a page each. For steps, also set onePageAtATime with set_settings.',
     inputSchema: obj({
       ref: nullable(str('A short name for it so later add_question calls can point at it.')),
       title: nullable(str('The heading above its questions.')),
@@ -191,7 +191,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'set_settings',
     description:
-      'How it behaves: identity (required, optional or anonymous), one question at a time, the button’s words, when it closes.',
+      'How it behaves: identity (required, optional or anonymous), one question at a time (oneQuestionAtATime), one page at a time with Back and Next (onePageAtATime), the button’s words, when it closes.',
     inputSchema: obj({ json: str('The merge patch as a JSON object.') }),
     strict: true,
   },

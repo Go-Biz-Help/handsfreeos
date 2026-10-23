@@ -28,6 +28,7 @@ import {
   type ScoreResult,
 } from './logic';
 import { answerIsEmpty, CHOICE_TYPES, UNANSWERED_TYPES, type AnswerValue } from './questions';
+import { watchFirstWords } from './video';
 
 /** A page with only the questions that are showing. */
 export interface VisiblePage {
@@ -136,6 +137,8 @@ const decimalsOf = (value: number): number => (String(value).split('.')[1] ?? ''
  */
 export function answerProblem(question: Question, value: AnswerValue): string | null {
   if (!asked(question)) return null;
+  // A video is answered by watching it, so not having started is 0%, and the gate is what holds them back.
+  if (question.type === 'video') return videoProblem(question, value);
   if (answerIsEmpty(value)) return question.required ? 'Answer this one.' : null;
   const config = question.config as Record<string, unknown>;
 
@@ -230,6 +233,15 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
   }
 }
 
+function videoProblem(question: Question, value: AnswerValue): string | null {
+  const watched = answerIsEmpty(value) ? 0 : value;
+  if (typeof watched !== 'number' || !Number.isInteger(watched) || watched < 0 || watched > 100)
+    return 'Watch the video here.';
+  const { minPercent } = question.config as { minPercent: number | null };
+  if (minPercent !== null && watched < minPercent) return watchFirstWords(minPercent);
+  return question.required && watched === 0 ? 'Play the video to go on.' : null;
+}
+
 /**
  * Everything wrong with a response: unanswered required questions and answers that don't fit, over the
  * questions that are actually showing. An answer to a hidden question is dropped, not complained about.
@@ -258,6 +270,23 @@ export function pageProblems(
   if (!page) return [];
   const ids = new Set(page.questions.map((q) => q.id));
   return responseProblems(definition, answers).filter((p) => ids.has(p.questionId));
+}
+
+/**
+ * Where somebody picks up on a form shown one page at a time: the first showing page with something still to
+ * do (a required question, a video not watched enough) or that they haven't touched yet, else the last one.
+ * A sheet picked up again lands where they left off rather than at the start.
+ */
+export function pageToResume(definition: FormDefinition, answers: AnswerSheet): string | null {
+  const state = formState(definition, answers);
+  const problems = new Set(responseProblems(definition, answers).map((p) => p.questionId));
+  const page = state.pages.find(
+    (p) =>
+      p.questions.some((q) => problems.has(q.id)) ||
+      (p.questions.some(asked) &&
+        !p.questions.some((q) => asked(q) && !answerIsEmpty(state.answers[q.id] ?? null))),
+  );
+  return (page ?? state.pages[state.pages.length - 1])?.page.id ?? null;
 }
 
 // ---- Where they land ----

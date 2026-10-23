@@ -9,8 +9,16 @@ It started with Christina Robbins's network-marketing recruiting funnel (built i
 about recruiting. A contractor's "watch this, then book an estimate" page or a coach's webinar sign-up uses the same
 pieces.
 
-> **Status: planned, nothing built yet.** Decisions below are the owner's (2026-10-23). "Picks to confirm" are
-> mine and stay open until the owner says yes.
+> **Status: stage 1 is built** (the video question and one page at a time); stages 2 to 6 are next. Decisions
+> below are the owner's (2026-10-23). "Picks to confirm" are mine and stay open until the owner says yes.
+>
+> - **Stage 1, as built.** Smaller and safer than §1 in two ways. The page talks to the player's frame by message
+>   and loads no YouTube or Vimeo script, so nothing of theirs runs on the business's page; and the public page
+>   has no frame rule of its own to change (its only rule is who may frame _us_). It also needed something §1
+>   assumed: the public page showed every page down one screen, so `settings.onePageAtATime` (Back, Next, "Step 2
+>   of 3", picking up where they left off) and the editor's page breaks came with it. The gate is checked at
+>   submit, where the server re-checks every answer; there is no server step between pages yet. Details are in
+>   "Videos and steps" in `docs/forms.md`.
 
 ## Decisions (Chris, 2026-10-23)
 

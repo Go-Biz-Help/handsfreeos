@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { QuestionField } from './question-field';
+import { StepButtons, StepProgress, useFormSteps } from './steps';
 
 /**
  * The form as the customer sees it, running core's own engine in the browser — the same code the public
@@ -32,6 +33,7 @@ export function FormPreview({
   const [tried, setTried] = useState(false);
   const [sent, setSent] = useState(false);
   const state = formState(definition, answers);
+  const steps = useFormSteps(definition, state);
   const set = (questionId: string, value: AnswerValue) =>
     setAnswers((a) => ({ ...a, [questionId]: value }));
 
@@ -54,6 +56,7 @@ export function FormPreview({
             setAnswers({});
             setTried(false);
             setSent(false);
+            steps.restart();
           }}
         >
           Try it again
@@ -68,7 +71,9 @@ export function FormPreview({
       {definition.intro ? (
         <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] text-text-2">{definition.intro}</p>
       ) : null}
-      {definition.settings.showProgress && state.questions.length > 1 ? (
+      {steps.stepped && definition.settings.showProgress ? (
+        <StepProgress steps={steps} />
+      ) : !steps.stepped && definition.settings.showProgress && state.questions.length > 1 ? (
         <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-card-2">
           <div
             className="h-full bg-accent transition-all"
@@ -78,7 +83,7 @@ export function FormPreview({
       ) : null}
 
       <div className="mt-5 space-y-5">
-        {state.pages.map((page) => (
+        {steps.shown.map((page) => (
           <section key={page.page.id} className="space-y-5">
             {page.page.title ? (
               <h3 className="text-[14px] font-medium text-text-2">{page.page.title}</h3>
@@ -99,7 +104,11 @@ export function FormPreview({
         ))}
       </div>
 
-      {definition.calculations.length ? (
+      {!steps.isLast ? (
+        <StepButtons steps={steps} onNext={() => setTried(steps.next().length > 0)} />
+      ) : null}
+
+      {steps.isLast && definition.calculations.length ? (
         <div className="mt-5 space-y-1 rounded-card bg-card-2 p-3">
           {definition.calculations.map((calculation) => (
             <p key={calculation.id} className="flex justify-between text-[13px] text-text-2">
@@ -116,19 +125,29 @@ export function FormPreview({
         </div>
       ) : null}
 
-      <Button
-        className="mt-6 w-full"
-        onClick={() => {
-          setTried(true);
-          const problems = state.questions.filter(
-            (q) => answerProblem(q, state.answers[q.id] ?? null) !== null,
-          );
-          if (!problems.length) setSent(true);
-        }}
-        data-testid="preview-submit"
-      >
-        {definition.settings.submitLabel}
-      </Button>
+      {steps.isLast ? (
+        <div className="mt-6 flex items-center gap-2">
+          {steps.stepped && steps.index > 0 ? (
+            <Button variant="secondary" onClick={steps.back}>
+              Back
+            </Button>
+          ) : null}
+          <Button
+            className="flex-1"
+            onClick={() => {
+              setTried(true);
+              const problems = state.questions.filter(
+                (q) => answerProblem(q, state.answers[q.id] ?? null) !== null,
+              );
+              if (problems.length) steps.showQuestion(problems[0]!.id);
+              else setSent(true);
+            }}
+            data-testid="preview-submit"
+          >
+            {definition.settings.submitLabel}
+          </Button>
+        </div>
+      ) : null}
     </Card>
   );
 }
