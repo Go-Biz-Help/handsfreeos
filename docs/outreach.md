@@ -1826,6 +1826,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       usernames come from their own name, never with a blank like "[First name]"; one with a blank isn't kept.
     - **Side by side** shows every network the person has on, Alignable's too (it has no username), and one not read
       yet says so, with a link to read it.
+    - **His second reads** (0.90.0, the same day) worked on Facebook too, and found two things of ours: October
+      2026's profile describes neither the photo nor the cover, which the check took for none, and links kept
+      Facebook's own tracking tag (`?fbclid=…`), which it took for a strange address. A photo Facebook didn't
+      describe is there, and right with nothing against it; a cover it didn't describe is to check by hand. Every
+      link loses the network's tag (`withoutTracking`).
 
 85. **One extension, one computer, every network from install** (Chris, 23 Oct 2026: "why when i first install the
     Social Outreach extension i have to allow on LinkedIn, Instagram, and Alignable but not on Facebook? Also everytime

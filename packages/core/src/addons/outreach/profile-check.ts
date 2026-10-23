@@ -168,10 +168,25 @@ const NOT_USERNAMES = new Set([
 /** A line the page shows that's an address: "summitroofleads.com", "Link: cal.com/casey". */
 const ADDRESS = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i;
 
+/** The tags a network adds to the links it shows ("?fbclid=…"): never the person's own, so never kept. */
+const NETWORK_TAGS = ['fbclid', 'igshid', 'igsh'];
+
+/** A link as the person wrote it: the network's own tracking tag taken off (the owner's read of 23 Oct 2026). */
+export function withoutTracking(link: string): string {
+  try {
+    const url = new URL(link);
+    if (!NETWORK_TAGS.some((t) => url.searchParams.has(t))) return link;
+    for (const t of NETWORK_TAGS) url.searchParams.delete(t);
+    return url.href;
+  } catch {
+    return link;
+  }
+}
+
 /**
  * The username and links worked out from what was read, where the extension didn't say them (decision 84): the
  * username from the profile's own address, and the links from the lines that are addresses (Facebook's intro,
- * Instagram's "Link:" lines). Builds before 0.87.0 send neither.
+ * Instagram's "Link:" lines). Builds before 0.87.0 send neither. Every link loses the network's tracking tag.
  */
 export function withHandles(read: z.output<typeof ProfileRead>): z.output<typeof ProfileRead> {
   let username = read.username;
@@ -190,19 +205,21 @@ export function withHandles(read: z.output<typeof ProfileRead>): z.output<typeof
       // Not an address: no username.
     }
   }
-  const links = read.links.length
-    ? read.links
-    : read.platform === 'facebook' || read.platform === 'instagram'
-      ? [
-          ...new Set(
-            read.intro
-              .map((l) => l.replace(/^link:\s*/i, '').trim())
-              .filter((l) => ADDRESS.test(l))
-              .map((l) => (/^https?:\/\//i.test(l) ? l : `https://${l}`)),
-          ),
-        ].slice(0, PROFILE_READ_LIMITS.links)
-      : [];
-  return { ...read, username, links };
+  const links = (
+    read.links.length
+      ? read.links
+      : read.platform === 'facebook' || read.platform === 'instagram'
+        ? [
+            ...new Set(
+              read.intro
+                .map((l) => l.replace(/^link:\s*/i, '').trim())
+                .filter((l) => ADDRESS.test(l))
+                .map((l) => (/^https?:\/\//i.test(l) ? l : `https://${l}`)),
+            ),
+          ].slice(0, PROFILE_READ_LIMITS.links)
+        : []
+  ).map(withoutTracking);
+  return { ...read, username, links: [...new Set(links)] };
 }
 
 /** The recommendations Alignable's profile wants before its owner reaches out (the plan: at least 5). */
@@ -379,8 +396,8 @@ export const PROFILE_CHECK_SYSTEM = [
   'You check a small business owner’s own Facebook profile before they reach out to people on Facebook. The people they message look at it before they answer.',
   'The aim isn’t a profile that sells. It’s one that doesn’t put anyone off, and quietly shows who they help and how.',
   'Check each item on the list, under <profile>, against the business’s main offer under <main_offer>:',
-  '- picture: a clear photo of their face, not a logo, a group, a car or a pet. Facebook’s own description of the picture is given.',
-  '- cover: a cover that says the result they get people, in a few words, not a sales pitch. Facebook’s description of it is given.',
+  '- picture: a clear photo of their face, not a logo, a group, a car or a pet. Facebook’s own description of the picture is given. When it says Facebook didn’t describe it, there is a picture, only not described: with nothing against it, it’s ok, and why says to check it’s a clear photo of their face.',
+  '- cover: a cover that says the result they get people, in a few words, not a sales pitch. Facebook’s description of it is given. When it says Facebook didn’t describe it, there is a cover you can’t see: it isn’t ok, why says it couldn’t be read, and fix says to check it says the result they get people in a few words.',
   '- bio: a short bio that says what they do and for whom, from the main offer.',
   '- work: a work line in the intro that names their business.',
   '- featured: featured items that show a result, a review, or where to book.',

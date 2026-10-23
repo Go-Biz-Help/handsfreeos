@@ -80,6 +80,16 @@ describe('the profile, as the AI reads it', () => {
     expect(profileCheckPrompt(read, null)).toContain('(none live yet)');
   });
 
+  it('takes a photo or cover Facebook didn’t describe as there, only not seen', () => {
+    // October 2026's profile describes neither (the owner's read of 23 Oct 2026).
+    expect(PROFILE_CHECK_SYSTEM).toContain(
+      'When it says Facebook didn’t describe it, there is a picture, only not described',
+    );
+    expect(PROFILE_CHECK_SYSTEM).toContain(
+      'When it says Facebook didn’t describe it, there is a cover you can’t see',
+    );
+  });
+
   it('cuts what’s sent to fit', () => {
     expect(ProfileRead.safeParse({ posts: Array(7).fill('A post') }).success).toBe(false);
     expect(ProfileRead.safeParse({ bio: 'x'.repeat(PROFILE_READ_LIMITS.bio + 1) }).success).toBe(
