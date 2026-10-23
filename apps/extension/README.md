@@ -191,7 +191,7 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
 
 From 0.88.0 (the owner, 23 Oct 2026, docs/outreach.md decision 85) it's one extension, one computer, every network:
 
-- **Its own id, from any folder.** The manifest carries the extension's key (`scripts/build.mjs`), so Chrome gives it
+- **Its own id, from any folder.** The manifest carries the extension's key (`scripts/public-key.pem`), so Chrome gives it
   the same id (gdgihcnpgggcaijdhnfnkfcfmhpmailc) wherever it's unzipped. Before, Chrome made a hand-loaded extension's
   id from its folder, so one unzipped somewhere new was a new extension, signed out, with nothing kept. Moving to
   0.88.0 changes its id that once: remove the old one on chrome://extensions, load the new one and sign in again, and

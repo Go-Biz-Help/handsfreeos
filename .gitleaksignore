@@ -26,3 +26,7 @@ e28cf0843de4748766eaef6c38a037220ac8ffb7:apps/extension/src/jobs/linkedin/people
 # Not a secret: a field of the offscreen page's answer named for LinkedIn, typed with a part of LinkedIn's file, whose
 # type name LinkedIn's client-secret rule reads as a key. The next commit names the field filePart, so no line matches.
 eb3e8ee72b2f7da7c1bdb60ea142b385a58b5adf:apps/extension/src/messages.ts:linkedin-client-secret:225
+# The public half of the browser extension's key, which only fixes its id (decision 85 in docs/outreach.md). It's
+# public by design; the next commit moves it to apps/extension/scripts/public-key.pem, so no key-shaped literal is in
+# the source.
+5fd061ecb7797fafa3ed28a234fcd0e7aab0c3dd:apps/extension/scripts/build.mjs:generic-api-key:90

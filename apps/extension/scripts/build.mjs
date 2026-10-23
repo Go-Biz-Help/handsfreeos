@@ -82,13 +82,15 @@ const HFOS = [
   ),
 ];
 /**
- * The public half of the extension's own key, so Chrome gives it the same id from whatever folder it's loaded from
- * (decision 85). Without it, Chrome makes a hand-loaded extension's id from its folder: a zip unzipped somewhere new is
- * a new extension, with nothing kept, and HandsFreeOS saw a new computer each time. Its id is
- * gdgihcnpgggcaijdhnfnkfcfmhpmailc (test/manifest.test.ts). The private half isn't kept: nothing is packed with it.
+ * The public half of the extension's own key (scripts/public-key.pem), so Chrome gives it the same id from whatever
+ * folder it's loaded from (decision 85). Without it, Chrome makes a hand-loaded extension's id from its folder: a zip
+ * unzipped somewhere new is a new extension, with nothing kept, and HandsFreeOS saw a new computer each time. Its id
+ * is gdgihcnpgggcaijdhnfnkfcfmhpmailc (test/manifest.test.ts). The private half isn't kept: nothing is packed with it.
+ * The manifest takes it as one line of base64, without the PEM's first and last lines.
  */
-const KEY =
-  'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnBX+oiurcICtgWcztlMQXYR4VgSNhqQjVEZNgdLcYpKFb9njz/vXCRwM4AZTDfE5ssvanl3T2fhRHldVE8gfyCTPqUwz0ck59I5vDHs2J7fPCLi/l5BnIzgv61Vle2xD/R54sxImXYPTvYBS2HR+hlBzxCSZ+ywZKV5VJun1qVJkK8ryf81zJCx34r8UJIYV5qZ38hj72xL55ESJ3SVUAkyFiKHSEk6j+7KhmuBSgu8U/lt5CyJucJa6w8r5CexxwraZ1mWiHMByfZ9zwWWhD4Zn7fGIWXvGf+hrK1IhCFlaBDpmvfGnchFaebM/aLhoC9X2Mp1CTXAZsIuVcbmy5wIDAQAB';
+const PUBLIC_KEY = readFileSync(join(root, 'scripts/public-key.pem'), 'utf8')
+  .replace(/-----[A-Z ]+-----/g, '')
+  .replace(/\s/g, '');
 const ICONS = {
   16: 'icons/icon-16.png',
   32: 'icons/icon-32.png',
@@ -101,7 +103,7 @@ const manifest = {
   name: 'HandsFreeOS Social (test)',
   short_name: 'HFOS Social',
   version,
-  key: KEY,
+  key: PUBLIC_KEY,
   // The stores take 132 characters at most.
   description:
     'Works on Facebook, LinkedIn, Instagram and Alignable as set in HandsFreeOS: notes your steps and does what you ask. Test build.',
