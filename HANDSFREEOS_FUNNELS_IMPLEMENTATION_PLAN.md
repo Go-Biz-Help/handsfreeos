@@ -30,7 +30,7 @@ pieces.
 
 | Question                             | Pick                                                                                                                                                                        |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What a personal link shows           | The first name in full. Email and phone show partly hidden ("we'll text 512-•••-0134, change it"), since a forwarded link would otherwise show them to anyone               |
+| What a personal link shows           | Only the first name, for the greeting. The link itself is a random key with nothing personal in it, and the page never shows the email or phone on file                     |
 | How long a personal link works       | 30 days, then it opens as the plain link (they type their details again)                                                                                                    |
 | Loom and other players               | YouTube and Vimeo first: both report how far somebody got. Loom plays but can't gate or track, so the editor says so                                                        |
 | How strict the video gate is         | A nudge, not proof: the viewer's browser reports progress, so a determined person can fake it. Good enough for "please watch first"                                         |
@@ -95,15 +95,18 @@ her CRM updates then and so "stopped partway" has somebody to text.
 
 ### 3. Personal links (`forms/links.ts`, the worker's `send_form`)
 
-- **`send_form` makes a personal link:** a sheet started for that customer, with its key in the link
-  (`/f/<site>/<form>?k=<key>`). Only a hash of the key is kept, as with resume keys today. It works for 30 days.
+- **`send_form` makes a personal link:** a sheet started for that customer, with a random key in the link
+  (`/f/<site>/<form>?k=<key>`). The key is the only thing that ties the link to the contact: no name, email, phone or
+  id is ever in the address. Only a hash of the key is kept, as with resume keys today. It works for 30 days.
 - **Opening it** picks up that sheet, so the contact is known from the first page and "stopped partway" works even
   before step 3.
 - **"Skip when we know it"** on a question mapped to a customer field: hidden when the customer already has that
   field. That's how the name step disappears for a known person.
 - **Their name in the words:** `{{person.first_name}}` works in page titles, a text block and a video's caption
   ("Glad you’re here, Dana"), with a fallback for when we don't know it. Rendered in core's `render.ts`.
-- **Email and phone** show partly hidden on a personal link, with a "change it" box (pick above).
+- **Email and phone are never shown** on a personal link, not even partly hidden, since a forwarded link would show
+  them to whoever opens it. Known ones are skipped. An "Update my details" link asks for them fresh, without showing
+  what's on file, and the new answers fill in as a form's answers always do.
 - The plain link keeps working for anyone, as today.
 
 ### 4. The booking question (`forms/questions.ts`, `calendar/booking.ts`)
