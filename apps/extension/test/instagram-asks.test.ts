@@ -64,6 +64,7 @@ function followers(): Document {
       height = 1000;
     }
   }) as typeof list.scrollBy;
+  list.scrollTo = list.scrollBy as typeof list.scrollTo;
   return doc;
 }
 
@@ -133,6 +134,26 @@ describe('Instagram’s lists in the page', () => {
     expect(scrollDialog(doc)).toBe(false);
   });
 
+  it('scrolls the followers’ box to its end each time, and goes on while Instagram is drawing more', () => {
+    const doc = followers();
+    const list = doc.querySelector<HTMLElement>('#list')!;
+    const to: unknown[] = [];
+    const draw = list.scrollTo.bind(list) as (where: ScrollToOptions) => void;
+    list.scrollTo = ((where: ScrollToOptions) => {
+      to.push(where.top);
+      draw(where);
+    }) as typeof list.scrollTo;
+    const href = `${IG}/me.owner/followers/`;
+    expect(scrollList(doc, href)).toBe(true);
+    expect(to).toEqual([800]);
+    expect(scrollList(doc, href)).toBe(true);
+    // At its end: more to go only while Instagram's loading mark shows.
+    list.insertAdjacentHTML('beforeend', '<svg aria-label="Loading..."></svg>');
+    expect(scrollList(doc, href)).toBe(true);
+    list.querySelector('svg')!.remove();
+    expect(scrollList(doc, href)).toBe(false);
+  });
+
   it('opens a chat from the side of their messages by its row, and says when there’s none', () => {
     const doc = new JSDOM(
       `<!doctype html><html><body>
@@ -189,21 +210,30 @@ describe('Save my followers, on Instagram', () => {
   it('opens their own account’s followers from the menu, reads the box to its end, and saves them', async () => {
     const { tab, opened } = instagramTab({ '/': home, '/me.owner/followers/': followers });
     const { job, sent } = instagramJob(tab, {
-      'hfos-save-friends': () => ({ added: 2 }),
+      'hfos-save-friends': (input) => {
+        const saved = (input as { people: unknown[] }).people.length;
+        return { saved, added: saved, changed: 0 };
+      },
       'hfos-follow-backs-next': () => ({ people: [], perDay: 30 }),
     });
     const end = await runAsk({ kind: 'friends' }, job, 'instagram');
     expect(opened).toEqual(['/', '/me.owner/followers/']);
-    const saved = sent.find((s) => s.type === 'hfos-save-friends')!.input as {
-      list: string;
-      platform: string;
-      people: { name: string; profile: { username: string } }[];
-    };
-    expect(saved).toMatchObject({ list: 'friends', platform: 'instagram' });
-    expect(saved.people.map((p) => p.profile.username)).toEqual([
-      'dana.reyes',
-      'sam.lee',
-      'kim_bakes',
+    // A screen at a time, as each is read.
+    const saves = sent
+      .filter((s) => s.type === 'hfos-save-friends')
+      .map(
+        (s) =>
+          s.input as {
+            list: string;
+            platform: string;
+            people: { name: string; profile: { username: string } }[];
+          },
+      );
+    for (const saved of saves)
+      expect(saved).toMatchObject({ list: 'friends', platform: 'instagram' });
+    expect(saves.map((saved) => saved.people.map((p) => p.profile.username))).toEqual([
+      ['dana.reyes', 'sam.lee'],
+      ['kim_bakes'],
     ]);
     // Then the accounts they followed are looked at for who follows them back: none due today.
     expect(sent.find((s) => s.type === 'hfos-follow-backs-next')!.input).toEqual({
@@ -212,7 +242,7 @@ describe('Save my followers, on Instagram', () => {
       most: 30,
     });
     expect(end).toEqual({
-      line: 'Saved your 3 followers, 2 new. Nobody you followed is due a look for a follow-back today.',
+      line: 'Saved your 3 followers, 3 new. Nobody you followed is due a look for a follow-back today.',
       warned: false,
       whole: true,
     });
@@ -269,7 +299,7 @@ describe('Save my followers, on Instagram', () => {
       return ask(message as never);
     }) as typeof tab.ask;
     const { job, sent } = instagramJob(tab, {
-      'hfos-save-friends': () => ({ added: 2 }),
+      'hfos-save-friends': () => ({ saved: 2, added: 2, changed: 0 }),
       'hfos-follow-backs-next': () => ({ people: [], perDay: 30 }),
     });
     const end = await runAsk({ kind: 'friends' }, job, 'instagram');
@@ -315,6 +345,7 @@ function longBox(usernames: readonly string[], screen = 20): () => Document {
       top += 1000;
       draw();
     }) as typeof list.scrollBy;
+    list.scrollTo = list.scrollBy as typeof list.scrollTo;
     return doc;
   };
 }
@@ -322,27 +353,25 @@ function longBox(usernames: readonly string[], screen = 20): () => Document {
 const many = (from: number, count: number) =>
   Array.from({ length: count }, (_, i) => `follower.${from + i}`);
 
-/** What this computer remembers of the followers newest at each save, kept here. */
-function memoryOf(kept: Record<string, readonly string[]> = {}) {
-  return {
-    kept,
-    memory: {
-      newest: async (key: string) => kept[key] ?? [],
-      remember: async (key: string, newest: readonly string[]) => void (kept[key] = newest),
-    },
-  };
-}
-
-const KEY = `b:${IG}/me.owner/`;
-
 // Reading a box of hundreds of rows a screen at a time takes jsdom a few seconds.
 describe('Save my followers reads the newest (21 Oct 2026)', { timeout: 30_000 }, () => {
-  const saving = (people: readonly string[], memory = memoryOf().memory, stopAfter = Infinity) => {
+  /** A save of `people`'s box, where HandsFreeOS has `before` saved already, and the job stops after `stopAfter` looks. */
+  const saving = (
+    people: readonly string[],
+    before: readonly string[] = [],
+    stopAfter = Infinity,
+  ) => {
     const { tab } = instagramTab({ '/': home, '/me.owner/followers/': longBox(people) });
+    const known = new Set(before);
     const { job, sent } = instagramJob(tab, {
-      'hfos-save-friends': (input) => ({
-        added: (input as { people: unknown[] }).people.length,
-      }),
+      'hfos-save-friends': (input) => {
+        const names = (input as { people: { profile: { username: string } }[] }).people.map(
+          (p) => p.profile.username,
+        );
+        const added = names.filter((u) => !known.has(u)).length;
+        for (const u of names) known.add(u);
+        return { saved: names.length, added, changed: 0 };
+      },
     });
     let reads = 0;
     const stopping = { ...job, stopped: () => reads++ >= stopAfter };
@@ -351,14 +380,13 @@ describe('Save my followers reads the newest (21 Oct 2026)', { timeout: 30_000 }
         .filter((s) => s.type === 'hfos-save-friends')
         .flatMap((s) => (s.input as { people: { profile: { username: string } }[] }).people)
         .map((p) => p.profile.username);
-    return { job: stopAfter === Infinity ? job : stopping, memory, saved };
+    return { job: stopAfter === Infinity ? job : stopping, saved };
   };
 
-  it('reads the newest 200 the first time, and remembers the top of the list', async () => {
+  it('reads the newest 200 the first time, saving each screen as it goes', async () => {
     const people = many(1, 1_000);
-    const { kept, memory } = memoryOf();
-    const { job, saved } = saving(people, memory);
-    const end = await saveFollowers(job, memory);
+    const { job, saved } = saving(people);
+    const end = await saveFollowers(job);
     expect(FOLLOWERS_MOST).toBe(200);
     expect(saved()).toEqual(people.slice(0, 200));
     expect(end).toEqual({
@@ -366,49 +394,49 @@ describe('Save my followers reads the newest (21 Oct 2026)', { timeout: 30_000 }
       warned: false,
       whole: false,
     });
-    expect(kept[KEY]).toEqual(people.slice(0, 12));
   });
 
   it('reads the newest 200 of a long box that keeps every row it drew', async () => {
     const people = many(1, 260);
     const { job, saved } = saving(people);
-    await saveFollowers(job, memoryOf().memory);
+    await saveFollowers(job);
     expect(saved()).toEqual(people.slice(0, 200));
   });
 
-  it('later, reads only those new since, stopping once it reaches the followers newest last time', async () => {
-    // Since the last save, 25 followed them; the 12 newest then are under them, and 1,000 more under those.
+  it('later, reads only those new since, stopping at a screen of followers HandsFreeOS had saved', async () => {
+    // Since the last save, 25 followed them; the 1,000 under them were saved before, from any computer.
     const people = [...many(2_000, 25), ...many(1, 1_000)];
-    const { kept, memory } = memoryOf({ [KEY]: many(1, 12) });
-    const { job, saved } = saving(people, memory);
-    const end = await saveFollowers(job, memory);
-    // Two screens of 20: the 25 new and the first of the old ones, then it stops.
-    expect(saved()).toEqual(people.slice(0, 40));
+    const { job, saved } = saving(people, many(1, 1_000));
+    const end = await saveFollowers(job);
+    // Screens of 20: the first new, then 5 new among old ones, then one all saved before, where it stops.
+    expect(saved()).toEqual(people.slice(0, 60));
     expect(end).toMatchObject({
-      line: 'Saved your newest 40 followers, 40 new, up to those saved before.',
+      line: 'Saved your newest 60 followers, 25 new, up to those saved before.',
       whole: false,
     });
-    expect(kept[KEY]).toEqual(many(2_000, 12));
   });
 
   it('stops at 200 all the same when a burst of new followers never reaches those saved before', async () => {
     const people = [...many(5_000, 600), ...many(1, 12)];
-    const { memory } = memoryOf({ [KEY]: many(1, 12) });
-    const { job, saved } = saving(people, memory);
-    await saveFollowers(job, memory);
+    const { job, saved } = saving(people, many(1, 12));
+    await saveFollowers(job);
     expect(saved()).toHaveLength(200);
   });
 
-  it('remembers nothing from a save stopped part way, so the next one reads those newest again', async () => {
-    const { kept, memory } = memoryOf({ [KEY]: many(1, 12) });
+  it('keeps what a save stopped part way read', async () => {
     const people = [...many(2_000, 100), ...many(1, 12)];
-    const { job, saved } = saving(people, memory, 2);
-    const end = await saveFollowers(job, memory);
+    const { job, saved } = saving(people, many(1, 12), 2);
+    const end = await saveFollowers(job);
     expect(saved().length).toBeGreaterThan(0);
-    expect(end.line).toMatch(
-      /^Stopped\. Saved your newest \d+ followers, \d+ new\. Ask again to go on\.$/,
-    );
-    expect(kept[KEY]).toEqual(many(1, 12));
+    expect(end.line).toMatch(/^Stopped\. Saved your newest \d+ followers, \d+ new\.$/);
+  });
+
+  it('reads with its window in front, then puts theirs back', async () => {
+    const { job } = saving(many(1, 30));
+    const inFront = vi.fn(<T>(work: () => Promise<T>) => work());
+    const end = await saveFollowers({ ...job, tab: Object.assign(job.tab, { inFront }) });
+    expect(inFront).toHaveBeenCalledTimes(1);
+    expect(end.line).toBe('Saved your 30 followers, 30 new.');
   });
 });
 

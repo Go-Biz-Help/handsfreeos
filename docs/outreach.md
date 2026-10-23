@@ -1473,13 +1473,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Instagram's newest followers** (Chris, 21 Oct 2026, extension 0.85.0, no migration). Save my followers read
       his followers a screen at a time, 8 to 15 seconds apart, as Instagram blocks accounts that scroll fast, and saved
       about 200 in 11 minutes: 10,000 would take 9 to 10 hours. The pace stays. His design:
-      - **The first save reads only the newest 200** (about ten minutes): new followers are the warmest leads. (0.85.0
+      - **The first save reads only the newest 200** (a few minutes from 0.88.0): new followers are the warmest leads. (0.85.0
         read 300; the owner, 22 Oct 2026: 200 is plenty, from 0.86.0.)
       - **Each later save, and the runner's once a day, reads only those new since the last.** It stops once it
-        reaches the followers that were newest at the last save, usually within a minute, and at 200 all the same, so
-        a burst of new followers still ends. The extension remembers those (`hfos.followersRead`, by business and
-        Instagram account, forgotten on a fresh start), as it remembers chats read: HandsFreeOS keeps no order of the
-        followers to say which are newest. A save stopped part way isn't remembered, so the next reads them again.
+        reaches the followers saved before, usually within a minute, and at 200 all the same, so a burst of new
+        followers still ends. From 0.88.0 HandsFreeOS says where: each screen is saved as it's read, and a screen whose
+        followers `outreach.friends.save` had already (none added, none newly a follower) ends it, so a new install or
+        another computer stops there too. (0.85.0 to 0.87.0 kept the newest at the last save on the computer, in
+        `hfos.followersRead`: a new install started over from the top.) A save stopped part way keeps what it read.
+      - **It reads with its window in front, a screen at a time to the box's end** (0.88.0). Instagram draws more of
+        the box only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another: Chris's
+        save of 23 Oct 2026 read 87 in twelve minutes. Each screen, still 8 to 15 seconds apart, goes to the box's
+        end, which keeps every row it drew, so the newest 200 take a few minutes.
       - **A partial list never marks anyone gone.** `outreach.friends.save` only adds and updates the people it's given
         (nothing in core takes a list for whole), so a capped or incremental save leaves everyone it didn't read as
         they were: followers stay followers, and a follow still waiting keeps when it went. The reader of the box reads
