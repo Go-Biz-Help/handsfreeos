@@ -4,7 +4,7 @@
  * and, for owners and admins, the team's status, counts and how many wait, never their lines or messages. Each
  * person's computers, day and feed are their own.
  */
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
@@ -14,6 +14,8 @@ import { onServerClock } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { businessDay, businessLimitsOn, choicesFor, OTHER_PLATFORMS } from '../automation';
 import {
+  ComputerRemoveInput,
+  ComputerRemoveOutput,
   ComputerRenameInput,
   ComputerRenameOutput,
   dayLine,
@@ -30,6 +32,8 @@ import {
   LiveTeamInput,
   LiveTeamOutput,
   numberedName,
+  removeWorkingWords,
+  replacedComputer,
   sendingOffWords,
   networkLookingWords,
   networkOffWords,
@@ -135,6 +139,18 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
     const before = await myComputers(ctx, me);
     const workingBefore = workingOf(before);
     let row = before.find((c) => c.installId === input.computer.id);
+    // A fresh install where the person had the extension before (removed and put in again, which empties its storage):
+    // it takes the place of their computer by the same plain name, keeping whether it works, rather than making
+    // another (decision 85).
+    const replaced =
+      row || !input.computer.fresh ? null : replacedComputer(before, input.computer.name);
+    if (replaced) {
+      await ctx.tx
+        .update(computers)
+        .set({ installId: input.computer.id })
+        .where(eq(computers.id, replaced.id));
+      row = { ...replaced, installId: input.computer.id };
+    }
     const isNew = row === undefined;
     const wasOffline = row ? isOffline(row.lastSeenAt, at.getTime()) : false;
     if (!row) {
@@ -214,6 +230,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
         (doing ? PRE_DAY_LINE_SECONDS : LINE_TELL_SECONDS) * 1000;
     const tell =
       isNew ||
+      replaced !== null ||
       workingBefore?.id !== working?.id ||
       inserted.length > 0 ||
       (isWorking && (stateChanged || doingChanged || wasOffline || (lineChanged && !toldLately))) ||
@@ -405,6 +422,46 @@ export const computerRename = defineAddonCommand(outreachAddon, {
       payload: { userId: me },
     });
     return { computerId: row.id, name: row.name };
+  },
+});
+
+export const computerRemove = defineAddonCommand(outreachAddon, {
+  name: 'outreach.computer.remove',
+  description:
+    'The person removes their own computers the extension ran on, one or every one standing by; never the one that works. One still running comes back as new at its next beat.',
+  risk: 1,
+  input: ComputerRemoveInput,
+  output: ComputerRemoveOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.computer.removed'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const mine = await myComputers(ctx, me);
+    const working = workingOf(mine);
+    if (working && input.computerIds.includes(working.id))
+      throw HfosError.rule('outreach_computer_working', 409, removeWorkingWords(working.name));
+    // Its feed lines go with it, and an ask it took keeps no computer (the tables' own `on delete`).
+    const removed = await ctx.tx
+      .delete(computers)
+      .where(
+        and(
+          eq(computers.workspaceId, ctx.scope.workspaceId!),
+          eq(computers.userId, me),
+          inArray(computers.id, input.computerIds),
+        ),
+      )
+      .returning({ id: computers.id });
+    if (!removed.length)
+      throw HfosError.notFound('Those computers aren’t yours any more. Refresh the page.');
+    for (const { id } of removed)
+      await ctx.emit({
+        type: 'outreach.computer.removed',
+        entityType: 'outreach_computer',
+        entityId: id,
+        payload: { userId: me },
+      });
+    return { removed: removed.map((r) => r.id) };
   },
 });
 
@@ -614,5 +671,5 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const liveCommands = [liveBeat, dayStart, dayStop, computerRename] as const;
+export const liveCommands = [liveBeat, dayStart, dayStop, computerRename, computerRemove] as const;
 export const liveQueries = [live, liveTeam] as const;

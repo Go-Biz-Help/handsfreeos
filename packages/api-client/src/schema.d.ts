@@ -6417,6 +6417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.computer.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person removes their own computers the extension ran on, one or every one standing by; never the one that works. One still running comes back as new at its next beat.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.computer.removed.
+         */
+        post: operations["command_outreach_computer_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.rename": {
         parameters: {
             query?: never;
@@ -36702,6 +36722,36 @@ export interface operations {
             };
         };
     };
+    command_outreach_computer_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    computerIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        removed: string[];
+                    };
+                };
+            };
+        };
+    };
     command_outreach_computer_rename: {
         parameters: {
             query?: never;
@@ -37758,6 +37808,8 @@ export interface operations {
                     computer: {
                         /** @default null */
                         allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                        /** @default false */
+                        fresh?: boolean;
                         /** Format: uuid */
                         id: string;
                         name: string;

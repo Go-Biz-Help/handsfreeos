@@ -184,7 +184,9 @@ The groundwork makes the network explicit, with no change to what Facebook users
   profile; its words (English for now), its times and the outline.
 - **New sites, asked for when turned on.** Each network's sites go in optional host permissions, asked the first time
   the person turns that network on, so the extension never runs on a site they don't use. Adding them as required
-  permissions would make Chrome ask everyone again on update.
+  permissions would make Chrome ask everyone again on update. (Undone from extension 0.88.0 by decision 85 in
+  docs/outreach.md: every network's sites are the extension's from install, and its script still runs only while it's
+  on.)
 - **Facebook moves in first.** `src/facebook/` becomes `src/networks/facebook/` behind the kit's shape, with its
   tests unchanged.
 

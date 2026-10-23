@@ -110,6 +110,7 @@ export const outreachAddon = defineAddon({
       'outreach.day.stopped',
       'outreach.lists.saved',
       'outreach.computer.renamed',
+      'outreach.computer.removed',
       'outreach.need.noted',
       'outreach.need.cleared',
       'outreach.request.set_aside',

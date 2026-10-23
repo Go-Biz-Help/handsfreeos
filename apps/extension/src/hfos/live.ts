@@ -5,6 +5,8 @@
  *
  * - **This computer** has an id made once and kept in the extension's storage, and a plain name ("Chrome on
  *   Windows"). Only the person's most recently used computer works; the beat's answer says whether this is the one.
+ *   Until a beat is answered, the id is fresh: Chrome empties the storage when the extension is removed, so one put in
+ *   again takes the place of the person's computer by that name rather than making another (decision 85).
  * - **The beat** (`outreach.live.beat`) goes every minute while Chrome is open and someone is signed in (the
  *   `hfos-beat` alarm), soon after the runner's state changes, a step is fed, or the person uses this computer. A new
  *   state, a step or the person's use goes within a couple of seconds; a new line alone at most every 20 seconds.
@@ -243,29 +245,45 @@ export async function pressWaiting(place: Place | null): Promise<boolean> {
   return samePlace(await pressNow(), place);
 }
 
-/** This computer's id, made once: calls at the same time share the one being made. */
-let making: Promise<string> | null = null;
-function installId(): Promise<string> {
+/**
+ * This computer's id, made once: calls at the same time share the one being made. `fresh` until a beat is answered
+ * (one kept by a build before 0.88.0 never is).
+ */
+let making: Promise<{ id: string; fresh: boolean }> | null = null;
+function installId(): Promise<{ id: string; fresh: boolean }> {
   making ??= (async () => {
-    const kept = (await read(COMPUTER_KEY, isObject, null)) as { id?: unknown } | null;
-    if (typeof kept?.id === 'string') return kept.id;
+    const kept = (await read(COMPUTER_KEY, isObject, null)) as {
+      id?: unknown;
+      fresh?: unknown;
+    } | null;
+    if (typeof kept?.id === 'string') return { id: kept.id, fresh: kept.fresh === true };
     const id = crypto.randomUUID();
-    await write({ [COMPUTER_KEY]: { id } });
-    return id;
+    await write({ [COMPUTER_KEY]: { id, fresh: true } });
+    return { id, fresh: true };
   })().finally(() => {
     making = null;
   });
   return making;
 }
 
-/** This computer: its id, made once, and its name. */
-export async function computer(): Promise<{ id: string; name: string; version: string }> {
-  const id = await installId();
+/** This computer: its id, made once, whether HandsFreeOS has it yet, and its name. */
+export async function computer(): Promise<{
+  id: string;
+  fresh: boolean;
+  name: string;
+  version: string;
+}> {
+  const { id, fresh } = await installId();
   const os = await chrome.runtime
     .getPlatformInfo()
     .then((p) => p.os as string)
     .catch(() => null);
-  return { id, name: computerName(os), version: chrome.runtime.getManifest().version.slice(0, 20) };
+  return {
+    id,
+    fresh,
+    name: computerName(os),
+    version: chrome.runtime.getManifest().version.slice(0, 20),
+  };
 }
 
 /**
@@ -418,7 +436,13 @@ async function beatOnce(
       api().POST('/v1/commands/outreach.live.beat', {
         body: {
           workspaceId: place.businessId,
-          computer: { id: me.id, name: me.name, version: me.version, allowed: await allowedNow() },
+          computer: {
+            id: me.id,
+            name: me.name,
+            version: me.version,
+            allowed: await allowedNow(),
+            fresh: me.fresh,
+          },
           active: isActive,
           status: shown,
           steps: steps.map(({ id, at, kind, line }) => ({ id, at, kind, line })),
@@ -431,6 +455,8 @@ async function beatOnce(
     // No connection, or Social Outreach is off there: everything waits for the next beat.
     return kept;
   }
+  // HandsFreeOS has this computer now: from here it's never fresh again.
+  if (me.fresh) await write({ [COMPUTER_KEY]: { id: me.id } });
   told = {
     state: shown.state,
     line: shown.line,

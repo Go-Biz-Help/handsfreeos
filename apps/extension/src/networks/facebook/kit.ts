@@ -30,7 +30,7 @@ export const facebook: Kit = {
   platform: 'facebook',
   network: NETWORKS.facebook,
   hosts: FACEBOOK_HOSTS,
-  optional: false,
+  registered: false,
   startsOn: true,
   owns: (href) => isWholeAddress(href) && facebookUrl(href) !== null,
   workUrl,

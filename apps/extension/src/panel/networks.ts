@@ -1,7 +1,7 @@
 /**
- * The networks, in the side panel (src/networks/on.ts): a network the person turned on in HandsFreeOS that Chrome
- * hasn't let the extension on yet gets a plain line and **Allow on LinkedIn**, which asks Chrome (Chrome asks only
- * from the person's own click, so the button is here); and a network that warned them today gets a red note naming
+ * The networks, in the side panel (src/networks/on.ts): a network the person turned on in HandsFreeOS whose sites
+ * they took back in Chrome (each is let on from install since 0.88.0, decision 85) gets a plain line and **Allow on
+ * LinkedIn**, which asks Chrome (Chrome asks only from the person's own click, so the button is here); and a network that warned them today gets a red note naming
  * it. Facebook's warning is Next up's (./status.ts), where the runner works. A network that's off shows nothing.
  * LinkedIn's runner (src/auto/linkedin.ts), Alignable's (src/auto/alignable.ts) and Instagram's (src/auto/instagram.ts)
  * each say what they're doing in a line of their own.
@@ -62,7 +62,7 @@ function partsFor(kit: Kit): Child[] {
         { class: 'warn-line', role: refused.has(kit.platform) ? 'alert' : undefined },
         refused.has(kit.platform)
           ? `Chrome didn’t let the extension on ${name}, so it does nothing there. Press Allow on ${name} and pick Allow in Chrome’s box, or turn ${name} off in HandsFreeOS under Social Outreach → Settings.`
-          : `${name} is on for you in HandsFreeOS, but Chrome hasn’t let the extension on ${name} yet, so it notes nothing there. Press Allow on ${name}, then Allow in Chrome’s box.`,
+          : `${name} is on for you in HandsFreeOS, but Chrome is keeping the extension off ${name}, so it notes nothing there. Press Allow on ${name}, then Allow in Chrome’s box.`,
       ),
       button(`Allow on ${name}`, () => allow(kit), { primary: true }),
     ];
