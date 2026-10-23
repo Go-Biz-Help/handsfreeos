@@ -2,7 +2,7 @@
  * Going through Instagram's lists for the person's asks (the Instagram and Alignable plan's part 12): their followers,
  * which Instagram draws in a box over their profile (/<you>/followers/), a few rows at a time as the box is scrolled.
  * Each call scrolls a box most of its height, as a person reading the list does; the box of followers, which keeps
- * every row it has drawn, to its end, so each screen draws the next rows whatever the box's height (0.88.0: most of a
+ * every row it has drawn, to its end, so each screen draws the next rows whatever the box's height (0.89.0: most of a
  * short box's height drew a few followers a screen). Nothing is pressed. Where Instagram
  * doesn't open the box from its address, their account's count of followers is pressed to open it, as a person does
  * (0.84.0: its counts aren't links to the list now). And a chat opened from the side of their messages, whose rows

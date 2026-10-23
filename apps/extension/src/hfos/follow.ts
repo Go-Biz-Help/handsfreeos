@@ -72,7 +72,7 @@ export const STARTED_KEY = 'hfos.started';
  * What the extension keeps on the computer about a business's outreach: chats read, the day's looks for Instagram
  * follow-backs, steps not yet sent, the day's runner, asks, what waits, and the setup opened. Forgotten when the
  * business starts Social Outreach fresh. (`hfos.followersRead`, the Instagram followers newest at the last save, was
- * kept by 0.85.0 to 0.87.0: HandsFreeOS says where a save got to now, and a fresh start forgets the old one.)
+ * kept by 0.85.0 to 0.88.0: HandsFreeOS says where a save got to now, and a fresh start forgets the old one.)
  */
 export const KEPT_FOR_BUSINESS = [
   'hfos.chatsRead',

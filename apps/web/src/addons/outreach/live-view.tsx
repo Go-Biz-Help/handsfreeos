@@ -2,7 +2,8 @@
 /**
  * Social Outreach's Live tab (docs/outreach.md, decision 41): what the person's extension is doing right now, on which
  * computer, and what's next; Start my day and Stop for today, which reach that computer within seconds; today's counts
- * against the limits and how many things wait for the person (Waiting for you); today's steps; their computers, renamable; and for owners
+ * against the limits and how many things wait for the person (Waiting for you); today's steps; their computers, renamable
+ * and removable, one or every one standing by (decision 85); and for owners
  * and admins, each person's status, counts and how many wait, never their lines or messages. It follows changes live,
  * and works out "offline" itself on a 30-second clock, so the note shows with no event at all. A heartbeat tells
  * nobody, so while the tab is shown it also asks again every minute, which keeps "last seen" moving: a computer still
@@ -424,7 +425,9 @@ export function ComputersCard({
   const { busy, act } = useAct();
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [clearing, setClearing] = useState(false);
   if (!live.computers.length) return null;
+  const standingBy = live.computers.filter((c) => !c.working);
   const save = (computerId: string) =>
     void act(
       `rename:${computerId}`,
@@ -436,6 +439,18 @@ export function ComputersCard({
         ),
       'Renamed.',
     ).then((ok) => ok && setEditing(null));
+  // Never the one that works: HandsFreeOS refuses it too. One still running comes back at its next beat.
+  const remove = (key: string, computerIds: string[], done: string) =>
+    void act(
+      key,
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.computer.remove', {
+            body: { workspaceId, computerIds },
+          }),
+        ),
+      done,
+    ).then((ok) => ok && setClearing(false));
   const Box = bare ? 'div' : Card;
   return (
     <Box className={bare ? undefined : 'p-4'} data-testid="live-computers">
@@ -443,6 +458,49 @@ export function ComputersCard({
       <p className={cn('text-[12.5px] text-text-3', !bare && 'mt-0.5')}>
         The one you used last works; the others stand by. Open the panel on one to work from it.
       </p>
+      {standingBy.length > 1 ? (
+        clearing ? (
+          <div
+            className="mt-3 rounded-menu bg-card-2 px-3.5 py-2.5"
+            role="alert"
+            data-testid="live-computers-clearing"
+          >
+            <p className="text-[13px]">
+              Remove the {standingBy.length} computers standing by? One the extension still runs on
+              comes back the next time it checks in.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                variant="danger"
+                loading={busy === 'remove:standing'}
+                onClick={() =>
+                  remove(
+                    'remove:standing',
+                    standingBy.map((c) => c.id),
+                    `Removed ${standingBy.length} computers.`,
+                  )
+                }
+              >
+                Remove them
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setClearing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            className="mt-2"
+            size="sm"
+            variant="secondary"
+            onClick={() => setClearing(true)}
+            data-testid="live-computers-clear"
+          >
+            Remove the {standingBy.length} standing by
+          </Button>
+        )
+      ) : null}
       <ul className="mt-3 space-y-3">
         {live.computers.map((c) => (
           <li key={c.id} data-testid="live-computer-row">
@@ -481,16 +539,28 @@ export function ComputersCard({
                     · seen {seenWords(c.lastSeenAt, live.timezone, now)}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setName(c.name);
-                    setEditing(c.id);
-                  }}
-                >
-                  Rename
-                </Button>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setName(c.name);
+                      setEditing(c.id);
+                    }}
+                  >
+                    Rename
+                  </Button>
+                  {c.working ? null : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      loading={busy === `remove:${c.id}`}
+                      onClick={() => remove(`remove:${c.id}`, [c.id], `Removed ${c.name}.`)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </li>

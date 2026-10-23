@@ -7,7 +7,7 @@
  *   person's pace (`SCROLL_PACE_MS`, 8 to 15 seconds a screen, as Instagram blocks accounts that scroll fast). The
  *   first time it reads the newest 200 (a few minutes), as new followers are the warmest; after that, only those new
  *   since: each screen is saved as it's read, and it stops at a screen whose followers were all saved before, which
- *   HandsFreeOS says (so a new install or another computer stops there too, 0.88.0), usually within a minute, and at
+ *   HandsFreeOS says (so a new install or another computer stops there too, 0.89.0), usually within a minute, and at
  *   200 all the same, so a burst of new followers still ends. Everyone it read is saved as Instagram's friends list,
  *   which only adds and updates: nobody it didn't read is taken for gone or unfollowed. Someone they followed who's
  *   among them has followed back: HandsFreeOS counts that as accepting, and their first message comes as on the other
@@ -18,7 +18,7 @@
  * way (../../auto/lists.ts, ../../auto/instagram.ts), and looks for follow-backs in a job of its own. Its window is in
  * front while it reads, as Chrome draws nothing in one hidden behind another. Nothing is pressed on Instagram but
  * their own account's count of followers, once, where Instagram doesn't open the box from its address (0.84.0); the
- * box is only scrolled, to its end a screen at a time (0.88.0). It stops on any Instagram warning.
+ * box is only scrolled, to its end a screen at a time (0.89.0). It stops on any Instagram warning.
  */
 import { instagramListSave, type InstagramListed } from '../../hfos/saves';
 import { counted } from '../../words';
@@ -57,7 +57,7 @@ export async function saveFollowers(job: Job): Promise<JobEnd> {
   job.progress('Opening Instagram…');
   await job.tab.open(`${INSTAGRAM}/`);
   // Instagram draws more of the box only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind
-  // another (0.88.0: a save behind the person's window read 87 in twelve minutes): its window is in front while it
+  // another (0.89.0: a save behind the person's window read 87 in twelve minutes): its window is in front while it
   // reads, then theirs is put back.
   return job.tab.inFront ? job.tab.inFront(() => followersSaved(job)) : followersSaved(job);
 }

@@ -412,7 +412,7 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     expect(screen.queryByText('Accept invitations from people who fit a playbook')).toBeNull();
     expect(screen.getByTestId('settings-networks-linkedin-collect')).toBeTruthy();
     expect(screen.getByTestId('settings-networks-linkedin-chrome')).toHaveTextContent(
-      /press Allow on LinkedIn, then Allow in Chrome’s box\.$/,
+      /nothing to allow in Chrome\.$/,
     );
     // Facebook's own switches aren't LinkedIn's.
     expect(screen.queryByTestId('settings-networks-linkedin-noting')).toBeNull();

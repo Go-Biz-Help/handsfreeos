@@ -415,7 +415,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   them (Waiting for you's count, linking there), a Facebook warning, and a feed of today's steps, all live. **Start my day** and **Stop for today** there
   keep the person's day in HandsFreeOS (`addon_outreach.days`), and the computer that works follows within seconds
   over the live channel. Each install of the extension is a computer (`addon_outreach.computers`) with a plain name
-  ("Chrome on Windows"), renamable on the tab; only the one the person used last works, and the others stand by and
+  ("Chrome on Windows"), renamable and removable on the tab (a fresh install takes its old computer's place, decision
+  85); only the one the person used last works, and the others stand by and
   say why. With no word from it for 3 minutes the tab says "Your computer is offline: nothing runs until Chrome is
   open. Last seen 2:14 PM." While it's shown, the tab asks again every minute, so a computer still beating never
   looks offline. A warning stops the day there too and pushes to the person's phone once that day. Owners
@@ -680,6 +681,7 @@ Operations, all through the kernel:
 | `outreach.day.start`, `outreach.day.stop`             | `outreach.use`    | Start my day or Stop for today, the person's own; an older press never undoes a newer one, and one from another day changes nothing. Start after a warning: `outreach_warned_today`; with nothing on its own: `outreach_sending_off`                                                                                                |
 | `outreach.lists`, `outreach.lists.saved`              | `outreach.use`    | When the person's own friends list, requests got and sent, and groups were last saved, and the first group check, Tidy up and friend check after; the extension notes each (Lists first, decision 60)                                                                                                                               |
 | `outreach.computer.rename`                            | `outreach.use`    | Rename one of the person's computers                                                                                                                                                                                                                                                                                                |
+| `outreach.computer.remove`                            | `outreach.use`    | Remove the person's computers, one or every one standing by; never the one that works (`outreach_computer_working`)                                                                                                                                                                                                                 |
 | `outreach.live`                                       | `outreach.use`    | The Live tab: the computer that works and what it says, the day, counts, what waits, the warning, today's feed                                                                                                                                                                                                                      |
 | `outreach.live.team`                                  | `outreach.manage` | Each person's status, computer, counts and how many wait; never their lines or messages                                                                                                                                                                                                                                             |
 | `outreach.waiting`                                    | `outreach.use`    | Waiting for you: replies handed over, messages to OK, steps it needs them for, requests to decide; asked by the worker too                                                                                                                                                                                                          |
@@ -1473,15 +1475,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Instagram's newest followers** (Chris, 21 Oct 2026, extension 0.85.0, no migration). Save my followers read
       his followers a screen at a time, 8 to 15 seconds apart, as Instagram blocks accounts that scroll fast, and saved
       about 200 in 11 minutes: 10,000 would take 9 to 10 hours. The pace stays. His design:
-      - **The first save reads only the newest 200** (a few minutes from 0.88.0): new followers are the warmest leads. (0.85.0
+      - **The first save reads only the newest 200** (a few minutes from 0.89.0): new followers are the warmest leads. (0.85.0
         read 300; the owner, 22 Oct 2026: 200 is plenty, from 0.86.0.)
       - **Each later save, and the runner's once a day, reads only those new since the last.** It stops once it
         reaches the followers saved before, usually within a minute, and at 200 all the same, so a burst of new
-        followers still ends. From 0.88.0 HandsFreeOS says where: each screen is saved as it's read, and a screen whose
+        followers still ends. From 0.89.0 HandsFreeOS says where: each screen is saved as it's read, and a screen whose
         followers `outreach.friends.save` had already (none added, none newly a follower) ends it, so a new install or
-        another computer stops there too. (0.85.0 to 0.87.0 kept the newest at the last save on the computer, in
+        another computer stops there too. (0.85.0 to 0.88.0 kept the newest at the last save on the computer, in
         `hfos.followersRead`: a new install started over from the top.) A save stopped part way keeps what it read.
-      - **It reads with its window in front, a screen at a time to the box's end** (0.88.0). Instagram draws more of
+      - **It reads with its window in front, a screen at a time to the box's end** (0.89.0). Instagram draws more of
         the box only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another: Chris's
         save of 23 Oct 2026 read 87 in twelve minutes. Each screen, still 8 to 15 seconds apart, goes to the box's
         end, which keeps every row it drew, so the newest 200 take a few minutes.
@@ -1808,6 +1810,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     data version: it's all in the setup row's jsonb. Designed on the canvas "Social Outreach profile check"
     (https://claude.ai/artifact/1t3H7FWim3zds5WWBDz9LN). Built; the new editors follow the pages' words, and haven't
     been tried on a real account.
+
+85. **One extension, one computer, every network from install** (Chris, 23 Oct 2026: "why when i first install the
+    Social Outreach extension i have to allow on LinkedIn, Instagram, and Alignable but not on Facebook? Also everytime
+    i install it creates a new "computer" even though it's the same computer and browser", then "build both as well as
+    making all the platforms built in"). His Live tab listed Chrome on Mac 1 to 31, one for each time he put the
+    extension in. Chrome makes a hand-loaded extension's id from its folder and empties its storage when it's removed,
+    so each install made a new install id, and HandsFreeOS a new computer. From extension 0.88.0:
+    - **Every network from install.** LinkedIn's, Instagram's and Alignable's sites are the manifest's host
+      permissions, as Facebook's are, no longer optional ones asked for with **Allow on <network>**. Each one's script
+      is still registered only while it's on in HandsFreeOS (a network that's off runs nothing), and nothing is
+      web-accessible. **Allow on <network>** stays for a person who takes a site back under the extension's Site
+      access in Chrome; the setup's Allow step ticks itself once the extension says Chrome lets it there, and the
+      settings say there's nothing to allow (`SETTINGS_WORDS.builtIn`). This undoes the rule of the networks plan's
+      "New sites, asked for when turned on": the extension is loaded by hand, so an update asks nobody, and a store
+      build would ask once, at install.
+    - **Its own id.** The manifest carries the extension's key, so its id is gdgihcnpgggcaijdhnfnkfcfmhpmailc from any
+      folder. The private half isn't kept: nothing is packed with it. Moving to it changes the id once (a new
+      install, signed out), which the next part covers.
+    - **A fresh install takes its old computer's place** (`replacedComputer`). A new install id is `fresh` until its
+      first beat is answered; a beat from a fresh id HandsFreeOS doesn't know takes over the person's most recently
+      seen computer whose name is the same plain name, numbered or not ("Chrome on Mac", "Chrome on Mac 30"), keeping
+      its row, name, feed and whether it works, rather than making another. One they renamed is never taken: renaming
+      is how to keep two computers of the same kind apart. A build before 0.88.0 never says fresh.
+    - **Remove the ones you don't use** (`outreach.computer.remove`, risk 1, migration 20261027010700): on the Live
+      tab and Settings → Your computer, **Remove** beside each one standing by, and **Remove the N standing by** once
+      asked to confirm. Never the one that works (`outreach_computer_working`, which says to open the panel on the
+      computer used now first); one still running comes back as new at its next beat. A person deletes only their
+      own (a restrictive policy, as for reading them); their feed lines go with them and an ask one took keeps no
+      computer. The phone shows the others and doesn't remove them.
 
 ## Rules worth knowing before changing anything
 

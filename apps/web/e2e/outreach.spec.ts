@@ -902,11 +902,11 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
     'aria-checked',
     'true',
   );
-  // On for you: its choices, the first time in Chrome, and its limits as they stand show; the menu says it's on.
+  // On for you: its choices, that it works there from install, and its limits as they stand show; the menu says it's on.
   await page.getByTestId('outreach-my-networks-linkedin-on').click();
   await expect(page.getByTestId('outreach-my-networks-linkedin-saved')).toBeVisible();
   await expect(page.getByTestId('outreach-my-networks-linkedin-chrome')).toContainText(
-    'Allow on LinkedIn',
+    'nothing to allow in Chrome',
   );
   await expect(
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request'),

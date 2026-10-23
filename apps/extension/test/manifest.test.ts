@@ -1,12 +1,13 @@
 /**
- * The manifest the build writes (scripts/build.mjs): Facebook's sites from install, as its kit says; LinkedIn's only
- * as an optional host permission, asked for when the person turns LinkedIn on, never a required one (Chrome would ask
- * everyone again on update) and never a content script of the manifest's own; and nothing of the extension's
- * web-accessible, since LinkedIn's pages look for extensions by the files they show.
+ * The manifest the build writes (scripts/build.mjs): its own key, so Chrome gives it the same id from any folder;
+ * every network's sites from install (decision 85), Facebook's with its script and the others' scripts never the
+ * manifest's own (registered while each is on); and nothing of the extension's web-accessible, since LinkedIn's pages
+ * look for extensions by the files they show.
  */
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,6 +20,7 @@ const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 
 interface Manifest {
   readonly version: string;
+  readonly key: string;
   readonly description: string;
   readonly permissions: readonly string[];
   readonly host_permissions: readonly string[];
@@ -53,17 +55,28 @@ describe('the manifest', () => {
     ]);
   });
 
-  it('asks for LinkedIn, Instagram and Alignable only when each is turned on: optional, and never their script or a file it shows', () => {
-    expect(manifest.optional_host_permissions).toEqual([
-      ...linkedin.hosts,
-      ...instagram.hosts,
-      ...alignable.hosts,
-    ]);
-    const everywhere = JSON.stringify([manifest.host_permissions, manifest.content_scripts]);
-    for (const site of ['linkedin', 'instagram', 'alignable'])
-      expect(everywhere).not.toContain(site);
+  it('has LinkedIn’s, Instagram’s and Alignable’s sites from install, never their script or a file it shows', () => {
+    expect(manifest.host_permissions).toEqual(
+      expect.arrayContaining([...linkedin.hosts, ...instagram.hosts, ...alignable.hosts]),
+    );
+    expect(manifest.optional_host_permissions).toBeUndefined();
+    const scripts = JSON.stringify(manifest.content_scripts);
+    for (const site of ['linkedin', 'instagram', 'alignable']) expect(scripts).not.toContain(site);
     expect(manifest.web_accessible_resources).toBeUndefined();
-    // Registering its script while it's on needs this, which Facebook's tabs already did.
+    // Registering their script while each is on needs this, which Facebook's tabs already did.
     expect(manifest.permissions).toContain('scripting');
+  });
+
+  it('has its own key, so Chrome gives it the same id from whatever folder it’s loaded from', () => {
+    // Chrome's id: the first 32 hex digits of the key's SHA-256, each as a letter from a to p.
+    const id = [
+      ...createHash('sha256')
+        .update(Buffer.from(manifest.key, 'base64'))
+        .digest('hex')
+        .slice(0, 32),
+    ]
+      .map((digit) => String.fromCharCode(97 + parseInt(digit, 16)))
+      .join('');
+    expect(id).toBe('gdgihcnpgggcaijdhnfnkfcfmhpmailc');
   });
 });

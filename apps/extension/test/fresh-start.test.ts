@@ -55,7 +55,7 @@ describe('starting fresh', () => {
       SETUP_OPENED_KEY,
       SETUP_REPORTED_KEY,
       FILE_KEY,
-      // The Instagram followers newest at the last save, kept by 0.85.0 to 0.87.0.
+      // The Instagram followers newest at the last save, kept by 0.85.0 to 0.88.0.
       'hfos.followersRead',
       FOLLOW_BACKS_KEY,
     ])

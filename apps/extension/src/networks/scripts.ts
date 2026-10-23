@@ -2,9 +2,9 @@
  * Keeps each network where it should be, in the background (./on.ts): works out from the person's settings and
  * Chrome's leave which networks the extension works on, keeps that in `hfos.networks` for every tab's script and the
  * panel, and has Chrome run a network's script on its site only while it does. Facebook's script is the manifest's
- * own, so this only ever registers and takes away the scripts of networks whose sites are asked for when they're
- * turned on (LinkedIn's): `chrome.scripting.registerContentScripts` while both HandsFreeOS says it's on and Chrome
- * allows it, unregistered as soon as either stops.
+ * own, so this only ever registers and takes away the other networks' scripts (LinkedIn's, Instagram's, Alignable's):
+ * `chrome.scripting.registerContentScripts` while both HandsFreeOS says it's on and Chrome allows it (from install
+ * since 0.88.0, unless the person took its sites back in Chrome), unregistered as soon as either stops.
  *
  * The background calls it when it wakes, when the settings or who's signed in change, and when the person allows or
  * takes back a site in Chrome (../background.ts). One at a time, so two calls never register the same script. Who's
@@ -83,7 +83,7 @@ async function sync(): Promise<NetworkStates> {
   }
   const said = kept[SETTINGS_KEY];
   const asked: Partial<Record<Kit['platform'], boolean>> = {};
-  for (const kit of KIT_LIST) if (kit.optional) asked[kit.platform] = await granted(kit);
+  for (const kit of KIT_LIST) if (kit.registered) asked[kit.platform] = await granted(kit);
   const states = networkStates(
     KIT_LIST,
     isSaid(said) ? said : null,
@@ -93,7 +93,7 @@ async function sync(): Promise<NetworkStates> {
   if (JSON.stringify(await statesNow()) !== JSON.stringify(states))
     await chrome.storage.local.set({ [NETWORKS_KEY]: states });
   for (const kit of KIT_LIST) {
-    if (!kit.optional) continue;
+    if (!kit.registered) continue;
     try {
       await place(kit, states);
     } catch (error) {

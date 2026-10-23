@@ -10,7 +10,7 @@ import { businessLimitsOn, type BusinessRules } from './automation';
 import { HELPFUL_PER_DAY } from './helpful';
 import { DAILY_STEPS, limitNow } from './limits';
 import { dailyWordsOn, helpfulOn, tidyWordsOn } from './network-words';
-import { networkLimitsNow, NETWORKS, PLATFORM_KEYS, withArticle, type Platform } from './networks';
+import { networkLimitsNow, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 
 /** The parts, in the menu's order. */
 export const SETTINGS_PART_KEYS = ['general', ...PLATFORM_KEYS, 'computer', 'fresh'] as const;
@@ -67,9 +67,9 @@ export const SETTINGS_WORDS = {
     `Turned off, nobody in the business can work ${name}, and anyone who does has it turned off.`,
   /** The person's own limits on a network, as they stand. */
   yourLimits: (name: string) => `Your daily limits on ${name}`,
-  /** A network Chrome has to let the extension on, the first time. */
-  allowInChrome: (name: string) =>
-    `The first time, open the extension’s panel on ${withArticle(name)} page and press Allow on ${name}, then Allow in Chrome’s box.`,
+  /** A network the extension is let on from install, as every one is from 0.88.0 (decision 85). */
+  builtIn: (name: string) =>
+    `The extension works on ${name} as soon as it’s installed: there’s nothing to allow in Chrome.`,
   /** Your computer's page. */
   computerAbout: 'The computers you’re signed in on, and the extension to download.',
   /** Under a network's daily friend requests, when it also caps them in any 7 days (LinkedIn's 80). */
