@@ -39,8 +39,8 @@ export const signedOutEnd = (): JobEnd => ({
 /**
  * Goes through a list on the page, a screen at a time, up to `scrolls`: everything each read showed that `pick` says
  * counts, each once by `key`, in page order, and whether it got to the end of the list. `enough` stops it sooner, once
- * what it has read is enough (the newest followers, ./people.ts). An Instagram warning ends it, and so does a page
- * asking them to sign in.
+ * what it has read is enough (the newest followers, saved a screen at a time, ./people.ts). An Instagram warning ends
+ * it, and so does a page asking them to sign in.
  */
 export async function gather<T>(
   job: Job,
@@ -48,7 +48,7 @@ export async function gather<T>(
   pick: (page: InstagramPage) => readonly T[],
   key: (item: T) => string,
   progress: (count: number) => string,
-  enough: (items: readonly T[]) => boolean = () => false,
+  enough: (items: readonly T[]) => boolean | Promise<boolean> = () => false,
 ): Promise<{ page: InstagramPage; items: T[]; whole: boolean } | JobEnd> {
   const items = new Map<string, T>();
   let page = await readInstagramIn(job.tab);
@@ -59,7 +59,7 @@ export async function gather<T>(
     if (page.signedOut) return signedOutEnd();
     for (const item of pick(page)) if (!items.has(key(item))) items.set(key(item), item);
     job.progress(progress(items.size));
-    if (screen >= scrolls || job.stopped() || enough([...items.values()])) break;
+    if (screen >= scrolls || job.stopped() || (await enough([...items.values()]))) break;
     if (!(await job.tab.ask({ type: 'hfos-scroll-list' })).ok) {
       whole = true;
       break;
