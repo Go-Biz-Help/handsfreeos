@@ -369,7 +369,7 @@ import {
   conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
-import { intakeSubmit } from './intake';
+import { indeedApplicantReceive, intakeSubmit } from './intake';
 import {
   intakeSourceArchive,
   intakeSourceCreate,
@@ -1026,6 +1026,7 @@ export const commands: readonly CommandDef[] = [
   intakeSourceRotateKey,
   intakeSourceArchive,
   intakeSubmit,
+  indeedApplicantReceive,
   chatWidgetCreate,
   chatWidgetUpdate,
   chatWidgetPause,

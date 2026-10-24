@@ -442,6 +442,7 @@ describe('registry', () => {
       'intake_source.rotate_key',
       'intake_source.archive',
       'intake.submit',
+      'indeed_applicant.receive',
       'chat_widget.create',
       'chat_widget.update',
       'chat_widget.pause',

@@ -18,6 +18,11 @@
 --        the ad, so the customer's "Where they came from" shows it.
 -- =============================================================================
 
+-- ---------- one row a business for each new channel, as for the others ----------
+drop index app.intake_sources_channel_unique;
+create unique index intake_sources_channel_unique on app.intake_sources (workspace_id, kind)
+  where kind in ('text', 'call', 'email', 'messenger', 'instagram', 'facebook_lead_ad', 'indeed');
+
 -- ---------- what each Page lets us read ----------
 alter table app.meta_accounts
   -- unknown until a lead is fetched; ok; not_allowed (the sign-in didn't allow leads); blocked (Leads Access).

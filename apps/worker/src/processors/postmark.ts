@@ -7,6 +7,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
+import { fileIndeedApplicant } from '../email/indeed';
 import {
   headerOf,
   htmlToText,
@@ -118,6 +119,15 @@ export const onInboundEmail: DeliveryProcessor = async (ctx) => {
     systemActor(scope),
     workerMeta(),
   );
+  // Indeed telling the business somebody applied: the applicant is a lead of its own (email/indeed.ts).
+  await fileIndeedApplicant(ctx, scope, {
+    from: { address: from, name: p.FromFull?.Name?.trim() || p.FromName?.trim() || null },
+    subject: p.Subject?.slice(0, 998) || null,
+    text: p.TextBody?.trim() || (p.HtmlBody ? htmlToText(p.HtmlBody) : '') || null,
+    key: messageIds(headerOf(headers, 'Message-ID'))[0] ?? `postmark:${p.MessageID}`,
+    ...(sentAt(p.Date) ? { occurredAt: sentAt(p.Date)! } : {}),
+    ours: [...parties(p.ToFull), ...parties(p.CcFull)].map((x) => x.address),
+  });
 };
 
 /** Why an email bounced, in words a person can act on. */

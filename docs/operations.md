@@ -8749,6 +8749,16 @@ Field names are matched loosely, so most existing forms work unchanged: `name`, 
 
 Replacing a key (the **⟳** button) takes effect at once — a form needs its new snippet pasted in, and an app its key changed. Retiring one stops it for good; the customers and leads it opened stay where they are.
 
+### Facebook lead ads and Indeed
+
+Two more rows in **Settings** → **Lead intake**, from the funnels plan (`supabase/migrations/20261027011000_lead_ad_and_indeed_intake.sql` and `20261027011100_facebook_lead_ads.sql`).
+
+**Someone fills in your lead ad's form.** Leads from a Facebook or Instagram lead ad arrive by themselves once Meta approves lead ads ("Meta Part 7" in "Facebook and Instagram messages: Meta"); until then, send them through Zapier as a connected app. Each lead is filed once, its answers go on the lead's note, and a ticked box on the form whose words are about texts counts as the customer's OK to text. On by default, like the channels above.
+
+**Indeed emails you about an applicant.** Indeed emails the employer for each person who applies to a job. HandsFreeOS reads that email in any inbox it already reads: the business's own address here, a connected Gmail or Outlook, or one the business forwards Indeed's emails to (an automatic forwarding rule keeps Indeed as the sender, which is what HandsFreeOS looks for). The AI reads who applied, the job, their address (Indeed's relay at `indeedemail.com`, which reaches them) and a phone if one is given; without the AI the email's own wording is read instead. The lead reads "Jordan Reyes (Indeed: Sales Associate)". The email itself is filed in Other mail, and Indeed's other mail (a job going live, an invoice) opens nothing. **Off by default**: a pipeline full of applicants would surprise most businesses, so an owner turns it on. Indeed gives no OK to text, so the first message to an applicant is an email, usually with the funnel's link.
+
+Nothing needs setting up for Indeed beyond that switch, and a forwarding rule in the business's own inbox when that inbox isn't connected.
+
 ### Before turning it on for a client
 
 - Check the pipeline each channel points at is the one they actually work from. The first pipeline is right for most, and wrong for a business that keeps its first pipeline for something else.

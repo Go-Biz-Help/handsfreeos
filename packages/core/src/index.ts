@@ -22,6 +22,8 @@ export * from './crm/format';
 export * from './crm/record-words';
 export * from './crm/timeline-words';
 export * from './crm/attribution-words';
+// Which emails are Indeed telling a business somebody applied, and what they say without the AI (funnels).
+export * from './crm/indeed';
 export * from './crm/pipeline-words';
 export * from './crm/task-words';
 export * from './crm/file-words';

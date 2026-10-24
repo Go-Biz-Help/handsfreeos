@@ -2821,6 +2821,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'main_offer',
   // Adding the texting section to the business's own privacy policy or terms (20261027006500).
   'texting_policy',
+  // Reading an applicant Indeed emailed the business about (20261027011000).
+  'lead_intake',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

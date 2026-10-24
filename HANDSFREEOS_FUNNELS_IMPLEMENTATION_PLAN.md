@@ -9,9 +9,9 @@ It started with Christina Robbins's network-marketing recruiting funnel (built i
 about recruiting. A contractor's "watch this, then book an estimate" page or a coach's webinar sign-up uses the same
 pieces.
 
-> **Status: stages 1 to 4 are built** (the video question, one page at a time, details saved part way, personal
-> links and greetings, booking inside the form, stopped partway, and Facebook lead ads on the stand-in); stages 5
-> and 6 are next. Christina's funnel can be set up now, with Zapier in front for leads until Meta approves lead ads
+> **Status: stages 1 to 5 are built** (the video question, one page at a time, details saved part way, personal
+> links and greetings, booking inside the form, stopped partway, Facebook lead ads on the stand-in, and Indeed by
+> email); stage 6 is next. Christina's funnel can be set up now, with Zapier in front for leads until Meta approves lead ads
 > (Meta Part 7 in `docs/operations.md`). Decisions below are the owner's (2026-10-23). "Picks to confirm" are mine
 > and stay open until the owner says yes.
 >
@@ -42,6 +42,12 @@ pieces.
 >   Settings → Lead intake gets the "Facebook lead ad" row; Settings → Facebook & Instagram gets "Lead ads",
 >   shown once a sign-in allows leads. A workflow on "A new lead comes in" with Lead source "Facebook lead ad"
 >   sends the funnel's link. Details are in "Lead ads" in `docs/meta-messaging.md`.
+> - **Stage 5, as built.** The Indeed row is **off until an owner turns it on**: for most businesses an applicant
+>   isn't a customer. The worker reads Indeed's email as it files it (Postmark's inbound mail and the mailbox sync),
+>   since a connected mailbox otherwise keeps only mail from known customers; the email itself goes to Other mail.
+>   Without the AI (not set up, today's limit) the email's own wording is read instead, so no applicant is lost to
+>   it. A forward counts when it keeps Indeed as the sender, as automatic forwarding does. Details are in "Facebook
+>   lead ads and Indeed" in "Lead intake", `docs/operations.md`.
 
 ## Decisions (Chris, 2026-10-23)
 

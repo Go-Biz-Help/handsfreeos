@@ -6,6 +6,7 @@ import {
   INTAKE_CHANNELS,
   INTAKE_DEFAULT_DAILY_CAP,
   INTAKE_NAMES,
+  intakeOnByDefault,
   READABLE_SOURCE,
 } from '../crm/intake';
 import { defineQuery } from '../kernel/define';
@@ -47,7 +48,7 @@ export const intakeList = defineQuery({
       kind,
       sourceId: row?.id ?? null,
       name: row?.name ?? INTAKE_NAMES[kind],
-      active: row ? row.active : true,
+      active: row ? row.active : intakeOnByDefault(kind),
       createLead: row ? row.createLead : true,
       pipelineId: row?.pipelineId ?? null,
       stageId: row?.stageId ?? null,

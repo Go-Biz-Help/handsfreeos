@@ -9,7 +9,7 @@ import {
   messagesLength,
   writeToolCalls,
 } from '@hfos/ai';
-import { addDays, weekdayOf } from '@hfos/core/server';
+import { addDays, isIndeedApplicantEmail, readIndeedApplicant, weekdayOf } from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
 import { FIRST_MESSAGE_ASK, NUDGE_ASK, TASK_ASK } from '../ai-team/turns';
 
@@ -2518,7 +2518,29 @@ export const POLICY_RULES: readonly ScriptRule[] = [
   { when: /Place the new section\.$/, json: (m) => scriptedPolicyPlace(m) },
 ];
 
+/**
+ * Reading an applicant Indeed emailed about (email/indeed.ts): what the email's own shapes say, the way core reads
+ * them without the AI. Not an application when the subject isn't one.
+ */
+function scriptedIndeed(message: string) {
+  const attr = (name: string) =>
+    unquote(new RegExp(`<email\\b[^>]*\\b${name}="([^"]*)"`).exec(message)?.[1] ?? '');
+  const from = { address: attr('from'), name: attr('from_name') || null };
+  const subject = attr('subject');
+  const a = readIndeedApplicant({
+    from,
+    subject,
+    bodyText: unquote(quotedBlock(message, 'email') ?? ''),
+  });
+  return { applied: isIndeedApplicantEmail({ from, subject }), ...a };
+}
+
+export const INDEED_RULES: readonly ScriptRule[] = [
+  { when: /Say who applied, from this email Indeed sent\.$/, json: (m) => scriptedIndeed(m) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...INDEED_RULES,
   ...POLICY_RULES,
   ...MEETING_RULES,
   ...MAIN_OFFER_RULES,
