@@ -11,6 +11,7 @@ import type { AskResult } from '@hfos/core/addons/outreach/asks';
 import { CHECK_PACE_SECONDS, RESEARCH_WORDS } from '@hfos/core/addons/outreach/checks';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import type { ChecksNext } from '../../hfos/messages';
+import { line } from '../../networks/facebook/lookup';
 import type { BusinessPage, Ideal } from '../../networks/alignable/read';
 import { businessRef, idIn, urlOf } from '../../networks/alignable/read';
 import { counted } from '../../words';
@@ -30,7 +31,10 @@ function idealLine(label: string, ideal: Ideal | null): string | null {
   return parts.length ? `${label}: ${parts.join(' · ')}` : null;
 }
 
-/** What a business's page says about it, as lines for the AI. */
+/**
+ * What a business's page says about it, as lines for the AI, each cut to what HandsFreeOS takes (LinkedIn's way): an
+ * About Us runs long, and one line too long turned the whole check away (the owner's Check my friends, 24 Oct 2026).
+ */
 export function businessLines(page: BusinessPage): string[] {
   return [
     page.title ? `${page.name}, ${page.title}` : page.name,
@@ -40,7 +44,9 @@ export function businessLines(page: BusinessPage): string[] {
     idealLine('Their ideal customer', page.customer),
     idealLine('Who they refer with', page.partner),
     page.tags.length ? `Tags: ${page.tags.join(', ')}` : null,
-  ].filter((line): line is string => !!line);
+  ]
+    .filter((l): l is string => !!l)
+    .map((l) => line(l));
 }
 
 /** Whether the business page shown is the one opened: the same business by Alignable's id, or its address. */
