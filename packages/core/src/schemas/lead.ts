@@ -89,6 +89,11 @@ export const LeadMoveStageInput = z.object({
   lostReason: lostReason.optional(),
   /** Why HandsFreeOS moved it ("Quote 1042 went out"), for its timeline. Only HandsFreeOS gives one. */
   because: z.string().trim().min(1).max(200).optional(),
+  /**
+   * The funnel whose rule moved it (funnel.move_person, for the system and the AI teammate): such a move may go
+   * back, or to a won or lost stage, because a person wrote the rule.
+   */
+  funnelId: uuid.optional(),
 });
 /** The "Deal in the wrong stage" card's one press: move the deal to the stage what happened to it says. */
 export const LeadCatchUpInput = z.object({ workspaceId: uuid, leadId: uuid });
@@ -168,6 +173,18 @@ export const LeadBoardInput = z.object({
 export const LeadBoardOutput = z.object({
   pipeline: z.object({ id: uuid, name: z.string() }),
   pipelines: z.array(z.object({ id: uuid, name: z.string() })),
+  /**
+   * The funnel this pipeline runs, if any (teammate funnels): the board's Funnel button, and which of the cards it
+   * shows are in it now (paused while the team talks to them, or not).
+   */
+  funnel: z
+    .object({
+      id: uuid,
+      name: z.string(),
+      status: z.enum(['draft', 'on', 'paused']),
+      leads: z.array(z.object({ leadId: uuid, paused: z.boolean() })),
+    })
+    .nullable(),
   stages: z.array(
     z.object({
       id: uuid,

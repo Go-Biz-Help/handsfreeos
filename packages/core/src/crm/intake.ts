@@ -35,19 +35,10 @@ import { personCreate } from '../commands/person.create';
 import { logSystemActivity } from './activities';
 import { formatPhone, normalizePhone } from './phone';
 import { fullName } from './records';
+import { INTAKE_NAMES, type IntakeKind } from './intake-kinds';
 
-export type IntakeKind = (typeof INTAKE_KINDS)[number];
-export const INTAKE_KINDS = [
-  'text',
-  'call',
-  'email',
-  'website_form',
-  'api',
-  'messenger',
-  'instagram',
-  'facebook_lead_ad',
-  'indeed',
-] as const;
+export { INTAKE_KINDS, INTAKE_NAMES, type IntakeKind } from './intake-kinds';
+
 /**
  * The ways a stranger reaches a business by themselves: the three of slice A, a message to its Facebook Page or
  * Instagram account (20261025000200), and a lead ad's form on either or an applicant Indeed emailed about (funnels,
@@ -63,19 +54,6 @@ export const INTAKE_CHANNELS = [
   'indeed',
 ] as const;
 export type IntakeChannel = (typeof INTAKE_CHANNELS)[number];
-
-/** What a channel is called before a business renames it. It is what its customers and leads are filed under. */
-export const INTAKE_NAMES: Record<IntakeKind, string> = {
-  text: 'Text message',
-  call: 'Phone call',
-  email: 'Email',
-  website_form: 'Website form',
-  api: 'Connected app',
-  messenger: 'Facebook Messenger',
-  instagram: 'Instagram',
-  facebook_lead_ad: 'Facebook lead ad',
-  indeed: 'Indeed',
-};
 
 /** A channel nobody has set up: on, opening a lead in the default pipeline, 50 a day. */
 export const INTAKE_DEFAULT_DAILY_CAP = 50;

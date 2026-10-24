@@ -4,6 +4,7 @@ import { assertAiReach, refuseCustomersLeadInChat, teammateDealsOn } from '../ai
 import { logSystemActivity } from '../crm/activities';
 import { placeInStage } from '../crm/positions';
 import { HfosError } from '../errors';
+import { FUNNEL_FOLLOW_EVENTS, funnelFollowsLead, funnelMoveAllowed } from '../funnels/follow';
 import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
@@ -18,7 +19,7 @@ export const leadMoveStage = defineCommand({
   output: LeadMoveStageOutput,
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
-  emits: ['lead.stage_changed', 'lead.won', 'lead.lost', 'lead.reopened'],
+  emits: ['lead.stage_changed', 'lead.won', 'lead.lost', 'lead.reopened', ...FUNNEL_FOLLOW_EVENTS],
   // HandsFreeOS itself: Automations' "Move deals along for you" (forward only, with its reason).
   actors: ['human', 'workflow', 'ai_employee', 'system'],
   offline: 'anytime',
@@ -56,8 +57,28 @@ export const leadMoveStage = defineCommand({
       throw HfosError.notFound(
         'That stage isn’t in this lead’s pipeline anymore. It may have been deleted. Refresh and pick another stage.',
       );
+    // A funnel's own rule (funnel.move_person): a person wrote it, so it may go back, or to a won or lost stage.
+    if (input.funnelId && ctx.actor.type !== 'system' && ctx.actor.type !== 'ai_employee')
+      throw HfosError.validation([
+        { path: 'funnelId', message: 'Only HandsFreeOS moves a lead by a funnel’s rule.' },
+      ]);
+    const viaFunnel = input.funnelId
+      ? await funnelMoveAllowed(ctx, input.funnelId, current, to.id)
+      : false;
+    if (input.funnelId && !viaFunnel)
+      throw HfosError.rule(
+        'funnel_move_refused',
+        409,
+        'That stage isn’t in this lead’s funnel anymore, so it wasn’t moved. Check the funnel under AI teammate → Funnels.',
+      );
+    if (viaFunnel && current.status !== 'open')
+      throw HfosError.rule(
+        'stage_not_open',
+        409,
+        `This lead is already ${current.status}, so its funnel doesn’t move it. Someone on the team can reopen it.`,
+      );
     // The AI teammate moves its customer's open lead between open stages. Winning or losing it is a person's call,
-    // unless the teammate's settings let it handle deals (M18); reopening one always is.
+    // unless the teammate's settings let it handle deals (M18) or a funnel's rule says so; reopening one always is.
     const ai = aiEmployeeOf(ctx.actor);
     if (ai) {
       if (current.status !== 'open')
@@ -66,7 +87,7 @@ export const leadMoveStage = defineCommand({
           409,
           `This lead is already ${current.status}, and the AI teammate only moves open leads. Someone on the team can reopen it.`,
         );
-      if (to.kind !== 'open' && !(await teammateDealsOn(ctx.tx, ai)))
+      if (!viaFunnel && to.kind !== 'open' && !(await teammateDealsOn(ctx.tx, ai)))
         throw HfosError.rule(
           'stage_not_open',
           409,
@@ -84,13 +105,15 @@ export const leadMoveStage = defineCommand({
         status: current.status,
         position: Number(current.position),
       };
-    if (input.because && ctx.actor.type !== 'system')
+    // A funnel's move gives its reason too: the rule's, or the teammate's reading of the reply.
+    if (input.because && ctx.actor.type !== 'system' && !viaFunnel)
       throw HfosError.validation([
         { path: 'because', message: 'Only HandsFreeOS gives a reason for its own moves.' },
       ]);
-    // HandsFreeOS only ever moves a deal forward, and never out of won or lost.
+    // HandsFreeOS only ever moves a deal forward, and never out of won or lost (a funnel's rule aside).
     if (
       ctx.actor.type === 'system' &&
+      !viaFunnel &&
       (current.status !== 'open' ||
         to.kind === 'lost' ||
         (to.kind === 'open' && to.position <= from.position))
@@ -211,6 +234,8 @@ export const leadMoveStage = defineCommand({
         // well before it had signal), or when the move arrived if someone else moved the lead in the meantime.
         occurredAt: row.stageEnteredAt,
       });
+      // The pipeline is the truth: its person's funnel follows, whoever moved it.
+      await funnelFollowsLead(ctx, current.id, to, from.id);
     }
     return {
       leadId: current.id,

@@ -8551,6 +8551,23 @@ Each of these has its own switch, and all start off unless the list says otherwi
 - **Deals** (**Qualify** → **Opens and closes deals**). It opens a lead for a customer who has none, sets what it's worth from a price they agreed to, and marks it won when they commit or lost when they clearly say no, with their reason. Reopening one is always a person's call.
 - **Money** (**Limits** → **Bills, quotes and plans**). **Bills and payments** tells a customer what they owe and what they paid and can resend a bill's pay link; **New bills** puts one together from the price list; **Quotes** is off, sends the team's quotes and records the customer's yes or no, or also builds quotes from the price list; **Maintenance plans** signs a customer up, after which they get the link to add a card. **Every one of these waits for an owner's or admin's OK, even after training wheels**: it's an approval draft on **Approvals**, like a discount. Prices always come from the price list, and a yes to a quote is recorded as staff in the approver's name. Documents it makes say where they came from (`origin` `ai_teammate`).
 
+### Funnels
+
+**AI teammate → Funnels** is where a business sets out the path it wants people taken along, and the teammate follows it: each stage's messages at the right time, answers that know where the person is, and moving them on. `docs/funnels.md` is the guide for changing the code.
+
+- **Making one.** **New funnel** starts from how it should go, in the business's own words: **Draft it with Ava** drafts the stages, the moves and the messages, and shows them on the map before anything is kept. **Set it up myself** starts empty instead. A funnel uses a pipeline's stages: one the business has that runs no funnel yet, or a new one made from the stages typed there. The steps then go through who gets in, the stages, the messages, wording and approvals, trying it as a lead, and turning it on. Any box on the map opens its step.
+- **Try it as a lead** plays a pretend lead on screen: pick what they do at each fork and see each message and when it would go. Nothing is sent.
+- **Who gets in.** By how they arrive (a new lead in the pipeline, or one that came in by text, a web form, Facebook lead ads, Indeed and so on; a form answered; a booking), added by hand from their page, or suggested by the teammate and OK'd by a person on **Approvals**, on their page or beside the conversation. A person is in one funnel at a time; joining another ends the first.
+- **Funnels need the teammate on.** With it off nothing in any funnel goes out, and a funnel won't turn on.
+- **People come first.** A person's reply in the conversation, or **Take over**, pauses that person's funnel until someone clicks **Hand back**. **Pause** on their page pauses it until someone clicks **Resume**.
+- **The board is the truth.** Dragging a lead to another stage moves them in the funnel, and that stage's messages start. A won or lost stage ends it.
+- **Changes reach everyone at once.** People stay at the stage they're at and get the new messages and moves from then on. Taking out a stage with people in it asks where they go.
+- **Late messages are skipped.** A message past its good-until (30 minutes for one timed around a session's start) is skipped rather than sent late. Quiet hours apply as they do to the teammate's other texts.
+- **One voice.** Inside a funnel, the funnel's messages replace the teammate's **Follow up** nudges and its first message to new leads. A workflow that also texts the same new leads shows as a warning on the funnel; nothing stops both.
+- **Where people are.** A line under their name on their page, their lead and beside the conversation; a badge on their card on the board, and a **Funnel** button above it that opens the map with how many people are at each stage. The phone app shows the same line on a customer, with **Pause**, **Resume**, **Remove** and the teammate's suggestions. Making and changing funnels is on the web.
+- **Limits.** 20 funnels a business, 12 stages a funnel, and 8 messages a stage. The AI's drafts and the messages it writes count toward the daily AI limit.
+- **Who may.** Owners and admins make and change funnels. Everyone sees them; whoever can change customers pauses, removes, moves and adds people.
+
 ### Hand-offs, and the emails they send
 
 The teammate hands a conversation to a person when:
@@ -8693,6 +8710,10 @@ Its **Activity** shows each run and how it ended. If there's no run, check in th
 4. The customer didn't text STOP or ask not to be contacted.
 5. It hasn't sent 12 replies to this customer today, or used its share of the daily AI limit (the owners get an email).
 6. The worker has an Anthropic key: its `worker started` line shows `"assistant":"anthropic"`, not `"none"`.
+
+#### A funnel's message didn't go out
+
+Open the person's page: the line under their name says which funnel and stage they're at, and why it's paused if it is (someone on the team took the conversation, or someone paused it by hand). Then check, in order: the teammate is on (**AI teammate**); the funnel is on (**AI teammate → Funnels**); they can be reached that way (they agreed to texts, or there's an email for them); and it isn't quiet hours, when texts wait. A message past its good-until is skipped on purpose. **Activity** lists each funnel message the teammate wrote or drafted, starting with the funnel and the stage ("Recruiting · New lead: Sent …"), and a funnel set to ask first leaves its messages on **Approvals**.
 
 #### A draft disappeared
 

@@ -1,0 +1,56 @@
+:root {
+  /* Radii — named by what they belong to, straight from the source. */
+  --radius-chip: 6px;     /* reason chips, menu items, segmented items */
+  --radius-tile-sm: 7px;  /* 24px kind tiles */
+  --radius-control: 8px;  /* buttons, inputs, nav rows */
+  --radius-segmented: 9px;
+  --radius-menu: 10px;    /* menus, toasts, lg controls, radio cards */
+  --radius-card: 12px;
+  --radius-dialog: 14px;
+  --radius-bubble: 14px;
+  --radius-mock: 16px;    /* marketing product frames */
+  --radius-pill: 999px;
+
+  /* Shadows (light). Dark overrides live in colors.css. */
+  --shadow-1: 0 1px 2px rgba(25, 29, 37, 0.06), 0 1px 3px rgba(25, 29, 37, 0.04);
+  --shadow-2: 0 8px 24px rgba(25, 29, 37, 0.1), 0 2px 6px rgba(25, 29, 37, 0.06);
+  --shadow-3: 0 24px 60px rgba(25, 29, 37, 0.22), 0 4px 12px rgba(25, 29, 37, 0.08);
+  --focus-ring: 0 0 0 3px var(--ring);
+
+  /* Spacing — Tailwind's 4px base as used; odd values (3px, 7px, 9px, 11px, 13px, 18px) are real. */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-5: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-28: 112px;
+
+  /* Control heights */
+  --h-sm: 32px;
+  --h-md: 36px;
+  --h-input: 40px;
+  --h-lg: 44px;
+  --h-badge: 22px;
+
+  /* Layout */
+  --sidebar-width: 240px;
+  --rail-width: 340px;
+  --page-pad-x: 40px;
+  --page-pad-y: 32px;
+  --site-max: 72rem;
+  --dialog-width: 480px;
+  --sheet-width: 480px;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur-fast: 150ms; /* @kind other */
+}

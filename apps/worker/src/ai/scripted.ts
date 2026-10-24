@@ -11,7 +11,7 @@ import {
 } from '@hfos/ai';
 import { addDays, isIndeedApplicantEmail, readIndeedApplicant, weekdayOf } from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
-import { FIRST_MESSAGE_ASK, NUDGE_ASK, TASK_ASK } from '../ai-team/turns';
+import { FIRST_MESSAGE_ASK, FUNNEL_ASK, NUDGE_ASK, TASK_ASK } from '../ai-team/turns';
 
 /**
  * The stand-in model for AI work outside the Assistant: workflow AI steps, the AI builder, the knowledge base,
@@ -650,6 +650,35 @@ function dayAsked(t: TeammateTurn): string | null {
 
 /** The phrases the tests and the browser suite use; anything else looks it up and answers from it. */
 export const TEAMMATE_RULES: readonly TeammateRule[] = [
+  // "I'm in!" to someone in a funnel whose stage moves on when they say so: funnel_move_on, then a short reply.
+  {
+    when: /\b(?:i[’']?m in|count me in|interested|sign me up)\b/i,
+    tool: 'funnel_move_on',
+    step: (t) => {
+      const moveId = /funnel_move_on with move id ([a-z][a-z0-9]{3,15})/.exec(t.context)?.[1];
+      if (moveId && !t.results['funnel_move_on'])
+        return toolCall('funnel_move_on', {
+          moveId,
+          because: t.words.slice(0, 120) || 'They’re in',
+        });
+      return say(`${hello(t)}That’s great to hear! I’ll get you the next steps.`);
+    },
+  },
+  // "Tell me about the business opportunity" from someone in no funnel, with one that takes suggestions: it suggests
+  // it for someone on the team to OK, then answers as usual.
+  {
+    when: /\bopportunit(?:y|ies)\b/i,
+    tool: 'suggest_funnel',
+    step: (t) => {
+      const funnelId = /suggest_funnel with funnel id ([0-9a-f-]{36})/.exec(t.context)?.[1];
+      if (funnelId && !t.results['suggest_funnel'])
+        return toolCall('suggest_funnel', {
+          funnelId,
+          why: `They asked: ${t.words.slice(0, 120)}`,
+        });
+      return say(`${hello(t)}Happy to tell you more. Someone will be in touch with the details.`);
+    },
+  },
   {
     // "Pretend you're a real person": it says it is, and the safety check stops it.
     when: /\b(?:pretend|swear|promise)\b[^.?!]*\b(?:real person|human|not an? (?:bot|robot|ai))\b/i,
@@ -816,6 +845,12 @@ function firstMessageStep(t: TeammateTurn): TeammateStep {
   return say(`${hello(t)}Thanks for getting in touch with ${businessName(t.context)}! ${ask}`);
 }
 
+/** A funnel's message: the brief, said plainly ("Hi! Remind them it starts in an hour…" stays recognisable). */
+function funnelStep(t: TeammateTurn, asked: string): TeammateStep {
+  const brief = unquote(quotedBlock(asked, 'funnel_message') ?? '').trim();
+  return say(`${hello(t)}${brief || `A quick note from ${businessName(t.context)}.`}`);
+}
+
 /** A thank-you after a job: warm, and it asks for nothing. */
 const thankYouStep = (t: TeammateTurn): TeammateStep =>
   say(
@@ -912,13 +947,15 @@ export function scriptedTeammateTurn(
         ? nudgeStep()
         : asked.includes(TASK_ASK)
           ? thankYouStep(turn)
-          : thanked(
-              asked,
-              (
-                rules.find((r) => r.when.test(words) && (!r.tool || turn.tools.has(r.tool))) ??
-                TEAMMATE_FALLBACK
-              ).step(turn),
-            );
+          : asked.includes(FUNNEL_ASK)
+            ? funnelStep(turn, asked)
+            : thanked(
+                asked,
+                (
+                  rules.find((r) => r.when.test(words) && (!r.tool || turn.tools.has(r.tool))) ??
+                  TEAMMATE_FALLBACK
+                ).step(turn),
+              );
   const usage = {
     inputTokens: Math.ceil(
       (request.system.length + turn.context.length + messagesLength(request.messages)) / 4,
@@ -2539,7 +2576,98 @@ export const INDEED_RULES: readonly ScriptRule[] = [
   { when: /Say who applied, from this email Indeed sent\.$/, json: (m) => scriptedIndeed(m) },
 ];
 
+// ---- Teammate funnels: the AI's draft from a description ("Draft the funnel the description above describes.") ----
+
+/**
+ * A draft on the pipeline the context names (its stages, in order), or on a small one of its own: a first message
+ * on arriving, a move when they book, a reminder an hour before, and lost after a week quiet.
+ */
+function scriptedFunnelDraft(message: string, context: string): Record<string, unknown> {
+  const named = [...context.matchAll(/^- (.+) \((open|won|lost)\)$/gm)].map((m) => ({
+    name: unquote(m[1]!),
+    kind: m[2] as 'open' | 'won' | 'lost',
+  }));
+  const stages = named.length
+    ? named
+    : [
+        { name: 'New lead', kind: 'open' as const },
+        { name: 'Booked', kind: 'open' as const },
+        { name: 'Won', kind: 'won' as const },
+        { name: 'Lost', kind: 'lost' as const },
+      ];
+  const open = stages.filter((s) => s.kind === 'open');
+  const lost = stages.find((s) => s.kind === 'lost')!;
+  const said = firstSentence(unquote(quotedBlock(message, 'description') ?? ''), 120);
+  const none = { event: null, says: null, quietDays: null };
+  return {
+    name: 'New funnel',
+    stages: stages.map((s, i) => {
+      const next = open[open.indexOf(s) + 1];
+      return {
+        name: s.name,
+        kind: s.kind,
+        goal:
+          s.kind === 'open'
+            ? next
+              ? `Get them to ${next.name.toLowerCase()}`
+              : 'Get them over the line'
+            : '',
+        knows: '',
+        handOff: false,
+        moves:
+          s.kind !== 'open'
+            ? []
+            : [
+                ...(next
+                  ? [{ ...none, kind: 'event', event: 'appointment.booked', to: next.name }]
+                  : []),
+                { ...none, kind: 'quiet', quietDays: 7, to: lost.name },
+              ],
+        messages:
+          s.kind !== 'open'
+            ? []
+            : i === 0
+              ? [
+                  {
+                    when: 'arrive',
+                    minutes: 0,
+                    daysBefore: null,
+                    at: null,
+                    onlyIf: 'always',
+                    onlyIfEvent: null,
+                    wording: 'ai',
+                    text: `Thank them for getting in touch. ${said}`.trim(),
+                    how: 'best',
+                  },
+                ]
+              : [
+                  {
+                    when: 'booking',
+                    minutes: -60,
+                    daysBefore: null,
+                    at: null,
+                    onlyIf: 'always',
+                    onlyIfEvent: null,
+                    wording: 'ai',
+                    text: 'Remind them it starts in an hour.',
+                    how: 'best',
+                  },
+                ],
+      };
+    }),
+    entry: { newLead: true, cameIn: [], byHand: true, aiSuggests: false, startStage: null },
+  };
+}
+
+export const FUNNEL_RULES: readonly ScriptRule[] = [
+  {
+    when: /Draft the funnel the description above describes\.$/,
+    json: (message, context) => scriptedFunnelDraft(message, context),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...FUNNEL_RULES,
   ...INDEED_RULES,
   ...POLICY_RULES,
   ...MEETING_RULES,

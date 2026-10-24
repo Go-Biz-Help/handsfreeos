@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pipeline · Recruiting</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/fonts.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/colors.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/typography.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/spacing.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/base.css">
+<link rel="stylesheet" href="ds/handsfreeos/components/components.css">
+<script src="ds/handsfreeos/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2d69d8}a:hover{color:#2355b0}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; align-items: stretch; min-height: 100vh; background: var(--bg); font-family: var(--font-sans); color: var(--text); font-size: 14px; line-height: 1.45;">
+  <dc-import name="Sidebar" active="pipeline" hint-size="240px,900px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px;">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Pipeline</h1>
+      <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--card); font: inherit; font-size: 13.5px; font-weight: 500; color: var(--text); cursor: pointer; box-shadow: var(--shadow-1);">Recruiting<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+      <span style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--ai-soft); color: var(--ai-text); font-size: 12.5px; font-weight: 500;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>Ava runs the Recruiting funnel here</span>
+      <span style="flex-grow: 1;"></span>
+      <a href="Builder.dc.html" style="display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--card); color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; box-shadow: var(--shadow-1);">Funnel map</a>
+      <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="primary">Add a lead</x-import>
+    </header>
+
+    <div style="overflow-x: auto; padding-bottom: 8px;">
+      <div style="display: flex; gap: 12px; align-items: flex-start; width: max-content;">
+        <section aria-label="New lead" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">New lead<span style="color: var(--text-3); font-weight: 500;">4</span></h2>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Maya Chen</b><span style="font-size: 12.5px; color: var(--text-2);">Indeed · came in 2 min ago</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ai-text);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Link sent</span></a>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Luis Romero</b><span style="font-size: 12.5px; color: var(--text-2);">Facebook lead ad · 8:14 am</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ai-text);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Link sent</span></a>
+          <span style="padding: 2px 4px; font-size: 12.5px; color: var(--text-3);">2 more</span>
+        </section>
+
+        <section aria-label="In the funnel" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">In the funnel<span style="color: var(--text-3); font-weight: 500;">6</span></h2>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Kendra Hill</b><span style="font-size: 12.5px; color: var(--text-2);">On the overview video</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ai-text);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Nudge at 10:42 am if she stays stopped</span></a>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Omar Haddad</b><span style="font-size: 12.5px; color: var(--text-2);">On the questions</span><span style="font-size: 12px; color: var(--text-3);">Nothing due</span></a>
+          <span style="padding: 2px 4px; font-size: 12.5px; color: var(--text-3);">4 more</span>
+        </section>
+
+        <section aria-label="Booked" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">Booked<span style="color: var(--text-3); font-weight: 500;">12</span></h2>
+          <a href="Person.dc.html" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Sam Ortiz</b><span style="font-size: 12.5px; color: var(--text-2);">Thu 7:00 pm</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ai-text);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Reminder Wed 4:00 pm</span></a>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Tasha Grant</b><span style="font-size: 12.5px; color: var(--text-2);">Tue 7:00 pm</span><span style="align-self: flex-start; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--warning-soft); color: var(--warning-text); font-size: 12px; display: flex; align-items: center;">Paused · Dana is texting her</span></a>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Ben Okafor</b><span style="font-size: 12.5px; color: var(--text-2);">Tue 7:00 pm</span><span style="align-self: flex-start; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--ai-soft); color: var(--ai-text); font-size: 12px; display: flex; align-items: center;">Reminder waiting for an OK</span></a>
+          <span style="padding: 2px 4px; font-size: 12.5px; color: var(--text-3);">9 more</span>
+        </section>
+
+        <section aria-label="At the presentation" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">At the presentation<span style="color: var(--text-3); font-weight: 500;">0</span></h2>
+          <div style="padding: 16px 12px; border: 1px dashed var(--border-strong); border-radius: 10px; font-size: 12.5px; color: var(--text-3); text-align: center;">No one right now. Next one is Tue at 7:00 pm.</div>
+        </section>
+
+        <section aria-label="After" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">After<span style="color: var(--text-3); font-weight: 500;">5</span></h2>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Rosa Diaz</b><span style="font-size: 12.5px; color: var(--text-2);">Attended Thu</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ai-text);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Check-in Fri 10:00 am</span></a>
+          <span style="padding: 2px 4px; font-size: 12.5px; color: var(--text-3);">4 more</span>
+        </section>
+
+        <section aria-label="Missed" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">Missed<span style="color: var(--text-3); font-weight: 500;">3</span></h2>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Chris Patel</b><span style="font-size: 12.5px; color: var(--text-2);">Missed Thu</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ai-text);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Second rebook link Sat 8:00 pm</span></a>
+          <span style="padding: 2px 4px; font-size: 12.5px; color: var(--text-3);">2 more</span>
+        </section>
+
+        <section aria-label="Interested" style="width: 248px; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card-2);">
+          <h2 style="margin: 0; padding: 2px 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;">Interested<span style="color: var(--text-3); font-weight: 500;">2</span></h2>
+          <a href="#" style="display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none;"><b style="font-size: 13.5px; font-weight: 600;">Grace Kim</b><span style="font-size: 12.5px; color: var(--text-2);">Sent the leader’s booking link</span><span style="align-self: flex-start; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; display: flex; align-items: center;">Handed to Dana</span></a>
+          <span style="padding: 2px 4px; font-size: 12.5px; color: var(--text-3);">1 more</span>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

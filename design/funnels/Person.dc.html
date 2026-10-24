@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sam Ortiz · Lead</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/fonts.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/colors.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/typography.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/spacing.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/base.css">
+<link rel="stylesheet" href="ds/handsfreeos/components/components.css">
+<script src="ds/handsfreeos/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2d69d8}a:hover{color:#2355b0}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; align-items: stretch; min-height: 100vh; background: var(--bg); font-family: var(--font-sans); color: var(--text); font-size: 14px; line-height: 1.45;">
+  <dc-import name="Sidebar" active="pipeline" hint-size="240px,900px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px 40px 48px; display: flex; flex-direction: column; gap: 18px;">
+    <nav aria-label="Breadcrumb" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3);"><a href="Board.dc.html" style="color: var(--text-2); text-decoration: none;">Pipeline</a><span aria-hidden="true">/</span><a href="Board.dc.html" style="color: var(--text-2); text-decoration: none;">Recruiting</a><span aria-hidden="true">/</span><span style="color: var(--text);">Sam Ortiz</span></nav>
+
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px;">
+      <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Avatar" name="Sam Ortiz" size="lg"></x-import>
+      <div style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 2px;">
+        <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Sam Ortiz</h1>
+        <span style="font-size: 13px; color: var(--text-2);">(504) 555-0187 · sam.ortiz@example.com · Lead in Recruiting</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="secondary">Text Sam</x-import>
+        <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="secondary">Call Sam</x-import>
+      </div>
+    </header>
+
+    <section aria-label="Funnel" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 13px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-1);">
+      <span style="width: 32px; height: 32px; border-radius: 8px; background: var(--ai-soft); color: var(--ai-text); display: flex; align-items: center; justify-content: center; flex: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg></span>
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 3px;">
+        <span style="font-size: 14px;"><a href="Builder.dc.html" style="font-weight: 600; color: var(--text); text-decoration: none;">Recruiting</a> · <b style="font-weight: 600;">Booked</b> for Thu, Oct 29 · 7:00 pm</span>
+        <span style="font-size: 13px; color: var(--text-2);">Next: “Starts in an hour” at Thu 6:00 pm. Then, if Sam hasn’t joined by 7:05 pm, “Were you able to log on?”</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+        <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="secondary" size="sm">Pause</x-import>
+        <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="secondary" size="sm">Move to…</x-import>
+        <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="ghost" size="sm">Remove</x-import>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px;">
+      <section aria-labelledby="timeline-title" style="flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-1); overflow: hidden;">
+        <h2 id="timeline-title" style="margin: 0; padding: 13px 16px 9px; font-size: 13.5px; font-weight: 600;">Timeline</h2>
+        <div style="display: flex; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--border);">
+          <span style="flex: 0 0 90px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums;">Wed 4:00 pm</span>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 5px;">
+            <span style="font-size: 12.5px; color: var(--ai-text); font-weight: 500;">Ava (AI) · approved by Dana · Recruiting, Booked</span>
+            <span style="align-self: flex-start; max-width: 520px; padding: 8px 11px; border-radius: 14px; background: var(--ai-soft); font-size: 13.5px;">Hi Sam, see you tomorrow at 7:00 pm for the presentation. Your Join link: summit.example/j/8kQ2</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--border);">
+          <span style="flex: 0 0 90px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums;">Mon 9:46 am</span>
+          <span style="flex-grow: 1; font-size: 13.5px;">Reached <b style="font-weight: 600;">Booked</b> in Recruiting. Booked <b style="font-weight: 600;">Live presentation</b>, Thu 7:00 pm.</span>
+        </div>
+        <div style="display: flex; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--border);">
+          <span style="flex: 0 0 90px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums;">Mon 9:31 am</span>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 5px;">
+            <span style="font-size: 12.5px; color: var(--text-2); font-weight: 500;">Sam</span>
+            <span style="align-self: flex-start; max-width: 520px; padding: 8px 11px; border-radius: 14px; border: 1px solid var(--border); font-size: 13.5px;">Is the presentation casual? Do I need my camera on?</span>
+            <span style="font-size: 12.5px; color: var(--ai-text); font-weight: 500;">Ava (AI) · approved by Dana · Recruiting, In the funnel</span>
+            <span style="align-self: flex-start; max-width: 520px; padding: 8px 11px; border-radius: 14px; background: var(--ai-soft); font-size: 13.5px;">It’s casual, and your camera can stay off. When you’re done with the overview, the last step lets you pick a night.</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--border);">
+          <span style="flex: 0 0 90px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums;">Mon 9:20 am</span>
+          <span style="flex-grow: 1; font-size: 13.5px;">Reached <b style="font-weight: 600;">In the funnel</b> in Recruiting. Opened the form.</span>
+        </div>
+        <div style="display: flex; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--border);">
+          <span style="flex: 0 0 90px; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums;">Mon 9:12 am</span>
+          <span style="flex-grow: 1; font-size: 13.5px;">New lead from a Facebook lead ad, <b style="font-weight: 600;">Join our team</b>. Joined <b style="font-weight: 600;">Recruiting</b> at New lead, and Ava texted their link.</span>
+        </div>
+      </section>
+
+      <aside aria-label="Lead" style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-1); overflow: hidden;">
+        <h2 style="margin: 0; padding: 13px 14px 9px; font-size: 13.5px; font-weight: 600;">Lead</h2>
+        <div style="display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px;"><span style="flex: 0 0 96px; color: var(--text-2);">Stage</span><span>Booked</span></div>
+        <div style="display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px;"><span style="flex: 0 0 96px; color: var(--text-2);">Came in from</span><span>Facebook lead ad · Join our team</span></div>
+        <div style="display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px;"><span style="flex: 0 0 96px; color: var(--text-2);">Presentation</span><span>Thu, Oct 29 · 7:00 pm · Joined: not yet</span></div>
+        <div style="display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px;"><span style="flex: 0 0 96px; color: var(--text-2);">Answers</span><span>Watched both videos · Fit: yes</span></div>
+        <div style="display: flex; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--border); font-size: 13px;"><span style="flex: 0 0 96px; color: var(--text-2);">Owner</span><span>Dana Price</span></div>
+        <div style="padding: 9px 14px; border-top: 1px solid var(--border); background: var(--card-2); font-size: 12px; color: var(--text-3);">If you text Sam yourself, Recruiting pauses for Sam until you hand back to Ava.</div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

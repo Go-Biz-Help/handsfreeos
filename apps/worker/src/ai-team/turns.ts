@@ -8,7 +8,7 @@ import { quoteData, type AiTeammateGoal, type TestCoaching } from '@hfos/core/se
 import { clockLabel, dayLabel } from '../assistant/calendar-format';
 import type { RunContext } from './context';
 import { historyBlock } from './prompt';
-import type { NudgeSpec, TaskSpec } from './run';
+import type { FunnelRunSpec, NudgeSpec, TaskSpec } from './run';
 
 /** How a first message's turn ends. */
 export const FIRST_MESSAGE_ASK =
@@ -16,6 +16,10 @@ export const FIRST_MESSAGE_ASK =
 /** How a nudge's turn ends. */
 export const NUDGE_ASK =
   'Write one short, friendly follow-up to your last message, or use no_reply when nothing needs following up. End your turn with reply or no_reply.';
+
+/** How a funnel message's turn ends. */
+export const FUNNEL_ASK =
+  'Write that message to them now, from the brief. End your turn with reply or no_reply.';
 
 /** How a task's turn ends (a thank-you after a job). */
 export const TASK_ASK = 'Write that one message now. End your turn with reply or no_reply.';
@@ -152,5 +156,29 @@ export function taskTurn(rc: RunContext, task: TaskSpec): string {
     'The business finished a job for them. Thank them for choosing the business, in one or two warm sentences that mention the job.',
     'Ask for nothing: no review, no payment, no booking. No prices and no links. Use no_reply only if the conversation shows something went wrong with the job.',
     TASK_ASK,
+  ].join('\n');
+}
+
+/**
+ * A funnel's message (teammate funnels): the business's brief for this moment of the funnel, which the teammate
+ * writes in its own words. The funnel, the stage's goal and what it should know are in the context (<funnel>).
+ */
+export function funnelTurn(rc: RunContext, f: FunnelRunSpec): string {
+  return [
+    ...historyBlock(rc),
+    '<funnel_message>',
+    quoteData(f.text),
+    '</funnel_message>',
+    `It’s time for this message in ${quoteData(f.funnelName)}, at ${quoteData(f.stageName)}. Write it from the brief above, in your own words: one or two short sentences, and never mention the funnel or its stages.`,
+    ...(f.joinLink
+      ? [
+          'Their own Join link goes on its own line after your message: don’t write a link yourself.',
+        ]
+      : []),
+    ...(f.late
+      ? ['It’s going later than planned, so don’t say it’s on the dot or “in an hour”.']
+      : []),
+    'Use no_reply only when the conversation shows it no longer fits: they already did it, or said they’re not interested.',
+    FUNNEL_ASK,
   ].join('\n');
 }

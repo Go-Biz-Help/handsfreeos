@@ -1,0 +1,42 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-24T09:05:00Z" },
+  "title": "Funnels screens",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 900, "title": "AI teammate → Funnels", "expand": "fill" },
+    "Describe.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 900, "title": "New funnel · 1 Describe it", "expand": "fill" },
+    "Builder.dc.html": { "x": 3040, "y": 0, "w": 1440, "h": 1240, "title": "New funnel · 5 The messages, with the live map", "expand": "fill" },
+    "TryIt.dc.html": { "x": 4560, "y": 0, "w": 1440, "h": 960, "title": "New funnel · 7 Try it as a lead", "expand": "fill", "is_interactive": true },
+    "TurnOn.dc.html": { "x": 6080, "y": 0, "w": 1440, "h": 900, "title": "New funnel · 6 and 8 Approvals, then turn it on", "expand": "fill" },
+    "Person.dc.html": { "x": 0, "y": 1640, "w": 1440, "h": 900, "title": "A lead in a funnel", "expand": "fill" },
+    "Board.dc.html": { "x": 1520, "y": 1640, "w": 1440, "h": 900, "title": "The pipeline board", "expand": "fill" },
+    "Phone.dc.html": { "x": 3040, "y": 1640, "w": 390, "h": 844, "title": "Phone: a lead in a funnel" },
+    "Sidebar.dc.html": { "x": 3510, "y": 1640, "w": 240, "h": 900, "title": "Sidebar (shared part)" }
+  },
+  "order": [
+    "Main.dc.html",
+    "Describe.dc.html",
+    "Builder.dc.html",
+    "TryIt.dc.html",
+    "TurnOn.dc.html",
+    "Person.dc.html",
+    "Board.dc.html",
+    "Phone.dc.html",
+    "Sidebar.dc.html"
+  ],
+  "notes": {
+    "making": { "x": 0, "y": -300, "text": "Making a funnel", "kind": "title1", "maxW": 7520 },
+    "running": { "x": 0, "y": 1340, "text": "Seeing it run", "kind": "title1", "maxW": 3750 }
+  },
+  "designSystems": [
+    {
+      "title": "HandsFreeOS Design System",
+      "namespace": "handsfreeos",
+      "artifact": "https://claude.ai/artifact/Tu3wdWS8aQJSTDo22jDyvi",
+      "version": "1792092971-dfc4",
+      "copiedAt": "2026-10-24T09:05:00Z"
+    }
+  ]
+}

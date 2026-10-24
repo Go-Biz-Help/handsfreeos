@@ -5,7 +5,7 @@
  * - the teammate still has the conversation (no hand-off, no take-over) and still follows up;
  * - they haven't written since, nothing got booked, and no draft waits for a person;
  * - their lead isn't won, lost or ruled out as not a fit, and they haven't texted STOP;
- * - the ladder isn't used up.
+ * - the ladder isn't used up, and no funnel has them (the funnel follows up instead).
  * Then it waits for the teammate's working hours (and, for a text, the end of quiet hours, unless it's one of the
  * quick ones: nudges.ts goesInQuietHours), going at a random time early on (spreadAfter), and runs the follow-up
  * (run.ts runNudge), which in training becomes a draft. When the message they didn't answer offered times, it
@@ -26,6 +26,7 @@ import { quietEndAt } from '../booking/deliver';
 import type { JobHandler } from '../jobs';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
 import { answersChannel, runtimeConfigOf } from './config';
+import { inFunnel } from './funnel-context';
 import { TEAMMATE_JOBS } from './constants';
 import { nextWorkingAt } from './hours';
 import {
@@ -121,6 +122,8 @@ export const followUpJob: JobHandler = async (ctx) => {
       return null;
     const u = await unansweredOf(tx, conv.id);
     if (!u || !followsUp(config, u)) return null;
+    // Inside a funnel, the funnel follows up.
+    if (await inFunnel(tx, conv.personId)) return null;
     const since = new Date(u.anchorAt).toISOString();
     const [stop] = await rows<{
       booked: boolean;

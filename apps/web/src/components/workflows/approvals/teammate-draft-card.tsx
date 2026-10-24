@@ -105,7 +105,9 @@ export function TeammateDraftCard({
   const expires = expiresLine(d.expiresAt, timezone, now);
   const expired = expires === 'Expired';
   const channel = d.channel ? (CHANNEL_WORD[d.channel] ?? d.channel) : 'message';
-  const byline = `${aiName(name)} · ${channel} · ${waitingFor(minutesSince(d.createdAt, now))}${d.kind === 'reply' ? ' · in the inbox too' : ''}`;
+  // A funnel's message says which funnel and stage it's from (teammate funnels).
+  const from = d.preview.funnel ? ` · ${d.preview.funnel.name}, ${d.preview.funnel.stageName}` : '';
+  const byline = `${aiName(name)} · ${channel}${from} · ${waitingFor(minutesSince(d.createdAt, now))}${d.kind === 'reply' ? ' · in the inbox too' : ''}`;
   const convHref = d.conversationId ? `/app/w/${workspaceId}/inbox/${d.conversationId}` : null;
   const cmd = teammateCommands(workspaceId);
 

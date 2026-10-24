@@ -6,6 +6,7 @@
  * as a **tone**, not a class name, so the web keeps its Tailwind classes and the phone uses its own.
  */
 import { zonedParts } from '../calendar/engine/zoned';
+import { funnelTimelineWords } from '../funnels/words';
 import { callClock } from '../inbox/time';
 import { lowerLabel, relatedWords } from '../relationships/words';
 import type { TimelineEntry } from '../schemas/activity';
@@ -236,6 +237,11 @@ export function describeTimeline(
       );
     }
     default:
+      // A funnel's own lines (teammate funnels): who put them in it, took them out, paused or picked it up.
+      if (e.subtype?.startsWith('funnel_')) {
+        const words = funnelTimelineWords(e.subtype, e.meta);
+        if (words) return words;
+      }
       return e.subtype?.replace(/_/g, ' ') ?? 'made a change';
   }
 }
@@ -348,6 +354,9 @@ export function timelineBody(e: TimelineEntry): string | null {
       return e.body;
     case 'lost':
       return e.body?.replace(/^Lost:\s*/, '') || null;
+    // Why HandsFreeOS moved it: Automations' reason, or the funnel's ("They book").
+    case 'stage_changed':
+      return str(e.meta.because) || null;
     case 'appointment_cancelled':
       return str(e.meta.reason) || null;
     default:

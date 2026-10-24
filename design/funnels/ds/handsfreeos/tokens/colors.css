@@ -1,0 +1,96 @@
+/* Copied from apps/web/src/app/globals.css. Light is default; dark via <html data-theme="dark">. */
+:root {
+  --bg: #f9fafd;
+  --card: #ffffff;
+  --card-2: #f2f4f8;
+  --card-3: #e4e8ee;
+  --border: #e4e8ee;
+  --border-strong: #d2d6dd;
+  --text: #191d25;
+  --text-2: #5b616a;
+  --text-3: #676c75;
+  --placeholder: #a0a5ae;
+  --accent: #2d69d8;
+  --accent-hover: #2355b0;
+  --accent-text: var(--accent);
+  --accent-soft: #e9f0fd;
+  --accent-soft-2: #d8e5fb;
+  --ring: #2d69d847;
+  --success: #008743;
+  --success-soft: #e0f7e5;
+  --success-text: #005d2d;
+  --warning: #996300;
+  --warning-soft: #ffedd8;
+  --warning-text: #6b4300;
+  --danger: #c43335;
+  --danger-soft: #ffebe9;
+  --danger-text: #862726;
+  --scrim: rgba(25, 29, 37, 0.45);
+  --toast-bg: #191d25;
+  --toast-text: #f2f4f8;
+  --on-solid: #ffffff;
+  /* AI teammate (violet) and branch (teal) tints: fixed hues mixed into card/text. */
+  --ai-hue: #7c3aed;
+  --branch-hue: #0e7490;
+  --ai-soft: color-mix(in oklab, var(--ai-hue) 13%, var(--card));
+  --ai-text: color-mix(in oklab, var(--ai-hue) 72%, var(--text));
+  --branch-soft: color-mix(in oklab, var(--branch-hue) 13%, var(--card));
+  --branch-text: color-mix(in oklab, var(--branch-hue) 70%, var(--text));
+  /* Avatar palette (seeded by name). */
+  --avatar-1: #2d69d8;
+  --avatar-2: #008743;
+  --avatar-3: #996300;
+  --avatar-4: #5b616a;
+  --avatar-5: #1950b5;
+  --avatar-6: #862726;
+  /* Calendar off-hours wash. */
+  --offh: rgba(91, 97, 106, 0.075);
+
+  /* Semantic aliases */
+  --surface-page: var(--bg);
+  --surface-card: var(--card);
+  --surface-sunken: var(--card-2);
+  --surface-pressed: var(--card-3);
+  --text-body: var(--text);
+  --text-muted: var(--text-2);
+  --text-subtle: var(--text-3);
+  --border-default: var(--border);
+  --border-control: var(--border-strong);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0f131a;
+  --card: #191d25;
+  --card-2: #20252e;
+  --card-3: #2c3139;
+  --border: #2c3139;
+  --border-strong: #3a4049;
+  --text: #f2f4f8;
+  --text-2: #a0a5ae;
+  --text-3: #8a909a;
+  --placeholder: #5b616a;
+  --accent-hover: #4f83e0;
+  --accent-text: #7ca4eb;
+  --accent-soft: #1f2d48;
+  --accent-soft-2: #22365d;
+  --ring: #2d69d873;
+  --success: #3ccf7a;
+  --success-soft: #10291b;
+  --success-text: #7fe0a5;
+  --warning: #f0a93b;
+  --warning-soft: #2d2210;
+  --warning-text: #f5c97a;
+  --danger: #ff7b73;
+  --danger-soft: #301816;
+  --danger-text: #ffaaa3;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --toast-bg: #f2f4f8;
+  --toast-text: #191d25;
+  --on-solid: #191d25;
+  --offh: rgba(0, 0, 0, 0.34);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 24px 60px rgba(0, 0, 0, 0.65);
+  color-scheme: dark;
+}

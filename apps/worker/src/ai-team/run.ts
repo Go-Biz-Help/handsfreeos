@@ -109,6 +109,7 @@ import { photoBlocks, photoLines, pickPhotos } from './photos';
 import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
 import {
   firstMessageTurn,
+  funnelTurn,
   handoverLines,
   nudgeTurn,
   retryLines,
@@ -133,7 +134,26 @@ class ProviderBusy extends Error {
  * What a run is for: answering what they wrote, a first message (answering anything waiting too), a nudge, or
  * a task an automation gave it (a thank-you after a job): one message, written first, with no follow-ups after.
  */
-export type RunKind = 'reply' | 'first' | 'nudge' | 'task';
+export type RunKind = 'reply' | 'first' | 'nudge' | 'task' | 'funnel';
+
+/** A funnel's message, as funnels/tick.ts hands it over (HANDSFREEOS_TEAMMATE_FUNNELS_IMPLEMENTATION_PLAN.md). */
+export interface FunnelRunSpec {
+  readonly funnelId: string;
+  readonly funnelName: string;
+  readonly funnelPersonId: string;
+  readonly stageId: string;
+  readonly stageName: string;
+  readonly messageId: string;
+  /** `ai`: `text` is the brief it writes from. `exact`: `text` is what goes, filled in. */
+  readonly wording: 'ai' | 'exact';
+  readonly text: string;
+  /** Their own Join link, for an AI-written message that mentions it: on its own line after the message. */
+  readonly joinLink: string | null;
+  /** Before it goes: like the teammate (a draft in training wheels), always a draft, or sent on its own. */
+  readonly approval: 'teammate' | 'ask' | 'send';
+  /** It's going later than it was due (quiet hours, a busy conversation): it shouldn't read as on the dot. */
+  readonly late: boolean;
+}
 
 /** A task an automation gave the teammate: what to write, and about what. */
 export interface TaskSpec {
@@ -187,6 +207,8 @@ export interface RunSpec {
   readonly retry?: Retry | null;
   /** A task run's task. */
   readonly task?: TaskSpec | null;
+  /** A funnel's message (`kind: 'funnel'`). */
+  readonly funnel?: FunnelRunSpec | null;
 }
 
 interface StartedRun extends RunSpec {
@@ -322,6 +344,18 @@ export async function runNudge(
   return runIt(ctx, run);
 }
 
+/** A funnel's message in a conversation the teammate has, or nobody has (funnels/tick.ts decided it's due). */
+export async function runFunnelMessage(
+  ctx: JobContext,
+  scope: TenantScope,
+  conversationId: string,
+  spec: RunSpec,
+): Promise<JobResult> {
+  const run = await startRun(ctx, scope, conversationId, spec);
+  if (!run) return;
+  return runIt(ctx, run);
+}
+
 /**
  * A first message to someone with no conversation yet (outreach.ts chose the channel and checked the hours).
  * Another first message to them still running: this one tries again in a minute (and then finds them taken).
@@ -421,9 +455,12 @@ async function startRun(
     if (!(await widgetAnswers(tx, conv, teammate.id))) return null;
     const mine = conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id;
     const free = conv.handledBy === 'none' && !conv.assigneeUserId;
-    // A nudge or a workflow's first message is only ever for a conversation that's already the teammate's.
-    if (!mine && (!free || spec.kind !== 'reply')) return null;
-    const batch = await unansweredMessages(tx, conv.id, conv.aiAnsweredThrough);
+    // A nudge or a workflow's first message is only ever for a conversation that's already the teammate's; a funnel's
+    // message may pick up one nobody has.
+    if (!mine && (!free || (spec.kind !== 'reply' && spec.kind !== 'funnel'))) return null;
+    // A funnel's message answers nothing: what they wrote waits for its own reply.
+    const batch =
+      spec.kind === 'funnel' ? [] : await unansweredMessages(tx, conv.id, conv.aiAnsweredThrough);
     if (!batch.length && spec.kind === 'reply') return null;
     const loop = await loopReason(tx, conv.id);
     if (loop) {
@@ -542,8 +579,14 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
     unverifiedChat: rc.unverifiedChat,
     strangerInChat: rc.strangerInChat,
     texting: rc.conversation.channel === 'sms',
+    funnel: !!rc.funnel?.replyMoves.length,
+    suggestFunnels: !rc.funnel && !!rc.suggestible?.length,
   });
-  const only = !run.conversationId ? FIRST_TOOLS : run.kind === 'nudge' ? NUDGE_TOOLS : null;
+  const only = !run.conversationId
+    ? FIRST_TOOLS
+    : run.kind === 'nudge' || run.kind === 'funnel'
+      ? NUDGE_TOOLS
+      : null;
   return only
     ? all.filter((t) => only.has(t.name as TeammateToolName))
     : [...all, ...addonToolsFor(rc)];
@@ -575,6 +618,7 @@ function addonLines(tools: readonly TeammateTool[]): string[] {
 /** The message the model answers: the conversation and their new messages, a first message, or a nudge. */
 function turnOf(run: StartedRun, rc: RunContext): string {
   if (run.kind === 'task' && run.task) return taskTurn(rc, run.task);
+  if (run.kind === 'funnel' && run.funnel) return funnelTurn(rc, run.funnel);
   if (run.kind === 'nudge' && run.nudge) return nudgeTurn(rc, run.nudge);
   if (rc.batch.length) return conversationTurn(rc);
   return firstMessageTurn(rc, run.trigger === 'lead.created' ? 'new_lead' : 'workflow');
@@ -610,6 +654,9 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
 
   const immediate = immediateHandOff(rc);
   if (immediate) return end(immediate);
+  // A funnel's exact words are the business's own: they go as written, without the AI.
+  if (run.kind === 'funnel' && run.funnel?.wording === 'exact')
+    return finish(ctx, run, rc, ai, meta, newRunState(), run.funnel.text, [], 0);
 
   const provider = ctx.ai.provider;
   if (!provider)
@@ -986,7 +1033,13 @@ const whom = (rc: RunContext) =>
   rc.customer ? `${rc.customer.firstName} ${rc.customer.lastName}`.trim() || 'them' : 'them';
 const handedOffSummary = (reason: ConversationHandoffReason, note: string) =>
   `Handed to a person (${REASON_WORDS[reason]}): ${note}`;
+/** "Recruiting · Booked: “See you tomorrow at 7:00 PM…”": the funnel, the stage and the message, for Activity. */
+const funnelSummary = (f: FunnelRunSpec, what: 'Sent' | 'Drafted') => {
+  const t = f.text.replace(/\s+/g, ' ').trim();
+  return `${f.funnelName} · ${f.stageName}: ${what} “${t.length > 60 ? `${t.slice(0, 59)}…` : t}”`;
+};
 function repliedSummary(run: StartedRun, rc: RunContext): string {
+  if (run.kind === 'funnel' && run.funnel) return funnelSummary(run.funnel, 'Sent');
   if (run.kind === 'nudge') return `Followed up (${run.nudge?.n ?? 1} of ${run.nudge?.total ?? 1})`;
   if (run.kind === 'task') return `Thanked ${whom(rc)} after the job`;
   return rc.batch.length ? `Replied to “${snippet(rc)}”` : `Wrote first to ${whom(rc)}`;
@@ -997,13 +1050,15 @@ const heldFor = (flags: readonly ReplyFlag[]): string =>
 
 function draftedSummary(run: StartedRun, rc: RunContext, state: RunState): string {
   const what =
-    run.kind === 'nudge'
-      ? 'Drafted a follow-up'
-      : run.kind === 'task'
-        ? `Drafted a thank-you to ${whom(rc)}`
-        : rc.batch.length
-          ? `Drafted a reply to “${snippet(rc)}”`
-          : `Drafted a first message to ${whom(rc)}`;
+    run.kind === 'funnel' && run.funnel
+      ? funnelSummary(run.funnel, 'Drafted')
+      : run.kind === 'nudge'
+        ? 'Drafted a follow-up'
+        : run.kind === 'task'
+          ? `Drafted a thank-you to ${whom(rc)}`
+          : rc.batch.length
+            ? `Drafted a reply to “${snippet(rc)}”`
+            : `Drafted a first message to ${whom(rc)}`;
   return `${what}${state.held.length ? `, holding: ${state.held.map((a) => a.summary || a.kind).join('; ')}` : ''}`;
 }
 const noReplySummary = (state: RunState) =>
@@ -1155,7 +1210,7 @@ async function supersededWhy(
 }
 
 /** What a draft needs to know about the run that made it (a job's run, or a live call's). */
-export type DraftRun = Pick<StartedRun, 'id' | 'scope' | 'teammate' | 'target'>;
+export type DraftRun = Pick<StartedRun, 'id' | 'scope' | 'teammate' | 'target' | 'funnel'>;
 
 /** Replaces the conversation's pending reply draft with this run's. */
 export async function makeDraft(
@@ -1188,6 +1243,7 @@ export async function makeDraft(
     actions: state.held,
     discount: null,
     flags,
+    funnel: run.funnel ? { name: run.funnel.funnelName, stageName: run.funnel.stageName } : null,
   });
   await insertDraft(
     tx,
@@ -1430,6 +1486,22 @@ async function withVideoLink(
   return [body, ...paths.map((p) => `${origin}${p}`)].join('\n');
 }
 
+/**
+ * Whether what it wrote waits for a person's OK: in training wheels, or, for a funnel's message, as the funnel says
+ * (always, never, or like the teammate).
+ */
+function draftsFirst(run: StartedRun, teammate: TeammateRow): boolean {
+  const training = teammate.status === 'training';
+  if (run.kind !== 'funnel' || !run.funnel) return training;
+  return run.funnel.approval === 'ask' || (run.funnel.approval === 'teammate' && training);
+}
+
+/** An AI-written funnel message that mentions their Join link carries it on its own line. */
+function withJoinLink(run: StartedRun, body: string | null): string | null {
+  const link = run.kind === 'funnel' && run.funnel?.wording === 'ai' ? run.funnel.joinLink : null;
+  return body !== null && link && !body.includes(link) ? `${body}\n${link}` : body;
+}
+
 type Finished = {
   readonly outcome: 'replied' | 'drafted' | 'no_reply' | 'other';
   readonly waitUntil: Date | null;
@@ -1460,7 +1532,10 @@ async function finish(
     return finishFirst(ctx, run, rc, ai, meta, state, text, checks, steps, flags);
   const conversationId = run.conversationId;
   const channel = rc.conversation.channel;
-  const body = text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim();
+  const body = withJoinLink(
+    run,
+    text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim(),
+  );
   const latest = rc.batch[rc.batch.length - 1] ?? null;
   const through = throughOf(rc);
   const common = {
@@ -1484,7 +1559,7 @@ async function finish(
       return none;
     }
     const held = flags.length > 0 && body !== null;
-    if (teammate!.status === 'training' || held) {
+    if (draftsFirst(run, teammate!) || held) {
       const drafted = body !== null || state.held.length > 0;
       if (drafted)
         await makeDraft(
@@ -1595,8 +1670,8 @@ async function finish(
       outcome,
       summary: outcome === 'replied' ? repliedSummary(run, rc) : noReplySummary(state),
     });
-    // It asked them something: a nudge waits in case they go quiet.
-    if (body !== null)
+    // It asked them something: a nudge waits in case they go quiet. Inside a funnel, the funnel follows up.
+    if (body !== null && run.kind !== 'funnel')
       await scheduleFollowUp(
         tx,
         run.scope,
@@ -1631,7 +1706,10 @@ async function finishFirst(
 ): Promise<JobResult> {
   const t = run.target!;
   const channel = t.channel;
-  const clean = text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim();
+  const clean = withJoinLink(
+    run,
+    text === null ? null : channel === 'sms' ? plainSmsText(text) : text.trim(),
+  );
   const body =
     clean !== null && channel === 'sms' && t.stopWording
       ? plainSmsText(`${clean} ${STOP_WORDING}`)
@@ -1667,7 +1745,7 @@ async function finishFirst(
       });
       return { outcome: 'no_reply', waitUntil: null };
     }
-    if (teammate.status === 'training' || flags.length > 0) {
+    if (draftsFirst(run, teammate) || flags.length > 0) {
       await makeDraft(tx, ctx.job.id, run, rc, state, { body, subject }, null, flags);
       await closeRun(tx, run.id, {
         ...common,
@@ -1707,8 +1785,8 @@ async function finishFirst(
         outcome: 'replied',
         summary: repliedSummary(run, rc),
       });
-      // A thank-you asks nothing, so there's nothing to follow up.
-      if (run.kind !== 'task')
+      // A thank-you asks nothing, so there's nothing to follow up; inside a funnel, the funnel follows up.
+      if (run.kind !== 'task' && run.kind !== 'funnel')
         await scheduleFollowUp(
           tx,
           run.scope,

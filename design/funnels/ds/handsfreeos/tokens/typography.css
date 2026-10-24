@@ -1,0 +1,45 @@
+:root {
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Product (app) scale — body is 14px/1.45. Odd half-pixel sizes are real, from the source. */
+  --fs-micro: 11px;      /* count badges, kbd */
+  --fs-label: 11.5px;    /* kind labels, section heads (uppercase) */
+  --fs-caption: 12px;    /* chips, sub-lines */
+  --fs-hint: 12.5px;     /* field hints/errors, mono values */
+  --fs-small: 13px;      /* secondary text, sm buttons, descriptions */
+  --fs-ui: 13.5px;       /* toasts, user menu */
+  --fs-body: 14px;       /* app default */
+  --fs-card-title: 14.5px; /* attention card title (desktop) */
+  --fs-input: 15px;      /* inputs, lg buttons, card headings */
+  --fs-h3: 16px;
+  --fs-dialog-title: 18px;
+  --fs-page-title: 24px; /* PageHeader h1 (22px on phones) */
+  --fs-hero-figure: 26px; /* "$11,535 affected" */
+
+  /* Marketing scale — body is 17px/1.55. */
+  --fs-site-body: 17px;
+  --fs-site-lead: 20px;
+  --fs-site-h3: 18px;
+  --fs-site-h2: 44px;
+  --fs-site-h1: 60px;
+
+  --lh-tight: 1.2; /* @kind font */
+  --lh-snug: 1.3; /* @kind font */
+  --lh-body: 1.45; /* @kind font */
+  --lh-site: 1.55; /* @kind font */
+
+  --tracking-tight: -0.01em;
+  --tracking-display: -0.02em;
+  --tracking-caps: 0.04em;      /* app uppercase section heads */
+  --tracking-eyebrow: 0.14em;   /* marketing eyebrows */
+
+  --fw-regular: 400; /* @kind font */
+  --fw-medium: 500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold: 700; /* @kind font */
+
+  /* Semantic */
+  --type-body: var(--fw-regular) var(--fs-body) / var(--lh-body) var(--font-sans);
+  --type-title: var(--fw-semibold) var(--fs-page-title) / var(--lh-tight) var(--font-sans);
+}

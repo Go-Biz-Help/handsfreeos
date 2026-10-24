@@ -31,6 +31,7 @@ import {
   aiTeammateReview,
   teammateInstructionList,
 } from './teammate-feedback';
+import { funnelQueries } from './funnel';
 import { aiSetupGet, aiSetupTemplateList } from './ai-setup';
 import { onboardingSetupGet } from './onboarding-setup';
 import {
@@ -373,6 +374,7 @@ export const queries: readonly QueryDef[] = [
   aiTeammateFeedbackList,
   aiTeammateReview,
   teammateInstructionList,
+  ...funnelQueries,
   aiSetupGet,
   aiSetupTemplateList,
   chatWidgetList,
@@ -483,6 +485,7 @@ export {
 };
 
 export * from './form';
+export * from './funnel';
 export * from './portal';
 export * from './campaign';
 export * from './contact-ai';
