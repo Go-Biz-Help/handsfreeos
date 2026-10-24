@@ -1293,7 +1293,8 @@ export const foundingSetCap = defineCommand({
     await ctx.emit({
       type: 'founding.cap_changed',
       entityType: 'founding_offer',
-      entityId: after.id,
+      // An offer's id is a name like `founding_partner`, and an event's entity id is a uuid: it rides in the payload.
+      entityId: null,
       payload: { offerId: after.id, seatCap: after.seatCap },
       before: { cap: before.seatCap },
       after: { cap: after.seatCap },
@@ -1324,7 +1325,7 @@ export const foundingSetStatus = defineCommand({
       await ctx.emit({
         type: 'founding.status_changed',
         entityType: 'founding_offer',
-        entityId: after.id,
+        entityId: null,
         payload: { offerId: after.id, status: after.status },
         before: { status: before.status },
         after: { status: after.status },

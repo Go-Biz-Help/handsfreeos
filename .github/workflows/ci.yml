@@ -133,6 +133,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The stack's ports (54420–54429, supabase/config.toml) sit inside the range Linux picks the runner's outgoing
+      # connections from (32768–60999). On 2026-10-24 something on the runner already held 54424 when the mail container
+      # asked for it, twice running, and the job failed before a single test had run. A reserved port is never picked for
+      # an outgoing connection, and the stack can still listen on it.
+      - name: Keep the stack's ports free
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54420-54429
+
       # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again a minute later, up to
       # ten times, instead of failing the job before a single test has run. On a bad day that is 9 minutes of
       # waiting, which the limit above has room for.
@@ -198,6 +205,10 @@ jobs:
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # As in `tests`.
+      - name: Keep the stack's ports free
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54420-54429
 
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
         run: env -u SUPABASE_INTERNAL_IMAGE_REGISTRY node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
