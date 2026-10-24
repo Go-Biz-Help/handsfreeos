@@ -28,10 +28,10 @@ Each has a pick. Open until the owner confirms.
 | Who on the team can join            | The appointment's staff, and anyone with `appointments.write` who can see the appointment (so a manager can step in)                                                                 |
 | When a call can be joined           | From 15 minutes before the start until an hour after the end. Someone already in can stay longer, up to 4 hours in all                                                               |
 | Waiting                             | A customer who's early waits on the call page ("Dale will be with you shortly") and is let in as soon as someone from the team joins. No admit button in the first version           |
-| How many people                     | Up to 10 per call                                                                                                                                                                    |
+| How many people                     | Up to 100 per call. Past about 9, the call page shows whoever's talking and pages through the rest (§6)                                                                              |
 | Screen sharing                      | Everyone in the call can share a screen                                                                                                                                              |
 | Chat inside the call                | Not in the first version                                                                                                                                                             |
-| Record and transcribe               | The same switch and the same consent notice as Zoom and Meet. Only sound is recorded, each person on their own, never video                                                          |
+| Record and transcribe               | The same switch and the same consent notice as Zoom and Meet. Only sound is recorded, never video: each person on their own, or one mix past 10 people (§8)                          |
 | Keep the recording                  | No. The sound is deleted once the transcript is saved, the same rule as today ("the raw recording is not kept")                                                                      |
 | Billing                             | On the wallet at 1.5×, like texts, calls and speech: a line for each person's minute in a call, one for recording, and the transcript on the existing `speech.recording.minute` line |
 | Plans                               | Every plan                                                                                                                                                                           |
@@ -58,6 +58,9 @@ LiveKit's prices are from livekit.com/pricing (read 2026-10-24); Deepgram's are 
   600 recording minutes. Past those, the rates above apply.
 - The network figure is an estimate for 720p video. It's checked while building (§14), since it's the biggest cost
   of a call that isn't recorded.
+- **Bigger calls cost the same per person-minute.** The network grows with what each person watches, which the call
+  page keeps down (§6). The Ship plan allows 1,000 people connected at once across every call, so ten full 100-person
+  calls; LiveKit's Scale plan ($500 a month) allows 5,000.
 - At 1.5×, a business pays about 27¢ for an hour's call and about $1.38 for a recorded one.
 
 ---
@@ -96,7 +99,7 @@ LiveKit's prices are from livekit.com/pricing (read 2026-10-24); Deepgram's are 
 - **Keys live on the worker only:** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. The API already refuses
   any name with `SECRET` in it (`apps/api/src/env.ts`); add `^LIVEKIT_` to that list so the key is refused too.
 - **A room per appointment,** made by the worker when the first person asks to join, named for the call
-  (`hfos_<call id>`). Its settings: at most 10 people, closed 5 minutes after the last one leaves, and the call's id
+  (`hfos_<call id>`). Its settings: at most 100 people, closed 5 minutes after the last one leaves, and the call's id
   in its metadata.
 - **Nothing is made ahead of time.** Unlike Zoom, there's no meeting to create, move or delete when the appointment
   changes, so `appointment.meeting_sync` never runs for HandsFreeOS video. Cancelling or moving the appointment is
@@ -117,6 +120,8 @@ LiveKit's prices are from livekit.com/pricing (read 2026-10-24); Deepgram's are 
     times, and whether it's recorded.
   - `app.video_call_parts`: each time someone was in a call: their side, user or attendee, name, joined and left
     times, and in a recorded call their saved sound's place and egress id.
+- **Nothing here assumes an appointment** beyond `video_calls.appointment_id`, so webinars (§16) can open rooms
+  through the same seam later.
 - **A look-up for the webhook,** `private.video_call_by_room(text)`, like `private.appointment_by_meeting_id`,
   since the webhook names a room, not a business.
 - **Commands:** `video_call.join` (people) and `video_call.join_online` (a customer, from their link) check the
@@ -154,6 +159,8 @@ Read `apps/web/AGENTS.md` and Next's docs in `node_modules/next/dist/docs/` firs
   (`components/calendar/appointment-sheet.tsx`). Beside the video: the customer's record and the appointment's notes.
 - **In the call, both sides:** video tiles, mute, camera off, share screen, leave. "This call is recorded and
   transcribed" stays on screen in a recorded call.
+- **Big calls:** with more than about 9 people, the page shows whoever's talking and pages through the rest. Each
+  person is sent only the video on their screen (LiveKit's adaptive stream), so phones and the network stay light.
 - **Headers:** check that the web's headers allow the camera and microphone on these pages, and that LiveKit's
   address is allowed to connect.
 - All words live once in `@hfos/core`, and refusals follow "Error messages" in `CLAUDE.md`. For example: "This call
@@ -183,6 +190,9 @@ Only in calls set to record, which the customer was told about before booking.
   egress for that track. Its sound goes to a private Storage bucket (`video-audio`), at
   `<workspace>/<call>/<part>.ogg`. Video is never saved. Saving each person separately means the transcript knows
   exactly who said what, with no guessing from voices.
+- **Past 10 people, one mixed recording instead.** LiveKit's Ship plan saves at most 100 things at once across every
+  call, so a big recorded call saves one mix of everyone's sound (audio-only room composite, $0.005 a minute), and the
+  transcript tells the speakers apart by voice.
 - **Each file is transcribed** (`video_call.transcribe_part`, a job queued on `egress_ended`) with
   `SpeechServices.transcribe`, the speech service the worker already uses, and billed as `speech.recording.minute`.
 - **The transcript is put together** (`video_call.transcript`, queued on `room_finished`, waiting until every part is
@@ -265,6 +275,8 @@ Each step ships on its own. Steps 3 and 4 can run side by side.
 - **The network per call** at our video settings (simulcast, 720p at most), since it's the biggest cost of a call
   that isn't recorded.
 - **A listener run on our worker** counts as person-minutes, not LiveKit agent minutes.
+- **A 100-person call** on a phone and on a slow laptop, with the speaker view and adaptive stream, and how well the
+  mixed recording's transcript tells the speakers apart.
 - **Webhook order:** whether `egress_ended` can come after `room_finished`, and how LiveKit retries a failed delivery.
 - **Apple's review** of the camera and microphone wording and the background audio mode.
 
@@ -273,9 +285,31 @@ Each step ships on its own. Steps 3 and 4 can run side by side.
 - **Core:** the commands' permissions and validation; joining is refused outside the window, on a cancelled or
   deleted appointment, and for someone on the team who isn't allowed; `hfos` needs an Online place.
 - **Worker:** tokens grant the right side and nothing more; the webhook with good and bad signatures; unknown rooms
-  ignored; sound saved only in recorded calls and only from microphones; the transcript puts each person's lines in
+  ignored; sound saved only in recorded calls and only from microphones, per person up to 10 people and as one mix
+  past that; the transcript puts each person's lines in
   order; minutes are billed once per part; a retired or wrong link is refused.
 - **DB:** row-level security on `video_calls` and `video_call_parts`; Drizzle parity; the usage keys' parity.
 - **Web e2e:** book an online visit set to HandsFreeOS video; open the customer's link and the team's Join in two
   browsers, against the local LiveKit with Chromium's fake camera; each sees the other; leave. With recording on, the
   fake speech service's transcript arrives and the scripted AI's task can be added.
+
+## 16. Later: webinars
+
+Not part of this plan's build. Webinars run on the rooms built here, so they're noted now to keep the seam general.
+Each kind gets its own plan.
+
+- **Live webinars.** The same rooms, with roles: hosts (and a guest brought on stage) talk and show video; viewers
+  watch and listen, with chat, questions and a raised hand (LiveKit's data messages, and permissions changed during
+  the call). Sign-up through Forms, viewers as contacts, reminders as messages. One room holds about 1,000 viewers,
+  which needs the Scale plan's 5,000 connections; past that, LiveKit's livestream mode is for its Enterprise plan, or
+  the webinar is streamed out to a video service, a few seconds behind.
+- **Pre-recorded, shown as live.** At the set time, LiveKit's Ingress plays a video file into the room as if it were a
+  host, and the business can be there live to answer chat. Billed as LiveKit transcode minutes ($0.02 a minute on
+  Ship, past the 600 included).
+- **On demand.** A recording of the live webinar (room composite egress, $0.02 a minute) or an uploaded video, watched
+  any time from a sign-up page. That's video hosting, not calls, so it doesn't need LiveKit: a video host (Mux or
+  Cloudflare Stream) plays it smoothly on any connection.
+- **What a viewer costs:** about 60 person-minutes ($0.03) and 0.7 GB of network ($0.08) an hour, so about 11¢ a
+  viewer-hour before the markup.
+- **Core or add-on:** likely an add-on, made with the generator, on core's video rooms. Core would first let add-ons
+  open rooms through the kernel, as a step of its own.
