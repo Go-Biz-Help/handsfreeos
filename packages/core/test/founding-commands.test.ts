@@ -495,12 +495,19 @@ describe('giving a seat', () => {
 });
 
 describe('the offer itself', () => {
-  // An offer's id is a name, not a uuid: these once failed on our side writing their event.
+  // An offer's id is a name, not a uuid: these once failed on our side writing their event. The offer's id is the
+  // same every run, so only this test's events are counted.
+  let since: string;
+  beforeEach(async () => {
+    const [now] = await rows<{ at: string }>(admin(), sql`select now()::text as at`);
+    since = now!.at;
+  });
   const offerEvents = (type: string) =>
     rows<{ entity_id: string | null; payload: { offerId: string } }>(
       admin(),
       sql`select entity_id, payload from app.events
-          where event_type = ${type} and payload->>'offerId' = ${FREE}`,
+          where event_type = ${type} and payload->>'offerId' = ${FREE}
+            and created_at >= ${since}::timestamptz`,
     );
 
   it('takes a new number of seats, lower or higher, and says so in an event', async () => {
