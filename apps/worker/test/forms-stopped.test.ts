@@ -103,7 +103,7 @@ const stoppedOn = (pageTitle: string, tag: string) => ({
     event: 'form.stopped' as const,
     filters: {
       match: 'all' as const,
-      conditions: [{ field: 'trigger.page_title', op: 'eq', value: pageTitle }],
+      conditions: [{ field: 'trigger.page_title', op: 'eq' as const, value: pageTitle }],
     },
   },
   steps: [
