@@ -4,8 +4,8 @@
  * goes in Contacts. The Friends tab lists them (./friends.ts), and Today has the good fits to reconnect with
  * (./today.ts).
  */
-import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
-import { rows } from '@hfos/db/client';
+import { and, eq, ne, sql } from 'drizzle-orm';
+import { rows, type Tx } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -27,12 +27,19 @@ import {
   type CheckVerdict,
 } from '../checks';
 import { ASK_KEEP_DAYS } from '../asks';
-import { checkedCountry, countryFromLines } from '../countries';
+import { countryRuleOn, linesCountry, lookedCountry, type MutualCountries } from '../countries';
 import { limitNow } from '../limits';
 import { NETWORKS, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
 import { checks, profiles } from '../tables';
-import { inWorkspace, pitchable, type Ctx } from './common';
+import {
+  countryRuleOf,
+  inWorkspace,
+  keepCountry,
+  pitchable,
+  waitsForLook,
+  type Ctx,
+} from './common';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
@@ -137,7 +144,7 @@ export async function checksSummary(
 export const checksNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.checks.next',
   description:
-    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again.',
+    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.',
   input: ChecksNextInput,
   output: ChecksNextOutput,
   permission: 'outreach.use',
@@ -156,15 +163,19 @@ export const checksNext = defineAddonQuery(outreachAddon, {
         and a.target = 'profile:' || p.id::text and a.state <> 'cancelled'
         and a.asked_at > ${ago(ASK_KEEP_DAYS)}::timestamptz
         and (ch.id is null or a.asked_at > ch.looked_at))`;
+    // Waiting for a look at where they live (decision 86): a From or a guess the country setting would skip.
+    const rule = await countryRuleOf(ctx);
+    const look = waitsForLook(rule, 'p');
     const who = input.profileId
       ? sql`p.id = ${input.profileId} and p.friendship <> 'self' and ${pitchable('p')}`
-      : sql`(${knownToMe(me)} or (p.friendship <> 'self' and ${pitchable('p')} and ${asked}))`;
+      : sql`(${knownToMe(me)} or (p.friendship <> 'self' and ${pitchable('p')} and (${asked} or ${look})))`;
     const found = await rows<{ id: string; name: string; url: string; reason: CheckReason }>(
       ctx.tx,
       sql`select x.id, x.name, x.url, x.reason from (
-            select p.id, p.name, p.url, p.mutual_friends, p.updated_at,
+            select p.id, p.name, p.url, p.mutual_friends, p.updated_at, p.friendship,
               case
                 when ${asked} then 'asked'
+                when ${look} then 'country'
                 when f.id is not null and c.prospect then 'prospect'
                 when f.id is not null and c.id is not null then 'chat'
                 when c.id is not null then 'chat_only'
@@ -187,24 +198,61 @@ export const checksNext = defineAddonQuery(outreachAddon, {
                 or (ch.verdict = 'failed' and ${asked})
                 or (ch.verdict in ('good', 'maybe', 'not')
                   and ch.checked_at < ${ago(CHECK_AGAIN_DAYS)}::timestamptz)
-                or (ch.verdict = 'failed' and ch.looked_at < ${ago(CHECK_RETRY_DAYS)}::timestamptz))
+                or (ch.verdict = 'failed' and ch.looked_at < ${ago(CHECK_RETRY_DAYS)}::timestamptz)
+                or (${look} and ch.verdict in ('good', 'maybe', 'not')))
           ) x
-          order by array_position(array['asked', 'prospect', 'chat', 'chat_only', 'group', 'friend'], x.reason),
+          order by array_position(
+              array['asked', 'country', 'prospect', 'chat', 'chat_only', 'group', 'friend'], x.reason),
+            (x.reason = 'country' and x.friendship = 'request_received') desc,
             x.mutual_friends desc nulls last, x.updated_at desc, x.id
           limit ${room}`,
     );
+    // Where their mutual friends live helps say where they do, while the business reaches only some countries.
+    const mutual = countryRuleOn(rule) && input.platform === 'facebook';
     return {
-      people: found.map((p) => ({ profileId: p.id, name: p.name, url: p.url, reason: p.reason })),
+      people: found.map((p) => ({
+        profileId: p.id,
+        name: p.name,
+        url: p.url,
+        reason: p.reason,
+        mutual,
+      })),
       today,
       perDay,
     };
   },
 });
 
+/**
+ * Where someone's mutual friends live, as far as the business knows (decision 86): each country, the most first, with
+ * how many were seen on a profile and how many worked out else. Null when the look didn't read them. The worker's check
+ * reads it too.
+ */
+export async function mutualCountries(
+  tx: Tx,
+  workspaceId: string,
+  ids: readonly string[],
+  read: number | null,
+): Promise<MutualCountries | null> {
+  if (read === null) return null;
+  const by = ids.length
+    ? await rows<{ code: string; seen: number; other: number }>(
+        tx,
+        sql`select country as code, count(*) filter (where country_how = 'seen')::int as seen,
+              count(*) filter (where country_how <> 'seen')::int as other
+            from addon_outreach.profiles
+            where workspace_id = ${workspaceId} and id = any (${`{${ids.join(',')}}`}::uuid[])
+              and country is not null
+            group by country order by count(*) desc, country limit 40`,
+      )
+    : [];
+  return { read, by };
+}
+
 export const checkLook = defineAddonCommand(outreachAddon, {
   name: 'outreach.check.look',
   description:
-    'What someone the person knows on Facebook says on their profile and business page, as the person’s computer just read it, for the AI to see whether they fit a playbook; or that Facebook showed someone else. Kept only until the AI has read it.',
+    'What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that Facebook showed someone else. Kept only until the AI has read it.',
   risk: 1,
   input: CheckLookInput,
   output: CheckLookOutput,
@@ -222,6 +270,26 @@ export const checkLook = defineAddonCommand(outreachAddon, {
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Check your friends again.');
     const verdict: CheckVerdict = input.missing ? 'failed' : 'waiting';
+    // Their mutual friends (decision 86), matched to the people the business keeps on the network, for where they live.
+    const mutual = input.missing ? null : input.mutual;
+    const ids = (mutual ?? []).flatMap((m) => (m.id ? [m.id] : []));
+    const usernames = (mutual ?? []).flatMap((m) => (m.username ? [m.username.toLowerCase()] : []));
+    const mutualIds = mutual?.length
+      ? (
+          await rows<{ id: string }>(
+            ctx.tx,
+            sql`select id from addon_outreach.profiles
+                where workspace_id = ${ws} and platform = ${profile.platform} and id <> ${profile.id}
+                  and (platform_id = any (${`{${ids.join(',')}}`}::text[])
+                    or lower(username) = any (${`{${usernames.join(',')}}`}::text[]))`,
+          )
+        ).map((r) => r.id)
+      : [];
+    if (!input.missing && input.friendsCount !== null)
+      await ctx.tx
+        .update(profiles)
+        .set({ friendsCount: input.friendsCount })
+        .where(eq(profiles.id, profile.id));
     const why = input.missing
       ? [`${NETWORKS[profile.platform].name} didn’t show their profile`]
       : [];
@@ -232,6 +300,8 @@ export const checkLook = defineAddonCommand(outreachAddon, {
         userId: me,
         profileId: profile.id,
         lines: input.missing ? [] : input.lines,
+        mutualIds,
+        mutualRead: mutual ? mutual.length : null,
         verdict,
         why,
         lookedAt: at,
@@ -240,6 +310,8 @@ export const checkLook = defineAddonCommand(outreachAddon, {
         target: [checks.workspaceId, checks.userId, checks.profileId],
         set: {
           lines: input.missing ? [] : input.lines,
+          mutualIds,
+          mutualRead: mutual ? mutual.length : null,
           verdict,
           // A new read keeps the last answer on show until the AI's next one.
           ...(input.missing
@@ -264,7 +336,7 @@ export const checkLook = defineAddonCommand(outreachAddon, {
 export const checkSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.check.save',
   description:
-    'Worker: what the AI made of someone the person knows on Facebook: a good fit, might fit or not, for which playbook, why, who they are and a first step; or that it couldn’t read them. What their pages said is let go.',
+    'Worker: what the AI made of someone the person knows on Facebook: a good fit, might fit or not, for which playbook, why, who they are and a first step, and where they live (a Lives in on their profile beats its word); or that it couldn’t read them. What their pages said, and their mutual friends, are let go.',
   risk: 0,
   input: CheckSaveInput,
   output: CheckSaveOutput,
@@ -289,35 +361,33 @@ export const checkSave = defineAddonCommand(outreachAddon, {
       return { saved: false, verdict: check.verdict };
     const a = input.answer;
     const verdict: CheckVerdict = a ? a.fit : 'failed';
-    // Where they live (decision 61): what their pages' lines show, seen, over the AI's word; a guess never replaces a
-    // country seen before.
-    const lined = countryFromLines(check.lines);
-    const said = checkedCountry(a?.country?.code);
-    const country = lined
-      ? { code: lined, how: 'seen' as const }
-      : said
-        ? {
-            code: said,
-            how: a!.country!.seen && check.lines.length ? ('seen' as const) : ('guessed' as const),
-          }
-        : null;
-    if (country)
+    // Where they live (decisions 61 and 86): a look weighs their pages' lines, their mutual friends and the AI's word.
+    // With no answer, the lines alone count, as the worker's would, and never undo a stronger one.
+    if (a?.country) {
+      const looked = lookedCountry(check.lines, a.country);
       await ctx.tx
         .update(profiles)
-        .set({ country: country.code, countryHow: country.how, countryAt: at })
-        .where(
-          and(
-            eq(profiles.workspaceId, ws),
-            eq(profiles.id, check.profileId),
-            ...(country.how === 'guessed'
-              ? [or(isNull(profiles.countryHow), ne(profiles.countryHow, 'seen'))]
-              : []),
-          ),
-        );
+        .set({
+          country: looked.country,
+          countryHow: looked.how,
+          countryAt: at,
+          countryFrom: looked.from,
+          countryAlt: looked.alt,
+          countryWhy: looked.why,
+          countryUnsure: looked.unsure,
+          countryLookedAt: at,
+          countryMutual: await mutualCountries(ctx.tx, ws, check.mutualIds, check.mutualRead),
+        })
+        .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, check.profileId)));
+    } else {
+      const lined = linesCountry(check.lines);
+      if (lined) await keepCountry(ctx, check.profileId, lined);
+    }
     await ctx.tx
       .update(checks)
       .set({
         lines: [],
+        mutualIds: [],
         verdict,
         playbookId: a?.playbookId ?? null,
         why: a?.why ?? ['The AI couldn’t read them'],

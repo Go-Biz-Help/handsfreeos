@@ -1824,6 +1824,30 @@ function scriptedFitCheck(message: string) {
     why: fit === 'good' ? ['Owns a business'] : fit === 'maybe' ? ['Runs a team'] : [],
     about: fit === 'not' ? null : unquote(pages.split('\n')[0] ?? '') || null,
     nextStep: fit === 'good' ? 'Ask how business is going' : null,
+    ...scriptedWhere(message),
+  };
+}
+
+/**
+ * Where someone lives, from the check's `<where_they_live>` (decision 86): where their profile says they live, else
+ * where most of their mutual friends known do, sure with two or more of them; the other one when the two disagree.
+ */
+function scriptedWhere(message: string) {
+  const where = /<where_they_live>\n?([\s\S]*?)\n?<\/where_they_live>/.exec(message)?.[1] ?? '';
+  const lives = /Their profile says they live in .*?\(([A-Z]{2})\)\./.exec(where)?.[1] ?? null;
+  const top = /have a country known: .*?\(([A-Z]{2})\) (\d+)/.exec(where);
+  const friends = top?.[1] ?? null;
+  const many = Number(top?.[2] ?? 0) >= 2;
+  const country = lives ?? friends;
+  return {
+    country,
+    otherCountry: lives && friends && friends !== lives && many ? friends : null,
+    countrySure: Boolean(lives) || many,
+    countryWhy: lives
+      ? 'Their profile says where they live'
+      : friends
+        ? 'Most of their mutual friends live there'
+        : null,
   };
 }
 

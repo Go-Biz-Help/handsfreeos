@@ -4,8 +4,9 @@
  * HandsFreeOS says who's next (friends they've chatted with first) and how many today has room for; the extension
  * opens each one's profile in a window of its own, checks it's them, reads what it says about them and their latest
  * posts, follows the link to the business they own or work at and reads that too, and sends those lines for the AI
- * to read with the person's chat with them. Nothing is pressed on Facebook. It goes at a person's pace and stops for
- * the day on any Facebook warning.
+ * to read with the person's chat with them. While the business reaches only some countries, it reads their mutual
+ * friends with the person too, for where they live (decision 86). Nothing is pressed on Facebook. It goes at a
+ * person's pace and stops for the day on any Facebook warning.
  */
 import type { AskResult } from '@hfos/core/addons/outreach/asks';
 import {
@@ -18,8 +19,10 @@ import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { samePerson } from '../networks/facebook/auto';
 import { linesOf, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
 import { profileFromUrl, workUrl } from '../networks/facebook/urls';
+import type { ProfileRef } from '../networks/facebook/types';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
+import { ended, readMutual } from './people';
 
 /** Between people, a steady pace like a person's: never the same twice. */
 const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
@@ -29,11 +32,20 @@ export interface Who {
   readonly profileId: string;
   readonly name: string;
   readonly url: string;
+  /** Read their mutual friends too, for where they live (decision 86). */
+  readonly mutual?: boolean;
 }
 
 /** What a read of someone's pages found: lines for the AI, and how many follow them when the page said. */
 export type ReadThem =
-  | { readonly lines: string[]; readonly missing: boolean; readonly followers: number | null }
+  | {
+      readonly lines: string[];
+      readonly missing: boolean;
+      readonly followers: number | null;
+      /** How many friends they have, and their mutual friends with the person, when those were read. */
+      readonly friends?: number | null;
+      readonly mutual?: ProfileRef[] | null;
+    }
   | { readonly end: JobEnd };
 
 /**
@@ -68,10 +80,19 @@ export async function readThem(job: Job, who: Who): Promise<ReadThem> {
     if (warnedThere) return { end: warnedThere };
     lines.push(pageHeading(profile, business), ...linesOf(page, business.name, 1));
   }
+  // Their mutual friends, when HandsFreeOS asks and the profile says there are some: nobody when it says none.
+  let mutual: ProfileRef[] | null = null;
+  if (who.mutual && !job.stopped()) {
+    const read = profile.profile.mutualFriends ? await readMutual(job, shown) : [];
+    if (ended(read)) return { end: read };
+    mutual = read;
+  }
   return {
     lines: [...new Set(lines.filter(Boolean))].slice(0, LOOKUP_LINES),
     missing: false,
     followers,
+    friends: profile.profile.friends ?? null,
+    mutual,
   };
 }
 
@@ -158,6 +179,8 @@ export async function checkFriends(
           profileId: who.profileId,
           lines: read.lines,
           missing: read.missing,
+          friendsCount: read.friends ?? null,
+          mutual: read.mutual ?? null,
         },
       }),
     );

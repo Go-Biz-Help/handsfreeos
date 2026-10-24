@@ -237,6 +237,14 @@ export function profileFromUrl(url: URL): ProfileRef | null {
   return USERNAME.test(first) ? byUsername(first) : null;
 }
 
+/** Where someone's mutual friends with you are listed: /<username>/friends_mutual, or by their number. */
+export function mutualFriendsUrl(profile: ProfileRef): string | null {
+  if (profile.username) return `${FACEBOOK}/${encodeURIComponent(profile.username)}/friends_mutual`;
+  if (profile.id)
+    return `${FACEBOOK}/profile.php?id=${encodeURIComponent(profile.id)}&sk=friends_mutual`;
+  return null;
+}
+
 /** The group a link points to: /groups/<number or name>/…, but not Facebook's own group pages. */
 export function groupFromUrl(url: URL): GroupRef | null {
   const [first, second] = pathParts(url);

@@ -7,8 +7,10 @@
  *   own, from October 2026, Edit profile is a link rather than a button.
  *
  * The top is what comes before the tabs (All, About, Friends…). Where you stand comes from its buttons, and the intro
- * from its lines and any Intro card.
+ * from its lines and any Intro card, or the 2026 cards after the tabs (Personal details, Work, Education). A place in
+ * the details under the name ("Florida City, FL") is where they live (decision 86): it's kept as "Lives in …".
  */
+import { countryOfPlace } from '@hfos/core/addons/outreach/countries';
 import {
   buttonLabels,
   clean,
@@ -127,6 +129,20 @@ function headerAround(name: Element, root: Element): Element | null {
   return null;
 }
 
+/** Lines that already say how a place is theirs, or what it is. */
+const SAYS_HOW =
+  /^(lives in|lived in|currently lives in|from|is from|grew up in|works at|worked at|studied|studies|went to)\b/i;
+
+/**
+ * A detail under the name that is a place, a town and its state or country ("Florida City, FL", "Lagos, Nigeria"), as
+ * where they live: Facebook puts the town they live in there beside a pin (decision 86). Anything else as it is.
+ */
+export function placeLine(line: string): string {
+  if (line.length > 60 || SAYS_HOW.test(line) || !/^[^,]{2,40}(,[^,]{2,40}){1,2}$/.test(line))
+    return line;
+  return countryOfPlace(line) ? `Lives in ${line}` : line;
+}
+
 /** What the top says about them besides their name and counts: the bio, then the details beside little icons. */
 function topLines(top: readonly Element[], name: string | null): string[] {
   return (
@@ -141,6 +157,7 @@ function topLines(top: readonly Element[], name: string | null): string[] {
           !NOT_INTRO.test(line) &&
           line.length <= 300,
       )
+      .map(placeLine)
   );
 }
 
@@ -166,6 +183,40 @@ function introLines(root: Element): string[] {
     lines.push(line);
     if (lines.length >= 12) break;
   }
+  return lines;
+}
+
+/** October 2026's cards after the tabs that stand for the Intro, and the one with their links. */
+const INTRO_CARDS = /^(personal details|work|education)$/i;
+
+export function cardTitles(main: Element, title: RegExp): Element[] {
+  return [...main.querySelectorAll('h2, h3, [role="heading"]')].filter((h) =>
+    title.test(clean(h.textContent)),
+  );
+}
+
+/** The list a card's title heads: the first one in the nearest box around the title that has one. */
+export function cardList(title: Element): Element | null {
+  let card: Element | null = title;
+  for (let steps = 0; card && steps < 12; steps++) {
+    card = card.parentElement;
+    const list = card?.querySelector('[role="list"]');
+    if (list) return list;
+  }
+  return null;
+}
+
+/**
+ * What the Personal details, Work and Education cards say, an item a line: "Lives in Austin", "Owner at Summit Roof
+ * Leads …". Anyone's 2026 profile has them after the tabs, in place of an Intro card.
+ */
+export function cardsIntro(main: Element): string[] {
+  const lines: string[] = [];
+  for (const title of cardTitles(main, INTRO_CARDS))
+    for (const item of cardList(title)?.querySelectorAll('[role="listitem"]') ?? []) {
+      const line = textLines(item, 6, '[aria-hidden="true"]').join(' ');
+      if (line && !UI_WORDS.has(line.toLowerCase()) && !isFacebookText(line)) lines.push(line);
+    }
   return lines;
 }
 
@@ -231,7 +282,11 @@ export function readProfile(
   const friendship = fromButtons === 'unknown' && editProfileLinkIn(root) ? 'self' : fromButtons;
   let mutualFriends: number | null = null;
   let followers: number | null = null;
+  let friends: number | null = null;
   for (const line of top.flatMap((box) => textLines(box, 40))) {
+    // "349 friends • 21 mutual", "4.9K friends · 59 mutual": not "21 mutual friends".
+    const counted = /([\d.,]+\s*[km]?)\s+friends\b/i.exec(line);
+    if (counted?.[1] && friends === null) friends = parseCount(counted[1]);
     // "45 mutual friends", or "1.2K friends · 45 mutual" under the name.
     const mutual = /([\d.,]+\s*[km]?)\s+mutual\b/i.exec(line);
     if (mutual?.[1] && mutualFriends === null) mutualFriends = parseCount(mutual[1]);
@@ -239,7 +294,9 @@ export function readProfile(
     const following = /([\d.,]+\s*[km]?)\s+followers\b/i.exec(line);
     if (following?.[1] && followers === null) followers = parseCount(following[1]);
   }
-  const intro = [...new Set([...topLines(top, name), ...introLines(root)])].slice(0, 12);
+  const intro = [
+    ...new Set([...topLines(top, name), ...introLines(root), ...cardsIntro(root)]),
+  ].slice(0, 12);
   return {
     profile: {
       name,
@@ -248,6 +305,7 @@ export function readProfile(
       friendship,
       mutualFriends,
       ...(followers !== null ? { followers } : {}),
+      ...(friends !== null ? { friends } : {}),
     },
     posts: readPosts(root, base),
     pages: pagesIn(root, address, base, name, intro),

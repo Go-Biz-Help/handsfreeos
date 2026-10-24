@@ -94664,7 +94664,7 @@
     "/v1/commands/outreach.check.look": {
       "post": {
         "operationId": "command_outreach_check_look",
-        "summary": "What someone the person knows on Facebook says on their profile and business page, as the person’s computer just read it, for the AI to see whether they fit a playbook; or that Facebook showed someone else. Kept only until the AI has read it.",
+        "summary": "What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that Facebook showed someone else. Kept only until the AI has read it.",
         "tags": [
           "commands"
         ],
@@ -94699,6 +94699,57 @@
                   "missing": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "friendsCount": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mutual": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "maxItems": 200,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "username": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -95811,7 +95862,7 @@
     "/v1/commands/outreach.country.unskip": {
       "post": {
         "operationId": "command_outreach_country_unskip",
-        "summary": "Let someone the business’s country setting skips be reached from now on, whatever the setting says (Unskip); or put them back under the setting.",
+        "summary": "Let someone the business’s country setting skips be reached from now on, whatever the setting says (Unskip), undoing a Skip; or put them back under the setting.",
         "tags": [
           "commands"
         ],
@@ -95866,6 +95917,83 @@
                   "required": [
                     "profileId",
                     "through"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.country.decide": {
+      "post": {
+        "operationId": "command_outreach_country_decide",
+        "summary": "A person’s call on someone the country setting couldn’t place (the Not sure list): let them through from now on, skip them from now on, or put them back under the setting. Kept with who and when.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.country.decided.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "choice": {
+                    "type": "string",
+                    "enum": [
+                      "through",
+                      "skip",
+                      "setting"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "choice"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "choice": {
+                      "type": "string",
+                      "enum": [
+                        "through",
+                        "skip",
+                        "setting"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "choice"
                   ],
                   "additionalProperties": false
                 }
@@ -196351,7 +196479,7 @@
     "/v1/queries/outreach.checks.next": {
       "post": {
         "operationId": "query_outreach_checks_next",
-        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again.",
+        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
         "tags": [
           "queries"
         ],
@@ -196425,19 +196553,25 @@
                             "type": "string",
                             "enum": [
                               "asked",
+                              "country",
                               "prospect",
                               "chat",
                               "chat_only",
                               "group",
                               "friend"
                             ]
+                          },
+                          "mutual": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         },
                         "required": [
                           "profileId",
                           "name",
                           "url",
-                          "reason"
+                          "reason",
+                          "mutual"
                         ],
                         "additionalProperties": false
                       }
@@ -197384,7 +197518,7 @@
     "/v1/queries/outreach.countries.skipped": {
       "post": {
         "operationId": "query_outreach_countries_skipped",
-        "summary": "Everyone the business’s country setting skips: not reached, not suggested on Today, not sent friend requests or messages, and not in the good fits; with their country and whether it was seen on their profile or guessed.",
+        "summary": "Everyone the business’s country setting skips (not reached, not suggested on Today, not sent friend requests or messages, and not in the good fits), or everyone a look couldn’t place who waits for a person’s call (the Not sure list); with their country, how it’s known and why, and how many wait for a look.",
         "tags": [
           "queries"
         ],
@@ -197400,6 +197534,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "list": {
+                    "default": "skipped",
+                    "type": "string",
+                    "enum": [
+                      "skipped",
+                      "unsure"
+                    ]
                   },
                   "search": {
                     "type": "string",
@@ -197443,11 +197585,20 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "unsure": {
+                          "type": "string",
+                          "enum": [
+                            "through",
+                            "ask",
+                            "skip"
+                          ]
                         }
                       },
                       "required": [
                         "mode",
-                        "codes"
+                        "codes",
+                        "unsure"
                       ],
                       "additionalProperties": false
                     },
@@ -197468,18 +197619,48 @@
                             "type": "string"
                           },
                           "country": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "countryName": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "how": {
-                            "type": "string",
-                            "enum": [
-                              "seen",
-                              "guessed",
-                              "unknown"
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "seen",
+                                  "friends",
+                                  "from",
+                                  "guessed",
+                                  "unknown"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
+                          },
+                          "reason": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "why": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "skippedByYou": {
+                            "type": "boolean"
                           },
                           "at": {
                             "anyOf": [
@@ -197501,12 +197682,25 @@
                           "country",
                           "countryName",
                           "how",
+                          "reason",
+                          "why",
+                          "skippedByYou",
                           "at"
                         ],
                         "additionalProperties": false
                       }
                     },
                     "unskipped": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "waiting": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "unsure": {
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
@@ -197531,6 +197725,8 @@
                     "rule",
                     "people",
                     "unskipped",
+                    "waiting",
+                    "unsure",
                     "page",
                     "pages",
                     "total"

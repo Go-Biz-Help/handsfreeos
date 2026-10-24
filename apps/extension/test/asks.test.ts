@@ -408,6 +408,40 @@ describe('the jobs an ask does', () => {
     });
   });
 
+  it('reads their mutual friends too when HandsFreeOS asks, for where they live, with their friend count', async () => {
+    const dana = '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e';
+    const { tab, opened } = fakeTab((url) =>
+      url.endsWith('/friends_mutual') ? 'friends-list.html' : 'profile-2026.html',
+    );
+    const { hfos, sent } = fakeHfos({
+      'hfos-checks-next': () => ({
+        people: [
+          {
+            profileId: dana,
+            name: 'Dana Reyes',
+            url: `${FB}/dana.reyes.12`,
+            reason: 'country',
+            mutual: true,
+          },
+        ],
+        today: 0,
+        perDay: 40,
+      }),
+      'hfos-check-look': () => ({ checkId: ASK, verdict: 'waiting' }),
+    });
+    await runAsk({ kind: 'checks' }, jobWith(tab, hfos).job);
+    expect(opened).toEqual([`${FB}/dana.reyes.12`, `${FB}/dana.reyes.12/friends_mutual`]);
+    const [look] = sent.filter((a) => a.type === 'hfos-check-look') as Extract<
+      HfosAsk,
+      { type: 'hfos-check-look' }
+    >[];
+    expect(look!.input.friendsCount).toBe(349);
+    expect(look!.input.mutual?.length).toBeGreaterThan(0);
+    // Never Dana herself among them.
+    expect(look!.input.mutual!.some((m) => m.username === 'dana.reyes.12')).toBe(false);
+    expect(look!.input.lines).toContain('Lives in Austin');
+  });
+
   it('checks nobody past today’s', async () => {
     const { tab, opened } = fakeTab(() => 'profile-2026.html');
     const { hfos } = fakeHfos({

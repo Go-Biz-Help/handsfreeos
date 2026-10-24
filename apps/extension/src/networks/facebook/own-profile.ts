@@ -20,7 +20,7 @@ import { PROFILE_READ_LIMITS, type ProfileRead } from '@hfos/core/addons/outreac
 import { clean, elementsIn, isBefore, isHeading, labelOf, tabsIn, textLines } from './dom';
 import { shown } from './fetch';
 import { typeInto } from './join';
-import { readProfile } from './profile';
+import { cardList, cardsIntro, cardTitles, readProfile } from './profile';
 import type { PageAddress } from './types';
 import { isFacebookText, UI_WORDS } from './vocabulary';
 
@@ -169,37 +169,8 @@ function featuredOf(main: Element): string[] {
     .slice(0, PROFILE_READ_LIMITS.featured);
 }
 
-/** October 2026's cards after the tabs that stand for the Intro, and the one with their links. */
-const INTRO_CARDS = /^(personal details|work|education)$/i;
+/** October 2026's card with their links. */
 const LINKS_CARD = /^links$/i;
-
-function cardTitles(main: Element, title: RegExp): Element[] {
-  return [...main.querySelectorAll('h2, h3, [role="heading"]')].filter((h) =>
-    title.test(clean(h.textContent)),
-  );
-}
-
-/** The list a card's title heads: the first one in the nearest box around the title that has one. */
-function cardList(title: Element): Element | null {
-  let card: Element | null = title;
-  for (let steps = 0; card && steps < 12; steps++) {
-    card = card.parentElement;
-    const list = card?.querySelector('[role="list"]');
-    if (list) return list;
-  }
-  return null;
-}
-
-/** What the Personal details, Work and Education cards say, an item a line: "Owner at Summit Roof Leads …". */
-function cardsIntro(main: Element): string[] {
-  const lines: string[] = [];
-  for (const title of cardTitles(main, INTRO_CARDS))
-    for (const item of cardList(title)?.querySelectorAll('[role="listitem"]') ?? []) {
-      const line = textLines(item, 6, '[aria-hidden="true"]').join(' ');
-      if (line && !UI_WORDS.has(line.toLowerCase()) && !isFacebookText(line)) lines.push(line);
-    }
-  return lines;
-}
 
 /** An address off Facebook: as it is, or the one inside Facebook's l.php link. Null for Facebook's own pages. */
 function outsideLink(href: string): string | null {

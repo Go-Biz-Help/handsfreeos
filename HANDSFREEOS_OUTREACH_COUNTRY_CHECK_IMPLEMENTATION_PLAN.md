@@ -67,23 +67,21 @@ Strongest first. A stronger kind always replaces a weaker one; the same kind rep
      an item that reads wholly as a place ("Florida City, FL", "Lagos, Nigeria"; `countryOfPlace` on the whole item)
      counts. It's kept as a "Lives in …" line, so core reads it the same way.
    - Read their friend count ("4.9K friends · 59 mutual") beside the mutual count it already reads.
-   - Every read of a profile updates where they live: a check, the profile opened beside a friend request, or one
-     the person opens as they browse. A "Lives in" read now replaces a From or a guess (today the worker reads a
-     profile's lines once, and never again).
+   - A check's read updates where they live, and so does saving someone to a customer. A "Lives in" read now
+     replaces a From or a guess, unless a look already weighed them.
 2. **Lives in beats From** (`packages/core/src/addons/outreach/countries.ts`).
    - `countryFromLines` says which kind it found: `{ code, kind: 'lives' | 'from' }`, every line's "Lives in"
      before any "From", as today.
-   - The AI's word never makes a country seen. It names the line it went by (`placeLine`). Only a line that was
-     really in what it was sent, and that `countryFromLines` reads, makes the country seen.
+   - The AI's word never makes a country seen: only a line `placesFromLines` reads does.
 3. **Waiting for a look.** Where the setting would skip someone whose country is only From or a guess, they aren't
    skipped: they **wait for a look**. Nobody reaches them meanwhile, and they go first for the day's checks: friend
-   requests to the person first, then whoever Today would reach next (a friend request, a warm lead, a comment). A
+   requests to the person first, then the most mutual friends first, never anyone who runs a group. A
    guess or From that the setting lets through needs no look. Someone whose country isn't known at all waits for a
    look too, unless When we can't tell is Let them through.
 4. **The look: a check, plus mutual friends.**
    - The check reads the profile as decision 46 does, then opens their mutual friends with the account that looked
-     (`/friends_mutual`, read with the friends-list reader), up to 200 of them. A hidden list or none is noted as
-     none.
+     (`/friends_mutual`, read with the friends-list reader, a few screens), up to 200 of them. A hidden list, or a
+     profile that says none, is noted as none.
    - Each mutual friend is matched to the business's saved profiles (its friends list), with that friend's country
      and how it's known.
    - It counts toward the day's 40. When they're used up, those waiting go first tomorrow.
@@ -122,51 +120,58 @@ Strongest first. A stronger kind always replaces a weaker one; the same kind rep
    The choice is read whenever people are picked, never copied onto them, so changing it moves everyone at once.
 
 7. **The lists say why.** With Ask me, the Friends tab shows **Not sure where they live** above Skipped for
-   country. Each row shows the name, what the profile says, what the friends say ("31 of the 40 mutual friends we
+   country, while anyone is on it. Each row shows the name, what the profile says, what the friends say ("31 of the 40 mutual friends we
    know live in Nigeria"), the AI's line, and the two buttons. Skipped for country shows the same reason, by kind (Lives in,
    From, Their friends, Guessed), and how many wait for a look.
-8. **Everyone skipped today.** When this ships, each person the setting skips is read again: the lines kept from
-   their groups are read with the new rules. Those seen by an older check (whose lines aren't kept, so Lives in
-   can't be told from From) and every guess wait for a look. Nobody is reached meanwhile, and only people Today
-   would reach use up checks, so the look-ups follow real need.
+8. **Everyone skipped today.** A country seen until now could have been a From line or the AI's word for one, and
+   the lines behind it aren't all kept, so the migration counts each as From. With every guess, those the setting
+   would skip wait for a look, and nobody is reached meanwhile.
+9. **What a look can't catch.** Someone whose profile says they live in the countries reached is reached without a
+   look. A later check of them (a friend's, or Research) still reads their mutual friends, and can put them on the
+   Not sure list.
 
 ## Data
 
-`addon_outreach.profiles` (a new migration, numbered above the newest; mirrored in Drizzle):
+`addon_outreach.profiles` (migration `20261027011400_outreach_country_looks.sql`; mirrored in Drizzle):
 
-- `country_how` also takes `from` and `friends`. `seen` keeps meaning a "Lives in" line or the place under the name.
+- `country_how` also takes `from` and `friends`. `seen` now means a "Lives in" line or the place under the name.
 - `country_from`: the country a "From" line names, kept to show.
-- `country_alt`: the other country, when the evidence splits.
+- `country_alt`: the other country, when a look's facts split.
 - `country_why`: the AI's line, up to 200 characters.
-- `country_unsure`: true when a look couldn't tell (only a name, or the AI not sure). A split is known from
-  `country` and `country_alt` against the setting, so it isn't stored.
-- `country_hold`: none or `look` (waiting for a look). The Not sure list isn't a hold: the filter works it out from
-  `country_unsure`, the split and the setting.
+- `country_unsure`: a look couldn't tell (only a name to go on, or the AI not sure).
+- `country_looked_at`: when a look last weighed them.
+- `country_mutual`: where their mutual friends live, as the last look found (how many were read, and each country
+  with how many were seen and how many worked out else), to show on the lists.
 - `country_skip`, `country_skip_by`, `country_skip_at`: a person's Skip, beside `country_through`.
 - `friends_count`: their friend count, as last read.
+
+Waiting for a look and the Not sure list aren't stored: `countryFate` (and `countryFateSql`, its copy for queries)
+works them out from these and the setting, so changing the setting moves everyone at once.
+
+`addon_outreach.checks` gets `mutual_ids` (the mutual friends a look read, matched to kept profiles) and `mutual_read`
+(how many the page listed). Like the look's lines, they're let go once the AI has read them, so no table of who knows
+whom is kept.
 
 The add-on's settings: `countries.unsure` takes `through`, `ask` (to start) or `skip`, beside `mode` and `codes`
 (`CountryRule`).
 
-`addon_outreach.mutual_friends` (new): a profile, a friend it shares with the account that looked, and when.
-Replaced by each look. Policies through `private.addon_table_policies()`; nothing in `app` points into it.
-
-Migration of what's kept today: everyone the setting skips whose country is guessed, or seen without kept lines that
-say "Lives in", gets `country_hold = 'look'`.
+What was kept before: every country `seen` until now counts as `from`, since it could have been a From line or the
+AI's word for one.
 
 ## Operations
 
-- `outreach.check.save` takes the mutual friends and the where-they-live answer, and sets the country, the hold,
-  the other country and the line. A guess never replaces a "Lives in"; a person's call is never touched.
-- `outreach.countries.save` (the worker's batch) keeps a From as `from`, and its guesses never skip.
-- `outreach.country.decide` (new, risk 1): Let through or Skip someone on the Not sure list, or undo it. Who and when are
-  kept.
-- `outreach.countries.unsure` (new): the Not sure list. `outreach.countries.skipped` adds the reason per row and
-  the number waiting for a look.
-- `countryLetsSql`, the one filter every pick uses, learns the hold, the person's Skip and When we can't tell. Every place that picks
-  people stays on it.
-- The check order (decision 46) puts those waiting for a look first.
-- `pnpm openapi` after the operations change.
+- `outreach.check.look` takes `friendsCount` and `mutual`, and matches the mutual friends to kept profiles.
+- `outreach.check.save` sets the country, the other country, how sure, the line and the mutual friends' countries
+  (`lookedCountry`). A person's call is never touched.
+- `outreach.countries.save` (the worker's batch) keeps a From as `from`, and never undoes a Lives in or a look
+  (`keepCountry`, which saving someone to a customer uses too).
+- `outreach.country.decide` (new, risk 1): Let through or Skip someone, or put them back under the setting.
+- `outreach.countries.skipped` lists either list (`list: 'skipped' | 'unsure'`), with the reasons per row, how many
+  wait for a look and how many are on the Not sure list.
+- `countryLetsSql`, the one filter every pick uses, reaches only those `countryFateSql` says to reach.
+- `outreach.checks.next` puts those waiting for a look first after Research (`waitsForLook`, never anyone who runs a
+  group), those asking to be friends first, and asks for their mutual friends (`mutual`) while the setting skips
+  anyone.
 
 ## Words
 
@@ -182,26 +187,22 @@ say "Lives in", gets `country_hold = 'look'`.
 
 ## Tests
 
-- Core: "Lives in" beats "From" in any order of lines; the place under the name counts; the AI's claim of a line
-  counts only when the line is there; `countryLets` with each hold, Skip, Unskip and each When we can't tell choice; a
-  split counts as can't tell only when the setting treats the two countries differently.
-- Extension: `profile-2026.html` and `friend-requests-profile-2026.html` read Personal details ("Lives in Austin",
-  "Lives in Fairview") and the friend count; a new fixture of a mutual friends page.
-- Core ops: a check's save sets the hold and the reason; Decide; the migration's move of today's skipped.
-- Db: the new table's policies.
+- Core (`packages/core/test/addons/outreach-countries.test.ts`): "Lives in" beats "From" in any order of lines, and
+  "Lived in" is From; the AI's word is only ever a guess; what a look comes to (`lookedCountry`) and what the AI is
+  told (`whereLines`); `countryFate` with each kind, Skip, Unskip and each When we can't tell choice, a split counting
+  only when the setting treats the two countries differently; and, against the database, a From and a guess waiting
+  for a look, a look that skips with its reasons and lets its lines and mutual friends go, each When we can't tell
+  choice, Decide, a profile and friends that disagree, and Unskip.
+- Extension: the 2026 profile reads Personal details ("Lives in Austin") and the friend count; a place under the name
+  reads as "Lives in …", and nothing else does; a check asked for mutual friends opens /<username>/friends_mutual and
+  sends them, never the person themselves.
 
 ## Build order
 
-One release: nothing ships until all of it is done. Built in this order on one branch:
-
-1. **The reading**: Personal details, the place under the name, Lives in beats From, the AI can't claim a line.
-2. **Waiting for a look**: guesses and From no longer skip, the checks put them first, and today's skipped move
-   over.
-3. **Mutual friends and the AI's weighing.**
-4. **When we can't tell**, the Not sure list, Decide, and the reasons on Skipped for country.
-
-The web gets the setting and the lists, like Skipped for country today; the phone keeps following the setting as
-saved.
+One release, built on one branch in this order: the reading; waiting for a look; mutual friends and the AI's
+weighing; When we can't tell, the Not sure list, Decide and the reasons on Skipped for country. Built, with extension
+0.91.0. The web has the setting and the lists, like Skipped for country before; the phone keeps following the setting
+as saved.
 
 ## Not in this plan
 

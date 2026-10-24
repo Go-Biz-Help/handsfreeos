@@ -8,6 +8,8 @@ import {
 import {
   COUNTRY_MODE_WORDS,
   COUNTRY_MODES,
+  COUNTRY_UNSURE,
+  COUNTRY_UNSURE_WORDS,
   COUNTRY_WORDS,
   type CountryRule,
 } from '@hfos/core/addons/outreach/countries';
@@ -34,7 +36,8 @@ const select =
  * settings-link.tsx): who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), how long a sent friend request waits before it's suggested for cancelling (decision
  * 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), whether each
- * person gets the weekly report by email (decision 34), and which countries it reaches (decision 61). Anyone already
+ * person gets the weekly report by email (decision 34), which countries it reaches (decision 61), and what happens when
+ * a look can't tell where someone lives (decision 86). Anyone already
  * in Contacts gets the tags whatever it says. Each change goes to `onChange`, which saves it (./use-autosave.ts).
  */
 export function TeamSettingsFields({
@@ -148,6 +151,28 @@ export function TeamSettingsFields({
           <p className="mt-1.5 text-[12.5px] text-danger-text" role="alert">
             {problem}
           </p>
+        ) : null}
+        {countries.mode !== 'anywhere' ? (
+          <div className="mt-4" data-testid="outreach-countries-unsure">
+            <h4 className="text-[13.5px] font-semibold">{COUNTRY_UNSURE_WORDS.title}</h4>
+            <p className="text-[13px] text-text-2">{COUNTRY_UNSURE_WORDS.note}</p>
+            <div
+              role="radiogroup"
+              aria-label={COUNTRY_UNSURE_WORDS.title}
+              className="mt-2 flex flex-col gap-2"
+            >
+              {COUNTRY_UNSURE.map((u) => (
+                <RadioCard
+                  key={u}
+                  selected={countries.unsure === u}
+                  onSelect={() => onChange({ countries: { ...countries, unsure: u } })}
+                  title={COUNTRY_UNSURE_WORDS[u]}
+                  description={u === 'ask' ? W.usual : undefined}
+                  testId={`outreach-countries-unsure-${u}`}
+                />
+              ))}
+            </div>
+          </div>
         ) : null}
       </div>
     </div>

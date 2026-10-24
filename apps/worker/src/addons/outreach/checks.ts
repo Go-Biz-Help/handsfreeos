@@ -7,6 +7,9 @@
  * - What the extension reads off their pages (`outreach.check.looked`) queues one read per business, so a morning's
  *   checks are read together.
  * - Each read takes a batch, the oldest first, with what HandsFreeOS knows of them and the person's own chat with them.
+ * - While the business reaches only some countries, the AI also weighs where they live (decision 86): what their
+ *   profile says, how many friends they have, where their mutual friends live, and how the person's own friends are
+ *   spread, so it knows what "most of them" means here.
  *   At the day's AI limit the rest wait a few hours; an answer it can't use marks that one as failed, tried again in
  *   a week, rather than trying it forever.
  */
@@ -18,9 +21,15 @@ import {
   checkPrompt,
   type CheckPlaybook,
 } from '@hfos/core/addons/outreach/checks';
+import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import {
+  countryRuleOn,
+  whereLines,
+  type MutualCountries,
+} from '@hfos/core/addons/outreach/countries';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
-import { checkSave } from '@hfos/core/addons/outreach/ops/checks';
+import { checkSave, mutualCountries } from '@hfos/core/addons/outreach/ops/checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   PlaybookDetails,
@@ -58,6 +67,46 @@ export async function checkLooked(ctx: AddonEventContext): Promise<void> {
   );
 }
 
+/**
+ * What's known of where the people in a batch live (decision 86): their mutual friends' countries, from the people the
+ * business keeps, and how each person's own friends are spread across countries.
+ */
+async function whereFacts(
+  ctx: AddonJobContext,
+  batch: readonly {
+    id: string;
+    user_id: string;
+    mutual_ids: string[];
+    mutual_read: number | null;
+  }[],
+): Promise<{
+  mutual: Map<string, MutualCountries>;
+  own: Map<string, { code: string; n: number }[]>;
+}> {
+  const ws = ctx.scope.workspaceId;
+  return asWorker(ctx.db, ctx.scope, async (tx) => {
+    const mutual = new Map<string, MutualCountries>();
+    for (const c of batch) {
+      const found = await mutualCountries(tx, ws, c.mutual_ids, c.mutual_read);
+      if (found) mutual.set(c.id, found);
+    }
+    const own = new Map<string, { code: string; n: number }[]>();
+    for (const user of new Set(batch.map((c) => c.user_id)))
+      own.set(
+        user,
+        await rows<{ code: string; n: number }>(
+          tx,
+          sql`select p.country as code, count(*)::int as n
+              from addon_outreach.friends f join addon_outreach.profiles p on p.id = f.profile_id
+              where f.workspace_id = ${ws} and f.user_id = ${user} and f.state = 'friends'
+                and p.country is not null
+              group by p.country order by count(*) desc, p.country limit 10`,
+        ),
+      );
+    return { mutual, own };
+  });
+}
+
 /** `outreach.check_people`: reads a batch of the business's people waiting, and comes back for the rest. */
 export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
   const ws = ctx.scope.workspaceId;
@@ -65,9 +114,20 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     business: (
       await rows<{ name: string }>(tx, sql`select name from app.workspaces where id = ${ws}`)
     )[0],
+    settings: (
+      await rows<{ settings: unknown }>(
+        tx,
+        sql`select settings from app.addon_installations
+            where workspace_id = ${ws} and addon_id = ${ctx.manifest.id}`,
+      )
+    )[0]?.settings,
     waiting: await rows<{
       id: string;
+      user_id: string;
       looked_at: Date | string;
+      friends_count: number | null;
+      mutual_ids: string[];
+      mutual_read: number | null;
       lines: string[];
       name: string;
       platform: Platform;
@@ -80,7 +140,8 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     }>(
       tx,
       // Each person's own chat with them: the check is theirs, and so is the chat it reads.
-      sql`select ch.id, ch.looked_at, ch.lines, p.name, p.platform, p.intro, p.mutual_friends, g.name as group_name,
+      sql`select ch.id, ch.user_id, ch.looked_at, ch.lines, ch.mutual_ids, ch.mutual_read, p.name, p.platform,
+            p.intro, p.mutual_friends, p.friends_count, g.name as group_name,
             (select gp.lines from addon_outreach.group_people gp where gp.profile_id = p.id
               order by gp.seen_at desc limit 1) as group_lines,
             c.summary, c.recent
@@ -101,6 +162,10 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
     ),
   }));
   if (!found.waiting.length) return;
+  // Where they live matters only while the business reaches some countries and not others.
+  const where = countryRuleOn(outreachSettings(found.settings).countries)
+    ? await whereFacts(ctx, found.waiting.slice(0, CHECK_PEOPLE_BATCH))
+    : null;
   const playbooks = found.playbooks.flatMap((p) => {
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     return read.success ? [{ id: p.id, name: p.name, details: read.data }] : [];
@@ -145,12 +210,23 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
                   : null,
               playbooks: toldOn(person.platform),
               platform: person.platform,
+              ...(where
+                ? {
+                    where: whereLines({
+                      lines: [...person.lines, ...person.intro],
+                      friends: person.friends_count,
+                      mutual: person.mutual_friends,
+                      mutualCountries: where.mutual.get(person.id) ?? null,
+                      own: where.own.get(person.user_id) ?? [],
+                    }),
+                  }
+                : {}),
             }),
           },
         ],
         schema: CHECK_SCHEMA,
         zod: CheckAnswer,
-        maxTokens: 400,
+        maxTokens: 500,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
       answer = checkedAnswer(value, playbooks);
