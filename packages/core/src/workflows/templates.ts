@@ -234,6 +234,13 @@ export const TEMPLATE_VARIABLES: readonly TemplateVariable[] = [
   v('appointment.service', 'Service', 'appointment', 'AC tune-up'),
   v('appointment.location', 'Location', 'appointment', '120 Elm St'),
   v('appointment.staff_names', 'Who’s coming', 'appointment', 'Dale'),
+  // Funnels: their own Join link for an online session, which says who joined and when (/j/…).
+  v(
+    'appointment.join_url',
+    'Join link',
+    'appointment',
+    'https://book.example.com/j/Ab3dE6gHk2Lm4Np6Qr',
+  ),
   v('conversation.channel', 'Channel', 'conversation', 'text'),
   v('conversation.last_message', 'Their latest message', 'conversation', 'Can you come Tuesday?'),
   v('business.name', 'Business name', 'business', 'Lone Star HVAC'),

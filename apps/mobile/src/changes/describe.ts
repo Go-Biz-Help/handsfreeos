@@ -388,7 +388,8 @@ export function describe(
     case 'appointment.cancel':
     case 'appointment.update':
     case 'appointment.set_status':
-    case 'attendee.confirm': {
+    case 'attendee.confirm':
+    case 'attendee.set_attendance': {
       const title = {
         'appointment.create': 'New appointment',
         'appointment.reschedule': 'Appointment moved',
@@ -396,6 +397,7 @@ export function describe(
         'appointment.update': 'Appointment details',
         'appointment.set_status': 'Appointment status',
         'attendee.confirm': 'Appointment confirmed',
+        'attendee.set_attendance': 'Attendance',
       }[row.name];
       return words(title, lower(title), 'calendar', personOf(input.personId));
     }

@@ -14,6 +14,7 @@ import {
   type AnyConditionGroup,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { joinUrlFor, type BookingLinks } from '../booking/links';
 import { publicOrigin } from '../hosting/origin';
 
 export interface RunRefs {
@@ -29,6 +30,8 @@ export interface RunDataOptions {
   readonly webUrl: string;
   readonly workflowName: string;
   readonly context: Readonly<Record<string, unknown>>;
+  /** What signs a person's Join link, for `{{appointment.join_url}}` (only a step that sends needs it). */
+  readonly bookingLinks?: BookingLinks;
 }
 
 export interface PersonRecord {
@@ -104,7 +107,9 @@ type Source =
   | 'person_tags'
   | 'lead_tags'
   | 'business'
-  | 'links';
+  | 'links'
+  // Funnels: the person's own Join link for the run's appointment, made only when a message asks for it.
+  | 'join';
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -116,6 +121,7 @@ function sourcesOf(path: string): Source[] {
   const [head, key] = path.split('.');
   if (path === 'person.tags') return ['person_tags'];
   if (path === 'lead.tags') return ['lead_tags'];
+  if (path === 'appointment.join_url') return ['join'];
   switch (head) {
     case 'person':
     case 'lead':
@@ -243,6 +249,7 @@ export class RunData {
         if (key === 'value') return money(l.value_cents);
         return (l as unknown as Record<string, unknown>)[key] ?? undefined;
       case 'appointment':
+        if (key === 'join_url') return this.get<string>('join') ?? undefined;
         if (!ap) return undefined;
         if (key === 'starts_at') return ap.starts_at.toISOString();
         if (key === 'ends_at') return ap.ends_at.toISOString();
@@ -445,6 +452,21 @@ export class RunData {
           website: text(settings['website']),
           review: text(links['review']) ?? text(settings['reviewUrl']),
         } satisfies Business;
+      }
+      case 'join': {
+        // Theirs alone, for an online session they're booked on: it says when they joined.
+        const links = this.opts.bookingLinks;
+        if (!links || !this.refs.appointmentId || !this.refs.personId) return null;
+        const [seat] = await rows<{ id: string }>(
+          tx,
+          sql`select aa.id from app.appointment_attendees aa
+                join app.appointments a on a.id = aa.appointment_id
+              where aa.appointment_id = ${this.refs.appointmentId} and aa.person_id = ${this.refs.personId}
+                and aa.workspace_id = ${ws} and aa.status <> 'cancelled'
+                and a.location->>'kind' = 'virtual' and coalesce(a.location->>'meetingUrl', '') <> ''
+              order by aa.created_at limit 1`,
+        );
+        return seat ? await joinUrlFor(tx, links, seat.id) : null;
       }
       case 'links': {
         const cal = this.bookingCalendarId;

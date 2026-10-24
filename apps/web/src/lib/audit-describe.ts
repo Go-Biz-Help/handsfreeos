@@ -1042,6 +1042,13 @@ function describeAction(e: AuditEntry): string {
     case 'message.record_opt_out':
       return `recorded that ${s(e.after?.number) || 'a customer'} asked to stop getting texts${s(e.after?.words) ? ` (“${s(e.after?.words)}”)` : ''}`;
     // Milestone 8: confirming a booking (by text in message.receive, above)
+    // Funnels: one person on a session.
+    case 'attendee.set_attendance':
+      return s(e.after?.status) === 'attended'
+        ? `marked someone attended at ${apptTitle(e)}`
+        : s(e.after?.status) === 'no_show'
+          ? `marked someone a no-show at ${apptTitle(e)}`
+          : `recorded that someone joined ${apptTitle(e)}`;
     case 'attendee.confirm':
       return s(e.after?.confirmedVia) === 'staff'
         ? `marked ${apptTitle(e)}${forWhom(e)} on ${when(e.after?.startsAt)} confirmed`

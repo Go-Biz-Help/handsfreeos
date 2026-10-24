@@ -4,7 +4,7 @@
  * bookings hear warnings (buffers, hours, busy times, time off, a time in the past) they can book anyway,
  * but never a real overlap: the database refuses one person in two places.
  */
-import { and, asc, eq, gte, inArray } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { z } from 'zod';
 import {
@@ -775,6 +775,7 @@ export const appointmentSetStatus = defineCommand({
       .where(eq(appointments.id, appt.id))
       .returning();
     const completed = input.status === 'completed';
+    // Everyone on it, except a person whose attendance was marked for them alone (attendee.set_attendance).
     await ctx.tx
       .update(appointmentAttendees)
       .set({ status: completed ? 'attended' : 'no_show' })
@@ -785,6 +786,7 @@ export const appointmentSetStatus = defineCommand({
             appointmentAttendees.status,
             completed ? ['booked', 'no_show'] : ['booked', 'attended'],
           ),
+          isNull(appointmentAttendees.attendanceSetAt),
         ),
       );
     const eventId = await ctx.emit({

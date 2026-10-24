@@ -419,6 +419,7 @@ import {
 } from './teammate-instruction';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
+import { attendeeSetAttendance } from './attendance';
 import { aiCallCommands } from './ai-call';
 import { socialCommands } from './social';
 import { metaLeadCommands } from './meta-lead';
@@ -1070,6 +1071,7 @@ export const commands: readonly CommandDef[] = [
   leadCatchUp,
   attendeeConfirm,
   attendeeConfirmOnline,
+  attendeeSetAttendance,
   attendeeConfirmByCall,
   productCreate,
   productUpdate,
@@ -1245,6 +1247,7 @@ export * from './ai-call';
 export * from './contact-ai';
 export * from './maintenance';
 export * from './attendee-confirm';
+export * from './attendance';
 export * from './payment-connection';
 export * from './money-catalog';
 export * from './estimate';

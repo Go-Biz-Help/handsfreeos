@@ -2543,6 +2543,12 @@ export const appointmentAttendees = app.table('appointment_attendees', {
    * Social Outreach demo link's. Online bookings only; null for the rest.
    */
   linkRef: text('link_ref'),
+  /** Attendance one person at a time (20261027011200): when they opened their Join link, or a teammate ticked it. */
+  joinedAt: ts('joined_at'),
+  /** They were given a Join link: the end of the session marks them attended or a no-show. */
+  joinOfferedAt: ts('join_offered_at'),
+  /** Their attendance was set for them alone: marking the whole appointment leaves it. */
+  attendanceSetAt: ts('attendance_set_at'),
 });
 
 /** M18: more services on one visit, each with its time and price as they read when added. */

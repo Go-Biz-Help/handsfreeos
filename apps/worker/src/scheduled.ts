@@ -76,6 +76,7 @@ import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
 import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
 import { META_LEAD_JOBS, META_LEADS_PLAN_KEY, metaLeadJobs } from './social/leads';
+import { ATTENDANCE_JOB, ATTENDANCE_KEY, attendanceClose } from './booking/attendance';
 import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { FILE_TEXT_JOBS, FILE_TEXT_SWEEP_KEY, fileTextJobs } from './files/file-text';
@@ -642,6 +643,8 @@ export const jobs: JobMap = {
   ...metaJobs,
   // Facebook lead ads: each business's Pages read hourly for leads a webhook missed (social/leads.ts).
   ...metaLeadJobs,
+  // Each session's attendees marked attended or a no-show once it ends, by their Join links (booking/attendance.ts).
+  [ATTENDANCE_JOB]: attendanceClose,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -892,6 +895,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: META_JOBS.plan,
       dedupeKey: META_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Sessions that ended, every ten minutes: who joined attended, who never did is a no-show (booking/attendance.ts).
+    await scheduleJob(tx, {
+      kind: ATTENDANCE_JOB,
+      dedupeKey: ATTENDANCE_KEY,
       runAt,
       payload: {},
       workspaceId: null,

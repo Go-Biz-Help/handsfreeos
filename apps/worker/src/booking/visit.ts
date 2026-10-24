@@ -25,7 +25,7 @@ import {
 } from '@hfos/db/schema';
 import type { WorkerServices } from '../services';
 import { publicOrigin } from '../hosting/origin';
-import { manageUrlFor } from './links';
+import { joinUrlFor, manageUrlFor } from './links';
 import type { Business, Policies, Visit } from './messages';
 
 export type AttendeeRow = typeof appointmentAttendees.$inferSelect;
@@ -155,11 +155,16 @@ export async function staffOf(
   };
 }
 
-/** One booking as its messages need it, or null when it is gone. */
+/**
+ * One booking as its messages need it, or null when it is gone. `forCustomer`: the messages go to the customer, so
+ * an online session's link is their own Join link (`/j/…`), which says when they joined, rather than the meeting's
+ * own address. A teammate's copy keeps the meeting's address: their opening it isn't the customer joining.
+ */
 export async function loadBooking(
   tx: Tx,
   s: LinkServices,
   attendeeId: string,
+  opts: { readonly forCustomer?: boolean } = {},
 ): Promise<LoadedBooking | null> {
   const [row] = await tx
     .select({
@@ -188,7 +193,10 @@ export async function loadBooking(
     seats: row.a.seats,
     locationKind: location.kind ?? null,
     address: addressOf(location),
-    meetingUrl: location.meetingUrl ?? null,
+    meetingUrl:
+      location.kind === 'virtual' && location.meetingUrl && opts.forCustomer
+        ? ((await joinUrlFor(tx, s.bookingLinks, row.a.id)) ?? location.meetingUrl)
+        : (location.meetingUrl ?? null),
     recorded: location.record === true,
     staff: staff.firstNames,
   };

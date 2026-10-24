@@ -9,9 +9,10 @@ It started with Christina Robbins's network-marketing recruiting funnel (built i
 about recruiting. A contractor's "watch this, then book an estimate" page or a coach's webinar sign-up uses the same
 pieces.
 
-> **Status: stages 1 to 5 are built** (the video question, one page at a time, details saved part way, personal
-> links and greetings, booking inside the form, stopped partway, Facebook lead ads on the stand-in, and Indeed by
-> email); stage 6 is next. Christina's funnel can be set up now, with Zapier in front for leads until Meta approves lead ads
+> **Status: stages 1 to 6 are built** (the video question, one page at a time, details saved part way, personal
+> links and greetings, booking inside the form, stopped partway, Facebook lead ads on the stand-in, Indeed by email,
+> and per-person attendance with tracked Join links). Zoom's own participant events are the one part left, as
+> planned, once Zoom approves them. Christina's funnel can be set up now, with Zapier in front for leads until Meta approves lead ads
 > (Meta Part 7 in `docs/operations.md`). Decisions below are the owner's (2026-10-23). "Picks to confirm" are mine
 > and stay open until the owner says yes.
 >
@@ -48,6 +49,13 @@ pieces.
 >   Without the AI (not set up, today's limit) the email's own wording is read instead, so no applicant is lost to
 >   it. A forward counts when it keeps Indeed as the sender, as automatic forwarding does. Details are in "Facebook
 >   lead ads and Indeed" in "Lead intake", `docs/operations.md`.
+> - **Stage 6, as built.** Smaller than §8 in two ways. There's no `joined` status: joining is `joined_at`, and
+>   the seat stays booked while the session runs, so capacity, reminders and everything else that reads `booked`
+>   is unchanged. And a Join link keeps nothing at all: it's signed like the change-or-cancel link
+>   (`/j/<public_ref><code>`), rather than a random key kept as a hash. The end-of-session marking runs only for a
+>   calendar's scheduled sessions, never a one-on-one video visit, and only for people given a Join link. Marking a
+>   whole appointment done now leaves anybody marked on their own. Details are in "Who joined an online session"
+>   in `docs/operations.md`.
 
 ## Decisions (Chris, 2026-10-23)
 

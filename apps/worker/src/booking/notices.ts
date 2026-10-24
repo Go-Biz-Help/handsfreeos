@@ -114,8 +114,8 @@ export async function sendNotice(
     // A booking deleted for good still tells its customers it's cancelled, when asked (bin/index.ts).
     const b =
       kind === 'cancelled'
-        ? await readingBin(tx, () => loadBooking(tx, s, attendeeId))
-        : await loadBooking(tx, s, attendeeId);
+        ? await readingBin(tx, () => loadBooking(tx, s, attendeeId, { forCustomer: true }))
+        : await loadBooking(tx, s, attendeeId, { forCustomer: true });
     if (!b || !stillApplies(b, kind, o.now)) return null;
     const reach = await reachOf(
       tx,

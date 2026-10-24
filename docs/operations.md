@@ -7693,6 +7693,7 @@ Customers book on pages the web app serves at `https://app.handsfreeos.com`. The
 | `https://app.handsfreeos.com/book/<site>/<calendar>` | One calendar's booking page.                                                                                   |
 | `https://app.handsfreeos.com/book/c/<calendar id>`   | Always works, and sends customers on to the calendar's current address. Use it where a link must never change. |
 | `https://app.handsfreeos.com/m/<code>`               | A customer's change-or-cancel link, sent with the booking's confirmation. Search engines never list it.        |
+| `https://app.handsfreeos.com/j/<code>`               | A customer's own Join link for an online visit or session (below). Search engines never list it.               |
 
 Owners and admins set up a workspace's booking site:
 
@@ -7709,6 +7710,17 @@ Owners and admins set up a workspace's booking site:
 Each visitor's internet address may load the pages 60 times a minute, make 5 bookings or waitlist requests in 10 minutes, and open a change-or-cancel link 30 times and change it 10 times a minute. Past that, the page says "That’s a lot of tries from here. Wait a minute and try again." The pages also have a hidden field that only bots fill in, and accept only US and Canadian phone numbers. A calendar's page is kept for up to 30 seconds, so a change to its settings can take that long to show.
 
 Texts about appointments go out from the workspace's business number. When a client fills in **Business details for the carriers** ("What a client fills in" in "The phone carrier: Twilio"), check that **What you text about** is **Appointments, estimates and customer care**, and that **How customers agree to get texts** and the example texts cover appointment confirmations and reminders. The opt-in description should name the booking page's **Text me about this appointment** checkbox, which starts unticked.
+
+### Who joined an online session
+
+For an online visit or session with a meeting link (Zoom, Google Meet or a pasted one), the confirmation, the reminders and the change notices give each customer their own Join link, `/j/<code>`, instead of the meeting's address. A workflow's text can say it too, with `{{appointment.join_url}}`. Like the other customer links it is on the business's own web address once one is serving. The team's own copies keep the meeting's address, since a teammate opening the link would count as the customer joining.
+
+- **Opening it** records that they joined and when, then sends them on to the meeting. It opens the meeting from an hour before the start until the end; outside that it shows the session's time. Text apps and email scanners open links to make previews; they don't run the page's script, so they never count.
+- **The appointment** shows "Joined 7:02 PM" beside each person. Once a session has started, **Attended** and **No-show** mark one person without touching the rest, on the web and the phone. Marking the whole appointment done or a no-show then leaves those people as they were marked.
+- **When a session ends** (a calendar that runs scheduled sessions, never a one-on-one visit), everyone given a Join link is marked ten minutes later: attended if they opened it, a no-show if they never did. The worker's `attendance.close` job does this every ten minutes.
+- **Workflows** can start on **Somebody joins a session**, **Somebody attended a session** and **Somebody missed a session**, each for that one person. A wait on **Somebody joins a session** with a 5-minute timeout sends "Were you able to log on?" only to the people who haven't.
+
+A click isn't proof somebody stayed: they can click and get stuck, which is when "Were you able to log on?" helps. Nothing here needs setting up; it comes from the migration `20261027011200_attendance.sql`.
 
 ### Calendars with no staff (beds, rooms, equipment)
 

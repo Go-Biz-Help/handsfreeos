@@ -1853,6 +1853,27 @@
         "required": ["workspaceId", "attendeeId"]
       }
     },
+    "attendee.set_attendance": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attendeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "attendance": {
+            "type": "string",
+            "enum": ["joined", "attended", "no_show"]
+          }
+        },
+        "required": ["workspaceId", "attendeeId", "attendance"]
+      }
+    },
     "attention.assign": {
       "offline": "anytime",
       "input": {

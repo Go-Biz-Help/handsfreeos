@@ -23,6 +23,8 @@ const PUBLIC_PREFIXES = [
   '/hold/',
   // A link to send the business a video.
   '/v/',
+  // A person's own Join link for an online session (funnels).
+  '/j/',
   // A campaign email's unsubscribe page.
   '/u/',
   '/chat/',

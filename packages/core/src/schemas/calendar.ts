@@ -1028,6 +1028,8 @@ export const AppointmentGetOutput = z.object({
         cancelledAt: isoDateTime.nullable(),
         /** The confirmation and each reminder: scheduled, sent (by text or email) or skipped, and why. */
         reminders: ReminderState,
+        /** Funnels: when they opened their Join link (or a teammate ticked it), or null. */
+        joinedAt: isoDateTime.nullable(),
       }),
     ),
     series: z.object({ id: uuid, rule: z.record(z.string(), z.unknown()) }).nullable(),
@@ -1200,6 +1202,25 @@ export const AttendeeConfirmOutput = z.object({
    */
   notApplied,
 });
+/**
+ * attendee.set_attendance (funnels): one person's attendance, without the rest of the appointment. `joined` is
+ * opening the session (their Join link, or a teammate ticking it): their seat stays booked. `attended` and
+ * `no_show` are how it went for them.
+ */
+export const AttendeeSetAttendanceInput = z.object({
+  workspaceId: uuid,
+  attendeeId: uuid,
+  attendance: z.enum(['joined', 'attended', 'no_show']),
+});
+export const AttendeeSetAttendanceOutput = z.object({
+  appointmentId: uuid,
+  attendeeId: uuid,
+  status: AttendeeStatusValue,
+  joinedAt: isoDateTime.nullable(),
+  /** False when it was already that way. */
+  changed: z.boolean(),
+});
+
 /** attendee.confirm_online: the Confirm button on the customer's manage link. */
 export const AttendeeConfirmOnlineInput = z.object({
   workspaceId: uuid,

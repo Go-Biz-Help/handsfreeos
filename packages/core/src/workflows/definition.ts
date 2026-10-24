@@ -86,6 +86,25 @@ export const TRIGGER_EVENTS = {
     subject: 'appointment_people',
     provides: ['appointment'],
   },
+  /**
+   * Funnels: one person on a session. The event's entity is the appointment; its payload names the person, so
+   * each is for them alone (a wait on `attendee.joined` hears only theirs).
+   */
+  'attendee.joined': {
+    label: 'Somebody joins a session',
+    subject: 'payload_person',
+    provides: ['appointment'],
+  },
+  'attendee.attended': {
+    label: 'Somebody attended a session',
+    subject: 'payload_person',
+    provides: ['appointment'],
+  },
+  'attendee.no_show': {
+    label: 'Somebody missed a session',
+    subject: 'payload_person',
+    provides: ['appointment'],
+  },
   'message.received': {
     label: 'A customer sends a message',
     subject: 'payload_person',
@@ -175,6 +194,9 @@ export const TRIGGER_EVENT_GROUPS: readonly {
       'appointment.cancelled',
       'appointment.completed',
       'appointment.no_show',
+      'attendee.joined',
+      'attendee.attended',
+      'attendee.no_show',
     ],
   },
   {

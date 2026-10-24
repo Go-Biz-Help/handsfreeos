@@ -18631,6 +18631,9 @@
                               "appointment.cancelled",
                               "appointment.completed",
                               "appointment.no_show",
+                              "attendee.joined",
+                              "attendee.attended",
+                              "attendee.no_show",
                               "message.received",
                               "call.missed",
                               "call.voicemail_left",
@@ -22336,6 +22339,9 @@
                               "appointment.cancelled",
                               "appointment.completed",
                               "appointment.no_show",
+                              "attendee.joined",
+                              "attendee.attended",
+                              "attendee.no_show",
                               "message.received",
                               "call.missed",
                               "call.voicemail_left",
@@ -35063,6 +35069,107 @@
                     "confirmedVia",
                     "changed",
                     "notApplied"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/attendee.set_attendance": {
+      "post": {
+        "operationId": "command_attendee_set_attendance",
+        "summary": "Mark one person on an appointment as joined (they opened the session), attended or a no-show, without changing anyone else on it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits attendee.joined, attendee.attended, attendee.no_show. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "attendeeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "attendance": {
+                    "type": "string",
+                    "enum": [
+                      "joined",
+                      "attended",
+                      "no_show"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "attendeeId",
+                  "attendance"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "appointmentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "attendeeId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "booked",
+                        "cancelled",
+                        "no_show",
+                        "attended"
+                      ]
+                    },
+                    "joinedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "appointmentId",
+                    "attendeeId",
+                    "status",
+                    "joinedAt",
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -123369,6 +123476,18 @@
                                   "reminders"
                                 ],
                                 "additionalProperties": false
+                              },
+                              "joinedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -123389,7 +123508,8 @@
                               "source",
                               "rescheduleCount",
                               "cancelledAt",
-                              "reminders"
+                              "reminders",
+                              "joinedAt"
                             ],
                             "additionalProperties": false
                           }

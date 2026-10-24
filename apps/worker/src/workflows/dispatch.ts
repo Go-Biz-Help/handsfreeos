@@ -122,7 +122,15 @@ export async function subjectsOf(tx: Tx, e: EventRow): Promise<Subject[]> {
       return id ? [subject(id)] : [];
     case 'payload_person': {
       const personId = str(p['personId']);
-      return personId ? [subject(personId, { conversationId: str(p['conversationId']) })] : [];
+      return personId
+        ? [
+            subject(personId, {
+              conversationId: str(p['conversationId']),
+              // One person on a session (attendee.*): the appointment they were on.
+              appointmentId: e.eventType.startsWith('attendee.') ? str(p['appointmentId']) : null,
+            }),
+          ]
+        : [];
     }
     case 'lead_person': {
       const personId = id ? await personOfLead(id) : null;

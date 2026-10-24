@@ -118,6 +118,18 @@ export function confirmSeat(input: {
 }
 
 /**
+ * Funnels: one person on a session attended it, or didn't, without changing anyone else on it. Reaches nobody, so it
+ * works with no signal.
+ */
+export function setSeatAttendance(input: {
+  workspaceId: string;
+  attendeeId: string;
+  attendance: 'attended' | 'no_show';
+}): Promise<{ id: string }> {
+  return change('attendee.set_attendance', input);
+}
+
+/**
  * M18: move a visit's job along. It reaches the customer (a text for each change), so a change that waited too long
  * for signal asks before it goes. On my way carries where the phone is, for the arrival time; never kept.
  */

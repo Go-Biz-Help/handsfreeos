@@ -495,6 +495,8 @@ describe('registry', () => {
       'lead.catch_up',
       'attendee.confirm',
       'attendee.confirm_online',
+      // One person's attendance on a session (funnels).
+      'attendee.set_attendance',
       'attendee.confirm_by_call',
       'product.create',
       'product.update',
