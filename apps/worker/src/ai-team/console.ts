@@ -1267,6 +1267,14 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { moved: true } };
   },
 
+  // Teammate funnels: what moving them on would do, and nothing more (the console only says what it would do).
+  async funnel_move_on(h, args) {
+    const move = h.rc.funnel?.replyMoves.find((m) => m.id === String(args['moveId']));
+    if (!move) return refuse('That isn’t one of the moves in <funnel>.');
+    would(h, 'stage', `moved them on in the funnel to ${move.toName}`);
+    return { content: { moved: true } };
+  },
+
   async update_customer(h, args) {
     if (!h.rc.customer || h.rc.unverifiedChat) return refuse(CHAT_REFUSAL);
     const fields = Object.keys(args).filter((k) => args[k] !== null && args[k] !== undefined);

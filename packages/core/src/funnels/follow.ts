@@ -20,10 +20,18 @@ export async function leaveFunnel(
   row: FunnelPersonRow,
   funnel: Pick<FunnelRow, 'id' | 'name'>,
   reason: FunnelLeftReason,
+  /** The won or lost stage that ended it, kept as where they finished. */
+  endedAt?: string,
 ): Promise<void> {
   await ctx.tx
     .update(funnelPeople)
-    .set({ status: 'left', leftReason: reason, leftAt: new Date(), pausedReason: null })
+    .set({
+      status: 'left',
+      leftReason: reason,
+      leftAt: new Date(),
+      pausedReason: null,
+      ...(endedAt ? { stageId: endedAt } : {}),
+    })
     .where(eq(funnelPeople.id, row.id));
   const eventId = await ctx.emit({
     type: 'funnel.person_left',
@@ -34,7 +42,7 @@ export async function leaveFunnel(
       funnelPersonId: row.id,
       personId: row.personId,
       leadId: row.leadId,
-      stageId: row.stageId,
+      stageId: endedAt ?? row.stageId,
       reason,
     },
     after: { funnel: funnel.name, reason },
@@ -68,7 +76,8 @@ export async function funnelFollowsLead(
   if (!row || row.stageId === to.id) return;
   const [funnel] = await ctx.tx.select().from(funnels).where(eq(funnels.id, row.funnelId));
   if (!funnel) return;
-  if (to.kind !== 'open') return leaveFunnel(ctx, row, funnel, to.kind === 'won' ? 'won' : 'lost');
+  if (to.kind !== 'open')
+    return leaveFunnel(ctx, row, funnel, to.kind === 'won' ? 'won' : 'lost', to.id);
   const def = definitionOf(funnel);
   if (!def.stages.some((s) => s.stageId === to.id)) return leaveFunnel(ctx, row, funnel, 'outside');
   await ctx.tx

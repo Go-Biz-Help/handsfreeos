@@ -864,7 +864,7 @@ export const funnelRemovePerson = defineCommand({
 export const funnelPausePerson = defineCommand({
   name: 'funnel.pause_person',
   description:
-    'Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them and nothing moves them on; picked up, what’s still ahead is scheduled again.',
+    'Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them, and only what they do (a booking, a join) moves them on; picked up, what’s still ahead is scheduled again.',
   risk: 1,
   input: FunnelPausePersonInput,
   output: FunnelPausePersonOutput,
@@ -944,14 +944,16 @@ export const funnelMovePerson = defineCommand({
       stageId: row.stageId ?? input.stageId,
       changed: false,
     };
-    if (row.status !== 'active' || !row.leadId || !row.stageId || row.stageId === input.stageId)
-      return unchanged;
+    const live = row.status === 'active' || row.status === 'paused';
+    if (!live || !row.leadId || !row.stageId || row.stageId === input.stageId) return unchanged;
     const ai = aiEmployeeOf(ctx.actor);
     if (ai) await assertAiReach(ctx, { personId: row.personId, leadId: row.leadId });
     const funnel = await funnelOfRow(ctx, row);
     const move = definitionOf(funnel)
       .stages.find((s) => s.stageId === row.stageId)
       ?.moves.find((m) => m.id === input.moveId);
+    // Paused, what they do still says where they are (a booking, a join); time passing and the teammate don't.
+    if (row.status === 'paused' && move?.kind !== 'event') return unchanged;
     if (!move || move.to !== input.stageId || (move.kind === 'reply') !== !!ai)
       throw HfosError.rule(
         'funnel_move_refused',

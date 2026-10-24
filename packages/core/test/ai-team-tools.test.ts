@@ -58,6 +58,7 @@ describe('the registry', () => {
       ['ask_for_file', 'qualify', 'auto'],
       ['save_file', 'qualify', 'auto'],
       ['move_stage', 'qualify', 'auto'],
+      ['funnel_move_on', 'core', 'auto'],
       ['open_deal', 'deals', 'auto'],
       ['set_deal_value', 'deals', 'auto'],
       ['close_deal', 'deals', 'auto'],
@@ -302,6 +303,16 @@ describe('teammateTools', () => {
     expect(names(applyTeammatePatch(coordinator, { photos: { enabled: false } }))).not.toContain(
       'note_photos',
     );
+  });
+
+  it('moves someone on in their funnel only when a stage of it waits on what they say, never on a call', () => {
+    expect(names(coordinator)).not.toContain('funnel_move_on');
+    expect(teammateTools(coordinator, { funnel: true }).map((t) => t.name)).toContain(
+      'funnel_move_on',
+    );
+    expect(
+      teammateTools(coordinator, { funnel: true, phone: true }).map((t) => t.name),
+    ).not.toContain('funnel_move_on');
   });
 
   it('asks for a video only by text, never on a call, and only while it looks at photos', () => {

@@ -31,6 +31,7 @@ import {
   type WeeklyHours,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { funnelOf, type RunFunnel } from './funnel-context';
 import { conversations, type ButtonReply, type RichText } from '@hfos/db/schema';
 import { atLabel } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
@@ -412,6 +413,8 @@ export interface RunContext {
    * first message, an unverified chat, or a conversation with nobody on file.
    */
   readonly addons?: readonly string[];
+  /** Where they are in their funnel (teammate funnels), while it's on and they're in it. */
+  readonly funnel?: RunFunnel | null;
   /** For the safety check: the business's own links, numbers and addresses, and this customer's. */
   readonly allowed: {
     readonly domains: readonly string[];
@@ -563,6 +566,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     matches,
     referral,
     addons: conv && customer && !unverifiedChat ? await loadActiveAddons(tx, ws) : [],
+    funnel:
+      customer && !unverifiedChat ? await funnelOf(tx, ws, customer.id, timeZone, input.now) : null,
     allowed: await allowedFor(tx, ws, grounding.business.website, input.webUrl, contacts),
   };
 }

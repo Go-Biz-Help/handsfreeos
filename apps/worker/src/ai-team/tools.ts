@@ -35,6 +35,7 @@ import {
   chatCheckCodeForCustomer,
   chatSendCodeForCustomer,
   leadCreate,
+  funnelMovePerson,
   leadMoveStage,
   leadRecordAnswers,
   leadSaveFileAnswer,
@@ -1320,6 +1321,37 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       d.meta,
     );
     return { status: 'done', command: 'lead.move_stage', content: { moved: true } };
+  },
+
+  // Teammate funnels: one of the stage's moves the teammate judges from what they wrote.
+  async funnel_move_on(d, tx, args) {
+    const f = d.rc.funnel;
+    const move = f?.replyMoves.find((m) => m.id === args['moveId']);
+    if (!f || !move)
+      return refused({
+        error: 'That isn’t one of the moves in <funnel>. Use a move id from there.',
+      });
+    await executeCommandIn(
+      tx,
+      funnelMovePerson,
+      {
+        workspaceId: d.scope.workspaceId,
+        funnelPersonId: f.funnelPersonId,
+        stageId: move.to,
+        moveId: move.id,
+        because: String(args['because']),
+      },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'funnel.move_person',
+      content: {
+        moved: true,
+        note: `They’re at ${quoteData(move.toName)} now. Reply to what they wrote; never mention the funnel or its stages.`,
+      },
+    };
   },
 
   async open_deal(d, tx, args) {

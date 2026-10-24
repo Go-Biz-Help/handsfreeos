@@ -35227,7 +35227,7 @@
     "/v1/commands/funnel.pause_person": {
       "post": {
         "operationId": "command_funnel_pause_person",
-        "summary": "Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them and nothing moves them on; picked up, what’s still ahead is scheduled again.",
+        "summary": "Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them, and only what they do (a booking, a join) moves them on; picked up, what’s still ahead is scheduled again.",
         "tags": [
           "commands"
         ],

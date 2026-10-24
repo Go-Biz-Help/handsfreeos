@@ -3827,7 +3827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them and nothing moves them on; picked up, what’s still ahead is scheduled again.
+         * Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them, and only what they do (a booking, a join) moves them on; picked up, what’s still ahead is scheduled again.
          * @description Risk level 1. Requires records.write. Emits funnel.paused_for_person, funnel.resumed_for_person. Can wait on a phone with no signal.
          */
         post: operations["command_funnel_pause_person"];

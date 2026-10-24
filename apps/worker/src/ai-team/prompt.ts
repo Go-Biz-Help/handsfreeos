@@ -410,6 +410,34 @@ function standingLines(rc: RunContext, call: boolean): string[] {
     'What you do:',
     ...skillLines(rc, call ? false : rc.conversation.channel === 'sms', !!call),
     ...customerLines(rc),
+    ...funnelLines(rc, call),
+  ];
+}
+
+/**
+ * Where they are in the business's funnel (teammate funnels): the stage's goal and talking points, what moves them
+ * on, and what's next. The business wrote these; the teammate keeps to them and never names the funnel to them.
+ */
+function funnelLines(rc: RunContext, call: boolean): string[] {
+  const f = rc.funnel;
+  if (!f) return [];
+  return [
+    '<funnel>',
+    `They’re in the business’s funnel ${quoteData(f.name)}, at the stage ${quoteData(f.stageName)}.`,
+    ...(f.goal ? [`This stage’s goal: ${quoteData(f.goal)}`] : []),
+    ...(f.knows ? [`What to know at this stage: ${quoteData(f.knows)}`] : []),
+    ...(call
+      ? []
+      : f.replyMoves.map(
+          (m) =>
+            `- If ${quoteData(m.says)}: funnel_move_on with move id ${m.id} (to ${quoteData(m.toName)}).`,
+        )),
+    ...(f.otherMoves.length
+      ? [`HandsFreeOS moves them on by itself: ${f.otherMoves.map(quoteData).join('; ')}.`]
+      : []),
+    ...(f.next ? [`Coming up from the funnel: ${quoteData(f.next)}`] : []),
+    '</funnel>',
+    'Answer what they ask, then steer back toward this stage’s goal. Never mention the funnel or its stages to them.',
   ];
 }
 

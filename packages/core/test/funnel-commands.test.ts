@@ -593,13 +593,13 @@ describe('who’s in it', () => {
         paused: false,
       }),
     ).toMatchObject({ status: 'paused', changed: false });
-    // Paused, nothing moves them on.
+    // Paused, the teammate doesn't move them on (only what they do does).
     expect(
-      await sys(a, funnelMovePerson, {
+      await asAva(a, samConversation, funnelMovePerson, {
         workspaceId: a.wsId,
         funnelPersonId: samRow,
-        stageId: stage.call,
-        moveId: 'vthree',
+        stageId: stage.out,
+        moveId: 'vnope',
       }),
     ).toMatchObject({ changed: false });
     await run(
