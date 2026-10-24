@@ -75,6 +75,7 @@ import { importJobs } from './telephony/imports';
 import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
 import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
+import { META_LEAD_JOBS, META_LEADS_PLAN_KEY, metaLeadJobs } from './social/leads';
 import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { FILE_TEXT_JOBS, FILE_TEXT_SWEEP_KEY, fileTextJobs } from './files/file-text';
@@ -639,6 +640,8 @@ export const jobs: JobMap = {
   ...roadmapJobs,
   // Facebook Messenger and Instagram: an ad looked up at Meta, and each business's Pages checked daily (social/).
   ...metaJobs,
+  // Facebook lead ads: each business's Pages read hourly for leads a webhook missed (social/leads.ts).
+  ...metaLeadJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -889,6 +892,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: META_JOBS.plan,
       dedupeKey: META_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Facebook lead ads, hourly: leads a webhook missed (social/leads.ts). Idle until META_LEAD_ADS is on.
+    await scheduleJob(tx, {
+      kind: META_LEAD_JOBS.plan,
+      dedupeKey: META_LEADS_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

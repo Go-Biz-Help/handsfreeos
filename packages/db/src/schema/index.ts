@@ -15,6 +15,7 @@ import {
   numeric,
   pgSchema,
   primaryKey,
+  unique,
   real,
   smallint,
   text,
@@ -5474,6 +5475,9 @@ export const intakeKind = app.enum('intake_kind', [
   /** A stranger writing to the business's Facebook Page or Instagram account (20261025000100). */
   'messenger',
   'instagram',
+  /** A Facebook or Instagram lead ad's form, and an applicant Indeed emailed about (20261027011000). */
+  'facebook_lead_ad',
+  'indeed',
 ]);
 
 /**
@@ -6518,8 +6522,33 @@ export const metaAccounts = app.table('meta_accounts', {
   connectedAt: ts('connected_at').notNull().defaultNow(),
   disconnectedAt: ts('disconnected_at'),
   connectedBy: userRef('connected_by'),
+  /** Lead ads (20261027011100): whether its leads can be read, and when the last one came. */
+  leadsAccess: text('leads_access')
+    .$type<'unknown' | 'ok' | 'not_allowed' | 'blocked'>()
+    .notNull()
+    .default('unknown'),
+  lastLeadAt: ts('last_lead_at'),
+  leadsCheckedAt: ts('leads_checked_at'),
   ...timestamps(),
 });
+
+/** A Page's lead ad form, as we've seen it (20261027011100): its name, and which consent boxes are about texts. */
+export const metaLeadForms = app.table(
+  'meta_lead_forms',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => metaAccounts.id, { onDelete: 'cascade' }),
+    formId: text('form_id').notNull(),
+    name: text('name').notNull().default(''),
+    textConsentKeys: textArray('text_consent_keys'),
+    lastLeadAt: ts('last_lead_at'),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.accountId, t.formId)],
+);
 
 /** Somebody who wrote to a Page or Instagram account, by the id Meta gives them for it, and their thread. */
 export const metaContacts = app.table('meta_contacts', {
@@ -6588,8 +6617,11 @@ export const attributionTouches = app.table('attribution_touches', {
   platform: text('platform').$type<MetaPlatform>().notNull(),
   channel: channel('channel').notNull(),
   touchedAt: ts('touched_at').notNull(),
-  /** started: it opened the conversation; returned: somebody already talking came back through it. */
-  kind: text('kind').$type<'started' | 'returned'>().notNull(),
+  /**
+   * started: it opened the conversation; returned: somebody already talking came back through it; lead_form: they
+   * filled in a lead ad's form (20261027011100).
+   */
+  kind: text('kind').$type<'started' | 'returned' | 'lead_form'>().notNull(),
   /** The customer as they are now: follows their conversation through links and merges. */
   personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
   metaAccountId: uuid('meta_account_id').references(() => metaAccounts.id, {
@@ -6616,6 +6648,8 @@ export const attributionTouches = app.table('attribution_touches', {
   productId: text('product_id'),
   refererUri: text('referer_uri'),
   adRefId: uuid('ad_ref_id').references(() => ads.id, { onDelete: 'set null' }),
+  /** The lead ad form a lead_form touch came through. */
+  leadFormId: uuid('lead_form_id').references(() => metaLeadForms.id, { onDelete: 'set null' }),
   raw: jsonb('raw').$type<Json>().notNull().default({}),
   dedupeKey: text('dedupe_key').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),

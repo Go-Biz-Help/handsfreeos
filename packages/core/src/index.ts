@@ -45,6 +45,8 @@ export * from './messaging/sms';
 export * from './messaging/rcs';
 // Facebook Messenger and Instagram direct messages (20261025000200).
 export * from './messaging/social';
+// Facebook and Instagram lead ads' answers, consent boxes and access (funnels).
+export * from './messaging/lead-ads';
 export * from './messaging/video-link';
 export * from './messaging/file-link';
 export * from './messaging/quiet-hours';

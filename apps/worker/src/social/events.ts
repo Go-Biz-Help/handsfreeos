@@ -3,7 +3,7 @@
  *
  * A webhook is a batch: entries for Pages and Instagram accounts, each with messaging events. `splitWebhook` cuts it
  * into one stored delivery per event, keyed so a retry from Meta is stored once; `readEvent` turns one event into
- * what the processor acts on. Messenger and Instagram send nearly the same shapes, and where they differ (an ad's
+ * what the processor acts on. A Page's lead ads (funnels) come in the same post as changes, cut by `splitLeadgen`. Messenger and Instagram send nearly the same shapes, and where they differ (an ad's
  * referral inside the message or beside it, a read receipt by moment or by message) both are read.
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
@@ -20,6 +20,8 @@ const str = (v: unknown, max: number): string | null => {
 
 /** The kind a stored Meta event has: one processor reads them all (receive.ts). */
 export const META_DELIVERY_KIND = 'messaging';
+/** A lead somebody sent on a Page's lead ad (funnels): its own processor reads it (leads.ts). */
+export const META_LEADGEN_KIND = 'leadgen';
 
 const ACCOUNT_ID = /^[0-9]{1,40}$/;
 const SCOPED_ID = /^[0-9A-Za-z_-]{1,64}$/;
@@ -103,6 +105,46 @@ export function splitWebhook(body: unknown): SplitEvent[] {
           dedupeKey: `${platform}:${id}:${eventKey(event)}`,
         });
       }
+  }
+  return out;
+}
+
+/** A lead Meta says arrived: only its id, the Page and the form. The lead itself is read with the Page's token. */
+export interface SplitLead {
+  readonly pageId: string;
+  readonly leadgenId: string;
+  readonly formId: string | null;
+  readonly adId: string | null;
+  /** The same lead said twice is stored once. */
+  readonly dedupeKey: string;
+}
+
+/** A Page webhook's leads (`changes` with the `leadgen` field), one each. Everything else in it is left. */
+export function splitLeadgen(body: unknown): SplitLead[] {
+  const o = obj(body);
+  if (o['object'] !== 'page') return [];
+  const out: SplitLead[] = [];
+  for (const entry of arr(o['entry'])) {
+    const e = obj(entry);
+    const entryId = str(e['id'], 40);
+    for (const raw of arr(e['changes'])) {
+      const change = obj(raw);
+      if (change['field'] !== 'leadgen') continue;
+      const v = obj(change['value']);
+      const leadgenId = str(v['leadgen_id'], 40);
+      const pageId = str(v['page_id'], 40) ?? entryId;
+      if (!leadgenId || !ACCOUNT_ID.test(leadgenId) || !pageId || !ACCOUNT_ID.test(pageId))
+        continue;
+      const formId = str(v['form_id'], 40);
+      const adId = str(v['ad_id'], 64);
+      out.push({
+        pageId,
+        leadgenId,
+        formId: formId && ACCOUNT_ID.test(formId) ? formId : null,
+        adId: adId && AD_ID.test(adId) ? adId : null,
+        dedupeKey: `leadgen:${leadgenId}`,
+      });
+    }
   }
   return out;
 }

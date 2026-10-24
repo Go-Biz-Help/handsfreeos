@@ -1,7 +1,7 @@
 /**
  * Facebook and Instagram without Meta, locally and in tests (20261025000200). Signing in is the worker's own page
  * (routes.ts), each person's Pages and their Instagram accounts live in memory, and every reply sent is kept for a
- * test to read. Tokens, refusals and ads behave the way Meta's do, so the routes and jobs are really exercised:
+ * test to read. Lead ads' forms and the leads sent on them (funnels) live there too. Tokens, refusals and ads behave the way Meta's do, so the routes and jobs are really exercised:
  * a revoked Page's token stops working, a sign-in that didn't allow ads can't read them, a reply can be refused.
  */
 import { createHmac, randomBytes } from 'node:crypto';
@@ -9,6 +9,8 @@ import {
   MetaError,
   type MetaAdDetails,
   type MetaGraph,
+  type MetaLead,
+  type MetaLeadForm,
   type MetaPage,
   type MetaProfile,
   type MetaSendInput,
@@ -72,6 +74,22 @@ export interface FakeMeta {
   code(input: { userId: string; scopes?: readonly string[] }): string;
   /** `sha256=…` over a webhook body, as Meta signs it. */
   sign(rawBody: string): string;
+  /** A lead form on a Page: by default "Meet the team", with a tick box about texts. */
+  addLeadForm(pageId: string, form?: Partial<MetaLeadForm>): MetaLeadForm;
+  /** Somebody sends a Page's lead form: the lead Meta would keep, by default on its first form. */
+  addLead(input: {
+    readonly pageId: string;
+    readonly formId?: string;
+    readonly answers: MetaLead['answers'];
+    readonly consents?: MetaLead['consents'];
+    readonly adId?: string | null;
+    readonly platform?: MetaLead['platform'];
+    readonly createdAt?: string;
+  }): MetaLead;
+  /** The Page's Leads Access keeps HandsFreeOS out, or lets it in again. */
+  blockLeads(pageId: string, blocked: boolean): void;
+  /** The webhook Meta sends for a lead: only its id, the Page and the form. */
+  leadWebhook(lead: MetaLead, pageId: string): Record<string, unknown>;
 }
 
 const ALL_SCOPES = [
@@ -83,6 +101,8 @@ const ALL_SCOPES = [
   'instagram_manage_messages',
   'business_management',
   'ads_read',
+  'leads_retrieval',
+  'pages_manage_ads',
 ];
 
 /** What the stand-in says about an ad nobody set: a plausible spring campaign, so a local demo shows one. */
@@ -128,6 +148,10 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
   const profiles = new Map<string, MetaProfile | null>();
   const adAnswers = new Map<string, MetaAdDetails | 'no_access' | 'not_found' | 'rate_limit'>();
   const files = new Map<string, { data: Buffer; contentType: string } | null>();
+  const leadForms = new Map<string, { pageId: string; form: MetaLeadForm }>();
+  const leads = new Map<string, { pageId: string; lead: MetaLead }>();
+  const leadsBlocked = new Set<string>();
+  const metaId = () => `${Date.now()}${Math.floor(Math.random() * 1e6)}`.slice(0, 18);
 
   const pageToken = (pageId: string) =>
     `fake-meta-page.${pageId}.${randomBytes(6).toString('hex')}`;
@@ -183,6 +207,38 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
     return p;
   };
   const pageOfToken = (token: string) => [...pages.entries()].find(([, p]) => p.token === token);
+  /** The Page a token answers for, when its leads may be read. */
+  const leadsPage = (token: string): string => {
+    const page = pageOfToken(token);
+    if (!page) throw new MetaError('Error validating access token.', 'auth', 190);
+    if (leadsBlocked.has(page[0]))
+      throw new MetaError(
+        '(#200) The app is not allowed to access leads for this Page.',
+        'permission',
+        200,
+      );
+    return page[0];
+  };
+  const addLeadForm = (pageId: string, form: Partial<MetaLeadForm> = {}): MetaLeadForm => {
+    const made: MetaLeadForm = {
+      id: form.id ?? metaId(),
+      name: form.name === undefined ? 'Meet the team' : form.name,
+      status: form.status ?? 'ACTIVE',
+      questions: form.questions ?? [
+        { key: 'full_name', label: 'Full name' },
+        { key: 'phone_number', label: 'Phone number' },
+        { key: 'email', label: 'Email' },
+      ],
+      consentBoxes: form.consentBoxes ?? [
+        {
+          key: 'texts',
+          text: 'Yes, text me about this. Message and data rates may apply. Reply STOP to stop.',
+        },
+      ],
+    };
+    leadForms.set(made.id, { pageId, form: made });
+    return made;
+  };
 
   const graph: MetaGraph = {
     name: 'fake',
@@ -290,6 +346,49 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
         );
       return answer ?? sampleAd(adId);
     },
+    leadAds: true,
+    async lead({ leadId, pageToken: token }) {
+      const pageId = leadsPage(token);
+      const found = leads.get(leadId);
+      if (!found || found.pageId !== pageId)
+        throw new MetaError(
+          `Unsupported get request. Object with ID '${leadId}' does not exist`,
+          'not_found',
+          100,
+          33,
+        );
+      return found.lead;
+    },
+    async leadForm({ formId, pageToken: token }) {
+      const pageId = leadsPage(token);
+      const found = leadForms.get(formId);
+      if (!found || found.pageId !== pageId)
+        throw new MetaError(
+          `Unsupported get request. Object with ID '${formId}' does not exist`,
+          'not_found',
+          100,
+          33,
+        );
+      return found.form;
+    },
+    async leadForms({ pageId, pageToken: token }) {
+      if (leadsPage(token) !== pageId)
+        throw new MetaError('Error validating access token.', 'auth', 190);
+      return [...leadForms.values()].filter((f) => f.pageId === pageId).map((f) => f.form);
+    },
+    async formLeads({ formId, pageToken: token, since, limit }) {
+      const pageId = leadsPage(token);
+      return [...leads.values()]
+        .filter(
+          (l) =>
+            l.pageId === pageId &&
+            l.lead.formId === formId &&
+            Date.parse(l.lead.createdAt) > since.getTime(),
+        )
+        .map((l) => l.lead)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .slice(0, limit);
+    },
     async download(url) {
       if (files.has(url)) {
         const f = files.get(url);
@@ -336,5 +435,49 @@ export function createFakeMeta(opts: { publicUrl: string }): FakeMeta {
       `fakemeta.${Buffer.from(JSON.stringify({ userId, scopes: scopes ?? ALL_SCOPES })).toString('base64url')}`,
     sign: (rawBody) =>
       `sha256=${createHmac('sha256', FAKE_META_APP_SECRET).update(rawBody).digest('hex')}`,
+    addLeadForm,
+    addLead: (input) => {
+      const formId =
+        input.formId ??
+        [...leadForms.values()].find((f) => f.pageId === input.pageId)?.form.id ??
+        addLeadForm(input.pageId).id;
+      const lead: MetaLead = {
+        id: metaId(),
+        createdAt: input.createdAt ?? new Date().toISOString(),
+        formId,
+        adId: input.adId === undefined ? '120200000000001' : input.adId,
+        platform: input.platform ?? 'facebook',
+        organic: input.adId === null,
+        answers: input.answers,
+        consents: input.consents ?? [],
+      };
+      leads.set(lead.id, { pageId: input.pageId, lead });
+      return lead;
+    },
+    blockLeads: (pageId, blocked) => {
+      if (blocked) leadsBlocked.add(pageId);
+      else leadsBlocked.delete(pageId);
+    },
+    leadWebhook: (lead, pageId) => ({
+      object: 'page',
+      entry: [
+        {
+          id: pageId,
+          time: Math.floor(Date.now() / 1000),
+          changes: [
+            {
+              field: 'leadgen',
+              value: {
+                leadgen_id: lead.id,
+                page_id: pageId,
+                form_id: lead.formId,
+                ...(lead.adId ? { ad_id: lead.adId, adgroup_id: `${lead.adId}9` } : {}),
+                created_time: Math.floor(Date.parse(lead.createdAt) / 1000),
+              },
+            },
+          ],
+        },
+      ],
+    }),
   };
 }

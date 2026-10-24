@@ -2,10 +2,19 @@ import { z } from 'zod';
 import { uuid } from './common';
 
 /**
- * The ways a stranger reaches a business by themselves (M14 slice A), and a message to its Facebook Page or Instagram
- * account (20261025000200).
+ * The ways a stranger reaches a business by themselves (M14 slice A), a message to its Facebook Page or Instagram
+ * account (20261025000200), and a lead ad's form or an applicant Indeed emailed about (funnels). Indeed's row shows
+ * in Settings once its stage is built (`INTAKE_CHANNELS`).
  */
-export const IntakeChannelKind = z.enum(['text', 'call', 'email', 'messenger', 'instagram']);
+export const IntakeChannelKind = z.enum([
+  'text',
+  'call',
+  'email',
+  'messenger',
+  'instagram',
+  'facebook_lead_ad',
+  'indeed',
+]);
 
 /** Forms on a business's own website, and services that send leads over (M14 slice B). */
 export const IntakeKeyedKind = z.enum(['website_form', 'api']);

@@ -45,12 +45,22 @@ export const INTAKE_KINDS = [
   'api',
   'messenger',
   'instagram',
+  'facebook_lead_ad',
+  'indeed',
 ] as const;
 /**
- * The ways a stranger reaches a business by themselves: the three of slice A, and a message to its Facebook Page or
- * Instagram account (20261025000200).
+ * The ways a stranger reaches a business by themselves: the three of slice A, a message to its Facebook Page or
+ * Instagram account (20261025000200), and a lead ad's form on either (funnels, 20261027011000). Each is one row a
+ * business, with its own switch, pipeline and day. `indeed` joins them with the Indeed stage of the funnels plan.
  */
-export const INTAKE_CHANNELS = ['text', 'call', 'email', 'messenger', 'instagram'] as const;
+export const INTAKE_CHANNELS = [
+  'text',
+  'call',
+  'email',
+  'messenger',
+  'instagram',
+  'facebook_lead_ad',
+] as const;
 export type IntakeChannel = (typeof INTAKE_CHANNELS)[number];
 
 /** What a channel is called before a business renames it. It is what its customers and leads are filed under. */
@@ -62,6 +72,8 @@ export const INTAKE_NAMES: Record<IntakeKind, string> = {
   api: 'Connected app',
   messenger: 'Facebook Messenger',
   instagram: 'Instagram',
+  facebook_lead_ad: 'Facebook lead ad',
+  indeed: 'Indeed',
 };
 
 /** A channel nobody has set up: on, opening a lead in the default pipeline, 50 a day. */
@@ -136,7 +148,7 @@ export async function intakeSourceById(
 export async function intakeSourceOf(
   tx: Tx,
   workspaceId: string,
-  kind: IntakeChannel | 'website_form',
+  kind: Exclude<IntakeKind, 'api'>,
 ): Promise<IntakeSource> {
   const [row] = await tx
     .select(READABLE_SOURCE)
@@ -161,6 +173,29 @@ export async function intakeSourceOf(
         stageId: null,
         dailyCap: INTAKE_DEFAULT_DAILY_CAP,
       };
+}
+
+/**
+ * The business's row for a channel, made with the defaults when it has none yet: what a submission is filed under
+ * (a lead ad's, which goes through `submitIntake` for its one-lead-per-lead and its note on the timeline).
+ */
+export async function ensureIntakeSource(
+  tx: Tx,
+  workspaceId: string,
+  kind: Exclude<IntakeKind, 'api' | 'website_form'>,
+): Promise<IntakeSource> {
+  const found = await intakeSourceOf(tx, workspaceId, kind);
+  if (found.id) return found;
+  await tx
+    .insert(intakeSources)
+    .values({
+      workspaceId,
+      kind,
+      name: found.name,
+      dailyCap: found.dailyCap,
+    })
+    .onConflictDoNothing();
+  return intakeSourceOf(tx, workspaceId, kind);
 }
 
 /**

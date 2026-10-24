@@ -252,6 +252,7 @@ describe('what the business can change', () => {
       'email',
       'messenger',
       'instagram',
+      'facebook_lead_ad',
     ]);
     const texting = view.sources.find((s) => s.kind === 'text')!;
     expect(texting).toMatchObject({ active: true, createLead: true, dailyCap: 50 });

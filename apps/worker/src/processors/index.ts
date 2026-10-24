@@ -11,7 +11,8 @@ import { workflowProcessors } from '../workflows/index';
 import { onSupportInboundEmail } from '../support/inbound';
 import { onEmailEvent, onInboundEmail } from './postmark';
 import { onInboundText, onTextStatus } from './twilio-messaging';
-import { META_DELIVERY_KIND } from '../social/events';
+import { META_DELIVERY_KIND, META_LEADGEN_KIND } from '../social/events';
+import { onMetaLeadgen } from '../social/leads';
 import { onMetaMessaging } from '../social/receive';
 import {
   onCallStatus,
@@ -35,6 +36,8 @@ export const processors: ProcessorMap = {
   // Facebook Messenger and Instagram: a message, a tapped button, a visit from an ad, a receipt or an edit, one
   // event per delivery (social/).
   [`meta:${META_DELIVERY_KIND}`]: onMetaMessaging,
+  // A lead somebody sent on a Page's lead ad, read with the Page's token and filed (social/leads.ts).
+  [`meta:${META_LEADGEN_KIND}`]: onMetaLeadgen,
   'postmark:email.inbound': onInboundEmail,
   'postmark:email.event': onEmailEvent,
   // Mail to support@handsfreeos.com, filed as a ticket instead of into anybody's business (M13).

@@ -235,6 +235,76 @@ export const AdResolveInput = z.object({
 });
 export const AdResolveOutput = z.object({ adId: uuid, status: z.string() });
 
+// ----------------------------------------------------------------------------------------------------- lead ads
+
+/**
+ * The worker: somebody sent a lead ad's form (funnels). Meta's webhook named the lead and the worker read it with the
+ * Page's token; every answer, consent box and the form's own words come as Meta gave them.
+ */
+export const MetaLeadReceiveInput = z.object({
+  workspaceId: uuid,
+  /** The Page, or the Instagram account linked to it, whose token read the lead. */
+  accountId: uuid,
+  leadgenId: metaId,
+  form: z.object({
+    id: metaId,
+    /** Null when Meta wouldn't say: the name kept from before stays. */
+    name: z.string().trim().max(300).nullable().default(null),
+    /** The form's own tick boxes and their words. Null when Meta wouldn't say: the ones kept from before count. */
+    consentBoxes: z
+      .array(z.object({ key: z.string().max(200), text: z.string().max(2000) }))
+      .max(20)
+      .nullable()
+      .default(null),
+    /** Its questions' words, by Meta's name for each. */
+    questions: z
+      .array(z.object({ key: z.string().max(200), label: z.string().max(500) }))
+      .max(100)
+      .default([]),
+  }),
+  /** Where they saw the ad. */
+  platform: metaPlatform,
+  /** Null for a form shared without an ad. */
+  adId: z
+    .string()
+    .regex(/^[0-9A-Za-z_-]{1,64}$/)
+    .nullable()
+    .default(null),
+  organic: z.boolean().default(false),
+  createdAt: isoDateTime,
+  answers: z
+    .array(
+      z.object({
+        name: z.string().max(200),
+        values: z.array(z.string().max(2000)).max(20),
+      }),
+    )
+    .max(100),
+  consents: z
+    .array(z.object({ key: z.string().max(200), checked: z.boolean() }))
+    .max(20)
+    .default([]),
+});
+export const MetaLeadReceiveOutput = z.object({
+  outcome: z.enum(['opened', 'matched', 'refused']),
+  personId: uuid.nullable(),
+  leadId: uuid.nullable(),
+  /** Meta said this lead before: nothing was done twice. */
+  duplicate: z.boolean(),
+  refusedReason: z.enum(['turned_off', 'no_contact', 'over_limit']).nullable(),
+  /** They ticked a box about texts. */
+  smsConsent: z.boolean(),
+});
+
+/** The worker: what reading a Page's leads found. `checked` marks the hourly look done. */
+export const MetaLeadsAccessInput = z.object({
+  workspaceId: uuid,
+  accountId: uuid,
+  access: z.enum(['ok', 'not_allowed', 'blocked']).optional(),
+  checked: z.boolean().optional(),
+});
+export const MetaLeadsAccessOutput = z.object({ accountId: uuid, changed: z.boolean() });
+
 // -------------------------------------------------------------------------------------------------------- reading
 
 export const MetaAccountListInput = z.object({ workspaceId: uuid });
@@ -254,6 +324,10 @@ export const MetaAccountRow = z.object({
   connectionId: uuid.nullable(),
   /** Its threads, for "37 conversations". */
   conversations: z.number().int(),
+  /** Lead ads: whether its leads can be read, the last one, and the forms seen so far. */
+  leadsAccess: z.enum(['unknown', 'ok', 'not_allowed', 'blocked']),
+  lastLeadAt: isoDateTime.nullable(),
+  leadForms: z.array(z.object({ name: z.string(), lastLeadAt: isoDateTime.nullable() })),
 });
 export const MetaConnectionRow = z.object({
   id: uuid,
@@ -266,6 +340,8 @@ export const MetaConnectionRow = z.object({
   tokenExpiresAt: isoDateTime.nullable(),
   /** The sign-in may read the business's ads, so ads show their campaign. */
   readsAds: z.boolean(),
+  /** The sign-in may read its Pages' lead ad forms. */
+  readsLeads: z.boolean(),
   lastError: z.string().nullable(),
 });
 export const MetaAccountListOutput = z.object({
@@ -307,7 +383,8 @@ export const AttributionAd = z.object({
 export const AttributionTouchRow = z.object({
   id: uuid,
   touchedAt: isoDateTime,
-  kind: z.enum(['started', 'returned']),
+  /** lead_form: they sent a lead ad's form (funnels). */
+  kind: z.enum(['started', 'returned', 'lead_form']),
   platform: metaPlatform,
   channel: socialChannel,
   source: z.string().nullable(),
@@ -323,6 +400,8 @@ export const AttributionTouchRow = z.object({
   leadId: uuid.nullable(),
   /** The Page or Instagram account it came to. */
   accountName: z.string().nullable(),
+  /** The lead ad form they sent, for a lead_form touch. */
+  formName: z.string().nullable(),
   ad: AttributionAd.nullable(),
 });
 export const AttributionListOutput = z.object({

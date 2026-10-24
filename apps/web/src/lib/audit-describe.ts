@@ -547,6 +547,12 @@ function describeAction(e: AuditEntry): string {
       return `received a ${metaWord(e.after?.channel) ?? 'Messenger'} message${s(e.after?.from) ? ` from ${s(e.after?.from)}` : ''}`;
     case 'meta_message.receipt':
       return `confirmed a ${metaWord(e.after?.channel) ?? 'Messenger'} message was ${s(e.after?.status) === 'read' ? 'seen' : 'delivered'}`;
+    // Facebook lead ads (funnels)
+    case 'meta_lead.receive':
+      if (e.entityType === 'attribution_touch')
+        return `recorded that a customer came from ${s(e.after?.from) || 'a lead form'}${s(e.after?.account) ? ` on ${s(e.after?.account)}` : ''}`;
+      if (e.entityType === 'person') return 'added a customer from a Facebook lead ad';
+      return 'opened a lead from a Facebook lead ad';
     case 'meta_message.edit':
       return 'recorded that a customer changed or took back a message';
     case 'ad.resolve':
@@ -2015,6 +2021,7 @@ export function auditCategory(action: string): AuditCategory {
       'meta_connection.',
       'meta_account.',
       'meta_message.',
+      'meta_lead.',
       'ad.',
     ].some((p) => action.startsWith(p))
   )

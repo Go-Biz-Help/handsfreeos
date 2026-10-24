@@ -18642,6 +18642,7 @@
                               "estimate.declined",
                               "invoice.paid",
                               "form.submitted",
+                              "form.stopped",
                               "invoice.overdue"
                             ]
                           },
@@ -22346,6 +22347,7 @@
                               "estimate.declined",
                               "invoice.paid",
                               "form.submitted",
+                              "form.stopped",
                               "invoice.overdue"
                             ]
                           },
@@ -29306,7 +29308,9 @@
                       "call",
                       "email",
                       "messenger",
-                      "instagram"
+                      "instagram",
+                      "facebook_lead_ad",
+                      "indeed"
                     ]
                   },
                   "sourceId": {
@@ -29399,7 +29403,9 @@
                             "call",
                             "email",
                             "messenger",
-                            "instagram"
+                            "instagram",
+                            "facebook_lead_ad",
+                            "indeed"
                           ]
                         },
                         {
@@ -110960,7 +110966,9 @@
                                   "call",
                                   "email",
                                   "messenger",
-                                  "instagram"
+                                  "instagram",
+                                  "facebook_lead_ad",
+                                  "indeed"
                                 ]
                               },
                               {
@@ -117011,7 +117019,7 @@
     "/v1/queries/meta_account.list": {
       "post": {
         "operationId": "query_meta_account_list",
-        "summary": "The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, and the Facebook sign-ins they came through.",
+        "summary": "The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, whether its lead ads’ leads come in, and the Facebook sign-ins they came through.",
         "tags": [
           "queries"
         ],
@@ -117126,6 +117134,55 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "leadsAccess": {
+                            "type": "string",
+                            "enum": [
+                              "unknown",
+                              "ok",
+                              "not_allowed",
+                              "blocked"
+                            ]
+                          },
+                          "lastLeadAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "leadForms": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "lastLeadAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "lastLeadAt"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -117141,7 +117198,10 @@
                           "humanAgent",
                           "connectedAt",
                           "connectionId",
-                          "conversations"
+                          "conversations",
+                          "leadsAccess",
+                          "lastLeadAt",
+                          "leadForms"
                         ],
                         "additionalProperties": false
                       }
@@ -117223,6 +117283,9 @@
                           "readsAds": {
                             "type": "boolean"
                           },
+                          "readsLeads": {
+                            "type": "boolean"
+                          },
                           "lastError": {
                             "type": [
                               "string",
@@ -117238,6 +117301,7 @@
                           "connectedAt",
                           "tokenExpiresAt",
                           "readsAds",
+                          "readsLeads",
                           "lastError"
                         ],
                         "additionalProperties": false
@@ -117259,7 +117323,7 @@
     "/v1/queries/attribution.list": {
       "post": {
         "operationId": "query_attribution_list",
-        "summary": "Where a customer or a conversation came from: every Facebook or Instagram ad or link that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.",
+        "summary": "Where a customer or a conversation came from: every Facebook or Instagram ad, link or lead ad form that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.",
         "tags": [
           "queries"
         ],
@@ -117327,7 +117391,8 @@
                             "type": "string",
                             "enum": [
                               "started",
-                              "returned"
+                              "returned",
+                              "lead_form"
                             ]
                           },
                           "platform": {
@@ -117429,6 +117494,12 @@
                             ]
                           },
                           "accountName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "formName": {
                             "type": [
                               "string",
                               "null"
@@ -117574,6 +117645,7 @@
                           "personId",
                           "leadId",
                           "accountName",
+                          "formName",
                           "ad"
                         ],
                         "additionalProperties": false

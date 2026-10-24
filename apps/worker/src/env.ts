@@ -182,6 +182,11 @@ export interface WorkerEnv {
   /** Meta approved the Human Agent permission for the app (META_HUMAN_AGENT=on): people may answer for seven days. */
   readonly metaHumanAgent: boolean;
   /**
+   * Meta approved the lead ads permissions (META_LEAD_ADS=on): the sign-in asks for them and Pages send their leads.
+   * On with the stand-in.
+   */
+  readonly metaLeadAds: boolean;
+  /**
    * Taking money: Stripe's Connect platform and Square's application, or the stand-in that serves its own
    * payment page on the worker and posts properly signed webhooks back to it. Production refuses the stand-in.
    */
@@ -473,6 +478,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const metaHumanAgent = (env.META_HUMAN_AGENT ?? 'off').trim().toLowerCase();
   if (metaHumanAgent !== 'on' && metaHumanAgent !== 'off')
     throw new Error('META_HUMAN_AGENT must be on or off');
+  const metaLeadAds = (env.META_LEAD_ADS ?? (metaProvider === 'fake' ? 'on' : 'off'))
+    .trim()
+    .toLowerCase();
+  if (metaLeadAds !== 'on' && metaLeadAds !== 'off')
+    throw new Error('META_LEAD_ADS must be on or off');
   const metaVerifyToken = env.META_WEBHOOK_VERIFY_TOKEN?.trim() || null;
   if (metaVerifyToken && metaVerifyToken.length < 16)
     throw new Error('META_WEBHOOK_VERIFY_TOKEN must be 16 characters or more');
@@ -707,6 +717,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     metaLoginConfigId,
     metaGraphVersion,
     metaHumanAgent: metaHumanAgent === 'on',
+    metaLeadAds: metaLeadAds === 'on',
     paymentsProvider,
     stripeClientId,
     stripeSecretKey,

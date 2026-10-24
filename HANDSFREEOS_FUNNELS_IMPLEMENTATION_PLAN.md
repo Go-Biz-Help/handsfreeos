@@ -9,10 +9,11 @@ It started with Christina Robbins's network-marketing recruiting funnel (built i
 about recruiting. A contractor's "watch this, then book an estimate" page or a coach's webinar sign-up uses the same
 pieces.
 
-> **Status: stages 1 to 3 are built** (the video question, one page at a time, details saved part way, personal
-> links and greetings, booking inside the form, and stopped partway); stages 4 to 6 are next. Christina's funnel
-> can be set up now, with Zapier in front for leads. Decisions
-> below are the owner's (2026-10-23). "Picks to confirm" are mine and stay open until the owner says yes.
+> **Status: stages 1 to 4 are built** (the video question, one page at a time, details saved part way, personal
+> links and greetings, booking inside the form, stopped partway, and Facebook lead ads on the stand-in); stages 5
+> and 6 are next. Christina's funnel can be set up now, with Zapier in front for leads until Meta approves lead ads
+> (Meta Part 7 in `docs/operations.md`). Decisions below are the owner's (2026-10-23). "Picks to confirm" are mine
+> and stay open until the owner says yes.
 >
 > - **Stage 1, as built.** Smaller and safer than §1 in two ways. The page talks to the player's frame by message
 >   and loads no YouTube or Vimeo script, so nothing of theirs runs on the business's page; and the public page
@@ -33,6 +34,14 @@ pieces.
 >   and its texts can say `{{trigger.page_title}}`; `trigger.form_id` also lets a workflow on "Somebody answers a
 >   form" pick its form, which it couldn't before. Details are in "Booking a time, and stopped partway" in
 >   `docs/forms.md`.
+> - **Stage 4, as built.** Everything waits on a switch, `META_LEAD_ADS` (on with the stand-in): the lead
+>   permissions and the `leadgen` field are asked for only once Meta approves them, and a Page that refuses
+>   `leadgen` still gets its messages. A lead goes to whichever business holds its Page, by the Facebook Page or
+>   its Instagram account. Which tick boxes are about texts is read from the box's own words, kept per form. The
+>   catch-up reads each Page's active forms since its last look (a day back the first time, at most a month).
+>   Settings → Lead intake gets the "Facebook lead ad" row; Settings → Facebook & Instagram gets "Lead ads",
+>   shown once a sign-in allows leads. A workflow on "A new lead comes in" with Lead source "Facebook lead ad"
+>   sends the funnel's link. Details are in "Lead ads" in `docs/meta-messaging.md`.
 
 ## Decisions (Chris, 2026-10-23)
 

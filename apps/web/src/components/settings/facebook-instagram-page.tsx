@@ -1,13 +1,14 @@
 'use client';
 /**
  * Settings → Facebook & Instagram (20261025000200): the Facebook Pages and Instagram accounts whose direct messages
- * come to the inbox, the Facebook sign-in they came through, and connecting more.
+ * come to the inbox, whether their lead ads' leads come in (funnels), the Facebook sign-in they came through, and
+ * connecting more.
  *
  * Connect starts a one-time state with `meta_connection.connect`, then the browser goes to the worker's
  * `/oauth/facebook/start`. Facebook sends it back through the worker to /app/oauth/finish, which asks which Pages
  * when the sign-in manages several, and the worker comes back here with `?meta=`.
  */
-import { metaAccountLabel } from '@hfos/core';
+import { leadsAccessWords, metaAccountLabel } from '@hfos/core';
 import { CircleAlert, MoreHorizontal, Plus, Unplug } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -123,6 +124,13 @@ export function FacebookInstagramPage({
   const gone = data.accounts.filter((a) => a.status === 'disconnected' && a.conversations > 0);
   const humanAgent = connected.some((a) => a.humanAgent);
   const readsAds = data.connections.some((c) => c.readsAds);
+  // Lead ads show once a sign-in may read leads, or a Page already has: one row a Page.
+  const leadPages = connected.filter(
+    (a, i) => connected.findIndex((b) => b.pageId === a.pageId) === i,
+  );
+  const showLeads =
+    data.connections.some((c) => c.readsLeads) ||
+    connected.some((a) => a.leadsAccess !== 'unknown' || a.lastLeadAt);
 
   async function connect() {
     setBusy('connect');
@@ -235,6 +243,22 @@ export function FacebookInstagramPage({
         ) : null}
       </Card>
 
+      {showLeads && leadPages.length ? (
+        <Card className="p-6" {...settingAttrs('facebook_instagram.lead_ads')}>
+          <h2 className="text-[15px] font-semibold">Lead ads</h2>
+          <p className="mt-1 text-[13px] text-text-2">
+            When somebody sends the form on one of your Facebook or Instagram lead ads, they become
+            a customer and a lead here, with their answers. A ticked box about texts counts as their
+            OK to text. Where their leads go is in Settings → Lead intake.
+          </p>
+          <div className="mt-3 flex flex-col">
+            {leadPages.map((a, i) => (
+              <LeadAdsRow key={a.id} account={a} first={i === 0} />
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
       {data.connections.length ? (
         <Card className="p-6" {...settingAttrs('facebook_instagram.sign_in')}>
           <h2 className="text-[15px] font-semibold">Facebook sign-in</h2>
@@ -322,6 +346,48 @@ export function FacebookInstagramPage({
           </DialogContent>
         ) : null}
       </Dialog>
+    </div>
+  );
+}
+
+/** One Page's leads: whether they can be read, its forms and when the last lead came. */
+function LeadAdsRow({ account: a, first }: { account: MetaAccount; first: boolean }) {
+  const page = a.platform === 'facebook' ? a.name : metaAccountLabel(a);
+  const said = leadsAccessWords(a.leadsAccess, page);
+  return (
+    <div
+      className={first ? 'py-3' : 'border-t border-border py-3'}
+      data-testid={`lead-ads-${a.id}`}
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+        {page}
+        {a.leadsAccess === 'ok' ? <Badge variant="ok">Leads come in</Badge> : null}
+        {a.leadsAccess === 'blocked' || a.leadsAccess === 'not_allowed' ? (
+          <Badge variant="pending">Needs attention</Badge>
+        ) : null}
+      </div>
+      <p className="mt-0.5 text-xs text-text-3">
+        {a.lastLeadAt
+          ? `Last lead ${relativeTime(a.lastLeadAt)}`
+          : 'No leads yet. The first one shows up here within a minute of being sent.'}
+      </p>
+      {a.leadForms.length ? (
+        <ul className="mt-1.5 flex flex-col gap-0.5 text-xs text-text-2">
+          {a.leadForms.map((f) => (
+            <li key={f.name}>
+              {f.name}
+              {f.lastLeadAt ? (
+                <span className="text-text-3"> · last lead {relativeTime(f.lastLeadAt)}</span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {said && !said.ok ? (
+        <Callout tone="warning" icon={CircleAlert} className="mt-2 px-3 py-2.5">
+          {said.words}
+        </Callout>
+      ) : null}
     </div>
   );
 }

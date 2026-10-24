@@ -118,6 +118,9 @@ export const META_ACCOUNT_COLUMNS = {
   connectedAt: metaAccounts.connectedAt,
   disconnectedAt: metaAccounts.disconnectedAt,
   connectedBy: metaAccounts.connectedBy,
+  leadsAccess: metaAccounts.leadsAccess,
+  lastLeadAt: metaAccounts.lastLeadAt,
+  leadsCheckedAt: metaAccounts.leadsCheckedAt,
   createdAt: metaAccounts.createdAt,
   updatedAt: metaAccounts.updatedAt,
 };
@@ -730,7 +733,7 @@ async function openLeadOf(ctx: CommandContext, personId: string | null): Promise
 }
 
 /** The ad's row, made the first time anybody comes from it, and its lookup queued then. */
-async function adRow(ctx: CommandContext, externalId: string): Promise<string | null> {
+export async function adRow(ctx: CommandContext, externalId: string): Promise<string | null> {
   const workspaceId = ctx.scope.workspaceId!;
   const [made] = await ctx.tx
     .insert(ads)

@@ -770,6 +770,9 @@ describe('registry', () => {
       'meta_message.receipt',
       'meta_message.edit',
       'ad.resolve',
+      // Facebook lead ads (funnels).
+      'meta_lead.receive',
+      'meta_account.leads_access',
       // Add-ons (0108).
       'addon.install',
       'addon.enable',

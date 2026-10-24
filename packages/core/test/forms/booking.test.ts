@@ -17,7 +17,7 @@ const picked = {
   startsAt: '2026-10-28T00:00:00.000Z',
   sessionId: '22222222-2222-4222-8222-222222222222',
   label: 'Tue, Oct 27 · 7:00 pm',
-};
+} as never;
 
 describe('a booking question', () => {
   it('reads a time where the calendar is', () => {
@@ -31,9 +31,10 @@ describe('a booking question', () => {
 
   it('takes a time it can book, and nothing else', () => {
     expect(isBookingAnswer(picked)).toBe(true);
-    expect(isBookingAnswer({ ...picked, sessionId: null })).toBe(true);
-    expect(isBookingAnswer({ ...picked, startsAt: 'next tuesday' })).toBe(false);
-    expect(isBookingAnswer({ ...picked, sessionId: 'not-an-id' })).toBe(false);
+    const shaped = picked as unknown as Record<string, unknown>;
+    expect(isBookingAnswer({ ...shaped, sessionId: null })).toBe(true);
+    expect(isBookingAnswer({ ...shaped, startsAt: 'next tuesday' })).toBe(false);
+    expect(isBookingAnswer({ ...shaped, sessionId: 'not-an-id' })).toBe(false);
     expect(isBookingAnswer('Tuesday')).toBe(false);
     const q = def({ pages: [page('when', [booking('when')])] }).pages[0]!.questions[0] as Question;
     expect(answerProblem(q, picked)).toBeNull();

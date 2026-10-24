@@ -1,15 +1,17 @@
 'use client';
 /**
  * Settings → Lead intake (M14). Two cards: the channels a stranger reaches the business on (texts, calls, email,
- * and Messenger and Instagram since 20261025000200), each a row that saves the moment it is flipped; and the ways a
- * lead arrives from somewhere else — a form on the business's own website, and the apps connected to it, each with
- * a key of its own.
+ * Messenger and Instagram since 20261025000200, and lead ads' forms since the funnels plan), each a row that saves
+ * the moment it is flipped; and the ways a lead arrives from somewhere else — a form on the business's own website,
+ * and the apps connected to it, each with a key of its own.
  *
  * A form's key is public and can be read back at any time; an app's secret key is shown once when it is made
  * or replaced, and after that only its last four characters.
  */
 import {
   Boxes,
+  BriefcaseBusiness,
+  ClipboardList,
   Globe,
   KeyRound,
   MailIcon,
@@ -37,7 +39,8 @@ import { InstagramIcon, MessengerIcon } from '@/components/inbox/social-bits';
 import { SetRow } from './set-row';
 import { settingAttrs } from './setting-anchor';
 
-export type IntakeChannel = 'text' | 'call' | 'email' | 'messenger' | 'instagram';
+export type IntakeChannel =
+  'text' | 'call' | 'email' | 'messenger' | 'instagram' | 'facebook_lead_ad' | 'indeed';
 export type IntakeKind = IntakeChannel | 'website_form' | 'api';
 
 export interface IntakeSourceRow {
@@ -108,6 +111,18 @@ const CHANNELS: Record<
       'Somebody new sends a direct message, or comes from one of your Instagram ads. The lead says which ad brought them.',
     icon: InstagramIcon,
   },
+  facebook_lead_ad: {
+    title: 'Someone fills in your lead ad’s form',
+    description:
+      'Somebody sends the form on one of your Facebook or Instagram lead ads. Their answers go on the lead, and a ticked box about texts counts as their OK to text.',
+    icon: ClipboardList,
+  },
+  indeed: {
+    title: 'Indeed emails you about an applicant',
+    description:
+      'Indeed sends an email for each person who applies to your job. HandsFreeOS reads it in a connected inbox, or one you forward Indeed’s emails to, and files the applicant.',
+    icon: BriefcaseBusiness,
+  },
 };
 
 const isChannel = (kind: IntakeKind): kind is IntakeChannel =>
@@ -115,7 +130,9 @@ const isChannel = (kind: IntakeKind): kind is IntakeChannel =>
   kind === 'call' ||
   kind === 'email' ||
   kind === 'messenger' ||
-  kind === 'instagram';
+  kind === 'instagram' ||
+  kind === 'facebook_lead_ad' ||
+  kind === 'indeed';
 
 /** Where a form posts, and where an app sends. */
 const formUrl = (key: string) => `${publicEnv.workerUrl}/intake/f/${key}`;
