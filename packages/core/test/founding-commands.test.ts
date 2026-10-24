@@ -26,7 +26,9 @@ import {
   foundingRecordCheckoutPaid,
   foundingRecordRenewal,
   foundingRestore,
+  foundingSetCap,
   foundingSetRenewing,
+  foundingSetStatus,
   foundingStartCheckout,
   organizationCreate,
   platformBusinessList,
@@ -489,6 +491,55 @@ describe('giving a seat', () => {
     );
     expect(e.status).toBe(404);
     expect(await seatsOf(FREE)).toHaveLength(0);
+  });
+});
+
+describe('the offer itself', () => {
+  // An offer's id is a name, not a uuid: these once failed on our side writing their event.
+  const offerEvents = (type: string) =>
+    rows<{ entity_id: string | null; payload: { offerId: string } }>(
+      admin(),
+      sql`select entity_id, payload from app.events
+          where event_type = ${type} and payload->>'offerId' = ${FREE}`,
+    );
+
+  it('takes a new number of seats, lower or higher, and says so in an event', async () => {
+    await run(foundingGive, { offerId: FREE, organizationId: orgId }, staff);
+
+    const lower = await run(foundingSetCap, { offerId: FREE, seatCap: 2 }, staff);
+    expect(lower).toMatchObject({ seatCap: 2, claimed: 1, remaining: 1 });
+    const higher = await run(foundingSetCap, { offerId: FREE, seatCap: 9 }, staff);
+    expect(higher).toMatchObject({ seatCap: 9, claimed: 1, remaining: 8 });
+
+    const said = await offerEvents('founding.cap_changed');
+    expect(said).toHaveLength(2);
+    expect(said[0]).toMatchObject({ entity_id: null, payload: { offerId: FREE } });
+  });
+
+  it('refuses a number below the seats already out, in words', async () => {
+    await run(foundingGive, { offerId: FREE, organizationId: orgId }, staff);
+    const e = await refusal(() => run(foundingSetCap, { offerId: FREE, seatCap: 0 }, staff));
+    expect(e.rule).toBe('founding_cap_below_held');
+    const [still] = await rows<{ seat_cap: number }>(
+      admin(),
+      sql`select seat_cap from platform.founding_offers where id = ${FREE}`,
+    );
+    expect(still?.seat_cap).toBe(5);
+  });
+
+  it('closes and opens again, and says so in an event', async () => {
+    expect(await run(foundingSetStatus, { offerId: FREE, status: 'closed' }, staff)).toMatchObject({
+      status: 'closed',
+    });
+    expect(await run(foundingSetStatus, { offerId: FREE, status: 'open' }, staff)).toMatchObject({
+      status: 'open',
+    });
+    expect(await offerEvents('founding.status_changed')).toHaveLength(2);
+  });
+
+  it('is changed by nobody without the founding permission', async () => {
+    const e = await refusal(() => run(foundingSetCap, { offerId: FREE, seatCap: 9 }, owner));
+    expect(e.status).toBe(404);
   });
 });
 
