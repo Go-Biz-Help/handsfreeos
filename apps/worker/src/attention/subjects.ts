@@ -77,6 +77,10 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'attendee.confirmed',
   'attendee.confirmation_removed',
   'attendee.reminder_recorded',
+  // Who joined, attended or missed a session (funnels): a seat marked on its own.
+  'attendee.joined',
+  'attendee.attended',
+  'attendee.no_show',
   // Workflow approvals and the AI teammate's drafts.
   'workflow.approval_requested',
   'workflow.approval_decided',
