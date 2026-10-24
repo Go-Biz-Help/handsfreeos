@@ -112,6 +112,9 @@ export const AI_EMPLOYEE_COMMANDS = [
   // 20261018000400: a file question's answer, through a link in its text or a photo or PDF they sent.
   'file_link.create',
   'lead.save_file_answer',
+  // Teammate funnels: moving someone on by what they wrote (a `reply` move), and suggesting a funnel for a person's OK.
+  'funnel.move_person',
+  'funnel.suggest',
 ] as const;
 
 /** The look-ups the AI teammate runs through the kernel (the rest it reads in the worker, for its run). */

@@ -3781,6 +3781,73 @@
         "required": ["workspaceId", "formId", "answers"]
       }
     },
+    "funnel.decide_suggestion": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "funnelPersonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "accept": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "funnelPersonId", "accept"]
+      }
+    },
+    "funnel.pause_person": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "funnelPersonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["taken_over", "handed_off", "by_hand"]
+          }
+        },
+        "required": ["workspaceId", "funnelPersonId", "paused"]
+      }
+    },
+    "funnel.remove_person": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "funnelPersonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["opted_out", "lead_gone"]
+          }
+        },
+        "required": ["workspaceId", "funnelPersonId"]
+      }
+    },
     "invoice.create": {
       "offline": "online",
       "input": {
@@ -4634,6 +4701,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200
+          },
+          "funnelId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": ["workspaceId", "leadId", "stageId"]

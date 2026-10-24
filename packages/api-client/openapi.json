@@ -5748,7 +5748,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened, funnel.stage_reached, funnel.person_left. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5792,6 +5792,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -33732,6 +33737,1644 @@
                   },
                   "required": [
                     "instructionId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.create": {
+      "post": {
+        "operationId": "command_funnel_create",
+        "summary": "Make a funnel on a pipeline (or on a new one made from its stages), from the AI’s draft or empty. It starts as a draft, taking nobody in.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires ai_team.manage. Emits funnel.created.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "pipelineId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "newPipeline": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "stages": {
+                        "minItems": 3,
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "open",
+                                "won",
+                                "lost"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "kind"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "stages"
+                    ]
+                  },
+                  "draft": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "stages": {
+                        "minItems": 3,
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "kind": {
+                              "default": "open",
+                              "type": "string",
+                              "enum": [
+                                "open",
+                                "won",
+                                "lost"
+                              ]
+                            },
+                            "goal": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "knows": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 1000
+                            },
+                            "moves": {
+                              "default": [],
+                              "maxItems": 6,
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "event"
+                                        ]
+                                      },
+                                      "event": {
+                                        "type": "string",
+                                        "enum": [
+                                          "form.submitted",
+                                          "form.stopped",
+                                          "appointment.booked",
+                                          "appointment.cancelled",
+                                          "attendee.joined",
+                                          "attendee.attended",
+                                          "attendee.no_show",
+                                          "message.received"
+                                        ]
+                                      },
+                                      "to": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 60
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "event",
+                                      "to"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "reply"
+                                        ]
+                                      },
+                                      "says": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 200
+                                      },
+                                      "to": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 60
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "says",
+                                      "to"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "quiet"
+                                        ]
+                                      },
+                                      "minutes": {
+                                        "type": "integer",
+                                        "minimum": 60,
+                                        "maximum": 129600
+                                      },
+                                      "to": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 60
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "minutes",
+                                      "to"
+                                    ]
+                                  }
+                                ]
+                              }
+                            },
+                            "messages": {
+                              "default": [],
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "when": {
+                                    "oneOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "arrive"
+                                            ]
+                                          },
+                                          "minutes": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 20160
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "minutes"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "booking"
+                                            ]
+                                          },
+                                          "minutes": {
+                                            "type": "integer",
+                                            "minimum": -20160,
+                                            "maximum": 20160
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "minutes"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "booking_day"
+                                            ]
+                                          },
+                                          "daysBefore": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 7
+                                          },
+                                          "at": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "daysBefore",
+                                          "at"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "onlyIf": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "has": {
+                                            "type": "boolean"
+                                          },
+                                          "event": {
+                                            "type": "string",
+                                            "enum": [
+                                              "form.submitted",
+                                              "form.stopped",
+                                              "appointment.booked",
+                                              "appointment.cancelled",
+                                              "attendee.joined",
+                                              "attendee.attended",
+                                              "attendee.no_show",
+                                              "message.received"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "has",
+                                          "event"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "wording": {
+                                    "default": "ai",
+                                    "type": "string",
+                                    "enum": [
+                                      "ai",
+                                      "exact"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                  },
+                                  "how": {
+                                    "default": "best",
+                                    "type": "string",
+                                    "enum": [
+                                      "text",
+                                      "email",
+                                      "best"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "when",
+                                  "text"
+                                ]
+                              }
+                            },
+                            "handOff": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      },
+                      "entry": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "rules": {
+                            "default": [],
+                            "maxItems": 6,
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "new_lead"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "came_in"
+                                      ]
+                                    },
+                                    "ways": {
+                                      "minItems": 1,
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "text",
+                                          "call",
+                                          "email",
+                                          "website_form",
+                                          "api",
+                                          "messenger",
+                                          "instagram",
+                                          "facebook_lead_ad",
+                                          "indeed"
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "ways"
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          "byHand": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "aiSuggests": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "startStage": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "stages"
+                    ]
+                  },
+                  "stageMap": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 60
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "pipelineId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "funnelId",
+                    "pipelineId",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.save": {
+      "post": {
+        "operationId": "command_funnel_save",
+        "summary": "Save a funnel’s name and steps. People in it stay at their stage, and what changed reaches them right away. People at a stage taken out move to the stage picked for them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires ai_team.manage. Emits funnel.saved, funnel.person_left.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "definition": {
+                    "type": "object",
+                    "properties": {
+                      "v": {
+                        "default": 1,
+                        "type": "number",
+                        "enum": [
+                          1
+                        ]
+                      },
+                      "entry": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "rules": {
+                            "default": [],
+                            "maxItems": 6,
+                            "type": "array",
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "new_lead"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "came_in"
+                                      ]
+                                    },
+                                    "ways": {
+                                      "minItems": 1,
+                                      "maxItems": 9,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "text",
+                                          "call",
+                                          "email",
+                                          "website_form",
+                                          "api",
+                                          "messenger",
+                                          "instagram",
+                                          "facebook_lead_ad",
+                                          "indeed"
+                                        ]
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "ways"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "form"
+                                      ]
+                                    },
+                                    "formId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "formId"
+                                  ]
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "booking"
+                                      ]
+                                    },
+                                    "calendarId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "calendarId"
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          "byHand": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "aiSuggests": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "startStageId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "stages": {
+                        "default": [],
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "stageId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "goal": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "knows": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 1000
+                            },
+                            "moves": {
+                              "default": [],
+                              "maxItems": 6,
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "event"
+                                        ]
+                                      },
+                                      "event": {
+                                        "type": "string",
+                                        "enum": [
+                                          "form.submitted",
+                                          "form.stopped",
+                                          "appointment.booked",
+                                          "appointment.cancelled",
+                                          "attendee.joined",
+                                          "attendee.attended",
+                                          "attendee.no_show",
+                                          "message.received"
+                                        ]
+                                      },
+                                      "formId": {
+                                        "default": null,
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "calendarId": {
+                                        "default": null,
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "to": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "event",
+                                      "to"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "reply"
+                                        ]
+                                      },
+                                      "says": {
+                                        "type": "string",
+                                        "minLength": 3,
+                                        "maxLength": 200
+                                      },
+                                      "to": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "says",
+                                      "to"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "quiet"
+                                        ]
+                                      },
+                                      "minutes": {
+                                        "type": "integer",
+                                        "minimum": 60,
+                                        "maximum": 129600
+                                      },
+                                      "to": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "minutes",
+                                      "to"
+                                    ]
+                                  }
+                                ]
+                              }
+                            },
+                            "messages": {
+                              "default": [],
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                  },
+                                  "when": {
+                                    "oneOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "arrive"
+                                            ]
+                                          },
+                                          "minutes": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 20160
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "minutes"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "booking"
+                                            ]
+                                          },
+                                          "minutes": {
+                                            "type": "integer",
+                                            "minimum": -20160,
+                                            "maximum": 20160
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "minutes"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "booking_day"
+                                            ]
+                                          },
+                                          "daysBefore": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 7
+                                          },
+                                          "at": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "daysBefore",
+                                          "at"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "onlyIf": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "has": {
+                                            "type": "boolean"
+                                          },
+                                          "event": {
+                                            "type": "string",
+                                            "enum": [
+                                              "form.submitted",
+                                              "form.stopped",
+                                              "appointment.booked",
+                                              "appointment.cancelled",
+                                              "attendee.joined",
+                                              "attendee.attended",
+                                              "attendee.no_show",
+                                              "message.received"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "has",
+                                          "event"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "wording": {
+                                    "default": "ai",
+                                    "type": "string",
+                                    "enum": [
+                                      "ai",
+                                      "exact"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 1000
+                                  },
+                                  "how": {
+                                    "default": "best",
+                                    "type": "string",
+                                    "enum": [
+                                      "text",
+                                      "email",
+                                      "best"
+                                    ]
+                                  },
+                                  "goodForMinutes": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 5,
+                                        "maximum": 20160
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "when",
+                                  "text"
+                                ]
+                              }
+                            },
+                            "handOff": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "stageId"
+                          ]
+                        }
+                      },
+                      "wording": {
+                        "default": "ai",
+                        "type": "string",
+                        "enum": [
+                          "ai",
+                          "exact"
+                        ]
+                      },
+                      "approval": {
+                        "default": "teammate",
+                        "type": "string",
+                        "enum": [
+                          "teammate",
+                          "ask",
+                          "send"
+                        ]
+                      },
+                      "description": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 4000
+                      }
+                    }
+                  },
+                  "moveFrom": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "additionalProperties": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId",
+                  "revision",
+                  "definition"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "funnelId",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.turn_on": {
+      "post": {
+        "operationId": "command_funnel_turn_on",
+        "summary": "Turn a funnel on, so its rules take people in and the AI teammate follows it. Refused while something stops it from running.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires ai_team.manage. Emits funnel.turned_on.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addExisting": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "on",
+                        "paused",
+                        "archived"
+                      ]
+                    },
+                    "adding": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "funnelId",
+                    "status",
+                    "adding"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.pause": {
+      "post": {
+        "operationId": "command_funnel_pause",
+        "summary": "Pause a funnel: it takes nobody in and sends nothing until it’s turned back on. People in it stay where they are.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires ai_team.manage. Emits funnel.paused.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "on",
+                        "paused",
+                        "archived"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "funnelId",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.archive": {
+      "post": {
+        "operationId": "command_funnel_archive",
+        "summary": "Archive a funnel: everyone in it leaves, nothing more is sent, and its pipeline and name are free for another.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires ai_team.manage. Emits funnel.archived.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "left": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "funnelId",
+                    "left"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.add_person": {
+      "post": {
+        "operationId": "command_funnel_add_person",
+        "summary": "Put a customer in a funnel, at their lead’s stage or where it starts. They leave any other funnel first, and get a lead in its pipeline if they have none.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits funnel.person_added, funnel.person_left.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "leadId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "stageId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addedBy": {
+                    "type": "string",
+                    "enum": [
+                      "rule",
+                      "hand",
+                      "ai",
+                      "turn_on"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId",
+                  "personId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelPersonId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "leadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stageId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "already": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "funnelPersonId",
+                    "leadId",
+                    "stageId",
+                    "already"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.remove_person": {
+      "post": {
+        "operationId": "command_funnel_remove_person",
+        "summary": "Take a customer out of their funnel. Nothing more from it is sent to them; their lead stays where it is.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits funnel.person_left. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelPersonId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "opted_out",
+                      "lead_gone"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelPersonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelPersonId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "funnelPersonId",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.pause_person": {
+      "post": {
+        "operationId": "command_funnel_pause_person",
+        "summary": "Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them and nothing moves them on; picked up, what’s still ahead is scheduled again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits funnel.paused_for_person, funnel.resumed_for_person. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelPersonId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "paused": {
+                    "type": "boolean"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "taken_over",
+                      "handed_off",
+                      "by_hand"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelPersonId",
+                  "paused"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelPersonId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "paused",
+                        "left",
+                        "suggested",
+                        "declined"
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "funnelPersonId",
+                    "status",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/funnel.decide_suggestion": {
+      "post": {
+        "operationId": "command_funnel_decide_suggestion",
+        "summary": "Say yes or no to the teammate’s suggestion of a funnel for a customer. Yes puts them in it, as adding them would.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits funnel.person_added, funnel.person_left, funnel.suggestion_declined. Can wait on a phone for 30 minutes, then asks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelPersonId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "accept": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelPersonId",
+                  "accept"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnelPersonId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "paused",
+                        "left",
+                        "suggested",
+                        "declined"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "funnelPersonId",
+                    "status"
                   ],
                   "additionalProperties": false
                 }
@@ -138803,6 +140446,1896 @@
                     "instructions",
                     "max",
                     "canManage"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/funnel.list": {
+      "post": {
+        "operationId": "query_funnel_list",
+        "summary": "The business’s funnels, each with its pipeline, how many people are at each stage, and whether it’s on.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnels": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "pipelineId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "pipelineName": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "on",
+                              "paused",
+                              "archived"
+                            ]
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "stages": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "open",
+                                    "won",
+                                    "lost"
+                                  ]
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "people": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "inFunnel": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name",
+                                "kind",
+                                "position",
+                                "people",
+                                "inFunnel"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "people": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "paused": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "suggestions": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "updatedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "pipelineId",
+                          "pipelineName",
+                          "status",
+                          "revision",
+                          "stages",
+                          "people",
+                          "paused",
+                          "suggestions",
+                          "updatedAt",
+                          "updatedBy"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "funnels"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/funnel.get": {
+      "post": {
+        "operationId": "query_funnel_get",
+        "summary": "One funnel: its steps, how many people are at each stage, what stops it from going on or is worth a look, and the forms and calendars it can use.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "funnel": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pipelineId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "pipelineName": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "draft",
+                            "on",
+                            "paused",
+                            "archived"
+                          ]
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "stages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "open",
+                                  "won",
+                                  "lost"
+                                ]
+                              },
+                              "position": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "people": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "inFunnel": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "kind",
+                              "position",
+                              "people",
+                              "inFunnel"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "people": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "paused": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "suggestions": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "updatedBy": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "definition": {
+                          "type": "object",
+                          "properties": {
+                            "v": {
+                              "default": 1,
+                              "type": "number",
+                              "enum": [
+                                1
+                              ]
+                            },
+                            "entry": {
+                              "type": "object",
+                              "properties": {
+                                "rules": {
+                                  "default": [],
+                                  "maxItems": 6,
+                                  "type": "array",
+                                  "items": {
+                                    "oneOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "new_lead"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "came_in"
+                                            ]
+                                          },
+                                          "ways": {
+                                            "minItems": 1,
+                                            "maxItems": 9,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "text",
+                                                "call",
+                                                "email",
+                                                "website_form",
+                                                "api",
+                                                "messenger",
+                                                "instagram",
+                                                "facebook_lead_ad",
+                                                "indeed"
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "ways"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "form"
+                                            ]
+                                          },
+                                          "formId": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "formId"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "booking"
+                                            ]
+                                          },
+                                          "calendarId": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "calendarId"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    ]
+                                  }
+                                },
+                                "byHand": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "aiSuggests": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "startStageId": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "rules",
+                                "byHand",
+                                "aiSuggests",
+                                "startStageId"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "stages": {
+                              "default": [],
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "stageId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "goal": {
+                                    "default": "",
+                                    "type": "string",
+                                    "maxLength": 300
+                                  },
+                                  "knows": {
+                                    "default": "",
+                                    "type": "string",
+                                    "maxLength": 1000
+                                  },
+                                  "moves": {
+                                    "default": [],
+                                    "maxItems": 6,
+                                    "type": "array",
+                                    "items": {
+                                      "oneOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                            },
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
+                                                "event"
+                                              ]
+                                            },
+                                            "event": {
+                                              "type": "string",
+                                              "enum": [
+                                                "form.submitted",
+                                                "form.stopped",
+                                                "appointment.booked",
+                                                "appointment.cancelled",
+                                                "attendee.joined",
+                                                "attendee.attended",
+                                                "attendee.no_show",
+                                                "message.received"
+                                              ]
+                                            },
+                                            "formId": {
+                                              "default": null,
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "calendarId": {
+                                              "default": null,
+                                              "anyOf": [
+                                                {
+                                                  "type": "string",
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                },
+                                                {
+                                                  "type": "null"
+                                                }
+                                              ]
+                                            },
+                                            "to": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "kind",
+                                            "event",
+                                            "formId",
+                                            "calendarId",
+                                            "to"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                            },
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
+                                                "reply"
+                                              ]
+                                            },
+                                            "says": {
+                                              "type": "string",
+                                              "minLength": 3,
+                                              "maxLength": 200
+                                            },
+                                            "to": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "kind",
+                                            "says",
+                                            "to"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "id": {
+                                              "type": "string",
+                                              "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                            },
+                                            "kind": {
+                                              "type": "string",
+                                              "enum": [
+                                                "quiet"
+                                              ]
+                                            },
+                                            "minutes": {
+                                              "type": "integer",
+                                              "minimum": 60,
+                                              "maximum": 129600
+                                            },
+                                            "to": {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "kind",
+                                            "minutes",
+                                            "to"
+                                          ],
+                                          "additionalProperties": false
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "messages": {
+                                    "default": [],
+                                    "maxItems": 8,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "pattern": "^[a-z][a-z0-9]{3,15}$"
+                                        },
+                                        "when": {
+                                          "oneOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "kind": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "arrive"
+                                                  ]
+                                                },
+                                                "minutes": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 20160
+                                                }
+                                              },
+                                              "required": [
+                                                "kind",
+                                                "minutes"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "kind": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "booking"
+                                                  ]
+                                                },
+                                                "minutes": {
+                                                  "type": "integer",
+                                                  "minimum": -20160,
+                                                  "maximum": 20160
+                                                }
+                                              },
+                                              "required": [
+                                                "kind",
+                                                "minutes"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "kind": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "booking_day"
+                                                  ]
+                                                },
+                                                "daysBefore": {
+                                                  "type": "integer",
+                                                  "minimum": 0,
+                                                  "maximum": 7
+                                                },
+                                                "at": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "kind",
+                                                "daysBefore",
+                                                "at"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        },
+                                        "onlyIf": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "has": {
+                                                  "type": "boolean"
+                                                },
+                                                "event": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "form.submitted",
+                                                    "form.stopped",
+                                                    "appointment.booked",
+                                                    "appointment.cancelled",
+                                                    "attendee.joined",
+                                                    "attendee.attended",
+                                                    "attendee.no_show",
+                                                    "message.received"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "has",
+                                                "event"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "wording": {
+                                          "default": "ai",
+                                          "type": "string",
+                                          "enum": [
+                                            "ai",
+                                            "exact"
+                                          ]
+                                        },
+                                        "text": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1000
+                                        },
+                                        "how": {
+                                          "default": "best",
+                                          "type": "string",
+                                          "enum": [
+                                            "text",
+                                            "email",
+                                            "best"
+                                          ]
+                                        },
+                                        "goodForMinutes": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "integer",
+                                              "minimum": 5,
+                                              "maximum": 20160
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "when",
+                                        "onlyIf",
+                                        "wording",
+                                        "text",
+                                        "how",
+                                        "goodForMinutes"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "handOff": {
+                                    "default": false,
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "stageId",
+                                  "goal",
+                                  "knows",
+                                  "moves",
+                                  "messages",
+                                  "handOff"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "wording": {
+                              "default": "ai",
+                              "type": "string",
+                              "enum": [
+                                "ai",
+                                "exact"
+                              ]
+                            },
+                            "approval": {
+                              "default": "teammate",
+                              "type": "string",
+                              "enum": [
+                                "teammate",
+                                "ask",
+                                "send"
+                              ]
+                            },
+                            "description": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 4000
+                            }
+                          },
+                          "required": [
+                            "v",
+                            "entry",
+                            "stages",
+                            "wording",
+                            "approval",
+                            "description"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "pipelineId",
+                        "pipelineName",
+                        "status",
+                        "revision",
+                        "stages",
+                        "people",
+                        "paused",
+                        "suggestions",
+                        "updatedAt",
+                        "updatedBy",
+                        "definition"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "string",
+                            "enum": [
+                              "red",
+                              "yellow",
+                              "ok"
+                            ]
+                          },
+                          "rule": {
+                            "type": "string"
+                          },
+                          "words": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "level",
+                          "rule",
+                          "words"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "forms": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "calendars": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "teammate": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "training",
+                                "automatic"
+                              ]
+                            },
+                            "approved": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "needed": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "status",
+                            "approved",
+                            "needed"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "businessName": {
+                      "type": "string"
+                    },
+                    "waiting": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "funnel",
+                    "issues",
+                    "forms",
+                    "calendars",
+                    "teammate",
+                    "timeZone",
+                    "businessName",
+                    "waiting"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/funnel.of_person": {
+      "post": {
+        "operationId": "query_funnel_of_person",
+        "summary": "The funnel a customer is in, where they are in it and what it sends them next, and the funnels they could be added to.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "funnelId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "funnelName": {
+                              "type": "string"
+                            },
+                            "funnelStatus": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "on",
+                                "paused",
+                                "archived"
+                              ]
+                            },
+                            "personId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "personName": {
+                              "type": "string"
+                            },
+                            "leadId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "stageId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "stageName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "paused",
+                                "left",
+                                "suggested",
+                                "declined"
+                              ]
+                            },
+                            "pausedReason": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "taken_over",
+                                    "handed_off",
+                                    "by_hand"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "leftReason": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "won",
+                                    "lost",
+                                    "removed",
+                                    "outside",
+                                    "other_funnel",
+                                    "opted_out",
+                                    "funnel_archived",
+                                    "lead_gone"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "stageReachedAt": {
+                              "type": "string"
+                            },
+                            "booking": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "appointmentId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "startsAt": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "appointmentId",
+                                    "startsAt",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "next": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "messageId": {
+                                    "type": "string"
+                                  },
+                                  "dueAt": {
+                                    "type": "string"
+                                  },
+                                  "wording": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ai",
+                                      "exact"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  },
+                                  "onlyIf": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "messageId",
+                                  "dueAt",
+                                  "wording",
+                                  "text",
+                                  "onlyIf"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "addedBy": {
+                              "type": "string",
+                              "enum": [
+                                "rule",
+                                "hand",
+                                "ai",
+                                "turn_on"
+                              ]
+                            },
+                            "suggestedWhy": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "funnelId",
+                            "funnelName",
+                            "funnelStatus",
+                            "personId",
+                            "personName",
+                            "leadId",
+                            "stageId",
+                            "stageName",
+                            "status",
+                            "pausedReason",
+                            "leftReason",
+                            "stageReachedAt",
+                            "booking",
+                            "next",
+                            "addedBy",
+                            "suggestedWhy",
+                            "createdAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "canJoin": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "current",
+                    "canJoin",
+                    "timeZone"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/funnel.people": {
+      "post": {
+        "operationId": "query_funnel_people",
+        "summary": "Who’s in a funnel (at one stage, or all), the teammate’s suggestions for it, or who left it, newest first.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "funnelId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "stageId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "show": {
+                    "default": "in",
+                    "type": "string",
+                    "enum": [
+                      "in",
+                      "suggested",
+                      "left"
+                    ]
+                  },
+                  "limit": {
+                    "default": 50,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "funnelId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "funnelId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "funnelName": {
+                            "type": "string"
+                          },
+                          "funnelStatus": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "on",
+                              "paused",
+                              "archived"
+                            ]
+                          },
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personName": {
+                            "type": "string"
+                          },
+                          "leadId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stageId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stageName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "paused",
+                              "left",
+                              "suggested",
+                              "declined"
+                            ]
+                          },
+                          "pausedReason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "taken_over",
+                                  "handed_off",
+                                  "by_hand"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "leftReason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "won",
+                                  "lost",
+                                  "removed",
+                                  "outside",
+                                  "other_funnel",
+                                  "opted_out",
+                                  "funnel_archived",
+                                  "lead_gone"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stageReachedAt": {
+                            "type": "string"
+                          },
+                          "booking": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "appointmentId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "startsAt": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "appointmentId",
+                                  "startsAt",
+                                  "title"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "next": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "messageId": {
+                                  "type": "string"
+                                },
+                                "dueAt": {
+                                  "type": "string"
+                                },
+                                "wording": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "exact"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "onlyIf": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "messageId",
+                                "dueAt",
+                                "wording",
+                                "text",
+                                "onlyIf"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "addedBy": {
+                            "type": "string",
+                            "enum": [
+                              "rule",
+                              "hand",
+                              "ai",
+                              "turn_on"
+                            ]
+                          },
+                          "suggestedWhy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "funnelId",
+                          "funnelName",
+                          "funnelStatus",
+                          "personId",
+                          "personName",
+                          "leadId",
+                          "stageId",
+                          "stageName",
+                          "status",
+                          "pausedReason",
+                          "leftReason",
+                          "stageReachedAt",
+                          "booking",
+                          "next",
+                          "addedBy",
+                          "suggestedWhy",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "timeZone": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "timeZone"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/funnel.suggestions": {
+      "post": {
+        "operationId": "query_funnel_suggestions",
+        "summary": "The teammate’s suggestions of a funnel for a customer, waiting for someone on the team to say yes or no.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "funnelId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "funnelName": {
+                            "type": "string"
+                          },
+                          "funnelStatus": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "on",
+                              "paused",
+                              "archived"
+                            ]
+                          },
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personName": {
+                            "type": "string"
+                          },
+                          "leadId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stageId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stageName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "paused",
+                              "left",
+                              "suggested",
+                              "declined"
+                            ]
+                          },
+                          "pausedReason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "taken_over",
+                                  "handed_off",
+                                  "by_hand"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "leftReason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "won",
+                                  "lost",
+                                  "removed",
+                                  "outside",
+                                  "other_funnel",
+                                  "opted_out",
+                                  "funnel_archived",
+                                  "lead_gone"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stageReachedAt": {
+                            "type": "string"
+                          },
+                          "booking": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "appointmentId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "startsAt": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "appointmentId",
+                                  "startsAt",
+                                  "title"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "next": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "messageId": {
+                                  "type": "string"
+                                },
+                                "dueAt": {
+                                  "type": "string"
+                                },
+                                "wording": {
+                                  "type": "string",
+                                  "enum": [
+                                    "ai",
+                                    "exact"
+                                  ]
+                                },
+                                "text": {
+                                  "type": "string"
+                                },
+                                "onlyIf": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "messageId",
+                                "dueAt",
+                                "wording",
+                                "text",
+                                "onlyIf"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "addedBy": {
+                            "type": "string",
+                            "enum": [
+                              "rule",
+                              "hand",
+                              "ai",
+                              "turn_on"
+                            ]
+                          },
+                          "suggestedWhy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "funnelId",
+                          "funnelName",
+                          "funnelStatus",
+                          "personId",
+                          "personName",
+                          "leadId",
+                          "stageId",
+                          "stageName",
+                          "status",
+                          "pausedReason",
+                          "leftReason",
+                          "stageReachedAt",
+                          "booking",
+                          "next",
+                          "addedBy",
+                          "suggestedWhy",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "suggestions"
                   ],
                   "additionalProperties": false
                 }

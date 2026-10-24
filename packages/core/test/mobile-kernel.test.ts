@@ -350,6 +350,11 @@ describe('offline classes', () => {
     'attendee.confirm': 'anytime',
     // One person's attendance on a session (funnels): it reaches nobody.
     'attendee.set_attendance': 'anytime',
+    // A customer's funnel (teammate funnels): pausing it, picking it up or taking them out reaches nobody at once;
+    // saying yes to the teammate's suggestion starts its messages to them.
+    'funnel.pause_person': 'anytime',
+    'funnel.remove_person': 'anytime',
+    'funnel.decide_suggestion': FRESH,
     // A job's status texts the customer (On my way and the rest), so it waits for a fresh phone.
     'job.set_status': FRESH,
     // Putting a conversation away and bringing it back: nothing reaches a customer either way, and doing it
