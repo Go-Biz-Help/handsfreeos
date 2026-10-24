@@ -1,4 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import {
+  api as bookingApi,
+  daysFromNow,
+  makeCalendar,
+  ownerWithSite,
+  randomPhone,
+} from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { apiAs, signInForApi } from './workflow-approval-api';
 
@@ -279,4 +286,120 @@ test('a personal link skips what we know, greets them, and shows nothing on file
   await expect(page.getByTestId('form-sent')).toBeVisible();
   const people = await api<People>('queries/person.list', { workspaceId, limit: 20 });
   expect(people.items.filter((p) => p.firstName === 'Christina')).toHaveLength(1);
+});
+
+test('the last step books a session, and the calendar’s page can stay off', async ({ page }) => {
+  const owner = await ownerWithSite(page, 'funnel-book', 'Robbins Recruiting');
+  const cal = await makeCalendar(owner, 'Live presentation', {
+    public: false,
+    schedule: { mode: 'sessions' },
+    capacity: { seats: 10 },
+  });
+  const publish = (startsAt: string) =>
+    bookingApi<{ appointmentId: string }>(owner.token, 'commands', 'session.publish', {
+      workspaceId: owner.workspaceId,
+      calendarId: cal.id,
+      startsAt,
+      userIds: [owner.userId],
+      acknowledgeWarnings: true,
+    });
+  const tuesday = await publish(daysFromNow(3));
+  await publish(daysFromNow(5));
+
+  const created = await bookingApi<{ formId: string; revision: number; slug: string }>(
+    owner.token,
+    'commands',
+    'form.create',
+    { workspaceId: owner.workspaceId, name: 'Meet the team' },
+  );
+  const got = await bookingApi<{ definition: { pages: { id: string }[] } }>(
+    owner.token,
+    'queries',
+    'form.get',
+    { workspaceId: owner.workspaceId, formId: created.formId },
+  );
+  const first = got.definition.pages[0]!.id;
+  const saved = await bookingApi<{ revision: number }>(owner.token, 'commands', 'form.save_draft', {
+    workspaceId: owner.workspaceId,
+    formId: created.formId,
+    baseRevision: created.revision,
+    ops: [
+      { op: 'set_settings', patch: { onePageAtATime: true } },
+      { op: 'update_page', pageId: first, patch: { savesContact: true } },
+      {
+        op: 'add_question',
+        pageId: first,
+        index: null,
+        question: {
+          id: 'q_name0000',
+          type: 'short_text',
+          title: 'Your name',
+          required: true,
+          mapTo: 'person.first_name',
+          config: {},
+        },
+      },
+      {
+        op: 'add_question',
+        pageId: first,
+        index: null,
+        question: {
+          id: 'q_phone000',
+          type: 'phone',
+          title: 'Your phone',
+          required: true,
+          mapTo: 'person.phone',
+          config: {},
+        },
+      },
+      {
+        op: 'add_page',
+        index: null,
+        page: { id: 'p_book0000', title: 'Meet us live', questions: [] },
+      },
+      {
+        op: 'add_question',
+        pageId: 'p_book0000',
+        index: null,
+        question: {
+          id: 'q_when0000',
+          type: 'booking',
+          title: 'Pick a presentation',
+          required: true,
+          config: { calendarId: cal.id },
+        },
+      },
+    ],
+  });
+  await bookingApi(owner.token, 'commands', 'form.publish', {
+    workspaceId: owner.workspaceId,
+    formId: created.formId,
+    baseRevision: saved.revision,
+  });
+
+  await page.goto(`/f/${owner.site}/${created.slug}`);
+  await page.getByLabel('Your name').fill('Jordan Price');
+  await page.getByLabel('Your phone').fill(randomPhone());
+  await expect(page.getByTestId('form-next')).toBeEnabled({ timeout: 30_000 });
+  await page.getByTestId('form-next').click();
+
+  await expect(page.getByText('Meet us live')).toBeVisible();
+  const times = page.getByTestId('booking-time');
+  await expect(times).toHaveCount(2);
+  await expect(times.first()).toContainText('10 seats left');
+  await times.first().click();
+  await expect(times.first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('form-send')).toBeEnabled({ timeout: 30_000 });
+  await page.getByTestId('form-send').click();
+  await expect(page.getByTestId('form-sent')).toBeVisible();
+
+  const session = await bookingApi<{
+    appointment: { attendees: { fullName: string; seats: number }[] };
+  }>(owner.token, 'queries', 'appointment.get', {
+    workspaceId: owner.workspaceId,
+    appointmentId: tuesday.appointmentId,
+  });
+  expect(session.appointment.attendees).toEqual([
+    expect.objectContaining({ fullName: 'Jordan Price', seats: 1 }),
+  ]);
 });

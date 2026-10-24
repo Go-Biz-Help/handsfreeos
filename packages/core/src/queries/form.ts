@@ -234,6 +234,7 @@ export const formCatalogs = defineQuery({
       pipelines: catalogs.pipelines.map((p) => ({ ...p, stages: [...p.stages] })),
       tags: [...catalogs.tags],
       workflows: [...catalogs.workflows],
+      calendars: catalogs.calendars.map((c) => ({ ...c, services: [...c.services] })),
       customFields: catalogs.customFields.map((f) => ({
         id: f.id,
         entity: f.entity,

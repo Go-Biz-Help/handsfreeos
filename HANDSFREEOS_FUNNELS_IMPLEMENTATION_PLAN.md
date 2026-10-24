@@ -9,8 +9,9 @@ It started with Christina Robbins's network-marketing recruiting funnel (built i
 about recruiting. A contractor's "watch this, then book an estimate" page or a coach's webinar sign-up uses the same
 pieces.
 
-> **Status: stages 1 and 2 are built** (the video question, one page at a time, details saved part way, personal
-> links and greetings); stages 3 to 6 are next. Decisions
+> **Status: stages 1 to 3 are built** (the video question, one page at a time, details saved part way, personal
+> links and greetings, booking inside the form, and stopped partway); stages 4 to 6 are next. Christina's funnel
+> can be set up now, with Zapier in front for leads. Decisions
 > below are the owner's (2026-10-23). "Picks to confirm" are mine and stay open until the owner says yes.
 >
 > - **Stage 1, as built.** Smaller and safer than §1 in two ways. The page talks to the player's frame by message
@@ -26,6 +27,12 @@ pieces.
 >   changed? Give us your current ones" on the first step; what they give is added, never written over. Making it
 >   found a bug on `main`: a form filling a blank on a returning customer was refused (`person.updated` wasn't
 >   declared), now fixed. Details are in "Details saved part way, and personal links" in `docs/forms.md`.
+> - **Stage 3, as built.** A form can book a calendar whose booking page is off, so a presentation is booked only
+>   through its funnel. The booking joins the form's lead, except a seat in a shared session, which isn't one
+>   person's appointment. "Stopped partway" uses the page the form is on rather than the furthest page reached,
+>   and its texts can say `{{trigger.page_title}}`; `trigger.form_id` also lets a workflow on "Somebody answers a
+>   form" pick its form, which it couldn't before. Details are in "Booking a time, and stopped partway" in
+>   `docs/forms.md`.
 
 ## Decisions (Chris, 2026-10-23)
 

@@ -31,6 +31,7 @@ import {
   startSheet,
   type SentForm,
 } from '@/lib/api/public-forms';
+import { PublicFormContext } from './booking-picker';
 import { QuestionField } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
@@ -92,6 +93,12 @@ export function PublicForm({
   const [offersConsent, setOffersConsent] = useState(false);
   /** On a personal link: they want to give their details again, so nothing we know is skipped. */
   const [askAgain, setAskAgain] = useState(false);
+  /** Goes up when a "Book a time" question should read its times again (one filled up). */
+  const [timesRefresh, setTimesRefresh] = useState(0);
+  const pageContext = useMemo(
+    () => ({ site, slug, refresh: timesRefresh }),
+    [site, slug, timesRefresh],
+  );
   // The box links to the business's privacy policy and terms: that they are findable is one of the six
   // things a compliant opt-in has to say, and a link is the only way of saying it that works.
   const consentWords = smsConsentWords(
@@ -150,13 +157,15 @@ export function PublicForm({
     return starting.current;
   }
 
-  async function save(sheetAnswers: AnswerSheet) {
+  /** Saves the answers so far, and (one page at a time) the page they're on, for "stopped partway". */
+  async function save(sheetAnswers: AnswerSheet, pageId = steps.page?.page.id) {
     try {
       const open = await sheetNow();
       await saveSheet(site, slug, open.responseId, {
         token: open.token,
         answers: sheetAnswers as Record<string, unknown>,
         askAgain,
+        ...(pageId ? { pageId } : {}),
       });
     } catch {
       // Saving as they go is a convenience; sending is what matters, and that reports for itself.
@@ -196,6 +205,7 @@ export function PublicForm({
       return;
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    const nextPageId = state.pages[steps.index + 1]?.page.id;
     if (onContactPage && definition.settings.identity !== 'anonymous') {
       setSending(true);
       setFailed(null);
@@ -211,6 +221,7 @@ export function PublicForm({
           turnstileToken: botToken ?? undefined,
         });
         freshBotCheck();
+        void save(state.answers, nextPageId);
       } catch (e) {
         freshBotCheck();
         setFailed(
@@ -220,7 +231,7 @@ export function PublicForm({
       } finally {
         setSending(false);
       }
-    } else if (Object.keys(state.answers).length) void save(state.answers);
+    } else if (Object.keys(state.answers).length || sheet) void save(state.answers, nextPageId);
     setTried(false);
     setFailed(null);
     steps.forward();
@@ -253,6 +264,16 @@ export function PublicForm({
       setSent(out);
     } catch (e) {
       freshBotCheck();
+      // The time they picked filled up meanwhile: show that question with fresh times and nothing picked.
+      const taken =
+        e instanceof ApiError && e.rule === 'form_booking_taken'
+          ? (e.details as { questionId?: string } | undefined)?.questionId
+          : undefined;
+      if (taken) {
+        setAnswers((a) => ({ ...a, [taken]: null }));
+        setTimesRefresh((n) => n + 1);
+        steps.showQuestion(taken);
+      }
       setFailed(
         e instanceof ApiError ? e.message : 'Something went wrong. Please try again in a moment.',
       );
@@ -363,145 +384,149 @@ export function PublicForm({
   ) : null;
 
   return (
-    <Card className="p-5 sm:p-7" data-testid="public-form">
-      <h1 className="text-[19px] font-medium text-text">{definition.title}</h1>
-      {definition.intro ? (
-        <p className="mt-2 whitespace-pre-wrap text-[14px] text-text-2">{definition.intro}</p>
-      ) : null}
+    <PublicFormContext.Provider value={pageContext}>
+      <Card className="p-5 sm:p-7" data-testid="public-form">
+        <h1 className="text-[19px] font-medium text-text">{definition.title}</h1>
+        {definition.intro ? (
+          <p className="mt-2 whitespace-pre-wrap text-[14px] text-text-2">{definition.intro}</p>
+        ) : null}
 
-      {closed ? (
-        <p
-          className="mt-5 rounded-card bg-card-2 px-4 py-6 text-center text-[14px] text-text-2"
-          data-testid="form-closed"
-        >
-          {closedMessage}
-        </p>
-      ) : (
-        <>
-          {steps.stepped && definition.settings.showProgress ? (
-            <StepProgress steps={steps} />
-          ) : !steps.stepped && definition.settings.showProgress && state.questions.length > 2 ? (
-            <div className="mt-5 h-1 w-full overflow-hidden rounded-full bg-card-2">
-              <div
-                className="h-full bg-accent transition-all"
-                style={{ width: `${Math.round(state.progress * 100)}%` }}
-              />
-            </div>
-          ) : null}
-
-          {/* Their details are never shown back on a personal link; they can give them again, and those are added. */}
-          {personal && personal.known.length && !askAgain && steps.index === 0 ? (
-            <p className="mt-4 text-[13px] text-text-3">
-              Details changed?{' '}
-              <button
-                type="button"
-                className="underline"
-                onClick={() => setAskAgain(true)}
-                data-testid="form-ask-again"
-              >
-                Give us your current ones
-              </button>
-            </p>
-          ) : null}
-
-          <div className="mt-6 space-y-6">
-            {steps.shown.map((page) => (
-              <section key={page.page.id} className="space-y-6">
-                {page.page.title ? (
-                  <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
-                ) : null}
-                {page.questions.map((question) => (
-                  <QuestionField
-                    key={question.id}
-                    question={question}
-                    value={state.answers[question.id] ?? null}
-                    problem={
-                      tried ? answerProblem(question, state.answers[question.id] ?? null) : null
-                    }
-                    onChange={(value) => answer(question.id, value)}
-                  />
-                ))}
-              </section>
-            ))}
-          </div>
-
-          {/* Hidden from people; robots fill it in and get a polite nothing. */}
-          <label className="sr-only" aria-hidden="true">
-            Website
-            <input
-              tabIndex={-1}
-              autoComplete="off"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-            />
-          </label>
-
-          {!steps.isLast ? (
-            <>
-              {showConsent ? consentBox : null}
-              {onContactPage ? botBox : null}
-              {failedLine}
-              <StepButtons
-                steps={steps}
-                onNext={() => void next()}
-                disabled={sending || (onContactPage && botNeeded && !botToken)}
-              />
-            </>
-          ) : (
-            <>
-              {definition.calculations.length ? (
+        {closed ? (
+          <p
+            className="mt-5 rounded-card bg-card-2 px-4 py-6 text-center text-[14px] text-text-2"
+            data-testid="form-closed"
+          >
+            {closedMessage}
+          </p>
+        ) : (
+          <>
+            {steps.stepped && definition.settings.showProgress ? (
+              <StepProgress steps={steps} />
+            ) : !steps.stepped && definition.settings.showProgress && state.questions.length > 2 ? (
+              <div className="mt-5 h-1 w-full overflow-hidden rounded-full bg-card-2">
                 <div
-                  className="mt-6 space-y-1 rounded-card bg-card-2 p-4"
-                  data-testid="form-totals"
-                >
-                  {definition.calculations.map((calculation) => (
-                    <p
-                      key={calculation.id}
-                      className="flex justify-between text-[14px] text-text-2"
-                    >
-                      <span>{calculation.name}</span>
-                      <span className="font-medium text-text">
-                        {calculation.format === 'money'
-                          ? money(Math.round((state.calculations[calculation.id] ?? 0) * 100))
-                          : calculation.format === 'percent'
-                            ? `${state.calculations[calculation.id] ?? 0}%`
-                            : (state.calculations[calculation.id] ?? 0)}
-                      </span>
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-
-              {showConsent ? consentBox : null}
-              {botBox}
-              {failedLine}
-
-              <div className="mt-6 flex items-center gap-2">
-                {steps.stepped && steps.index > 0 ? (
-                  <Button variant="secondary" onClick={steps.back} data-testid="form-back">
-                    <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
-                    Back
-                  </Button>
-                ) : null}
-                <Button
-                  className="flex-1"
-                  onClick={send}
-                  disabled={sending || (botNeeded && !botToken)}
-                  data-testid="form-send"
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} /> : null}
-                  {definition.settings.submitLabel}
-                </Button>
+                  className="h-full bg-accent transition-all"
+                  style={{ width: `${Math.round(state.progress * 100)}%` }}
+                />
               </div>
-              {definition.settings.identity === 'anonymous' ? (
-                <p className="mt-3 text-center text-[12.5px] text-text-3">
-                  This one is anonymous. Nothing here says who you are.
-                </p>
-              ) : null}
-            </>
-          )}
-        </>
-      )}
-    </Card>
+            ) : null}
+
+            {/* Their details are never shown back on a personal link; they can give them again, and those are added. */}
+            {personal && personal.known.length && !askAgain && steps.index === 0 ? (
+              <p className="mt-4 text-[13px] text-text-3">
+                Details changed?{' '}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setAskAgain(true)}
+                  data-testid="form-ask-again"
+                >
+                  Give us your current ones
+                </button>
+              </p>
+            ) : null}
+
+            <div className="mt-6 space-y-6">
+              {steps.shown.map((page) => (
+                <section key={page.page.id} className="space-y-6">
+                  {page.page.title ? (
+                    <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
+                  ) : null}
+                  {page.questions.map((question) => (
+                    <QuestionField
+                      key={question.id}
+                      question={question}
+                      value={state.answers[question.id] ?? null}
+                      problem={
+                        tried ? answerProblem(question, state.answers[question.id] ?? null) : null
+                      }
+                      onChange={(value) => answer(question.id, value)}
+                    />
+                  ))}
+                </section>
+              ))}
+            </div>
+
+            {/* Hidden from people; robots fill it in and get a polite nothing. */}
+            <label className="sr-only" aria-hidden="true">
+              Website
+              <input
+                tabIndex={-1}
+                autoComplete="off"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+              />
+            </label>
+
+            {!steps.isLast ? (
+              <>
+                {showConsent ? consentBox : null}
+                {onContactPage ? botBox : null}
+                {failedLine}
+                <StepButtons
+                  steps={steps}
+                  onNext={() => void next()}
+                  disabled={sending || (onContactPage && botNeeded && !botToken)}
+                />
+              </>
+            ) : (
+              <>
+                {definition.calculations.length ? (
+                  <div
+                    className="mt-6 space-y-1 rounded-card bg-card-2 p-4"
+                    data-testid="form-totals"
+                  >
+                    {definition.calculations.map((calculation) => (
+                      <p
+                        key={calculation.id}
+                        className="flex justify-between text-[14px] text-text-2"
+                      >
+                        <span>{calculation.name}</span>
+                        <span className="font-medium text-text">
+                          {calculation.format === 'money'
+                            ? money(Math.round((state.calculations[calculation.id] ?? 0) * 100))
+                            : calculation.format === 'percent'
+                              ? `${state.calculations[calculation.id] ?? 0}%`
+                              : (state.calculations[calculation.id] ?? 0)}
+                        </span>
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+
+                {showConsent ? consentBox : null}
+                {botBox}
+                {failedLine}
+
+                <div className="mt-6 flex items-center gap-2">
+                  {steps.stepped && steps.index > 0 ? (
+                    <Button variant="secondary" onClick={steps.back} data-testid="form-back">
+                      <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+                      Back
+                    </Button>
+                  ) : null}
+                  <Button
+                    className="flex-1"
+                    onClick={send}
+                    disabled={sending || (botNeeded && !botToken)}
+                    data-testid="form-send"
+                  >
+                    {sending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                    ) : null}
+                    {definition.settings.submitLabel}
+                  </Button>
+                </div>
+                {definition.settings.identity === 'anonymous' ? (
+                  <p className="mt-3 text-center text-[12.5px] text-text-3">
+                    This one is anonymous. Nothing here says who you are.
+                  </p>
+                ) : null}
+              </>
+            )}
+          </>
+        )}
+      </Card>
+    </PublicFormContext.Provider>
   );
 }

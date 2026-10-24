@@ -47803,7 +47803,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.",
+        "description": "Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -151201,6 +151201,57 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "calendars": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "takesPayment": {
+                            "type": "boolean"
+                          },
+                          "services": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "active",
+                          "takesPayment",
+                          "services"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -151208,7 +151259,8 @@
                     "tags",
                     "workflows",
                     "customFields",
-                    "team"
+                    "team",
+                    "calendars"
                   ],
                   "additionalProperties": false
                 }

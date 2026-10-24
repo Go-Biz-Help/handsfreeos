@@ -14,6 +14,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
+import { FORM_JOBS, FORMS_STOPPED_KEY, formJobs, nextStoppedSweep } from './forms/stopped';
 import { BIN_JOBS, BIN_SWEEP_KEY, binJobs } from './bin/index';
 import { addonJobs, ensureAddonSweep } from './addons/index';
 import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
@@ -625,6 +626,7 @@ export const jobs: JobMap = {
   // Phones: the nightly time-window sweep, one business at a time, and the daily receipts clean-up (housekeeping/).
   ...syncWindowJobs,
   ...receiptJobs,
+  ...formJobs,
   // Problem reports older than 30 days, nightly (housekeeping/problem-reports.ts).
   ...problemReportJobs,
   // Deleting an account: off each business, the profile anonymized, sessions ended and sign-in blocked (account/).
@@ -854,6 +856,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: RECEIPT_JOBS.cleanUp,
       dedupeKey: RECEIPTS_CLEAN_UP_KEY,
       runAt: nextReceiptCleanUp(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Forms (funnels), every five minutes: somebody we know who went quiet partway through one.
+    await scheduleJob(tx, {
+      kind: FORM_JOBS.stopped,
+      dedupeKey: FORMS_STOPPED_KEY,
+      runAt: nextStoppedSweep(now),
       payload: {},
       workspaceId: null,
       organizationId: null,

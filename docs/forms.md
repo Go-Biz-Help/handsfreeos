@@ -129,6 +129,32 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
 - **Filling a blank on a customer we already had emits `person.updated`**, and both commands declare it. Before
   this, a returning customer whose form filled in a missing detail was refused by the kernel.
 
+## Booking a time, and stopped partway (funnels)
+
+- **A "Book a time" question** (`type: 'booking'`, `forms/booking.ts`) shows a calendar's open times as buttons,
+  read from `GET /public/form/<site>/<form>/times/<question>`. Its answer is the time, the session and how it
+  reads. Sending the form books it inside the same transaction (`bookTheTime`), with the calendar's own
+  `appointment.book_online`, so the confirmation, the video link and the reminders are the calendar's. The booking
+  joins the form's lead rather than opening another (`leadId`), and a form can book a calendar whose booking page
+  is off (`throughForm`): a presentation booked only through its funnel.
+- **A session that filled up meanwhile** refuses the whole send with `form_booking_taken` (the time in words, and
+  the question in `details`), so nothing is half done; the page clears the pick and reads the times again.
+- **Stopped partway.** Shown one page at a time, each save carries the page they're on (`at_page_id`,
+  `last_active_at`, 20261027010900). Every five minutes the worker's `forms.stopped_sweep` finds sheets whose
+  person we know, quiet for 30 minutes (and under a week), and `form_response.mark_stopped` marks that page once
+  and emits `form.stopped`. A workflow starts on it with **Somebody stops partway through a form**, filtered by
+  `trigger.form_id` and `trigger.page_title`, and its texts can say `{{trigger.page_title}}`.
+
+**What rules here:**
+
+- **A form never takes money**, so it can't book a calendar that takes a deposit or the full price (`formIssues`,
+  and again when it's sent).
+- **The time reads in the calendar's words.** The server writes the label again from the time and the calendar's
+  zone, whatever the page sent.
+- **A seat in a shared session isn't one customer's appointment**, so only a booking of their own takes the lead.
+- **The AI teammate and the phone** don't ask a form with a booking question (`NOT_IN_CHAT_TYPES`,
+  `NOT_ON_THE_PHONE`).
+
 ## Answering in a conversation
 
 A form marked "the AI teammate may ask this" (`in_chat`) becomes two teammate tools. The teammate holds no

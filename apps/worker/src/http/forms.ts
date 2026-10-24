@@ -12,12 +12,15 @@ import rateLimit from '@fastify/rate-limit';
 import {
   allQuestions,
   executeCommand,
+  findQuestion,
   formResponseSave,
   formResponseSaveContact,
   formResponseStart,
   formResponseSubmit,
   HfosError,
   knownTargetsOf,
+  loadCalendar,
+  openTimes,
   parseStoredForm,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -72,6 +75,11 @@ const SaveBody = z.object({
   token: z.string().min(10).max(200),
   answers: Answers,
   askAgain: z.boolean().default(false),
+  /** The page they're on, shown one page at a time (stopped partway). */
+  pageId: z
+    .string()
+    .regex(/^p_[a-z0-9]{8}$/)
+    .optional(),
 });
 
 const SubmitBody = z.object({
@@ -277,6 +285,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             token: body.token,
             answers: body.answers,
             askAgain: body.askAgain,
+            ...(body.pageId ? { pageId: body.pageId } : {}),
           },
           { type: 'system', ...scope },
           meta(),
@@ -419,6 +428,49 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
           known: link.known,
           sheet: sheet ? { responseId: sheet.id, answers } : null,
         };
+      },
+    );
+
+    /**
+     * The open times for a form's "Book a time" question (funnels), from its calendar, as far ahead as the question
+     * says. A calendar that isn't taking bookings, or takes a payment, has none: the page says so.
+     */
+    pub.get<{ Params: { site: string; slug: string; questionId: string } }>(
+      '/public/form/:site/:slug/times/:questionId',
+      { config: { rateLimit: limits.read } },
+      async (req) => {
+        const row = await findForm(req.params.site, req.params.slug);
+        const definition = parseStoredForm(row.definition);
+        const question = findQuestion(definition, req.params.questionId)?.question;
+        if (!question || question.type !== 'booking')
+          throw HfosError.notFound('That question isn’t on this form. Refresh the page.');
+        const { calendarId, serviceId, days } = question.config;
+        const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
+        return worker(scope, async (tx) => {
+          const calendar = calendarId
+            ? await loadCalendar(tx, row.workspace_id, calendarId).catch(() => null)
+            : null;
+          if (!calendar || calendar.status !== 'active' || calendar.config.payments.mode !== 'none')
+            return { open: false, timezone: row.timezone, slots: [] };
+          const from = Date.now();
+          const out = await openTimes(tx, calendar, {
+            from,
+            to: from + days * 86_400_000,
+            serviceId,
+            partySize: 1,
+          });
+          const seats = calendar.config.capacity.showSeatsLeft;
+          return {
+            open: true,
+            timezone: calendar.timeZone,
+            slots: out.slots.slice(0, 60).map((x) => ({
+              startsAt: x.startsAt,
+              sessionId: x.sessionId,
+              seatsLeft:
+                seats && (calendar.config.capacity.seats > 1 || x.sessionId) ? x.seatsLeft : null,
+            })),
+          };
+        });
       },
     );
 

@@ -181,6 +181,11 @@ export const FormSaveAnswersInput = z.object({
    * already have are asked too. What they give is added, never written over what's on file.
    */
   askAgain: z.boolean().default(false),
+  /** The page they're on now, shown one page at a time: what "stopped partway" says they stopped on. */
+  pageId: z
+    .string()
+    .regex(/^p_[a-z0-9]{8}$/)
+    .optional(),
 });
 export const FormSaveAnswersOutput = z.object({
   responseId: uuid,
@@ -210,6 +215,14 @@ export const FormSaveContactOutput = z.object({
   personId: uuid.nullable(),
   leadId: uuid.nullable(),
 });
+
+/** The worker's sweep: a sheet whose person went quiet on a page (funnels). */
+export const FormMarkStoppedInput = z.object({
+  workspaceId: uuid,
+  responseId: uuid,
+  pageId: z.string().regex(/^p_[a-z0-9]{8}$/),
+});
+export const FormMarkStoppedOutput = z.object({ stopped: z.boolean() });
 
 /** A personal link to a form for one customer (funnels): the key goes in the link, and only its hash is kept. */
 export const FormLinkCreateInput = z.object({
@@ -342,6 +355,15 @@ export const FormCatalogsOutput = z.object({
     z.object({ id: uuid, entity: z.string(), label: z.string(), type: z.string() }),
   ),
   team: z.array(z.object({ userId: uuid, name: z.string() })),
+  calendars: z.array(
+    z.object({
+      id: uuid,
+      name: z.string(),
+      active: z.boolean(),
+      takesPayment: z.boolean(),
+      services: z.array(z.object({ id: uuid, name: z.string() })),
+    }),
+  ),
 });
 
 export const FormResponseOut = z.object({

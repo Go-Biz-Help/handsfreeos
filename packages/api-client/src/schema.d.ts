@@ -3228,7 +3228,7 @@ export interface paths {
         put?: never;
         /**
          * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
-         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
          */
         post: operations["command_form_response_record"];
         delete?: never;
@@ -62093,6 +62093,18 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        calendars: {
+                            active: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            services: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            takesPayment: boolean;
+                        }[];
                         customFields: {
                             entity: string;
                             /** Format: uuid */

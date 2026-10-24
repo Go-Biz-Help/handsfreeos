@@ -30,6 +30,7 @@ import {
   formResponseExport,
   formResponseList,
   formResponseRecord,
+  formResponseMarkStopped,
   formResponseSave,
   formResponseSaveContact,
   formResponseStart,
@@ -782,6 +783,66 @@ describe('a funnel: details saved part way, and personal links', () => {
     const [person] = await admin().select().from(people).where(eq(people.id, known.personId!));
     expect(person!.phoneE164).toBe('+15125550314');
     expect(JSON.stringify(person!.otherPhones)).toContain('+15125550399');
+  });
+
+  it('marks the page somebody went quiet on, once, and again further on', async () => {
+    const form = await funnel('Funnel stopped');
+    const started = await start(form.formId);
+    await saveContact(started, { [qid('name')]: 'Quinn', [qid('phone')]: '(512) 555-0316' });
+    const save = (pageId: string) =>
+      runSystem(
+        formResponseSave,
+        {
+          workspaceId: wsId,
+          responseId: started.responseId,
+          token: started.token,
+          answers: {},
+          pageId,
+        },
+        scope,
+      );
+    const quiet = (minutes: number) =>
+      admin()
+        .update(formResponses)
+        .set({ lastActiveAt: new Date(Date.now() - minutes * 60_000) })
+        .where(eq(formResponses.id, started.responseId));
+    const due = () =>
+      rows<{ response_id: string; page_id: string }>(
+        admin(),
+        sql`select response_id, page_id from private.form_sheets_stopped(30, 500)
+            where response_id = ${started.responseId}`,
+      );
+    const mark = (pageId: string) =>
+      runSystem(
+        formResponseMarkStopped,
+        { workspaceId: wsId, responseId: started.responseId, pageId },
+        scope,
+      );
+
+    await save('p_more0000');
+    // Ten minutes isn't stopped.
+    await quiet(10);
+    expect(await due()).toEqual([]);
+    expect((await mark('p_more0000')).stopped).toBe(false);
+
+    await quiet(31);
+    expect(await due()).toEqual([{ response_id: started.responseId, page_id: 'p_more0000' }]);
+    expect((await mark('p_more0000')).stopped).toBe(true);
+    // Once a page.
+    expect(await due()).toEqual([]);
+    expect((await mark('p_more0000')).stopped).toBe(false);
+    const events = await rows<{ payload: { pageId: string; pageTitle: string; personId: string } }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'form.stopped'
+            and payload->>'responseId' = ${started.responseId}`,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ pageId: 'p_more0000', pageTitle: 'More' });
+
+    // Sent, it's never marked again.
+    await submit(started, { [qid('goals')]: 'Done' });
+    await quiet(40);
+    expect(await due()).toEqual([]);
   });
 
   it('turns away a link that ran out, or one for another form', async () => {

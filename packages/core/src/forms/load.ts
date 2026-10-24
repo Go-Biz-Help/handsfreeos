@@ -6,7 +6,16 @@
  */
 import { and, asc, eq, ne } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { customFields, forms, pipelineStages, pipelines, tags, workflows } from '@hfos/db/schema';
+import {
+  calendars,
+  customFields,
+  forms,
+  pipelineStages,
+  pipelines,
+  services,
+  tags,
+  workflows,
+} from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { isPlaceholder } from '../workflows/ids';
 import {
@@ -96,6 +105,19 @@ export interface FormCatalogs {
   readonly tags: readonly { readonly id: string; readonly name: string }[];
   readonly workflows: readonly { readonly id: string; readonly name: string }[];
   readonly customFields: readonly FormCustomField[];
+  /** The calendars a "Book a time" question can book on, and what each asks of a booking. */
+  readonly calendars: readonly FormCalendar[];
+}
+
+export interface FormCalendar {
+  readonly id: string;
+  readonly name: string;
+  /** Taking bookings (not a draft, paused or archived). */
+  readonly active: boolean;
+  /** It takes a deposit or the full price to book, which a form can't take. */
+  readonly takesPayment: boolean;
+  /** The services a customer picks between on it; empty when the calendar settles that itself. */
+  readonly services: readonly { readonly id: string; readonly name: string }[];
 }
 
 export async function loadFormCatalogs(tx: Tx, workspaceId: string): Promise<FormCatalogs> {
@@ -140,6 +162,21 @@ export async function loadFormCatalogs(tx: Tx, workspaceId: string): Promise<For
       ),
     )
     .orderBy(asc(customFields.position));
+  const calendarList = await tx
+    .select({
+      id: calendars.id,
+      name: calendars.name,
+      status: calendars.status,
+      config: calendars.config,
+    })
+    .from(calendars)
+    .where(and(eq(calendars.workspaceId, workspaceId), ne(calendars.status, 'archived')))
+    .orderBy(asc(calendars.name));
+  const serviceList = await tx
+    .select({ id: services.id, name: services.name })
+    .from(services)
+    .where(eq(services.workspaceId, workspaceId));
+  const serviceName = new Map(serviceList.map((x) => [x.id, x.name]));
   return {
     pipelines: pipelineList.map((p) => ({
       id: p.id,
@@ -155,6 +192,24 @@ export async function loadFormCatalogs(tx: Tx, workspaceId: string): Promise<For
       ...f,
       entity: f.entity as Exclude<typeof f.entity, 'custom_record'>,
     })),
+    calendars: calendarList.map((c) => {
+      // Read forgivingly: the editor only needs to know these three things, whatever else the config says.
+      const config = (c.config ?? {}) as {
+        payments?: { mode?: string };
+        services?: { mode?: string; items?: { serviceId?: string }[] };
+      };
+      const picks = config.services?.mode === 'choice' ? (config.services.items ?? []) : [];
+      return {
+        id: c.id,
+        name: c.name,
+        active: c.status === 'active',
+        takesPayment: (config.payments?.mode ?? 'none') !== 'none',
+        services: picks
+          .map((i) => i.serviceId)
+          .filter((id): id is string => typeof id === 'string' && serviceName.has(id))
+          .map((id) => ({ id, name: serviceName.get(id)! })),
+      };
+    }),
   };
 }
 
@@ -227,6 +282,34 @@ export async function formIssues(
     const workflowId = realId(workflowRef);
     if (workflowId && !catalogs.workflows.some((w) => w.id === workflowId))
       issues.push({ message: 'One of the workflows this form starts is gone.' });
+  }
+
+  for (const question of allQuestions(definition)) {
+    if (question.type !== 'booking') continue;
+    const { calendarId, serviceId } = question.config as {
+      calendarId: string;
+      serviceId: string | null;
+    };
+    if (!calendarId) continue;
+    const calendar = catalogs.calendars.find((c) => c.id === calendarId);
+    const at = { questionId: question.id };
+    if (!calendar)
+      issues.push({ message: `The calendar “${question.title}” books on is gone.`, ...at });
+    else if (calendar.takesPayment)
+      issues.push({
+        message: `“${calendar.name}” takes a payment to book, which a form can’t take. Turn payment off for it in Settings → Calendars, or book another calendar.`,
+        ...at,
+      });
+    else if (!calendar.active)
+      issues.push({
+        message: `“${calendar.name}” isn’t taking bookings. Turn it on in Settings → Calendars.`,
+        ...at,
+      });
+    else if (calendar.services.length && !calendar.services.some((x) => x.id === serviceId))
+      issues.push({
+        message: `“${question.title}” needs to say which of “${calendar.name}”’s services it books.`,
+        ...at,
+      });
   }
 
   for (const question of allQuestions(definition)) {

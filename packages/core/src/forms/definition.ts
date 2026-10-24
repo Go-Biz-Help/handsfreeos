@@ -88,6 +88,7 @@ export const Question = z.discriminatedUnion('type', [
   question('content'),
   question('payment'),
   question('video'),
+  question('booking'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -444,6 +445,18 @@ export function formProblems(definition: FormDefinition): string[] {
       question.config as { url: string; minPercent: number | null },
     );
     if (problem) problems.push(problem);
+  }
+
+  const bookings = questions.filter((q) => q.type === 'booking');
+  if (bookings.length > 1)
+    problems.push('A form can book one time. Keep one “Book a time” question.');
+  for (const question of bookings) {
+    if (!(question.config as { calendarId: string }).calendarId)
+      problems.push(`“${question.title}” needs a calendar to book on.`);
+    if (definition.settings.identity === 'anonymous')
+      problems.push(
+        `“${question.title}” books a time, and an anonymous form keeps nobody to book it for.`,
+      );
   }
 
   for (const question of questions) {

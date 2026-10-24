@@ -16,3 +16,4 @@ export * from './links';
 export * from './export';
 export * from './video';
 export * from './personal';
+export * from './booking';

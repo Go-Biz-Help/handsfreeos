@@ -174,6 +174,9 @@ function triggerContext(e: EventRow): Record<string, unknown> {
     ...(isRecord(p['button']) && str(p['button']['title']) ? { button: p['button']['title'] } : {}),
     ...(str(p['fromStageId']) ? { from_stage_id: p['fromStageId'] } : {}),
     ...(str(p['toStageId']) ? { to_stage_id: p['toStageId'] } : {}),
+    // A form's events: which form, and (form.stopped) the page they stopped on.
+    ...(str(p['formId']) && e.eventType.startsWith('form.') ? { form_id: p['formId'] } : {}),
+    ...(typeof p['pageTitle'] === 'string' ? { page_title: p['pageTitle'] } : {}),
   };
 }
 

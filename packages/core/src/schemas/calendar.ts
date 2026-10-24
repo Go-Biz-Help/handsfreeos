@@ -1099,6 +1099,13 @@ export const AppointmentBookOnlineInput = z.object({
   /** The page's idempotency key: a retried submit books once. */
   clientId,
   /**
+   * A lead this booking already belongs to (a form that books a time, funnels): the booking is put on it and the
+   * calendar opens no lead of its own.
+   */
+  leadId: uuid.nullable().optional(),
+  /** Booked by a form's "Book a time" question: the calendar must take bookings, but needn't have its page on. */
+  throughForm: z.boolean().default(false),
+  /**
    * The calendar asks for a deposit or the full price: the time is taken and **held** while they pay, and
    * nobody is told anything until it is confirmed (booking.confirm_deposit). A hold nobody pays for runs out
    * and gives the time back.

@@ -6328,6 +6328,11 @@ export const formResponses = app.table('form_responses', {
   onePerPerson: boolean('one_per_person').notNull().default(false),
   /** The personal link this sheet was started from, whose key also writes to it (20261027010800). */
   formLinkId: uuid('form_link_id').references(() => formLinks.id, { onDelete: 'set null' }),
+  /** When the page last saved, and the page it was on, for "stopped partway" (20261027010900). */
+  lastActiveAt: ts('last_active_at'),
+  atPageId: text('at_page_id'),
+  /** The pages already marked stopped, each once. */
+  stoppedPages: textArray('stopped_pages'),
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),

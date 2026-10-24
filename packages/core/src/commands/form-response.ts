@@ -23,7 +23,13 @@ import {
   people,
 } from '@hfos/db/schema';
 import { HfosError } from '../errors';
-import { allQuestions, type FormDefinition, type FormResult } from '../forms/definition';
+import { bookingLabel, bookingPicked, type BookingAnswer } from '../forms/booking';
+import {
+  allQuestions,
+  type FormDefinition,
+  type FormResult,
+  type Question,
+} from '../forms/definition';
 import { loadForm, parseStoredForm } from '../forms/load';
 import { runCalculations, scoreAnswers, type AnswerSheet } from '../forms/logic';
 import { choiceValues } from '../forms/definition';
@@ -48,7 +54,7 @@ import { otherPhonesOf } from '../crm/contact-points';
 import { normalizePhone } from '../crm/phone';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
 import { recordSmsConsent } from '../crm/signup';
-import { workspaceZone } from '../calendar/load';
+import { loadCalendar, workspaceZone, type LoadedCalendar } from '../calendar/load';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { requireHuman } from '../kernel/actor';
@@ -59,6 +65,8 @@ import { InvoiceCreateInput } from '../schemas/money';
 import {
   FormLinkCreateInput,
   FormLinkCreateOutput,
+  FormMarkStoppedInput,
+  FormMarkStoppedOutput,
   FormRecordInput,
   FormResponseDeleteInput,
   FormResponseDeleteOutput,
@@ -71,6 +79,8 @@ import {
   FormSubmitInput,
   FormSubmitOutput,
 } from '../schemas/form';
+import { AppointmentBookOnlineInput } from '../schemas/calendar';
+import { appointmentBookOnline } from './appointment-online';
 import { invoiceCreate } from './invoice';
 import { leadCreate } from './lead.create';
 import { personUpdate } from './person.update';
@@ -331,6 +341,7 @@ export const formResponseStart = defineCommand({
           : new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
         personId: link?.personId ?? null,
         formLinkId: link?.id ?? null,
+        lastActiveAt: new Date(),
       })
       .returning({ id: formResponses.id });
     if (!response)
@@ -380,7 +391,11 @@ export const formResponseSave = defineCommand({
     const state = formState(definition, merged, fill);
     await ctx.tx
       .update(formResponses)
-      .set({ answers: state.answers as never })
+      .set({
+        answers: state.answers as never,
+        lastActiveAt: new Date(),
+        ...(input.pageId ? { atPageId: input.pageId } : {}),
+      })
       .where(eq(formResponses.id, response.id));
     return {
       responseId: response.id,
@@ -652,7 +667,7 @@ export const formResponseSaveContact = defineCommand({
     });
     await ctx.tx
       .update(formResponses)
-      .set({ answers: answers as never, personId, leadId })
+      .set({ answers: answers as never, personId, leadId, lastActiveAt: new Date() })
       .where(eq(formResponses.id, response.id));
     if (personId && input.smsConsent)
       await recordSmsConsent(ctx.tx, personId, `Form: ${form.name}`);
@@ -667,6 +682,90 @@ export const formResponseSaveContact = defineCommand({
         after: { form: form.name },
       });
     return { responseId: response.id, personId, leadId };
+  },
+});
+
+/** How long a sheet waits, quiet, before its page counts as where they stopped. */
+export const FORM_STOPPED_MINUTES = 30;
+
+export const formResponseMarkStopped = defineCommand({
+  name: 'form_response.mark_stopped',
+  description:
+    'The worker’s sweep (funnels): somebody we know went quiet on a page of a form they started. Marks that page stopped, once, and tells the workflows that start on it.',
+  risk: 1,
+  input: FormMarkStoppedInput,
+  output: FormMarkStoppedOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['form.stopped'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const [sheet] = await ctx.tx
+      .select({
+        id: formResponses.id,
+        formId: formResponses.formId,
+        versionId: formResponses.versionId,
+        status: formResponses.status,
+        personId: formResponses.personId,
+        leadId: formResponses.leadId,
+        answers: formResponses.answers,
+        atPageId: formResponses.atPageId,
+        stoppedPages: formResponses.stoppedPages,
+        lastActiveAt: formResponses.lastActiveAt,
+      })
+      .from(formResponses)
+      .where(
+        and(
+          eq(formResponses.id, input.responseId),
+          eq(formResponses.workspaceId, ctx.scope.workspaceId!),
+        ),
+      )
+      .for('update');
+    // Checked again here, holding the row: they may have carried on, or sent it, since the sweep looked.
+    const quietSince = Date.now() - FORM_STOPPED_MINUTES * 60_000;
+    if (
+      !sheet ||
+      sheet.status !== 'in_progress' ||
+      !sheet.personId ||
+      sheet.atPageId !== input.pageId ||
+      sheet.stoppedPages.includes(input.pageId) ||
+      !sheet.lastActiveAt ||
+      sheet.lastActiveAt.getTime() > quietSince
+    )
+      return { stopped: false };
+    await ctx.tx
+      .update(formResponses)
+      .set({ stoppedPages: [...sheet.stoppedPages, input.pageId] })
+      .where(eq(formResponses.id, sheet.id));
+    const [version] = await ctx.tx
+      .select({ definition: formVersions.definition })
+      .from(formVersions)
+      .where(eq(formVersions.id, sheet.versionId));
+    const definition = version ? parseStoredForm(version.definition) : null;
+    const page = definition?.pages.find((p) => p.id === input.pageId) ?? null;
+    const answers = (sheet.answers ?? {}) as Record<string, unknown>;
+    // How much of each video they'd watched, so a follow-up can say "you were halfway through the overview".
+    const watched = Object.fromEntries(
+      (definition ? allQuestions(definition) : [])
+        .filter((q) => q.type === 'video' && typeof answers[q.id] === 'number')
+        .map((q) => [q.id, answers[q.id] as number]),
+    );
+    await ctx.emit({
+      type: 'form.stopped',
+      entityType: 'form',
+      entityId: sheet.formId,
+      payload: {
+        responseId: sheet.id,
+        formId: sheet.formId,
+        personId: sheet.personId,
+        leadId: sheet.leadId,
+        pageId: input.pageId,
+        pageTitle: page?.title ?? '',
+        watched,
+      },
+      after: { page: page?.title || 'a page' },
+    });
+    return { stopped: true };
   },
 });
 
@@ -718,6 +817,95 @@ export const formLinkCreate = defineCommand({
   },
 });
 
+/** The calendar a "Book a time" question books on, as it stands now: there, taking bookings, and free to book. */
+async function bookableCalendar(ctx: CommandContext, question: Question): Promise<LoadedCalendar> {
+  const ws = ctx.scope.workspaceId!;
+  const { calendarId } = question.config as { calendarId: string };
+  const unavailable = () =>
+    HfosError.rule(
+      'form_booking_unavailable',
+      409,
+      'Times can’t be booked on this form just now. Send it without one, or contact the business to book.',
+    );
+  if (!calendarId) throw unavailable();
+  const calendar = await loadCalendar(ctx.tx, ws, calendarId).catch(() => null);
+  if (!calendar || calendar.status !== 'active' || calendar.config.payments.mode !== 'none')
+    throw unavailable();
+  return calendar;
+}
+
+/**
+ * Books the time they picked, with the calendar's own online booking: its confirmation, video link and reminders
+ * are the calendar's, and a retried send books once (the sheet is the booking's key). A session that filled up
+ * since they picked it refuses the whole send, naming the time, so they can pick another.
+ */
+async function bookTheTime(
+  ctx: CommandContext,
+  args: {
+    readonly calendar: LoadedCalendar;
+    readonly question: Question;
+    readonly answer: BookingAnswer;
+    readonly personId: string | null;
+    readonly leadId: string | null;
+    readonly responseId: string;
+    readonly smsConsent: boolean;
+  },
+): Promise<void> {
+  const ws = ctx.scope.workspaceId!;
+  const needsContact = () =>
+    HfosError.rule(
+      'form_booking_needs_contact',
+      400,
+      'Add a phone number or an email address, so we can send you the booking.',
+    );
+  if (!args.personId) throw needsContact();
+  const [person] = await ctx.tx
+    .select({
+      firstName: people.firstName,
+      lastName: people.lastName,
+      phone: people.phoneE164,
+      email: people.email,
+    })
+    .from(people)
+    .where(eq(people.id, args.personId));
+  if (!person || (!person.phone && !person.email)) throw needsContact();
+  const { serviceId } = args.question.config as { serviceId: string | null };
+  try {
+    await appointmentBookOnline.handler(
+      ctx,
+      AppointmentBookOnlineInput.parse({
+        workspaceId: ws,
+        calendarId: args.calendar.id,
+        startsAt: args.answer.startsAt,
+        sessionId: args.answer.sessionId,
+        serviceId,
+        partySize: 1,
+        customer: {
+          firstName: person.firstName || 'Customer',
+          lastName: person.lastName ?? '',
+          phone: person.phone,
+          email: person.email,
+        },
+        smsConsent: args.smsConsent,
+        clientId: `form:${args.responseId}`,
+        leadId: args.leadId,
+        throughForm: true,
+        hold: false,
+      }),
+    );
+  } catch (e) {
+    if (e instanceof HfosError && (e.rule === 'slot_taken' || e.rule === 'session_full'))
+      throw new HfosError(
+        'conflict',
+        409,
+        `${args.answer.label} just filled up. Pick another time.`,
+        { questionId: args.question.id },
+        'form_booking_taken',
+      );
+    throw e;
+  }
+}
+
 export const formResponseSubmit = defineCommand({
   name: 'form_response.submit',
   description:
@@ -734,6 +922,8 @@ export const formResponseSubmit = defineCommand({
     'person.created',
     // Filling in a blank on a customer we already had (personUpdate).
     'person.updated',
+    // A "Book a time" question books its time with the calendar's own appointment.book_online (funnels).
+    'appointment.booked',
     'lead.created',
     'task.created',
     'invoice.created',
@@ -757,7 +947,7 @@ export const formResponseSubmit = defineCommand({
     const fill = await fillFor(ctx, response, input.askAgain);
     const merged = { ...answersOf(response), ...(input.answers as AnswerSheet) };
     const state = formState(definition, merged, fill);
-    const answers = state.answers;
+    let answers = state.answers;
     const problems = responseProblems(definition, answers, fill);
     if (problems.length)
       throw new HfosError(
@@ -769,6 +959,19 @@ export const formResponseSubmit = defineCommand({
         { problems },
         'form_answers_invalid',
       );
+
+    // A time to book (funnels): the calendar it's on, and the time in the calendar's own words, whatever the page
+    // sent for them.
+    const picked = bookingPicked(definition, answers);
+    const bookOn = picked ? await bookableCalendar(ctx, picked.question) : null;
+    if (picked && bookOn)
+      answers = {
+        ...answers,
+        [picked.question.id]: {
+          ...picked.answer,
+          label: bookingLabel(picked.answer.startsAt, bookOn.timeZone),
+        } as never,
+      };
 
     const { identity } = definition.settings;
     const contact = contactFromAnswers(definition, answers);
@@ -838,6 +1041,18 @@ export const formResponseSubmit = defineCommand({
         });
       }
     }
+
+    // ---- The time they picked ----
+    if (picked && bookOn)
+      await bookTheTime(ctx, {
+        calendar: bookOn,
+        question: picked.question,
+        answer: answers[picked.question.id] as unknown as BookingAnswer,
+        personId,
+        leadId,
+        responseId: response.id,
+        smsConsent: input.smsConsent,
+      });
 
     // ---- What they owe ----
     // A form that asks for money raises an invoice for it, so the payment goes through M9 like every other
@@ -1124,6 +1339,7 @@ export const formResponseCommands = [
   formResponseStart,
   formResponseSave,
   formResponseSaveContact,
+  formResponseMarkStopped,
   formLinkCreate,
   formResponseSubmit,
   formResponseRecord,

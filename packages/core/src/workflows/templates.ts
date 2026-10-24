@@ -188,7 +188,16 @@ export function render(
 // ---- The variables a workflow can use ----
 
 export type VariableSource =
-  'person' | 'lead' | 'appointment' | 'conversation' | 'business' | 'links' | 'workflow' | 'ai';
+  | 'person'
+  | 'lead'
+  | 'appointment'
+  | 'conversation'
+  | 'business'
+  | 'links'
+  | 'workflow'
+  | 'ai'
+  /** A form's own event: where somebody stopped partway (funnels). */
+  | 'form';
 
 export interface TemplateVariable {
   readonly path: string;
@@ -234,4 +243,5 @@ export const TEMPLATE_VARIABLES: readonly TemplateVariable[] = [
   v('links.booking', 'Booking link', 'links', 'https://book.example.com/lone-star'),
   v('links.review', 'Review link', 'links', 'https://g.page/r/lone-star/review'),
   v('workflow.name', 'Workflow name', 'workflow', 'Speed to lead'),
+  v('trigger.page_title', 'Page they stopped on', 'form', 'The overview'),
 ];

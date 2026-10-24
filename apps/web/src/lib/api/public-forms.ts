@@ -115,7 +115,7 @@ export const saveSheet = (
   site: string,
   slug: string,
   responseId: string,
-  body: { token: string; answers: Record<string, unknown>; askAgain?: boolean },
+  body: { token: string; answers: Record<string, unknown>; askAgain?: boolean; pageId?: string },
 ) => post<{ responseId: string }>(`${formPath(site, slug)}/${seg(responseId)}/save`, body);
 
 /** The answers and the details they give on the page that saves them, part way through (funnels). */
@@ -165,3 +165,18 @@ export interface PersonalSheet {
 
 export const personalSheet = (site: string, slug: string, key: string) =>
   call<PersonalSheet>(`${formPath(site, slug)}/personal/${seg(key)}`, FRESH);
+
+/** The open times for a form's "Book a time" question (funnels). */
+export interface FormTimes {
+  /** False when its calendar isn't taking bookings from the form just now. */
+  readonly open: boolean;
+  readonly timezone: string;
+  readonly slots: readonly {
+    readonly startsAt: string;
+    readonly sessionId: string | null;
+    readonly seatsLeft: number | null;
+  }[];
+}
+
+export const formTimes = (site: string, slug: string, questionId: string) =>
+  call<FormTimes>(`${formPath(site, slug)}/times/${seg(questionId)}`, FRESH);

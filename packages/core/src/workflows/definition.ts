@@ -137,6 +137,15 @@ export const TRIGGER_EVENTS = {
    * null on an anonymous form, and a run starts for nobody, which is right: there is nobody to follow up.
    */
   'form.submitted': { label: 'Somebody answers a form', subject: 'payload_person', provides: [] },
+  /**
+   * Funnels: somebody we know went quiet for half an hour on a page of a form they started. Once per page, so
+   * coming back and stopping further on fires again. `trigger.form_id` and `trigger.page_title` say where.
+   */
+  'form.stopped': {
+    label: 'Somebody stops partway through a form',
+    subject: 'payload_person',
+    provides: [],
+  },
   'invoice.overdue': { label: 'An invoice goes overdue', subject: 'payload_person', provides: [] },
 } as const satisfies Record<string, TriggerEventDef>;
 export type TriggerEventKey = keyof typeof TRIGGER_EVENTS;
@@ -189,7 +198,7 @@ export const TRIGGER_EVENT_GROUPS: readonly {
       'invoice.overdue',
     ],
   },
-  { label: 'Forms', events: ['form.submitted'] },
+  { label: 'Forms', events: ['form.submitted', 'form.stopped'] },
   { label: 'Tasks', events: ['task.completed'] },
 ];
 export const TriggerEvent = z.enum(TRIGGER_EVENT_KEYS);

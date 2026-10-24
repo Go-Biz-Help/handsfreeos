@@ -29,6 +29,7 @@ import {
 } from './logic';
 import type { FillContext } from './personal';
 import { answerIsEmpty, CHOICE_TYPES, UNANSWERED_TYPES, type AnswerValue } from './questions';
+import { isBookingAnswer } from './booking';
 import { watchFirstWords } from './video';
 
 /** A page with only the questions that are showing. */
@@ -256,6 +257,9 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
     case 'payment':
       // The money itself is taken at submit; nothing to check here.
       return null;
+    case 'booking':
+      // Whether the time is still free is the calendar's to say, when the form is sent.
+      return isBookingAnswer(value) ? null : 'Pick one of the times.';
     default:
       return null;
   }
