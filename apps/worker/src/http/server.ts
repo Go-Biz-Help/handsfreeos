@@ -59,6 +59,7 @@ import { registerJoinRoutes } from './join';
 import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
+import { registerFunnelRoutes } from '../funnels/draft';
 import { SafeFetchError } from './safe-fetch';
 import { registerSiteRoutes } from './sites';
 import { registerSpeechRoutes } from './speech';
@@ -321,6 +322,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerLegalRoutes(app, deps);
   // A business's own policy or terms, given back with the texting section in place (20261027006500).
   await registerPolicyUpdateRoutes(app, deps);
+  // Teammate funnels: the AI's draft from a description (funnels/draft.ts).
+  await registerFunnelRoutes(app, deps);
   await registerFoundingRoutes(app, deps);
   // A form on the business's own website, and services sending leads over (M14 slice B).
   await registerIntakeRoutes(app, deps);

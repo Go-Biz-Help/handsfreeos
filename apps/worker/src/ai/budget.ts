@@ -21,7 +21,9 @@ export type AiUsageSource =
   // Adding the texting section to the business's own privacy policy or terms.
   | 'texting_policy'
   // Reading an applicant Indeed emailed the business about (funnels).
-  | 'lead_intake';
+  | 'lead_intake'
+  // Drafting a funnel for the AI teammate from a description (teammate funnels).
+  | 'funnel';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -77,6 +79,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   main_offer: 'AI building your main offer',
   texting_policy: 'AI updating your privacy policy or terms',
   lead_intake: 'AI reading a job applicant’s email',
+  funnel: 'AI drafting a funnel',
 };
 
 /**

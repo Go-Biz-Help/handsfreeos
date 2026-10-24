@@ -2829,6 +2829,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'texting_policy',
   // Reading an applicant Indeed emailed the business about (20261027011100).
   'lead_intake',
+  // Drafting a funnel for the AI teammate from a description (20261027012000).
+  'funnel',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -7517,6 +7519,62 @@ export const teammateFeedback = app.table('teammate_feedback', {
 });
 
 /**
+ * A funnel (20261027012000): a pipeline's stages and what the AI teammate does at each, as core's
+ * `FunnelDefinition`. One a pipeline, archived ones aside.
+ */
+export const funnels = app.table('funnels', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  pipelineId: uuid('pipeline_id')
+    .notNull()
+    .references(() => pipelines.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  /** draft, on, paused or archived. */
+  status: text('status').notNull().default('draft'),
+  definition: jsonb('definition').$type<Json>().notNull().default({}),
+  revision: integer('revision').notNull().default(1),
+  turnedOnAt: ts('turned_on_at'),
+  createdBy: userRef('created_by'),
+  updatedBy: userRef('updated_by'),
+  ...timestamps(),
+});
+
+/** Where one person is with a funnel: a row a person, one active at a time, and the teammate's suggestions. */
+export const funnelPeople = app.table('funnel_people', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  funnelId: uuid('funnel_id')
+    .notNull()
+    .references(() => funnels.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'cascade' }),
+  stageId: uuid('stage_id').references(() => pipelineStages.id, { onDelete: 'set null' }),
+  /** active, paused, left, suggested or declined. */
+  status: text('status').notNull().default('active'),
+  stageReachedAt: ts('stage_reached_at').notNull().defaultNow(),
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  seen: text('seen')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  sent: text('sent')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  /** taken_over, handed_off or by_hand. */
+  pausedReason: text('paused_reason'),
+  leftReason: text('left_reason'),
+  leftAt: ts('left_at'),
+  /** rule, hand, ai or turn_on. */
+  addedBy: text('added_by').notNull().default('rule'),
+  addedByUser: userRef('added_by_user'),
+  suggestedWhy: text('suggested_why'),
+  ...timestamps(),
+});
+
+/**
  * What one of HandsFreeOS's own tools saw when something didn't go (20261027008100): sent by the person's tool,
  * read by staff on the desk's Problem reports page, marked handled there, gone after 30 days. `addonId` is a
  * label, never a key into the add-on.
@@ -7990,4 +8048,6 @@ export const tables = {
   addonNewsSeen,
   aiProvider,
   problemReports,
+  funnels,
+  funnelPeople,
 } as const;

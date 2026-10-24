@@ -19,6 +19,7 @@ import {
 } from '@/components/customers/bits';
 import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { AttributionCard } from '@/components/customers/attribution';
+import { FunnelCard } from '@/components/customers/funnel-card';
 import { PartnerCard } from '@/components/customers/partner-card';
 import { RecordBody, nextVisitLine } from '@/components/customers/record-screen';
 import { EditSheet, RECORD_SHEET_WORDS } from '@/components/customers/sheets';
@@ -232,6 +233,7 @@ export default function PersonScreen() {
         name={person.fullName}
         archived={!!person.archivedAt}
       />
+      {person.archivedAt ? null : <FunnelCard workspaceId={business.id} personId={personId} />}
 
       <RecordBody
         data={data}

@@ -22,6 +22,8 @@ export * from './forms/load';
 export * from './workflows/template-update';
 export * from './knowledge/search';
 export * from './ai-team/load';
+export * from './funnels/load';
+export * from './funnels/follow';
 export * from './ai-setup/load';
 export * from './onboarding/load';
 export * from './onboarding-setup/load';

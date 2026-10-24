@@ -3717,6 +3717,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/funnel.add_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a customer in a funnel, at their lead’s stage or where it starts. They leave any other funnel first, and get a lead in its pipeline if they have none.
+         * @description Risk level 1. Requires records.write. Emits funnel.person_added, funnel.person_left.
+         */
+        post: operations["command_funnel_add_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a funnel: everyone in it leaves, nothing more is sent, and its pipeline and name are free for another.
+         * @description Risk level 2. Requires ai_team.manage. Emits funnel.archived.
+         */
+        post: operations["command_funnel_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a funnel on a pipeline (or on a new one made from its stages), from the AI’s draft or empty. It starts as a draft, taking nobody in.
+         * @description Risk level 1. Requires ai_team.manage. Emits funnel.created.
+         */
+        post: operations["command_funnel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.decide_suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say yes or no to the teammate’s suggestion of a funnel for a customer. Yes puts them in it, as adding them would.
+         * @description Risk level 1. Requires records.write. Emits funnel.person_added, funnel.person_left, funnel.suggestion_declined. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_funnel_decide_suggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a funnel: it takes nobody in and sends nothing until it’s turned back on. People in it stay where they are.
+         * @description Risk level 1. Requires ai_team.manage. Emits funnel.paused.
+         */
+        post: operations["command_funnel_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.pause_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause or pick up a customer’s funnel. Paused, nothing from it is sent to them, and only what they do (a booking, a join) moves them on; picked up, what’s still ahead is scheduled again.
+         * @description Risk level 1. Requires records.write. Emits funnel.paused_for_person, funnel.resumed_for_person. Can wait on a phone with no signal.
+         */
+        post: operations["command_funnel_pause_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.remove_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a customer out of their funnel. Nothing more from it is sent to them; their lead stays where it is.
+         * @description Risk level 1. Requires records.write. Emits funnel.person_left. Can wait on a phone with no signal.
+         */
+        post: operations["command_funnel_remove_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a funnel’s name and steps. People in it stay at their stage, and what changed reaches them right away. People at a stage taken out move to the stage picked for them.
+         * @description Risk level 2. Requires ai_team.manage. Emits funnel.saved, funnel.person_left.
+         */
+        post: operations["command_funnel_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/funnel.turn_on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn a funnel on, so its rules take people in and the AI teammate follows it. Refused while something stops it from running.
+         * @description Risk level 2. Requires ai_team.manage. Emits funnel.turned_on.
+         */
+        post: operations["command_funnel_turn_on"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/idea_area.save": {
         parameters: {
             query?: never;
@@ -4688,7 +4868,7 @@ export interface paths {
         put?: never;
         /**
          * Move a lead to another stage of its pipeline (and to a spot within it). A lost stage needs a reason.
-         * @description Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires records.write. Emits lead.stage_changed, lead.won, lead.lost, lead.reopened, funnel.stage_reached, funnel.person_left. Can wait on a phone with no signal.
          */
         post: operations["command_lead_move_stage"];
         delete?: never;
@@ -16691,6 +16871,106 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_founding_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/funnel.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One funnel: its steps, how many people are at each stage, what stops it from going on or is worth a look, and the forms and calendars it can use.
+         * @description Requires records.read.
+         */
+        post: operations["query_funnel_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/funnel.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s funnels, each with its pipeline, how many people are at each stage, and whether it’s on.
+         * @description Requires records.read.
+         */
+        post: operations["query_funnel_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/funnel.of_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The funnel a customer is in, where they are in it and what it sends them next, and the funnels they could be added to.
+         * @description Requires records.read.
+         */
+        post: operations["query_funnel_of_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/funnel.people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who’s in a funnel (at one stage, or all), the teammate’s suggestions for it, or who left it, newest first.
+         * @description Requires records.read.
+         */
+        post: operations["query_funnel_people"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/funnel.suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The teammate’s suggestions of a funnel for a customer, waiting for someone on the team to say yes or no.
+         * @description Requires records.read.
+         */
+        post: operations["query_funnel_suggestions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -29673,6 +29953,563 @@ export interface operations {
             };
         };
     };
+    command_funnel_add_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    addedBy?: "rule" | "hand" | "ai" | "turn_on";
+                    /** Format: uuid */
+                    funnelId: string;
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    stageId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        /** Format: uuid */
+                        funnelPersonId: string;
+                        /** Format: uuid */
+                        leadId: string;
+                        /** Format: uuid */
+                        stageId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    funnelId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        funnelId: string;
+                        left: number;
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    description?: string;
+                    draft?: {
+                        /** @default {} */
+                        entry?: {
+                            /** @default false */
+                            aiSuggests?: boolean;
+                            /** @default true */
+                            byHand?: boolean;
+                            /** @default [] */
+                            rules?: ({
+                                /** @enum {string} */
+                                kind: "new_lead";
+                            } | {
+                                /** @enum {string} */
+                                kind: "came_in";
+                                ways: ("text" | "call" | "email" | "website_form" | "api" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed")[];
+                            })[];
+                            /** @default null */
+                            startStage?: string | null;
+                        };
+                        name: string;
+                        stages: {
+                            /** @default  */
+                            goal?: string;
+                            /** @default false */
+                            handOff?: boolean;
+                            /**
+                             * @default open
+                             * @enum {string}
+                             */
+                            kind?: "open" | "won" | "lost";
+                            /** @default  */
+                            knows?: string;
+                            /** @default [] */
+                            messages?: {
+                                /**
+                                 * @default best
+                                 * @enum {string}
+                                 */
+                                how?: "text" | "email" | "best";
+                                /** @default null */
+                                onlyIf?: {
+                                    /** @enum {string} */
+                                    event: "form.submitted" | "form.stopped" | "appointment.booked" | "appointment.cancelled" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received";
+                                    has: boolean;
+                                } | null;
+                                text: string;
+                                when: {
+                                    /** @enum {string} */
+                                    kind: "arrive";
+                                    minutes: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "booking";
+                                    minutes: number;
+                                } | {
+                                    at: string;
+                                    daysBefore: number;
+                                    /** @enum {string} */
+                                    kind: "booking_day";
+                                };
+                                /**
+                                 * @default ai
+                                 * @enum {string}
+                                 */
+                                wording?: "ai" | "exact";
+                            }[];
+                            /** @default [] */
+                            moves?: ({
+                                /** @enum {string} */
+                                event: "form.submitted" | "form.stopped" | "appointment.booked" | "appointment.cancelled" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received";
+                                /** @enum {string} */
+                                kind: "event";
+                                to: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "reply";
+                                says: string;
+                                to: string;
+                            } | {
+                                /** @enum {string} */
+                                kind: "quiet";
+                                minutes: number;
+                                to: string;
+                            })[];
+                            name: string;
+                        }[];
+                    };
+                    name: string;
+                    newPipeline?: {
+                        name: string;
+                        stages: {
+                            /** @enum {string} */
+                            kind: "open" | "won" | "lost";
+                            name: string;
+                        }[];
+                    };
+                    /** Format: uuid */
+                    pipelineId?: string;
+                    stageMap?: {
+                        [key: string]: string;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        funnelId: string;
+                        /** Format: uuid */
+                        pipelineId: string;
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_decide_suggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accept: boolean;
+                    /** Format: uuid */
+                    funnelPersonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        funnelPersonId: string;
+                        /** @enum {string} */
+                        status: "active" | "paused" | "left" | "suggested" | "declined";
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    funnelId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        funnelId: string;
+                        /** @enum {string} */
+                        status: "draft" | "on" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_pause_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    funnelPersonId: string;
+                    paused: boolean;
+                    /** @enum {string} */
+                    reason?: "taken_over" | "handed_off" | "by_hand";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        funnelPersonId: string;
+                        /** @enum {string} */
+                        status: "active" | "paused" | "left" | "suggested" | "declined";
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_remove_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    funnelPersonId: string;
+                    /** @enum {string} */
+                    reason?: "opted_out" | "lead_gone";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        funnelPersonId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    definition: {
+                        /**
+                         * @default teammate
+                         * @enum {string}
+                         */
+                        approval?: "teammate" | "ask" | "send";
+                        /** @default  */
+                        description?: string;
+                        /** @default {} */
+                        entry?: {
+                            /** @default false */
+                            aiSuggests?: boolean;
+                            /** @default true */
+                            byHand?: boolean;
+                            /** @default [] */
+                            rules?: ({
+                                id: string;
+                                /** @enum {string} */
+                                kind: "new_lead";
+                            } | {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "came_in";
+                                ways: ("text" | "call" | "email" | "website_form" | "api" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed")[];
+                            } | {
+                                /** Format: uuid */
+                                formId: string;
+                                id: string;
+                                /** @enum {string} */
+                                kind: "form";
+                            } | {
+                                /** Format: uuid */
+                                calendarId: string;
+                                id: string;
+                                /** @enum {string} */
+                                kind: "booking";
+                            })[];
+                            /** @default null */
+                            startStageId?: string | null;
+                        };
+                        /** @default [] */
+                        stages?: {
+                            /** @default  */
+                            goal?: string;
+                            /** @default false */
+                            handOff?: boolean;
+                            /** @default  */
+                            knows?: string;
+                            /** @default [] */
+                            messages?: {
+                                /** @default null */
+                                goodForMinutes?: number | null;
+                                /**
+                                 * @default best
+                                 * @enum {string}
+                                 */
+                                how?: "text" | "email" | "best";
+                                id: string;
+                                /** @default null */
+                                onlyIf?: {
+                                    /** @enum {string} */
+                                    event: "form.submitted" | "form.stopped" | "appointment.booked" | "appointment.cancelled" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received";
+                                    has: boolean;
+                                } | null;
+                                text: string;
+                                when: {
+                                    /** @enum {string} */
+                                    kind: "arrive";
+                                    minutes: number;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "booking";
+                                    minutes: number;
+                                } | {
+                                    at: string;
+                                    daysBefore: number;
+                                    /** @enum {string} */
+                                    kind: "booking_day";
+                                };
+                                /**
+                                 * @default ai
+                                 * @enum {string}
+                                 */
+                                wording?: "ai" | "exact";
+                            }[];
+                            /** @default [] */
+                            moves?: ({
+                                /** @default null */
+                                calendarId?: string | null;
+                                /** @enum {string} */
+                                event: "form.submitted" | "form.stopped" | "appointment.booked" | "appointment.cancelled" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received";
+                                /** @default null */
+                                formId?: string | null;
+                                id: string;
+                                /** @enum {string} */
+                                kind: "event";
+                                /** Format: uuid */
+                                to: string;
+                            } | {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "reply";
+                                says: string;
+                                /** Format: uuid */
+                                to: string;
+                            } | {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "quiet";
+                                minutes: number;
+                                /** Format: uuid */
+                                to: string;
+                            })[];
+                            /** Format: uuid */
+                            stageId: string;
+                        }[];
+                        /**
+                         * @default 1
+                         * @enum {number}
+                         */
+                        v?: 1;
+                        /**
+                         * @default ai
+                         * @enum {string}
+                         */
+                        wording?: "ai" | "exact";
+                    };
+                    /** Format: uuid */
+                    funnelId: string;
+                    moveFrom?: {
+                        [key: string]: string;
+                    };
+                    name?: string;
+                    revision: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        funnelId: string;
+                        revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_funnel_turn_on: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    addExisting?: boolean;
+                    /** Format: uuid */
+                    funnelId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        adding: number;
+                        /** Format: uuid */
+                        funnelId: string;
+                        /** @enum {string} */
+                        status: "draft" | "on" | "paused" | "archived";
+                    };
+                };
+            };
+        };
+    };
     command_idea_area_save: {
         parameters: {
             query?: never;
@@ -31672,6 +32509,8 @@ export interface operations {
                 "application/json": {
                     afterLeadId?: string | null;
                     because?: string;
+                    /** Format: uuid */
+                    funnelId?: string;
                     /** Format: uuid */
                     leadId: string;
                     lostReason?: string;
@@ -57352,6 +58191,11 @@ export interface operations {
                                     message: string;
                                 }[];
                                 /** @default null */
+                                funnel: {
+                                    name: string;
+                                    stageName: string;
+                                } | null;
+                                /** @default null */
                                 message: {
                                     body: string;
                                     /** @enum {string} */
@@ -62872,6 +63716,532 @@ export interface operations {
             };
         };
     };
+    query_funnel_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    funnelId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businessName: string;
+                        calendars: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        forms: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        funnel: {
+                            definition: {
+                                /**
+                                 * @default teammate
+                                 * @enum {string}
+                                 */
+                                approval: "teammate" | "ask" | "send";
+                                /** @default  */
+                                description: string;
+                                entry: {
+                                    /** @default false */
+                                    aiSuggests: boolean;
+                                    /** @default true */
+                                    byHand: boolean;
+                                    /** @default [] */
+                                    rules: ({
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "new_lead";
+                                    } | {
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "came_in";
+                                        ways: ("text" | "call" | "email" | "website_form" | "api" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed")[];
+                                    } | {
+                                        /** Format: uuid */
+                                        formId: string;
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "form";
+                                    } | {
+                                        /** Format: uuid */
+                                        calendarId: string;
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "booking";
+                                    })[];
+                                    /** @default null */
+                                    startStageId: string | null;
+                                };
+                                /** @default [] */
+                                stages: {
+                                    /** @default  */
+                                    goal: string;
+                                    /** @default false */
+                                    handOff: boolean;
+                                    /** @default  */
+                                    knows: string;
+                                    /** @default [] */
+                                    messages: {
+                                        /** @default null */
+                                        goodForMinutes: number | null;
+                                        /**
+                                         * @default best
+                                         * @enum {string}
+                                         */
+                                        how: "text" | "email" | "best";
+                                        id: string;
+                                        /** @default null */
+                                        onlyIf: {
+                                            /** @enum {string} */
+                                            event: "form.submitted" | "form.stopped" | "appointment.booked" | "appointment.cancelled" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received";
+                                            has: boolean;
+                                        } | null;
+                                        text: string;
+                                        when: {
+                                            /** @enum {string} */
+                                            kind: "arrive";
+                                            minutes: number;
+                                        } | {
+                                            /** @enum {string} */
+                                            kind: "booking";
+                                            minutes: number;
+                                        } | {
+                                            at: string;
+                                            daysBefore: number;
+                                            /** @enum {string} */
+                                            kind: "booking_day";
+                                        };
+                                        /**
+                                         * @default ai
+                                         * @enum {string}
+                                         */
+                                        wording: "ai" | "exact";
+                                    }[];
+                                    /** @default [] */
+                                    moves: ({
+                                        /** @default null */
+                                        calendarId: string | null;
+                                        /** @enum {string} */
+                                        event: "form.submitted" | "form.stopped" | "appointment.booked" | "appointment.cancelled" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received";
+                                        /** @default null */
+                                        formId: string | null;
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "event";
+                                        /** Format: uuid */
+                                        to: string;
+                                    } | {
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "reply";
+                                        says: string;
+                                        /** Format: uuid */
+                                        to: string;
+                                    } | {
+                                        id: string;
+                                        /** @enum {string} */
+                                        kind: "quiet";
+                                        minutes: number;
+                                        /** Format: uuid */
+                                        to: string;
+                                    })[];
+                                    /** Format: uuid */
+                                    stageId: string;
+                                }[];
+                                /**
+                                 * @default 1
+                                 * @enum {number}
+                                 */
+                                v: 1;
+                                /**
+                                 * @default ai
+                                 * @enum {string}
+                                 */
+                                wording: "ai" | "exact";
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            paused: number;
+                            people: number;
+                            /** Format: uuid */
+                            pipelineId: string;
+                            pipelineName: string;
+                            revision: number;
+                            stages: {
+                                /** Format: uuid */
+                                id: string;
+                                inFunnel: boolean;
+                                /** @enum {string} */
+                                kind: "open" | "won" | "lost";
+                                name: string;
+                                people: number;
+                                position: number;
+                            }[];
+                            /** @enum {string} */
+                            status: "draft" | "on" | "paused" | "archived";
+                            suggestions: number;
+                            updatedAt: string;
+                            updatedBy: string | null;
+                        };
+                        issues: {
+                            /** @enum {string} */
+                            level: "red" | "yellow" | "ok";
+                            rule: string;
+                            words: string;
+                        }[];
+                        overlappingWorkflows: string[];
+                        teammate: {
+                            approved: number;
+                            name: string;
+                            needed: number;
+                            /** @enum {string} */
+                            status: "off" | "training" | "automatic";
+                        } | null;
+                        timeZone: string;
+                        waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    query_funnel_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        funnels: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            paused: number;
+                            people: number;
+                            /** Format: uuid */
+                            pipelineId: string;
+                            pipelineName: string;
+                            revision: number;
+                            stages: {
+                                /** Format: uuid */
+                                id: string;
+                                inFunnel: boolean;
+                                /** @enum {string} */
+                                kind: "open" | "won" | "lost";
+                                name: string;
+                                people: number;
+                                position: number;
+                            }[];
+                            /** @enum {string} */
+                            status: "draft" | "on" | "paused" | "archived";
+                            suggestions: number;
+                            updatedAt: string;
+                            updatedBy: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_funnel_of_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canJoin: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        current: {
+                            /** @enum {string} */
+                            addedBy: "rule" | "hand" | "ai" | "turn_on";
+                            booking: {
+                                /** Format: uuid */
+                                appointmentId: string;
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            funnelId: string;
+                            funnelName: string;
+                            /** @enum {string} */
+                            funnelStatus: "draft" | "on" | "paused" | "archived";
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            leftReason: ("won" | "lost" | "removed" | "outside" | "other_funnel" | "opted_out" | "funnel_archived" | "lead_gone") | null;
+                            next: {
+                                dueAt: string;
+                                messageId: string;
+                                onlyIf: string | null;
+                                text: string;
+                                /** @enum {string} */
+                                wording: "ai" | "exact";
+                            }[];
+                            pausedReason: ("taken_over" | "handed_off" | "by_hand") | null;
+                            /** Format: uuid */
+                            personId: string;
+                            personName: string;
+                            stageId: string | null;
+                            stageName: string | null;
+                            stageReachedAt: string;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "left" | "suggested" | "declined";
+                            suggestedWhy: string | null;
+                        } | null;
+                        stages: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "open" | "won" | "lost";
+                            name: string;
+                        }[];
+                        suggestion: {
+                            /** @enum {string} */
+                            addedBy: "rule" | "hand" | "ai" | "turn_on";
+                            booking: {
+                                /** Format: uuid */
+                                appointmentId: string;
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            funnelId: string;
+                            funnelName: string;
+                            /** @enum {string} */
+                            funnelStatus: "draft" | "on" | "paused" | "archived";
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            leftReason: ("won" | "lost" | "removed" | "outside" | "other_funnel" | "opted_out" | "funnel_archived" | "lead_gone") | null;
+                            next: {
+                                dueAt: string;
+                                messageId: string;
+                                onlyIf: string | null;
+                                text: string;
+                                /** @enum {string} */
+                                wording: "ai" | "exact";
+                            }[];
+                            pausedReason: ("taken_over" | "handed_off" | "by_hand") | null;
+                            /** Format: uuid */
+                            personId: string;
+                            personName: string;
+                            stageId: string | null;
+                            stageName: string | null;
+                            stageReachedAt: string;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "left" | "suggested" | "declined";
+                            suggestedWhy: string | null;
+                        } | null;
+                        timeZone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_funnel_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    funnelId: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /**
+                     * @default in
+                     * @enum {string}
+                     */
+                    show?: "in" | "suggested" | "left";
+                    /** Format: uuid */
+                    stageId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** @enum {string} */
+                            addedBy: "rule" | "hand" | "ai" | "turn_on";
+                            booking: {
+                                /** Format: uuid */
+                                appointmentId: string;
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            funnelId: string;
+                            funnelName: string;
+                            /** @enum {string} */
+                            funnelStatus: "draft" | "on" | "paused" | "archived";
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            leftReason: ("won" | "lost" | "removed" | "outside" | "other_funnel" | "opted_out" | "funnel_archived" | "lead_gone") | null;
+                            next: {
+                                dueAt: string;
+                                messageId: string;
+                                onlyIf: string | null;
+                                text: string;
+                                /** @enum {string} */
+                                wording: "ai" | "exact";
+                            }[];
+                            pausedReason: ("taken_over" | "handed_off" | "by_hand") | null;
+                            /** Format: uuid */
+                            personId: string;
+                            personName: string;
+                            stageId: string | null;
+                            stageName: string | null;
+                            stageReachedAt: string;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "left" | "suggested" | "declined";
+                            suggestedWhy: string | null;
+                        }[];
+                        timeZone: string;
+                    };
+                };
+            };
+        };
+    };
+    query_funnel_suggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        suggestions: {
+                            /** @enum {string} */
+                            addedBy: "rule" | "hand" | "ai" | "turn_on";
+                            booking: {
+                                /** Format: uuid */
+                                appointmentId: string;
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            funnelId: string;
+                            funnelName: string;
+                            /** @enum {string} */
+                            funnelStatus: "draft" | "on" | "paused" | "archived";
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            leftReason: ("won" | "lost" | "removed" | "outside" | "other_funnel" | "opted_out" | "funnel_archived" | "lead_gone") | null;
+                            next: {
+                                dueAt: string;
+                                messageId: string;
+                                onlyIf: string | null;
+                                text: string;
+                                /** @enum {string} */
+                                wording: "ai" | "exact";
+                            }[];
+                            pausedReason: ("taken_over" | "handed_off" | "by_hand") | null;
+                            /** Format: uuid */
+                            personId: string;
+                            personName: string;
+                            stageId: string | null;
+                            stageName: string | null;
+                            stageReachedAt: string;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "left" | "suggested" | "declined";
+                            suggestedWhy: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_idea_areas: {
         parameters: {
             query?: never;
@@ -64452,6 +65822,18 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        funnel: {
+                            /** Format: uuid */
+                            id: string;
+                            leads: {
+                                /** Format: uuid */
+                                leadId: string;
+                                paused: boolean;
+                            }[];
+                            name: string;
+                            /** @enum {string} */
+                            status: "draft" | "on" | "paused";
+                        } | null;
                         pipeline: {
                             /** Format: uuid */
                             id: string;

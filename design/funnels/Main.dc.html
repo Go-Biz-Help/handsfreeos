@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI teammate · Funnels</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/handsfreeos/styles.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/fonts.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/colors.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/typography.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/spacing.css">
+<link rel="stylesheet" href="ds/handsfreeos/tokens/base.css">
+<link rel="stylesheet" href="ds/handsfreeos/components/components.css">
+<script src="ds/handsfreeos/_ds_bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2d69d8}a:hover{color:#2355b0}
+</style>
+</helmet>
+<div style="display: flex; flex-wrap: wrap; align-items: stretch; min-height: 100vh; background: var(--bg); font-family: var(--font-sans); color: var(--text); font-size: 14px; line-height: 1.45;">
+  <dc-import name="Sidebar" active="ai" hint-size="240px,900px"></dc-import>
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px 48px; display: flex; flex-direction: column; gap: 22px;">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px;">
+      <span style="width: 40px; height: 40px; border-radius: 10px; background: var(--ai-soft); color: var(--ai-text); display: flex; align-items: center; justify-content: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg></span>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <h1 style="margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;">Ava</h1>
+          <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Badge" variant="pending">Training wheels · 14 of 20 approved</x-import>
+        </div>
+        <span style="font-size: 13px; color: var(--text-2);">Your AI teammate · answers by text, email and website chat</span>
+      </div>
+      <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="secondary">Test console</x-import>
+    </header>
+    <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Tabs" value="funnels" tabs="{{tabs}}"></x-import>
+
+    <section aria-labelledby="funnels-title" style="display: flex; flex-direction: column; gap: 16px; max-width: 1040px;">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;">
+        <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 4px;">
+          <h2 id="funnels-title" style="margin: 0; font-size: 16px; font-weight: 600;">Funnels</h2>
+          <p style="margin: 0; font-size: 13.5px; color: var(--text-2); max-width: 640px; text-wrap: pretty;">Ava takes each person through a funnel’s stages. It sends each stage’s messages at the right time, answers their questions knowing where they are, and moves them on.</p>
+        </div>
+        <a href="Describe.dc.html" style="display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 8px; background: var(--accent); color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>New funnel</a>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--ai-soft); border: 1px solid color-mix(in oklab, var(--ai-hue) 22%, var(--card));">
+        <span style="width: 28px; height: 28px; border-radius: 7px; background: var(--card); color: var(--ai-text); display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" x2="19" y1="8" y2="14"></line><line x1="22" x2="16" y1="11" y2="11"></line></svg></span>
+        <span style="flex: 1 1 320px; font-size: 13.5px; color: var(--text);"><b style="font-weight: 600;">Ava thinks 2 people fit Recruiting.</b> Jordan Lee asked about the opportunity by text, and Priya Nair answered a Facebook post about it.</span>
+        <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Button" variant="secondary" size="sm">Review on Approvals</x-import>
+      </div>
+
+      <article style="display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-1); overflow: hidden;">
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; padding: 16px 18px 14px;">
+          <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h3 style="margin: 0; font-size: 15px; font-weight: 600;">Recruiting</h3>
+              <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Badge" variant="ok">On</x-import>
+            </div>
+            <span style="font-size: 13px; color: var(--text-2);">Pipeline: Recruiting · 9 stages · 34 people in it · Messages wait for an OK while Ava is in training wheels</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Switch" checked="{{yes}}" label="Recruiting is on"></x-import>
+            <a href="Builder.dc.html" style="display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text); font-size: 13px; font-weight: 500; text-decoration: none; box-shadow: var(--shadow-1);">Open map</a>
+            <button type="button" aria-label="More for Recruiting" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: var(--text-2); display: flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></button>
+          </div>
+        </div>
+        <ol aria-label="Where people are in Recruiting" style="list-style: none; margin: 0; padding: 0 18px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card-2); font-size: 12.5px;"><span>New lead</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">4</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card-2); font-size: 12.5px;"><span>In the funnel</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">6</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); font-size: 12.5px;"><span>Booked</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">12</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card-2); font-size: 12.5px;"><span>At the presentation</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">0</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card-2); font-size: 12.5px;"><span>After</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">5</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card-2); font-size: 12.5px;"><span>Missed</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">3</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--card-2); font-size: 12.5px;"><span>Interested</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">2</b></li>
+          <li aria-hidden="true" style="color: var(--text-3); font-size: 12px;">›</li>
+          <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--success-soft); color: var(--success-text); font-size: 12.5px;"><span>Three-way call</span><b style="font-weight: 600; font-variant-numeric: tabular-nums;">2</b></li>
+        </ol>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 9px 18px; background: var(--card-2); border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3);">
+          <span>Today: 9 messages sent · 2 waiting for an OK · 1 person paused while Dana talks to them</span>
+          <span style="flex-grow: 1;"></span>
+          <span>Changed Oct 23 by Dana</span>
+        </div>
+      </article>
+
+      <article style="display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-1); overflow: hidden;">
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; padding: 16px 18px;">
+          <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h3 style="margin: 0; font-size: 15px; font-weight: 600;">Estimate follow-up</h3>
+              <x-import component-from-global-scope="HandsFreeOSDesignSystem_e86cc8.Badge" variant="gray">Draft</x-import>
+            </div>
+            <span style="font-size: 13px; color: var(--text-2);">Pipeline: Sales · 5 stages · Not on yet. Next: try it as a lead, then turn it on</span>
+          </div>
+          <a href="TryIt.dc.html" style="display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text); font-size: 13px; font-weight: 500; text-decoration: none; box-shadow: var(--shadow-1);">Finish setting it up</a>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      yes: true,
+      tabs: [
+        { value: 'teammate', label: 'Teammate' },
+        { value: 'instructions', label: 'Instructions' },
+        { value: 'funnels', label: 'Funnels' },
+        { value: 'review', label: 'Review' },
+        { value: 'activity', label: 'Activity' },
+        { value: 'approvals', label: 'Approvals' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

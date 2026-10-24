@@ -418,6 +418,7 @@ import {
   teammateInstructionDelete,
   teammateInstructionUpdate,
 } from './teammate-instruction';
+import { funnelCommands } from './funnel';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
 import { attendeeSetAttendance } from './attendance';
@@ -1065,6 +1066,8 @@ export const commands: readonly CommandDef[] = [
   teammateInstructionCreate,
   teammateInstructionUpdate,
   teammateInstructionDelete,
+  // Funnels: the steps the AI teammate takes people through (20261027012000).
+  ...funnelCommands,
   ...campaignCommands,
   ...aiCallCommands,
   // The AI's pass over the whole customer list, putting tags on and off (0107).
@@ -1244,6 +1247,7 @@ export * from './referral';
 export * from './teammate-lesson';
 export * from './teammate-feedback';
 export * from './teammate-instruction';
+export * from './funnel';
 export * from './campaign';
 export * from './ai-call';
 export * from './contact-ai';

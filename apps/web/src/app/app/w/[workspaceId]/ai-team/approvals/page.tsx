@@ -10,8 +10,8 @@ export const metadata: Metadata = { title: 'AI teammate approvals' };
 const DECIDED = 30;
 
 /**
- * The Approvals tab: the teammate's drafts waiting for a yes, and the ones decided lately, without leaving
- * the AI teammate area. Workflows › Approvals lists them too, beside workflow approvals.
+ * The Approvals tab: the teammate's funnel suggestions and drafts waiting for a yes, and the drafts decided lately,
+ * without leaving the AI teammate area. Workflows › Approvals lists them too, beside workflow approvals.
  */
 export default async function AiTeamApprovalsPage({
   params,
@@ -27,10 +27,14 @@ export default async function AiTeamApprovalsPage({
       })
       .then((r): TeammateDraft[] => r.data?.items ?? [])
       .catch((): TeammateDraft[] => []);
-  const [got, drafts, decidedDrafts] = await Promise.all([
+  const [got, drafts, decidedDrafts, suggestions] = await Promise.all([
     api.POST('/v1/queries/ai_teammate.get', { body: { workspaceId } }),
     draftList('pending'),
     draftList('decided'),
+    api
+      .POST('/v1/queries/funnel.suggestions', { body: { workspaceId } })
+      .then((r) => r.data?.suggestions ?? [])
+      .catch(() => []),
   ]);
   return (
     <TeammateApprovalsTab
@@ -38,6 +42,7 @@ export default async function AiTeamApprovalsPage({
       data={teammateGetOf(unwrapPage(got))}
       drafts={drafts}
       decidedDrafts={decidedDrafts}
+      suggestions={suggestions}
       serverNow={Date.now()}
     />
   );

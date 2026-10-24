@@ -23,6 +23,7 @@ import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
 import { AI_PROVIDER_CHECK_JOB, AI_PROVIDER_CHECK_KEY, aiProviderCheck } from './ai/switch';
 import { teammateJobs } from './ai-team/index';
+import { funnelJobs } from './funnels/index';
 import { ladderJob, SAFETY_JOBS, tellJob } from './safety/ladder';
 import { CLEAR_SPOTS_KEY, nextSpotClearing, SPOT_JOBS, spotJobs } from './safety/spots';
 import { alertUrgent, waitOf } from './attention/alerts';
@@ -568,6 +569,8 @@ export const jobs: JobMap = {
   // The AI teammate: replies, first messages, nudges, drafts quiet hours held back or nobody decided, and
   // hand-off lines quiet hours held back.
   ...teammateJobs,
+  // Teammate funnels: each person's next step, and the leads already there taken in when one is turned on.
+  ...funnelJobs,
   // The website chat: a reply still unread after 10 minutes goes by email or text.
   [CHAT_JOBS.unreadFollowUp]: chatUnreadFollowUp,
   [PORTAL_JOBS.unreadNotice]: portalUnreadNotice,

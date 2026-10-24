@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, isNull, or, sql as dsql, type SQL } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
+import { uuidArray } from '../calendar/load';
 import { leadCards } from '../crm/lead-cards';
 import { BOARD_LEADS_PER_STAGE, boardStages } from '../crm/pipeline-words';
 import { HfosError } from '../errors';
@@ -66,9 +67,26 @@ export const leadBoard = defineQuery({
           where workspace_id = ${input.workspaceId} and pipeline_id = ${pipeline.id} and archived_at is null
           group by stage_id`,
     );
+    const [funnel] = await rows<{ id: string; name: string; status: 'draft' | 'on' | 'paused' }>(
+      ctx.tx,
+      sql`select id, name, status::text as status from app.funnels
+          where pipeline_id = ${pipeline.id} and status <> 'archived' limit 1`,
+    );
+    const inFunnel =
+      funnel && cards.length
+        ? await rows<{ lead_id: string; paused: boolean }>(
+            ctx.tx,
+            sql`select lead_id, status = 'paused' as paused from app.funnel_people
+                where funnel_id = ${funnel.id} and status in ('active', 'paused')
+                  and lead_id = any(${uuidArray(cards.map((c) => c.id))})`,
+          )
+        : [];
     return {
       pipeline,
       pipelines: active,
+      funnel: funnel
+        ? { ...funnel, leads: inFunnel.map((r) => ({ leadId: r.lead_id, paused: r.paused })) }
+        : null,
       // Each stage's count and total come from core, so the web's board and the phone's agree after a move.
       stages: boardStages(
         stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, position: s.position })),

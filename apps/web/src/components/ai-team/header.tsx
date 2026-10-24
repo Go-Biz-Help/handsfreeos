@@ -152,6 +152,11 @@ export function TeammateSubnav({
       active: pathname.startsWith(`${base}/instructions`),
     },
     {
+      href: `${base}/funnels`,
+      label: 'Funnels',
+      active: pathname.startsWith(`${base}/funnels`),
+    },
+    {
       href: `${base}/review`,
       label: 'Review',
       active: pathname.startsWith(`${base}/review`),

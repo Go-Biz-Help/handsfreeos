@@ -358,6 +358,28 @@ export const TEAMMATE_TOOLS = [
     skill: 'qualify',
     autonomy: 'auto',
   }),
+  define({
+    name: 'funnel_move_on',
+    description:
+      'When what they wrote matches one of the moves listed in <funnel>, move them on by that move’s id. Give the reason in a few words, from what they said.',
+    input: z.strictObject({
+      moveId: z.string().trim().min(4).max(20).describe('A move id from <funnel>'),
+      because: text(200),
+    }),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'suggest_funnel',
+    description:
+      'When the customer fits one of the funnels listed in <funnels>, suggest putting them in it, with why in a few words. Someone on the team says yes or no first, so it changes nothing for them now.',
+    input: z.strictObject({
+      funnelId: uuid.describe('A funnel id from <funnels>'),
+      why: text(300),
+    }),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
 
   // ---------- deals (M18) ----------
   define({
@@ -749,6 +771,10 @@ export interface TeammateToolOptions {
   readonly phone?: boolean;
   /** It placed this call itself, and why (AI outbound calls). */
   readonly outbound?: 'confirm_visit' | 'missed_call' | 'quote' | 'campaign' | null;
+  /** The customer is in a funnel with moves the teammate judges from what they write (teammate funnels). */
+  readonly funnel?: boolean;
+  /** The customer is in no funnel, and some take the teammate's suggestions (teammate funnels). */
+  readonly suggestFunnels?: boolean;
 }
 
 /** The tools a teammate's settings turn on, in registry order. */
@@ -789,6 +815,8 @@ export function teammateTools(
         !!opts.outbound &&
         (t.name !== 'confirm_visit' || opts.outbound === 'confirm_visit')
       );
+    if (t.name === 'funnel_move_on') return !!opts.funnel && !opts.phone;
+    if (t.name === 'suggest_funnel') return !!opts.suggestFunnels && !opts.phone;
     if (PHONE_ONLY.has(t.name)) return !!opts.phone;
     if (TEXTING_ONLY.has(t.name)) return !!opts.texting && !opts.phone;
     if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;

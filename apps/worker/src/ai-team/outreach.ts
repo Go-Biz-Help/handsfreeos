@@ -4,7 +4,7 @@
  * teammate's working hours.
  * - Skipped: imports (the system working for an importer), leads a booking opened (the booking page, the
  *   waitlist, a staff booking), the teammate's own leads, leads with no customer, customers a workflow is
- *   handing over, and customers someone is already talking to (a conversation the teammate or a person handles,
+ *   handing over, customers a funnel has (its first stage writes to them), and customers someone is already talking to (a conversation the teammate or a person handles,
  *   one assigned to someone, or one where they wrote in and are waiting for an answer).
  * - Consent picks the channel, the business's choice first: a text when they agreed to texts or texted or called
  *   in the last day (never after STOP), an email when they have an address, else nothing (the run says why).
@@ -31,6 +31,7 @@ import type { EventHandler } from '../handlers/types';
 import type { JobHandler } from '../jobs';
 import { tenantOf, type TenantScope } from '../services';
 import { runtimeConfigOf } from './config';
+import { inFunnel } from './funnel-context';
 import { outreachJobKey, QUIET_GRACE_MS, RECENT_CONTACT_MS, TEAMMATE_JOBS } from './constants';
 import { nextWorkingAt } from './hours';
 import { handoverOf, originOf, runFirstMessage, type FirstTarget } from './run';
@@ -68,7 +69,7 @@ async function workflowHasThem(tx: Tx, workspaceId: string, personId: string): P
 }
 
 /** They texted or called this business themselves in the last day (the M6 consent rule). */
-async function recentContact(tx: Tx, workspaceId: string, phone: string): Promise<boolean> {
+export async function recentContact(tx: Tx, workspaceId: string, phone: string): Promise<boolean> {
   const since = new Date(Date.now() - RECENT_CONTACT_MS).toISOString();
   const [r] = await rows<{ yes: boolean }>(
     tx,
@@ -125,6 +126,8 @@ export const onLeadCreated: EventHandler = async (ctx) => {
   );
   if (booked) return;
   if (await someoneHas(ctx.tx, ws, lead.person_id)) return;
+  // A funnel took them in: its first stage writes to them (funnels/events.ts runs before this).
+  if (await inFunnel(ctx.tx, lead.person_id)) return;
   await scheduleJob(ctx.tx, {
     kind: TEAMMATE_JOBS.outreach,
     dedupeKey: outreachJobKey(e.entityId),
@@ -190,6 +193,7 @@ async function planFirstMessage(
       freshUntil = new Date(lead.created_at).getTime() + QUIET_FIRST_MESSAGE_WINDOW_MS;
   }
   if (!resuming && (await someoneHas(tx, ws, personId))) return skip;
+  if (!fromWorkflow && (await inFunnel(tx, personId))) return skip;
   const wanted = str(p['channel']);
   const preferred: 'sms' | 'email' =
     wanted === 'sms' || wanted === 'email' ? wanted : config.respond.newLeads.channel;

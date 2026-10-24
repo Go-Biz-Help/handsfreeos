@@ -1,0 +1,3 @@
+/* HandsFreeOS uses Hanken Grotesk (UI + marketing) and JetBrains Mono (codes, DNS values, kbd).
+   The product loads both from Google Fonts via next/font — same source here. */
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,400..600&family=JetBrains+Mono:wght@400;500;600&display=swap');
