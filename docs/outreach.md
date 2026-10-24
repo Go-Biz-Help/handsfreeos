@@ -1870,9 +1870,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     they were from instead of where they live", and "look at mutual friends … if they're connected to a lot of other
     americans … then we should accept them"). Changes decision 61. "Lives in" beats "From"; a guess never skips
     anyone on its own: they wait for a look, a full check that also reads their mutual friends, and the AI weighs
-    where those friends live against how many friends they have. Profile and friends disagreeing, or the AI not
-    sure, goes on a Doubtful list for a person to decide. The plan, with the decisions and the build order, is
-    `HANDSFREEOS_OUTREACH_COUNTRY_CHECK_IMPLEMENTATION_PLAN.md`. Planned.
+    where those friends live against how many friends they have. A "From" line alone waits for a look too. When it
+    still can't tell (only a name, the AI not sure, or profile and friends disagreeing), a new setting decides: Let
+    them through, Ask me (a Not sure list a person decides from) or Skip them. One release. The plan, with the
+    decisions and the build order, is `HANDSFREEOS_OUTREACH_COUNTRY_CHECK_IMPLEMENTATION_PLAN.md`. Planned.
 
 ## Rules worth knowing before changing anything
 
