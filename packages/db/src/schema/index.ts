@@ -3193,6 +3193,11 @@ export const mainOffers = app.table('main_offers', {
   liveVersion: integer('live_version'),
   /** The owner's own words for the whole offer, read by every score and try; null when they gave none. */
   direction: text('direction'),
+  /** The names the business goes by on people's profiles; none is the business's name in HandsFreeOS. */
+  names: text('names')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   ...timestamps(),
 });
 

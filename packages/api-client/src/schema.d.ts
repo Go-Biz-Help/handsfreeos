@@ -5057,6 +5057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/main_offer.save_names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the names the business goes by on people’s profiles: its company and the brand it sells. Social Outreach’s profile check looks for them; with none, it looks for the business’s name in HandsFreeOS.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.names_saved.
+         */
+        post: operations["command_main_offer_save_names"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/main_offer.try_apply": {
         parameters: {
             query?: never;
@@ -32482,6 +32502,36 @@ export interface operations {
                 content: {
                     "application/json": {
                         revision: number;
+                    };
+                };
+            };
+        };
+    };
+    command_main_offer_save_names: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    names: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        names: string[];
                     };
                 };
             };
@@ -64711,6 +64761,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         bar: number;
+                        /** @default  */
+                        businessName: string;
                         comesWith: string[];
                         direction: string | null;
                         draft: {
@@ -64968,6 +65020,8 @@ export interface operations {
                             };
                             version: number;
                         } | null;
+                        /** @default [] */
+                        names: string[];
                         revision: number;
                     };
                 };

@@ -25105,6 +25105,70 @@
         }
       }
     },
+    "/v1/commands/main_offer.save_names": {
+      "post": {
+        "operationId": "command_main_offer_save_names",
+        "summary": "Save the names the business goes by on people’s profiles: its company and the brand it sells. Social Outreach’s profile check looks for them; with none, it looks for the business’s name in HandsFreeOS.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires main_offer.manage. Emits main_offer.names_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "names": {
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "names"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "names": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "names"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/main_offer.try_apply": {
       "post": {
         "operationId": "command_main_offer_try_apply",
@@ -130150,6 +130214,17 @@
                         "null"
                       ]
                     },
+                    "names": {
+                      "default": [],
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "businessName": {
+                      "default": "",
+                      "type": "string"
+                    },
                     "live": {
                       "anyOf": [
                         {
@@ -131360,6 +131435,8 @@
                     "bar",
                     "revision",
                     "direction",
+                    "names",
+                    "businessName",
                     "live",
                     "draft"
                   ],

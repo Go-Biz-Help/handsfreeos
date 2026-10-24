@@ -41,6 +41,7 @@ import {
   partWritten,
   type ProfileMoreOutput,
 } from '@hfos/core/addons/outreach/profile-parts';
+import { namesGoneBy } from '@hfos/core';
 import { executeCommand, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { askStructured } from '../../ai/ask';
@@ -62,9 +63,11 @@ async function profileContext(
 ): Promise<{ readonly context: ProfileContext; readonly before: ProfileCheck | null }> {
   const ws = ctx.scope.workspaceId!;
   const { business, you, row, kept } = await asWorker(ctx.db, ctx.scope, async (tx) => {
-    const [b] = await rows<{ name: string }>(
+    const [b] = await rows<{ name: string; names: string[] | null }>(
       tx,
-      sql`select name from app.workspaces where id = ${ws}`,
+      sql`select w.name, o.names from app.workspaces w
+          left join app.main_offers o on o.workspace_id = w.id
+          where w.id = ${ws}`,
     );
     const [u] = await rows<{ full_name: string | null }>(
       tx,
@@ -102,7 +105,10 @@ async function profileContext(
   const before = checkOn(platform);
   return {
     context: {
-      business: business?.name ?? null,
+      // Every name the business goes by (the main offer's), else its name in HandsFreeOS.
+      business: business
+        ? namesGoneBy(business.names ?? [], business.name).join('; ') || null
+        : null,
       you: you?.full_name?.trim() || null,
       playbooks,
       others: PLATFORM_KEYS.filter((p) => p !== platform).flatMap((p) => {

@@ -26,6 +26,7 @@ import {
   shownUsername,
   usernameProblem,
   withHandles,
+  withoutTracking,
 } from '../../src/addons/outreach/profile-check';
 import {
   carriedOver,
@@ -136,6 +137,10 @@ describe('the whole profile, as the AI judges it', () => {
     for (const platform of ['facebook', 'linkedin', 'instagram', 'alignable'] as const) {
       expect(profileCheckSystem(platform)).toContain('a different business, brand or line of work');
       expect(profileCheckSystem(platform)).toContain('never a word in square brackets');
+      // Every name the business goes by is its own (the main offer's names, decision 84).
+      expect(profileCheckSystem(platform)).toContain(
+        'The business goes by every name under <business>',
+      );
       expect(
         (profileCheckAsk(platform).schema as { properties: { look: { required: string[] } } })
           .properties.look.required,
@@ -278,6 +283,25 @@ describe('the username and links, from what was read', () => {
       username: 'case',
       links: ['https://x.co'],
     });
+  });
+
+  it('takes the network’s tracking tag off each link, and keeps the person’s own', () => {
+    const fb = withHandles(
+      ProfileRead.parse({
+        platform: 'facebook',
+        links: [
+          'http://start.summitroofleads.com/trial?fbclid=IwZXh0bgNhZW0CMTAAAR',
+          'https://summitroofleads.com/book?utm_source=fb&fbclid=IwAR2x',
+          'http://start.summitroofleads.com/trial',
+        ],
+      }),
+    );
+    expect(fb.links).toEqual([
+      'http://start.summitroofleads.com/trial',
+      'https://summitroofleads.com/book?utm_source=fb',
+    ]);
+    expect(withoutTracking('https://cal.com/casey')).toBe('https://cal.com/casey');
+    expect(withoutTracking('not a link')).toBe('not a link');
   });
 });
 

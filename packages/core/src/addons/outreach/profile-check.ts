@@ -168,10 +168,25 @@ const NOT_USERNAMES = new Set([
 /** A line the page shows that's an address: "summitroofleads.com", "Link: cal.com/casey". */
 const ADDRESS = /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/\S*)?$/i;
 
+/** The tags a network adds to the links it shows ("?fbclid=…"): never the person's own, so never kept. */
+const NETWORK_TAGS = ['fbclid', 'igshid', 'igsh'];
+
+/** A link as the person wrote it: the network's own tracking tag taken off (the owner's read of 23 Oct 2026). */
+export function withoutTracking(link: string): string {
+  try {
+    const url = new URL(link);
+    if (!NETWORK_TAGS.some((t) => url.searchParams.has(t))) return link;
+    for (const t of NETWORK_TAGS) url.searchParams.delete(t);
+    return url.href;
+  } catch {
+    return link;
+  }
+}
+
 /**
  * The username and links worked out from what was read, where the extension didn't say them (decision 84): the
  * username from the profile's own address, and the links from the lines that are addresses (Facebook's intro,
- * Instagram's "Link:" lines). Builds before 0.87.0 send neither.
+ * Instagram's "Link:" lines). Builds before 0.87.0 send neither. Every link loses the network's tracking tag.
  */
 export function withHandles(read: z.output<typeof ProfileRead>): z.output<typeof ProfileRead> {
   let username = read.username;
@@ -190,19 +205,21 @@ export function withHandles(read: z.output<typeof ProfileRead>): z.output<typeof
       // Not an address: no username.
     }
   }
-  const links = read.links.length
-    ? read.links
-    : read.platform === 'facebook' || read.platform === 'instagram'
-      ? [
-          ...new Set(
-            read.intro
-              .map((l) => l.replace(/^link:\s*/i, '').trim())
-              .filter((l) => ADDRESS.test(l))
-              .map((l) => (/^https?:\/\//i.test(l) ? l : `https://${l}`)),
-          ),
-        ].slice(0, PROFILE_READ_LIMITS.links)
-      : [];
-  return { ...read, username, links };
+  const links = (
+    read.links.length
+      ? read.links
+      : read.platform === 'facebook' || read.platform === 'instagram'
+        ? [
+            ...new Set(
+              read.intro
+                .map((l) => l.replace(/^link:\s*/i, '').trim())
+                .filter((l) => ADDRESS.test(l))
+                .map((l) => (/^https?:\/\//i.test(l) ? l : `https://${l}`)),
+            ),
+          ].slice(0, PROFILE_READ_LIMITS.links)
+        : []
+  ).map(withoutTracking);
+  return { ...read, username, links: [...new Set(links)] };
 }
 
 /** The recommendations Alignable's profile wants before its owner reaches out (the plan: at least 5). */
@@ -357,10 +374,11 @@ export const PROFILE_CHECK_ASK = 'Score this Facebook profile.';
 const LOOK_RULES = [
   'Then judge the whole profile as a stranger sees it, under look. They want to be seen as a person who does this work, never as a company or a brand page, and the account stays their own.',
   '- reads: person when it plainly reads as a person who does this work; personal when it’s a personal account with little or nothing about the work; brand when it reads as a company or brand more than a person; unclear when there’s too little to tell.',
-  '- work: whether it’s about the work they’re reaching out for, under <main_offer> and <playbooks>. same when it is, whatever business name it uses; other when its name, username, link, bio or work line is about a different business, brand or line of work; none when it says nothing of any work. When it’s other, the first clash says what it’s about instead and that it isn’t the work they’re offering, like “This account is about Smith Bakery, not the roofing leads you’re offering”.',
+  '- work: whether it’s about the work they’re reaching out for, under <main_offer> and <playbooks>. same when it is; other when its name, username, link, bio or work line is about a different business, brand or line of work; none when it says nothing of any work. When it’s other, the first clash says what it’s about instead and that it isn’t the work they’re offering, like “This account is about Smith Bakery, not the roofing leads you’re offering”.',
   '- ok: true only when reads is person and work is same.',
   '- title: one short sentence on how it comes across, to them, like “This looks like a personal account with nothing about your work”.',
   '- clashes: up to 4 short sentences, each one thing that puts people off, has nothing to do with the work, or doesn’t match their other profiles under <other_profiles>: a different name, an old job or business, a username or line about something else. Say each to them, plainly.',
+  'The business goes by every name under <business>, separated by semicolons: a profile that names any of them names the business, so never call one of them a clash, or ask for another of them in its place. A business name that isn’t one of them is another business.',
   '- unlike: which of name, username, line and link don’t match their other profiles, only from what’s given there.',
   'What they’ve said they want, under <notes>, comes first: never write what they said they don’t want.',
 ];
@@ -379,8 +397,8 @@ export const PROFILE_CHECK_SYSTEM = [
   'You check a small business owner’s own Facebook profile before they reach out to people on Facebook. The people they message look at it before they answer.',
   'The aim isn’t a profile that sells. It’s one that doesn’t put anyone off, and quietly shows who they help and how.',
   'Check each item on the list, under <profile>, against the business’s main offer under <main_offer>:',
-  '- picture: a clear photo of their face, not a logo, a group, a car or a pet. Facebook’s own description of the picture is given.',
-  '- cover: a cover that says the result they get people, in a few words, not a sales pitch. Facebook’s description of it is given.',
+  '- picture: a clear photo of their face, not a logo, a group, a car or a pet. Facebook’s own description of the picture is given. When it says Facebook didn’t describe it, there is a picture, only not described: with nothing against it, it’s ok, and why says to check it’s a clear photo of their face.',
+  '- cover: a cover that says the result they get people, in a few words, not a sales pitch. Facebook’s description of it is given. When it says Facebook didn’t describe it, there is a cover you can’t see: it isn’t ok, why says it couldn’t be read, and fix says to check it says the result they get people in a few words.',
   '- bio: a short bio that says what they do and for whom, from the main offer.',
   '- work: a work line in the intro that names their business.',
   '- featured: featured items that show a result, a review, or where to book.',
