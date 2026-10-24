@@ -1866,6 +1866,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       computer used now first); one still running comes back as new at its next beat. A person deletes only their
       own (a restrictive policy, as for reading them); their feed lines go with them and an ask one took keeps no
       computer. The phone shows the others and doesn't remove them.
+86. **Where people live: Lives in first, and their friends as evidence** (Chris, 24 Oct 2026: "it picked up where
+    they were from instead of where they live", and "look at mutual friends … if they're connected to a lot of other
+    americans … then we should accept them"). Changes decision 61. "Lives in" beats "From"; a guess never skips
+    anyone on its own: they wait for a look, a full check that also reads their mutual friends, and the AI weighs
+    where those friends live against how many friends they have. Profile and friends disagreeing, or the AI not
+    sure, goes on a Doubtful list for a person to decide. The plan, with the decisions and the build order, is
+    `HANDSFREEOS_OUTREACH_COUNTRY_CHECK_IMPLEMENTATION_PLAN.md`. Planned.
 
 ## Rules worth knowing before changing anything
 
