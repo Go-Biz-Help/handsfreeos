@@ -58,8 +58,7 @@ create index form_responses_link_idx on app.form_responses (form_link_id)
   where form_link_id is not null;
 
 -- A sheet the app starts on the phone is never a link's (0109's rule, with the new column).
-drop policy form_responses_insert_from_app on app.form_responses;
-create policy form_responses_insert_from_app on app.form_responses for insert to authenticated
+alter policy form_responses_insert_from_app on app.form_responses
   with check (
     source = 'app'
     and status = 'in_progress'
