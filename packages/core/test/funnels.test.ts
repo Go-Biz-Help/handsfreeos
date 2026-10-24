@@ -7,12 +7,15 @@ import { describe, expect, it } from 'vitest';
 import { localInstant } from '../src/calendar/engine/zoned';
 import {
   definitionFromDraft,
+  draftFromWire,
+  draftOnStages,
   fillFunnelText,
   funnelBlanks,
   funnelBlocker,
   funnelDurationWords,
   FunnelDefinition,
   FunnelDraft,
+  FunnelDraftWire,
   funnelEntryWords,
   funnelIssues,
   funnelMessageDueAt,
@@ -352,6 +355,179 @@ describe('the AI’s draft', () => {
     // Without a stage for "Gone quiet", the move to it goes too.
     const partial = definitionFromDraft(draft, matchDraftStages(draft, stages));
     expect(partial.stages.find((s) => s.stageId === id.booked)!.moves).toEqual([]);
+  });
+
+  it('follows the stages the person typed after it came', () => {
+    const d = draftOnStages(draft, [
+      { from: 'New lead', name: 'Just in', kind: 'open' },
+      { from: null, name: 'Talking', kind: 'open' },
+      { from: 'Gone quiet', name: 'Gone quiet', kind: 'lost' },
+      { from: null, name: 'Signed', kind: 'won' },
+    ]);
+    expect(d.stages.map((s) => [s.name, s.kind])).toEqual([
+      ['Just in', 'open'],
+      ['Talking', 'open'],
+      ['Gone quiet', 'lost'],
+      ['Signed', 'won'],
+    ]);
+    // "Booked" went, and the move to it with it; the message stays.
+    expect(d.stages[0]).toMatchObject({ goal: 'Get them to open their link', moves: [] });
+    expect(d.stages[0]!.messages).toHaveLength(1);
+    expect(d.stages[1]).toMatchObject({ moves: [], messages: [] });
+    expect(d.entry.startStage).toBe('Just in');
+    // A stage made won keeps nothing of its own.
+    const won = draftOnStages(draft, [
+      { from: 'New lead', name: 'New lead', kind: 'won' },
+      { from: 'Booked', name: 'Booked', kind: 'open' },
+      { from: 'Gone quiet', name: 'Gone quiet', kind: 'lost' },
+    ]);
+    expect(won.stages[0]).toMatchObject({ kind: 'won', moves: [], messages: [] });
+    expect(won.stages[1]!.moves).toEqual([{ kind: 'quiet', minutes: 1440, to: 'Gone quiet' }]);
+  });
+});
+
+describe('what the model writes', () => {
+  const none = { event: null, says: null, quietDays: null };
+  const message = {
+    when: 'arrive' as const,
+    minutes: 0,
+    daysBefore: null,
+    at: null,
+    onlyIf: 'always' as const,
+    onlyIfEvent: null,
+    wording: 'ai' as const,
+    text: 'Send their link.',
+    how: 'best' as const,
+  };
+  const stage = (name: string, kind: 'open' | 'won' | 'lost' = 'open') => ({
+    name,
+    kind,
+    goal: '',
+    knows: '',
+    handOff: false,
+    moves: [],
+    messages: [],
+  });
+  const wire = (over: Partial<FunnelDraftWire> = {}): FunnelDraftWire =>
+    FunnelDraftWire.parse({
+      name: ' Recruiting ',
+      stages: [
+        {
+          ...stage(' New lead '),
+          goal: 'Get them to open their link',
+          moves: [
+            { ...none, kind: 'event', event: 'form.submitted', to: 'booked' },
+            { ...none, kind: 'event', event: null, to: 'Booked' },
+            { ...none, kind: 'reply', says: 'no', to: 'Booked' },
+            { ...none, kind: 'reply', says: 'they say they’re in', to: 'Joined' },
+            { ...none, kind: 'quiet', quietDays: 400, to: 'Nowhere' },
+            { ...none, kind: 'quiet', quietDays: 2, to: 'New lead' },
+          ],
+          messages: [
+            message,
+            { ...message, text: '  ' },
+            {
+              ...message,
+              when: 'booking_day',
+              daysBefore: 30,
+              at: '25:00',
+              onlyIf: 'hasnt',
+              onlyIfEvent: 'form.submitted',
+            },
+            { ...message, when: 'booking', minutes: null, onlyIf: 'has', onlyIfEvent: null },
+          ],
+        },
+        stage('Booked'),
+        stage('booked'),
+        {
+          ...stage('Joined', 'won'),
+          goal: 'ignored',
+          moves: [{ ...none, kind: 'event', event: 'form.submitted', to: 'Booked' }],
+        },
+      ],
+      entry: { newLead: true, cameIn: [], byHand: true, aiSuggests: true, startStage: 'booked' },
+      ...over,
+    });
+
+  it('keeps what’s sound, mends what it can, and drops the rest', () => {
+    const d = draftFromWire(wire())!;
+    expect(d.name).toBe('Recruiting');
+    // The second "booked" goes, and the lost stage it left out is added.
+    expect(d.stages.map((s) => [s.name, s.kind])).toEqual([
+      ['New lead', 'open'],
+      ['Booked', 'open'],
+      ['Joined', 'won'],
+      ['Lost', 'lost'],
+    ]);
+    const first = d.stages[0]!;
+    // A move needs its event, a reply its words, and a stage that isn't this one or unnamed.
+    expect(first.moves).toEqual([
+      { kind: 'event', event: 'form.submitted', to: 'Booked' },
+      { kind: 'reply', says: 'they say they’re in', to: 'Joined' },
+    ]);
+    expect(first.messages.map((m) => [m.when, m.onlyIf])).toEqual([
+      [{ kind: 'arrive', minutes: 0 }, null],
+      [
+        { kind: 'booking_day', daysBefore: 7, at: '16:00' },
+        { has: false, event: 'form.submitted' },
+      ],
+      [{ kind: 'booking', minutes: -60 }, null],
+    ]);
+    // A won stage has nothing of its own.
+    expect(d.stages[2]).toMatchObject({ goal: '', moves: [], messages: [] });
+    expect(d.entry).toEqual({
+      rules: [{ kind: 'new_lead' }],
+      byHand: true,
+      aiSuggests: true,
+      startStage: 'Booked',
+    });
+  });
+
+  it('takes a few days quiet as minutes, within the limits', () => {
+    const d = draftFromWire(
+      wire({
+        stages: [
+          {
+            ...stage('New lead'),
+            moves: [
+              { ...none, kind: 'quiet', quietDays: 2, to: 'Lost' },
+              { ...none, kind: 'quiet', quietDays: 400, to: 'Lost' },
+            ],
+          },
+          stage('Lost', 'lost'),
+        ],
+      }),
+    )!;
+    const [two, many] = d.stages[0]!.moves as { minutes: number }[];
+    expect(two!.minutes).toBe(2 * 1440);
+    expect(many!.minutes).toBeLessThanOrEqual(90 * 1440);
+    expect(d.stages.map((s) => s.name)).toEqual(['New lead', 'Lost', 'Won']);
+  });
+
+  it('only some ways in, when it names them', () => {
+    const d = draftFromWire(
+      wire({
+        entry: {
+          newLead: true,
+          cameIn: ['website_form', 'website_form'],
+          byHand: false,
+          aiSuggests: false,
+          startStage: 'Nowhere',
+        },
+      }),
+    )!;
+    expect(d.entry).toEqual({
+      rules: [{ kind: 'came_in', ways: ['website_form'] }],
+      byHand: false,
+      aiSuggests: false,
+      startStage: null,
+    });
+  });
+
+  it('nothing when it has no open stage', () => {
+    expect(
+      draftFromWire(wire({ stages: [stage('Won', 'won'), stage('Lost', 'lost')] })),
+    ).toBeNull();
   });
 });
 

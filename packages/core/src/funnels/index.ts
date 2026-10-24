@@ -6,3 +6,4 @@ export * from './fill';
 export * from './issues';
 export * from './play';
 export * from './draft';
+export * from './draft-wire';

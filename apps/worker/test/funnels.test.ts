@@ -14,6 +14,7 @@ import {
   conversationTakeOver,
   FunnelDefinition,
   funnelCreate,
+  funnelDecideSuggestion,
   funnelGet,
   funnelSave,
   funnelTurnOn,
@@ -523,5 +524,82 @@ describe('who decides, and who has them', () => {
       sql`select status, lost_reason from app.leads where id = ${leadId}`,
     );
     expect(lead).toEqual({ status: 'lost', lost_reason: '3 days quiet' });
+  });
+});
+
+describe('the teammate’s suggestions', () => {
+  it('suggests the funnel for someone who fits, and a yes puts them in it', async () => {
+    const got = await query(w, funnelGet, { workspaceId: w.workspaceId, funnelId });
+    await run(w, funnelSave, {
+      workspaceId: w.workspaceId,
+      funnelId,
+      revision: got.funnel.revision,
+      definition: {
+        ...got.funnel.definition,
+        description: 'Recruiting people who want to build a business of their own',
+        entry: { ...got.funnel.definition.entry, aiSuggests: true },
+      },
+    });
+    await drain(w);
+    const pat = await newCustomer(w, 'Pat');
+    await agreesToTexts(pat.id);
+    const { conversationId } = await textIn(
+      w,
+      pat.phone,
+      'Can you tell me about the business opportunity?',
+    );
+    await replyNow(w, conversationId);
+    const asked = requestAbout(w, 'business opportunity');
+    expect(briefOf(asked!)).toContain(`suggest_funnel with funnel id ${funnelId}`);
+    expect(briefOf(asked!)).toContain('build a business of their own');
+    const suggested = await rowOf(pat.id);
+    expect(suggested).toMatchObject({ status: 'suggested' });
+    const [why] = await rows<{ why: string; added_by: string }>(
+      admin(),
+      sql`select suggested_why as why, added_by from app.funnel_people where id = ${suggested.id}`,
+    );
+    expect(why).toEqual({
+      why: 'They asked: Can you tell me about the business opportunity?',
+      added_by: 'ai',
+    });
+    // Asked again, it doesn't suggest it twice.
+    await textIn(w, pat.phone, 'Is the opportunity still open?');
+    await replyNow(w, conversationId);
+    expect(
+      await rows(admin(), sql`select 1 from app.funnel_people where person_id = ${pat.id}`),
+    ).toHaveLength(1);
+
+    await run(w, funnelDecideSuggestion, {
+      workspaceId: w.workspaceId,
+      funnelPersonId: suggested.id,
+      accept: true,
+    });
+    await drain(w);
+    expect(await rowOf(pat.id)).toMatchObject({ status: 'active', stage_id: stage.new });
+    const [lead] = await rows<{ pipeline_id: string; stage_id: string }>(
+      admin(),
+      sql`select pipeline_id, stage_id from app.leads where person_id = ${pat.id} and status = 'open'
+            and pipeline_id = ${pipelineId}`,
+    );
+    expect(lead).toEqual({ pipeline_id: pipelineId, stage_id: stage.new });
+  });
+
+  it('leaves someone out once the team says no', async () => {
+    const jo = await newCustomer(w, 'Jo');
+    await agreesToTexts(jo.id);
+    const { conversationId } = await textIn(w, jo.phone, 'What’s the opportunity here?');
+    await replyNow(w, conversationId);
+    const suggested = await rowOf(jo.id);
+    expect(suggested.status).toBe('suggested');
+    await run(w, funnelDecideSuggestion, {
+      workspaceId: w.workspaceId,
+      funnelPersonId: suggested.id,
+      accept: false,
+    });
+    await textIn(w, jo.phone, 'Any other opportunity?');
+    await replyNow(w, conversationId);
+    const last = requestAbout(w, 'Any other opportunity');
+    expect(briefOf(last!)).not.toContain('suggest_funnel with funnel id');
+    expect((await rowOf(jo.id)).status).toBe('declined');
   });
 });

@@ -36,6 +36,7 @@ import {
   chatSendCodeForCustomer,
   leadCreate,
   funnelMovePerson,
+  funnelSuggest,
   leadMoveStage,
   leadRecordAnswers,
   leadSaveFileAnswer,
@@ -1350,6 +1351,36 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       content: {
         moved: true,
         note: `They’re at ${quoteData(move.toName)} now. Reply to what they wrote; never mention the funnel or its stages.`,
+      },
+    };
+  },
+
+  // Teammate funnels: a funnel that fits them, for someone on the team to say yes or no to on Approvals.
+  async suggest_funnel(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const funnel = d.rc.suggestible?.find((f) => f.id === args['funnelId']);
+    if (!funnel || d.rc.funnel)
+      return refused({
+        error: 'That isn’t one of the funnels in <funnels>. Use a funnel id from there.',
+      });
+    const r = await executeCommandIn(
+      tx,
+      funnelSuggest,
+      {
+        workspaceId: d.scope.workspaceId,
+        funnelId: funnel.id,
+        personId: d.rc.customer.id,
+        why: String(args['why']),
+      },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'funnel.suggest',
+      content: {
+        suggested: !r.output.already,
+        note: 'Someone on the team says yes or no. Carry on helping them, and don’t mention it.',
       },
     };
   },

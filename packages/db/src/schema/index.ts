@@ -2829,6 +2829,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'texting_policy',
   // Reading an applicant Indeed emailed the business about (20261027011100).
   'lead_intake',
+  // Drafting a funnel for the AI teammate from a description (20261027011400).
+  'funnel',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

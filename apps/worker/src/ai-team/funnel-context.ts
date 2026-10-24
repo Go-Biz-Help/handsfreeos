@@ -110,3 +110,35 @@ export async function inFunnel(tx: Tx, personId: string | null): Promise<boolean
   );
   return !!r?.yes;
 }
+
+/** A funnel the teammate may suggest for someone in none: on, and taking its suggestions. */
+export interface SuggestibleFunnel {
+  readonly id: string;
+  readonly name: string;
+  /** What the business said it's for, clipped. */
+  readonly about: string;
+}
+
+/**
+ * The funnels the teammate may suggest for them (teammate funnels, "Who gets in": the AI suggests, a person OKs):
+ * only while they're in none, leaving out one they were suggested for or turned down for already.
+ */
+export async function suggestibleFunnels(
+  tx: Tx,
+  workspaceId: string,
+  personId: string,
+): Promise<SuggestibleFunnel[]> {
+  const list = await rows<{ id: string; name: string; about: string }>(
+    tx,
+    sql`select f.id, f.name, left(coalesce(f.definition->>'description', ''), 300) as about
+        from app.funnels f
+        where f.workspace_id = ${workspaceId} and f.status = 'on'
+          and coalesce((f.definition->'entry'->>'aiSuggests')::boolean, false)
+          and not exists (select 1 from app.funnel_people fp
+            where fp.person_id = ${personId} and fp.status in ('active', 'paused'))
+          and not exists (select 1 from app.funnel_people fp
+            where fp.funnel_id = f.id and fp.person_id = ${personId} and fp.status in ('suggested', 'declined'))
+        order by f.name limit 5`,
+  );
+  return list.map((f) => ({ id: f.id, name: f.name, about: f.about }));
+}

@@ -188,3 +188,6 @@ grant update (lead_id, stage_id, status, stage_reached_at, appointment_id, seen,
   left_at, updated_at) on app.funnel_people to authenticated;
 grant select, insert, update, delete on app.funnel_people to service_actor;
 revoke all on app.funnel_people from anon;
+
+-- The AI's draft of a funnel from the business's description counts toward the daily AI limit as its own source.
+alter type app.ai_usage_source add value if not exists 'funnel';

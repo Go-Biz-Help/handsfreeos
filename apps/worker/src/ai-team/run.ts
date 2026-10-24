@@ -580,6 +580,7 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
     strangerInChat: rc.strangerInChat,
     texting: rc.conversation.channel === 'sms',
     funnel: !!rc.funnel?.replyMoves.length,
+    suggestFunnels: !rc.funnel && !!rc.suggestible?.length,
   });
   const only = !run.conversationId
     ? FIRST_TOOLS

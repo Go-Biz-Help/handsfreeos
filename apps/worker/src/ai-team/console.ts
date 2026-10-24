@@ -1275,6 +1275,17 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { moved: true } };
   },
 
+  async suggest_funnel(h, args) {
+    const funnel = h.rc.suggestible?.find((f) => f.id === String(args['funnelId']));
+    if (!funnel) return refuse('That isn’t one of the funnels in <funnels>.');
+    would(
+      h,
+      'note',
+      `suggested ${funnel.name} for them, for someone on the team to say yes or no to`,
+    );
+    return { content: { suggested: true } };
+  },
+
   async update_customer(h, args) {
     if (!h.rc.customer || h.rc.unverifiedChat) return refuse(CHAT_REFUSAL);
     const fields = Object.keys(args).filter((k) => args[k] !== null && args[k] !== undefined);

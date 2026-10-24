@@ -411,6 +411,26 @@ function standingLines(rc: RunContext, call: boolean): string[] {
     ...skillLines(rc, call ? false : rc.conversation.channel === 'sms', !!call),
     ...customerLines(rc),
     ...funnelLines(rc, call),
+    ...(call ? [] : suggestLines(rc)),
+  ];
+}
+
+/**
+ * The funnels it may suggest for them while they're in none (teammate funnels): someone on the team says yes or no,
+ * so a suggestion changes nothing for them now.
+ */
+function suggestLines(rc: RunContext): string[] {
+  const list = rc.suggestible ?? [];
+  if (rc.funnel || !list.length) return [];
+  return [
+    '<funnels>',
+    'The business’s funnels you may suggest for them, when what they want clearly fits one:',
+    ...list.map(
+      (f) =>
+        `- ${quoteData(f.name)}: suggest_funnel with funnel id ${f.id}.${f.about ? ` It’s for: ${quoteData(f.about)}` : ''}`,
+    ),
+    '</funnels>',
+    'Suggest one at most, only when it plainly fits, and keep helping them as usual. Never mention funnels to them.',
   ];
 }
 

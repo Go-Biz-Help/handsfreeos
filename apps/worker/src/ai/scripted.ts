@@ -664,6 +664,21 @@ export const TEAMMATE_RULES: readonly TeammateRule[] = [
       return say(`${hello(t)}That’s great to hear! I’ll get you the next steps.`);
     },
   },
+  // "Tell me about the business opportunity" from someone in no funnel, with one that takes suggestions: it suggests
+  // it for someone on the team to OK, then answers as usual.
+  {
+    when: /\bopportunit(?:y|ies)\b/i,
+    tool: 'suggest_funnel',
+    step: (t) => {
+      const funnelId = /suggest_funnel with funnel id ([0-9a-f-]{36})/.exec(t.context)?.[1];
+      if (funnelId && !t.results['suggest_funnel'])
+        return toolCall('suggest_funnel', {
+          funnelId,
+          why: `They asked: ${t.words.slice(0, 120)}`,
+        });
+      return say(`${hello(t)}Happy to tell you more. Someone will be in touch with the details.`);
+    },
+  },
   {
     // "Pretend you're a real person": it says it is, and the safety check stops it.
     when: /\b(?:pretend|swear|promise)\b[^.?!]*\b(?:real person|human|not an? (?:bot|robot|ai))\b/i,
@@ -2561,7 +2576,98 @@ export const INDEED_RULES: readonly ScriptRule[] = [
   { when: /Say who applied, from this email Indeed sent\.$/, json: (m) => scriptedIndeed(m) },
 ];
 
+// ---- Teammate funnels: the AI's draft from a description ("Draft the funnel the description above describes.") ----
+
+/**
+ * A draft on the pipeline the context names (its stages, in order), or on a small one of its own: a first message
+ * on arriving, a move when they book, a reminder an hour before, and lost after a week quiet.
+ */
+function scriptedFunnelDraft(message: string, context: string): Record<string, unknown> {
+  const named = [...context.matchAll(/^- (.+) \((open|won|lost)\)$/gm)].map((m) => ({
+    name: unquote(m[1]!),
+    kind: m[2] as 'open' | 'won' | 'lost',
+  }));
+  const stages = named.length
+    ? named
+    : [
+        { name: 'New lead', kind: 'open' as const },
+        { name: 'Booked', kind: 'open' as const },
+        { name: 'Won', kind: 'won' as const },
+        { name: 'Lost', kind: 'lost' as const },
+      ];
+  const open = stages.filter((s) => s.kind === 'open');
+  const lost = stages.find((s) => s.kind === 'lost')!;
+  const said = firstSentence(unquote(quotedBlock(message, 'description') ?? ''), 120);
+  const none = { event: null, says: null, quietDays: null };
+  return {
+    name: 'New funnel',
+    stages: stages.map((s, i) => {
+      const next = open[open.indexOf(s) + 1];
+      return {
+        name: s.name,
+        kind: s.kind,
+        goal:
+          s.kind === 'open'
+            ? next
+              ? `Get them to ${next.name.toLowerCase()}`
+              : 'Get them over the line'
+            : '',
+        knows: '',
+        handOff: false,
+        moves:
+          s.kind !== 'open'
+            ? []
+            : [
+                ...(next
+                  ? [{ ...none, kind: 'event', event: 'appointment.booked', to: next.name }]
+                  : []),
+                { ...none, kind: 'quiet', quietDays: 7, to: lost.name },
+              ],
+        messages:
+          s.kind !== 'open'
+            ? []
+            : i === 0
+              ? [
+                  {
+                    when: 'arrive',
+                    minutes: 0,
+                    daysBefore: null,
+                    at: null,
+                    onlyIf: 'always',
+                    onlyIfEvent: null,
+                    wording: 'ai',
+                    text: `Thank them for getting in touch. ${said}`.trim(),
+                    how: 'best',
+                  },
+                ]
+              : [
+                  {
+                    when: 'booking',
+                    minutes: -60,
+                    daysBefore: null,
+                    at: null,
+                    onlyIf: 'always',
+                    onlyIfEvent: null,
+                    wording: 'ai',
+                    text: 'Remind them it starts in an hour.',
+                    how: 'best',
+                  },
+                ],
+      };
+    }),
+    entry: { newLead: true, cameIn: [], byHand: true, aiSuggests: false, startStage: null },
+  };
+}
+
+export const FUNNEL_RULES: readonly ScriptRule[] = [
+  {
+    when: /Draft the funnel the description above describes\.$/,
+    json: (message, context) => scriptedFunnelDraft(message, context),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
+  ...FUNNEL_RULES,
   ...INDEED_RULES,
   ...POLICY_RULES,
   ...MEETING_RULES,

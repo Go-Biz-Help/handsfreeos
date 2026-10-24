@@ -97,6 +97,8 @@ export function definitionFromDraft(
     stages: draft.stages.flatMap((s) => {
       const stageId = idOf(s.name);
       if (!stageId) return [];
+      // People leave at a won or lost stage, so it has nothing of its own.
+      if (s.kind !== 'open') return [{ stageId }];
       return [
         {
           stageId,
@@ -128,4 +130,47 @@ export function matchDraftStages(
     if (id) out.set(key(s.name), id);
   }
   return out;
+}
+
+/** A stage as the person left it after the draft: `from` is the draft stage it came from, or null for a new one. */
+export interface DraftStageRow {
+  readonly from: string | null;
+  readonly name: string;
+  readonly kind: 'open' | 'won' | 'lost';
+}
+
+/**
+ * The draft on the stages the person typed after it came (a new pipeline's): renamed where they renamed one, in
+ * their order, with a stage they added empty and one they took out gone, along with the moves to it. A stage made
+ * won or lost loses its moves and messages, as people leave the funnel there.
+ */
+export function draftOnStages(draft: FunnelDraft, rows: readonly DraftStageRow[]): FunnelDraft {
+  const byFrom = new Map(draft.stages.map((s) => [key(s.name), s]));
+  const renamed = new Map(
+    rows.flatMap((r) =>
+      r.from && byFrom.has(key(r.from)) ? [[key(r.from), r.name.trim()] as const] : [],
+    ),
+  );
+  const to = (name: string) => renamed.get(key(name)) ?? null;
+  return FunnelDraft.parse({
+    ...draft,
+    stages: rows.map((r) => {
+      const was = r.from ? byFrom.get(key(r.from)) : undefined;
+      const name = r.name.trim();
+      if (!was || r.kind !== 'open') return { name, kind: r.kind };
+      return {
+        ...was,
+        name,
+        kind: r.kind,
+        moves: was.moves.flatMap((m) => {
+          const t = to(m.to);
+          return t && key(t) !== key(name) ? [{ ...m, to: t }] : [];
+        }),
+      };
+    }),
+    entry: {
+      ...draft.entry,
+      startStage: draft.entry.startStage ? to(draft.entry.startStage) : null,
+    },
+  });
 }
