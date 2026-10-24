@@ -8,7 +8,10 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
+import { CheckLookInput } from '@hfos/core/addons/outreach/checks';
+import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import { runAsk } from '../src/asks/run';
+import { businessLines } from '../src/jobs/alignable/checks';
 import { readWarmLeads } from '../src/jobs/alignable/engaged';
 import { alignableListSave } from '../src/hfos/saves';
 import { KITS } from '../src/networks';
@@ -285,6 +288,28 @@ describe('Check my connections, Research and a look-up, on Alignable', () => {
         'Checked 1 business for the AI. Alignable didn’t show 1 business page.',
       ),
     });
+  });
+
+  it('cuts a long About Us to what HandsFreeOS takes, so the check isn’t turned away', () => {
+    const lines = businessLines({
+      name: 'Dana Reyes',
+      title: null,
+      profile: null,
+      town: null,
+      pitch: null,
+      about: 'We fix leaks fast, day or night. '.repeat(40),
+      customer: null,
+      partner: null,
+      tags: [],
+      connect: false,
+      recommend: false,
+      refer: false,
+      message: false,
+    });
+    expect(lines[1]).toHaveLength(LOOKUP_LINE_MOST);
+    expect(lines[1]).toMatch(/^About Us: We fix leaks fast, day or night\. .*…$/);
+    const id = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+    expect(CheckLookInput.safeParse({ workspaceId: id, profileId: id, lines }).success).toBe(true);
   });
 
   it('looks a business up before drafting, with what its page says', async () => {

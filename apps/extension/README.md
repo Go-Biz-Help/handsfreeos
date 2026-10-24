@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.90.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.91.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -188,6 +188,11 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
   the hashtag's posts for one tagged at a place instead.
 - **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
   button among your highlights is no highlight.
+
+From 0.91.0 the checks for good fits on Alignable and Instagram cut each line they send to what HandsFreeOS takes
+(300 characters), as LinkedIn's do: a business's long About Us turned the owner's Check my friends on Alignable away
+(24 Oct 2026, "Some fields need attention"), and a long bio line or picture description could on Instagram. The look-up
+before a draft, and the partner checks, read the same lines.
 
 From 0.90.0 Read my profile reads Facebook's October 2026 profile (from an owner's page outline of 23 Oct 2026,
 docs/outreach.md decision 84): it knows the profile is yours by **Edit profile**, a link now whose words are just

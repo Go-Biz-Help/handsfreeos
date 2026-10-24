@@ -6,12 +6,15 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
+import { CheckLookInput } from '@hfos/core/addons/outreach/checks';
+import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import { runAsk } from '../src/asks/run';
 import { instagramListSave } from '../src/hfos/saves';
 import { KITS } from '../src/networks';
 import { openChat, scrollDialog, scrollList } from '../src/networks/instagram/browse';
 import { readReplies } from '../src/networks/instagram/replies';
 import { unfollow } from '../src/networks/instagram/unfollow';
+import { profileLines } from '../src/jobs/instagram/checks';
 import { lookForFollowBacks } from '../src/jobs/instagram/follow-backs';
 import { FOLLOWERS_MOST, saveFollowers } from '../src/jobs/instagram/people';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
@@ -777,6 +780,23 @@ describe('Check my followers and Research, on Instagram', () => {
       line: 'Done. Checked 1 person for the AI. Instagram didn’t show 1 account. The good fits show under Good fits on the Friends tab once it has read them.',
       warned: false,
     });
+  });
+
+  it('cuts a long bio line or picture description to what HandsFreeOS takes', () => {
+    const lines = profileLines({
+      username: 'kim_bakes',
+      url: `${IG}/kim_bakes/`,
+      name: 'Kim',
+      following: null,
+      followsYou: null,
+      followers: null,
+      posts: ['/p/C1aaaaaaa/'],
+      bio: ['Cakes for every party. '.repeat(30)],
+      pictures: ['A tiered wedding cake with roses. '.repeat(30)],
+    });
+    expect(lines.map((l) => l.length)).toEqual([16, LOOKUP_LINE_MOST, LOOKUP_LINE_MOST]);
+    const id = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+    expect(CheckLookInput.safeParse({ workspaceId: id, profileId: id, lines }).success).toBe(true);
   });
 
   it('says when today’s checks are done, and researches one within them', async () => {
