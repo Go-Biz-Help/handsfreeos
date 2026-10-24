@@ -5,7 +5,8 @@
 -- look at their profile and mutual friends came to), `from` (only a "From" line) or `guessed` (the AI's guess). A From
 -- or a guess never skips anyone: they wait for a look, a check that also reads their mutual friends. A look keeps the
 -- country they're from, a second country when the facts split, whether it couldn't tell, the AI's line, and where
--- their mutual friends live. A person's Skip, from the Not sure list, sits beside Unskip.
+-- their mutual friends live. A person's Skip, from the Not sure list, sits beside Unskip. Every country seen until now
+-- counts as From in the next migration, applied once the code that reads `from` is running.
 alter table addon_outreach.profiles
   drop constraint profiles_country_known_check,
   drop constraint profiles_country_how_check,
@@ -32,7 +33,3 @@ create index profiles_country_skip_by_idx on addon_outreach.profiles (country_sk
 alter table addon_outreach.checks
   add column mutual_ids uuid[] not null default '{}',
   add column mutual_read integer check (mutual_read is null or mutual_read between 0 and 100000);
-
--- "Seen" until now could be a "From" line, or the AI's word for one, so it can't be told from From: each such country
--- counts as From, which skips nobody until a look says where they live. One the setting lets through still is.
-update addon_outreach.profiles set country_how = 'from' where country_how = 'seen';
