@@ -520,6 +520,7 @@ const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   ask_form: 'Started a form',
   answer_form: 'Saved a form answer',
   move_stage: 'Moved the lead',
+  funnel_move_on: 'Moved them on in their funnel',
   open_deal: 'Opened a lead',
   set_deal_value: 'Set what the lead is worth',
   close_deal: 'Closed the lead',

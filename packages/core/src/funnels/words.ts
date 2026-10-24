@@ -173,6 +173,11 @@ export function funnelWhereWords(
   return `${stageName} for ${dayLabel(booking.startsAt, timeZone)} at ${clockLabel(booking.startsAt, timeZone)}`;
 }
 
+/** "Thu, Oct 29, 7:00 PM": a moment in the funnel, where the business is (trying it as a lead, a person's line). */
+export function funnelAtWords(at: number, timeZone: string): string {
+  return `${dayLabel(at, timeZone)}, ${clockLabel(at, timeZone)}`;
+}
+
 /** "“Starts in an hour” at Thu, Oct 29 at 6:00 PM": a message's first words and when it's due. */
 export function funnelNextWords(text: string, dueAt: number, timeZone: string): string {
   const words = text.replace(/\s+/g, ' ').trim();

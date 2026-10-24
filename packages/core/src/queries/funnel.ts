@@ -184,6 +184,7 @@ export const funnelGet = defineQuery({
       forms,
       calendars,
       teammate: issueContext.teammate,
+      overlappingWorkflows: [...issueContext.overlappingWorkflows],
       timeZone: business.timeZone,
       businessName: business.name,
       waiting: await waitingLeadCount(ctx.tx, f.pipelineId, openIds),

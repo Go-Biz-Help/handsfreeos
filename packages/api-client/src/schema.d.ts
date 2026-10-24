@@ -63841,6 +63841,7 @@ export interface operations {
                             rule: string;
                             words: string;
                         }[];
+                        overlappingWorkflows: string[];
                         teammate: {
                             approved: number;
                             name: string;

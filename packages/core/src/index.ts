@@ -85,6 +85,8 @@ export * from './writing';
 export * from './ai-team/index';
 // Funnels: the steps the AI teammate takes each person through.
 export * from './funnels/index';
+// The ways a lead comes in, for a funnel's "came in by" rule (teammate funnels).
+export { INTAKE_KINDS, INTAKE_NAMES, type IntakeKind } from './crm/intake-kinds';
 // Quick setup: a few simple questions that set up a working AI teammate.
 export * from './ai-setup/index';
 export * from './chat/index';

@@ -141445,6 +141445,12 @@
                     "businessName": {
                       "type": "string"
                     },
+                    "overlappingWorkflows": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "waiting": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -141459,6 +141465,7 @@
                     "teammate",
                     "timeZone",
                     "businessName",
+                    "overlappingWorkflows",
                     "waiting"
                   ],
                   "additionalProperties": false

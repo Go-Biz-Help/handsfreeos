@@ -231,6 +231,8 @@ export const FunnelGetOutput = z.object({
     .nullable(),
   timeZone: z.string(),
   businessName: z.string(),
+  /** Workflows that are on and text the same new leads (the "Before it goes on" warning, worked out as it's edited). */
+  overlappingWorkflows: z.array(z.string()),
   /** Open leads in the pipeline not in any funnel: what "Also add the leads already here" takes. */
   waiting: z.number().int(),
 });
