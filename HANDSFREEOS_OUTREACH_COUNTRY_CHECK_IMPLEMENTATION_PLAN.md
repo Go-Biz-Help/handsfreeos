@@ -202,7 +202,7 @@ before it refuses to list a `from`).
 
 One release, built on one branch in this order: the reading; waiting for a look; mutual friends and the AI's
 weighing; When we can't tell, the Not sure list, Decide and the reasons on Skipped for country. Built, with extension
-0.91.0. The web has the setting and the lists, like Skipped for country before; the phone keeps following the setting
+0.92.0. The web has the setting and the lists, like Skipped for country before; the phone keeps following the setting
 as saved.
 
 ## Not in this plan

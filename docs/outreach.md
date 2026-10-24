@@ -1888,7 +1888,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     is from Trinidad and Tobago, and was skipped as Trinidad and Tobago: the extension didn't read the 2026 Personal
     details card, nor "Florida City, FL" under her name, and a "From" counted as much as a "Lives in". Frank Sinclair
     lives in Colorado Springs, sent a friend request, and was skipped as the United Kingdom on the AI's guess from his
-    name, with 59 mutual friends. Built, with extension 0.91.0 (`HANDSFREEOS_OUTREACH_COUNTRY_CHECK_IMPLEMENTATION_PLAN.md`
+    name, with 59 mutual friends. Built, with extension 0.92.0 (`HANDSFREEOS_OUTREACH_COUNTRY_CHECK_IMPLEMENTATION_PLAN.md`
     has the decisions):
     - **Reading it right.** A profile's Personal details, Work and Education cards are read on anyone's 2026 profile,
       and a place in the details under the name is where they live. "Lives in" beats "From" wherever each was read;
