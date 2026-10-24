@@ -2829,7 +2829,7 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'texting_policy',
   // Reading an applicant Indeed emailed the business about (20261027011100).
   'lead_intake',
-  // Drafting a funnel for the AI teammate from a description (20261027011400).
+  // Drafting a funnel for the AI teammate from a description (20261027012000).
   'funnel',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
@@ -7519,7 +7519,7 @@ export const teammateFeedback = app.table('teammate_feedback', {
 });
 
 /**
- * A funnel (20261027011400): a pipeline's stages and what the AI teammate does at each, as core's
+ * A funnel (20261027012000): a pipeline's stages and what the AI teammate does at each, as core's
  * `FunnelDefinition`. One a pipeline, archived ones aside.
  */
 export const funnels = app.table('funnels', {

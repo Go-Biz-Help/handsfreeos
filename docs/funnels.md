@@ -16,7 +16,7 @@ The owner's decisions, the build order and Christina Robbins's recruiting funnel
 | The AI's draft                                       | `packages/core/src/funnels/draft.ts` (the draft), `draft-wire.ts` (what the model writes, and mending it)                |
 | A lead's move carrying the funnel with it            | `packages/core/src/funnels/follow.ts`, called from `lead.move_stage`                                                     |
 | Commands and queries                                 | `packages/core/src/commands/funnel.ts`, `packages/core/src/queries/funnel.ts`                                            |
-| Tables                                               | `app.funnels`, `app.funnel_people` (`20261027011400_funnels.sql`)                                                        |
+| Tables                                               | `app.funnels`, `app.funnel_people` (`20261027012000_funnels.sql`)                                                        |
 | Running it: getting in, moving on, messages          | `apps/worker/src/funnels/` (`events.ts`, `tick.ts`)                                                                      |
 | The draft route                                      | `apps/worker/src/funnels/draft.ts` (`POST /v1/funnels/draft`)                                                            |
 | What the teammate knows, and its two tools           | `apps/worker/src/ai-team/funnel-context.ts`, `prompt.ts` (`funnelLines`, `suggestLines`), `tools.ts`                     |

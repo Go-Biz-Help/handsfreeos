@@ -1066,7 +1066,7 @@ export const commands: readonly CommandDef[] = [
   teammateInstructionCreate,
   teammateInstructionUpdate,
   teammateInstructionDelete,
-  // Funnels: the steps the AI teammate takes people through (20261027011400).
+  // Funnels: the steps the AI teammate takes people through (20261027012000).
   ...funnelCommands,
   ...campaignCommands,
   ...aiCallCommands,

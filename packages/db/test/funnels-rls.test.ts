@@ -1,5 +1,5 @@
 /**
- * Teammate funnels (20261027011400): who changes a funnel and who's in it, one funnel at a time a person, what stays
+ * Teammate funnels (20261027012000): who changes a funnel and who's in it, one funnel at a time a person, what stays
  * inside its own business and pipeline, and a person in the Deleted bin taking their funnel row with them.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

@@ -621,7 +621,7 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 409,
     message: 'That isn’t being emptied from the Deleted bin. Refresh to see where it stands.',
   },
-  // 20261027011400: funnels.
+  // 20261027012000: funnels.
   funnels_full: {
     status: 409,
     message:
