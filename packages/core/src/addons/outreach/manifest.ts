@@ -138,6 +138,7 @@ export const outreachAddon = defineAddon({
       'outreach.helpful.engaged',
       'outreach.engaged.saved',
       'outreach.country.unskipped',
+      'outreach.country.decided',
       'outreach.partner.looked',
       'outreach.partner.saved',
       'outreach.partner.marked',

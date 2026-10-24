@@ -144,6 +144,57 @@ describe('checking the people the person knows', () => {
     ]);
   });
 
+  it('weighs where they live from their profile and mutual friends while the business reaches only some countries', async () => {
+    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const ws = await outreachBusiness(owner, 'Outreach Country Looks Co');
+    await rows(
+      admin(),
+      sql`update app.addon_installations
+          set settings = coalesce(settings, '{}'::jsonb) || '{"countries":{"mode":"only","codes":["US"]}}'::jsonb
+          where workspace_id = ${ws} and addon_id = 'outreach'`,
+    );
+    // Two of the owner's friends live in the United States; a third is only From Nigeria.
+    await runAs(owner, ws, 'outreach.friends.save', {
+      list: 'friends',
+      people: [friend(1), friend(2), friend(3)],
+    });
+    const ids = await rows<{ id: string; username: string }>(
+      admin(),
+      sql`select id, username from addon_outreach.profiles where workspace_id = ${ws} order by username`,
+    );
+    const id = (n: number) => ids.find((p) => p.username === `made.up.${n}`)!.id;
+    await rows(
+      admin(),
+      sql`update addon_outreach.profiles set country = 'US', country_how = 'seen', country_at = now()
+          where id = any (${`{${id(1)},${id(2)}}`}::uuid[])`,
+    );
+    await runAs(owner, ws, 'outreach.check.look', {
+      profileId: id(3),
+      lines: ['From Lagos, Nigeria'],
+      friendsCount: 300,
+      mutual: [friend(1).profile, friend(2).profile],
+    });
+    await drain(s, ws);
+    const [them] = await rows<{
+      country: string;
+      country_how: string;
+      country_from: string;
+      country_unsure: boolean;
+      country_mutual: unknown;
+    }>(
+      admin(),
+      sql`select country, country_how, country_from, country_unsure, country_mutual
+          from addon_outreach.profiles where id = ${id(3)}`,
+    );
+    expect(them).toEqual({
+      country: 'US',
+      country_how: 'friends',
+      country_from: 'NG',
+      country_unsure: false,
+      country_mutual: { read: 2, by: [{ code: 'US', seen: 2, other: 0 }] },
+    });
+  });
+
   it('leaves the rest waiting at the day’s AI limit', async () => {
     const none = testServices({ ai: { provider: scriptedAi(), dailyTokens: 1 } });
     const ws = await looked('Outreach Capped Checks Co', [

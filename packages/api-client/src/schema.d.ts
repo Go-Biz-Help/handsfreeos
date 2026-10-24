@@ -6607,7 +6607,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What someone the person knows on Facebook says on their profile and business page, as the person’s computer just read it, for the AI to see whether they fit a playbook; or that Facebook showed someone else. Kept only until the AI has read it.
+         * What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that Facebook showed someone else. Kept only until the AI has read it.
          * @description Risk level 1. Requires outreach.use. Emits outreach.check.looked.
          */
         post: operations["command_outreach_check_look"];
@@ -6717,6 +6717,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.country.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A person’s call on someone the country setting couldn’t place (the Not sure list): let them through from now on, skip them from now on, or put them back under the setting. Kept with who and when.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.country.decided.
+         */
+        post: operations["command_outreach_country_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.country.unskip": {
         parameters: {
             query?: never;
@@ -6727,7 +6747,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Let someone the business’s country setting skips be reached from now on, whatever the setting says (Unskip); or put them back under the setting.
+         * Let someone the business’s country setting skips be reached from now on, whatever the setting says (Unskip), undoing a Skip; or put them back under the setting.
          * @description Risk level 1. Requires outreach.use. Emits outreach.country.unskipped.
          */
         post: operations["command_outreach_country_unskip"];
@@ -18027,7 +18047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -18047,7 +18067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Everyone the business’s country setting skips: not reached, not suggested on Today, not sent friend requests or messages, and not in the good fits; with their country and whether it was seen on their profile or guessed.
+         * Everyone the business’s country setting skips (not reached, not suggested on Today, not sent friend requests or messages, and not in the good fits), or everyone a look couldn’t place who waits for a person’s call (the Not sure list); with their country, how it’s known and why, and how many wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_countries_skipped"];
@@ -37614,10 +37634,18 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default null */
+                    friendsCount?: number | null;
                     /** @default [] */
                     lines?: string[];
                     /** @default false */
                     missing?: boolean;
+                    /** @default null */
+                    mutual?: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    }[] | null;
                     /** Format: uuid */
                     profileId: string;
                     /** Format: uuid */
@@ -37794,6 +37822,42 @@ export interface operations {
                 content: {
                     "application/json": {
                         stopped: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_country_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    choice: "through" | "skip" | "setting";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        choice: "through" | "skip" | "setting";
+                        /** Format: uuid */
+                        profileId: string;
                     };
                 };
             };
@@ -69683,11 +69747,13 @@ export interface operations {
                 content: {
                     "application/json": {
                         people: {
+                            /** @default false */
+                            mutual: boolean;
                             name: string;
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "prospect" | "chat" | "chat_only" | "group" | "friend";
+                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend";
                             url: string;
                         }[];
                         perDay: number;
@@ -69707,6 +69773,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @default skipped
+                     * @enum {string}
+                     */
+                    list?: "skipped" | "unsure";
                     /** @default 1 */
                     page?: number;
                     search?: string;
@@ -69727,22 +69798,28 @@ export interface operations {
                         pages: number;
                         people: {
                             at: string | null;
-                            country: string;
-                            countryName: string;
-                            /** @enum {string} */
-                            how: "seen" | "guessed" | "unknown";
+                            country: string | null;
+                            countryName: string | null;
+                            how: ("seen" | "friends" | "from" | "guessed" | "unknown") | null;
                             name: string;
                             /** Format: uuid */
                             profileId: string;
+                            reason: string[];
+                            skippedByYou: boolean;
                             url: string;
+                            why: string | null;
                         }[];
                         rule: {
                             codes: string[];
                             /** @enum {string} */
                             mode: "anywhere" | "only" | "not";
+                            /** @enum {string} */
+                            unsure: "through" | "ask" | "skip";
                         };
                         total: number;
                         unskipped: number;
+                        unsure: number;
+                        waiting: number;
                     };
                 };
             };

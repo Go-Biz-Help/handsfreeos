@@ -1,9 +1,11 @@
 /**
- * Where the people found live (docs/outreach.md, decision 61), for the business's country setting. A check of someone
- * reads it off their profile (./checks.ts); everyone else found, in a group, asking to be friends, writing a post or
- * engaging with one, is worked out here: from the lines Facebook showed under their name when one says where they live
- * ("Lives in Austin, Texas"), seen; otherwise the AI guesses from their name, posts and groups, guessed. Core holds the
- * words and the reading (packages/core/src/addons/outreach/countries.ts) and `outreach.countries.save` keeps it.
+ * Where the people found live (docs/outreach.md, decisions 61 and 86), for the business's country setting. A check of
+ * someone looks at their profile and mutual friends (./checks.ts); everyone else found, in a group, asking to be
+ * friends, writing a post or engaging with one, is worked out here: from the lines Facebook showed under their name
+ * when one says where they live ("Lives in Austin, Texas"), seen, or only where they're from ("From Lagos, Nigeria"),
+ * from; otherwise the AI guesses from their name, posts and groups, guessed. A From or a guess never skips anyone: they
+ * wait for a look. Core holds the words and the reading (packages/core/src/addons/outreach/countries.ts) and
+ * `outreach.countries.save` keeps it.
  *
  * - It runs only while the setting skips anyone: with Anywhere, nobody's country is needed.
  * - Each run takes up to `GUESS_RUN_MOST` people, the most lately seen first, and comes back for the rest.
@@ -106,8 +108,8 @@ export async function guessCountriesJob(ctx: AddonJobContext): Promise<JobResult
   }));
   // What a line shows needs no AI: only the rest are asked about.
   const plain = guessedCountries(people, null);
-  const seen = plain.filter((p) => p.how === 'seen');
-  const ask = people.filter((p) => !seen.some((s) => s.key === p.key));
+  const lined = plain.filter((p) => p.how === 'seen' || p.how === 'from');
+  const ask = people.filter((p) => !lined.some((s) => s.key === p.key));
   const save = async (list: ReturnType<typeof guessedCountries>) => {
     if (!list.length) return;
     await executeCommand(
@@ -115,13 +117,17 @@ export async function guessCountriesJob(ctx: AddonJobContext): Promise<JobResult
       countriesSave,
       {
         workspaceId: ws,
-        people: list.map((p) => ({ profileId: p.key, country: p.country, how: p.how })),
+        people: list.map((p) => ({
+          profileId: p.key,
+          country: p.country,
+          how: p.how === 'friends' ? 'guessed' : p.how,
+        })),
       },
       ctx.actor,
       ctx.meta,
     );
   };
-  await save(seen);
+  await save(lined);
   for (let i = 0; i < ask.length; i += GUESS_BATCH) {
     const batch = ask.slice(i, i + GUESS_BATCH);
     let answer: GuessAnswer | null;

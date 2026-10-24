@@ -1,17 +1,24 @@
 'use client';
 /**
- * The Friends tab's **Skipped for country** list (docs/outreach.md, decision 61): everyone the business's country
- * setting skips, with their country and whether it was seen on their profile or guessed by the AI. **Unskip** lets one
- * through from then on, whatever the setting says. It shows only while the setting skips anyone, or someone was let
- * through.
+ * The Friends tab's country lists (docs/outreach.md, decisions 61 and 86), shown only while the business's country
+ * setting picks countries:
+ *
+ * - **Not sure where they live**: everyone a look couldn't place, while When we can't tell is Ask me. Each waits for a
+ *   person's call: **Let through** or **Skip**, both for good.
+ * - **Skipped for country**: everyone the setting skips, with what their profile and friends say, and how many still
+ *   wait for a look. **Unskip** lets one through from then on, whatever the setting says; one a person skipped can be
+ *   put back under the setting.
  */
 import {
   COUNTRY_HOW_WORDS,
+  COUNTRY_LIST_WORDS as LW,
   countryRuleWords,
   SKIPPED_PAGE,
   type CountriesSkippedOutput,
+  type CountryChoice,
+  type CountryList,
 } from '@hfos/core/addons/outreach/countries';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -20,69 +27,185 @@ import { relativeTime } from '@/lib/utils';
 import { Pager } from './friends-view';
 import { useAct } from './use-act';
 
-export function SkippedCountryCard({ workspaceId }: { workspaceId: string }) {
+type Row = CountriesSkippedOutput['people'][number];
+
+/** One of the lists, a page at a time, with what's done on a row; `reloadAll` loads both again after a change. */
+function useCountryList(workspaceId: string, list: CountryList, version: number) {
   const [page, setPage] = useState(1);
-  const [list, setList] = useState<CountriesSkippedOutput | null>(null);
+  const [got, setGot] = useState<CountriesSkippedOutput | null>(null);
   const load = useCallback(
     async (at: number) => {
       try {
-        const got = unwrap(
-          await apiBrowser().POST('/v1/queries/outreach.countries.skipped', {
-            body: { workspaceId, page: at },
-          }),
+        setGot(
+          unwrap(
+            await apiBrowser().POST('/v1/queries/outreach.countries.skipped', {
+              body: { workspaceId, list, page: at },
+            }),
+          ),
         );
-        setList(got);
       } catch {
-        setList(null);
+        setGot(null);
       }
     },
-    [workspaceId],
+    [workspaceId, list],
   );
   useEffect(() => {
     void load(page);
-  }, [load, page]);
+  }, [load, page, version]);
+  return { got, setPage };
+}
+
+export function SkippedCountryCard({ workspaceId }: { workspaceId: string }) {
+  // A change on either list moves people between them: both load again.
+  const [version, setVersion] = useState(0);
+  const skipped = useCountryList(workspaceId, 'skipped', version);
+  const unsure = useCountryList(workspaceId, 'unsure', version);
   const { busy, act } = useAct();
+  const list = skipped.got;
   if (!list || (list.rule.mode === 'anywhere' && list.total === 0)) return null;
-  const unskip = (p: CountriesSkippedOutput['people'][number]) =>
+
+  const decide = (p: Row, choice: CountryChoice | 'unskip', done: string) =>
     act(
-      `unskip:${p.profileId}`,
+      `${choice}:${p.profileId}`,
       async () => {
-        const done = unwrap(
-          await apiBrowser().POST('/v1/commands/outreach.country.unskip', {
-            body: { workspaceId, profileId: p.profileId, through: true },
-          }),
-        );
-        await load(page);
-        return done;
+        const answer =
+          choice === 'unskip'
+            ? unwrap(
+                await apiBrowser().POST('/v1/commands/outreach.country.unskip', {
+                  body: { workspaceId, profileId: p.profileId, through: true },
+                }),
+              )
+            : unwrap(
+                await apiBrowser().POST('/v1/commands/outreach.country.decide', {
+                  body: { workspaceId, profileId: p.profileId, choice },
+                }),
+              );
+        setVersion((v) => v + 1);
+        return answer;
       },
-      `${p.name} is let through from now on, whatever the country setting says.`,
+      done,
     );
-  const first = (list.page - 1) * SKIPPED_PAGE + 1;
+
   return (
-    <Card className="mt-4 p-0" data-testid="outreach-country-skipped">
+    <>
+      {unsure.got?.people.length ? (
+        <ListCard
+          testId="outreach-country-unsure"
+          title={LW.unsureTitle}
+          note={LW.unsureNote}
+          got={unsure.got}
+          onPage={unsure.setPage}
+          actions={(p) => (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => void decide(p, 'through', `${p.name} is let through from now on.`)}
+                data-testid="country-let-through"
+              >
+                {LW.through}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => void decide(p, 'skip', `${p.name} is skipped from now on.`)}
+                data-testid="country-skip"
+              >
+                {LW.skip}
+              </Button>
+            </>
+          )}
+        />
+      ) : null}
+      <ListCard
+        testId="outreach-country-skipped"
+        title="Skipped for country"
+        note={[
+          `Your business reaches: ${countryRuleWords(list.rule)}. Nobody here is sent a friend request or a message, suggested on Today or listed as a good fit. Unskip lets someone through for good.`,
+          list.unskipped
+            ? `${list.unskipped.toLocaleString()} ${list.unskipped === 1 ? 'person is' : 'people are'} let through.`
+            : null,
+          list.waiting ? LW.waiting(list.waiting) : null,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        got={list}
+        onPage={skipped.setPage}
+        empty="Nobody is skipped yet. People show here once a “Lives in” on their profile, or a look at their profile and mutual friends, says they’re outside the countries you reach."
+        actions={(p) =>
+          p.skippedByYou ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy !== null}
+              onClick={() =>
+                void decide(p, 'setting', `${p.name} is back under the country setting.`)
+              }
+              data-testid="country-undo-skip"
+            >
+              {LW.undo}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy !== null}
+              onClick={() =>
+                void decide(
+                  p,
+                  'unskip',
+                  `${p.name} is let through from now on, whatever the country setting says.`,
+                )
+              }
+              data-testid="country-unskip"
+            >
+              Unskip
+            </Button>
+          )
+        }
+      />
+    </>
+  );
+}
+
+function ListCard({
+  testId,
+  title,
+  note,
+  got,
+  onPage,
+  empty,
+  actions,
+}: {
+  testId: string;
+  title: string;
+  note: string;
+  got: CountriesSkippedOutput;
+  onPage: (page: number) => void;
+  empty?: string;
+  actions: (p: Row) => ReactNode;
+}) {
+  const first = (got.page - 1) * SKIPPED_PAGE + 1;
+  return (
+    <Card className="mt-4 p-0" data-testid={testId}>
       <div className="px-5 pt-4">
         <div className="flex items-baseline justify-between gap-3">
-          <h3 className="text-[15px] font-semibold">Skipped for country</h3>
+          <h3 className="text-[15px] font-semibold">{title}</h3>
           <span className="text-[12.5px] tabular-nums text-text-3">
-            {list.total
-              ? list.pages > 1
-                ? `${first.toLocaleString()}–${(first + list.people.length - 1).toLocaleString()} of ${list.total.toLocaleString()}`
-                : list.total.toLocaleString()
+            {got.total
+              ? got.pages > 1
+                ? `${first.toLocaleString()}–${(first + got.people.length - 1).toLocaleString()} of ${got.total.toLocaleString()}`
+                : got.total.toLocaleString()
               : null}
           </span>
         </div>
-        <p className="mt-0.5 text-[12.5px] text-text-2">
-          Your business reaches: {countryRuleWords(list.rule)}. Nobody here is sent a friend request
-          or a message, suggested on Today or listed as a good fit. Unskip lets someone through for
-          good.
-          {list.unskipped
-            ? ` ${list.unskipped.toLocaleString()} ${list.unskipped === 1 ? 'person is' : 'people are'} let through.`
-            : ''}
-        </p>
+        <p className="mt-0.5 text-[12.5px] text-text-2">{note}</p>
       </div>
-      {list.people.length ? (
+      {got.people.length ? (
         <ul className="mt-2">
-          {list.people.map((p) => (
+          {got.people.map((p) => (
             <li
               key={p.profileId}
               className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-2.5"
@@ -98,32 +221,29 @@ export function SkippedCountryCard({ workspaceId }: { workspaceId: string }) {
                   {p.name}
                 </a>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-text-3">
-                  <span>{p.countryName}</span>
-                  <Badge variant={p.how === 'seen' ? 'ok' : 'gray'}>
-                    {COUNTRY_HOW_WORDS[p.how]}
-                  </Badge>
+                  {p.countryName ? <span>{p.countryName}</span> : null}
+                  {p.skippedByYou ? (
+                    <Badge variant="gray">{LW.skippedByYou}</Badge>
+                  ) : p.how ? (
+                    <Badge variant={p.how === 'seen' || p.how === 'friends' ? 'ok' : 'gray'}>
+                      {COUNTRY_HOW_WORDS[p.how]}
+                    </Badge>
+                  ) : null}
                   {p.at ? <span>{relativeTime(p.at)}</span> : null}
                 </div>
+                {p.reason.length ? (
+                  <p className="mt-0.5 text-[12px] text-text-2">{p.reason.join(' · ')}</p>
+                ) : null}
+                {p.why ? <p className="mt-0.5 text-[12px] text-text-3">{p.why}</p> : null}
               </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={busy !== null}
-                onClick={() => void unskip(p)}
-                data-testid="country-unskip"
-              >
-                Unskip
-              </Button>
+              <div className="flex gap-2">{actions(p)}</div>
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="px-5 pb-4 pt-2 text-[13px] text-text-2">
-          Nobody is skipped yet. People show here once their country is known: seen on their
-          profile, or guessed by the AI from their name, posts and groups.
-        </p>
-      )}
-      {list.pages > 1 ? <Pager page={list.page} pages={list.pages} onPage={setPage} /> : null}
+      ) : empty ? (
+        <p className="px-5 pb-4 pt-2 text-[13px] text-text-2">{empty}</p>
+      ) : null}
+      {got.pages > 1 ? <Pager page={got.page} pages={got.pages} onPage={onPage} /> : null}
     </Card>
   );
 }

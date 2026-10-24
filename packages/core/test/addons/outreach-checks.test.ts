@@ -78,7 +78,7 @@ describe('the AI’s check', () => {
       why: ['Owns a plumbing business', `${'x'.repeat(159)}…`, 'four'],
       about: 'Owns Reyes Plumbing',
       nextStep: null,
-      country: null,
+      country: { code: null, other: null, sure: false, why: null },
     });
     // Not a fit names no playbook; one that isn't the business's is none, unless it has only one.
     expect(

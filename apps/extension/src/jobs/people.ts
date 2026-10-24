@@ -8,10 +8,11 @@
  * friends list weekly (../auto/lists.ts). It loads each list a screen at a time, and saves what loaded. Nothing is
  * pressed on Facebook but View sent requests.
  */
-import type { Person, ReadResult } from '../networks/facebook/types';
+import { MUTUAL_READ_MOST } from '@hfos/core/addons/outreach/countries';
+import type { Person, ProfileRef, ReadResult } from '../networks/facebook/types';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { listBeside } from '../networks/facebook/friends';
-import { profileKey } from '../networks/facebook/urls';
+import { mutualFriendsUrl, profileKey } from '../networks/facebook/urls';
 import { friendsSave, groupSave, isAdminsPage, listOnPage } from '../hfos/saves';
 import { counted } from '../words';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
@@ -25,6 +26,8 @@ export const REQUEST_SCROLLS = 6;
 export const MEMBER_SCROLLS = 10;
 /** The friends list is read to its end, up to this many screens. */
 export const FRIENDS_SCROLLS = 150;
+/** Someone's mutual friends with the person (decision 86): a few screens, enough to say where most of them live. */
+export const MUTUAL_SCROLLS = 4;
 /** A group's admins and moderators are read to the end, up to this many screens. */
 export const ADMIN_SCROLLS = 20;
 /** The most groups whose members it saves in a day. */
@@ -62,7 +65,28 @@ async function gather(
   return { page, people: [...people.values()], whole };
 }
 
-const ended = (got: object): got is JobEnd => 'warned' in got;
+export const ended = (got: object): got is JobEnd => 'warned' in got;
+
+/**
+ * Opens someone's mutual friends with the person and reads a few screens of them (decision 86): who they are, for
+ * where they live. Nobody when Facebook lists none or hides the list. A warning ends it.
+ */
+export async function readMutual(job: Job, profile: ProfileRef): Promise<ProfileRef[] | JobEnd> {
+  const url = mutualFriendsUrl(profile);
+  if (!url) return [];
+  await job.tab.open(url);
+  const got = await gather(
+    job,
+    MUTUAL_SCROLLS,
+    (page) => (page.kind === 'friends' && !page.friendList ? (page.people ?? []) : []),
+    (count) => `Reading their mutual friends… ${counted(count, 'person', 'people')} so far.`,
+  );
+  if (ended(got)) return got;
+  const self = profileKey(profile);
+  return got.people
+    .flatMap((p) => (p.profile && profileKey(p.profile) !== self ? [p.profile] : []))
+    .slice(0, MUTUAL_READ_MOST);
+}
 
 /** One of the person's lists of people, saved: how many were new. */
 async function saveList(

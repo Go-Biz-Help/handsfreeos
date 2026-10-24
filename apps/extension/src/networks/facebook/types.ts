@@ -78,7 +78,10 @@ export interface Person extends Named {
 export interface ProfilePage {
   readonly name: string | null;
   readonly profile: ProfileRef | null;
-  /** The Intro card's lines: work, business, town. */
+  /**
+   * What the profile says about them: the bio and the details under the name (a place there reads as "Lives in …"),
+   * then the Intro card's lines, or the 2026 Personal details, Work and Education cards: work, business, town.
+   */
   readonly intro: readonly string[];
   /** What the buttons on the profile say about the two of you. */
   readonly friendship:
@@ -86,6 +89,8 @@ export interface ProfilePage {
   readonly mutualFriends: number | null;
   /** How many follow them, when the top says ("12K followers"): for the AI's partner check (decision 81). */
   readonly followers?: number;
+  /** How many friends they have, when the top says ("349 friends"): where they live, with their mutual friends. */
+  readonly friends?: number;
 }
 
 export interface GroupLink {

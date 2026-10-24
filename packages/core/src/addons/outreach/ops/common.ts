@@ -3,7 +3,7 @@
  * someone to a social network, where the person's own Facebook stands with them, and who's never pitched. Row
  * security decides what a request sees.
  */
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { people, recordTags, tags } from '@hfos/db/schema';
 import { fullName, requirePerson, userRef } from '../../../crm/records';
@@ -18,7 +18,7 @@ import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { addonTimelineLine } from '../../server';
 import { outreachSettings, type OutreachSettings } from '../chat-read';
-import { countryRuleOn, type CountryRule } from '../countries';
+import { countryRuleOn, linesCountry, type CountryHow, type CountryRule } from '../countries';
 import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import { outreachAddon } from '../manifest';
@@ -201,17 +201,97 @@ export async function countryRuleOf(ctx: Ctx): Promise<CountryRule> {
 }
 
 /**
- * A profile the business's country setting lets be reached (decision 61, `countryLets` in ../countries.ts, the one
- * copy of the rule): let through with Unskip, its country not known, or in (or not in) the countries picked. `p` is
- * its alias, any row with `country` and `country_through`.
+ * What the business's country setting does with a profile (decisions 61 and 86): `reach`, `look` (waiting for a look
+ * first), `ask` (the Not sure list) or `skip`. The SQL copy of `countryFate` in ../countries.ts, the one copy of the
+ * rule; `p` is the profile's alias.
+ */
+export function countryFateSql(rule: CountryRule, p: string) {
+  if (!countryRuleOn(rule)) return sql`'reach'`;
+  const a = sql.raw(p);
+  const codes = `{${rule.codes.join(',')}}`;
+  const listed = (col: string) => sql`(${a}.${sql.raw(col)} = any (${codes}::text[]))`;
+  const lets = rule.mode === 'only' ? listed('country') : sql`not ${listed('country')}`;
+  // Words from the rule's own fixed list, never what a request sent.
+  const unsure = sql.raw(`'${rule.unsure === 'through' ? 'reach' : rule.unsure}'`);
+  const unknown = sql.raw(`'${rule.unsure === 'through' ? 'reach' : 'look'}'`);
+  return sql`(case
+    when ${a}.country_through then 'reach'
+    when ${a}.country_skip then 'skip'
+    when ${a}.country_looked_at is not null or ${a}.country_how = 'seen' then
+      case
+        when ${a}.country_unsure or ${a}.country is null
+          or (${a}.country_alt is not null and ${listed('country_alt')} <> ${listed('country')})
+          then ${unsure}
+        when ${lets} then 'reach'
+        else 'skip'
+      end
+    when ${a}.country is not null then case when ${lets} then 'reach' else 'look' end
+    else ${unknown}
+  end)`;
+}
+
+/** Someone who runs one of the groups they were found in: left alone, never reached. `p` is the profile's alias. */
+export const runsAGroup = (p: string) =>
+  sql`exists (select 1 from addon_outreach.group_people x where x.profile_id = ${sql.raw(p)}.id and x.runs_group)`;
+
+/**
+ * Waiting for a look at where they live (decision 86): what the country setting says of them, and someone Today could
+ * reach, so not anyone who runs a group. `p` is the profile's alias.
+ */
+export const waitsForLook = (rule: CountryRule, p: string) =>
+  countryRuleOn(rule)
+    ? sql`(${countryFateSql(rule, p)} = 'look' and not ${runsAGroup(p)})`
+    : sql`false`;
+
+/**
+ * Keeps where someone lives from what's read without a look (decision 86): the lines under their name or the AI's
+ * guess. The strongest wins: a look's answer stands, and a "Lives in" beats a From, which beats a guess. Whether it
+ * was kept.
+ */
+export async function keepCountry(
+  ctx: CommandContext,
+  profileId: string,
+  found: { readonly country: string | null; readonly how: Exclude<CountryHow, 'friends'> },
+): Promise<boolean> {
+  const how: CountryHow = found.country
+    ? found.how === 'unknown'
+      ? 'guessed'
+      : found.how
+    : 'unknown';
+  const weaker: CountryHow[] =
+    how === 'seen'
+      ? ['from', 'guessed', 'unknown']
+      : how === 'from'
+        ? ['guessed', 'unknown']
+        : ['unknown'];
+  const done = await ctx.tx
+    .update(profiles)
+    .set({
+      country: found.country,
+      countryHow: how,
+      countryAt: changeMoment(ctx.meta),
+      ...(how === 'from' ? { countryFrom: found.country } : {}),
+    })
+    .where(
+      and(
+        eq(profiles.workspaceId, ctx.scope.workspaceId!),
+        eq(profiles.id, profileId),
+        isNull(profiles.countryLookedAt),
+        or(isNull(profiles.countryHow), inArray(profiles.countryHow, weaker)),
+      ),
+    )
+    .returning({ id: profiles.id });
+  return done.length > 0;
+}
+
+/**
+ * A profile the business's country setting lets be reached now (decisions 61 and 86): let through with Unskip, or
+ * where it lives in (or not in) the countries picked; never while it waits for a look or a person's call. `p` is its
+ * alias.
  */
 export function countryLetsSql(rule: CountryRule, p: string) {
   if (!countryRuleOn(rule)) return sql`true`;
-  const a = sql.raw(p);
-  const codes = `{${rule.codes.join(',')}}`;
-  return rule.mode === 'only'
-    ? sql`(${a}.country_through or ${a}.country is null or ${a}.country = any (${codes}::text[]))`
-    : sql`(${a}.country_through or ${a}.country is null or not (${a}.country = any (${codes}::text[])))`;
+  return sql`(${countryFateSql(rule, p)} = 'reach')`;
 }
 
 export const inWorkspace = (i: { workspaceId: string }) => ({
@@ -384,6 +464,10 @@ export async function saveProfile(
       .returning({ id: profiles.id });
     profileId = row!.id;
   }
+
+  // A "Lives in" or a "From" among their lines says where they live (decision 86).
+  const lined = input.facts ? linesCountry(input.facts.intro) : null;
+  if (lined) await keepCountry(ctx, profileId, lined);
 
   if (!had || had.personId !== personId)
     await addonTimelineLine(ctx, outreachAddon, {

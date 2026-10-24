@@ -7,9 +7,10 @@ import { describe, expect, it } from 'vitest';
 import { measuredSide, readChat } from '../src/networks/facebook/chat';
 import { friendListOf, mutualFriendsIn, yourProfile } from '../src/networks/facebook/friends';
 import { readPage } from '../src/networks/facebook/page';
+import { placeLine } from '../src/networks/facebook/profile';
 import type { ReadResult } from '../src/networks/facebook/types';
 import { runsGroup } from '../src/networks/facebook/people';
-import { classifyUrl } from '../src/networks/facebook/urls';
+import { classifyUrl, mutualFriendsUrl } from '../src/networks/facebook/urls';
 import { readWarnings } from '../src/networks/facebook/warnings';
 import { load } from './load';
 
@@ -145,6 +146,7 @@ describe('a profile', () => {
       ],
       friendship: 'not_friends',
       mutualFriends: 45,
+      friends: 1200,
     });
   });
 
@@ -205,11 +207,44 @@ describe('a profile, as Facebook drew it in 2026', () => {
         'Westfield High School',
         'Texas State',
         'danasdesigns',
+        // The Personal details card after the tabs (decision 86).
+        'Lives in Austin',
       ],
       friendship: 'friends',
       mutualFriends: 21,
+      friends: 349,
     });
     expect(result.notes).toEqual([]);
+  });
+
+  it('reads a place in the details under the name as where they live, and nothing else as one', () => {
+    expect(placeLine('Florida City, FL')).toBe('Lives in Florida City, FL');
+    expect(placeLine('Colorado Springs, CO')).toBe('Lives in Colorado Springs, CO');
+    expect(placeLine('Lagos, Nigeria')).toBe('Lives in Lagos, Nigeria');
+    // Already saying how, a school, a workplace, a bio with commas, a lone state: as they are.
+    expect(placeLine('From Trinidad and Tobago')).toBe('From Trinidad and Tobago');
+    expect(placeLine('Texas State')).toBe('Texas State');
+    expect(placeLine('Guardian Group Trinidad')).toBe('Guardian Group Trinidad');
+    expect(placeLine('Crafts, candles and custom signs.')).toBe(
+      'Crafts, candles and custom signs.',
+    );
+    expect(placeLine('Texas')).toBe('Texas');
+  });
+
+  it('finds the page of their mutual friends', () => {
+    expect(mutualFriendsUrl(dana.profile)).toBe(
+      'https://www.facebook.com/dana.reyes.12/friends_mutual',
+    );
+    expect(
+      mutualFriendsUrl({
+        id: '100012',
+        username: null,
+        url: 'https://www.facebook.com/profile.php?id=100012',
+      }),
+    ).toBe('https://www.facebook.com/profile.php?id=100012&sk=friends_mutual');
+    expect(classifyUrl('https://www.facebook.com/dana.reyes.12/friends_mutual').kind).toBe(
+      'friends',
+    );
   });
 
   it('finds the name on the links to the profile when the page’s title doesn’t have it', () => {

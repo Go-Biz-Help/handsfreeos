@@ -39,7 +39,7 @@ import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
 import type { Answer, ConversationStep, FollowUpNext, MessageSamples } from './conversation';
-import type { CountryHow } from './countries';
+import type { CountryHow, MutualCountries } from './countries';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
@@ -172,16 +172,34 @@ export const profiles = addonOutreach.table(
     /** When the extension found no post of theirs to like before a friend request (decision 33): it goes without. */
     warmUpMissedAt: ts('warm_up_missed_at'),
     /**
-     * Where they live (decision 61): a country's two-letter code, seen on their profile or guessed by the AI, or
-     * `unknown` when nothing said; null for both until it's worked out.
+     * Where they live (decisions 61 and 86): a country's two-letter code, and how it's known (`seen` a "Lives in",
+     * `friends` a look, `from` only a "From", `guessed` the AI's guess), or `unknown` when nothing said; null for both
+     * until it's worked out.
      */
     country: text('country'),
     countryHow: text('country_how').$type<CountryHow>(),
     countryAt: ts('country_at'),
+    /** The country a "From" line names, kept to show. */
+    countryFrom: text('country_from'),
+    /** A second country a look pointed to, when the facts split. */
+    countryAlt: text('country_alt'),
+    /** The AI's line after a look. */
+    countryWhy: text('country_why'),
+    /** A look couldn't tell: only a name to go on, or the AI wasn't sure. */
+    countryUnsure: boolean('country_unsure').notNull().default(false),
+    countryLookedAt: ts('country_looked_at'),
+    /** Where their mutual friends live, as the last look found. */
+    countryMutual: jsonb('country_mutual').$type<MutualCountries>(),
     /** Let through whatever the business's country setting says (Unskip): by whom and when. */
     countryThrough: boolean('country_through').notNull().default(false),
     countryThroughBy: userRef('country_through_by'),
     countryThroughAt: ts('country_through_at'),
+    /** Skipped whatever the setting says (Skip on the Not sure list): by whom and when. */
+    countrySkip: boolean('country_skip').notNull().default(false),
+    countrySkipBy: userRef('country_skip_by'),
+    countrySkipAt: ts('country_skip_at'),
+    /** How many friends their profile last said they have. */
+    friendsCount: integer('friends_count'),
     /** How many follow them, as their profile last said, and when it was read. */
     followers: integer('followers'),
     followersAt: ts('followers_at'),
@@ -1077,6 +1095,13 @@ export const checks = addonOutreach.table(
     checkedAt: ts('checked_at'),
     /** Check everyone again was pressed since: read again next, whenever it was last checked. */
     again: boolean('again').notNull().default(false),
+    /** Their mutual friends the look read (decision 86), matched to profiles kept; let go with the lines. */
+    mutualIds: uuid('mutual_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    /** How many mutual friends the look's page listed, matched or not; null when it wasn't read. */
+    mutualRead: integer('mutual_read'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

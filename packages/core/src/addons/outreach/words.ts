@@ -565,7 +565,7 @@ export const OUTREACH_WORDS = {
     weekly:
       'Each person who used the extension that week gets their friend requests, replies and demos, their best group and their best opener, on Monday at the morning push’s hour (8 AM when that’s off).',
     countries:
-      'Where people live, from their profile, or the AI’s guess from their name, posts and groups when it doesn’t say. Anyone skipped is on the Friends tab’s Skipped for country list, where Unskip lets them through.',
+      'Where people live: a “Lives in” on their profile first, then a look at their profile and the friends you share. A “From” on its own, or the AI’s guess from their name, never skips anyone: they wait for that look. Anyone skipped is on the Friends tab’s Skipped for country list, where Unskip lets them through.',
     notOwner:
       'An owner or admin of this business sets the choices you may pick and your daily limits.',
   },
