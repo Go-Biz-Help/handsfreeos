@@ -45,15 +45,18 @@ export function isBookingAnswer(value: unknown): value is BookingAnswer {
 /** "Tue, Oct 28 · 7:00 pm": a time as a customer reads it, where the calendar is. */
 export function bookingLabel(startsAt: string | number, timeZone: string): string {
   const at = new Date(startsAt);
-  const zone = intlTimeZone(timeZone);
   const day = at.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    timeZone: zone,
+    timeZone: intlTimeZone(timeZone),
   });
   const time = at
-    .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: zone })
+    .toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: intlTimeZone(timeZone),
+    })
     .replace(/\s?AM$/, ' am')
     .replace(/\s?PM$/, ' pm');
   return `${day} · ${time}`;
