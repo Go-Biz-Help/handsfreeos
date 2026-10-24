@@ -55,6 +55,7 @@ import { registerAddonSignInRoutes } from './addon-sign-ins';
 import { registerExtensionSignInRoutes } from './extension-sign-in';
 import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
+import { registerJoinRoutes } from './join';
 import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
@@ -314,6 +315,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerAddonSealedRoutes(app, deps, deps.addonConnections);
   // A customer sending a video at full quality through a link the business texted them (20261018000300).
   await registerVideoLinkRoutes(app, deps);
+  // Joining an online session through a person's own Join link (funnels).
+  await registerJoinRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);
   // A business's own policy or terms, given back with the texting section in place (20261027006500).

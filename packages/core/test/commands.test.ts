@@ -443,6 +443,7 @@ describe('registry', () => {
       'intake_source.rotate_key',
       'intake_source.archive',
       'intake.submit',
+      'indeed_applicant.receive',
       'chat_widget.create',
       'chat_widget.update',
       'chat_widget.pause',
@@ -495,6 +496,8 @@ describe('registry', () => {
       'lead.catch_up',
       'attendee.confirm',
       'attendee.confirm_online',
+      // One person's attendance on a session (funnels).
+      'attendee.set_attendance',
       'attendee.confirm_by_call',
       'product.create',
       'product.update',
@@ -644,6 +647,9 @@ describe('registry', () => {
       'review.reply',
       'form_response.start',
       'form_response.save',
+      'form_response.save_contact',
+      'form_response.mark_stopped',
+      'form_link.create',
       'form_response.submit',
       'form_response.record',
       'form_response.delete',
@@ -768,6 +774,9 @@ describe('registry', () => {
       'meta_message.receipt',
       'meta_message.edit',
       'ad.resolve',
+      // Facebook lead ads (funnels).
+      'meta_lead.receive',
+      'meta_account.leads_access',
       // Add-ons (0108).
       'addon.install',
       'addon.enable',

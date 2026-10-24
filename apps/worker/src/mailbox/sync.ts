@@ -9,6 +9,7 @@ import { emailReceive, executeCommand, mailboxFail, otherEmailsOf } from '@hfos/
 import { asWorker, sql, type Db, type Tx } from '@hfos/db/client';
 import { conversations, mailboxConnections, people } from '@hfos/db/schema';
 import { htmlToText, sanitizeInboundHtml } from '../email/render';
+import { fileIndeedApplicant } from '../email/indeed';
 import type { JobContext, JobHandler } from '../jobs';
 import { errorMessage } from '../outbox';
 import {
@@ -175,8 +176,20 @@ const safeName = (name: string): string =>
     .trim()
     .slice(0, 120) || 'attachment';
 
-/** Files one email with a customer: attachments to storage, the body sanitized, then `email.receive`. */
+/**
+ * Files one email with a customer: attachments to storage, the body sanitized, then `email.receive`. Indeed telling
+ * the business somebody applied is read first, though it's from nobody the business knows (email/indeed.ts).
+ */
 async function fileEmail(ctx: JobContext, scope: TenantScope, m: Connection, e: SyncedEmail) {
+  if (e.direction === 'inbound')
+    await fileIndeedApplicant(ctx, scope, {
+      from: e.from,
+      subject: e.subject,
+      text: e.text?.trim() || (e.html ? htmlToText(e.html) : '') || null,
+      key: e.messageIdHeader ?? `${m.provider}:${e.providerMessageId}`,
+      occurredAt: e.occurredAt,
+      ours: m.accountEmail ? [m.accountEmail] : [],
+    });
   if (e.automatic) return;
   const others = (e.direction === 'inbound' ? [e.from] : [...e.to, ...e.cc])
     .map((p) => p.address)

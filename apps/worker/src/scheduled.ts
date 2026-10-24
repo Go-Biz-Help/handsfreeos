@@ -14,6 +14,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
+import { FORM_JOBS, FORMS_STOPPED_KEY, formJobs, nextStoppedSweep } from './forms/stopped';
 import { BIN_JOBS, BIN_SWEEP_KEY, binJobs } from './bin/index';
 import { addonJobs, ensureAddonSweep } from './addons/index';
 import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
@@ -74,6 +75,8 @@ import { importJobs } from './telephony/imports';
 import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
 import { META_JOBS, META_PLAN_KEY, metaJobs } from './social/jobs';
+import { META_LEAD_JOBS, META_LEADS_PLAN_KEY, metaLeadJobs } from './social/leads';
+import { ATTENDANCE_JOB, ATTENDANCE_KEY, attendanceClose } from './booking/attendance';
 import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { FILE_TEXT_JOBS, FILE_TEXT_SWEEP_KEY, fileTextJobs } from './files/file-text';
@@ -625,6 +628,7 @@ export const jobs: JobMap = {
   // Phones: the nightly time-window sweep, one business at a time, and the daily receipts clean-up (housekeeping/).
   ...syncWindowJobs,
   ...receiptJobs,
+  ...formJobs,
   // Problem reports older than 30 days, nightly (housekeeping/problem-reports.ts).
   ...problemReportJobs,
   // Deleting an account: off each business, the profile anonymized, sessions ended and sign-in blocked (account/).
@@ -637,6 +641,10 @@ export const jobs: JobMap = {
   ...roadmapJobs,
   // Facebook Messenger and Instagram: an ad looked up at Meta, and each business's Pages checked daily (social/).
   ...metaJobs,
+  // Facebook lead ads: each business's Pages read hourly for leads a webhook missed (social/leads.ts).
+  ...metaLeadJobs,
+  // Each session's attendees marked attended or a no-show once it ends, by their Join links (booking/attendance.ts).
+  [ATTENDANCE_JOB]: attendanceClose,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -858,6 +866,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       workspaceId: null,
       organizationId: null,
     });
+    // Forms (funnels), every five minutes: somebody we know who went quiet partway through one.
+    await scheduleJob(tx, {
+      kind: FORM_JOBS.stopped,
+      dedupeKey: FORMS_STOPPED_KEY,
+      runAt: nextStoppedSweep(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
     await scheduleJob(tx, {
       kind: PROBLEM_REPORT_JOBS.cleanUp,
       dedupeKey: PROBLEM_REPORTS_CLEAN_UP_KEY,
@@ -878,6 +895,24 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: META_JOBS.plan,
       dedupeKey: META_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Sessions that ended, every ten minutes: who joined attended, who never did is a no-show (booking/attendance.ts).
+    await scheduleJob(tx, {
+      kind: ATTENDANCE_JOB,
+      dedupeKey: ATTENDANCE_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Facebook lead ads, hourly: leads a webhook missed (social/leads.ts). Idle until META_LEAD_ADS is on.
+    await scheduleJob(tx, {
+      kind: META_LEAD_JOBS.plan,
+      dedupeKey: META_LEADS_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

@@ -29,7 +29,7 @@ export async function sendConfirmedThanks(
   o: ThanksOptions,
 ): Promise<void> {
   const found = await asWorker(s.db, scope, async (tx) => {
-    const b = await loadBooking(tx, s, attendeeId);
+    const b = await loadBooking(tx, s, attendeeId, { forCustomer: true });
     const a = b?.attendee;
     // Gone, cancelled, started, or no longer confirmed by text (moved since, which clears it): no thanks.
     if (!b || !a || a.confirmedVia !== 'sms' || !a.confirmedAt || !a.contactPhoneE164) return null;

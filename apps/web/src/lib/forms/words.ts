@@ -9,11 +9,13 @@ import {
   AlignLeft,
   AtSign,
   Calendar,
+  CalendarCheck,
   CheckSquare,
   Circle,
   Clock,
   CreditCard,
   FileUp,
+  Film,
   Hash,
   Heading,
   MapPin,
@@ -46,6 +48,8 @@ export const QUESTION_ICONS: Readonly<Record<QuestionType, LucideIcon>> = {
   signature: PenLine,
   content: Heading,
   payment: CreditCard,
+  video: Film,
+  booking: CalendarCheck,
 };
 
 export { QUESTION_LABELS, FORM_MODE_LABELS };
@@ -55,7 +59,7 @@ export const QUESTION_MENU: readonly { group: string; types: readonly QuestionTy
   { group: 'Asking', types: ['short_text', 'long_text', 'choice', 'checkboxes', 'yes_no'] },
   { group: 'Details', types: ['email', 'phone', 'address', 'date', 'time'] },
   { group: 'Numbers', types: ['number', 'money', 'rating', 'scale'] },
-  { group: 'Other', types: ['file', 'signature', 'content', 'payment'] },
+  { group: 'Other', types: ['content', 'video', 'booking', 'file', 'signature', 'payment'] },
 ];
 
 export const MODE_BLURB: Readonly<Record<FormMode, string>> = {

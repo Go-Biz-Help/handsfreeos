@@ -15,6 +15,7 @@ import {
   numeric,
   pgSchema,
   primaryKey,
+  unique,
   real,
   smallint,
   text,
@@ -2542,6 +2543,12 @@ export const appointmentAttendees = app.table('appointment_attendees', {
    * Social Outreach demo link's. Online bookings only; null for the rest.
    */
   linkRef: text('link_ref'),
+  /** Attendance one person at a time (20261027011300): when they opened their Join link, or a teammate ticked it. */
+  joinedAt: ts('joined_at'),
+  /** They were given a Join link: the end of the session marks them attended or a no-show. */
+  joinOfferedAt: ts('join_offered_at'),
+  /** Their attendance was set for them alone: marking the whole appointment leaves it. */
+  attendanceSetAt: ts('attendance_set_at'),
 });
 
 /** M18: more services on one visit, each with its time and price as they read when added. */
@@ -2820,6 +2827,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'main_offer',
   // Adding the texting section to the business's own privacy policy or terms (20261027006500).
   'texting_policy',
+  // Reading an applicant Indeed emailed the business about (20261027011100).
+  'lead_intake',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -5479,6 +5488,9 @@ export const intakeKind = app.enum('intake_kind', [
   /** A stranger writing to the business's Facebook Page or Instagram account (20261025000100). */
   'messenger',
   'instagram',
+  /** A Facebook or Instagram lead ad's form, and an applicant Indeed emailed about (20261027011100). */
+  'facebook_lead_ad',
+  'indeed',
 ]);
 
 /**
@@ -6286,6 +6298,23 @@ export const formSlugs = app.table(
   (t) => [primaryKey({ columns: [t.workspaceId, t.slug] })],
 );
 
+/**
+ * A form link that knows who it's for (funnels, 20261027010900): `/f/<site>/<form>?k=<key>`, the key kept only as
+ * its hash. Worker-only.
+ */
+export const formLinks = app.table('form_links', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  formId: formLink(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  keyHash: bytea('key_hash').notNull().unique(),
+  expiresAt: ts('expires_at').notNull(),
+  openedAt: ts('opened_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 /** One person's answers, on the version they were shown. */
 export const formResponses = app.table('form_responses', {
   id: id(),
@@ -6314,6 +6343,13 @@ export const formResponses = app.table('form_responses', {
   visitorHash: bytea('visitor_hash'),
   /** The form asked for one answer per customer when this was sent (0077's unique index). */
   onePerPerson: boolean('one_per_person').notNull().default(false),
+  /** The personal link this sheet was started from, whose key also writes to it (20261027010900). */
+  formLinkId: uuid('form_link_id').references(() => formLinks.id, { onDelete: 'set null' }),
+  /** When the page last saved, and the page it was on, for "stopped partway" (20261027011000). */
+  lastActiveAt: ts('last_active_at'),
+  atPageId: text('at_page_id'),
+  /** The pages already marked stopped, each once. */
+  stoppedPages: textArray('stopped_pages'),
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),
@@ -6499,8 +6535,33 @@ export const metaAccounts = app.table('meta_accounts', {
   connectedAt: ts('connected_at').notNull().defaultNow(),
   disconnectedAt: ts('disconnected_at'),
   connectedBy: userRef('connected_by'),
+  /** Lead ads (20261027011200): whether its leads can be read, and when the last one came. */
+  leadsAccess: text('leads_access')
+    .$type<'unknown' | 'ok' | 'not_allowed' | 'blocked'>()
+    .notNull()
+    .default('unknown'),
+  lastLeadAt: ts('last_lead_at'),
+  leadsCheckedAt: ts('leads_checked_at'),
   ...timestamps(),
 });
+
+/** A Page's lead ad form, as we've seen it (20261027011200): its name, and which consent boxes are about texts. */
+export const metaLeadForms = app.table(
+  'meta_lead_forms',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => metaAccounts.id, { onDelete: 'cascade' }),
+    formId: text('form_id').notNull(),
+    name: text('name').notNull().default(''),
+    textConsentKeys: textArray('text_consent_keys'),
+    lastLeadAt: ts('last_lead_at'),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.accountId, t.formId)],
+);
 
 /** Somebody who wrote to a Page or Instagram account, by the id Meta gives them for it, and their thread. */
 export const metaContacts = app.table('meta_contacts', {
@@ -6569,8 +6630,11 @@ export const attributionTouches = app.table('attribution_touches', {
   platform: text('platform').$type<MetaPlatform>().notNull(),
   channel: channel('channel').notNull(),
   touchedAt: ts('touched_at').notNull(),
-  /** started: it opened the conversation; returned: somebody already talking came back through it. */
-  kind: text('kind').$type<'started' | 'returned'>().notNull(),
+  /**
+   * started: it opened the conversation; returned: somebody already talking came back through it; lead_form: they
+   * filled in a lead ad's form (20261027011200).
+   */
+  kind: text('kind').$type<'started' | 'returned' | 'lead_form'>().notNull(),
   /** The customer as they are now: follows their conversation through links and merges. */
   personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
   metaAccountId: uuid('meta_account_id').references(() => metaAccounts.id, {
@@ -6597,6 +6661,8 @@ export const attributionTouches = app.table('attribution_touches', {
   productId: text('product_id'),
   refererUri: text('referer_uri'),
   adRefId: uuid('ad_ref_id').references(() => ads.id, { onDelete: 'set null' }),
+  /** The lead ad form a lead_form touch came through. */
+  leadFormId: uuid('lead_form_id').references(() => metaLeadForms.id, { onDelete: 'set null' }),
   raw: jsonb('raw').$type<Json>().notNull().default({}),
   dedupeKey: text('dedupe_key').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),

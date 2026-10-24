@@ -565,6 +565,12 @@ const ROWS = {
     label: 'Facebook sign-in',
     words: ['reconnect facebook', 'meta login'],
   },
+  'facebook_instagram.lead_ads': {
+    page: 'facebook_instagram',
+    section: null,
+    label: 'Lead ads',
+    words: ['lead ad', 'lead form', 'instant form', 'leads access', 'facebook leads'],
+  },
 
   // ---- Lead intake ----
   'lead_intake.channels': {
@@ -577,6 +583,7 @@ const ROWS = {
       'emails your business',
       'facebook page',
       'instagram',
+      'lead ad form',
       'new lead pipeline',
     ],
   },

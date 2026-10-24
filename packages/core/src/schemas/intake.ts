@@ -2,10 +2,18 @@ import { z } from 'zod';
 import { uuid } from './common';
 
 /**
- * The ways a stranger reaches a business by themselves (M14 slice A), and a message to its Facebook Page or Instagram
- * account (20261025000200).
+ * The ways a stranger reaches a business by themselves (M14 slice A), a message to its Facebook Page or Instagram
+ * account (20261025000200), and a lead ad's form or an applicant Indeed emailed about (funnels).
  */
-export const IntakeChannelKind = z.enum(['text', 'call', 'email', 'messenger', 'instagram']);
+export const IntakeChannelKind = z.enum([
+  'text',
+  'call',
+  'email',
+  'messenger',
+  'instagram',
+  'facebook_lead_ad',
+  'indeed',
+]);
 
 /** Forms on a business's own website, and services that send leads over (M14 slice B). */
 export const IntakeKeyedKind = z.enum(['website_form', 'api']);
@@ -134,6 +142,24 @@ export const IntakeSubmitInput = z.object({
   dedupeKey: z.string().trim().min(1).max(200),
   payload: IntakePayloadInput,
   occurredAt: z.string().datetime().optional(),
+});
+/**
+ * The worker: Indeed emailed the business about somebody who applied (funnels), and the AI (or, without it, the
+ * email's own shapes) read who. The email's Message-ID keeps it to one lead.
+ */
+export const IndeedApplicantReceiveInput = z.object({
+  workspaceId: uuid,
+  /** The email's Message-ID, or the mail service's own id for it. */
+  emailKey: z.string().trim().min(1).max(998),
+  occurredAt: z.string().datetime().optional(),
+  applicant: z.object({
+    name: z.string().trim().max(160).nullable(),
+    /** Often Indeed's relay for them, which reaches them all the same. */
+    email: z.string().trim().max(320).nullable(),
+    phone: z.string().trim().max(40).nullable(),
+    job: z.string().trim().max(160).nullable(),
+    location: z.string().trim().max(160).nullable(),
+  }),
 });
 export const IntakeSubmitOutput = z.object({
   outcome: z.enum(['opened', 'matched', 'refused']),

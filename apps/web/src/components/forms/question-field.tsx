@@ -5,6 +5,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { BookingPicker } from './booking-picker';
+import { VideoPlayer } from './video-player';
 
 /**
  * One question as the person answering it sees it. The preview in the editor and the public page both use
@@ -271,6 +273,23 @@ function Answer({
         <p className="rounded-card border border-dashed border-border px-3 py-5 text-center text-[13px] text-text-3">
           {String(config.description ?? 'Payment')} — we’ll send a card link once this is in.
         </p>
+      );
+    case 'booking':
+      return (
+        <BookingPicker
+          questionId={question.id}
+          value={value}
+          onChange={(answer) => onChange(answer as never)}
+        />
+      );
+    case 'video':
+      return (
+        <VideoPlayer
+          url={String(config.url ?? '')}
+          title={question.title}
+          value={typeof value === 'number' ? value : null}
+          onChange={onChange}
+        />
       );
     case 'email':
       return (

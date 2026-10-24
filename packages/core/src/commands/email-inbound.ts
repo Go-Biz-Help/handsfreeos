@@ -12,6 +12,7 @@ import {
 } from '@hfos/db/schema';
 import { workspaceZone } from '../calendar/load';
 import { logChannelActivity } from '../crm/activities';
+import { isIndeedApplicantEmail, isIndeedMachine } from '../crm/indeed';
 import { intakeFromChannel, looksAutomatedEmail, type IntakeResult } from '../crm/intake';
 import { fullName } from '../crm/records';
 import { defineCommand } from '../kernel/define';
@@ -342,6 +343,10 @@ export const emailReceive = defineCommand({
         known ||
         input.automatic ||
         looksAutomatedEmail(input.from, input.subject) ||
+        // Indeed's own mail, and its word that somebody applied: the applicant is filed under Lead intake's
+        // "Indeed" row (indeed_applicant.receive), never as somebody who emailed in.
+        isIndeedMachine(counterpart) ||
+        isIndeedApplicantEmail(input) ||
         (await suppressed(ctx.tx, workspaceId, counterpart))
       )
         folder = 'other';

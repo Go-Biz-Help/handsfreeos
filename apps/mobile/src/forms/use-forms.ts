@@ -86,12 +86,13 @@ export function usePhoneForm(formId: string): PhoneForm | null {
 /**
  * What this phone cannot ask for, and so what sends somebody to the web.
  *
- * Not a shortcut: a signature wants a canvas, a file wants the camera roll and a payment wants a card sheet,
- * and a form that rendered four of its five questions and quietly dropped the fifth would be worse than one
- * that says plainly where to open it. `formState` still decides what is *showing*, so a question behind a
- * rule nobody met does not block a form it is not part of.
+ * Not a shortcut: a signature wants a canvas, a file wants the camera roll, a payment wants a card sheet, a video
+ * wants the player that tells how much was watched and a time to book wants the calendar's open times, and a
+ * form that rendered four of its five questions and quietly dropped the fifth would be worse than one that says
+ * plainly where to open it. `formState` still decides what is *showing*, so a question behind a rule nobody met
+ * does not block a form it is not part of.
  */
-export const NOT_ON_THE_PHONE = ['file', 'signature', 'payment'] as const;
+export const NOT_ON_THE_PHONE = ['file', 'signature', 'payment', 'video', 'booking'] as const;
 
 export function blockedQuestions(definition: FormDefinitionValue): readonly string[] {
   const kinds = new Set<string>(NOT_ON_THE_PHONE);

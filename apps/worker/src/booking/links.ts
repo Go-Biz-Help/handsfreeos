@@ -1,10 +1,12 @@
 /**
- * Short signed links for customers: change or cancel a booking (`/m/…`) and claim a waitlist offer (`/w/…`).
+ * Short signed links for customers: change or cancel a booking (`/m/…`), claim a waitlist offer (`/w/…`), and join
+ * an online session (`/j/…`, funnels), which says who joined and when before it sends them on to the meeting.
  *
  * A link is `${WEB_URL}/m/<public_ref><code>`: the booking's 8-character public reference (random, unique,
  * not secret; migration 0018) and a 10-character code, the first ten base62 characters of an HMAC-SHA256
- * over `${attendeeId}:${manageVersion}` (`waitlist:${entryId}` for offers). Nothing secret is stored:
- * raising an attendee's manage_version retires every link sent before it.
+ * over `${attendeeId}:${manageVersion}` (`waitlist:${entryId}` for offers, `join:${attendeeId}` to join). Nothing
+ * secret is stored: raising an attendee's manage_version retires every manage link sent before it. A Join link
+ * lasts as long as the booking: the session's time decides when it opens the meeting.
  *
  * The HMAC key is derived from WORKER_ENCRYPTION_KEY. Codes signed with a previous key
  * (WORKER_ENCRYPTION_KEYS_PREVIOUS, the way `createSealer` opens old values) still verify, and codes are
@@ -62,6 +64,7 @@ const sign = (key: Buffer, message: string): string =>
 const manageMessage = (attendeeId: string, manageVersion: number) =>
   `${attendeeId}:${manageVersion}`;
 const waitlistMessage = (entryId: string) => `waitlist:${entryId}`;
+const joinMessage = (attendeeId: string) => `join:${attendeeId}`;
 
 /** True when `code` was signed for `message` by any of the keys; every key is tried, so timing says nothing. */
 function matches(links: BookingLinks, code: string, message: string): boolean {
@@ -105,6 +108,19 @@ export function waitlistToken(links: BookingLinks, link: WaitlistLink): string {
 /** A waitlist offer's page: `${WEB_URL}/w/<public_ref><code>`. */
 export function waitlistUrl(links: BookingLinks, link: WaitlistLink): string {
   return `${links.webUrl}/w/${waitlistToken(links, link)}`;
+}
+
+export interface JoinLink {
+  readonly publicRef: string;
+  readonly attendeeId: string;
+}
+/** `<public_ref><code>`: the part of the link after /j/. */
+export function joinToken(links: BookingLinks, link: JoinLink): string {
+  return ref(link.publicRef) + sign(links.keys[0]!, joinMessage(link.attendeeId));
+}
+/** One person's way into an online session: `${WEB_URL}/j/<public_ref><code>`. */
+export function joinUrl(links: BookingLinks, link: JoinLink): string {
+  return `${links.webUrl}/j/${joinToken(links, link)}`;
 }
 
 /** Splits a link's token into its reference and code, or null when it can't be one. */
@@ -169,6 +185,34 @@ export async function resolveManageToken(
     if (verifyManageCode(links, parsed.code, row.attendee_id, v))
       return { status: 'stale', attendeeId: row.attendee_id, scope };
   return { status: 'invalid' };
+}
+
+export type JoinTokenResult =
+  | { readonly status: 'ok'; readonly attendeeId: string; readonly scope: TenantScope }
+  | { readonly status: 'invalid' };
+
+/** Finds and checks a Join link (the same lookup as the manage link's, then the HMAC for joining). */
+export async function resolveJoinToken(
+  db: Db,
+  links: BookingLinks,
+  token: string,
+): Promise<JoinTokenResult> {
+  const parsed = parseLinkToken(token);
+  if (!parsed) return { status: 'invalid' };
+  const [row] = await asWorker(db, {}, (tx) =>
+    rows<{ attendee_id: string; workspace_id: string; organization_id: string }>(
+      tx,
+      sql`select attendee_id, workspace_id, organization_id
+          from private.booking_manage_lookup(${parsed.publicRef})`,
+    ),
+  );
+  if (!row || !matches(links, parsed.code, joinMessage(row.attendee_id)))
+    return { status: 'invalid' };
+  return {
+    status: 'ok',
+    attendeeId: row.attendee_id,
+    scope: { workspaceId: row.workspace_id, organizationId: row.organization_id },
+  };
 }
 
 export type WaitlistTokenResult =
@@ -240,4 +284,27 @@ export async function waitlistUrlFor(
   if (!e) return null;
   const on = linksOn(links, await publicOrigin(tx, e.workspaceId, links.webUrl));
   return waitlistUrl(on, { publicRef: e.publicRef, entryId });
+}
+
+/**
+ * A person's Join link for an online session, on the business's own domain once one is serving, and a note that
+ * they were given one: the session's end then marks them attended or a no-show (attendance.ts). Only for what goes
+ * to the customer: a teammate opening it would count as the customer joining.
+ */
+export async function joinUrlFor(
+  tx: Tx,
+  links: BookingLinks,
+  attendeeId: string,
+): Promise<string | null> {
+  const [a] = await tx
+    .update(appointmentAttendees)
+    .set({ joinOfferedAt: sql`coalesce(${appointmentAttendees.joinOfferedAt}, now())` })
+    .where(eq(appointmentAttendees.id, attendeeId))
+    .returning({
+      publicRef: appointmentAttendees.publicRef,
+      workspaceId: appointmentAttendees.workspaceId,
+    });
+  if (!a) return null;
+  const on = linksOn(links, await publicOrigin(tx, a.workspaceId, links.webUrl));
+  return joinUrl(on, { publicRef: a.publicRef, attendeeId });
 }

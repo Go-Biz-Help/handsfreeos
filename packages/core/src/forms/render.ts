@@ -27,7 +27,10 @@ import {
   type LogicFacts,
   type ScoreResult,
 } from './logic';
+import type { FillContext } from './personal';
 import { answerIsEmpty, CHOICE_TYPES, UNANSWERED_TYPES, type AnswerValue } from './questions';
+import { isBookingAnswer } from './booking';
+import { watchFirstWords } from './video';
 
 /** A page with only the questions that are showing. */
 export interface VisiblePage {
@@ -55,14 +58,29 @@ function factsFor(definition: FormDefinition, answers: AnswerSheet): LogicFacts 
   return { answers, calculations, score: { points: score.points, percent: score.percent } };
 }
 
-function showing(definition: FormDefinition, answers: AnswerSheet): VisiblePage[] {
+/**
+ * The pages and questions showing for these answers. A question that fills a contact detail we already have is
+ * skipped (`fill.known`, a personal link), and a page left with nothing on it isn't shown at all, so a funnel's
+ * name page disappears for somebody we know.
+ */
+function showing(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): VisiblePage[] {
   const facts = factsFor(definition, answers);
+  const known = fill.known;
   return definition.pages
     .filter((page) => evaluateAnswers(page.showIf, facts))
     .map((page) => ({
       page,
-      questions: page.questions.filter((question) => evaluateAnswers(question.showIf, facts)),
-    }));
+      questions: page.questions.filter(
+        (question) =>
+          !(known && question.mapTo && known.has(question.mapTo)) &&
+          evaluateAnswers(question.showIf, facts),
+      ),
+    }))
+    .filter((visible) => visible.questions.length > 0 || visible.page.questions.length === 0);
 }
 
 /**
@@ -70,11 +88,15 @@ function showing(definition: FormDefinition, answers: AnswerSheet): VisiblePage[
  * "What breed?" goes with it — hiding a question and keeping its answer is how a form ends up recording
  * something nobody was asked. Taking one answer away can hide another, so it settles.
  */
-export function prunedAnswers(definition: FormDefinition, answers: AnswerSheet): AnswerSheet {
+export function prunedAnswers(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): AnswerSheet {
   let current: AnswerSheet = { ...answers };
   for (let pass = 0; pass < 10; pass++) {
     const visible = new Set(
-      showing(definition, current)
+      showing(definition, current, fill)
         .flatMap((p) => p.questions)
         .map((q) => q.id),
     );
@@ -88,10 +110,14 @@ export function prunedAnswers(definition: FormDefinition, answers: AnswerSheet):
 }
 
 /** Everything a screen needs: what is showing, what the numbers come to, and how far along they are. */
-export function formState(definition: FormDefinition, answers: AnswerSheet): FormState {
-  const kept = prunedAnswers(definition, answers);
+export function formState(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): FormState {
+  const kept = prunedAnswers(definition, answers, fill);
   const facts = factsFor(definition, kept);
-  const pages = showing(definition, kept);
+  const pages = showing(definition, kept, fill);
   const questions = pages.flatMap((p) => p.questions);
   const answerable = questions.filter(asked);
   const done = answerable.filter((q) => !answerIsEmpty(kept[q.id] ?? null));
@@ -109,8 +135,12 @@ export function formState(definition: FormDefinition, answers: AnswerSheet): For
  * The next question to ask, for the AI teammate and for one-question-at-a-time: the first one showing that
  * hasn't been answered. null means there is nothing left to ask.
  */
-export function nextQuestion(definition: FormDefinition, answers: AnswerSheet): Question | null {
-  const state = formState(definition, answers);
+export function nextQuestion(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): Question | null {
+  const state = formState(definition, answers, fill);
   return (
     state.questions.find((q) => asked(q) && answerIsEmpty(state.answers[q.id] ?? null)) ?? null
   );
@@ -136,6 +166,8 @@ const decimalsOf = (value: number): number => (String(value).split('.')[1] ?? ''
  */
 export function answerProblem(question: Question, value: AnswerValue): string | null {
   if (!asked(question)) return null;
+  // A video is answered by watching it, so not having started is 0%, and the gate is what holds them back.
+  if (question.type === 'video') return videoProblem(question, value);
   if (answerIsEmpty(value)) return question.required ? 'Answer this one.' : null;
   const config = question.config as Record<string, unknown>;
 
@@ -225,9 +257,21 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
     case 'payment':
       // The money itself is taken at submit; nothing to check here.
       return null;
+    case 'booking':
+      // Whether the time is still free is the calendar's to say, when the form is sent.
+      return isBookingAnswer(value) ? null : 'Pick one of the times.';
     default:
       return null;
   }
+}
+
+function videoProblem(question: Question, value: AnswerValue): string | null {
+  const watched = answerIsEmpty(value) ? 0 : value;
+  if (typeof watched !== 'number' || !Number.isInteger(watched) || watched < 0 || watched > 100)
+    return 'Watch the video here.';
+  const { minPercent } = question.config as { minPercent: number | null };
+  if (minPercent !== null && watched < minPercent) return watchFirstWords(minPercent);
+  return question.required && watched === 0 ? 'Play the video to go on.' : null;
 }
 
 /**
@@ -237,8 +281,9 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
 export function responseProblems(
   definition: FormDefinition,
   answers: AnswerSheet,
+  fill: FillContext = {},
 ): AnswerProblem[] {
-  const state = formState(definition, answers);
+  const state = formState(definition, answers, fill);
   const problems: AnswerProblem[] = [];
   for (const question of state.questions) {
     const problem = answerProblem(question, state.answers[question.id] ?? null);
@@ -252,12 +297,34 @@ export function pageProblems(
   definition: FormDefinition,
   answers: AnswerSheet,
   pageId: string,
+  fill: FillContext = {},
 ): AnswerProblem[] {
-  const state = formState(definition, answers);
+  const state = formState(definition, answers, fill);
   const page = state.pages.find((p) => p.page.id === pageId);
   if (!page) return [];
   const ids = new Set(page.questions.map((q) => q.id));
-  return responseProblems(definition, answers).filter((p) => ids.has(p.questionId));
+  return responseProblems(definition, answers, fill).filter((p) => ids.has(p.questionId));
+}
+
+/**
+ * Where somebody picks up on a form shown one page at a time: the first showing page with something still to
+ * do (a required question, a video not watched enough) or that they haven't touched yet, else the last one.
+ * A sheet picked up again lands where they left off rather than at the start.
+ */
+export function pageToResume(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): string | null {
+  const state = formState(definition, answers, fill);
+  const problems = new Set(responseProblems(definition, answers, fill).map((p) => p.questionId));
+  const page = state.pages.find(
+    (p) =>
+      p.questions.some((q) => problems.has(q.id)) ||
+      (p.questions.some(asked) &&
+        !p.questions.some((q) => asked(q) && !answerIsEmpty(state.answers[q.id] ?? null))),
+  );
+  return (page ?? state.pages[state.pages.length - 1])?.page.id ?? null;
 }
 
 // ---- Where they land ----
@@ -266,8 +333,12 @@ export function pageProblems(
  * The result they see. A rule that passes wins, first one down; otherwise the outcome their choices voted
  * for most (earliest wins a tie); otherwise the last result, which is the thank-you screen.
  */
-export function pickResult(definition: FormDefinition, answers: AnswerSheet): FormResult {
-  const state = formState(definition, answers);
+export function pickResult(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): FormResult {
+  const state = formState(definition, answers, fill);
   const facts: LogicFacts = {
     answers: state.answers,
     calculations: state.calculations,
@@ -302,8 +373,12 @@ export interface RecordedAnswer {
   readonly labels: readonly string[];
 }
 
-export function recordAnswers(definition: FormDefinition, answers: AnswerSheet): RecordedAnswer[] {
-  const state = formState(definition, answers);
+export function recordAnswers(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  fill: FillContext = {},
+): RecordedAnswer[] {
+  const state = formState(definition, answers, fill);
   return state.questions.filter(asked).map((question) => {
     const value = state.answers[question.id] ?? null;
     const labels: string[] = [];

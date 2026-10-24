@@ -511,3 +511,24 @@ export const confirmBooking = (token: string) =>
 
 /** The booking as an .ics file (Apple Calendar and anything else that opens one). */
 export const calendarFileUrl = (token: string) => `${publicEnv.workerUrl}${managePath(token)}/ics`;
+
+/** What a Join link answers (the worker's http/join.ts): on its way to the meeting, or why not yet. */
+export type JoinAnswer =
+  | {
+      readonly state: 'open';
+      readonly url: string;
+      readonly title: string;
+      readonly business: string;
+    }
+  | {
+      readonly state: 'early' | 'over' | 'cancelled' | 'no_link';
+      readonly title: string;
+      readonly business: string;
+      readonly when: string;
+    };
+
+/**
+ * Opening a Join link, from the person's own browser (funnels): it records that they joined. Only the page's
+ * script asks this, so a text app or a mail scanner previewing the link never counts.
+ */
+export const joinSession = (token: string) => post<JoinAnswer>(`/public/join/${seg(token)}`, {});

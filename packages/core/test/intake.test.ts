@@ -252,7 +252,11 @@ describe('what the business can change', () => {
       'email',
       'messenger',
       'instagram',
+      'facebook_lead_ad',
+      'indeed',
     ]);
+    // Applicants are leads only for a business that hires through its funnel: off until it's turned on.
+    expect(view.sources.find((s) => s.kind === 'indeed')?.active).toBe(false);
     const texting = view.sources.find((s) => s.kind === 'text')!;
     expect(texting).toMatchObject({ active: true, createLead: true, dailyCap: 50 });
     expect(texting.todayCount).toBeGreaterThan(0);

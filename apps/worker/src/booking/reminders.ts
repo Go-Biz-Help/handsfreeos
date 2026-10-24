@@ -135,7 +135,7 @@ export const appointmentReminder: JobHandler = async (ctx) => {
   const meta = workerMeta(null, ctx.job.id);
   const now = ctx.now;
   const found = await asWorker(ctx.db, scope, async (tx) => {
-    const b = await loadBooking(tx, ctx, attendeeId);
+    const b = await loadBooking(tx, ctx, attendeeId, { forCustomer: true });
     if (!b) return null;
     const reach = await reachOf(
       tx,

@@ -587,11 +587,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   // Messenger and Instagram direct messages, through the business's Facebook Page (20261025000200).
   facebook_instagram: {
     label: 'Facebook & Instagram',
-    what: 'the Facebook Pages and Instagram accounts whose direct messages come to the inbox, and the Facebook sign-ins they came through',
+    what: 'the Facebook Pages and Instagram accounts whose direct messages come to the inbox, whether their lead ads’ leads come in, and the Facebook sign-ins they came through',
     where: ['Settings', 'Facebook & Instagram'],
     onScreen: [
       'Facebook & Instagram: Connect Facebook (Connect more once one is in)',
       'Pages and accounts, and the ones not connected anymore',
+      'Lead ads: each Page’s leads, its forms and the last lead, once a sign-in allows leads',
       'Facebook sign-in',
     ],
     path: '/settings/facebook-instagram',

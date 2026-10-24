@@ -29,6 +29,7 @@ import {
   targetAccepts,
   type QuestionType,
 } from './questions';
+import { videoLinkProblem } from './video';
 
 export const FORM_DEFINITION_VERSION = 1;
 
@@ -86,6 +87,8 @@ export const Question = z.discriminatedUnion('type', [
   question('signature'),
   question('content'),
   question('payment'),
+  question('video'),
+  question('booking'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -101,6 +104,12 @@ export const FormPage = z.object({
   /** Shown above the questions; blank is fine on a one-page form. */
   title: z.string().trim().max(160).default(''),
   showIf: AnswerConditionGroup.prefault({}),
+  /**
+   * Save their details when they leave this page, not only when they send the whole form (funnels): the customer
+   * is matched or made, the fields this page filled are written and the lead opens here, so a funnel that loses
+   * them on the next video still has who they were. One page a form, and it has to ask how to reach them.
+   */
+  savesContact: z.boolean().default(false),
   questions: z
     .array(Question)
     .max(MAX_QUESTIONS_PER_PAGE)
@@ -244,6 +253,11 @@ export const FormSettings = z.object({
   identity: z.enum(['required', 'optional', 'anonymous']).default('required'),
   /** One question per screen, the way the AI teammate asks them. */
   oneQuestionAtATime: z.boolean().default(false),
+  /**
+   * One page per screen, with Back and Next, instead of every page down one long screen: a funnel that walks
+   * somebody through a video, their details, a longer video and a few questions, one step at a time.
+   */
+  onePageAtATime: z.boolean().default(false),
   showProgress: z.boolean().default(true),
   /** Come back later and carry on (a link they can keep). Never on an anonymous form. */
   saveAndResume: z.boolean().default(true),
@@ -401,10 +415,49 @@ export function formProblems(definition: FormDefinition): string[] {
     });
   });
 
+  const saving = definition.pages.filter((p) => p.savesContact);
+  if (saving.length > 1) problems.push('Only one page can save their details.');
+  for (const page of saving) {
+    const reaches = page.questions.some(
+      (q) =>
+        q.type === 'email' ||
+        q.type === 'phone' ||
+        q.mapTo === 'person.email' ||
+        q.mapTo === 'person.phone',
+    );
+    if (!reaches)
+      problems.push(
+        `“${page.title || 'The page that saves their details'}” needs a phone or an email question, so there’s someone to save.`,
+      );
+    if (definition.settings.identity === 'anonymous')
+      problems.push('An anonymous form doesn’t keep anyone’s details, so no page can save them.');
+  }
+
   // Results are worked out once everything has been answered, so they may read anything.
   definition.results.forEach((r) =>
     checkGroup(r.showIf, `The rule on “${r.name}”`, questions.length),
   );
+
+  for (const question of questions) {
+    if (question.type !== 'video') continue;
+    const problem = videoLinkProblem(
+      question.title,
+      question.config as { url: string; minPercent: number | null },
+    );
+    if (problem) problems.push(problem);
+  }
+
+  const bookings = questions.filter((q) => q.type === 'booking');
+  if (bookings.length > 1)
+    problems.push('A form can book one time. Keep one “Book a time” question.');
+  for (const question of bookings) {
+    if (!(question.config as { calendarId: string }).calendarId)
+      problems.push(`“${question.title}” needs a calendar to book on.`);
+    if (definition.settings.identity === 'anonymous')
+      problems.push(
+        `“${question.title}” books a time, and an anonymous form keeps nobody to book it for.`,
+      );
+  }
 
   for (const question of questions) {
     if (question.type !== 'payment') continue;

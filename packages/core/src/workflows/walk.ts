@@ -284,6 +284,7 @@ export function triggerRecords(def: WorkflowDefinition): Set<VariableSource> {
   const records = new Set<VariableSource>(['person', 'business', 'links', 'workflow']);
   const t = def.trigger;
   if (t.kind === 'event') for (const r of TRIGGER_EVENTS[t.event].provides) records.add(r);
+  if (t.kind === 'event' && t.event === 'form.stopped') records.add('form');
   if (t.kind === 'date') {
     const record = DATE_ANCHORS[t.anchor].record;
     if (record !== 'person') records.add(record);

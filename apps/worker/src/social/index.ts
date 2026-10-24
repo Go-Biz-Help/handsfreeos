@@ -44,6 +44,7 @@ export function createMeta(env: WorkerEnv): MetaServices {
       appSecret: env.facebookAppSecret,
       version: env.metaGraphVersion,
       loginConfigId: env.metaLoginConfigId,
+      leadAds: env.metaLeadAds,
       // Files people send come from Meta's own addresses; fetched like any address from outside, all the same.
       fetchUrl: createSafeFetch(),
     }),

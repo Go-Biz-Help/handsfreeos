@@ -26,12 +26,22 @@ beforeAll(async () => {
 });
 afterAll(closeTestDbs);
 
-/** Every statement a searcher runs for `q`, explained, as the owner; each also runs, so the next one is real. */
-async function plansOf(key: string, q: string, verbose = false): Promise<string> {
+/**
+ * Every statement a searcher runs for `q`, explained, as the owner; each also runs, so the next one is real. `noSort`
+ * also turns off a sort the statement could do without: a business the table's statistics haven't seen yet is
+ * reckoned at one row, and one row read through a shallower index and sorted can cost less than reading the
+ * window's index in order.
+ */
+async function plansOf(
+  key: string,
+  q: string,
+  { verbose = false, noSort = false }: { verbose?: boolean; noSort?: boolean } = {},
+): Promise<string> {
   const searcher = SEARCHERS.find((s) => s.key === key)!;
   return asUser(testDbs().api.db, w.owner.claims, async (tx) => {
     await tx.execute(sql`set local enable_seqscan = off`);
     await tx.execute(sql`set local enable_bitmapscan = off`);
+    if (noSort) await tx.execute(sql`set local enable_sort = off`);
     const [me] = await rows<{ permissions: string[] }>(
       tx,
       sql`select private.my_permissions(${w.wsId}) as permissions`,
@@ -134,7 +144,7 @@ describe('the statements search runs', () => {
       ['files', 'f.name'],
       ['forms', 'f.name'],
     ] as const) {
-      const plan = await plansOf(key, 'josé gar', true);
+      const plan = await plansOf(key, 'josé gar', { verbose: true });
       expect(plan.split(`octet_length(${name})`).length - 1, key).toBe(1);
     }
   });
@@ -162,7 +172,8 @@ describe('the statements search runs', () => {
     expect(notes).toMatch(indexScan('activities', 'activities_notes_idx'));
     expect(notes).toMatch(windowBound('occurred_at'));
     expect(notes).not.toMatch(/Seq Scan on activities\b/);
-    const forms = await plansOf('forms', 'smith');
+    // form_answers alone also has a plain (business) index, form_answers_workspace_idx.
+    const forms = await plansOf('forms', 'smith', { noSort: true });
     expect(forms).toMatch(indexScan('form_answers', 'form_answers_recent_idx'));
     expect(forms).toMatch(windowBound('answered_at'));
     expect(forms).toMatch(indexScan('forms'));

@@ -370,7 +370,7 @@ import {
   conversationPickUp,
   conversationTakeOver,
 } from './conversation-handling';
-import { intakeSubmit } from './intake';
+import { indeedApplicantReceive, intakeSubmit } from './intake';
 import {
   intakeSourceArchive,
   intakeSourceCreate,
@@ -420,8 +420,10 @@ import {
 } from './teammate-instruction';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
+import { attendeeSetAttendance } from './attendance';
 import { aiCallCommands } from './ai-call';
 import { socialCommands } from './social';
+import { metaLeadCommands } from './meta-lead';
 import { paymentConnectionCommands } from './payment-connection';
 import { campaignCommands } from './campaign';
 import { contactAiCommands } from './contact-ai';
@@ -1027,6 +1029,7 @@ export const commands: readonly CommandDef[] = [
   intakeSourceRotateKey,
   intakeSourceArchive,
   intakeSubmit,
+  indeedApplicantReceive,
   chatWidgetCreate,
   chatWidgetUpdate,
   chatWidgetPause,
@@ -1070,6 +1073,7 @@ export const commands: readonly CommandDef[] = [
   leadCatchUp,
   attendeeConfirm,
   attendeeConfirmOnline,
+  attendeeSetAttendance,
   attendeeConfirmByCall,
   productCreate,
   productUpdate,
@@ -1138,6 +1142,7 @@ export const commands: readonly CommandDef[] = [
   ...textingFeeCommands,
   // Facebook Messenger and Instagram: the Pages and accounts, their messages, and the ads that start them (20261025000100).
   ...socialCommands,
+  ...metaLeadCommands,
   // Add-ons: installing, turning on and off, uninstalling, deleting their data, starting fresh, their settings (0108).
   addonInstall,
   addonEnable,
@@ -1199,6 +1204,7 @@ export * from './call-suggestion';
 export * from './number-import';
 export * from './twilio-connection';
 export * from './social';
+export * from './meta-lead';
 export * from './telephony-account';
 export * from './reminder';
 export * from './waitlist-offer';
@@ -1243,6 +1249,7 @@ export * from './ai-call';
 export * from './contact-ai';
 export * from './maintenance';
 export * from './attendee-confirm';
+export * from './attendance';
 export * from './payment-connection';
 export * from './money-catalog';
 export * from './estimate';

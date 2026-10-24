@@ -1,7 +1,8 @@
 /**
  * Meta's Graph API behind one seam (20261025000200): signing a business in to Facebook, listing the Pages and
- * Instagram accounts it can answer, asking Meta to send their messages here, sending replies, and looking up the ads
- * people came from. A stand-in (fake.ts) answers the same way locally and in tests.
+ * Instagram accounts it can answer, asking Meta to send their messages here, sending replies, looking up the ads
+ * people came from, and reading the leads their lead ads collect (funnels). A stand-in (fake.ts) answers the same
+ * way locally and in tests.
  *
  * **Every token is the business's, never ours.** A person's own token lists their Pages and reads their ads; each
  * Page's token answers its Messenger and its linked Instagram account. The worker seals both before anything else
@@ -22,6 +23,12 @@ export const META_SCOPES = [
   'business_management',
   'ads_read',
 ] as const;
+
+/**
+ * Lead ads (funnels) need these on top: reading a Page's lead forms and their leads. Asked for only once Meta's App
+ * Review approves them (META_LEAD_ADS=on); until then the sign-in stays as it was.
+ */
+export const META_LEAD_SCOPES = ['leads_retrieval', 'pages_manage_ads'] as const;
 
 /** Messenger needs these; without them nothing can be connected. */
 export const META_MESSENGER_SCOPES = [
@@ -220,6 +227,29 @@ export interface MetaAdDetails {
   readonly raw: Readonly<Record<string, unknown>>;
 }
 
+/** One answer on a lead, and a tick box's answer, as Meta keeps them. */
+export interface MetaLead {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly formId: string;
+  readonly adId: string | null;
+  /** Where they saw it. Meta says `fb` or `ig`; Facebook when it doesn't. */
+  readonly platform: 'facebook' | 'instagram';
+  readonly organic: boolean;
+  readonly answers: readonly { readonly name: string; readonly values: readonly string[] }[];
+  readonly consents: readonly { readonly key: string; readonly checked: boolean }[];
+}
+
+/** A Page's lead form: its name, its questions' words and its own tick boxes. */
+export interface MetaLeadForm {
+  readonly id: string;
+  readonly name: string | null;
+  /** ACTIVE, ARCHIVED … */
+  readonly status: string | null;
+  readonly questions: readonly { readonly key: string; readonly label: string }[];
+  readonly consentBoxes: readonly { readonly key: string; readonly text: string }[];
+}
+
 export interface MetaGraph {
   readonly name: 'meta' | 'fake';
   /** This server has a Meta app: its id and secret. Without them nothing connects. */
@@ -257,6 +287,24 @@ export interface MetaGraph {
   ad(input: { readonly adId: string; readonly userToken: string }): Promise<MetaAdDetails>;
   /** A photo or file somebody sent: Meta's link to it works for a while, so it's copied while it does. */
   download(url: string): Promise<{ readonly data: Buffer; readonly contentType: string | null }>;
+  /** Whether lead ads are asked for: their permissions at sign-in and their webhook field (META_LEAD_ADS). */
+  readonly leadAds: boolean;
+  /** One lead somebody sent, read with the Page's token. */
+  lead(input: { readonly leadId: string; readonly pageToken: string }): Promise<MetaLead>;
+  /** What a lead form is: its name, questions and tick boxes. */
+  leadForm(input: { readonly formId: string; readonly pageToken: string }): Promise<MetaLeadForm>;
+  /** The Page's lead forms, newest first: what the hourly catch-up reads. */
+  leadForms(input: {
+    readonly pageId: string;
+    readonly pageToken: string;
+  }): Promise<readonly MetaLeadForm[]>;
+  /** A form's leads sent after a moment, oldest first, at most `limit`. */
+  formLeads(input: {
+    readonly formId: string;
+    readonly pageToken: string;
+    readonly since: Date;
+    readonly limit: number;
+  }): Promise<readonly MetaLead[]>;
 }
 
 /** The most a file someone sends may weigh before it's left with Meta: Messenger's own limit. */
@@ -281,12 +329,14 @@ const PAGE_FIELDS = [
 ];
 /** Newer fields some Pages refuse: asked for, and dropped when Meta says no. */
 const PAGE_FIELDS_EXTRA = ['message_edits', 'message_reactions'];
+/** A lead somebody sent on the Page's lead ad (funnels): asked for with META_LEAD_ADS, and dropped when refused. */
+const PAGE_FIELDS_LEADS = ['leadgen'];
 
 /**
  * What the app's own webhook asks for, by object. Meta's dashboard doesn't offer every app `standby` for Pages, so
  * it's asked for here; it and the newer fields are asked for one at a time when Meta refuses the lot.
  */
-const APP_FIELDS = {
+const appFields = (leadAds: boolean) => ({
   page: {
     fields: [
       'messages',
@@ -296,13 +346,18 @@ const APP_FIELDS = {
       'message_reads',
       'message_echoes',
     ],
-    extra: ['standby', ...PAGE_FIELDS_EXTRA],
+    extra: ['standby', ...PAGE_FIELDS_EXTRA, ...(leadAds ? PAGE_FIELDS_LEADS : [])],
   },
   instagram: {
     fields: ['messages', 'messaging_postbacks', 'messaging_seen', 'messaging_referral'],
     extra: ['standby', 'message_edit', 'message_reactions'],
   },
-};
+});
+
+/** What a lead is read with. Tick boxes come back only when asked for by name. */
+const LEAD_FIELDS =
+  'id,created_time,ad_id,form_id,platform,is_organic,field_data,custom_disclaimer_responses';
+const LEAD_FORM_FIELDS = 'id,name,status,questions,legal_content';
 
 const AD_FIELDS =
   'id,name,effective_status,account_id,adset{id,name,targeting},campaign{id,name,objective},' +
@@ -328,6 +383,81 @@ export function trimRaw(v: unknown, depth = 0): unknown {
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' ? (v as Json) : {});
+
+const truthy = (v: unknown): boolean =>
+  v === true || v === 1 || (typeof v === 'string' && /^(1|true|yes)$/i.test(v.trim()));
+
+/** A lead, from Meta's answer. Answers and tick boxes Meta sends oddly are left out rather than guessed at. */
+export function leadOf(body: unknown): MetaLead {
+  const b = obj(body);
+  const id = idText(b['id']);
+  const formId = idText(b['form_id']);
+  if (!id || !/^[0-9]{1,40}$/.test(id) || !formId || !/^[0-9]{1,40}$/.test(formId))
+    throw new MetaError('Meta sent a lead without its id or form.', 'bad_request');
+  const created = typeof b['created_time'] === 'string' ? Date.parse(b['created_time']) : NaN;
+  const adId = idText(b['ad_id']);
+  const answers = (Array.isArray(b['field_data']) ? b['field_data'] : [])
+    .slice(0, 100)
+    .map((f) => obj(f))
+    .filter((f) => typeof f['name'] === 'string' && f['name'])
+    .map((f) => ({
+      name: String(f['name']).slice(0, 200),
+      values: (Array.isArray(f['values']) ? f['values'] : [])
+        .slice(0, 20)
+        .filter((v): v is string | number => typeof v === 'string' || typeof v === 'number')
+        .map((v) => String(v).slice(0, 2000)),
+    }));
+  const consents = (
+    Array.isArray(b['custom_disclaimer_responses']) ? b['custom_disclaimer_responses'] : []
+  )
+    .slice(0, 20)
+    .map((c) => obj(c))
+    .filter((c) => typeof c['checkbox_key'] === 'string' && c['checkbox_key'])
+    .map((c) => ({
+      key: String(c['checkbox_key']).slice(0, 200),
+      checked: truthy(c['is_checked']),
+    }));
+  return {
+    id,
+    createdAt: new Date(Number.isFinite(created) ? created : Date.now()).toISOString(),
+    formId,
+    adId: adId && /^[0-9A-Za-z_-]{1,64}$/.test(adId) ? adId : null,
+    platform: String(b['platform'] ?? '').toLowerCase() === 'ig' ? 'instagram' : 'facebook',
+    organic: truthy(b['is_organic']),
+    answers,
+    consents,
+  };
+}
+
+/** A lead form, from Meta's answer: its own tick boxes are in its legal content's custom disclaimer. */
+export function leadFormOf(body: unknown): MetaLeadForm {
+  const b = obj(body);
+  const id = idText(b['id']);
+  if (!id || !/^[0-9]{1,40}$/.test(id))
+    throw new MetaError('Meta sent a lead form without its id.', 'bad_request');
+  const legal = obj(b['legal_content']);
+  const disclaimer = obj(legal['custom_disclaimer']);
+  const boxes = obj(disclaimer['checkboxes'])['data'] ?? disclaimer['checkboxes'];
+  const questions = obj(b['questions'])['data'] ?? b['questions'];
+  return {
+    id,
+    name: text(b['name'], 300),
+    status: text(b['status'], 40),
+    questions: (Array.isArray(questions) ? questions : [])
+      .slice(0, 100)
+      .map((q) => obj(q))
+      .filter((q) => typeof q['key'] === 'string' && q['key'])
+      .map((q) => ({
+        key: String(q['key']).slice(0, 200),
+        label: text(q['label'], 500) ?? String(q['key']).slice(0, 200),
+      })),
+    consentBoxes: (Array.isArray(boxes) ? boxes : [])
+      .slice(0, 20)
+      .map((c) => obj(c))
+      .filter((c) => typeof c['key'] === 'string' && c['key'])
+      .map((c) => ({ key: String(c['key']).slice(0, 200), text: text(c['text'], 2000) ?? '' })),
+  };
+}
 
 /** The ad, from Meta's answer: its headline and words live on the creative or, more often, in its story's spec. */
 export function adDetailsOf(body: unknown): MetaAdDetails {
@@ -381,6 +511,8 @@ export function createMetaGraph(opts: {
   readonly appSecret: string | null;
   /** Graph's version, `v26.0`. */
   readonly version: string;
+  /** Ask for lead ads' permissions and webhook field: once Meta approves them (META_LEAD_ADS). */
+  readonly leadAds?: boolean;
   /** A Facebook Login for Business configuration: what the sign-in asks for, set in Meta's dashboard. */
   readonly loginConfigId: string | null;
   /** How files people send are fetched: https only, never a private address. */
@@ -437,11 +569,14 @@ export function createMetaGraph(opts: {
   }
 
   const appToken = () => `${opts.appId ?? ''}|${opts.appSecret ?? ''}`;
+  const leadAds = !!opts.leadAds;
+  const scopes = leadAds ? [...META_SCOPES, ...META_LEAD_SCOPES] : META_SCOPES;
 
   return {
     name: 'meta',
     configured,
     appId: opts.appId,
+    leadAds,
     authorizeUrl({ state, redirectUri }) {
       const q = new URLSearchParams({
         client_id: opts.appId ?? '',
@@ -454,7 +589,7 @@ export function createMetaGraph(opts: {
         q.set('config_id', opts.loginConfigId);
         q.set('override_default_response_type', 'true');
       } else {
-        q.set('scope', META_SCOPES.join(','));
+        q.set('scope', scopes.join(','));
         // Ask again for anything left unticked last time, instead of Facebook quietly skipping it.
         q.set('auth_type', 'rerequest');
       }
@@ -575,7 +710,7 @@ export function createMetaGraph(opts: {
     },
     async subscribeApp({ callbackUrl, verifyToken }) {
       const refused: string[] = [];
-      for (const [object, { fields, extra }] of Object.entries(APP_FIELDS)) {
+      for (const [object, { fields, extra }] of Object.entries(appFields(leadAds))) {
         // Each ask adds to the fields the app already has, and Meta checks the address with the verify token first.
         const ask = (list: readonly string[]) =>
           call('POST', `/${opts.appId}/subscriptions`, appToken(), {
@@ -605,12 +740,26 @@ export function createMetaGraph(opts: {
         call('POST', `/${pageId}/subscribed_apps`, pageToken, {
           subscribed_fields: fields.join(','),
         });
-      try {
-        await ask([...PAGE_FIELDS, ...PAGE_FIELDS_EXTRA]);
-      } catch (e) {
-        // A field this Page doesn't offer yet: the ones every Page has still bring its messages.
-        if (e instanceof MetaError && e.code === 100) await ask(PAGE_FIELDS);
-        else throw e;
+      /*
+       * Most first, then less: a field this Page doesn't offer yet, or leads its sign-in may not read, never keeps
+       * its messages from coming.
+       */
+      const tiers = [
+        ...(leadAds ? [[...PAGE_FIELDS, ...PAGE_FIELDS_EXTRA, ...PAGE_FIELDS_LEADS]] : []),
+        [...PAGE_FIELDS, ...PAGE_FIELDS_EXTRA],
+        PAGE_FIELDS,
+      ];
+      for (const [i, fields] of tiers.entries()) {
+        try {
+          await ask(fields);
+          return;
+        } catch (e) {
+          const last = i === tiers.length - 1;
+          const refused =
+            e instanceof MetaError &&
+            (e.code === 100 || (fields.includes('leadgen') && e.kind === 'permission'));
+          if (last || !refused) throw e;
+        }
       }
     },
     async unsubscribe(pageId, pageToken) {
@@ -663,6 +812,65 @@ export function createMetaGraph(opts: {
     },
     async ad({ adId, userToken }) {
       return adDetailsOf(await call('GET', `/${adId}`, userToken, { fields: AD_FIELDS }));
+    },
+    async lead({ leadId, pageToken }) {
+      return leadOf(await call('GET', `/${leadId}`, pageToken, { fields: LEAD_FIELDS }));
+    },
+    async leadForm({ formId, pageToken }) {
+      return leadFormOf(await call('GET', `/${formId}`, pageToken, { fields: LEAD_FORM_FIELDS }));
+    },
+    async leadForms({ pageId, pageToken }) {
+      const out: MetaLeadForm[] = [];
+      let after: string | null = null;
+      // Fifty forms is a business with a great many; the newest come first.
+      for (let i = 0; i < 2 && out.length < 50; i++) {
+        const body: { data?: unknown[]; paging?: { next?: string; cursors?: { after?: string } } } =
+          await call('GET', `/${pageId}/leadgen_forms`, pageToken, {
+            fields: LEAD_FORM_FIELDS,
+            limit: '25',
+            ...(after ? { after } : {}),
+          });
+        for (const f of body.data ?? []) {
+          try {
+            out.push(leadFormOf(f));
+          } catch {
+            /* A form Meta describes oddly is skipped; its leads still come by webhook. */
+          }
+        }
+        after = body.paging?.next ? (body.paging.cursors?.after ?? null) : null;
+        if (!after) break;
+      }
+      return out;
+    },
+    async formLeads({ formId, pageToken, since, limit }) {
+      const out: MetaLead[] = [];
+      let after: string | null = null;
+      const filtering = JSON.stringify([
+        {
+          field: 'time_created',
+          operator: 'GREATER_THAN',
+          value: Math.floor(since.getTime() / 1000),
+        },
+      ]);
+      while (out.length < limit) {
+        const body: { data?: unknown[]; paging?: { next?: string; cursors?: { after?: string } } } =
+          await call('GET', `/${formId}/leads`, pageToken, {
+            fields: LEAD_FIELDS,
+            filtering,
+            limit: String(Math.min(100, limit - out.length)),
+            ...(after ? { after } : {}),
+          });
+        for (const l of body.data ?? []) {
+          try {
+            out.push(leadOf(l));
+          } catch {
+            /* Skipped: a lead without its id can't be told apart from the next. */
+          }
+        }
+        after = body.paging?.next ? (body.paging.cursors?.after ?? null) : null;
+        if (!after) break;
+      }
+      return out.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, limit);
     },
     async download(url) {
       let res;

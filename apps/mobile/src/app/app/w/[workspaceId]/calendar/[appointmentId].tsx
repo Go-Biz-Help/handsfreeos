@@ -31,7 +31,7 @@ import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as React from 'react';
 import { Linking, Platform, View } from 'react-native';
 
-import { cancelVisit, confirmSeat, setVisitStatus } from '@/calendar/actions';
+import { cancelVisit, confirmSeat, setSeatAttendance, setVisitStatus } from '@/calendar/actions';
 import { addressOf, useAppointment, useNow, useVisitInvoices } from '@/calendar/use-calendar';
 import { useCalendarZone } from '@/calendar/use-calendar';
 import { DeleteSheet } from '@/components/bin/delete-sheet';
@@ -110,6 +110,20 @@ export default function Appointment() {
     setWorking(false);
   };
 
+  // Funnels: once a session has started, each person on it is marked on their own.
+  const sessionStarted =
+    a.capacity > 1 && a.status !== 'cancelled' && Date.parse(a.startsAt) <= now;
+  const attendance = async (attendeeId: string, next: 'attended' | 'no_show') => {
+    setWorking(true);
+    try {
+      await setSeatAttendance({ workspaceId: business.id, attendeeId, attendance: next });
+      toast.show(next === 'attended' ? 'Marked attended.' : 'Marked as a no-show.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'That didn’t work.');
+    }
+    setWorking(false);
+  };
+
   const mark = async (next: 'completed' | 'no_show') => {
     setWorking(true);
     try {
@@ -177,6 +191,11 @@ export default function Appointment() {
                 </Text>
                 <Text className="text-[12.5px] text-text-3" numberOfLines={1}>
                   {[
+                    s.status === 'attended'
+                      ? 'Attended'
+                      : s.status === 'no_show'
+                        ? 'No-show'
+                        : null,
                     s.contact_phone_e164 ?? s.phone_e164,
                     (s.sms_ok ?? s.sms_consent) ? 'Texts OK' : 'No text consent',
                   ]
@@ -184,7 +203,32 @@ export default function Appointment() {
                     .join(' · ')}
                 </Text>
               </View>
-              {a.status === 'scheduled' && !unbooked ? (
+              {sessionStarted ? (
+                <View className="flex-row gap-1">
+                  {s.status !== 'attended' ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      loading={working}
+                      onPress={() => void attendance(s.id, 'attended')}
+                      testID={`mark-attended-${s.id}`}
+                    >
+                      Attended
+                    </Button>
+                  ) : null}
+                  {s.status !== 'no_show' ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={working}
+                      onPress={() => void attendance(s.id, 'no_show')}
+                      testID={`mark-no-show-${s.id}`}
+                    >
+                      No-show
+                    </Button>
+                  ) : null}
+                </View>
+              ) : a.status === 'scheduled' && !unbooked ? (
                 s.confirmed_at ? (
                   <Button
                     variant="ghost"

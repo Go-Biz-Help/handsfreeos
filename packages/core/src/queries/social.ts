@@ -4,7 +4,7 @@
  */
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
-import { conversations, metaAccounts, metaConnections } from '@hfos/db/schema';
+import { conversations, metaAccounts, metaConnections, metaLeadForms } from '@hfos/db/schema';
 import { userNames } from '../calendar/load';
 import { META_ACCOUNT_COLUMNS } from '../commands/social';
 import { defineQuery } from '../kernel/define';
@@ -23,7 +23,7 @@ const iso = (d: Date | string | null | undefined): string | null =>
 export const metaAccountList = defineQuery({
   name: 'meta_account.list',
   description:
-    'The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, and the Facebook sign-ins they came through.',
+    'The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, whether its lead ads’ leads come in, and the Facebook sign-ins they came through.',
   input: MetaAccountListInput,
   output: MetaAccountListOutput,
   permission: 'channels.manage',
@@ -76,6 +76,18 @@ export const metaAccountList = defineQuery({
           .groupBy(conversations.metaAccountId)
       : [];
     const countOf = new Map(counts.map((c) => [c.accountId, c.n]));
+    const forms = accounts.length
+      ? await ctx.tx
+          .select({
+            accountId: metaLeadForms.accountId,
+            name: metaLeadForms.name,
+            formId: metaLeadForms.formId,
+            lastLeadAt: metaLeadForms.lastLeadAt,
+          })
+          .from(metaLeadForms)
+          .where(eq(metaLeadForms.workspaceId, input.workspaceId))
+          .orderBy(desc(metaLeadForms.lastLeadAt))
+      : [];
     return {
       accounts: accounts.map((a) => ({
         id: a.id,
@@ -91,6 +103,11 @@ export const metaAccountList = defineQuery({
         connectedAt: iso(a.connectedAt)!,
         connectionId: a.connectionId,
         conversations: countOf.get(a.id) ?? 0,
+        leadsAccess: a.leadsAccess,
+        lastLeadAt: iso(a.lastLeadAt),
+        leadForms: forms
+          .filter((f) => f.accountId === a.id)
+          .map((f) => ({ name: f.name || `Form ${f.formId}`, lastLeadAt: iso(f.lastLeadAt) })),
       })),
       connections: connections.map((c) => ({
         id: c.id,
@@ -103,6 +120,7 @@ export const metaAccountList = defineQuery({
         connectedAt: iso(c.connectedAt),
         tokenExpiresAt: iso(c.tokenExpiresAt),
         readsAds: c.scopes.includes('ads_read'),
+        readsLeads: c.scopes.includes('leads_retrieval'),
         lastError: c.lastError,
       })),
     };
@@ -112,7 +130,7 @@ export const metaAccountList = defineQuery({
 type TouchRow = {
   id: string;
   touched_at: Date;
-  kind: 'started' | 'returned';
+  kind: 'started' | 'returned' | 'lead_form';
   platform: 'facebook' | 'instagram';
   channel: 'messenger' | 'instagram';
   source: string | null;
@@ -129,6 +147,7 @@ type TouchRow = {
   account_platform: 'facebook' | 'instagram' | null;
   account_name: string | null;
   account_username: string | null;
+  form_name: string | null;
   ad_ref_id: string | null;
   d_external_id: string | null;
   d_status: 'pending' | 'resolved' | 'no_access' | 'not_found' | 'failed' | null;
@@ -150,7 +169,7 @@ type TouchRow = {
 export const attributionList = defineQuery({
   name: 'attribution.list',
   description:
-    'Where a customer or a conversation came from: every Facebook or Instagram ad or link that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.',
+    'Where a customer or a conversation came from: every Facebook or Instagram ad, link or lead ad form that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.',
   input: AttributionListInput,
   output: AttributionListOutput,
   permission: 'records.read',
@@ -163,7 +182,8 @@ export const attributionList = defineQuery({
       ctx.tx,
       sql`select t.id, t.touched_at, t.kind, t.platform, t.channel::text as channel, t.source, t.referral_type, t.ref,
             t.ad_id, t.ad_title, t.ad_photo_url, t.post_id, t.referer_uri, t.conversation_id, t.person_id, t.lead_id,
-            a.platform as account_platform, a.name as account_name, a.username as account_username, t.ad_ref_id,
+            a.platform as account_platform, a.name as account_name, a.username as account_username,
+            f.name as form_name, t.ad_ref_id,
             d.external_id as d_external_id, d.status as d_status, d.name as d_name, d.adset_id as d_adset_id,
             d.adset_name as d_adset_name, d.campaign_id as d_campaign_id, d.campaign_name as d_campaign_name,
             d.campaign_objective as d_campaign_objective, d.creative_id as d_creative_id,
@@ -173,6 +193,7 @@ export const attributionList = defineQuery({
           from app.attribution_touches t
             left join app.meta_accounts a on a.id = t.meta_account_id
             left join app.ads d on d.id = t.ad_ref_id
+            left join app.meta_lead_forms f on f.id = t.lead_form_id
           where t.workspace_id = ${input.workspaceId} and ${of}
           order by t.touched_at desc, t.id desc
           limit ${input.limit}`,
@@ -220,6 +241,7 @@ function touchOut(r: TouchRow): z.infer<typeof AttributionListOutput>['touches']
             username: r.account_username,
           })
         : null,
+    formName: r.form_name?.trim() || null,
     ad:
       r.ad_ref_id && r.d_external_id && r.d_status
         ? {

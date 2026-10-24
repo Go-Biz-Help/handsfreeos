@@ -26,6 +26,8 @@ export const QUESTION_TYPES = [
   'signature',
   'content',
   'payment',
+  'video',
+  'booking',
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -48,6 +50,8 @@ export const QUESTION_LABELS: Readonly<Record<QuestionType, string>> = {
   signature: 'Signature',
   content: 'Text on the page',
   payment: 'Payment',
+  video: 'Video',
+  booking: 'Book a time',
 };
 
 // ---- Choices ----
@@ -170,6 +174,26 @@ export const QUESTION_CONFIGS = {
     /** What the charge is for, on their card statement and the receipt. */
     description: z.string().trim().min(1, 'Say what the payment is for.').max(200),
   }),
+  video: z.object({
+    /**
+     * A YouTube, Vimeo or Loom link (video.ts). Blank while it's being set up: a draft can be saved without
+     * one, and publishing asks for it (`formProblems`).
+     */
+    url: z.string().trim().max(500).default(''),
+    /** Hold the Next button until they've watched this much; null lets them move on any time. */
+    minPercent: z.int().min(1).max(100).nullable().default(null),
+  }),
+  booking: z.object({
+    /**
+     * The calendar the time is booked on (booking.ts). Blank while it's being set up; publishing asks for one
+     * (`formIssues`, which also refuses a calendar that takes a payment to book).
+     */
+    calendarId: z.string().trim().max(64).default(''),
+    /** The service booked, for a calendar where the customer picks one; null takes the calendar's own. */
+    serviceId: z.uuid().nullable().default(null),
+    /** How many days ahead the times reach. */
+    days: z.int().min(1).max(31).default(14),
+  }),
 } as const satisfies Record<QuestionType, z.ZodType>;
 
 export type QuestionConfig<T extends QuestionType = QuestionType> = z.infer<
@@ -188,7 +212,14 @@ export const NUMERIC_TYPES: ReadonlySet<QuestionType> = new Set([
   'money',
   'rating',
   'scale',
+  'video',
 ]);
+
+/**
+ * Types the AI teammate can't ask in a conversation: there's nothing to play a video in, and a time is booked
+ * with its own booking tools. A form with one is sent as a link instead.
+ */
+export const NOT_IN_CHAT_TYPES: ReadonlySet<QuestionType> = new Set(['video', 'booking']);
 
 /** Types that can be graded right or wrong. */
 export const GRADEABLE_TYPES: ReadonlySet<QuestionType> = new Set([

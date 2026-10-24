@@ -178,6 +178,9 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   f('trigger.button', 'Button they chose', 'trigger', 'text', null),
   f('trigger.from_stage_id', 'Moved from stage', 'trigger', 'ref', null, { refKind: 'stage' }),
   f('trigger.to_stage_id', 'Moved to stage', 'trigger', 'ref', null, { refKind: 'stage' }),
+  // A form's events (funnels): which form, and the page somebody stopped on.
+  f('trigger.form_id', 'Which form', 'trigger', 'ref', null, { refKind: 'form' }),
+  f('trigger.page_title', 'Page they stopped on', 'trigger', 'text', null),
   f('wait.timed_out', 'The last wait for an event timed out', 'trigger', 'boolean', null),
   f('wait.button', 'Button they chose in their reply', 'trigger', 'text', null),
 

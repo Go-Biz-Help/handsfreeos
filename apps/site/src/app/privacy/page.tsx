@@ -17,7 +17,7 @@ import { company, urls } from '@/content/site';
 
  */
 
-const LAST_UPDATED = 'October 15, 2026';
+const LAST_UPDATED = 'October 24, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy: what we collect and why',
@@ -261,10 +261,16 @@ export default function PrivacyPage() {
           ad&rsquo;s name, its campaign and ad set, and its picture and words from your ad account,
           so you can see which ad brought each customer.
         </p>
+        <p>
+          If you run lead ads, HandsFreeOS also reads each lead somebody sends on your Page&rsquo;s
+          lead forms: the answers they gave, the boxes they ticked, and the form&rsquo;s name and
+          questions. It files them as your customer and your lead, and records a ticked box about
+          texts as their OK to text.
+        </p>
         <ul>
           <li>
-            We use this only to run your inbox and to show you where your customers came from. We
-            never use it for advertising, and we never sell it.
+            We use this only to run your inbox and your customer records, and to show you where your
+            customers came from. We never use it for advertising, and we never sell it.
           </li>
           <li>
             We do not read your posts, your friends or anything else on Facebook or Instagram, and

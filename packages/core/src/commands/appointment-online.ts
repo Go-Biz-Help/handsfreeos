@@ -10,7 +10,7 @@
  * The AI teammate's booking commands (appointment-ai.ts) share these internals: the caps, the lead, the
  * booking checks, and moving or cancelling a booking under its calendar's policies.
  */
-import { and, eq, sql as dsql } from 'drizzle-orm';
+import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { appointmentAttendees, appointmentResources, appointments, people } from '@hfos/db/schema';
 import {
@@ -257,6 +257,10 @@ export function assertBookable(calendar: LoadedCalendar): void {
     throw HfosError.notFound(
       'We can’t find that calendar. Check the link, or give us a call to book.',
     );
+  assertTakingBookings(calendar);
+}
+
+function assertTakingBookings(calendar: LoadedCalendar): void {
   if (calendar.status !== 'active')
     throw HfosError.rule(
       'calendar_not_bookable',
@@ -302,7 +306,9 @@ export const appointmentBookOnline = defineCommand({
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
-    assertBookable(calendar);
+    // A form books a calendar whose booking page is off too: a presentation booked only through its funnel.
+    if (input.throughForm) assertTakingBookings(calendar);
+    else assertBookable(calendar);
     const earlier = await findBookingByClientId(ctx.tx, ws, input.clientId);
     if (earlier?.attendeeId)
       return bookingOutput(ctx.tx, earlier, false, await holdState(ctx.tx, earlier.attendeeId));
@@ -406,8 +412,14 @@ export const appointmentBookOnline = defineCommand({
           : null;
     if (created && config.crm.assignContactOwner && owner)
       await ctx.tx.update(people).set({ ownerUserId: owner }).where(eq(people.id, personId));
-    let leadId: string | null = null;
-    if (config.crm.createLead && !result.joined) {
+    let leadId: string | null = input.leadId ?? null;
+    // A seat in a shared session isn't one customer's appointment, so only their own booking takes the lead.
+    if (leadId && !result.joined)
+      await ctx.tx
+        .update(appointments)
+        .set({ leadId })
+        .where(and(eq(appointments.id, result.appointmentId), isNull(appointments.leadId)));
+    else if (!leadId && config.crm.createLead && !result.joined) {
       leadId = await leadFor(
         ctx,
         personId,

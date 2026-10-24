@@ -282,6 +282,11 @@ function describeAppointment(
       return `marked ${what} on ${at(e.meta.startsAt)} done`;
     case 'appointment_no_show':
       return `marked ${what} on ${at(e.meta.startsAt)} a no-show`;
+    // Funnels: one person on a session, apart from the rest.
+    case 'attendee_attended':
+      return `marked them attended at ${what} on ${at(e.meta.startsAt)}`;
+    case 'attendee_no_show':
+      return `marked them a no-show at ${what} on ${at(e.meta.startsAt)}`;
     // M8: "Kendra confirmed AC tune-up by text", "Priya marked AC tune-up confirmed".
     case 'appointment_confirmed':
       return e.meta.via === 'sms'

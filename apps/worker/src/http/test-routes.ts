@@ -30,13 +30,22 @@
  * browser run is shorter than that; jobs due later (a seeded business's reminders next week) are left for the next
  * `pnpm dev`, and the worker makes its recurring plans again whenever it starts.
  *
+ * POST /test/forms/personal-link { workspaceId, formId, personId } makes the personal link a workflow's "Send a form"
+ * texts (funnels), and answers with its key, so a browser test can open `/f/<site>/<form>?k=<key>` without a phone.
+ *
  * POST /test/telephony/transfer-in { workspaceId, e164? } puts a number in the business's own Twilio subaccount
  * with the fake carrier, still pointed at HighLevel, as if HighLevel's support had moved it there without anybody
  * starting a transfer here: what **Find numbers already in this account** finds, and what keeps phone & texting
  * from being turned off. Phone & texting must be on. Answers with the number and its sid.
  */
 import { randomUUID } from 'node:crypto';
-import { HfosError, phoneRequired, scheduleJob } from '@hfos/core/server';
+import {
+  executeCommand,
+  formLinkCreate,
+  HfosError,
+  phoneRequired,
+  scheduleJob,
+} from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -70,6 +79,7 @@ const RunDue = z.object({
 const SkipStale = z.object({ before: z.iso.datetime({ offset: true }) });
 
 const MakeStaff = z.object({ email: z.email().max(320) });
+const PersonalLink = z.object({ workspaceId: z.uuid(), formId: z.uuid(), personId: z.uuid() });
 const TransferIn = z.object({ workspaceId: z.uuid(), e164: phoneRequired.optional() });
 
 /** `url` on one of the local test sites, without its query; refused otherwise. */
@@ -133,6 +143,19 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
       ),
     );
     return { made: Number(row?.made ?? 0) };
+  });
+
+  app.post('/test/forms/personal-link', async (req) => {
+    const body = parseBody(PersonalLink, req.body ?? {});
+    const scope = await scopeOf(deps, body.workspaceId);
+    const { output } = await executeCommand(
+      deps.db,
+      formLinkCreate,
+      body,
+      { type: 'system', ...scope },
+      { correlationId: randomUUID(), channel: 'worker' },
+    );
+    return { key: output.key };
   });
 
   app.post('/test/scheduled-jobs/run-due', async (req) => {

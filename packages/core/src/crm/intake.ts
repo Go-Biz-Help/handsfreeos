@@ -45,12 +45,23 @@ export const INTAKE_KINDS = [
   'api',
   'messenger',
   'instagram',
+  'facebook_lead_ad',
+  'indeed',
 ] as const;
 /**
- * The ways a stranger reaches a business by themselves: the three of slice A, and a message to its Facebook Page or
- * Instagram account (20261025000200).
+ * The ways a stranger reaches a business by themselves: the three of slice A, a message to its Facebook Page or
+ * Instagram account (20261025000200), and a lead ad's form on either or an applicant Indeed emailed about (funnels,
+ * 20261027011100). Each is one row a business, with its own switch, pipeline and day.
  */
-export const INTAKE_CHANNELS = ['text', 'call', 'email', 'messenger', 'instagram'] as const;
+export const INTAKE_CHANNELS = [
+  'text',
+  'call',
+  'email',
+  'messenger',
+  'instagram',
+  'facebook_lead_ad',
+  'indeed',
+] as const;
 export type IntakeChannel = (typeof INTAKE_CHANNELS)[number];
 
 /** What a channel is called before a business renames it. It is what its customers and leads are filed under. */
@@ -62,10 +73,19 @@ export const INTAKE_NAMES: Record<IntakeKind, string> = {
   api: 'Connected app',
   messenger: 'Facebook Messenger',
   instagram: 'Instagram',
+  facebook_lead_ad: 'Facebook lead ad',
+  indeed: 'Indeed',
 };
 
 /** A channel nobody has set up: on, opening a lead in the default pipeline, 50 a day. */
 export const INTAKE_DEFAULT_DAILY_CAP = 50;
+
+/**
+ * Channels that stay off until the business turns them on. Somebody applying for a job is a lead only for a
+ * business that hires through its funnel; for most, a pipeline full of applicants would be a surprise.
+ */
+const OFF_UNTIL_TURNED_ON: ReadonlySet<IntakeKind> = new Set(['indeed']);
+export const intakeOnByDefault = (kind: IntakeKind): boolean => !OFF_UNTIL_TURNED_ON.has(kind);
 
 export interface IntakeSource {
   readonly id: string | null;
@@ -136,7 +156,7 @@ export async function intakeSourceById(
 export async function intakeSourceOf(
   tx: Tx,
   workspaceId: string,
-  kind: IntakeChannel | 'website_form',
+  kind: Exclude<IntakeKind, 'api'>,
 ): Promise<IntakeSource> {
   const [row] = await tx
     .select(READABLE_SOURCE)
@@ -155,12 +175,36 @@ export async function intakeSourceOf(
         id: null,
         kind,
         name: INTAKE_NAMES[kind],
-        active: true,
+        active: intakeOnByDefault(kind),
         createLead: true,
         pipelineId: null,
         stageId: null,
         dailyCap: INTAKE_DEFAULT_DAILY_CAP,
       };
+}
+
+/**
+ * The business's row for a channel, made with the defaults when it has none yet: what a submission is filed under
+ * (a lead ad's, which goes through `submitIntake` for its one-lead-per-lead and its note on the timeline).
+ */
+export async function ensureIntakeSource(
+  tx: Tx,
+  workspaceId: string,
+  kind: Exclude<IntakeKind, 'api' | 'website_form'>,
+): Promise<IntakeSource> {
+  const found = await intakeSourceOf(tx, workspaceId, kind);
+  if (found.id) return found;
+  await tx
+    .insert(intakeSources)
+    .values({
+      workspaceId,
+      kind,
+      name: found.name,
+      active: found.active,
+      dailyCap: found.dailyCap,
+    })
+    .onConflictDoNothing();
+  return intakeSourceOf(tx, workspaceId, kind);
 }
 
 /**

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { PublicFrame } from '@/components/booking/public-shell';
 import { PublicForm } from '@/components/forms/public-form';
-import { formPageData, getPublicForm, resumeSheet } from '@/lib/api/public-forms';
+import { formPageData, getPublicForm, personalSheet, resumeSheet } from '@/lib/api/public-forms';
 
 export async function generateMetadata({
   params,
@@ -26,11 +26,17 @@ export default async function PublicFormPage({
   searchParams,
 }: {
   params: Promise<{ site: string; slug: string }>;
-  searchParams: Promise<{ resume?: string; embed?: string }>;
+  searchParams: Promise<{ resume?: string; embed?: string; k?: string }>;
 }) {
   const { site, slug } = await params;
-  const { resume, embed } = await searchParams;
+  const { resume, embed, k } = await searchParams;
   const page = await formPageData(getPublicForm(site, slug));
+  // Their own link (funnels): who to greet and what not to ask again. A link that ran out opens the plain form.
+  const personal = k
+    ? await personalSheet(site, slug, k)
+        .then((p) => ({ key: k, ...p }))
+        .catch(() => null)
+    : null;
   // Somebody coming back to finish one: their answers so far, if the link still stands.
   const resumed = resume
     ? await resumeSheet(site, slug, resume)
@@ -47,7 +53,21 @@ export default async function PublicFormPage({
       closedMessage={page.closedMessage}
       botCheck={page.botCheck}
       offers={page.offersConsent ?? null}
-      resumed={resumed}
+      resumed={
+        resumed ??
+        (personal?.sheet
+          ? {
+              responseId: personal.sheet.responseId,
+              token: personal.key,
+              answers: personal.sheet.answers,
+            }
+          : null)
+      }
+      personal={
+        personal
+          ? { key: personal.key, firstName: personal.firstName, known: personal.known }
+          : null
+      }
     />
   );
   // Embedded on the business's own site: no frame of ours around it, and no padding fighting theirs.

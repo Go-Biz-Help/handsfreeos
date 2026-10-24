@@ -76,6 +76,85 @@ ids and tells the model what they are.
 
 Embedding is a plain iframe with `?embed=1`; the page drops our frame and padding.
 
+## Videos and steps (funnels)
+
+A form can walk somebody through a funnel: a video, their details, a longer video, a few questions
+(`HANDSFREEOS_FUNNELS_IMPLEMENTATION_PLAN.md`).
+
+- **One page at a time** (`settings.onePageAtATime`) gives each page its own screen with Back and Next. Next checks
+  that page with `pageProblems`; the consent box and the send button are on the last page. A sheet picked up
+  again starts where they left off (`pageToResume`). The editor's question list shows where each page starts,
+  "Start a new page", and the switch once there is more than one page.
+- **A video question** (`type: 'video'`, `forms/video.ts`) plays a YouTube, Vimeo or Loom link the business
+  pasted. They host and stream it; we never upload it. Its answer is how much they watched, 0 to 100, so show-if
+  rules, Results, the timeline ("Watched 85%") and the export work on it unchanged.
+- **The gate** (`config.minPercent`) is `answerProblem`'s: Next waits, and the server refuses the sheet at submit,
+  until they've watched that much. Loom can't be tracked, so `formProblems` refuses a gate on it.
+
+**What rules here:**
+
+- **No provider script runs on the page.** The page talks to the player's frame by message (`playerHello`,
+  `readPlayerMessage`) and reads only messages from that player's own origin (`VIDEO_ORIGINS`). The public page
+  is on the business's domain or ours, and YouTube's or Vimeo's script has no business there.
+- **Watched means watched.** The furthest point moves on only while they play at the edge of what they've seen
+  (`watchTick`), so dragging the bar ahead doesn't count, and the answer only goes up.
+- **The gate is a nudge, not proof.** The browser reports the position, so a determined person can fake it.
+- **The AI teammate doesn't ask a form with a video** in a conversation (`NOT_IN_CHAT_TYPES`), and the phone sends
+  one to the web (`NOT_ON_THE_PHONE`).
+
+## Details saved part way, and personal links (funnels)
+
+- **A page that saves their details** (`page.savesContact`, one a form). Shown one page at a time, leaving it runs
+  `form_response.save_contact`: the customer is matched or made, the blanks that page's answers fill are written,
+  the lead opens, and the texting box (which sits on that page) is recorded. Sending at the end keeps that customer
+  and that lead. Both go through `settleCustomer`, so the rules are the same ones sending always had. It takes the
+  same "are you a person" check sending does, through `POST /public/form/<site>/<form>/<sheet>/contact`.
+- **A personal link** (`app.form_links`, 20261027010900) is `/f/<site>/<form>?k=<key>`. A workflow's **Send a form**
+  makes one for each customer (`form_link.create`). The key is random and only its hash is kept; it works 30 days.
+  Opening it (`GET …/personal/<key>`) hands the page their first name, which contact details we have, and their
+  unfinished sheet from a link; starting with it binds the sheet to them (`form_link_id`), and the key writes to
+  that sheet as well as its own resume key does (`assertHolder`).
+- **What a personal link changes** (`FillContext` in `forms/personal.ts`, passed to every `render.ts` function):
+  a question filling a contact detail on file (first name, last name, email, phone) is skipped, and a page left
+  empty isn't shown. `{{person.first_name}}` (with `| default:"there"`, as workflows write it) works in the title,
+  intro, page headings, questions and text blocks, from what they typed or the link (`fillFormWords`).
+
+**What rules here:**
+
+- **Nothing on file is shown back.** Only the first name, for the greeting. The personal route even leaves their own
+  earlier email and phone answers out of the sheet it returns: a forwarded link would show them to whoever opened it.
+- **A form never writes over what's on file**, personal link or not. Asked again ("Details changed?"), a different
+  phone joins their other numbers instead, so a forwarded link can't change somebody's details.
+- **A link we texted needs no robot check**: the worker skips Turnstile when the page's key is a live personal key.
+- **Filling a blank on a customer we already had emits `person.updated`**, and both commands declare it. Before
+  this, a returning customer whose form filled in a missing detail was refused by the kernel.
+
+## Booking a time, and stopped partway (funnels)
+
+- **A "Book a time" question** (`type: 'booking'`, `forms/booking.ts`) shows a calendar's open times as buttons,
+  read from `GET /public/form/<site>/<form>/times/<question>`. Its answer is the time, the session and how it
+  reads. Sending the form books it inside the same transaction (`bookTheTime`), with the calendar's own
+  `appointment.book_online`, so the confirmation, the video link and the reminders are the calendar's. The booking
+  joins the form's lead rather than opening another (`leadId`), and a form can book a calendar whose booking page
+  is off (`throughForm`): a presentation booked only through its funnel.
+- **A session that filled up meanwhile** refuses the whole send with `form_booking_taken` (the time in words, and
+  the question in `details`), so nothing is half done; the page clears the pick and reads the times again.
+- **Stopped partway.** Shown one page at a time, each save carries the page they're on (`at_page_id`,
+  `last_active_at`, 20261027011000). Every five minutes the worker's `forms.stopped_sweep` finds sheets whose
+  person we know, quiet for 30 minutes (and under a week), and `form_response.mark_stopped` marks that page once
+  and emits `form.stopped`. A workflow starts on it with **Somebody stops partway through a form**, filtered by
+  `trigger.form_id` and `trigger.page_title`, and its texts can say `{{trigger.page_title}}`.
+
+**What rules here:**
+
+- **A form never takes money**, so it can't book a calendar that takes a deposit or the full price (`formIssues`,
+  and again when it's sent).
+- **The time reads in the calendar's words.** The server writes the label again from the time and the calendar's
+  zone, whatever the page sent.
+- **A seat in a shared session isn't one customer's appointment**, so only a booking of their own takes the lead.
+- **The AI teammate and the phone** don't ask a form with a booking question (`NOT_IN_CHAT_TYPES`,
+  `NOT_ON_THE_PHONE`).
+
 ## Answering in a conversation
 
 A form marked "the AI teammate may ask this" (`in_chat`) becomes two teammate tools. The teammate holds no

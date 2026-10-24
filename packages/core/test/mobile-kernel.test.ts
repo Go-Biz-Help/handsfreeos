@@ -348,6 +348,8 @@ describe('offline classes', () => {
     'appointment.set_status': 'anytime',
     'appointment.still_going': 'anytime',
     'attendee.confirm': 'anytime',
+    // One person's attendance on a session (funnels): it reaches nobody.
+    'attendee.set_attendance': 'anytime',
     // A job's status texts the customer (On my way and the rest), so it waits for a fresh phone.
     'job.set_status': FRESH,
     // Putting a conversation away and bringing it back: nothing reaches a customer either way, and doing it

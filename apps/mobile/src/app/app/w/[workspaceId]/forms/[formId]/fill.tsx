@@ -73,7 +73,8 @@ export default function FillForm() {
           <Text className="text-[15px] font-medium">Fill this one in on the web</Text>
           <Text className="text-[13px] text-text-2">
             {blocked.length === 1 ? `“${blocked[0]}” needs` : `${blocked.length} questions need`}{' '}
-            something this screen can’t do yet — a file, a signature or a card payment.
+            something this screen can’t do yet — a file, a signature, a card payment, a video or a
+            time to book.
           </Text>
           <Button
             variant="secondary"

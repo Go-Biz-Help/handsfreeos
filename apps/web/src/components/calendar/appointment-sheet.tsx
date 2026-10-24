@@ -454,6 +454,32 @@ export function AppointmentSheet({
     !hold &&
     Date.parse(appt.startsAt) > (now ?? Date.now());
   const seatFirst = seat ? firstName(seat.fullName) : '';
+  // Funnels: each person on a session that has started can be marked on their own.
+  const started =
+    !!appt && appt.status !== 'cancelled' && Date.parse(appt.startsAt) <= (now ?? Date.now());
+
+  async function markAttendance(t: Attendee, attendance: 'joined' | 'attended' | 'no_show') {
+    setBusy(`attendance:${t.id}`);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/attendee.set_attendance', {
+          body: { workspaceId, attendeeId: t.id, attendance },
+        }),
+      );
+      toast.success(
+        attendance === 'attended'
+          ? `Marked ${firstName(t.fullName)} attended.`
+          : attendance === 'no_show'
+            ? `Marked ${firstName(t.fullName)} a no-show.`
+            : `Marked ${firstName(t.fullName)} as joined.`,
+      );
+      changed();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  }
   /** "Confirmed by text 4:12 PM", "Confirmed online Wed 9:05 AM", "Confirmed by Priya 4:12 PM". */
   const confirmedWords = (c: Confirmation): string => {
     const who = c.by === 'you' ? 'you' : firstName(c.by ?? '') || 'the team';
@@ -787,7 +813,11 @@ export function AppointmentSheet({
                     </div>
                   </div>
                   {booked.map((t) => (
-                    <div key={t.id} className="flex items-center gap-2.5 py-[5px]">
+                    <div
+                      key={t.id}
+                      className="flex flex-wrap items-center gap-2.5 py-[5px]"
+                      data-testid={`sheet-attendee-${t.id}`}
+                    >
                       <Avatar name={t.fullName} seed={t.personId} size="sm" />
                       <Link
                         href={`/app/w/${workspaceId}/customers/people/${t.personId}`}
@@ -795,9 +825,46 @@ export function AppointmentSheet({
                       >
                         {t.fullName}
                       </Link>
+                      {t.status === 'attended' ? (
+                        <Badge variant="ok">Attended</Badge>
+                      ) : t.status === 'no_show' ? (
+                        <Badge variant="pending">No-show</Badge>
+                      ) : t.joinedAt ? (
+                        <span className="text-xs text-text-2">
+                          Joined {fmtTime(t.joinedAt, timeZone)}
+                        </span>
+                      ) : null}
                       <span className="text-xs text-text-3">
                         {t.seats} {t.seats === 1 ? 'seat' : 'seats'}
                       </span>
+                      {started ? (
+                        <span className="flex gap-1">
+                          {t.status !== 'attended' ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7"
+                              loading={busy === `attendance:${t.id}`}
+                              onClick={() => void markAttendance(t, 'attended')}
+                              aria-label={`Mark ${firstName(t.fullName)} attended`}
+                            >
+                              Attended
+                            </Button>
+                          ) : null}
+                          {t.status !== 'no_show' ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7"
+                              disabled={busy === `attendance:${t.id}`}
+                              onClick={() => void markAttendance(t, 'no_show')}
+                              aria-label={`Mark ${firstName(t.fullName)} a no-show`}
+                            >
+                              No-show
+                            </Button>
+                          ) : null}
+                        </span>
+                      ) : null}
                     </div>
                   ))}
                 </Section>

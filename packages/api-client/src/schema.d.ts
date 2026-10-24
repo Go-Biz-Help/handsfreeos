@@ -1057,6 +1057,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/attendee.set_attendance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark one person on an appointment as joined (they opened the session), attended or a no-show, without changing anyone else on it.
+         * @description Risk level 1. Requires appointments.write. Emits attendee.joined, attendee.attended, attendee.no_show. Can wait on a phone with no signal.
+         */
+        post: operations["command_attendee_set_attendance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/attention.assign": {
         parameters: {
             query?: never;
@@ -3228,7 +3248,7 @@ export interface paths {
         put?: never;
         /**
          * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
-         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, appointment.booked, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
          */
         post: operations["command_form_response_record"];
         delete?: never;
@@ -15607,7 +15627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where a customer or a conversation came from: every Facebook or Instagram ad or link that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.
+         * Where a customer or a conversation came from: every Facebook or Instagram ad, link or lead ad form that brought them, newest first, with the ad’s campaign, ad set and creative once Meta has said. Each is kept as it came, so the first and the latest both stay answerable.
          * @description Requires records.read.
          */
         post: operations["query_attribution_list"];
@@ -17307,7 +17327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, and the Facebook sign-ins they came through.
+         * The Facebook Pages and Instagram accounts whose direct messages come to this business’s inbox, how each is doing, whether its lead ads’ leads come in, and the Facebook sign-ins they came through.
          * @description Requires channels.manage.
          */
         post: operations["query_meta_account_list"];
@@ -23508,6 +23528,46 @@ export interface operations {
                         confirmedVia: ("sms" | "link" | "staff" | "ai") | null;
                         /** @default [] */
                         notApplied: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_attendee_set_attendance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    attendance: "joined" | "attended" | "no_show";
+                    /** Format: uuid */
+                    attendeeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: uuid */
+                        attendeeId: string;
+                        changed: boolean;
+                        joinedAt: string | null;
+                        /** @enum {string} */
+                        status: "booked" | "cancelled" | "no_show" | "attended";
                     };
                 };
             };
@@ -30247,7 +30307,7 @@ export interface operations {
                     createLead?: boolean;
                     dailyCap?: number;
                     /** @enum {string} */
-                    kind?: "text" | "call" | "email" | "messenger" | "instagram";
+                    kind?: "text" | "call" | "email" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed";
                     name?: string;
                     pipelineId?: string | null;
                     redirectUrl?: string | null;
@@ -30268,7 +30328,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         allowedOrigins: string[];
-                        kind: ("text" | "call" | "email" | "messenger" | "instagram") | ("website_form" | "api");
+                        kind: ("text" | "call" | "email" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed") | ("website_form" | "api");
                         sourceId: string | null;
                         updated: string[];
                     };
@@ -54201,7 +54261,7 @@ export interface operations {
                     organizationId: string;
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -54719,7 +54779,7 @@ export interface operations {
                     recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai";
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -57649,6 +57709,7 @@ export interface operations {
                                 intake: {
                                     [key: string]: unknown;
                                 };
+                                joinedAt: string | null;
                                 /** Format: uuid */
                                 personId: string;
                                 reminders: {
@@ -59030,10 +59091,11 @@ export interface operations {
                             /** @enum {string} */
                             channel: "messenger" | "instagram";
                             conversationId: string | null;
+                            formName: string | null;
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "started" | "returned";
+                            kind: "started" | "returned" | "lead_form";
                             leadId: string | null;
                             personId: string | null;
                             /** @enum {string} */
@@ -62143,6 +62205,18 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        calendars: {
+                            active: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            services: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            takesPayment: boolean;
+                        }[];
                         customFields: {
                             entity: string;
                             /** Format: uuid */
@@ -63535,7 +63609,7 @@ export interface operations {
                             allowedOrigins: string[];
                             createLead: boolean;
                             dailyCap: number;
-                            kind: ("text" | "call" | "email" | "messenger" | "instagram") | ("website_form" | "api");
+                            kind: ("text" | "call" | "email" | "messenger" | "instagram" | "facebook_lead_ad" | "indeed") | ("website_form" | "api");
                             lastIntakeAt: string | null;
                             lastUsedAt: string | null;
                             name: string;
@@ -65530,6 +65604,13 @@ export interface operations {
                             humanAgent: boolean;
                             /** Format: uuid */
                             id: string;
+                            lastLeadAt: string | null;
+                            leadForms: {
+                                lastLeadAt: string | null;
+                                name: string;
+                            }[];
+                            /** @enum {string} */
+                            leadsAccess: "unknown" | "ok" | "not_allowed" | "blocked";
                             name: string;
                             pageId: string;
                             /** @enum {string} */
@@ -65552,6 +65633,7 @@ export interface operations {
                             id: string;
                             lastError: string | null;
                             readsAds: boolean;
+                            readsLeads: boolean;
                             /** @enum {string} */
                             status: "pending" | "connected" | "needs_attention" | "disconnected";
                             tokenExpiresAt: string | null;

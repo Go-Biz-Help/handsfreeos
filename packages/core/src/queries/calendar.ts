@@ -681,6 +681,7 @@ export const appointmentGet = defineQuery({
             : null,
           confirmAskedAt: a.confirmAskedAt?.toISOString() ?? null,
           heldUntil: holds.get(a.id) ?? null,
+          joinedAt: a.joinedAt?.toISOString() ?? null,
         })),
         series: series ? { id: series.id, rule: series.rule } : null,
         waitlist: waitlist.map((w) => ({

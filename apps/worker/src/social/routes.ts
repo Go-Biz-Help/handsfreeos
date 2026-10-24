@@ -2,14 +2,14 @@
  * What Meta calls on the worker (20261025000200):
  *
  * - **`/webhooks/meta`**: every message, receipt, edit and ad referral for the Pages and Instagram accounts that are
- *   connected here. GET is Meta's check when the webhook is set up; POST is checked against the app's secret over
+ *   connected here, and the leads their Pages' lead ads collect (funnels). GET is Meta's check when the webhook is set up; POST is checked against the app's secret over
  *   the exact bytes, cut into one stored delivery per event (each kept once however often Meta retries), and
  *   answered at once: Meta stops sending to a webhook that's slow.
  * - **`/meta/deauthorize`** and **`/meta/data-deletion`**: somebody removed the app on Facebook, or asked for what we
  *   know about them to be deleted. Every sign-in of theirs stops; for deletion, who they were goes too.
  *
  * With the stand-in, the Facebook sign-in page is this server's own, and `/test/meta/webhook` signs and delivers an
- * event the way Meta would, for local demos and the browser specs.
+ * event the way Meta would, for local demos and the browser specs; `/test/meta/lead` does the same for a lead.
  */
 import { randomBytes } from 'node:crypto';
 import { executeCommand, metaConnectionDisconnect } from '@hfos/core/server';
@@ -20,7 +20,14 @@ import { header, recordDelivery, type HttpDeps } from '../http/common';
 import { deadEnd, shell } from '../http/oauth';
 import { errorMessage } from '../outbox';
 import { systemActor, workerMeta } from '../services';
-import { META_DELIVERY_KIND, readSignedRequest, splitWebhook, verifyMetaSignature } from './events';
+import {
+  META_DELIVERY_KIND,
+  META_LEADGEN_KIND,
+  readSignedRequest,
+  splitLeadgen,
+  splitWebhook,
+  verifyMetaSignature,
+} from './events';
 
 /**
  * Meta batches up to a thousand events in one post, each with its links and the ad it came from. Every one is kept:
@@ -212,6 +219,36 @@ export async function storeEvents(deps: HttpDeps, body: unknown, url: string): P
     });
     stored++;
   }
+  // A Page's leads go to whichever business holds the Page, by its Facebook Page or its Instagram account.
+  for (const l of splitLeadgen(body)) {
+    const [route] = await asWorker(deps.httpDb, {}, (tx) =>
+      rows<{ account_id: string; workspace_id: string; organization_id: string }>(
+        tx,
+        sql`select account_id, workspace_id, organization_id from private.meta_lead_route(${l.pageId})`,
+      ),
+    );
+    if (!route) {
+      deps.log.debug({ page: l.pageId }, 'a lead for a Page nobody here answers');
+      continue;
+    }
+    await recordDelivery(deps, {
+      provider: 'meta',
+      kind: META_LEADGEN_KIND,
+      dedupeKey: l.dedupeKey,
+      accountRef: `facebook:${l.pageId}`,
+      url,
+      params: {
+        accountId: route.account_id,
+        pageId: l.pageId,
+        leadgenId: l.leadgenId,
+        formId: l.formId ?? '',
+        adId: l.adId ?? '',
+      },
+      workspaceId: route.workspace_id,
+      organizationId: route.organization_id,
+    });
+    stored++;
+  }
   return stored;
 }
 
@@ -249,6 +286,7 @@ function registerFakeMetaRoutes(app: FastifyInstance, deps: HttpDeps): void {
             people.map(option).join('') +
             `<label style="display: block; font-size: 13px; margin-top: 12px;"><input type="checkbox" name="instagram" value="1" checked> Allow Instagram messages</label>` +
             `<label style="display: block; font-size: 13px; margin-top: 6px;"><input type="checkbox" name="ads" value="1" checked> Allow reading ads</label>` +
+            `<label style="display: block; font-size: 13px; margin-top: 6px;"><input type="checkbox" name="leads" value="1" checked> Allow reading leads</label>` +
             `<label style="display: block; font-size: 13px; margin-top: 6px;"><input type="checkbox" name="messaging" value="1" checked> Allow managing messages</label>` +
             `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
             `<button type="submit" name="decision" value="allow" data-testid="fake-meta-continue" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #1877f2; color: #fff; font-weight: 600;">Continue</button>` +
@@ -280,6 +318,7 @@ function registerFakeMetaRoutes(app: FastifyInstance, deps: HttpDeps): void {
             ...(q.messaging === '1' ? ['pages_messaging'] : []),
             ...(q.instagram === '1' ? ['instagram_basic', 'instagram_manage_messages'] : []),
             ...(q.ads === '1' ? ['ads_read'] : []),
+            ...(q.leads === '1' ? ['leads_retrieval', 'pages_manage_ads'] : []),
           ],
         }),
       );
@@ -337,5 +376,42 @@ function registerFakeMetaRoutes(app: FastifyInstance, deps: HttpDeps): void {
     };
     const stored = await storeEvents(deps, body, `${deps.publicUrl}/webhooks/meta`);
     return reply.send({ stored });
+  });
+
+  /**
+   * Somebody sends a stand-in Page's lead form: the lead is kept on the stand-in, and the webhook Meta would send
+   * (only its id) comes through the same route. `{ page, name?, phone?, email?, texts?, formId?, adId? }`.
+   */
+  app.post('/test/meta/lead', async (req, reply) => {
+    const b = (req.body ?? {}) as {
+      page?: string;
+      formId?: string;
+      name?: string;
+      phone?: string;
+      email?: string;
+      texts?: boolean;
+      adId?: string | null;
+      answers?: Record<string, string>;
+    };
+    if (!b.page) return reply.code(400).send({ error: 'page is required' });
+    const answers = [
+      ...(b.name ? [{ name: 'full_name', values: [b.name] }] : []),
+      ...(b.phone ? [{ name: 'phone_number', values: [b.phone] }] : []),
+      ...(b.email ? [{ name: 'email', values: [b.email] }] : []),
+      ...Object.entries(b.answers ?? {}).map(([name, value]) => ({ name, values: [value] })),
+    ];
+    const lead = fake.addLead({
+      pageId: b.page,
+      ...(b.formId ? { formId: b.formId } : {}),
+      answers,
+      consents: b.texts === undefined ? [] : [{ key: 'texts', checked: b.texts }],
+      ...(b.adId !== undefined ? { adId: b.adId } : {}),
+    });
+    const stored = await storeEvents(
+      deps,
+      fake.leadWebhook(lead, b.page),
+      `${deps.publicUrl}/webhooks/meta`,
+    );
+    return reply.send({ stored, leadgenId: lead.id, formId: lead.formId });
   });
 }

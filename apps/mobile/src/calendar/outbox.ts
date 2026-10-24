@@ -168,6 +168,21 @@ export function withOwnChanges(
       }
       continue;
     }
+    if (row.name === 'attendee.set_attendance') {
+      const attendeeId = str(input.attendeeId);
+      const status = str(input.attendance);
+      if (!attendeeId || (status !== 'attended' && status !== 'no_show')) continue;
+      for (const [key, appt] of byId) {
+        if (!appt.seats.some((s) => s.id === attendeeId)) continue;
+        byId.set(key, {
+          ...appt,
+          seats: appt.seats.map((s) => (s.id === attendeeId ? { ...s, status } : s)),
+          change: changeOf(row),
+        });
+        break;
+      }
+      continue;
+    }
     if (row.name === 'attendee.confirm') {
       const attendeeId = str(input.attendeeId);
       if (!attendeeId) continue;

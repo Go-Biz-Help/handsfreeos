@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import {
   customFields,
   formAnswers,
+  formLinks,
   formDays,
   formResponses,
   forms,
@@ -21,6 +22,7 @@ import { closeTestDbs, createTestUser, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   formCreate,
+  formLinkCreate,
   formPublish,
   formSaveDraft,
   organizationCreate,
@@ -28,7 +30,9 @@ import {
   formResponseExport,
   formResponseList,
   formResponseRecord,
+  formResponseMarkStopped,
   formResponseSave,
+  formResponseSaveContact,
   formResponseStart,
   formResponseSubmit,
 } from '../src/server';
@@ -272,6 +276,23 @@ describe('sending it', () => {
     expect(person!.email).toBe('mina@example.com');
   });
 
+  it('fills in a blank on a customer it finds again', async () => {
+    const form = await publishedForm('Blank to fill');
+    const first = await submit(await start(form.formId), {
+      [qid('name')]: 'Noor',
+      [qid('phone')]: '(512) 555-0112',
+    });
+    // The second time they give an email too; the customer had none, so it's written in.
+    const second = await submit(await start(form.formId), {
+      [qid('name')]: 'Noor',
+      [qid('email')]: 'noor@example.com',
+      [qid('phone')]: '(512) 555-0112',
+    });
+    expect(second.personId).toBe(first.personId);
+    const [person] = await admin().select().from(people).where(eq(people.id, first.personId!));
+    expect(person!.email).toBe('noor@example.com');
+  });
+
   it('fills in a field the business invented', async () => {
     const form = await publishedForm('Gate code', [
       {
@@ -437,6 +458,47 @@ describe('sending it', () => {
     expect(problems.map((p) => p.questionId)).toContain(qid('name'));
   });
 
+  it('holds a sheet back until they have watched enough of a video, and words what they watched', async () => {
+    const form = await publishedForm('Watch first', [
+      addQuestion(
+        undefined as never,
+        question('Our story', {
+          id: qid('video'),
+          type: 'video',
+          config: { url: 'https://youtu.be/dQw4w9WgXcQ', minPercent: 80 },
+        }),
+      ),
+    ]);
+    const answers = { [qid('name')]: 'Dana', [qid('phone')]: '(512) 555-0177' };
+    const early = await start(form.formId);
+    const error = await expectHfos(
+      () => submit(early, { ...answers, [qid('video')]: 40 }),
+      'form_answers_invalid',
+      400,
+    );
+    const problems = (error.details as { problems: { questionId: string; message: string }[] })
+      .problems;
+    expect(problems).toContainEqual({
+      questionId: qid('video'),
+      message: 'Watch at least 80% of the video to go on.',
+    });
+
+    const started = await start(form.formId);
+    await submit(started, { ...answers, [qid('video')]: 85 });
+    const [watched] = await admin()
+      .select()
+      .from(formAnswers)
+      .where(
+        and(
+          eq(formAnswers.responseId, started.responseId),
+          eq(formAnswers.questionId, qid('video')),
+        ),
+      );
+    expect(watched!.questionType).toBe('video');
+    expect(Number(watched!.numberValue)).toBe(85);
+    expect(watched!.textValue).toBe('Watched 85%');
+  });
+
   it('insists on a way to reach them when the form says it must', async () => {
     const form = await publishedForm('Who are you');
     const started = await start(form.formId);
@@ -543,6 +605,282 @@ describe('sending it', () => {
     const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
     expect(person!.smsConsent).toBe('opted_in');
     expect(person!.smsConsentSource).toContain('Texts please');
+  });
+});
+
+describe('a funnel: details saved part way, and personal links', () => {
+  /** Name, email and phone on a page that saves their details, then a page with one more question. */
+  async function funnel(name: string) {
+    return publishedForm(name, [
+      { op: 'update_page', patch: { savesContact: true } },
+      { op: 'add_page', index: null, page: { id: 'p_more0000', title: 'More', questions: [] } },
+      {
+        op: 'add_question',
+        pageId: 'p_more0000',
+        index: null,
+        question: question('Your goals', { id: qid('goals'), type: 'long_text' }),
+      },
+    ]);
+  }
+
+  const saveContact = (started: Started, answers: Record<string, unknown>, smsConsent = false) =>
+    runSystem(
+      formResponseSaveContact,
+      {
+        workspaceId: wsId,
+        responseId: started.responseId,
+        token: started.token,
+        answers,
+        smsConsent,
+      },
+      scope,
+    );
+
+  const leadsOf = (personId: string) =>
+    admin().select({ id: leads.id }).from(leads).where(eq(leads.personId, personId));
+
+  it('makes the customer and the lead when they leave that page, and only once', async () => {
+    const form = await funnel('Funnel saves');
+    const started = await start(form.formId);
+    const saved = await saveContact(
+      started,
+      { [qid('name')]: 'Dana Ruiz', [qid('phone')]: '(512) 555-0311' },
+      true,
+    );
+    expect(saved.personId).toBeTruthy();
+    expect(saved.leadId).toBeTruthy();
+    const row = await responseRow(started.responseId);
+    expect(row.status).toBe('in_progress');
+    expect(row.personId).toBe(saved.personId);
+    const [person] = await admin().select().from(people).where(eq(people.id, saved.personId!));
+    expect(person!.firstName).toBe('Dana');
+    expect(person!.smsConsent).toBe('opted_in');
+
+    // Sending it at the end keeps the same customer and the same lead.
+    const sent = await submit(started, { [qid('goals')]: 'Work from home' });
+    expect(sent.personId).toBe(saved.personId);
+    expect(sent.leadId).toBe(saved.leadId);
+    expect(await leadsOf(saved.personId!)).toHaveLength(1);
+  });
+
+  it('won’t save until that page will do', async () => {
+    const form = await funnel('Funnel picky');
+    const started = await start(form.formId);
+    await expectHfos(
+      () => saveContact(started, { [qid('phone')]: '(512) 555-0312' }),
+      'form_answers_invalid',
+      400,
+    );
+    await expectHfos(
+      () => saveContact(started, { [qid('name')]: 'Nope' }),
+      'form_needs_identity',
+      400,
+    );
+  });
+
+  it('a personal link knows who it’s for, skips what we know, and writes nothing over it', async () => {
+    const form = await funnel('Funnel personal');
+    const known = await submit(await start((await publishedForm('Earlier')).formId), {
+      [qid('name')]: 'Rae Lin',
+      [qid('phone')]: '(512) 555-0313',
+    });
+    const link = await runSystem(
+      formLinkCreate,
+      { workspaceId: wsId, formId: form.formId, personId: known.personId! },
+      scope,
+    );
+    expect(link.key.length).toBeGreaterThanOrEqual(20);
+    const [stored] = await admin()
+      .select()
+      .from(formLinks)
+      .where(eq(formLinks.id, link.formLinkId));
+    // Only the hash is kept.
+    expect(Buffer.from(stored!.keyHash).toString('base64url')).not.toBe(link.key);
+
+    const opened = await runSystem(
+      formResponseStart,
+      { workspaceId: wsId, formId: form.formId, source: 'link', personalKey: link.key },
+      scope,
+    );
+    expect(opened.token).toBe(link.key);
+    const row = await responseRow(opened.responseId);
+    expect(row.personId).toBe(known.personId);
+    expect(row.formLinkId).toBe(link.formLinkId);
+
+    // Opened again, it's the same sheet.
+    const again = await runSystem(
+      formResponseStart,
+      { workspaceId: wsId, formId: form.formId, source: 'link', personalKey: link.key },
+      scope,
+    );
+    expect(again.responseId).toBe(opened.responseId);
+
+    // A second text's link reaches the same sheet, and its key writes to it.
+    const second = await runSystem(
+      formLinkCreate,
+      { workspaceId: wsId, formId: form.formId, personId: known.personId! },
+      scope,
+    );
+    const viaSecond = await runSystem(
+      formResponseStart,
+      { workspaceId: wsId, formId: form.formId, source: 'link', personalKey: second.key },
+      scope,
+    );
+    expect(viaSecond.responseId).toBe(opened.responseId);
+    await runSystem(
+      formResponseSave,
+      {
+        workspaceId: wsId,
+        responseId: opened.responseId,
+        token: second.key,
+        answers: { [qid('goals')]: 'Saved from the second link' },
+      },
+      scope,
+    );
+
+    // Their name and phone are on file, so the required name isn't asked; an answer sent for it is dropped.
+    const sent = await submit(
+      { responseId: opened.responseId, token: link.key },
+      { [qid('name')]: 'Somebody Else', [qid('goals')]: 'Grow' },
+    );
+    expect(sent.personId).toBe(known.personId);
+    const [person] = await admin().select().from(people).where(eq(people.id, known.personId!));
+    expect(person!.firstName).toBe('Rae');
+    const answered = await admin()
+      .select({ questionId: formAnswers.questionId })
+      .from(formAnswers)
+      .where(eq(formAnswers.responseId, opened.responseId));
+    expect(answered.map((a) => a.questionId)).not.toContain(qid('name'));
+  });
+
+  it('asked again, a different phone joins their numbers instead of replacing it', async () => {
+    const form = await funnel('Funnel ask again');
+    const known = await submit(await start((await publishedForm('Before')).formId), {
+      [qid('name')]: 'Kai',
+      [qid('phone')]: '(512) 555-0314',
+    });
+    const link = await runSystem(
+      formLinkCreate,
+      { workspaceId: wsId, formId: form.formId, personId: known.personId! },
+      scope,
+    );
+    const opened = await runSystem(
+      formResponseStart,
+      { workspaceId: wsId, formId: form.formId, source: 'link', personalKey: link.key },
+      scope,
+    );
+    await runSystem(
+      formResponseSubmit,
+      {
+        workspaceId: wsId,
+        responseId: opened.responseId,
+        token: link.key,
+        askAgain: true,
+        answers: { [qid('name')]: 'Kai', [qid('phone')]: '(512) 555-0399' },
+      },
+      scope,
+    );
+    const [person] = await admin().select().from(people).where(eq(people.id, known.personId!));
+    expect(person!.phoneE164).toBe('+15125550314');
+    expect(JSON.stringify(person!.otherPhones)).toContain('+15125550399');
+  });
+
+  it('marks the page somebody went quiet on, once, and again further on', async () => {
+    const form = await funnel('Funnel stopped');
+    const started = await start(form.formId);
+    await saveContact(started, { [qid('name')]: 'Quinn', [qid('phone')]: '(512) 555-0316' });
+    const save = (pageId: string) =>
+      runSystem(
+        formResponseSave,
+        {
+          workspaceId: wsId,
+          responseId: started.responseId,
+          token: started.token,
+          answers: {},
+          pageId,
+        },
+        scope,
+      );
+    const quiet = (minutes: number) =>
+      admin()
+        .update(formResponses)
+        .set({ lastActiveAt: new Date(Date.now() - minutes * 60_000) })
+        .where(eq(formResponses.id, started.responseId));
+    const due = () =>
+      rows<{ response_id: string; page_id: string }>(
+        admin(),
+        sql`select response_id, page_id from private.form_sheets_stopped(30, 500)
+            where response_id = ${started.responseId}`,
+      );
+    const mark = (pageId: string) =>
+      runSystem(
+        formResponseMarkStopped,
+        { workspaceId: wsId, responseId: started.responseId, pageId },
+        scope,
+      );
+
+    await save('p_more0000');
+    // Ten minutes isn't stopped.
+    await quiet(10);
+    expect(await due()).toEqual([]);
+    expect((await mark('p_more0000')).stopped).toBe(false);
+
+    await quiet(31);
+    expect(await due()).toEqual([{ response_id: started.responseId, page_id: 'p_more0000' }]);
+    expect((await mark('p_more0000')).stopped).toBe(true);
+    // Once a page.
+    expect(await due()).toEqual([]);
+    expect((await mark('p_more0000')).stopped).toBe(false);
+    const events = await rows<{ payload: { pageId: string; pageTitle: string; personId: string } }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'form.stopped'
+            and payload->>'responseId' = ${started.responseId}`,
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]!.payload).toMatchObject({ pageId: 'p_more0000', pageTitle: 'More' });
+
+    // Sent, it's never marked again.
+    await submit(started, { [qid('goals')]: 'Done' });
+    await quiet(40);
+    expect(await due()).toEqual([]);
+  });
+
+  it('turns away a link that ran out, or one for another form', async () => {
+    const form = await funnel('Funnel expired');
+    const other = await funnel('Funnel other');
+    const known = await submit(await start(form.formId), {
+      [qid('name')]: 'Old',
+      [qid('phone')]: '(512) 555-0315',
+    });
+    const link = await runSystem(
+      formLinkCreate,
+      { workspaceId: wsId, formId: form.formId, personId: known.personId! },
+      scope,
+    );
+    await expectHfos(
+      () =>
+        runSystem(
+          formResponseStart,
+          { workspaceId: wsId, formId: other.formId, source: 'link', personalKey: link.key },
+          scope,
+        ),
+      'form_link_gone',
+      404,
+    );
+    await admin()
+      .update(formLinks)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(formLinks.id, link.formLinkId));
+    await expectHfos(
+      () =>
+        runSystem(
+          formResponseStart,
+          { workspaceId: wsId, formId: form.formId, source: 'link', personalKey: link.key },
+          scope,
+        ),
+      'form_link_gone',
+      404,
+    );
   });
 });
 

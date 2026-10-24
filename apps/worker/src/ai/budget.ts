@@ -19,7 +19,9 @@ export type AiUsageSource =
   // Building and scoring the business's main offer.
   | 'main_offer'
   // Adding the texting section to the business's own privacy policy or terms.
-  | 'texting_policy';
+  | 'texting_policy'
+  // Reading an applicant Indeed emailed the business about (funnels).
+  | 'lead_intake';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -74,6 +76,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   meetings: 'AI reading a call transcript',
   main_offer: 'AI building your main offer',
   texting_policy: 'AI updating your privacy policy or terms',
+  lead_intake: 'AI reading a job applicant’s email',
 };
 
 /**

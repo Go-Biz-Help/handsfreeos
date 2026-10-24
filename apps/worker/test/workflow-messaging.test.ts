@@ -10,6 +10,9 @@ import {
   callRecord,
   callUpdateStatus,
   executeCommand,
+  formCreate,
+  formPublish,
+  formSaveDraft,
   workflowEnrol,
   type WorkflowDefinitionInput,
 } from '@hfos/core/server';
@@ -142,6 +145,62 @@ describe('quiet hours', () => {
       channel: 'email',
       instead: 'quiet_hours',
     });
+  });
+});
+
+describe('sending a form', () => {
+  it('texts each customer their own link, with a key that says nothing about them', async () => {
+    const created = await run(w, formCreate, { workspaceId: w.workspaceId, name: 'Meet the team' });
+    const [first] = await rows<{ id: string }>(
+      admin(),
+      sql`select definition->'pages'->0->>'id' as id from app.forms where id = ${created.formId}`,
+    );
+    const saved = await run(w, formSaveDraft, {
+      workspaceId: w.workspaceId,
+      formId: created.formId,
+      baseRevision: created.revision,
+      ops: [
+        {
+          op: 'add_question',
+          pageId: first!.id,
+          index: null,
+          question: { id: 'q_goals000', type: 'long_text', title: 'Your goals', config: {} },
+        },
+      ],
+    });
+    await run(w, formPublish, {
+      workspaceId: w.workspaceId,
+      formId: created.formId,
+      baseRevision: saved.revision,
+    });
+    const stepId = sid('sform');
+    const wf = await addWorkflow(w, 'Send the funnel', {
+      version: 1,
+      trigger: { kind: 'manual' },
+      steps: [
+        {
+          id: stepId,
+          type: 'action',
+          action: 'send_form',
+          config: { formId: created.formId, channel: 'sms', message: 'Hi {{person.first_name}}!' },
+        },
+      ],
+    });
+    const p = await customerNamed(w, 'Rhea');
+    await enrol(wf.id, p.id);
+    await drain(w);
+    const [r] = await runsOf(wf.id);
+    expect((await runOf(r!.id)).status).toBe('completed');
+    const sent = textsTo(w, p.phone!);
+    expect(sent).toHaveLength(1);
+    const link = /\/f\/[^/\s]+\/[^?\s]+\?k=([A-Za-z0-9_-]+)/.exec(sent[0]!.body);
+    expect(link).not.toBeNull();
+    expect(link![1]).not.toMatch(/rhea/i);
+    const links = await rows<{ person_id: string; form_id: string }>(
+      admin(),
+      sql`select person_id, form_id from app.form_links where person_id = ${p.id}`,
+    );
+    expect(links).toEqual([{ person_id: p.id, form_id: created.formId }]);
   });
 });
 

@@ -3,7 +3,8 @@
 A business connects its Facebook Pages and the Instagram professional accounts linked to them in **Settings** →
 **Facebook & Instagram**. Their messages then land in the inbox beside texts, email and the website chat, and the
 team answers them from there, on the web and on the phone. When somebody comes from an ad or a link, the
-conversation and the customer's page say which, and every time it happens is kept.
+conversation and the customer's page say which, and every time it happens is kept. Somebody who sends the form on
+one of the business's lead ads arrives as a customer and a lead the same way ("Lead ads" below).
 
 Setting up Meta's side (the app, its webhook, App Review and the worker's secrets) is "Facebook and Instagram
 messages: Meta" in `docs/operations.md`.
@@ -22,6 +23,8 @@ messages: Meta" in `docs/operations.md`.
 | Webhooks, deauthorize and data deletion   | `apps/worker/src/social/routes.ts`; each event read by `events.ts`, and acted on by `receive.ts`                |
 | Sending                                   | `apps/worker/src/social/send.ts`                                                                                |
 | Ad look-ups and the daily check           | `apps/worker/src/social/jobs.ts`                                                                                |
+| Lead ads: filing a lead, and its words    | `packages/core/src/commands/meta-lead.ts`, `messaging/lead-ads.ts`; the forms table is `20261027011200`         |
+| Lead ads: reading leads, and the catch-up | `apps/worker/src/social/leads.ts`                                                                               |
 | Settings → Facebook & Instagram           | `apps/web/src/components/settings/facebook-instagram-page.tsx`                                                  |
 | The inbox, the composer and the thread    | `apps/web/src/components/inbox/` (`social-bits.tsx` has the two marks)                                          |
 | "Where they came from"                    | `apps/web/src/components/crm/attribution-card.tsx`, `apps/mobile/src/components/customers/attribution.tsx`      |
@@ -135,6 +138,41 @@ the web's card and the phone's.
   (Instagram). Both are on the touch, through `meta_account_id` and `meta_contact_id`. It also needs a dataset tied
   to the Page and its own permission: check Meta's current documentation when building it.
 
+## Lead ads (funnels)
+
+A lead ad's form ("instant form") keeps what somebody sent on Facebook or Instagram, for the business's Page. Meta's
+webhook says only that a lead came (the `leadgen` field of the Page's subscription), with its id, the Page and the
+form; the lead itself is read with the Page's token.
+
+- **Arriving.** `/webhooks/meta` cuts each lead out of the post (`splitLeadgen`) and keeps it as a delivery of kind
+  `leadgen`, once per lead, for whichever business holds the Page (its Facebook Page here, or else the Instagram
+  account linked to it: `private.meta_lead_route`). `onMetaLeadgen` reads the lead and its form (its name, its
+  questions' words and its own tick boxes), and `meta_lead.receive` files it.
+- **Filing.** It is Lead intake's own path (`submitIntake`): the "Facebook lead ad" row in **Settings** → **Lead
+  intake** decides whether a lead opens, in which pipeline, and how many a day. Meta's own questions (`full_name`,
+  `phone_number`, `email`, the address) fill the customer; every other answer is on the lead's note in the form's
+  words. The lead's id is the dedupe key, so the webhook and the catch-up file it once between them.
+- **OK to text.** A ticked box on the form whose words are about texts (`isTextConsentBox`) is the customer's OK to
+  text, with "Facebook lead form: <form>" as where it came from. Unticked changes nothing: the funnel's contact step
+  asks. Which boxes count is kept on `meta_lead_forms.text_consent_keys`, so a lead read when Meta wouldn't describe
+  its form still counts.
+- **Where they came from.** A touch of kind `lead_form`, source `LEAD_FORM`, with the ad (looked up like any other)
+  and the form (`lead_form_id`). The card says "Facebook lead ad", "Sent its form" and the form's name.
+- **Missed leads.** `meta.leads_plan` runs hourly and queues `meta.leads` for each business with a Page, which reads
+  each Page's active forms for leads sent since its last look, less two hours (a day back the first time, never
+  more than a month).
+- **Can't read them.** Meta refusing is the sign-in not allowing leads (`not_allowed`: connect again with leads
+  ticked) or the Page's Leads Access keeping HandsFreeOS out (`blocked`: Meta Business Suite → Settings → Leads
+  Access). It's kept on `meta_accounts.leads_access`, and Settings → Facebook & Instagram says which, in
+  `leadsAccessWords`. The next look after it's put right brings what came meanwhile.
+
+**Only once Meta approves it.** The permissions (`leads_retrieval`, `pages_manage_ads`) and the `leadgen` field are
+asked for only with `META_LEAD_ADS=on` (on with the stand-in). A Page that refuses `leadgen` still subscribes to its
+messages. Until then nothing here runs, and a business uses Zapier into Lead intake's connected apps instead.
+
+Locally, `POST /test/meta/lead` with `{ page, name, phone, email, texts }` sends a stand-in Page's lead and its
+webhook.
+
 ## Not yet
 
 - Messages from before a Page was connected. Meta's Conversations API can return them; today a conversation starts
@@ -143,3 +181,5 @@ the web's card and the phone's.
 - Sending conversions back to Meta (above).
 - Reactions (Meta sends them; they are left), comments on posts, and story mentions as conversations of their own.
 - The phone keeping the person's name from Meta, shared posts, edits and messages taken back (above).
+- Lead ads' leads from before a Page was connected, beyond the first look's day; and lead forms on Pages connected
+  for Instagram's messages only, when the Page's token can't read them.
