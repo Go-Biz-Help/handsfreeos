@@ -14,6 +14,7 @@ export type FunnelIssueOut = FunnelGetOut['issues'][number];
 export type FunnelPeopleOut = Ok<'/v1/queries/funnel.people'>;
 export type FunnelPersonOut = FunnelPeopleOut['people'][number];
 export type FunnelSuggestionsOut = Ok<'/v1/queries/funnel.suggestions'>;
+export type FunnelOfPersonOut = Ok<'/v1/queries/funnel.of_person'>;
 export type PipelineList = Ok<'/v1/queries/pipeline.list'>;
 export type PipelineOut = PipelineList['pipelines'][number];
 
@@ -92,6 +93,33 @@ export function funnelActions(workspaceId: string) {
       unwrap(await api().POST('/v1/commands/funnel.pause', { body: { workspaceId, funnelId } })),
     archive: async (funnelId: string) =>
       unwrap(await api().POST('/v1/commands/funnel.archive', { body: { workspaceId, funnelId } })),
+    ofPerson: async (personId: string): Promise<FunnelOfPersonOut> =>
+      unwrap(await api().POST('/v1/queries/funnel.of_person', { body: { workspaceId, personId } })),
+    addPerson: async (funnelId: string, personId: string) =>
+      unwrap(
+        await api().POST('/v1/commands/funnel.add_person', {
+          body: { workspaceId, funnelId, personId },
+        }),
+      ),
+    pausePerson: async (funnelPersonId: string, paused: boolean) =>
+      unwrap(
+        await api().POST('/v1/commands/funnel.pause_person', {
+          body: { workspaceId, funnelPersonId, paused },
+        }),
+      ),
+    removePerson: async (funnelPersonId: string) =>
+      unwrap(
+        await api().POST('/v1/commands/funnel.remove_person', {
+          body: { workspaceId, funnelPersonId },
+        }),
+      ),
+    /** Their lead to another of the funnel's stages: the funnel follows it, as it does a drag on the board. */
+    moveLead: async (leadId: string, stageId: string) =>
+      unwrap(
+        await api().POST('/v1/commands/lead.move_stage', {
+          body: { workspaceId, leadId, stageId },
+        }),
+      ),
     decideSuggestion: async (funnelPersonId: string, accept: boolean) =>
       unwrap(
         await api().POST('/v1/commands/funnel.decide_suggestion', {

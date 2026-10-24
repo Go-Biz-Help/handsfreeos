@@ -39,6 +39,7 @@ import {
   funnelSuggest,
   funnelSuggestionList,
   funnelTurnOn,
+  leadBoard,
   leadCreate,
   leadMoveStage,
   organizationCreate,
@@ -633,11 +634,14 @@ describe('who’s in it', () => {
   });
 
   it('shows where they are and what’s next', async () => {
-    const { current, canJoin } = await ask(
+    const { current, canJoin, stages, suggestion } = await ask(
       funnelOfPerson,
       { workspaceId: a.wsId, personId: sam },
       a.member,
     );
+    // Where Move to… can take them: the funnel's stages, in the pipeline's order.
+    expect(stages.map((s) => s.id)).toEqual(Object.values(stage));
+    expect(suggestion).toBeNull();
     expect(current).toMatchObject({
       id: samRow,
       funnelName: 'Recruiting',
@@ -664,6 +668,10 @@ describe('who’s in it', () => {
       people: 1,
       inFunnel: true,
     });
+    // The board's Funnel button, and the badge on Sam's card.
+    const board = await ask(leadBoard, { workspaceId: a.wsId, pipelineId }, a.member);
+    expect(board.funnel).toMatchObject({ id: funnelId, name: 'Recruiting', status: 'on' });
+    expect(board.funnel!.leads).toContainEqual({ leadId: samLead, paused: false });
   });
 
   it('takes them out at a won stage', async () => {
@@ -705,6 +713,13 @@ describe('the teammate’s suggestions', () => {
     expect(waiting.suggestions.map((s) => [s.personId, s.suggestedWhy])).toEqual([
       [jo, 'Asked about working from home.'],
     ]);
+    // Their own line has it too, for a yes or no from their page or the conversation.
+    const theirs = await ask(funnelOfPerson, { workspaceId: a.wsId, personId: jo }, a.member);
+    expect(theirs).toMatchObject({
+      current: null,
+      stages: [],
+      suggestion: { id: s1.funnelPersonId, funnelName: 'Recruiting', status: 'suggested' },
+    });
     const yes = await run(
       funnelDecideSuggestion,
       { workspaceId: a.wsId, funnelPersonId: s1.funnelPersonId, accept: true },

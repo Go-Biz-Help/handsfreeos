@@ -109552,6 +109552,62 @@
                         "additionalProperties": false
                       }
                     },
+                    "funnel": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "on",
+                                "paused"
+                              ]
+                            },
+                            "leads": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "leadId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "paused": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "leadId",
+                                  "paused"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "status",
+                            "leads"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "stages": {
                       "type": "array",
                       "items": {
@@ -109897,6 +109953,7 @@
                   "required": [
                     "pipeline",
                     "pipelines",
+                    "funnel",
                     "stages"
                   ],
                   "additionalProperties": false
@@ -138945,6 +139002,32 @@
                                   ],
                                   "additionalProperties": false
                                 }
+                              },
+                              "funnel": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "name": {
+                                        "type": "string",
+                                        "maxLength": 80
+                                      },
+                                      "stageName": {
+                                        "type": "string",
+                                        "maxLength": 60
+                                      }
+                                    },
+                                    "required": [
+                                      "name",
+                                      "stageName"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -138953,7 +139036,8 @@
                               "discount",
                               "call",
                               "ask",
-                              "flags"
+                              "flags",
+                              "funnel"
                             ],
                             "additionalProperties": false
                           },
@@ -141744,6 +141828,262 @@
                         }
                       ]
                     },
+                    "stages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "won",
+                              "lost"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "kind"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "suggestion": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "funnelId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "funnelName": {
+                              "type": "string"
+                            },
+                            "funnelStatus": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "on",
+                                "paused",
+                                "archived"
+                              ]
+                            },
+                            "personId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "personName": {
+                              "type": "string"
+                            },
+                            "leadId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "stageId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "stageName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "paused",
+                                "left",
+                                "suggested",
+                                "declined"
+                              ]
+                            },
+                            "pausedReason": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "taken_over",
+                                    "handed_off",
+                                    "by_hand"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "leftReason": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "won",
+                                    "lost",
+                                    "removed",
+                                    "outside",
+                                    "other_funnel",
+                                    "opted_out",
+                                    "funnel_archived",
+                                    "lead_gone"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "stageReachedAt": {
+                              "type": "string"
+                            },
+                            "booking": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "appointmentId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "startsAt": {
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "appointmentId",
+                                    "startsAt",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "next": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "messageId": {
+                                    "type": "string"
+                                  },
+                                  "dueAt": {
+                                    "type": "string"
+                                  },
+                                  "wording": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ai",
+                                      "exact"
+                                    ]
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  },
+                                  "onlyIf": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "messageId",
+                                  "dueAt",
+                                  "wording",
+                                  "text",
+                                  "onlyIf"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "addedBy": {
+                              "type": "string",
+                              "enum": [
+                                "rule",
+                                "hand",
+                                "ai",
+                                "turn_on"
+                              ]
+                            },
+                            "suggestedWhy": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "funnelId",
+                            "funnelName",
+                            "funnelStatus",
+                            "personId",
+                            "personName",
+                            "leadId",
+                            "stageId",
+                            "stageName",
+                            "status",
+                            "pausedReason",
+                            "leftReason",
+                            "stageReachedAt",
+                            "booking",
+                            "next",
+                            "addedBy",
+                            "suggestedWhy",
+                            "createdAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "canJoin": {
                       "type": "array",
                       "items": {
@@ -141771,6 +142111,8 @@
                   },
                   "required": [
                     "current",
+                    "stages",
+                    "suggestion",
                     "canJoin",
                     "timeZone"
                   ],

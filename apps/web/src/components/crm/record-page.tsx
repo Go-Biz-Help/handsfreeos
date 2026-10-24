@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { CallConsentRow } from '@/components/crm/call-consent';
 import { BIN_WORDS, can } from '@hfos/core';
 import { AddonSlot } from '@/components/addons/slot';
+import { PersonFunnelLine } from '@/components/funnels/person-funnel';
 import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
@@ -375,6 +376,9 @@ export function RecordPage(props: RecordPageProps) {
                 </button>
               ) : null}
             </div>
+            {person && !archived ? (
+              <PersonFunnelLine workspaceId={workspaceId} personId={person.id} />
+            ) : null}
             <TagPicker
               workspaceId={workspaceId}
               tags={tags}

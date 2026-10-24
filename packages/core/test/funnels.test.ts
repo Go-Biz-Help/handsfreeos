@@ -17,6 +17,7 @@ import {
   FunnelDraft,
   FunnelDraftWire,
   funnelEntryWords,
+  FUNNEL_PERSON_WORDS,
   funnelIssues,
   funnelMessageDueAt,
   funnelMessageStale,
@@ -528,6 +529,21 @@ describe('what the model writes', () => {
     expect(
       draftFromWire(wire({ stages: [stage('Won', 'won'), stage('Lost', 'lost')] })),
     ).toBeNull();
+  });
+});
+
+describe('a customer’s funnel line', () => {
+  it('says why it’s paused, and what’s next', () => {
+    expect(FUNNEL_PERSON_WORDS.paused('by_hand')).toBe('Paused by hand');
+    expect(FUNNEL_PERSON_WORDS.paused('taken_over')).toBe(
+      'Paused: someone on the team is talking to them',
+    );
+    expect(
+      FUNNEL_PERSON_WORDS.next('Can you hear the presenter okay?', SESSION + 10 * MIN, TZ),
+    ).toBe('Next: “Can you hear the presenter okay?” at Thu, Oct 29, 7:10 PM');
+    expect(FUNNEL_PERSON_WORDS.suggested('Recruiting', 'She asked about the opportunity')).toBe(
+      'Suggested for Recruiting: She asked about the opportunity',
+    );
   });
 });
 

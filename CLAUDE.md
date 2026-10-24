@@ -29,6 +29,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Push notifications                           | `apps/worker/src/push/README.md`                                                                                  |
 | The web app                                  | `apps/web/AGENTS.md`: this Next.js has breaking changes, so read its docs in `node_modules/next/dist/docs/` first |
 | The public website                           | `apps/site/AGENTS.md`                                                                                             |
+| Funnels in the AI teammate                   | `docs/funnels.md`, then `HANDSFREEOS_TEAMMATE_FUNNELS_IMPLEMENTATION_PLAN.md`                                     |
 | Feedback on the AI teammate's replies        | `HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md`, then "How the teammate works" in `docs/operations.md`           |
 | The AI Sales Coach add-on                    | `docs/salescoach.md`, then `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`                                       |
 | The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |

@@ -11,8 +11,9 @@ plan made the pieces a funnel uses: the step-by-step form with videos, personal 
 and remembering five of them. This plan puts the steps where the owner thinks about them, in one place the teammate
 reads.
 
-> **Status: planned, not built.** The decisions below are the owner's (2026-10-24). "Picks to confirm" are mine and
-> stay open until the owner says yes. Nothing is built before the boards in `design/funnels` are approved.
+> **Status: built**, stages 1 to 6, on branch `claude/teammate-funnels`. The decisions below are the owner's
+> (2026-10-24), and the picks were built as written. `docs/funnels.md` is the guide to the code; the boards are in
+> `design/funnels`.
 
 ## Decisions (Chris, 2026-10-24)
 

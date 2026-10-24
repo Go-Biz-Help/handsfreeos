@@ -173,6 +173,18 @@ export const LeadBoardInput = z.object({
 export const LeadBoardOutput = z.object({
   pipeline: z.object({ id: uuid, name: z.string() }),
   pipelines: z.array(z.object({ id: uuid, name: z.string() })),
+  /**
+   * The funnel this pipeline runs, if any (teammate funnels): the board's Funnel button, and which of the cards it
+   * shows are in it now (paused while the team talks to them, or not).
+   */
+  funnel: z
+    .object({
+      id: uuid,
+      name: z.string(),
+      status: z.enum(['draft', 'on', 'paused']),
+      leads: z.array(z.object({ leadId: uuid, paused: z.boolean() })),
+    })
+    .nullable(),
   stages: z.array(
     z.object({
       id: uuid,

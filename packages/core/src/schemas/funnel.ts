@@ -270,6 +270,10 @@ export type FunnelPersonOut = z.infer<typeof FunnelPersonOut>;
 export const FunnelOfPersonInput = z.object({ workspaceId: uuid, personId: uuid });
 export const FunnelOfPersonOutput = z.object({
   current: FunnelPersonOut.nullable(),
+  /** Their funnel's stages, in its pipeline's order: where Move to… can take their lead. */
+  stages: z.array(z.object({ id: uuid, name: z.string(), kind: z.enum(['open', 'won', 'lost']) })),
+  /** The teammate's suggestion of a funnel for them, waiting for a yes or no. */
+  suggestion: FunnelPersonOut.nullable(),
   /** Funnels they could be added to (on or paused, adding by hand allowed). */
   canJoin: z.array(z.object({ id: uuid, name: z.string() })),
   timeZone: z.string(),

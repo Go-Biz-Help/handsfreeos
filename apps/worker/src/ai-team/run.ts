@@ -1210,7 +1210,7 @@ async function supersededWhy(
 }
 
 /** What a draft needs to know about the run that made it (a job's run, or a live call's). */
-export type DraftRun = Pick<StartedRun, 'id' | 'scope' | 'teammate' | 'target'>;
+export type DraftRun = Pick<StartedRun, 'id' | 'scope' | 'teammate' | 'target' | 'funnel'>;
 
 /** Replaces the conversation's pending reply draft with this run's. */
 export async function makeDraft(
@@ -1243,6 +1243,7 @@ export async function makeDraft(
     actions: state.held,
     discount: null,
     flags,
+    funnel: run.funnel ? { name: run.funnel.funnelName, stageName: run.funnel.stageName } : null,
   });
   await insertDraft(
     tx,

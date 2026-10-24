@@ -34,6 +34,7 @@ import { InboxOwed, useRecordMoney } from '@/components/crm/record-money';
 import { TagPicker } from '@/components/crm/tag-picker';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
+import { PersonFunnelLine } from '@/components/funnels/person-funnel';
 import { Select } from '@/components/ui/input';
 import { useCalls } from '@/lib/calls/call-provider';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -442,6 +443,9 @@ export function ContextPanel({
 
       {/* What they owe, before the lead: it changes how you answer, and only shows when there is something. */}
       <InboxOwed workspaceId={workspaceId} personId={person.id} found={owed} />
+
+      {/* Their funnel and stage, or the teammate's suggestion of one (teammate funnels); nothing without funnels. */}
+      <PersonFunnelLine workspaceId={workspaceId} personId={person.id} />
 
       <section className="flex flex-col gap-2">
         <Label>Open lead</Label>

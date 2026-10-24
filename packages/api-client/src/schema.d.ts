@@ -58127,6 +58127,11 @@ export interface operations {
                                     message: string;
                                 }[];
                                 /** @default null */
+                                funnel: {
+                                    name: string;
+                                    stageName: string;
+                                } | null;
+                                /** @default null */
                                 message: {
                                     body: string;
                                     /** @enum {string} */
@@ -63978,6 +63983,51 @@ export interface operations {
                             status: "active" | "paused" | "left" | "suggested" | "declined";
                             suggestedWhy: string | null;
                         } | null;
+                        stages: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "open" | "won" | "lost";
+                            name: string;
+                        }[];
+                        suggestion: {
+                            /** @enum {string} */
+                            addedBy: "rule" | "hand" | "ai" | "turn_on";
+                            booking: {
+                                /** Format: uuid */
+                                appointmentId: string;
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            createdAt: string;
+                            /** Format: uuid */
+                            funnelId: string;
+                            funnelName: string;
+                            /** @enum {string} */
+                            funnelStatus: "draft" | "on" | "paused" | "archived";
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            leftReason: ("won" | "lost" | "removed" | "outside" | "other_funnel" | "opted_out" | "funnel_archived" | "lead_gone") | null;
+                            next: {
+                                dueAt: string;
+                                messageId: string;
+                                onlyIf: string | null;
+                                text: string;
+                                /** @enum {string} */
+                                wording: "ai" | "exact";
+                            }[];
+                            pausedReason: ("taken_over" | "handed_off" | "by_hand") | null;
+                            /** Format: uuid */
+                            personId: string;
+                            personName: string;
+                            stageId: string | null;
+                            stageName: string | null;
+                            stageReachedAt: string;
+                            /** @enum {string} */
+                            status: "active" | "paused" | "left" | "suggested" | "declined";
+                            suggestedWhy: string | null;
+                        } | null;
                         timeZone: string;
                     };
                 };
@@ -65708,6 +65758,18 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        funnel: {
+                            /** Format: uuid */
+                            id: string;
+                            leads: {
+                                /** Format: uuid */
+                                leadId: string;
+                                paused: boolean;
+                            }[];
+                            name: string;
+                            /** @enum {string} */
+                            status: "draft" | "on" | "paused";
+                        } | null;
                         pipeline: {
                             /** Format: uuid */
                             id: string;

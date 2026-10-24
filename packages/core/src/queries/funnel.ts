@@ -203,15 +203,43 @@ export const funnelOfPerson = defineQuery({
   async handler(ctx, input) {
     const ws = input.workspaceId;
     const { timeZone } = await businessOf(ctx.tx, ws);
+    const now = Date.now();
     const row = await currentFunnelRow(ctx.tx, input.personId);
-    const current = row ? await funnelPersonOut(ctx.tx, row, { now: Date.now(), timeZone }) : null;
+    const current = row ? await funnelPersonOut(ctx.tx, row, { now, timeZone }) : null;
     const open = await ctx.tx
       .select()
       .from(funnels)
       .where(and(eq(funnels.workspaceId, ws), inArray(funnels.status, ['on', 'paused'])))
       .orderBy(funnels.name);
+    const theirs = row ? open.find((f) => f.id === row.funnelId) : undefined;
+    let stages: { id: string; name: string; kind: 'open' | 'won' | 'lost' }[] = [];
+    if (theirs) {
+      const inIt = new Set(definitionOf(theirs).stages.map((s) => s.stageId));
+      stages = (await pipelineOf(ctx.tx, theirs.pipelineId)).stages
+        .filter((s) => inIt.has(s.id))
+        .map((s) => ({ id: s.id, name: s.name, kind: s.kind }));
+    }
+    const [waiting] = await ctx.tx
+      .select()
+      .from(funnelPeople)
+      .innerJoin(funnels, eq(funnels.id, funnelPeople.funnelId))
+      .where(
+        and(
+          eq(funnelPeople.workspaceId, ws),
+          eq(funnelPeople.personId, input.personId),
+          eq(funnelPeople.status, 'suggested'),
+          inArray(funnels.status, ['on', 'paused']),
+        ),
+      )
+      .orderBy(desc(funnelPeople.createdAt))
+      .limit(1);
     return {
       current,
+      stages,
+      suggestion:
+        waiting && !row
+          ? await funnelPersonOut(ctx.tx, waiting.funnel_people, { now, timeZone })
+          : null,
       canJoin: open
         .filter((f) => f.id !== row?.funnelId && definitionOf(f).entry.byHand)
         .map((f) => ({ id: f.id, name: f.name })),

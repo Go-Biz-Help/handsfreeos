@@ -12,14 +12,14 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { KanbanSquare, List, MoreHorizontal, Plus } from 'lucide-react';
+import { KanbanSquare, List, MoreHorizontal, Plus, Route } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Select } from '@/components/ui/input';
@@ -39,7 +39,7 @@ import type { LeadBoard, LeadCard, Pipeline, Stage, Tag } from '@/lib/api/types'
 import { formatMoney } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
-import { LeadCardView } from './lead-card';
+import { FunnelOnBoard, LeadCardView } from './lead-card';
 import { LeadDetail } from './lead-detail';
 import { LostReasonDialog } from './lost-reason-dialog';
 import { StageColumn } from './stage-column';
@@ -258,152 +258,176 @@ export function PipelineBoard({
   }
 
   const total = board.stages.reduce((a, s) => a + s.count, 0);
+  const funnel = useMemo(
+    () =>
+      board.funnel
+        ? {
+            name: board.funnel.name,
+            leads: new Map(board.funnel.leads.map((l) => [l.leadId, { paused: l.paused }])),
+          }
+        : null,
+    [board.funnel],
+  );
 
   return (
-    <div data-testid="pipeline" data-view={view}>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 md:mb-5">
-        <div>
-          <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] md:text-2xl">
-            {PIPELINE_WORDS.title}
-          </h1>
-          <p className="mt-1 text-text-2" data-testid="pipeline-summary">
-            {pipelineSummary(openCount, openValue)}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {board.pipelines.length > 1 ? (
-            <Select
-              selectSize="sm"
-              className="w-[180px]"
-              value={board.pipeline.id}
-              onChange={(e) => changePipeline(e.target.value)}
-              aria-label="Pipeline"
-            >
-              {board.pipelines.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-          ) : null}
-          <Segmented
-            value={view}
-            onChange={changeView}
-            options={[
-              { value: 'board', label: 'Board' },
-              { value: 'list', label: 'List' },
-            ]}
-          />
-          <Button onClick={() => setNewLead(true)} data-testid="pipeline-new-lead">
-            <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            {PIPELINE_WORDS.newLead}
-          </Button>
-        </div>
-      </div>
-
-      {total === 0 ? (
-        <Card>
-          <EmptyState
-            title={PIPELINE_WORDS.noLeadsTitle}
-            actions={
-              <Button size="sm" onClick={() => setNewLead(true)}>
-                <Plus className="h-4 w-4" strokeWidth={1.75} />
-                {PIPELINE_WORDS.newLead}
-              </Button>
-            }
-          >
-            {PIPELINE_WORDS.noLeadsBody}
-          </EmptyState>
-        </Card>
-      ) : view === 'board' ? (
-        <DndContext
-          id={dndId}
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onDragCancel={() => setActive(null)}
-        >
-          <div
-            className="-mx-4 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pb-3 md:mx-0 md:snap-none md:gap-3.5 md:px-0"
-            data-testid="board"
-          >
-            {board.stages.map((s) => (
-              <StageColumn
-                key={s.id}
-                stage={s}
-                selectedId={selected}
-                onOpen={setSelected}
-                onShowMore={() => showMore(s)}
-                disabled={busy}
-              />
-            ))}
+    <FunnelOnBoard.Provider value={funnel}>
+      <div data-testid="pipeline" data-view={view}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 md:mb-5">
+          <div>
+            <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.01em] md:text-2xl">
+              {PIPELINE_WORDS.title}
+            </h1>
+            <p className="mt-1 text-text-2" data-testid="pipeline-summary">
+              {pipelineSummary(openCount, openValue)}
+            </p>
           </div>
-          <DragOverlay dropAnimation={null}>
-            {active ? (
-              <div className="w-[262px]">
-                <LeadCardView lead={active} dragging />
-              </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {board.pipelines.length > 1 ? (
+              <Select
+                selectSize="sm"
+                className="w-[180px]"
+                value={board.pipeline.id}
+                onChange={(e) => changePipeline(e.target.value)}
+                aria-label="Pipeline"
+              >
+                {board.pipelines.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
             ) : null}
-          </DragOverlay>
-        </DndContext>
-      ) : (
-        <BoardList
-          board={board}
-          onMove={(leadId, stageId) =>
-            requestMove(leadId, stageId, board.stages.find((s) => s.id === stageId)!.leads.length)
-          }
-          onOpen={setSelected}
-          onShowMore={showMore}
-          busy={busy}
-        />
-      )}
-
-      <Sheet open={selected !== null} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent title="Lead" hideHeader className="sm:w-[520px]">
-          {selected ? (
-            <LeadDetail
-              key={selected}
-              workspaceId={workspaceId}
-              leadId={selected}
-              members={members}
-              myUserId={myUserId}
-              permissions={permissions}
-              tags={tags}
-              compact
-              onChanged={() => void refetch()}
-              onDeleted={() => setSelected(null)}
+            {board.funnel ? (
+              <ButtonLink
+                href={`/app/w/${workspaceId}/ai-team/funnels/${board.funnel.id}`}
+                size="sm"
+                variant="secondary"
+                title={`Open ${board.funnel.name}’s map, with how many people are at each stage`}
+                data-testid="pipeline-funnel"
+              >
+                <Route className="h-4 w-4" strokeWidth={1.5} aria-hidden />
+                Funnel: {board.funnel.name}
+              </ButtonLink>
+            ) : null}
+            <Segmented
+              value={view}
+              onChange={changeView}
+              options={[
+                { value: 'board', label: 'Board' },
+                { value: 'list', label: 'List' },
+              ]}
             />
-          ) : null}
-        </SheetContent>
-      </Sheet>
+            <Button onClick={() => setNewLead(true)} data-testid="pipeline-new-lead">
+              <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              {PIPELINE_WORDS.newLead}
+            </Button>
+          </div>
+        </div>
 
-      <LostReasonDialog
-        open={pendingLost !== null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setPendingLost(null);
-            void refetch();
-          }
-        }}
-        leadTitle={pendingLost?.lead.title ?? ''}
-        busy={busy}
-        onConfirm={(reason) => pendingLost && void commitMove(pendingLost, reason)}
-      />
-      <LeadDialog
-        workspaceId={workspaceId}
-        open={newLead}
-        onOpenChange={setNewLead}
-        pipelines={pipelines}
-        members={members}
-        myUserId={myUserId}
-        defaultPipelineId={board.pipeline.id}
-        onCreated={() => void refetch()}
-      />
-      <span className="sr-only" data-testid="board-stages">
-        {stagesForDetail.map((s) => s.name).join(',')}
-      </span>
-    </div>
+        {total === 0 ? (
+          <Card>
+            <EmptyState
+              title={PIPELINE_WORDS.noLeadsTitle}
+              actions={
+                <Button size="sm" onClick={() => setNewLead(true)}>
+                  <Plus className="h-4 w-4" strokeWidth={1.75} />
+                  {PIPELINE_WORDS.newLead}
+                </Button>
+              }
+            >
+              {PIPELINE_WORDS.noLeadsBody}
+            </EmptyState>
+          </Card>
+        ) : view === 'board' ? (
+          <DndContext
+            id={dndId}
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onDragCancel={() => setActive(null)}
+          >
+            <div
+              className="-mx-4 flex snap-x snap-mandatory items-start gap-3 overflow-x-auto px-4 pb-3 md:mx-0 md:snap-none md:gap-3.5 md:px-0"
+              data-testid="board"
+            >
+              {board.stages.map((s) => (
+                <StageColumn
+                  key={s.id}
+                  stage={s}
+                  selectedId={selected}
+                  onOpen={setSelected}
+                  onShowMore={() => showMore(s)}
+                  disabled={busy}
+                />
+              ))}
+            </div>
+            <DragOverlay dropAnimation={null}>
+              {active ? (
+                <div className="w-[262px]">
+                  <LeadCardView lead={active} dragging />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          <BoardList
+            board={board}
+            onMove={(leadId, stageId) =>
+              requestMove(leadId, stageId, board.stages.find((s) => s.id === stageId)!.leads.length)
+            }
+            onOpen={setSelected}
+            onShowMore={showMore}
+            busy={busy}
+          />
+        )}
+
+        <Sheet open={selected !== null} onOpenChange={(o) => !o && setSelected(null)}>
+          <SheetContent title="Lead" hideHeader className="sm:w-[520px]">
+            {selected ? (
+              <LeadDetail
+                key={selected}
+                workspaceId={workspaceId}
+                leadId={selected}
+                members={members}
+                myUserId={myUserId}
+                permissions={permissions}
+                tags={tags}
+                compact
+                onChanged={() => void refetch()}
+                onDeleted={() => setSelected(null)}
+              />
+            ) : null}
+          </SheetContent>
+        </Sheet>
+
+        <LostReasonDialog
+          open={pendingLost !== null}
+          onOpenChange={(o) => {
+            if (!o) {
+              setPendingLost(null);
+              void refetch();
+            }
+          }}
+          leadTitle={pendingLost?.lead.title ?? ''}
+          busy={busy}
+          onConfirm={(reason) => pendingLost && void commitMove(pendingLost, reason)}
+        />
+        <LeadDialog
+          workspaceId={workspaceId}
+          open={newLead}
+          onOpenChange={setNewLead}
+          pipelines={pipelines}
+          members={members}
+          myUserId={myUserId}
+          defaultPipelineId={board.pipeline.id}
+          onCreated={() => void refetch()}
+        />
+        <span className="sr-only" data-testid="board-stages">
+          {stagesForDetail.map((s) => s.name).join(',')}
+        </span>
+      </div>
+    </FunnelOnBoard.Provider>
   );
 }
 

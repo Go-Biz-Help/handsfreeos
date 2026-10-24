@@ -32,6 +32,7 @@ import { Timeline } from '@/components/timeline/timeline';
 import { AddonSlot } from '@/components/addons/slot';
 import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
+import { PersonFunnelLine } from '@/components/funnels/person-funnel';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -374,6 +375,13 @@ export function LeadDetail({
           {' · '}
           {formatMoney(lead.valueCents)} · {daysLabel(lead.stageEnteredAt)} in stage
         </p>
+        {lead.person && !lead.archivedAt ? (
+          <PersonFunnelLine
+            workspaceId={workspaceId}
+            personId={lead.person.id}
+            className="mt-1.5"
+          />
+        ) : null}
       </div>
 
       {lead.archivedAt ? null : (

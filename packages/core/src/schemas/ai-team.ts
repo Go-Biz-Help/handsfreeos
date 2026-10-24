@@ -253,6 +253,11 @@ export const TeammateDraftPreview = z.object({
     )
     .max(10)
     .default(() => []),
+  /** A funnel's message (teammate funnels): which funnel and stage it's from, for Approvals to say so. */
+  funnel: z
+    .object({ name: z.string().max(80), stageName: z.string().max(60) })
+    .nullable()
+    .default(null),
 });
 export type TeammateDraftPreview = z.infer<typeof TeammateDraftPreview>;
 

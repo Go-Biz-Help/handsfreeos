@@ -152,6 +152,34 @@ export const FUNNEL_PAUSE_WORDS: Readonly<Record<FunnelPauseReason, string>> = {
   by_hand: 'paused by hand',
 };
 
+/**
+ * A customer's funnel line, on the web (their page, their lead, beside the conversation) and on the phone: what it
+ * says and what its buttons say.
+ */
+export const FUNNEL_PERSON_WORDS = {
+  paused: (reason: FunnelPauseReason | null) =>
+    !reason || reason === 'by_hand' ? 'Paused by hand' : `Paused: ${FUNNEL_PAUSE_WORDS[reason]}`,
+  next: (text: string, dueAt: number, timeZone: string) =>
+    `Next: ${funnelNextWords(text, dueAt, timeZone)}`,
+  pause: 'Pause',
+  resume: 'Resume',
+  moveTo: 'Move to',
+  remove: (funnel: string) => `Remove from ${funnel}`,
+  add: 'Add to a funnel',
+  suggested: (funnel: string, why: string | null) =>
+    `Suggested for ${funnel}${why ? `: ${why}` : ''}`,
+  yes: 'Yes, put them in',
+  no: 'No',
+  pausedDone: (funnel: string, name: string) =>
+    `${funnel} is paused for ${name}. Nothing goes out until you resume it.`,
+  resumedDone: (funnel: string, name: string) => `${funnel} picks back up for ${name}.`,
+  movedDone: (name: string, stage: string) => `${name} is at ${stage} now.`,
+  removedDone: (funnel: string, name: string) =>
+    `${name} is out of ${funnel}. Their lead stays where it is.`,
+  addedDone: (funnel: string) => `They’re in ${funnel} now.`,
+  declinedDone: (funnel: string) => `They won’t be suggested for ${funnel} again.`,
+} as const;
+
 export const FUNNEL_LEFT_WORDS: Readonly<Record<FunnelLeftReason, string>> = {
   won: 'they reached a won stage',
   lost: 'they reached a lost stage',

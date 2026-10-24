@@ -91,6 +91,12 @@ import {
   FileConfirmOutput,
   FormRecordInput,
   FormResponseDeleteInput,
+  FunnelDecideSuggestionInput,
+  FunnelDecideSuggestionOutput,
+  FunnelPausePersonInput,
+  FunnelPausePersonOutput,
+  FunnelRemovePersonInput,
+  FunnelRemovePersonOutput,
   FormResponseDeleteOutput,
   FormSubmitOutput,
   FRESH_MINUTES,
@@ -511,6 +517,15 @@ export const PHONE_COMMANDS = {
   // Deleting an answer sheet (a test, or a customer asking to be forgotten): online only, never left waiting.
   'form_response.delete': command(ONLINE, FormResponseDeleteInput, FormResponseDeleteOutput),
   'form_response.record': command(ANYTIME, FormRecordInput, FormSubmitOutput),
+  // A customer's funnel (teammate funnels): pausing and taking them out are theirs as they are now; a yes to the
+  // teammate's suggestion starts its messages, so it waits only a little.
+  'funnel.decide_suggestion': command(
+    FRESH,
+    FunnelDecideSuggestionInput,
+    FunnelDecideSuggestionOutput,
+  ),
+  'funnel.pause_person': command(ANYTIME, FunnelPausePersonInput, FunnelPausePersonOutput),
+  'funnel.remove_person': command(ANYTIME, FunnelRemovePersonInput, FunnelRemovePersonOutput),
   'invoice.create': command(ONLINE, InvoiceCreateInput, InvoiceStateOutput),
   'invoice.record_cash_payment': command(
     ANYTIME,
