@@ -13,12 +13,14 @@ import {
   conversationAssign,
   conversationClose,
   executeCommandIn,
+  formLinkCreate,
   HfosError,
   isWorkspaceUser,
   leadCreate,
   leadMoveStage,
   leadSetNextAction,
   leadUpdate,
+  personalFormQuery,
   personUpdate,
   recordSetTags,
   render,
@@ -552,10 +554,22 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       if (!form || form.status !== 'live' || !form.site)
         return skipped('form_not_live', { ...r.values, formId });
       // Their own domain once one is serving (M17): a form link in a workflow's text reads as theirs.
-      const link = `${await publicOrigin(ec.tx, ws, ec.s.webUrl)}/f/${form.site}/${form.slug}`;
-      const body = `${r.values['message']!}\n\n${link}`;
-      const late = lateSkip(ec, { channel: step.config.channel, body });
+      const address = `${await publicOrigin(ec.tx, ws, ec.s.webUrl)}/f/${form.site}/${form.slug}`;
+      const late = lateSkip(ec, { channel: step.config.channel, body: r.values['message']! });
       if (late) return late;
+      // Their own link (funnels): it knows who it's for, so the form doesn't ask their details again. The key
+      // is random and says nothing about them; a test run sends the plain address.
+      let link = address;
+      if (!test && run.personId) {
+        const made = await exec(ec, formLinkCreate, {
+          workspaceId: ws,
+          formId,
+          personId: run.personId,
+        });
+        if (made instanceof HfosError) return refusedFrom(made, { ...r.values, formId });
+        link = `${address}?${personalFormQuery(String(made.output['key']))}`;
+      }
+      const body = `${r.values['message']!}\n\n${link}`;
       return step.config.channel === 'email'
         ? sendEmailAction(ec, r.values['subject']!, body)
         : sendTextAction(ec, body);

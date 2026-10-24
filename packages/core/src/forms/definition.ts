@@ -103,6 +103,12 @@ export const FormPage = z.object({
   /** Shown above the questions; blank is fine on a one-page form. */
   title: z.string().trim().max(160).default(''),
   showIf: AnswerConditionGroup.prefault({}),
+  /**
+   * Save their details when they leave this page, not only when they send the whole form (funnels): the customer
+   * is matched or made, the fields this page filled are written and the lead opens here, so a funnel that loses
+   * them on the next video still has who they were. One page a form, and it has to ask how to reach them.
+   */
+  savesContact: z.boolean().default(false),
   questions: z
     .array(Question)
     .max(MAX_QUESTIONS_PER_PAGE)
@@ -407,6 +413,24 @@ export function formProblems(definition: FormDefinition): string[] {
         problems.push(`“${q.title}” can’t fill in that field.`);
     });
   });
+
+  const saving = definition.pages.filter((p) => p.savesContact);
+  if (saving.length > 1) problems.push('Only one page can save their details.');
+  for (const page of saving) {
+    const reaches = page.questions.some(
+      (q) =>
+        q.type === 'email' ||
+        q.type === 'phone' ||
+        q.mapTo === 'person.email' ||
+        q.mapTo === 'person.phone',
+    );
+    if (!reaches)
+      problems.push(
+        `“${page.title || 'The page that saves their details'}” needs a phone or an email question, so there’s someone to save.`,
+      );
+    if (definition.settings.identity === 'anonymous')
+      problems.push('An anonymous form doesn’t keep anyone’s details, so no page can save them.');
+  }
 
   // Results are worked out once everything has been answered, so they may read anything.
   definition.results.forEach((r) =>

@@ -3228,7 +3228,7 @@ export interface paths {
         put?: never;
         /**
          * Fill in a form for a customer yourself and send it, in one go. Works with no signal; the phone keeps it until there is some.
-         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires records.write. Emits form.submitted, person.created, person.updated, lead.created, task.created, invoice.created, workflow.enrol_requested. Can wait on a phone with no signal.
          */
         post: operations["command_form_response_record"];
         delete?: never;

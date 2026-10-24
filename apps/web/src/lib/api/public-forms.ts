@@ -108,15 +108,31 @@ export const getPublicForm = (site: string, slug: string) =>
 export const startSheet = (
   site: string,
   slug: string,
-  body: { website?: string; source?: 'link' | 'embed' | 'qr' },
+  body: { website?: string; source?: 'link' | 'embed' | 'qr'; key?: string },
 ) => post<StartedSheet>(`${formPath(site, slug)}/start`, body);
 
 export const saveSheet = (
   site: string,
   slug: string,
   responseId: string,
-  body: { token: string; answers: Record<string, unknown> },
+  body: { token: string; answers: Record<string, unknown>; askAgain?: boolean },
 ) => post<{ responseId: string }>(`${formPath(site, slug)}/${seg(responseId)}/save`, body);
+
+/** The answers and the details they give on the page that saves them, part way through (funnels). */
+export const saveContactSheet = (
+  site: string,
+  slug: string,
+  responseId: string,
+  body: {
+    token: string;
+    answers: Record<string, unknown>;
+    smsConsent: boolean;
+    offersConsent?: boolean;
+    askAgain?: boolean;
+    website?: string;
+    turnstileToken?: string;
+  },
+) => post<{ responseId: string }>(`${formPath(site, slug)}/${seg(responseId)}/contact`, body);
 
 export const sendSheet = (
   site: string,
@@ -127,6 +143,7 @@ export const sendSheet = (
     answers: Record<string, unknown>;
     smsConsent: boolean;
     offersConsent?: boolean;
+    askAgain?: boolean;
     website?: string;
     turnstileToken?: string;
   },
@@ -137,3 +154,14 @@ export const resumeSheet = (site: string, slug: string, token: string) =>
     `${formPath(site, slug)}/resume/${seg(token)}`,
     FRESH,
   );
+
+/** What a personal link (`?k=`) tells the page: who to greet, what not to ask, and their sheet so far. */
+export interface PersonalSheet {
+  readonly firstName: string;
+  /** The contact details we have for them, as answer targets: questions filling these are skipped. */
+  readonly known: readonly string[];
+  readonly sheet: { readonly responseId: string; readonly answers: AnswerSheet } | null;
+}
+
+export const personalSheet = (site: string, slug: string, key: string) =>
+  call<PersonalSheet>(`${formPath(site, slug)}/personal/${seg(key)}`, FRESH);

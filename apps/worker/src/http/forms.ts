@@ -10,11 +10,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
+  allQuestions,
   executeCommand,
   formResponseSave,
+  formResponseSaveContact,
   formResponseStart,
   formResponseSubmit,
   HfosError,
+  knownTargetsOf,
   parseStoredForm,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -61,11 +64,14 @@ const StartBody = z.object({
   /** Hidden on the page. Anything in it is a robot, and the answer is a polite nothing. */
   website: z.string().max(200).optional(),
   source: z.enum(['link', 'embed', 'qr']).default('link'),
+  /** A personal link's key (`?k=`), which says who the sheet is for. */
+  key: z.string().min(20).max(200).optional(),
 });
 
 const SaveBody = z.object({
   token: z.string().min(10).max(200),
   answers: Answers,
+  askAgain: z.boolean().default(false),
 });
 
 const SubmitBody = z.object({
@@ -73,9 +79,13 @@ const SubmitBody = z.object({
   answers: Answers,
   smsConsent: z.boolean().default(false),
   offersConsent: z.boolean().default(false),
+  askAgain: z.boolean().default(false),
   website: z.string().max(200).optional(),
   turnstileToken: z.string().max(2048).optional(),
 });
+
+const KEY_RE = /^[A-Za-z0-9_-]{20,200}$/;
+const keyHash = (key: string): Buffer => createHash('sha256').update(key).digest();
 
 export interface FormsHttpOptions {
   /** Playwright turns the limits down; production leaves them alone. */
@@ -107,6 +117,69 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
     if (!row || !row.version_id || row.status === 'draft' || row.status === 'archived')
       throw pageNotFound();
     return row;
+  }
+
+  /**
+   * The live personal link a key is for, on this form: whose it is. Holding one is what lets a page we texted
+   * skip the "are you a person" check, the way a customer's own booking link does.
+   */
+  async function personalLink(
+    row: FormRouteRow,
+    key: string,
+  ): Promise<{ personId: string; firstName: string; known: string[] } | null> {
+    if (!KEY_RE.test(key)) return null;
+    const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
+    const [found] = await worker(scope, (tx) =>
+      rows<{
+        person_id: string;
+        first_name: string | null;
+        last_name: string | null;
+        email: string | null;
+        phone_e164: string | null;
+      }>(
+        tx,
+        sql`select l.person_id, p.first_name, p.last_name, p.email::text as email, p.phone_e164
+            from app.form_links l join app.people p on p.id = l.person_id
+            where l.key_hash = ${keyHash(key)} and l.form_id = ${row.form_id}
+              and l.expires_at > now()`,
+      ),
+    );
+    if (!found) return null;
+    return {
+      personId: found.person_id,
+      firstName: found.first_name ?? '',
+      known: [
+        ...knownTargetsOf({
+          firstName: found.first_name,
+          lastName: found.last_name,
+          email: found.email,
+          phone: found.phone_e164,
+        }),
+      ],
+    };
+  }
+
+  /** Cloudflare's check, unless the page holds a personal link's key: we texted that link to them ourselves. */
+  async function checkPerson(
+    row: FormRouteRow,
+    token: string,
+    turnstileToken: string | undefined,
+    ip: string,
+  ) {
+    if (await personalLink(row, token)) return;
+    const verdict = await botCheck.verify(turnstileToken, ip);
+    if (verdict === 'unavailable')
+      throw HfosError.rule(
+        'bot_check_unavailable',
+        503,
+        'We couldn’t check this just now. Try again in a minute.',
+      );
+    if (verdict !== 'pass')
+      throw HfosError.rule(
+        'bot_check_failed',
+        400,
+        'We couldn’t confirm you’re a person. Finish the check on this page, then try again.',
+      );
   }
 
   await app.register(async (pub) => {
@@ -177,6 +250,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             formId: row.form_id,
             source: body.source,
             visitorHash: null,
+            ...(body.key ? { personalKey: body.key } : {}),
           },
           { type: 'system', ...scope },
           meta(),
@@ -202,11 +276,46 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             responseId: req.params.responseId,
             token: body.token,
             answers: body.answers,
+            askAgain: body.askAgain,
           },
           { type: 'system', ...scope },
           meta(),
         );
         return output;
+      },
+    );
+
+    /**
+     * Leaving the page that saves their details, part way through (funnels). It makes a customer and a lead, so
+     * it takes the same check sending does.
+     */
+    pub.post<{ Params: { site: string; slug: string; responseId: string }; Body: unknown }>(
+      '/public/form/:site/:slug/:responseId/contact',
+      { config: { rateLimit: limits.write } },
+      async (req) => {
+        const body = SubmitBody.parse(req.body ?? {});
+        if (body.website?.trim() || body.token === DECOY_TOKEN)
+          return { responseId: req.params.responseId, saved: true };
+        const row = await findForm(req.params.site, req.params.slug);
+        await checkPerson(row, body.token, body.turnstileToken, req.ip);
+        const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
+        await executeCommand(
+          deps.httpDb,
+          formResponseSaveContact,
+          {
+            workspaceId: row.workspace_id,
+            responseId: req.params.responseId,
+            token: body.token,
+            answers: body.answers,
+            smsConsent: body.smsConsent,
+            offersConsent: body.offersConsent,
+            askAgain: body.askAgain,
+          },
+          { type: 'system', ...scope },
+          meta(),
+        );
+        // Who they are stays with the business: the page only needs to know it worked.
+        return { responseId: req.params.responseId, saved: true };
       },
     );
 
@@ -227,19 +336,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             body: '',
             dueCents: 0,
           };
-        const verdict = await botCheck.verify(body.turnstileToken, req.ip);
-        if (verdict === 'unavailable')
-          throw HfosError.rule(
-            'bot_check_unavailable',
-            503,
-            'We couldn’t check this just now. Try again in a minute.',
-          );
-        if (verdict !== 'pass')
-          throw HfosError.rule(
-            'bot_check_failed',
-            400,
-            'We couldn’t confirm you’re a person. Finish the check on this page, then try again.',
-          );
+        await checkPerson(row, body.token, body.turnstileToken, req.ip);
         const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
         const { output } = await executeCommand(
           deps.httpDb,
@@ -251,6 +348,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             answers: body.answers,
             smsConsent: body.smsConsent,
             offersConsent: body.offersConsent,
+            askAgain: body.askAgain,
           },
           { type: 'system', ...scope },
           meta(),
@@ -270,6 +368,56 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
           showScore: definition.scoring.enabled && definition.scoring.showScore,
           calculations: output.calculations,
           dueCents: output.dueCents,
+        };
+      },
+    );
+
+    /**
+     * Opening a personal link (`?k=`): their first name for the greeting, which contact details we already have
+     * (so the page skips those questions), and their unfinished sheet from a link, if there is one. Nothing else
+     * on file comes back: no email, no phone, not even what they typed into those questions before.
+     */
+    pub.get<{ Params: { site: string; slug: string; key: string } }>(
+      '/public/form/:site/:slug/personal/:key',
+      { config: { rateLimit: limits.read } },
+      async (req) => {
+        const row = await findForm(req.params.site, req.params.slug);
+        const link = await personalLink(row, req.params.key);
+        if (!link)
+          throw HfosError.rule(
+            'form_link_gone',
+            404,
+            'This link has run out. Open the form from the business’s website, or ask them to send it again.',
+          );
+        const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
+        const [sheet] = await worker(scope, (tx) =>
+          rows<{ id: string; answers: Record<string, unknown> }>(
+            tx,
+            sql`select id, answers from app.form_responses
+                where form_id = ${row.form_id} and person_id = ${link.personId}
+                  and status = 'in_progress' and form_link_id is not null
+                order by started_at desc limit 1`,
+          ),
+        );
+        const definition = parseStoredForm(row.definition);
+        const reaching = new Set(
+          allQuestions(definition)
+            .filter(
+              (q) =>
+                q.type === 'email' ||
+                q.type === 'phone' ||
+                q.mapTo === 'person.email' ||
+                q.mapTo === 'person.phone',
+            )
+            .map((q) => q.id),
+        );
+        const answers = Object.fromEntries(
+          Object.entries(sheet?.answers ?? {}).filter(([id]) => !reaching.has(id)),
+        );
+        return {
+          firstName: link.firstName,
+          known: link.known,
+          sheet: sheet ? { responseId: sheet.id, answers } : null,
         };
       },
     );

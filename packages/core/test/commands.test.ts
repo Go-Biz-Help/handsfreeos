@@ -643,6 +643,8 @@ describe('registry', () => {
       'review.reply',
       'form_response.start',
       'form_response.save',
+      'form_response.save_contact',
+      'form_link.create',
       'form_response.submit',
       'form_response.record',
       'form_response.delete',

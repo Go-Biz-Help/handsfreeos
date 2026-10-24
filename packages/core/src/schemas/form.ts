@@ -151,6 +151,11 @@ export const FormStartInput = z.object({
   source: FormSourceValue.default('link'),
   /** The same visitor coming back, as a hash with no address in it. */
   visitorHash: z.string().max(128).nullable().default(null),
+  /**
+   * The key from a personal link (`?k=`), which says who this sheet is for (funnels). Their unfinished sheet
+   * from that link is handed back instead of a new one, and the key writes to it.
+   */
+  personalKey: z.string().min(20).max(200).optional(),
 });
 export const FormStartOutput = z.object({
   responseId: uuid,
@@ -171,6 +176,11 @@ export const FormSaveAnswersInput = z.object({
    * the business already, so its runs don't carry one. */
   token: z.string().max(200).optional(),
   answers: AnswerSheetInput,
+  /**
+   * On a personal link: they asked to give their details again, so the questions that fill a contact detail we
+   * already have are asked too. What they give is added, never written over what's on file.
+   */
+  askAgain: z.boolean().default(false),
 });
 export const FormSaveAnswersOutput = z.object({
   responseId: uuid,
@@ -190,7 +200,30 @@ export const FormSubmitInput = z.object({
   smsConsent: z.boolean().default(false),
   /** The separate box for offers, shown when the business sends them. Starts unticked too. */
   offersConsent: z.boolean().default(false),
+  askAgain: z.boolean().default(false),
 });
+
+/** Leaving the page that saves their details, part way through (funnels). */
+export const FormSaveContactInput = FormSubmitInput;
+export const FormSaveContactOutput = z.object({
+  responseId: uuid,
+  personId: uuid.nullable(),
+  leadId: uuid.nullable(),
+});
+
+/** A personal link to a form for one customer (funnels): the key goes in the link, and only its hash is kept. */
+export const FormLinkCreateInput = z.object({
+  workspaceId: uuid,
+  formId: uuid,
+  personId: uuid,
+});
+export const FormLinkCreateOutput = z.object({
+  formLinkId: uuid,
+  /** Shown once, to go in the link; never stored. */
+  key: z.string(),
+  expiresAt: z.iso.datetime(),
+});
+
 /**
  * A person filling one in themselves (M17), on a phone that may have no signal.
  *

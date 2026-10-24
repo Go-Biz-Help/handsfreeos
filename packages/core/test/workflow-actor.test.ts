@@ -23,6 +23,8 @@ import {
   conversationHandOff,
   conversationHandToAi,
   conversationSnooze,
+  formCreate,
+  formLinkCreate,
   knowledgeItemCreate,
   knowledgeItemRecordUse,
   knowledgeSuggestionPropose,
@@ -178,6 +180,8 @@ const OPENED = [
   conversationClose,
   knowledgeSuggestionPropose,
   knowledgeItemRecordUse,
+  // "Send a form" texts each customer their own link (funnels).
+  formLinkCreate,
 ];
 
 beforeAll(async () => {
@@ -302,6 +306,8 @@ describe('the workflow actor', () => {
       owner,
     );
     await go(knowledgeItemRecordUse, { workspaceId: wsId, itemIds: [itemId] });
+    const form = await run(formCreate, { workspaceId: wsId, name: 'Meet the team' }, owner);
+    await go(formLinkCreate, { workspaceId: wsId, formId: form.formId, personId: mikeId });
     await go(knowledgeSuggestionPropose, {
       workspaceId: wsId,
       suggestions: [

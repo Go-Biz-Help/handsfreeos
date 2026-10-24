@@ -6281,6 +6281,23 @@ export const formSlugs = app.table(
   (t) => [primaryKey({ columns: [t.workspaceId, t.slug] })],
 );
 
+/**
+ * A form link that knows who it's for (funnels, 20261027010800): `/f/<site>/<form>?k=<key>`, the key kept only as
+ * its hash. Worker-only.
+ */
+export const formLinks = app.table('form_links', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  formId: formLink(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  keyHash: bytea('key_hash').notNull().unique(),
+  expiresAt: ts('expires_at').notNull(),
+  openedAt: ts('opened_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 /** One person's answers, on the version they were shown. */
 export const formResponses = app.table('form_responses', {
   id: id(),
@@ -6309,6 +6326,8 @@ export const formResponses = app.table('form_responses', {
   visitorHash: bytea('visitor_hash'),
   /** The form asked for one answer per customer when this was sent (0077's unique index). */
   onePerPerson: boolean('one_per_person').notNull().default(false),
+  /** The personal link this sheet was started from, whose key also writes to it (20261027010800). */
+  formLinkId: uuid('form_link_id').references(() => formLinks.id, { onDelete: 'set null' }),
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),

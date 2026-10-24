@@ -9,7 +9,8 @@ It started with Christina Robbins's network-marketing recruiting funnel (built i
 about recruiting. A contractor's "watch this, then book an estimate" page or a coach's webinar sign-up uses the same
 pieces.
 
-> **Status: stage 1 is built** (the video question and one page at a time); stages 2 to 6 are next. Decisions
+> **Status: stages 1 and 2 are built** (the video question, one page at a time, details saved part way, personal
+> links and greetings); stages 3 to 6 are next. Decisions
 > below are the owner's (2026-10-23). "Picks to confirm" are mine and stay open until the owner says yes.
 >
 > - **Stage 1, as built.** Smaller and safer than §1 in two ways. The page talks to the player's frame by message
@@ -19,6 +20,12 @@ pieces.
 >   of 3", picking up where they left off) and the editor's page breaks came with it. The gate is checked at
 >   submit, where the server re-checks every answer; there is no server step between pages yet. Details are in
 >   "Videos and steps" in `docs/forms.md`.
+> - **Stage 2, as built.** A table, `app.form_links`, rather than columns on the sheet, so a second text's link
+>   reaches the same sheet: its key writes to it beside the sheet's own resume key. "Skip when we know it" is
+>   automatic for the four contact details rather than a per-question switch. "Update my details" is "Details
+>   changed? Give us your current ones" on the first step; what they give is added, never written over. Making it
+>   found a bug on `main`: a form filling a blank on a returning customer was refused (`person.updated` wasn't
+>   declared), now fixed. Details are in "Details saved part way, and personal links" in `docs/forms.md`.
 
 ## Decisions (Chris, 2026-10-23)
 

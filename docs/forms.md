@@ -102,6 +102,33 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
 - **The AI teammate doesn't ask a form with a video** in a conversation (`NOT_IN_CHAT_TYPES`), and the phone sends
   one to the web (`NOT_ON_THE_PHONE`).
 
+## Details saved part way, and personal links (funnels)
+
+- **A page that saves their details** (`page.savesContact`, one a form). Shown one page at a time, leaving it runs
+  `form_response.save_contact`: the customer is matched or made, the blanks that page's answers fill are written,
+  the lead opens, and the texting box (which sits on that page) is recorded. Sending at the end keeps that customer
+  and that lead. Both go through `settleCustomer`, so the rules are the same ones sending always had. It takes the
+  same "are you a person" check sending does, through `POST /public/form/<site>/<form>/<sheet>/contact`.
+- **A personal link** (`app.form_links`, 20261027010800) is `/f/<site>/<form>?k=<key>`. A workflow's **Send a form**
+  makes one for each customer (`form_link.create`). The key is random and only its hash is kept; it works 30 days.
+  Opening it (`GET …/personal/<key>`) hands the page their first name, which contact details we have, and their
+  unfinished sheet from a link; starting with it binds the sheet to them (`form_link_id`), and the key writes to
+  that sheet as well as its own resume key does (`assertHolder`).
+- **What a personal link changes** (`FillContext` in `forms/personal.ts`, passed to every `render.ts` function):
+  a question filling a contact detail on file (first name, last name, email, phone) is skipped, and a page left
+  empty isn't shown. `{{person.first_name}}` (with `| default:"there"`, as workflows write it) works in the title,
+  intro, page headings, questions and text blocks, from what they typed or the link (`fillFormWords`).
+
+**What rules here:**
+
+- **Nothing on file is shown back.** Only the first name, for the greeting. The personal route even leaves their own
+  earlier email and phone answers out of the sheet it returns: a forwarded link would show them to whoever opened it.
+- **A form never writes over what's on file**, personal link or not. Asked again ("Details changed?"), a different
+  phone joins their other numbers instead, so a forwarded link can't change somebody's details.
+- **A link we texted needs no robot check**: the worker skips Turnstile when the page's key is a live personal key.
+- **Filling a blank on a customer we already had emits `person.updated`**, and both commands declare it. Before
+  this, a returning customer whose form filled in a missing detail was refused by the kernel.
+
 ## Answering in a conversation
 
 A form marked "the AI teammate may ask this" (`in_chat`) becomes two teammate tools. The teammate holds no

@@ -1,6 +1,8 @@
 'use client';
 import {
   answerProblem,
+  fillFormWords,
+  firstNameFor,
   formState,
   money,
   pickResult,
@@ -23,7 +25,7 @@ import { StepButtons, StepProgress, useFormSteps } from './steps';
  * Nothing here is sent anywhere: it is a rehearsal, and Submit shows the result they would land on.
  */
 export function FormPreview({
-  definition,
+  definition: raw,
   className,
 }: {
   definition: FormDefinition;
@@ -32,6 +34,8 @@ export function FormPreview({
   const [answers, setAnswers] = useState<AnswerSheet>({});
   const [tried, setTried] = useState(false);
   const [sent, setSent] = useState(false);
+  // Their name in the words, as they'd see it once they've typed it.
+  const definition = fillFormWords(raw, { firstName: firstNameFor(raw, answers, null) });
   const state = formState(definition, answers);
   const steps = useFormSteps(definition, state);
   const set = (questionId: string, value: AnswerValue) =>

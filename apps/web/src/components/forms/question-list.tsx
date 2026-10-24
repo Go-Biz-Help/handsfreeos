@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -230,6 +231,24 @@ export function QuestionList({
                 </Button>
               ) : null}
             </div>
+          ) : null}
+          {paged &&
+          definition.settings.onePageAtATime &&
+          definition.settings.identity !== 'anonymous' ? (
+            <Checkbox
+              className="text-[12.5px] text-text-2"
+              label="Save their details when they leave this page"
+              checked={page.savesContact}
+              disabled={
+                readOnly || (!page.savesContact && definition.pages.some((x) => x.savesContact))
+              }
+              onChange={(e) =>
+                apply([
+                  { op: 'update_page', pageId: page.id, patch: { savesContact: e.target.checked } },
+                ])
+              }
+              data-testid="page-saves-contact"
+            />
           ) : null}
           {page.questions.map((question) => row(question, questions.indexOf(question)))}
           {paged && !page.questions.length ? (

@@ -14,17 +14,32 @@
 import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { customFields, formResponses, forms, formVersions, people } from '@hfos/db/schema';
+import {
+  customFields,
+  formLinks,
+  formResponses,
+  forms,
+  formVersions,
+  people,
+} from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { allQuestions, type FormDefinition, type FormResult } from '../forms/definition';
 import { loadForm, parseStoredForm } from '../forms/load';
 import { runCalculations, scoreAnswers, type AnswerSheet } from '../forms/logic';
 import { choiceValues } from '../forms/definition';
-import { formState, pickResult, recordAnswers, responseProblems } from '../forms/render';
+import { FORM_LINK_DAYS, knownTargetsOf, type FillContext } from '../forms/personal';
+import {
+  formState,
+  pageProblems,
+  pickResult,
+  recordAnswers,
+  responseProblems,
+} from '../forms/render';
 import {
   contactFromAnswers,
   hasIdentity,
   patchesFromAnswers,
+  type FormContact,
   writeCustomFields,
   writeFormAnswers,
 } from '../forms/submit';
@@ -42,11 +57,15 @@ import { PersonUpdateInput } from '../schemas/person';
 import { TaskCreateInput } from '../schemas/task';
 import { InvoiceCreateInput } from '../schemas/money';
 import {
+  FormLinkCreateInput,
+  FormLinkCreateOutput,
   FormRecordInput,
   FormResponseDeleteInput,
   FormResponseDeleteOutput,
   FormSaveAnswersInput,
   FormSaveAnswersOutput,
+  FormSaveContactInput,
+  FormSaveContactOutput,
   FormStartInput,
   FormStartOutput,
   FormSubmitInput,
@@ -92,6 +111,7 @@ const READABLE_SHEET = {
   passed: formResponses.passed,
   resultId: formResponses.resultId,
   onePerPerson: formResponses.onePerPerson,
+  formLinkId: formResponses.formLinkId,
   startedAt: formResponses.startedAt,
   completedAt: formResponses.completedAt,
 } as const;
@@ -169,8 +189,70 @@ async function assertHolder(
     .from(formResponses)
     .where(eq(formResponses.id, response.id));
   const held = row?.held;
-  if (!token || !held || !timingSafeEqual(Buffer.from(held), hashToken(token)))
-    throw HfosError.notFound(SHEET_GONE);
+  if (token && held && timingSafeEqual(Buffer.from(held), hashToken(token))) return;
+  // A personal link's key writes to the sheet it started, from any text it came in (funnels).
+  if (token && response.formLinkId && response.personId) {
+    const [link] = await ctx.tx
+      .select({ id: formLinks.id })
+      .from(formLinks)
+      .where(
+        and(
+          eq(formLinks.keyHash, hashToken(token)),
+          eq(formLinks.formId, response.formId),
+          eq(formLinks.personId, response.personId),
+          dsql`${formLinks.expiresAt} > now()`,
+        ),
+      );
+    if (link) return;
+  }
+  throw HfosError.notFound(SHEET_GONE);
+}
+
+/** What a personal link's page has to start over with: a link that ran out, or one for another form. */
+const LINK_GONE =
+  'This link has run out. Open the form from the business’s website, or ask them to send it again.';
+
+/** The live personal link a key is for, on this form, and whose it is. */
+async function linkByKey(
+  ctx: CommandContext,
+  formId: string,
+  key: string,
+): Promise<{ id: string; personId: string; expiresAt: Date }> {
+  const [link] = await ctx.tx
+    .select({ id: formLinks.id, personId: formLinks.personId, expiresAt: formLinks.expiresAt })
+    .from(formLinks)
+    .innerJoin(people, eq(people.id, formLinks.personId))
+    .where(
+      and(
+        eq(formLinks.keyHash, hashToken(key)),
+        eq(formLinks.formId, formId),
+        dsql`${formLinks.expiresAt} > now()`,
+      ),
+    );
+  if (!link) throw HfosError.rule('form_link_gone', 404, LINK_GONE);
+  return link;
+}
+
+/**
+ * Who is filling a sheet in, for the engine: on a sheet from a personal link, the contact details we already
+ * have, so the questions that fill them are skipped — unless they asked to give them again.
+ */
+async function fillFor(
+  ctx: CommandContext,
+  response: ResponseRow,
+  askAgain: boolean,
+): Promise<FillContext> {
+  if (!response.formLinkId || !response.personId || askAgain) return {};
+  const [person] = await ctx.tx
+    .select({
+      firstName: people.firstName,
+      lastName: people.lastName,
+      email: people.email,
+      phone: people.phoneE164,
+    })
+    .from(people)
+    .where(eq(people.id, response.personId));
+  return person ? { known: knownTargetsOf(person) } : {};
 }
 
 // ---- Commands ----
@@ -200,14 +282,40 @@ export const formResponseStart = defineCommand({
       .where(eq(formVersions.id, row.activeVersionId));
     const definition = version ? parseStoredForm(version.definition) : draft;
     assertOpen(row, definition);
+
+    // A personal link (funnels): their own unfinished sheet from a link to this form, or a new one that's theirs.
+    const link = input.personalKey ? await linkByKey(ctx, row.id, input.personalKey) : null;
+    if (link) {
+      await ctx.tx
+        .update(formLinks)
+        .set({ openedAt: dsql`coalesce(${formLinks.openedAt}, now())` })
+        .where(eq(formLinks.id, link.id));
+      const [open] = await rows<{ id: string; version_id: string }>(
+        ctx.tx,
+        sql`select id, version_id from app.form_responses
+            where form_id = ${row.id} and person_id = ${link.personId} and status = 'in_progress'
+              and form_link_id is not null
+            order by started_at desc limit 1`,
+      );
+      if (open)
+        return {
+          responseId: open.id,
+          versionId: open.version_id,
+          token: input.personalKey!,
+          canResume: true,
+        };
+    }
+
     /**
      * Every sheet gets a key, because the page needs one to write to its own sheet and a response id on its
      * own must not be enough. Whether that key also becomes a "carry on later" link is the form's business:
-     * an anonymous survey offers no way back to somebody's own answers.
+     * an anonymous survey offers no way back to somebody's own answers. A personal link's sheet takes the
+     * link's own key, since the link already carries on where they left off.
      */
-    const token = newToken();
+    const token = link ? input.personalKey! : newToken();
     const canResume =
-      definition.settings.saveAndResume && definition.settings.identity !== 'anonymous';
+      link !== null ||
+      (definition.settings.saveAndResume && definition.settings.identity !== 'anonymous');
     const [response] = await ctx.tx
       .insert(formResponses)
       .values({
@@ -218,7 +326,11 @@ export const formResponseStart = defineCommand({
         source: input.source,
         visitorHash: input.visitorHash ? hashOf(input.visitorHash) : null,
         resumeTokenHash: hashToken(token),
-        resumeExpiresAt: new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
+        resumeExpiresAt: link
+          ? link.expiresAt
+          : new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
+        personId: link?.personId ?? null,
+        formLinkId: link?.id ?? null,
       })
       .returning({ id: formResponses.id });
     if (!response)
@@ -263,8 +375,9 @@ export const formResponseSave = defineCommand({
         'response_sent',
       );
     assertOpen(form, definition);
+    const fill = await fillFor(ctx, response, input.askAgain);
     const merged = { ...answersOf(response), ...(input.answers as AnswerSheet) };
-    const state = formState(definition, merged);
+    const state = formState(definition, merged, fill);
     await ctx.tx
       .update(formResponses)
       .set({ answers: state.answers as never })
@@ -273,7 +386,7 @@ export const formResponseSave = defineCommand({
       responseId: response.id,
       progress: state.progress,
       calculations: state.calculations,
-      problems: responseProblems(definition, state.answers).filter(
+      problems: responseProblems(definition, state.answers, fill).filter(
         (p) => p.message !== 'Answer this one.',
       ),
     };
@@ -316,6 +429,295 @@ function dueCents(
   return total;
 }
 
+interface Settled {
+  readonly personId: string | null;
+  readonly leadId: string | null;
+}
+
+/**
+ * Who the answers are from, made real: the customer matched or made, the blanks the answers fill written in,
+ * the invented fields, and the lead the form or Lead intake asks for. Sending a form does it, and so does leaving
+ * the page that saves their details part way (funnels), which is why it's one function.
+ *
+ * A sheet that already knows who it's for (a personal link, or details saved on an earlier page) keeps that
+ * customer, and a lead it already opened stays the lead. Either way an answer only fills what's blank: a
+ * different phone joins their other numbers, and nothing on file is written over, so a forwarded link can't
+ * change somebody's details.
+ */
+async function settleCustomer(
+  ctx: CommandContext,
+  args: {
+    readonly definition: FormDefinition;
+    readonly form: typeof forms.$inferSelect;
+    readonly response: ResponseRow;
+    readonly answers: AnswerSheet;
+    readonly contact: FormContact;
+    readonly calculations: Readonly<Record<string, number>>;
+  },
+): Promise<Settled> {
+  const { definition, form, response, answers, contact, calculations } = args;
+  const ws = ctx.scope.workspaceId!;
+  const { identity } = definition.settings;
+  let personId: string | null = null;
+  let leadId: string | null = response.leadId;
+  const source = definition.onSubmit.person.source || form.name;
+  /**
+   * Where this form's leads belong (M14): the business's one row for the forms built here, which is what
+   * Settings → Lead intake shows and turns off. The form's own choice of pipeline still wins when it has
+   * one; the row is what a form that names none falls back to. The day is counted but never refused — a
+   * form somebody sat down and filled in is not a robocall.
+   */
+  const intake = await intakeSourceOf(ctx.tx, ws, 'website_form');
+  const known = response.personId !== null;
+  if (identity === 'anonymous') return { personId: null, leadId: null };
+  if (!known && !(hasIdentity(contact) && definition.onSubmit.person.create))
+    return { personId: null, leadId };
+  const found = known
+    ? { personId: response.personId!, created: false }
+    : await findOrCreateCustomer(
+        ctx,
+        {
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          phone: contact.phone,
+          email: contact.email,
+          address: contact.address,
+        },
+        source,
+      );
+  personId = found.personId;
+  const { person, lead } = patchesFromAnswers(definition, answers);
+  // Only what the business doesn't already know: a form never rubs out what somebody typed.
+  if (!found.created && Object.keys(person.fields).length) {
+    const [existing] = await ctx.tx.select().from(people).where(eq(people.id, personId));
+    const onFile = [
+      existing?.phoneE164,
+      ...otherPhonesOf(existing?.otherPhones).map((p) => p.phone),
+    ];
+    const fill: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(person.fields)) {
+      const e164 = typeof value === 'string' ? normalizePhone(value) : null;
+      if (key === 'phoneAlt') {
+        // Another number joins the others (0103) when it reads as one and isn't on file already: a form
+        // never relabels a number the business has, and a stray answer never sinks the submission.
+        if (e164 && !onFile.includes(e164)) fill[key] = value;
+        continue;
+      }
+      const already = (existing as unknown as Record<string, unknown>)[key];
+      if (already === null || already === undefined || already === '') {
+        fill[key] = value;
+        continue;
+      }
+      // A phone that isn't the one on file joins their other numbers rather than replacing it.
+      if (key === 'phone' && e164 && !onFile.includes(e164) && fill.phoneAlt === undefined)
+        fill.phoneAlt = value;
+    }
+    if (Object.keys(fill).length)
+      await personUpdate.handler(
+        ctx,
+        PersonUpdateInput.parse({ workspaceId: ws, personId, ...fill }),
+      );
+  }
+  const mine = await ctx.tx
+    .select({ id: customFields.id, entity: customFields.entity })
+    .from(customFields)
+    .where(and(eq(customFields.workspaceId, ws), dsql`archived_at is null`));
+  await writeCustomFields(
+    ctx.tx,
+    'people',
+    personId,
+    person.custom,
+    new Set(mine.filter((f) => f.entity === 'person').map((f) => f.id)),
+  );
+  // ---- The lead ----
+  /**
+   * A form the business asked for a lead from always opens one where it says. A plain form that says
+   * nothing opens one anyway (M14): Lead intake is the switch, the way it is for a text, and its row
+   * says where those leads land. A survey or a quiz never opens one by itself — somebody rating their
+   * visit is not an enquiry — so those still have to ask.
+   */
+  const wanted = definition.onSubmit.lead;
+  const named =
+    wanted && typeof wanted.pipelineId === 'string' && typeof wanted.stageId === 'string'
+      ? { pipelineId: wanted.pipelineId, stageId: wanted.stageId }
+      : null;
+  const byIntake = form.mode === 'form' && intake.createLead;
+  // A lead this sheet already opened (on the page that saved their details) stays the one lead.
+  if (leadId === null && intake.active && (named || byIntake)) {
+    const title =
+      (typeof lead.fields.title === 'string' && lead.fields.title) ||
+      `${form.name}: ${contact.firstName || 'New enquiry'}`;
+    // Money in this system is whole cents; a calculation counts in dollars.
+    const quoted = wanted?.valueFrom ? (calculations[wanted.valueFrom] ?? null) : null;
+    const typedValue = typeof lead.fields.value === 'number' ? lead.fields.value : null;
+    const valueCents = Math.round((quoted ?? typedValue ?? 0) * 100);
+    const created = await leadCreate.handler(
+      ctx,
+      LeadCreateInput.parse({
+        workspaceId: ws,
+        personId,
+        // Neither the form nor Lead intake names one: lead.create puts it in the first open stage of
+        // the business's first pipeline, which is where a lead starts everywhere else too.
+        ...(named ??
+          (intake.pipelineId && intake.stageId
+            ? { pipelineId: intake.pipelineId, stageId: intake.stageId }
+            : {})),
+        title: title.slice(0, 160),
+        valueCents,
+        source,
+      }),
+    );
+    leadId = created.leadId;
+    // The day's count is the worker's (0072): it measures what arrives on its own, and a teammate typing a
+    // customer's answers in on the phone is not that.
+    if (ctx.actor.type !== 'human')
+      await takeIntakeSlot(ctx.tx, ws, intake, await workspaceZone(ctx.tx, ws), new Date(), false);
+    await writeCustomFields(
+      ctx.tx,
+      'leads',
+      leadId,
+      lead.custom,
+      new Set(mine.filter((f) => f.entity === 'lead').map((f) => f.id)),
+    );
+  }
+  return { personId, leadId };
+}
+
+/** A sheet whose answers don't stand up yet: the problems, by question, for the page to mark. */
+function answersInvalid(problems: readonly { questionId: string; message: string }[]): HfosError {
+  return new HfosError(
+    'validation',
+    400,
+    problems.length === 1
+      ? 'One answer still needs attention. Fix the one marked and try again.'
+      : `${problems.length} answers still need attention. Fix the ones marked and try again.`,
+    { problems },
+    'form_answers_invalid',
+  );
+}
+
+export const formResponseSaveContact = defineCommand({
+  name: 'form_response.save_contact',
+  description:
+    'Leaving the page of a form that saves their details (funnels): match or make the customer, fill in what that page said, open the lead, and keep the answers so far. The rest happens when the form is sent.',
+  // External, as sending is: it makes a customer and a lead, and whatever texts them goes through its own rules.
+  risk: 2,
+  input: FormSaveContactInput,
+  output: FormSaveContactOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['form.contact_saved', 'person.created', 'person.updated', 'lead.created'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const { response, definition, form } = await openResponse(ctx, input.responseId, {
+      forUpdate: true,
+    });
+    await assertHolder(ctx, response, input.token);
+    if (response.status === 'completed')
+      throw HfosError.conflict(
+        'These answers were already sent, so there’s nothing more to do.',
+        'response_sent',
+      );
+    assertOpen(form, definition);
+    const page = definition.pages.find((p) => p.savesContact);
+    if (!page || definition.settings.identity === 'anonymous')
+      throw HfosError.rule(
+        'form_saves_no_contact',
+        400,
+        'This form keeps your details when you send it at the end. Carry on to the last page.',
+      );
+
+    const fill = await fillFor(ctx, response, input.askAgain);
+    const merged = { ...answersOf(response), ...(input.answers as AnswerSheet) };
+    const state = formState(definition, merged, fill);
+    const answers = state.answers;
+    const problems = pageProblems(definition, answers, page.id, fill);
+    if (problems.length) throw answersInvalid(problems);
+    const contact = contactFromAnswers(definition, answers);
+    if (!response.personId && !hasIdentity(contact))
+      throw HfosError.rule(
+        'form_needs_identity',
+        400,
+        'Add a phone number or an email address, so the business can reach you.',
+      );
+
+    const { calculations } = outcome(definition, answers);
+    const { personId, leadId } = await settleCustomer(ctx, {
+      definition,
+      form,
+      response,
+      answers,
+      contact,
+      calculations,
+    });
+    await ctx.tx
+      .update(formResponses)
+      .set({ answers: answers as never, personId, leadId })
+      .where(eq(formResponses.id, response.id));
+    if (personId && input.smsConsent)
+      await recordSmsConsent(ctx.tx, personId, `Form: ${form.name}`);
+    if (personId && input.offersConsent)
+      await recordOffersConsent(ctx.tx, personId, `Form: ${form.name}`.slice(0, 80));
+    if (personId)
+      await ctx.emit({
+        type: 'form.contact_saved',
+        entityType: 'form',
+        entityId: form.id,
+        payload: { responseId: response.id, formId: form.id, personId, leadId },
+        after: { form: form.name },
+      });
+    return { responseId: response.id, personId, leadId };
+  },
+});
+
+export const formLinkCreate = defineCommand({
+  name: 'form_link.create',
+  description:
+    'Make a personal link to a form for one customer (funnels): it knows who it’s for, so their details aren’t asked again. Hands back the key for the link once; only its hash is kept.',
+  risk: 1,
+  input: FormLinkCreateInput,
+  output: FormLinkCreateOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['form_link.created'],
+  // A workflow's "Send a form" makes these; nobody signed in reads or writes them.
+  actors: ['system', 'workflow'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [form] = await ctx.tx
+      .select({ id: forms.id })
+      .from(forms)
+      .where(and(eq(forms.id, input.formId), eq(forms.workspaceId, ws)));
+    if (!form) throw HfosError.notFound('That form isn’t in this business.');
+    const [person] = await ctx.tx
+      .select({ id: people.id })
+      .from(people)
+      .where(and(eq(people.id, input.personId), eq(people.workspaceId, ws)));
+    if (!person) throw HfosError.notFound('That customer isn’t in this business.');
+    const key = newToken();
+    const expiresAt = new Date(Date.now() + FORM_LINK_DAYS * 86_400_000);
+    const [link] = await ctx.tx
+      .insert(formLinks)
+      .values({
+        workspaceId: ws,
+        formId: form.id,
+        personId: person.id,
+        keyHash: hashToken(key),
+        expiresAt,
+      })
+      .returning({ id: formLinks.id });
+    // The audit line says who it's for and which form; never the key.
+    await ctx.emit({
+      type: 'form_link.created',
+      entityType: 'form',
+      entityId: form.id,
+      payload: { formLinkId: link!.id, formId: form.id, personId: person.id },
+      broadcast: false,
+    });
+    return { formLinkId: link!.id, key, expiresAt: expiresAt.toISOString() };
+  },
+});
+
 export const formResponseSubmit = defineCommand({
   name: 'form_response.submit',
   description:
@@ -330,6 +732,8 @@ export const formResponseSubmit = defineCommand({
   emits: [
     'form.submitted',
     'person.created',
+    // Filling in a blank on a customer we already had (personUpdate).
+    'person.updated',
     'lead.created',
     'task.created',
     'invoice.created',
@@ -350,10 +754,11 @@ export const formResponseSubmit = defineCommand({
     assertOpen(form, definition);
 
     // The page's answers and the ones already saved, pruned to what was actually showing.
+    const fill = await fillFor(ctx, response, input.askAgain);
     const merged = { ...answersOf(response), ...(input.answers as AnswerSheet) };
-    const state = formState(definition, merged);
+    const state = formState(definition, merged, fill);
     const answers = state.answers;
-    const problems = responseProblems(definition, answers);
+    const problems = responseProblems(definition, answers, fill);
     if (problems.length)
       throw new HfosError(
         'validation',
@@ -367,7 +772,7 @@ export const formResponseSubmit = defineCommand({
 
     const { identity } = definition.settings;
     const contact = contactFromAnswers(definition, answers);
-    if (identity === 'required' && !hasIdentity(contact))
+    if (identity === 'required' && !response.personId && !hasIdentity(contact))
       throw HfosError.rule(
         'form_needs_identity',
         400,
@@ -375,128 +780,20 @@ export const formResponseSubmit = defineCommand({
       );
 
     const { score, calculations, result } = outcome(definition, answers);
-    const recorded = recordAnswers(definition, answers);
+    const recorded = recordAnswers(definition, answers, fill);
 
-    // ---- The customer ----
-    let personId: string | null = null;
-    let leadId: string | null = null;
-    const source = definition.onSubmit.person.source || form.name;
-    /**
-     * Where this form's leads belong (M14): the business's one row for the forms built here, which is what
-     * Settings → Lead intake shows and turns off. The form's own choice of pipeline still wins when it has
-     * one; the row is what a form that names none falls back to. The day is counted but never refused — a
-     * form somebody sat down and filled in is not a robocall.
-     */
-    const intake = await intakeSourceOf(ctx.tx, ws, 'website_form');
-    if (identity !== 'anonymous' && hasIdentity(contact) && definition.onSubmit.person.create) {
-      const found = await findOrCreateCustomer(
-        ctx,
-        {
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          phone: contact.phone,
-          email: contact.email,
-          address: contact.address,
-        },
-        source,
-      );
-      personId = found.personId;
-      const { person, lead } = patchesFromAnswers(definition, answers);
-      // Only what the business doesn't already know: a form never rubs out what somebody typed.
-      if (!found.created && Object.keys(person.fields).length) {
-        const [existing] = await ctx.tx.select().from(people).where(eq(people.id, personId));
-        const fill: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(person.fields)) {
-          if (key === 'phoneAlt') {
-            // Another number joins the others (0103) when it reads as one and isn't on file already: a form
-            // never relabels a number the business has, and a stray answer never sinks the submission.
-            const e164 = typeof value === 'string' ? normalizePhone(value) : null;
-            const onFile = [
-              existing?.phoneE164,
-              ...otherPhonesOf(existing?.otherPhones).map((p) => p.phone),
-            ];
-            if (e164 && !onFile.includes(e164)) fill[key] = value;
-            continue;
-          }
-          const already = (existing as unknown as Record<string, unknown>)[key];
-          if (already === null || already === undefined || already === '') fill[key] = value;
-        }
-        if (Object.keys(fill).length)
-          await personUpdate.handler(
-            ctx,
-            PersonUpdateInput.parse({ workspaceId: ws, personId, ...fill }),
-          );
-      }
-      const mine = await ctx.tx
-        .select({ id: customFields.id, entity: customFields.entity })
-        .from(customFields)
-        .where(and(eq(customFields.workspaceId, ws), dsql`archived_at is null`));
-      await writeCustomFields(
-        ctx.tx,
-        'people',
-        personId,
-        person.custom,
-        new Set(mine.filter((f) => f.entity === 'person').map((f) => f.id)),
-      );
+    // ---- The customer and the lead ----
+    const settled = await settleCustomer(ctx, {
+      definition,
+      form,
+      response,
+      answers,
+      contact,
+      calculations,
+    });
+    const { personId, leadId } = settled;
 
-      // ---- The lead ----
-      /**
-       * A form the business asked for a lead from always opens one where it says. A plain form that says
-       * nothing opens one anyway (M14): Lead intake is the switch, the way it is for a text, and its row
-       * says where those leads land. A survey or a quiz never opens one by itself — somebody rating their
-       * visit is not an enquiry — so those still have to ask.
-       */
-      const wanted = definition.onSubmit.lead;
-      const named =
-        wanted && typeof wanted.pipelineId === 'string' && typeof wanted.stageId === 'string'
-          ? { pipelineId: wanted.pipelineId, stageId: wanted.stageId }
-          : null;
-      const byIntake = form.mode === 'form' && intake.createLead;
-      if (intake.active && (named || byIntake)) {
-        const title =
-          (typeof lead.fields.title === 'string' && lead.fields.title) ||
-          `${form.name}: ${contact.firstName || 'New enquiry'}`;
-        // Money in this system is whole cents; a calculation counts in dollars.
-        const quoted = wanted?.valueFrom ? (calculations[wanted.valueFrom] ?? null) : null;
-        const typedValue = typeof lead.fields.value === 'number' ? lead.fields.value : null;
-        const valueCents = Math.round((quoted ?? typedValue ?? 0) * 100);
-        const created = await leadCreate.handler(
-          ctx,
-          LeadCreateInput.parse({
-            workspaceId: ws,
-            personId,
-            // Neither the form nor Lead intake names one: lead.create puts it in the first open stage of
-            // the business's first pipeline, which is where a lead starts everywhere else too.
-            ...(named ??
-              (intake.pipelineId && intake.stageId
-                ? { pipelineId: intake.pipelineId, stageId: intake.stageId }
-                : {})),
-            title: title.slice(0, 160),
-            valueCents,
-            source,
-          }),
-        );
-        leadId = created.leadId;
-        // The day's count is the worker's (0072): it measures what arrives on its own, and a teammate typing a
-        // customer's answers in on the phone is not that.
-        if (ctx.actor.type !== 'human')
-          await takeIntakeSlot(
-            ctx.tx,
-            ws,
-            intake,
-            await workspaceZone(ctx.tx, ws),
-            new Date(),
-            false,
-          );
-        await writeCustomFields(
-          ctx.tx,
-          'leads',
-          leadId,
-          lead.custom,
-          new Set(mine.filter((f) => f.entity === 'lead').map((f) => f.id)),
-        );
-      }
-
+    if (personId) {
       // ---- A task for somebody ----
       const task = definition.onSubmit.task;
       if (task)
@@ -814,6 +1111,7 @@ export const formResponseRecord = defineCommand({
       workspaceId: ws,
       responseId,
       answers: input.answers,
+      askAgain: false,
       smsConsent: input.smsConsent,
       // The phone's own form has no offers box: a person asks in person, and offers are asked separately.
       offersConsent: false,
@@ -825,6 +1123,8 @@ export const formResponseRecord = defineCommand({
 export const formResponseCommands = [
   formResponseStart,
   formResponseSave,
+  formResponseSaveContact,
+  formLinkCreate,
   formResponseSubmit,
   formResponseRecord,
   formResponseDelete,

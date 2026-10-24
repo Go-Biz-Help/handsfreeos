@@ -4,6 +4,7 @@ import {
   pageToResume,
   type AnswerProblem,
   type AnswerSheet,
+  type FillContext,
   type FormDefinition,
   type FormState,
   type VisiblePage,
@@ -19,10 +20,16 @@ export interface FormSteps {
   readonly shown: readonly VisiblePage[];
   readonly index: number;
   readonly count: number;
-  /** The last page, where the consent box and the send button are. */
+  /** The last page, where the send button is. */
   readonly isLast: boolean;
+  /** The page on screen when stepped; null when every page shows at once. */
+  readonly page: VisiblePage | null;
   /** Move on when this page will do; otherwise hand back what's wrong with it. */
   next(): AnswerProblem[];
+  /** What's wrong with the page on screen, without moving. */
+  problemsHere(): AnswerProblem[];
+  /** On to the next page, without checking (the caller already has). */
+  forward(): void;
   back(): void;
   /** Show the page a question is on, for a problem found at the end. */
   showQuestion(questionId: string): void;
@@ -39,10 +46,11 @@ export function useFormSteps(
   definition: FormDefinition,
   state: FormState,
   resumed: AnswerSheet | null = null,
+  fill: FillContext = {},
 ): FormSteps {
   const stepped = definition.settings.onePageAtATime && state.pages.length > 1;
   const [current, setCurrent] = useState<string | null>(() =>
-    resumed ? pageToResume(definition, resumed) : null,
+    resumed ? pageToResume(definition, resumed, fill) : null,
   );
   const found = state.pages.findIndex((p) => p.page.id === current);
   const index = found < 0 ? 0 : found;
@@ -54,19 +62,26 @@ export function useFormSteps(
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const problemsHere = () => {
+    const page = state.pages[index];
+    return page ? pageProblems(definition, state.answers, page.page.id, fill) : [];
+  };
+  const forward = () => go(state.pages[index + 1]?.page.id);
+
   return {
     stepped,
     shown: stepped ? state.pages.slice(index, index + 1) : state.pages,
     index,
     count,
     isLast: !stepped || index >= count - 1,
+    page: stepped ? (state.pages[index] ?? null) : null,
     next() {
-      const page = state.pages[index];
-      if (!page) return [];
-      const problems = pageProblems(definition, state.answers, page.page.id);
-      if (!problems.length) go(state.pages[index + 1]?.page.id);
+      const problems = problemsHere();
+      if (!problems.length) forward();
       return problems;
     },
+    problemsHere,
+    forward,
     back() {
       go(state.pages[index - 1]?.page.id);
     },

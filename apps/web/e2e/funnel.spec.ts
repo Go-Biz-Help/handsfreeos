@@ -35,7 +35,16 @@ const STAND_IN_PLAYER = `<!doctype html><html><body style="margin:0;background:#
   };
 </script></body></html>`;
 
+const WORKER_URL = (process.env.NEXT_PUBLIC_WORKER_URL ?? 'http://127.0.0.1:4100').replace(
+  /\/+$/,
+  '',
+);
+
 async function funnelForm(page: Page): Promise<string> {
+  return (await funnelBusiness(page)).link;
+}
+
+async function funnelBusiness(page: Page, ops: Record<string, unknown>[] = []) {
   const owner = await signUpAndConfirm(page, 'funnel');
   const workspaceId = await createBusiness(page, { name: 'Robbins Recruiting' });
   const api = apiAs(await signInForApi(owner.email));
@@ -102,6 +111,7 @@ async function funnelForm(page: Page): Promise<string> {
           config: {},
         },
       },
+      ...ops,
     ],
   });
   await api('commands/form.publish', {
@@ -112,7 +122,7 @@ async function funnelForm(page: Page): Promise<string> {
   const { site } = await api<{ site: { slug: string } | null }>('queries/booking_site.get', {
     workspaceId,
   });
-  return `/f/${site!.slug}/${created.slug}`;
+  return { link: `/f/${site!.slug}/${created.slug}`, api, workspaceId, formId: created.formId };
 }
 
 test('a video holds Next until enough of it is watched, one page at a time', async ({ page }) => {
@@ -161,4 +171,112 @@ test('a video holds Next until enough of it is watched, one page at a time', asy
   await expect(page.getByLabel('Your phone')).toHaveValue('(512) 555-0188');
   await page.getByTestId('form-send').click();
   await expect(page.getByTestId('form-sent')).toBeVisible();
+});
+
+/** The funnel's details page saves them, and a last page greets them by name. */
+const SAVE_ON_PAGE_TWO = [
+  { op: 'update_page', pageId: 'p_reach000', patch: { savesContact: true } },
+  { op: 'add_page', index: null, page: { id: 'p_goals000', title: 'Last thing', questions: [] } },
+  {
+    op: 'add_question',
+    pageId: 'p_goals000',
+    index: null,
+    question: {
+      id: 'q_goals000',
+      type: 'long_text',
+      title: '{{person.first_name | default:"So"}}, what are you hoping for?',
+      config: {},
+    },
+  },
+];
+
+type People = {
+  items: { personId?: string; id?: string; firstName: string; phone?: string | null }[];
+};
+
+test('the details page saves them as they leave it, before the form is sent', async ({ page }) => {
+  const { link, api, workspaceId } = await funnelBusiness(page, SAVE_ON_PAGE_TWO);
+  await page.route('https://www.youtube-nocookie.com/embed/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: STAND_IN_PLAYER }),
+  );
+  await page.goto(link);
+  await page.getByLabel('What should we call you?').fill('Dana');
+  await page.getByTestId('form-next').click();
+  await (async () => {
+    await expect
+      .poll(() => page.frames().some((f) => f.url().includes('youtube-nocookie')))
+      .toBe(true);
+    await page
+      .frames()
+      .find((f) => f.url().includes('youtube-nocookie'))!
+      .evaluate(() => (window as unknown as { playTo(p: number): Promise<void> }).playTo(90));
+  })();
+  await expect(page.getByTestId('video-watched')).toHaveText('Watched 90%');
+  await page.getByTestId('form-next').click();
+
+  // The details page carries the texting box, and Next saves them.
+  await expect(page.getByText('Step 3 of 4')).toBeVisible();
+  await page.getByLabel('Your phone').fill('(512) 555-0420');
+  await page.getByTestId('form-sms-consent').check();
+  await expect(page.getByTestId('form-next')).toBeEnabled({ timeout: 30_000 });
+  await page.getByTestId('form-next').click();
+  await expect(page.getByText('Step 4 of 4')).toBeVisible();
+  // Their name, from what they typed on the first page.
+  await expect(page.getByText('Dana, what are you hoping for?')).toBeVisible();
+  await expect
+    .poll(async () => {
+      const people = await api<People>('queries/person.list', { workspaceId, limit: 20 });
+      return people.items.map((p) => p.firstName);
+    })
+    .toContain('Dana');
+
+  await page.getByLabel('Dana, what are you hoping for?').fill('Work from home');
+  await page.getByTestId('form-send').click();
+  await expect(page.getByTestId('form-sent')).toBeVisible();
+  const people = await api<People>('queries/person.list', { workspaceId, limit: 20 });
+  expect(people.items.filter((p) => p.firstName === 'Dana')).toHaveLength(1);
+});
+
+test('a personal link skips what we know, greets them, and shows nothing on file', async ({
+  page,
+}) => {
+  const { link, api, workspaceId, formId } = await funnelBusiness(page, SAVE_ON_PAGE_TWO);
+  await page.route('https://www.youtube-nocookie.com/embed/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: STAND_IN_PLAYER }),
+  );
+  const { personId } = await api<{ personId: string }>('commands/person.create', {
+    workspaceId,
+    firstName: 'Christina',
+    lastName: 'Lee',
+    phone: '(512) 555-0421',
+  });
+  const res = await fetch(`${WORKER_URL}/test/forms/personal-link`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ workspaceId, formId, personId }),
+  });
+  const { key } = (await res.json()) as { key: string };
+  // Nothing about them is in the address.
+  expect(key).not.toMatch(/christina|lee|0421/i);
+
+  await page.goto(`${link}?k=${key}`);
+  // Their name and phone are on file: the name page and the details page are skipped.
+  await expect(page.getByText('Step 1 of 2')).toBeVisible();
+  await expect(page.getByLabel('What should we call you?')).toHaveCount(0);
+  await expect(page.getByTestId('video-frame')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('0421');
+  await page
+    .frames()
+    .find((f) => f.url().includes('youtube-nocookie'))!
+    .evaluate(() => (window as unknown as { playTo(p: number): Promise<void> }).playTo(90));
+  await expect(page.getByTestId('video-watched')).toHaveText('Watched 90%');
+  await page.getByTestId('form-next').click();
+
+  await expect(page.getByText('Christina, what are you hoping for?')).toBeVisible();
+  await page.getByLabel('Christina, what are you hoping for?').fill('A side income');
+  // A link we texted them needs no "are you a person" check.
+  await page.getByTestId('form-send').click();
+  await expect(page.getByTestId('form-sent')).toBeVisible();
+  const people = await api<People>('queries/person.list', { workspaceId, limit: 20 });
+  expect(people.items.filter((p) => p.firstName === 'Christina')).toHaveLength(1);
 });
