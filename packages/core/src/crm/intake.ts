@@ -51,7 +51,7 @@ export const INTAKE_KINDS = [
 /**
  * The ways a stranger reaches a business by themselves: the three of slice A, a message to its Facebook Page or
  * Instagram account (20261025000200), and a lead ad's form on either or an applicant Indeed emailed about (funnels,
- * 20261027011000). Each is one row a business, with its own switch, pipeline and day.
+ * 20261027011100). Each is one row a business, with its own switch, pipeline and day.
  */
 export const INTAKE_CHANNELS = [
   'text',

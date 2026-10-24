@@ -23,7 +23,7 @@ messages: Meta" in `docs/operations.md`.
 | Webhooks, deauthorize and data deletion   | `apps/worker/src/social/routes.ts`; each event read by `events.ts`, and acted on by `receive.ts`                |
 | Sending                                   | `apps/worker/src/social/send.ts`                                                                                |
 | Ad look-ups and the daily check           | `apps/worker/src/social/jobs.ts`                                                                                |
-| Lead ads: filing a lead, and its words    | `packages/core/src/commands/meta-lead.ts`, `messaging/lead-ads.ts`; the forms table is `20261027011100`         |
+| Lead ads: filing a lead, and its words    | `packages/core/src/commands/meta-lead.ts`, `messaging/lead-ads.ts`; the forms table is `20261027011200`         |
 | Lead ads: reading leads, and the catch-up | `apps/worker/src/social/leads.ts`                                                                               |
 | Settings → Facebook & Instagram           | `apps/web/src/components/settings/facebook-instagram-page.tsx`                                                  |
 | The inbox, the composer and the thread    | `apps/web/src/components/inbox/` (`social-bits.tsx` has the two marks)                                          |

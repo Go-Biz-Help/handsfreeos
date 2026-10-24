@@ -2543,7 +2543,7 @@ export const appointmentAttendees = app.table('appointment_attendees', {
    * Social Outreach demo link's. Online bookings only; null for the rest.
    */
   linkRef: text('link_ref'),
-  /** Attendance one person at a time (20261027011200): when they opened their Join link, or a teammate ticked it. */
+  /** Attendance one person at a time (20261027011300): when they opened their Join link, or a teammate ticked it. */
   joinedAt: ts('joined_at'),
   /** They were given a Join link: the end of the session marks them attended or a no-show. */
   joinOfferedAt: ts('join_offered_at'),
@@ -2827,7 +2827,7 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'main_offer',
   // Adding the texting section to the business's own privacy policy or terms (20261027006500).
   'texting_policy',
-  // Reading an applicant Indeed emailed the business about (20261027011000).
+  // Reading an applicant Indeed emailed the business about (20261027011100).
   'lead_intake',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
@@ -5488,7 +5488,7 @@ export const intakeKind = app.enum('intake_kind', [
   /** A stranger writing to the business's Facebook Page or Instagram account (20261025000100). */
   'messenger',
   'instagram',
-  /** A Facebook or Instagram lead ad's form, and an applicant Indeed emailed about (20261027011000). */
+  /** A Facebook or Instagram lead ad's form, and an applicant Indeed emailed about (20261027011100). */
   'facebook_lead_ad',
   'indeed',
 ]);
@@ -6299,7 +6299,7 @@ export const formSlugs = app.table(
 );
 
 /**
- * A form link that knows who it's for (funnels, 20261027010800): `/f/<site>/<form>?k=<key>`, the key kept only as
+ * A form link that knows who it's for (funnels, 20261027010900): `/f/<site>/<form>?k=<key>`, the key kept only as
  * its hash. Worker-only.
  */
 export const formLinks = app.table('form_links', {
@@ -6343,9 +6343,9 @@ export const formResponses = app.table('form_responses', {
   visitorHash: bytea('visitor_hash'),
   /** The form asked for one answer per customer when this was sent (0077's unique index). */
   onePerPerson: boolean('one_per_person').notNull().default(false),
-  /** The personal link this sheet was started from, whose key also writes to it (20261027010800). */
+  /** The personal link this sheet was started from, whose key also writes to it (20261027010900). */
   formLinkId: uuid('form_link_id').references(() => formLinks.id, { onDelete: 'set null' }),
-  /** When the page last saved, and the page it was on, for "stopped partway" (20261027010900). */
+  /** When the page last saved, and the page it was on, for "stopped partway" (20261027011000). */
   lastActiveAt: ts('last_active_at'),
   atPageId: text('at_page_id'),
   /** The pages already marked stopped, each once. */
@@ -6535,7 +6535,7 @@ export const metaAccounts = app.table('meta_accounts', {
   connectedAt: ts('connected_at').notNull().defaultNow(),
   disconnectedAt: ts('disconnected_at'),
   connectedBy: userRef('connected_by'),
-  /** Lead ads (20261027011100): whether its leads can be read, and when the last one came. */
+  /** Lead ads (20261027011200): whether its leads can be read, and when the last one came. */
   leadsAccess: text('leads_access')
     .$type<'unknown' | 'ok' | 'not_allowed' | 'blocked'>()
     .notNull()
@@ -6545,7 +6545,7 @@ export const metaAccounts = app.table('meta_accounts', {
   ...timestamps(),
 });
 
-/** A Page's lead ad form, as we've seen it (20261027011100): its name, and which consent boxes are about texts. */
+/** A Page's lead ad form, as we've seen it (20261027011200): its name, and which consent boxes are about texts. */
 export const metaLeadForms = app.table(
   'meta_lead_forms',
   {
@@ -6632,7 +6632,7 @@ export const attributionTouches = app.table('attribution_touches', {
   touchedAt: ts('touched_at').notNull(),
   /**
    * started: it opened the conversation; returned: somebody already talking came back through it; lead_form: they
-   * filled in a lead ad's form (20261027011100).
+   * filled in a lead ad's form (20261027011200).
    */
   kind: text('kind').$type<'started' | 'returned' | 'lead_form'>().notNull(),
   /** The customer as they are now: follows their conversation through links and merges. */

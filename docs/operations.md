@@ -6677,7 +6677,7 @@ When somebody sends the form on a business's Facebook or Instagram lead ad, they
 
 It needs two more permissions, `leads_retrieval` and `pages_manage_ads`, and the Page's `leadgen` webhook field. The worker asks for none of them until `META_LEAD_ADS=on`, so Messenger and Instagram keep working while Meta reviews them.
 
-1. Make sure the hosted database has `supabase/migrations/20261027011000_lead_ad_and_indeed_intake.sql` and `20261027011100_facebook_lead_ads.sql` ("Apply new migrations").
+1. Make sure the hosted database has `supabase/migrations/20261027011100_lead_ad_and_indeed_intake.sql` and `20261027011200_facebook_lead_ads.sql` ("Apply new migrations").
 2. In the Meta app, open **Webhooks**, choose **Page**, and click **Subscribe** next to `leadgen`. The worker also asks for it through Meta's API once `META_LEAD_ADS` is on.
 3. If you made a Facebook Login for Business configuration (Meta Part 2, step 6), add `leads_retrieval` and `pages_manage_ads` to its permissions and click **Save**.
 4. Try it in Development. Turn it on for the worker, then connect your test Page again in **Settings** → **Facebook & Instagram**, leaving every permission ticked:
@@ -7720,7 +7720,7 @@ For an online visit or session with a meeting link (Zoom, Google Meet or a paste
 - **When a session ends** (a calendar that runs scheduled sessions, never a one-on-one visit), everyone given a Join link is marked ten minutes later: attended if they opened it, a no-show if they never did. The worker's `attendance.close` job does this every ten minutes.
 - **Workflows** can start on **Somebody joins a session**, **Somebody attended a session** and **Somebody missed a session**, each for that one person. A wait on **Somebody joins a session** with a 5-minute timeout sends "Were you able to log on?" only to the people who haven't.
 
-A click isn't proof somebody stayed: they can click and get stuck, which is when "Were you able to log on?" helps. Nothing here needs setting up; it comes from the migration `20261027011200_attendance.sql`.
+A click isn't proof somebody stayed: they can click and get stuck, which is when "Were you able to log on?" helps. Nothing here needs setting up; it comes from the migration `20261027011300_attendance.sql`.
 
 ### Calendars with no staff (beds, rooms, equipment)
 
@@ -8763,7 +8763,7 @@ Replacing a key (the **⟳** button) takes effect at once — a form needs its n
 
 ### Facebook lead ads and Indeed
 
-Two more rows in **Settings** → **Lead intake**, from the funnels plan (`supabase/migrations/20261027011000_lead_ad_and_indeed_intake.sql` and `20261027011100_facebook_lead_ads.sql`).
+Two more rows in **Settings** → **Lead intake**, from the funnels plan (`supabase/migrations/20261027011100_lead_ad_and_indeed_intake.sql` and `20261027011200_facebook_lead_ads.sql`).
 
 **Someone fills in your lead ad's form.** Leads from a Facebook or Instagram lead ad arrive by themselves once Meta approves lead ads ("Meta Part 7" in "Facebook and Instagram messages: Meta"); until then, send them through Zapier as a connected app. Each lead is filed once, its answers go on the lead's note, and a ticked box on the form whose words are about texts counts as the customer's OK to text. On by default, like the channels above.
 

@@ -109,7 +109,7 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
   the lead opens, and the texting box (which sits on that page) is recorded. Sending at the end keeps that customer
   and that lead. Both go through `settleCustomer`, so the rules are the same ones sending always had. It takes the
   same "are you a person" check sending does, through `POST /public/form/<site>/<form>/<sheet>/contact`.
-- **A personal link** (`app.form_links`, 20261027010800) is `/f/<site>/<form>?k=<key>`. A workflow's **Send a form**
+- **A personal link** (`app.form_links`, 20261027010900) is `/f/<site>/<form>?k=<key>`. A workflow's **Send a form**
   makes one for each customer (`form_link.create`). The key is random and only its hash is kept; it works 30 days.
   Opening it (`GET …/personal/<key>`) hands the page their first name, which contact details we have, and their
   unfinished sheet from a link; starting with it binds the sheet to them (`form_link_id`), and the key writes to
@@ -140,7 +140,7 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
 - **A session that filled up meanwhile** refuses the whole send with `form_booking_taken` (the time in words, and
   the question in `details`), so nothing is half done; the page clears the pick and reads the times again.
 - **Stopped partway.** Shown one page at a time, each save carries the page they're on (`at_page_id`,
-  `last_active_at`, 20261027010900). Every five minutes the worker's `forms.stopped_sweep` finds sheets whose
+  `last_active_at`, 20261027011000). Every five minutes the worker's `forms.stopped_sweep` finds sheets whose
   person we know, quiet for 30 minutes (and under a week), and `form_response.mark_stopped` marks that page once
   and emits `form.stopped`. A workflow starts on it with **Somebody stops partway through a form**, filtered by
   `trigger.form_id` and `trigger.page_title`, and its texts can say `{{trigger.page_title}}`.
