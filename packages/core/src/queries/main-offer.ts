@@ -5,7 +5,7 @@
  * while no add-on that uses it is on (`inUse` says so, and the screens hide it).
  */
 import { and, desc, eq } from 'drizzle-orm';
-import { mainOfferTries, mainOfferVersions, mainOffers, users } from '@hfos/db/schema';
+import { mainOfferTries, mainOfferVersions, mainOffers, users, workspaces } from '@hfos/db/schema';
 import { ADDON_CATALOG } from '../addons/catalog';
 import { addonsUsing, coreFeatureRunning } from '../addons/capabilities';
 import { loadActiveAddons } from '../addons/load';
@@ -52,6 +52,10 @@ export const mainOfferGet = defineQuery({
       .leftJoin(users, eq(users.id, mainOffers.draftBy))
       .where(eq(mainOffers.workspaceId, input.workspaceId));
     const offer = row?.offer;
+    const [business] = await ctx.tx
+      .select({ name: workspaces.name })
+      .from(workspaces)
+      .where(eq(workspaces.id, input.workspaceId));
     let live: MainOfferVersionOut | null = null;
     if (offer?.liveVersion) {
       const [v] = await ctx.tx
@@ -83,6 +87,8 @@ export const mainOfferGet = defineQuery({
       bar: MAIN_OFFER_BAR,
       revision: offer?.revision ?? 0,
       direction: offer?.direction ?? null,
+      names: offer?.names ?? [],
+      businessName: business?.name ?? '',
       live,
       draft:
         offer && draftParts

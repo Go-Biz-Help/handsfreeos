@@ -141,6 +141,24 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(page.getByTestId('main-offer-live')).toContainText('Live · version 2');
   await expect(page.getByTestId('main-offer-live')).toContainText('Every part 7 or more');
 
+  // The names the business goes by (docs/outreach.md, decision 84): its own name here until some are added, each
+  // saved at once, and one taken off again.
+  const names = page.getByTestId('main-offer-names');
+  await expect(names.getByTestId('main-offer-names-default')).toContainText(
+    'your business’s name here',
+  );
+  for (const name of ['Summit Roof Leads', 'Roof Leads Pro']) {
+    await names.getByTestId('main-offer-names-input').fill(name);
+    await names.getByTestId('main-offer-names-add').click();
+    await expect(names.getByRole('listitem').filter({ hasText: name })).toBeVisible();
+  }
+  await names.getByRole('button', { name: 'Remove Roof Leads Pro' }).click();
+  await expect(names.getByRole('listitem')).toHaveCount(1);
+  await page.reload();
+  await expect(page.getByTestId('main-offer-names').getByRole('listitem')).toHaveText([
+    'Summit Roof Leads',
+  ]);
+
   // A playbook narrows it: the niche from the offer's who fits, another niche is really a second offer.
   await page.goto(`/app/w/${workspaceId}/a/outreach/playbooks/new`);
   const playbook = page.getByTestId('playbook-builder');

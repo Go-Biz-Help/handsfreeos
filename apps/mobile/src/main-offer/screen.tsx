@@ -206,7 +206,13 @@ function ReadOnly({ offer }: { offer: MainOffer }) {
     <>
       <DraftBanner offer={offer} />
       {offer.live ? (
-        <LiveOffer live={offer.live} direction={offer.direction} comesWith={offer.comesWith} />
+        <LiveOffer
+          live={offer.live}
+          direction={offer.direction}
+          comesWith={offer.comesWith}
+          names={offer.names}
+          businessName={offer.businessName}
+        />
       ) : (
         <Notice testID="main-offer-nothing-live">{PW.nothingLive}</Notice>
       )}

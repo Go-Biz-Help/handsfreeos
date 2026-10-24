@@ -48,6 +48,15 @@ export async function saveOfferDirection(workspaceId: string, revision: number, 
   );
 }
 
+/** The names the business goes by on people's profiles; none leaves its name in HandsFreeOS. */
+export async function saveOfferNames(workspaceId: string, names: string[]) {
+  return unwrap(
+    await apiBrowser().POST('/v1/commands/main_offer.save_names', {
+      body: { workspaceId, names },
+    }),
+  );
+}
+
 /** Takes the picked parts of a try into the draft; says whether the try's line came too. */
 export async function applyOfferTry(
   workspaceId: string,

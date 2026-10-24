@@ -23,14 +23,16 @@ import { errorMessage } from '@/lib/api/errors';
 import type { MainOfferGet, MainOfferVersions } from '@/lib/api/types';
 import { discardOfferDraft } from '@/lib/main-offer/actions';
 import { cn } from '@/lib/utils';
+import { OfferNames } from './names';
 import { WithDirection } from './review';
 
 type Live = NonNullable<MainOfferGet['live']>;
 
 /**
  * Settings → Main offer (docs/main-offer.md): the live version with its score and parts, what's working and what's
- * holding each back, the owner's direction, the draft someone is working on, and every version published. Shown only while an add-on that uses the offer is on; owners and admins
- * build and change it, and everyone in the business can read it.
+ * holding each back, the owner's direction, the names the business goes by, the draft someone is working on, and
+ * every version published. Shown only while an add-on that uses the offer is on; owners and admins build and change
+ * it, and everyone in the business can read it.
  */
 export function MainOfferPage({
   workspaceId,
@@ -134,6 +136,14 @@ export function MainOfferPage({
           ) : null}
         </div>
       ) : null}
+
+      {/* The names the business goes by, for Social Outreach's profile check (decision 84). */}
+      <OfferNames
+        workspaceId={workspaceId}
+        names={offer.names}
+        businessName={offer.businessName}
+        canManage={canManage}
+      />
 
       {live ? (
         <Tabs defaultValue="live">

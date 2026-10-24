@@ -32,6 +32,9 @@ export const MAIN_OFFER_LIMITS = {
   inAFewWords: 120,
   /** The owner's direction for the whole offer. */
   direction: 2000,
+  /** The names the business goes by on people's profiles, and how long each may be. */
+  names: 5,
+  name: 100,
   /** A note to the AI on one part, for the next try. */
   note: 500,
 } as const;
@@ -396,3 +399,18 @@ export function partSays(parts: MainOfferParts, part: ScoredPart): string {
       return join(parts.price.amount, parts.price.value);
   }
 }
+
+/**
+ * The names the business goes by on people's profiles (docs/outreach.md, decision 84): each once, whatever its case,
+ * in the order given.
+ */
+export function cleanNames(names: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return names
+    .map((n) => n.replace(/\s+/g, ' ').trim())
+    .filter((n) => n && !seen.has(n.toLowerCase()) && seen.add(n.toLowerCase()));
+}
+
+/** The names the business goes by: those saved, else its name in HandsFreeOS. */
+export const namesGoneBy = (saved: readonly string[], businessName: string): string[] =>
+  saved.length ? cleanNames(saved) : cleanNames([businessName]);
