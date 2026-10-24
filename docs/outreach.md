@@ -1900,7 +1900,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **When we can't tell**, a setting: Let them through, Ask me (to start) or Skip them. It covers only a name to go
       on, the AI not sure, and a profile and friends that disagree where the setting cares. Ask me puts them on the
       Not sure list for a person's Let through or Skip.
-    - **Everyone skipped before** (migration 20261027011500, applied once this code is running): a country seen until then could have been a From line, so
+    - **Everyone skipped before** (migration 20261027012100, applied once this code is running): a country seen until then could have been a From line, so
       each counts as From and waits for a look where the setting would skip it. Someone whose profile says they live in
       the countries reached is reached without a look; a later check of them can still find their friends elsewhere.
 

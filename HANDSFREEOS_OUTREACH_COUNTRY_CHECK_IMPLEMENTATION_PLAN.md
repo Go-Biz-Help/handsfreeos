@@ -156,7 +156,7 @@ The add-on's settings: `countries.unsure` takes `through`, `ask` (to start) or `
 (`CountryRule`).
 
 What was kept before: every country `seen` until now counts as `from`, since it could have been a From line or the
-AI's word for one (`20261027011500_outreach_seen_counts_as_from.sql`, applied once this code is running: the code
+AI's word for one (`20261027012100_outreach_seen_counts_as_from.sql`, applied once this code is running: the code
 before it refuses to list a `from`).
 
 ## Operations
