@@ -12,6 +12,7 @@ import type { AskResult } from '@hfos/core/addons/outreach/asks';
 import { CHECK_PACE_SECONDS, RESEARCH_WORDS } from '@hfos/core/addons/outreach/checks';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import type { ChecksNext } from '../../hfos/messages';
+import { line } from '../../networks/facebook/lookup';
 import type { Account, InstagramProfile } from '../../networks/instagram/read';
 import { instagramUrl, profileOf } from '../../networks/instagram/urls';
 import { counted } from '../../words';
@@ -34,7 +35,10 @@ export function accountIn(url: string | null): Account | null {
 export const isTheirs = (shown: Pick<InstagramProfile, 'username'>, want: Account): boolean =>
   shown.username.toLowerCase() === want.username.toLowerCase();
 
-/** What their account's header and grid say about them, as lines for the AI. */
+/**
+ * What their account's header and grid say about them, as lines for the AI, each cut to what HandsFreeOS takes
+ * (LinkedIn's way): a bio line or a picture's description can run long, and one too long turns the whole check away.
+ */
 export function profileLines(profile: InstagramProfile): string[] {
   return [
     profile.name ? `${profile.name} (@${profile.username})` : `@${profile.username}`,
@@ -44,7 +48,9 @@ export function profileLines(profile: InstagramProfile): string[] {
       .filter((p): p is string => !!p)
       .slice(0, POST_LINES)
       .map((p) => `A post: ${p}`),
-  ].filter((line): line is string => !!line);
+  ]
+    .filter((l): l is string => !!l)
+    .map((l) => line(l));
 }
 
 /**
