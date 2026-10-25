@@ -6352,6 +6352,8 @@ export const formResponses = app.table('form_responses', {
   atPageId: text('at_page_id'),
   /** The pages already marked stopped, each once. */
   stoppedPages: textArray('stopped_pages'),
+  /** The `ref` its link was opened with, for a time booked on it (20261027012200). */
+  linkRef: text('link_ref'),
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),

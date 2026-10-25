@@ -122,6 +122,7 @@ const READABLE_SHEET = {
   resultId: formResponses.resultId,
   onePerPerson: formResponses.onePerPerson,
   formLinkId: formResponses.formLinkId,
+  linkRef: formResponses.linkRef,
   startedAt: formResponses.startedAt,
   completedAt: formResponses.completedAt,
 } as const;
@@ -307,6 +308,12 @@ export const formResponseStart = defineCommand({
               and form_link_id is not null
             order by started_at desc limit 1`,
       );
+      // The sheet keeps the first `ref` it was opened with.
+      if (open && input.linkRef)
+        await ctx.tx
+          .update(formResponses)
+          .set({ linkRef: dsql`coalesce(${formResponses.linkRef}, ${input.linkRef})` })
+          .where(eq(formResponses.id, open.id));
       if (open)
         return {
           responseId: open.id,
@@ -341,6 +348,7 @@ export const formResponseStart = defineCommand({
           : new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
         personId: link?.personId ?? null,
         formLinkId: link?.id ?? null,
+        linkRef: input.linkRef ?? null,
         lastActiveAt: new Date(),
       })
       .returning({ id: formResponses.id });
@@ -849,6 +857,8 @@ async function bookTheTime(
     readonly leadId: string | null;
     readonly responseId: string;
     readonly smsConsent: boolean;
+    /** The `ref` the sheet was opened with: the booking keeps it, as a booking page's does. */
+    readonly linkRef: string | null;
   },
 ): Promise<void> {
   const ws = ctx.scope.workspaceId!;
@@ -887,6 +897,7 @@ async function bookTheTime(
           email: person.email,
         },
         smsConsent: args.smsConsent,
+        linkRef: args.linkRef,
         clientId: `form:${args.responseId}`,
         leadId: args.leadId,
         throughForm: true,
@@ -1052,6 +1063,7 @@ export const formResponseSubmit = defineCommand({
         leadId,
         responseId: response.id,
         smsConsent: input.smsConsent,
+        linkRef: response.linkRef,
       });
 
     // ---- What they owe ----

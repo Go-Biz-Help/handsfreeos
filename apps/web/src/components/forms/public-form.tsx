@@ -66,6 +66,7 @@ export function PublicForm({
   offers = null,
   resumed,
   personal = null,
+  linkRef = null,
 }: {
   site: string;
   slug: string;
@@ -80,6 +81,8 @@ export function PublicForm({
   offers?: { title: string; detail: string } | null;
   resumed: { responseId: string; token: string; answers: AnswerSheet } | null;
   personal?: PersonalLink | null;
+  /** The `ref` the page was opened with: the sheet keeps it, and so does a time booked on it. */
+  linkRef?: string | null;
 }) {
   const [answers, setAnswers] = useState<AnswerSheet>(resumed?.answers ?? {});
   const [sheet, setSheet] = useState<{ responseId: string; token: string } | null>(
@@ -149,6 +152,7 @@ export function PublicForm({
       website,
       source: 'link',
       ...(personal ? { key: personal.key } : {}),
+      ...(linkRef ? { ref: linkRef } : {}),
     }).then((s) => {
       const opened = { responseId: s.responseId, token: s.token };
       setSheet(opened);

@@ -108,7 +108,7 @@ export const getPublicForm = (site: string, slug: string) =>
 export const startSheet = (
   site: string,
   slug: string,
-  body: { website?: string; source?: 'link' | 'embed' | 'qr'; key?: string },
+  body: { website?: string; source?: 'link' | 'embed' | 'qr'; key?: string; ref?: string },
 ) => post<StartedSheet>(`${formPath(site, slug)}/start`, body);
 
 export const saveSheet = (

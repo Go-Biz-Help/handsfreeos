@@ -356,4 +356,19 @@ describe('coming back to one', () => {
     expect(body.answers[qid('name')]).toBe('Half done');
     expect((await get(w, formUrl('/resume/not-a-real-token'))).statusCode).toBe(404);
   });
+
+  it('keeps the ref the page was opened with on the sheet, and leaves anything else off', async () => {
+    const refOf = async (ref: string) => {
+      const started = (await post(w, formUrl('/start'), { ref }).then((r) => r.json())) as {
+        responseId: string;
+      };
+      const [row] = await rows<{ link_ref: string | null }>(
+        admin(),
+        sql`select link_ref from app.form_responses where id = ${started.responseId}`,
+      );
+      return row?.link_ref;
+    };
+    expect(await refOf('or-demo_Abc123')).toBe('or-demo_Abc123');
+    expect(await refOf('not a ref!')).toBeNull();
+  });
 });
