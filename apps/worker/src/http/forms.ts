@@ -19,6 +19,7 @@ import {
   formResponseSubmit,
   HfosError,
   knownTargetsOf,
+  linkRefOf,
   loadCalendar,
   openTimes,
   parseStoredForm,
@@ -69,6 +70,8 @@ const StartBody = z.object({
   source: z.enum(['link', 'embed', 'qr']).default('link'),
   /** A personal link's key (`?k=`), which says who the sheet is for. */
   key: z.string().min(20).max(200).optional(),
+  /** The `ref` the page was opened with (`?ref=`): a time booked on it keeps it, as a booking page's does. */
+  ref: z.string().max(200).nullable().optional(),
 });
 
 const SaveBody = z.object({
@@ -259,6 +262,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             source: body.source,
             visitorHash: null,
             ...(body.key ? { personalKey: body.key } : {}),
+            ...(linkRefOf(body.ref) ? { linkRef: linkRefOf(body.ref)! } : {}),
           },
           { type: 'system', ...scope },
           meta(),

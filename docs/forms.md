@@ -137,6 +137,11 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
   `appointment.book_online`, so the confirmation, the video link and the reminders are the calendar's. The booking
   joins the form's lead rather than opening another (`leadId`), and a form can book a calendar whose booking page
   is off (`throughForm`): a presentation booked only through its funnel.
+- **The link's `ref` goes on the booking.** A form opened with `?ref=` (a Social Outreach demo link, or a partner's)
+  keeps it on the sheet when it starts (`form_responses.link_ref`, 20261027012200), so it holds when they stop
+  partway and come back on another link. The time booked on it keeps it on the booking
+  (`appointment_attendees.link_ref`), as a booking page does, so the demo or the partner's referral counts by itself.
+  Anything that isn't a ref a booking keeps (`linkRefOf`) is left off.
 - **A session that filled up meanwhile** refuses the whole send with `form_booking_taken` (the time in words, and
   the question in `details`), so nothing is half done; the page clears the pick and reads the times again.
 - **Stopped partway.** Shown one page at a time, each save carries the page they're on (`at_page_id`,

@@ -1,3 +1,4 @@
+import { linkRefOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { PublicFrame } from '@/components/booking/public-shell';
 import { PublicForm } from '@/components/forms/public-form';
@@ -19,17 +20,18 @@ export async function generateMetadata({
 
 /**
  * A form as a customer fills it in: /f/<business>/<form>. Signed out, served by the worker, and never the
- * draft — only what was published.
+ * draft — only what was published. `?ref=` is kept on the sheet, and on a time booked on it, for whoever's link it
+ * was (a Social Outreach demo link, docs/outreach.md decision 24).
  */
 export default async function PublicFormPage({
   params,
   searchParams,
 }: {
   params: Promise<{ site: string; slug: string }>;
-  searchParams: Promise<{ resume?: string; embed?: string; k?: string }>;
+  searchParams: Promise<{ resume?: string; embed?: string; k?: string; ref?: string }>;
 }) {
   const { site, slug } = await params;
-  const { resume, embed, k } = await searchParams;
+  const { resume, embed, k, ref } = await searchParams;
   const page = await formPageData(getPublicForm(site, slug));
   // Their own link (funnels): who to greet and what not to ask again. A link that ran out opens the plain form.
   const personal = k
@@ -68,6 +70,7 @@ export default async function PublicFormPage({
           ? { key: personal.key, firstName: personal.firstName, known: personal.known }
           : null
       }
+      linkRef={linkRefOf(ref)}
     />
   );
   // Embedded on the business's own site: no frame of ours around it, and no padding fighting theirs.

@@ -8,7 +8,15 @@ import { randomUUID } from 'node:crypto';
 import { demoRef, partnerRef } from '@hfos/core/addons/outreach/demos';
 import { nextWeekly } from '@hfos/core/addons/outreach/results';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
-import { pushDeviceRegister } from '@hfos/core/server';
+import {
+  formCreate,
+  formPublish,
+  formResponseStart,
+  formResponseSubmit,
+  formSaveDraft,
+  pushDeviceRegister,
+  sessionPublish,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -18,6 +26,7 @@ import {
   makeCalendar,
   nextWeekday,
   run,
+  runSystem,
   setupTeam,
 } from '../../../packages/core/test/calendar-helpers';
 import {
@@ -488,6 +497,133 @@ describe('the demo link', () => {
         how: 'link',
         appointment_id: booked.appointmentId,
         person_id: booked.personId,
+      },
+    ]);
+  }, 90_000);
+});
+
+describe('the demo link to a form that books a time', () => {
+  it('counts the time booked on the form as a demo, by itself', async () => {
+    const s = testServices();
+    const t = await setupTeam('outreach-demo-form');
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${t.wsId}, 'outreach', 'enabled', '0.5.0')`,
+    );
+    await runAs(
+      t.owner,
+      t.wsId,
+      'outreach.touch.save',
+      { kind: 'message', profile: fb('rae.c'), name: 'Rae Collins' },
+      new Date(Date.now() - MIN),
+    );
+    const [rae] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.profiles where workspace_id = ${t.wsId} and username = 'rae.c'`,
+    );
+    // A recruiting page: their name, their phone, and a presentation to pick.
+    const cal = await makeCalendar(t, 'Live presentation', {
+      public: false,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      capacity: { seats: 10 },
+    });
+    const startsAt = isoAt(nextWeekday(2, 7), '10:00');
+    const session = await run(
+      sessionPublish,
+      { workspaceId: t.wsId, calendarId: cal.id, startsAt, userIds: [t.owner.id] },
+      t.owner,
+    );
+    const created = await run(formCreate, { workspaceId: t.wsId, name: 'Join the team' }, t.owner);
+    const [form] = await rows<{ definition: { pages: { id: string }[] } }>(
+      admin(),
+      sql`select definition from app.forms where id = ${created.formId}`,
+    );
+    const pageId = form!.definition.pages[0]!.id;
+    const add = (question: Record<string, unknown>) => ({
+      op: 'add_question',
+      pageId,
+      index: null,
+      question,
+    });
+    const saved = await run(
+      formSaveDraft,
+      {
+        workspaceId: t.wsId,
+        formId: created.formId,
+        baseRevision: created.revision,
+        ops: [
+          add({
+            id: 'q_name0000',
+            type: 'short_text',
+            title: 'Your name',
+            required: true,
+            mapTo: 'person.first_name',
+            config: {},
+          }),
+          add({
+            id: 'q_phone000',
+            type: 'phone',
+            title: 'Your phone',
+            mapTo: 'person.phone',
+            config: {},
+          }),
+          add({
+            id: 'q_when0000',
+            type: 'booking',
+            title: 'Pick a presentation',
+            required: true,
+            config: { calendarId: cal.id },
+          }),
+        ],
+      },
+      t.owner,
+    );
+    await run(
+      formPublish,
+      { workspaceId: t.wsId, formId: created.formId, baseRevision: saved.revision },
+      t.owner,
+    );
+    // Opened from Rae's demo link.
+    const started = await runSystem(
+      formResponseStart,
+      {
+        workspaceId: t.wsId,
+        formId: created.formId,
+        source: 'link',
+        linkRef: demoRef(t.owner.id, rae!.id),
+      },
+      t.scope,
+    );
+    const sent = await runSystem(
+      formResponseSubmit,
+      {
+        workspaceId: t.wsId,
+        responseId: started.responseId,
+        token: started.token,
+        answers: {
+          q_name0000: 'Rae',
+          q_phone000: '(512) 555-0611',
+          q_when0000: { startsAt, sessionId: session.appointmentId, label: 'Tuesday' },
+        },
+      },
+      t.scope,
+    );
+    await drain(s, t.wsId);
+    expect(
+      await rows(
+        admin(),
+        sql`select user_id, profile_id, how, appointment_id, person_id from addon_outreach.demos
+            where workspace_id = ${t.wsId}`,
+      ),
+    ).toEqual([
+      {
+        user_id: t.owner.id,
+        profile_id: rae!.id,
+        how: 'link',
+        appointment_id: session.appointmentId,
+        person_id: sent.personId,
       },
     ]);
   }, 90_000);

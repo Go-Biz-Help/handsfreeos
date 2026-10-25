@@ -105,10 +105,21 @@ async function bookingForm(): Promise<string> {
   return created.formId;
 }
 
-const send = async (formId: string, name: string, phone: string) => {
+const send = async (
+  formId: string,
+  name: string,
+  phone: string,
+  opts: { readonly linkRef?: string; readonly at?: { startsAt: string; sessionId: string } } = {},
+) => {
+  const at = opts.at ?? { startsAt, sessionId };
   const started = await runSystem(
     formResponseStart,
-    { workspaceId: t.wsId, formId, source: 'link' },
+    {
+      workspaceId: t.wsId,
+      formId,
+      source: 'link',
+      ...(opts.linkRef ? { linkRef: opts.linkRef } : {}),
+    },
     t.scope,
   );
   const submit = () =>
@@ -122,7 +133,7 @@ const send = async (formId: string, name: string, phone: string) => {
           [qid('name')]: name,
           [qid('phone')]: phone,
           // The page's words for the time; the server writes its own.
-          [qid('when')]: { startsAt, sessionId, label: 'whatever the page said' },
+          [qid('when')]: { ...at, label: 'whatever the page said' },
         },
       },
       t.scope,
@@ -149,6 +160,39 @@ describe('a form that books a time', () => {
       .where(eq(formAnswers.responseId, started.responseId));
     const when = answers.find((a) => a.questionId === qid('when'))!;
     expect(when.textValue).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2} · 10:00 am$/);
+  });
+
+  it('keeps the ref its link was opened with on the booking, as the booking page does', async () => {
+    const formId = await bookingForm();
+    const later = isoAt(nextWeekday(4, 7), '10:00');
+    const session = await run(
+      sessionPublish,
+      { workspaceId: t.wsId, calendarId, startsAt: later, userIds: [t.owner.id] },
+      t.owner,
+    );
+    const at = { startsAt: later, sessionId: session.appointmentId };
+    const { submit } = await send(formId, 'Rae', '(512) 555-0503', {
+      linkRef: 'or-demo_Abc123',
+      at,
+    });
+    const sent = await submit();
+    expect(
+      await rows(
+        admin(),
+        sql`select link_ref from app.appointment_attendees
+            where appointment_id = ${session.appointmentId} and person_id = ${sent.personId}`,
+      ),
+    ).toEqual([{ link_ref: 'or-demo_Abc123' }]);
+    // Opened without one, the booking has none.
+    const plain = await send(formId, 'Lou', '(512) 555-0504', { at });
+    const lou = await plain.submit();
+    expect(
+      await rows(
+        admin(),
+        sql`select link_ref from app.appointment_attendees
+            where appointment_id = ${session.appointmentId} and person_id = ${lou.personId}`,
+      ),
+    ).toEqual([{ link_ref: null }]);
   });
 
   it('refuses the whole send when the session filled up, and nothing is half done', async () => {

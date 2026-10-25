@@ -354,7 +354,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   playbook's booking page for someone they reached (**Copy demo link** on Today), with a
   `ref` naming who sent it to whom and nothing else. A booking page keeps the `ref` on the booking
   (`appointment_attendees.link_ref`), and a booking through it counts as that person's demo by itself
-  (`outreach.demo.note`, from `appointment.booked`). **Demo booked** in a person's menu (Today, Friends, Chats,
+  (`outreach.demo.note`, from `appointment.booked`). So does a form that books a time, such as a recruiting page
+  sent as the playbook's link: its sheet keeps the `ref` it was opened with, and the time booked on it carries it
+  (docs/forms.md, "Booking a time"). **Demo booked** in a person's menu (Today, Friends, Chats,
   Waiting for you) marks one booked some other way (`outreach.demo.mark`, by the profile kept here).
 - **The extension on its own** (decisions 26 to 33, `automation.ts`, `ops/automation.ts`; the extension's
   `src/auto/`): each person picks, on Social Outreach's **Settings** tab (decision 37), whether the extension does their friend requests,
@@ -2520,7 +2522,7 @@ on some computers.
 
 Spotting replies reads chats the way the chat readers do now, not yet tried on the owner's account; a chat's line in
 Messenger's list counts when it doesn't start "You", so a group chat's line counts too, though only a chat with
-someone the person messaged can be a reply. The demo link counts bookings on the business's own booking pages; a link
+someone the person messaged can be a reply. The demo link counts bookings on the business's own booking pages and on its forms that book a time; a link
 to anywhere else carries the `ref` along, and only **Demo booked** counts those.
 
 Asking from the phone covers the Groups and Chats screens' buttons; the Friends tab's asks and the look-up before

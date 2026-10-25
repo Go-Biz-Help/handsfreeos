@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { FORM_MODES } from '../forms/definition';
 import { FormOpList } from '../forms/ops';
+import { LINK_REF } from './calendar';
 import { isoDateTime, uuid } from './common';
 
 export const FormModeValue = z.enum(FORM_MODES);
@@ -156,6 +157,11 @@ export const FormStartInput = z.object({
    * from that link is handed back instead of a new one, and the key writes to it.
    */
   personalKey: z.string().min(20).max(200).optional(),
+  /**
+   * The `ref` the form was opened with (`?ref=`), kept on the sheet for a time booked on it: a Social Outreach demo
+   * link's or a partner's (docs/outreach.md, decision 24). Anything else is left off.
+   */
+  linkRef: z.string().regex(LINK_REF).optional(),
 });
 export const FormStartOutput = z.object({
   responseId: uuid,
