@@ -4,8 +4,9 @@
  * card on Today while the person isn't ready, and the setup's step. Each item says what's left and opens where it's
  * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own three in a sheet here:
  * their profile, read by their computer and checked by the AI (decision 64), with bios to put in and each item to tick
- * once it's right; their messages, samples the AI writes for their playbook in their voice, to OK (decisions 65 to 67);
- * and their goal with the math worked as they change it.
+ * once it's right; their messages, samples the AI writes for their playbook in their voice, to OK (decisions 65 to 67),
+ * each to change or to have written again with a note (decision 87); and their goal with the math worked as they
+ * change it.
  *
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines up to
  * 220 characters to put in, and its whole About, each asked and ticked on LinkedIn; Instagram's its bio to put in and a
@@ -25,7 +26,16 @@ import {
   type ReadyItem,
   type ReadyState,
 } from '@hfos/core/addons/outreach/readiness';
-import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
+import {
+  isMine,
+  MESSAGE_CHIPS,
+  NO_MESSAGE_NOTES,
+  slotKey,
+  type MessageNotes,
+  type MessageSamples,
+  type SamplePart,
+  type SampleSlot,
+} from '@hfos/core/addons/outreach/conversation';
 import {
   ABOUT_MOST,
   ASK_RECOMMENDATIONS_URL,
@@ -35,7 +45,17 @@ import {
   type AnyProfileItem,
   type ProfileCheck,
 } from '@hfos/core/addons/outreach/profile-check';
-import { Check, CheckCircle2, Circle, Clock, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  Check,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Loader2,
+  PenLine,
+  RefreshCw,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -649,7 +669,8 @@ export function ProfileBody({
 /**
  * Your messages: samples the AI writes for the person's playbook, in their voice, to someone made up (the worker's
  * `outreach.messages.samples`). The first messages, the video, the link, the follow-ups in turn and a check-in, each as
- * it would read in Messenger; They read right OKs them against the main offer live now.
+ * it would read in Messenger, to change or to have written again with a note (decision 87); They read right OKs them
+ * against the main offer live now.
  */
 function MessagesSheet({
   workspaceId,
@@ -699,13 +720,22 @@ export function MessagesBody({
   const M = R.messages;
   const [samples, setSamples] = useState<MessageSamples | null>(readiness.messages.samples);
   useEffect(() => setSamples(readiness.messages.samples), [readiness.messages.samples]);
+  // An API from before decision 87 sends no notes.
+  const [notes, setNotes] = useState<MessageNotes>(readiness.messages.notes ?? NO_MESSAGE_NOTES);
+  useEffect(
+    () => setNotes(readiness.messages.notes ?? NO_MESSAGE_NOTES),
+    [readiness.messages.notes],
+  );
   const [busy, setBusy] = useState<'write' | 'ok' | null>(null);
+  // The one sample open to change, or to tell the AI what's not quite right (decision 87).
+  const [open, setOpen] = useState<{ key: string; how: 'change' | 'more' } | null>(null);
   const live = readiness.offer?.version ?? null;
   const again = readiness.items.find((i) => i.item === 'messages')?.state === 'look_again';
-  // Written for an earlier version: shown, but written again before they're OK'd.
+  // Written for an earlier version: shown, but written again before they're OK'd or changed.
   const older = samples !== null && live !== null && samples.version !== live;
   const write = async () => {
     setBusy('write');
+    setOpen(null);
     try {
       setSamples(
         await workerPost<MessageSamples>('/v1/addons/outreach/actions/outreach.messages.samples', {
@@ -736,15 +766,71 @@ export function MessagesBody({
       setBusy(null);
     }
   };
-  const bubble = (text: string, key?: string) => (
-    <p
-      key={key}
-      className="max-w-[88%] whitespace-pre-wrap rounded-[14px] bg-accent-soft px-3 py-2 text-[13.5px]"
-      data-testid="ready-message-sample"
-    >
-      {text}
-    </p>
-  );
+  // A change kept: the samples and notes as the server has them now.
+  const changed = (next: Readiness) => {
+    setSamples(next.messages.samples);
+    setNotes(next.messages.notes ?? NO_MESSAGE_NOTES);
+    setOpen(null);
+    onChange?.(next);
+  };
+  const forget = async (part: SamplePart, note: string) => {
+    try {
+      changed(
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.messages.forget', {
+            body: { workspaceId, part, note },
+          }),
+        ),
+      );
+      toast.success(M.forgot);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
+  const message = (slot: SampleSlot, text: string) => {
+    const key = slotKey(slot);
+    return (
+      <SampleMessage
+        key={key}
+        workspaceId={workspaceId}
+        slot={slot}
+        text={text}
+        mine={samples !== null && isMine(samples, slot)}
+        // Samples of an earlier main offer are written again whole first.
+        locked={older}
+        waiting={busy !== null}
+        how={older ? null : open?.key === key ? open.how : null}
+        onOpen={(how) => setOpen(how ? { key, how } : null)}
+        onSaved={changed}
+      />
+    );
+  };
+  // What they told the AI of a part, each to forget.
+  const told = (part: SamplePart) =>
+    notes[part].length ? (
+      <div
+        className="flex flex-wrap items-center gap-1.5 text-[12.5px]"
+        data-testid={`ready-message-notes-${part}`}
+      >
+        <span className="text-text-3">{M.told}</span>
+        {notes[part].map((n) => (
+          <span
+            key={n}
+            className="inline-flex items-center gap-1 rounded-full bg-card-2 py-0.5 pl-2.5 pr-1 text-text-2"
+          >
+            {n}
+            <button
+              type="button"
+              aria-label={M.forget(n)}
+              onClick={() => void forget(part, n)}
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-text-3 hover:bg-card hover:text-text"
+            >
+              <X className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+      </div>
+    ) : null;
   return (
     <>
       {samples ? (
@@ -761,6 +847,8 @@ export function MessagesBody({
         <p role="status" className="rounded-menu bg-warning-soft p-3 text-[13px] text-warning-text">
           {M.older}
         </p>
+      ) : samples ? (
+        <p className="text-[13px] text-text-2">{M.howTo}</p>
       ) : null}
       {busy === 'write' ? (
         <p className="flex items-center gap-2 text-[13px] text-text-2" role="status">
@@ -772,12 +860,16 @@ export function MessagesBody({
         <div className="divide-y divide-border" data-testid="ready-messages-samples">
           <section className="grid gap-2 pb-4">
             <h3 className="font-semibold">{M.first}</h3>
-            {samples.first.map((t) => bubble(t, t))}
+            {told('first')}
+            {samples.first.map((t, index) => message({ part: 'first', index }, t))}
           </section>
           <section className="grid gap-2 py-4">
             <h3 className="font-semibold">{M.video}</h3>
             {samples.video ? (
-              bubble(samples.video)
+              <>
+                {told('video')}
+                {message({ part: 'video', index: 0 }, samples.video)}
+              </>
             ) : (
               <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.noVideo}</p>
             )}
@@ -785,7 +877,8 @@ export function MessagesBody({
           {samples.link ? (
             <section className="grid gap-2 py-4">
               <h3 className="font-semibold">{M.link}</h3>
-              {bubble(samples.link)}
+              {told('link')}
+              {message({ part: 'link', index: 0 }, samples.link)}
             </section>
           ) : null}
           {samples.followUps.length ? (
@@ -799,12 +892,13 @@ export function MessagesBody({
                   {M.changeHowMany}
                 </Link>
               </div>
-              {samples.followUps.map((t, i) => (
-                <div key={t} className="grid gap-1">
+              {told('followUps')}
+              {samples.followUps.map((t, index) => (
+                <div key={index} className="grid gap-1">
                   <span className="text-[11.5px] tabular-nums text-text-3">
-                    {M.later(samples.followUpGaps[i] ?? 1)}
+                    {M.later(samples.followUpGaps[index] ?? 1)}
                   </span>
-                  {bubble(t)}
+                  {message({ part: 'followUps', index }, t)}
                 </div>
               ))}
             </section>
@@ -812,24 +906,30 @@ export function MessagesBody({
           {samples.checkIn ? (
             <section className="grid gap-2 pt-4">
               <h3 className="font-semibold">{M.checkIn}</h3>
-              {bubble(samples.checkIn)}
+              {told('checkIn')}
+              {message({ part: 'checkIn', index: 0 }, samples.checkIn)}
             </section>
           ) : null}
         </div>
       ) : busy !== 'write' ? (
         <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.none}</p>
       ) : null}
-      <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
-        <Button
-          variant={samples ? 'secondary' : 'primary'}
-          onClick={() => void write()}
-          loading={busy === 'write'}
-          disabled={busy !== null || live === null}
-          data-testid="ready-messages-write"
-        >
-          <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {samples ? M.again : M.write}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Button
+            variant={samples ? 'secondary' : 'primary'}
+            onClick={() => void write()}
+            loading={busy === 'write'}
+            disabled={busy !== null || live === null}
+            data-testid="ready-messages-write"
+          >
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {samples ? M.again : M.write}
+          </Button>
+          {samples?.mine?.length ? (
+            <span className="text-[12.5px] text-text-3">{M.mineStay}</span>
+          ) : null}
+        </div>
         {samples && !older ? (
           <Button
             onClick={() => void ok()}
@@ -842,6 +942,221 @@ export function MessagesBody({
         ) : null}
       </div>
     </>
+  );
+}
+
+/**
+ * One sample as it would read in Messenger, with what the person can do with it (decision 87): **Change** puts it in
+ * their own words, and **Not quite right?** tells the AI what to change, with chips and their own words, and has it
+ * written again. Either is kept for that part of their messages.
+ */
+function SampleMessage({
+  workspaceId,
+  slot,
+  text,
+  mine,
+  locked,
+  waiting,
+  how,
+  onOpen,
+  onSaved,
+}: {
+  workspaceId: string;
+  slot: SampleSlot;
+  text: string;
+  mine: boolean;
+  /** It can't be changed now: there's nothing to press. */
+  locked: boolean;
+  /** The rest are being written or OK'd: wait for that. */
+  waiting: boolean;
+  /** Open to change, or to say what's not quite right; null while shut. */
+  how: 'change' | 'more' | null;
+  onOpen: (how: 'change' | 'more' | null) => void;
+  onSaved: (next: Readiness) => void;
+}) {
+  const M = R.messages;
+  const key = slotKey(slot);
+  const [draft, setDraft] = useState(text);
+  useEffect(() => setDraft(text), [text, how]);
+  const [chips, setChips] = useState<ReadonlySet<string>>(new Set());
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      onSaved(
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.messages.edit', {
+            body: { workspaceId, part: slot.part, index: slot.index, text: draft },
+          }),
+        ),
+      );
+      toast.success(M.saved);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const rewrite = async () => {
+    setBusy(true);
+    try {
+      const next = await workerPost<Readiness>(
+        '/v1/addons/outreach/actions/outreach.messages.rewrite',
+        {
+          workspaceId,
+          input: { part: slot.part, index: slot.index, chips: [...chips], note },
+        },
+      );
+      setChips(new Set());
+      setNote('');
+      onSaved(next);
+      // Still open, to try again in one press.
+      onOpen('more');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const link =
+    'font-medium text-accent-text hover:underline disabled:cursor-not-allowed disabled:opacity-50';
+  const off = busy || waiting;
+  return (
+    <div className="grid gap-1.5" data-testid="ready-message" data-slot={key}>
+      {how === 'change' ? (
+        <div className="grid max-w-[88%] gap-2">
+          <label className="sr-only" htmlFor={`message-${key}`}>
+            {M.change}
+          </label>
+          <textarea
+            id={`message-${key}`}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={Math.min(8, Math.max(3, Math.ceil(draft.length / 60)))}
+            maxLength={600}
+            className="w-full rounded-[14px] border border-border-strong bg-card p-3 text-[13.5px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+            data-testid="ready-message-text"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={() => void save()}
+              loading={busy}
+              disabled={off || !draft.trim() || draft.trim() === text}
+              data-testid="ready-message-save"
+            >
+              {M.save}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onOpen(null)} disabled={busy}>
+              {M.cancel}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p
+          className="max-w-[88%] whitespace-pre-wrap rounded-[14px] bg-accent-soft px-3 py-2 text-[13.5px]"
+          data-testid="ready-message-sample"
+        >
+          {text}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
+        {mine ? (
+          <span
+            className="inline-flex items-center gap-1 text-text-3"
+            data-testid="ready-message-mine"
+          >
+            <PenLine className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+            {M.yours}
+          </span>
+        ) : null}
+        {!locked && how !== 'change' ? (
+          <button
+            type="button"
+            className={link}
+            onClick={() => onOpen('change')}
+            disabled={off}
+            data-testid="ready-message-change"
+          >
+            {M.change}
+          </button>
+        ) : null}
+        {!locked ? (
+          <button
+            type="button"
+            className={link}
+            aria-expanded={how === 'more'}
+            onClick={() => onOpen(how === 'more' ? null : 'more')}
+            disabled={off}
+            data-testid="ready-message-more"
+          >
+            {M.notQuite}
+          </button>
+        ) : null}
+      </div>
+      {how === 'more' ? (
+        <div
+          className="grid max-w-[88%] gap-2.5 rounded-menu border border-border bg-card-2 p-3"
+          data-testid="ready-message-more-panel"
+        >
+          <p className="text-[13px] font-semibold">{M.what}</p>
+          <div className="flex flex-wrap gap-2">
+            {MESSAGE_CHIPS[slot.part].map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={chips.has(c)}
+                onClick={() =>
+                  setChips((was) => {
+                    const next = new Set(was);
+                    if (next.has(c)) next.delete(c);
+                    else next.add(c);
+                    return next;
+                  })
+                }
+                className={cn(
+                  'h-8 rounded-full border px-3 text-[13px] font-medium',
+                  chips.has(c)
+                    ? 'border-accent bg-accent-soft text-accent-text'
+                    : 'border-border-strong bg-card text-text-2 hover:bg-card-2',
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <label className="text-[13px] font-medium" htmlFor={`message-note-${key}`}>
+            {M.yourWords}
+          </label>
+          <textarea
+            id={`message-note-${key}`}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            maxLength={300}
+            placeholder={M.placeholder}
+            className="w-full rounded-control border border-border-strong bg-card p-2.5 text-[14px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+            data-testid="ready-message-note"
+          />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button
+              size="sm"
+              onClick={() => void rewrite()}
+              loading={busy}
+              disabled={off}
+              data-testid="ready-message-rewrite"
+            >
+              <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {M.rewrite}
+            </Button>
+            <span className="text-[12.5px] text-text-3" role={busy ? 'status' : undefined}>
+              {busy ? M.rewriting : M.kept(slot.part)}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

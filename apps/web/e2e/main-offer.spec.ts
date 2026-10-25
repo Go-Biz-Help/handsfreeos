@@ -319,6 +319,25 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(samples).toContainText('If they go quiet: 6 follow-ups');
   await expect(samples).toContainText('If they say yes: the video');
   await expect(samples).toContainText('[video link]');
+  // Each can be put in their own words, or written again with a note on what's not quite right (decision 87).
+  const followUp = messages.locator('[data-testid="ready-message"][data-slot="followUps.1"]');
+  await followUp.getByTestId('ready-message-change').click();
+  await followUp
+    .getByTestId('ready-message-text')
+    .fill('No rush at all, just say if now’s not good.');
+  await followUp.getByTestId('ready-message-save').click();
+  await expect(followUp.getByTestId('ready-message-sample')).toHaveText(
+    'No rush at all, just say if now’s not good.',
+  );
+  await expect(followUp.getByTestId('ready-message-mine')).toBeVisible();
+  const first = messages.locator('[data-testid="ready-message"][data-slot="first.0"]');
+  await first.getByTestId('ready-message-more').click();
+  await first.getByRole('button', { name: 'Shorter' }).click();
+  await first.getByTestId('ready-message-rewrite').click();
+  await expect(first.getByTestId('ready-message-sample')).toHaveText(
+    'Written again, one first message, Shorter.',
+  );
+  await expect(messages.getByTestId('ready-message-notes-first')).toContainText('Shorter.');
   await messages.getByTestId('ready-messages-ok').click();
   await expect(ready.getByTestId('ready-messages')).toHaveAttribute('data-state', 'done');
 

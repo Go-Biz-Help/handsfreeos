@@ -48,6 +48,7 @@ import {
   CONVERSATION_STEPS,
   type Answer,
   type ConversationStep,
+  type OwnWords,
 } from './conversation';
 import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
@@ -542,6 +543,11 @@ export function todayDraftPrompt(input: {
   readonly platform?: Platform;
   /** A first message to someone's Requests, on a follow network (`TodayItem.requests`): one short text, no link. */
   readonly requests?: boolean;
+  /**
+   * What the person said they want of this part of their messages, and what they wrote of it, in Your messages
+   * (decision 87; ./conversation.ts `ownWordsFor`).
+   */
+  readonly own?: OwnWords | null;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
@@ -628,6 +634,7 @@ export function todayDraftPrompt(input: {
     input.opener?.kind === 'style'
       ? `Write the line about them this way: ${quoteData(input.opener.text)}`
       : null,
+    ...ownLines(input.own ?? null, requests),
     voiceLines(voice, texts),
     texts && input.kind !== 'opener'
       ? gapLine(input.lastAt ?? lastOf(input.recent), input.now ?? Date.now(), {
@@ -642,6 +649,30 @@ export function todayDraftPrompt(input: {
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+/**
+ * What a draft is told of the person's own say on its part of their messages (decision 87): their notes, and the
+ * message they wrote of it themselves. A message to someone's Requests is one short text with no link, so what they
+ * wrote isn't kept close to there; their notes still are.
+ */
+function ownLines(own: OwnWords | null, requests: boolean): string[] {
+  if (!own) return [];
+  const examples = requests ? [] : own.examples;
+  return [
+    ...(own.notes.length
+      ? [
+          `<owner_notes>\n${quoteData(own.notes.map((n) => `- ${n}`).join('\n'))}\n</owner_notes>`,
+          'Under <owner_notes> is what the owner said they want of this message, the latest last. Follow it, keeping to the playbook and the offer’s words, with the latest winning where two disagree.',
+        ]
+      : []),
+    ...(examples.length
+      ? [
+          `<owner_example>\n${quoteData(examples.map((e) => `- ${e}`).join('\n'))}\n</owner_example>`,
+          `The owner wrote ${examples.length > 1 ? 'these messages' : 'this message'} themselves, under <owner_example>. Keep each draft close to ${examples.length > 1 ? 'one of them' : 'it'}: its words, its length and its order, fitted to this person and what you know of them. Where it and the offer’s words differ, the offer’s words win.`,
+        ]
+      : []),
+  ];
 }
 
 /** For a reply: whether it's simple enough to go on its own with Replies (b) (decision 27). */

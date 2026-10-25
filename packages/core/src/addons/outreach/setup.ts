@@ -888,7 +888,8 @@ export const SETUP_WORDS = {
   rulesChoices: 'Choices',
   rulesChoicesAbout:
     'Everyone may pick any choice, from doing it all themselves to everything on its own.',
-  rulesLimits: 'On Facebook, a day',
+  /** Each network the business uses has its own limits, in its own words. */
+  rulesLimits: (network: string) => `On ${network}, a day`,
   rulesNetworks: 'Networks',
   rulesNetworksAbout: (names: readonly string[]) =>
     `Everyone may turn on ${andWords(names)}. Each has its own safe limits.`,

@@ -282,6 +282,66 @@ describe('your messages, written by the AI', () => {
     );
     expect(kept!.message_samples).toEqual(got);
   });
+
+  const rewrite = async (u: TestUser, input: Record<string, unknown>) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.messages.rewrite',
+      headers: { authorization: `Bearer ${await signInTestUser(u)}` },
+      payload: { workspaceId: ws, input },
+    });
+
+  it('writes one again with the person’s note, keeps the note for its part, and keeps their own when written again (decision 87)', async () => {
+    const res = await rewrite(owner, {
+      part: 'followUps',
+      index: 2,
+      chips: ['Less pushy'],
+      note: 'say my name',
+    });
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    expect(got.messages.samples.followUps[2]).toBe(
+      'Written again, follow-up 3, Less pushy. say my name.',
+    );
+    expect(got.messages.notes.followUps).toEqual(['Less pushy. say my name.']);
+    // Again, unlike the last: the note is kept once.
+    const again = (await rewrite(owner, { part: 'followUps', index: 2 })).json();
+    expect(again.messages.samples.followUps[2]).toBe(
+      'Written again, follow-up 3, Less pushy. say my name, once more.',
+    );
+    expect(again.messages.notes.followUps).toEqual(['Less pushy. say my name.']);
+
+    // One in their own words stays as they wrote it when the rest are written again.
+    await rows(
+      testDbs().admin.db,
+      sql`update addon_outreach.setup
+          set message_samples = jsonb_set(jsonb_set(message_samples, '{followUps,0}', '"Mine, as I wrote it."'),
+            '{mine}', '["followUps.0"]')
+          where workspace_id = ${ws} and user_id = ${owner.id}`,
+    );
+    const written = (await samples(owner)).json();
+    expect(written.followUps[0]).toBe('Mine, as I wrote it.');
+    expect(written.followUps[1]).toBe('Follow-up 2: just checking in.');
+    expect(written.mine).toEqual(['followUps.0']);
+  });
+
+  it('writes one again only of the samples there are, for the main offer live now', async () => {
+    expect((await rewrite(owner, { part: 'video' })).json().error.rule).toBe(
+      'outreach_message_gone',
+    );
+    expect((await rewrite(member, { part: 'first' })).json().error.rule).toBe(
+      'outreach_messages_unseen',
+    );
+    // A new version of the main offer: these are written again whole first.
+    await rows(
+      testDbs().admin.db,
+      sql`update addon_outreach.setup set message_samples = jsonb_set(message_samples, '{version}', '7')
+          where workspace_id = ${ws} and user_id = ${owner.id}`,
+    );
+    const older = await rewrite(owner, { part: 'first' });
+    expect(older.statusCode).toBe(409);
+    expect(older.json().error.rule).toBe('outreach_messages_older');
+  });
 });
 
 describe('the short video’s script, written by the AI', () => {
