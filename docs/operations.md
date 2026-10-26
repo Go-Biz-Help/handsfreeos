@@ -6928,6 +6928,8 @@ Three it can do that are worth knowing about, because they cost money or cannot 
 
 The rest it can do too, each on a card that waits for **Confirm** (the owner's decision, 2026-10-26: the Assistant does whatever the person can): the main offer, from any box to putting a version live; turning add-ons on and off, adding and uninstalling them; bringing something back from the **Deleted bin**; how partners are paid and each partner; and **Settings** → **Safety**. Re-engaging dead leads the first time shows its message on the card, and **Confirm** counts as **Looks good, turn on**. It still never deletes anything for good, empties the bin or deletes an add-on's data: those stay the person's, on the page.
 
+It can also see whatever the person can see. Every query a screen on the web or the phone loads that its own tools don't read is a look-up of its own (`read_<query>`, from `packages/core/src/assistant/screen-reads.ts`), run as the person, so it sees exactly what they would and never more. They wait behind tool search like the rest. `apps/worker/test/assistant-screen-reads.test.ts` fails when a new screen loads a query that isn't covered; add it to `SCREEN_READS`, or to `NOT_FOR_THE_ASSISTANT` with the reason.
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:

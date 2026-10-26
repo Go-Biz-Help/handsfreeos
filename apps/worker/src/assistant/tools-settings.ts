@@ -150,7 +150,11 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
       }),
     },
   ],
-  email: [{ name: 'email.setup_status', as: 'email' }],
+  email: [
+    { name: 'email.setup_status', as: 'email' },
+    { name: 'email_sender_rule.list', as: 'senderRules' },
+    { name: 'email_suppression.list', as: 'blockedAddresses' },
+  ],
   website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
   facebook_instagram: [{ name: 'meta_account.list', as: 'facebookInstagram' }],
   templates: [{ name: 'template.list', as: 'templates' }],
@@ -162,6 +166,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   products: [{ name: 'product.list', as: 'products' }],
   partners: [
     { name: 'partners.settings', as: 'partners' },
+    { name: 'partner.payouts', as: 'payouts' },
     {
       name: 'partner.list',
       as: 'partnerList',
@@ -190,7 +195,12 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
         })),
     },
   ],
-  usage: [{ name: 'wallet.get', as: 'balance' }],
+  usage: [
+    { name: 'wallet.get', as: 'balance' },
+    { name: 'usage.prices', as: 'prices' },
+    { name: 'usage.statement', as: 'statement' },
+    { name: 'founding.mine', as: 'founding' },
+  ],
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
@@ -210,7 +220,21 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
         ).map((d) => ({ phone: d.deviceName ?? d.platform, lastSeenAt: d.lastSeenAt })),
     },
   ],
-  my_calendar: [{ name: 'schedule.team', as: 'schedules' }],
+  my_calendar: [
+    { name: 'schedule.team', as: 'schedules' },
+    // The calendars and meeting accounts they connected, as Settings → My calendar lists them.
+    {
+      name: 'calendar_connection.list',
+      as: 'connectedCalendars',
+      input: (ctx) => ({ userId: ctx.actor.userId }),
+    },
+    {
+      name: 'meeting_connection.list',
+      as: 'meetingAccounts',
+      input: (ctx) => ({ userId: ctx.actor.userId }),
+    },
+    { name: 'live_meeting_account.mine', as: 'liveMeetings' },
+  ],
   // Check-ins (round six): the business's times and safety person; never anyone's contacts.
   safety: [{ name: 'safety.settings', as: 'safety' }],
   imports: [{ name: 'import.list', as: 'imports' }],

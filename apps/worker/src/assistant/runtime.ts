@@ -14,6 +14,7 @@ import {
   addonToolArguments,
   addonToolDescription,
   isAddonAiTool,
+  isScreenReadTool,
   toolInputSchema,
   type AddonAiTool,
   type AssistantCard,
@@ -41,6 +42,7 @@ import {
   isAddonActionTool,
   type AddonActionTool,
 } from './tools-addons';
+import { screenReadStep } from './tools-screen-reads';
 import { billingStepLabels } from './tools-billing';
 import { contentStepLabels } from './tools-content';
 import { extraStepLabels } from './tools-extra';
@@ -274,7 +276,9 @@ const stepLabel = (tool: OfferedTool) =>
     ? addonToolStep(tool)
     : isAddonActionTool(tool)
       ? addonActionStep(tool)
-      : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
+      : isScreenReadTool(tool)
+        ? screenReadStep(tool)
+        : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
 
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {

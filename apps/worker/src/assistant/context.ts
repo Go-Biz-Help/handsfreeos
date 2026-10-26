@@ -29,6 +29,7 @@ import { atLabel, joinAnd, rangeLabel } from './calendar-format';
 import type { PromptContext } from './prompt';
 import type { OfferedTool } from './runtime';
 import { addonActionTools } from './tools-addons';
+import { screenReadToolsFor } from './tools-screen-reads';
 
 export interface PageRecord {
   readonly type:
@@ -363,6 +364,8 @@ export async function questionContext(
     timezone: workspace.timezone,
     tools: [
       ...toolsFor((p) => holds(workspace, p)),
+      // What the person's screens show that the tools above don't read: each screen's query, as a look-up.
+      ...screenReadToolsFor((p) => holds(workspace, p)),
       // Only add-ons running here, only what the person may do in them; always last, in the modules' order.
       ...addonAiTools(addons.modules ?? ADDON_SERVER_MODULES, {
         active: workspace.addons,
