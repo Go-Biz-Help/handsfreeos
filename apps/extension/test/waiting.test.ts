@@ -59,6 +59,7 @@ function need(name: string, why: string): WaitingItem {
       profileId: uuid(),
       postId: null,
       sendId: null,
+      platform: 'facebook',
       name,
       url: null,
       why,
@@ -174,7 +175,7 @@ describe('the pop-ups', () => {
     const each = popUpsFor({ list: listOf(three, 'each'), told: [], lastAt: null, now: saturday });
     expect(each.show.map((p) => p.title)).toEqual([
       'Dana Reyes: a message waits for your OK',
-      'Eli Brook: the extension needs you',
+      'Eli Brook: the extension needs you on Facebook',
       'Sam Lee: a message waits for your OK',
     ]);
     expect(each.show[1]!.message).toBe(

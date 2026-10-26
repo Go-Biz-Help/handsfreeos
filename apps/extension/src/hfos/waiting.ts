@@ -102,7 +102,8 @@ function popUpOf(item: Nudge): PopUp {
       ? handOverPushWords(item.send.name, item.send.needsYou)
       : item.kind === 'message'
         ? eachPushWords('message', item.send.name)
-        : eachPushWords('need', item.need.name, item.need.why);
+        : // A step handed over says its network, as the phone's push does: "… needs you on Alignable".
+          eachPushWords('need', item.need.name, item.need.why, item.need.platform);
   return { id, title: words.title, message: words.body };
 }
 
