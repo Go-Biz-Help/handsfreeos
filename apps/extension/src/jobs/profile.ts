@@ -7,18 +7,19 @@
  *   keeps only the AI's answer; what the page said goes no further.
  * - **Put this one in**, **Put these in** (`profile_edit`): the bio they picked, by **Edit bio**, or, on October 2026's
  *   profile that has none, on the About tab's editor **Edit profile** leads to; each new link on Contact and basic
- *   info, where **Edit links** leads (src/networks/facebook/links.ts); and the username they picked, on Accounts
- *   Center's username page for their Facebook profile (src/networks/facebook/username.ts). Then the profile is read
- *   again for a new check, and for the new username in its address (decision 89).
+ *   info, where **Edit links** leads (src/networks/facebook/links.ts); and the username and the name they picked, on
+ *   Accounts Center's username and name pages for their Facebook profile (./accounts-center.ts,
+ *   src/networks/accounts-center/). Then the profile is read again for a new check, for the new username in its address
+ *   and the new name on it (decision 89).
  * - **A step it can't find is handed over**, saying where to press on the page it's on (**Carry on** once it's in),
  *   with a note of that page (decision 74): only that step, never what went in by itself. A password or code Facebook
  *   asks for, or its "Confirm it's you", is theirs to answer, never the extension's; it waits for them. A username
- *   Facebook says is taken, or can't change yet, ends the ask saying so and what to do.
+ *   Facebook says is taken, a name it won't take, or either it can't change yet, ends the ask saying so and what to do.
  * - **Only what shows is said to be in.** The profile is read again at the end: a part that went in but doesn't show
- *   there yet (the bio, a link, the new username in its address) is left out of what's in, and the end says where to
- *   check it.
- * - **Its name** (decision 84) stays theirs: Accounts Center is opened for them, and the step handed over with what to
- *   put in (./profile-parts.ts).
+ *   there yet (the bio, a link, the new username in its address, the new name) is left out of what's in, and the end
+ *   says where to check it. A name Facebook says it's looking at first is said to be under review, never in.
+ * - **Builds before 0.93.0** handed the username, the links and the name over (./profile-parts.ts): core still says so
+ *   for them (`partHowFor`).
  *
  * It stops when Facebook shows a warning (decision 25), but reads none on Accounts Center while Facebook asks the
  * person for something there: its "Confirm it's you" is no warning. The tab decides that (`askingHere`), what's asked
@@ -35,6 +36,7 @@ import {
   type AskTask,
 } from '@hfos/core/addons/outreach/asks';
 import { PART_PAGE_ON, partHowOn, partStepsWords } from '@hfos/core/addons/outreach/profile-parts';
+import type { CenterPart } from '../networks/accounts-center/pages';
 import type { EditorSteps } from '../networks/facebook/editors';
 import { sameLink } from '../networks/facebook/links';
 import type { BioResult, OwnEditors } from '../networks/facebook/own-profile';
@@ -42,15 +44,16 @@ import type { ReadResult } from '../networks/facebook/types';
 import { classifyUrl } from '../networks/facebook/urls';
 import { clean } from '../networks/facebook/dom';
 import {
-  ACCOUNTS_PROFILES,
-  askedNote,
-  usernameAddress,
-  usernamePageOf,
-  type Asking,
-} from '../networks/facebook/username';
+  centerProfile,
+  nameReviewWords,
+  putNameIn,
+  putUsernameIn,
+  unseenWords as centerUnseenWords,
+  type CenterProfile,
+} from './accounts-center';
 import { putInByHand, type ByHandPart } from './profile-parts';
-import { readIn, valueOf, warnedLine, warnedOn, type Job, type JobEnd } from './job';
-import { editorNote, ownProfileNote, usernameNote, type ReportNote } from './report';
+import { readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
+import { editorNote, ownProfileNote, type ReportNote } from './report';
 
 /** Facebook takes this to the person's own profile, whoever they are. */
 export const OWN_PROFILE_URL = 'https://www.facebook.com/me';
@@ -124,9 +127,9 @@ async function openEditor(job: Job, url: string): Promise<JobEnd | ReadResult> {
 }
 
 /**
- * Put these in: the bio they picked, then each new link, then the username (last, as Edit links's address holds the
- * old one), each put in by itself or handed over; the name opened for them; then the profile read again for a new
- * check.
+ * Put these in: the bio they picked, then each new link, then the username (after the links, as Edit links's address
+ * holds the old one) and the name, on Accounts Center's pages for their Facebook profile, each put in by itself or
+ * handed over; then the profile read again for a new check.
  */
 export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   const { bio } = task;
@@ -147,14 +150,39 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     if (put) return put;
     done.add('links');
   }
-  let refused: string | null = null;
+  // What Facebook refused, in its words, by part; and a name it's looking at first.
+  const refused = new Map<CenterPart, string>();
+  let review = false;
   const username = task.username ? cleanUsername(task.username) : null;
-  if (username && partHowOn('facebook', 'username') === 'auto') {
+  const name = task.name ? clean(task.name) : null;
+  const putUsername = username !== null && partHowOn('facebook', 'username') === 'auto';
+  const putName = name !== null && partHowOn('facebook', 'name') === 'auto';
+  if (putUsername || putName) {
     if (job.stopped()) return STOPPED;
-    const put = await putUsername(job, username, editors);
-    if (isEnd(put)) return put;
-    refused = put.refused;
-    done.add('username');
+    // Their profile's number, from its Edit profile link; else the Facebook one among Accounts Center's Profiles, found
+    // once for both.
+    let center: CenterProfile | null =
+      editors?.id && /^\d{1,20}$/.test(editors.id) ? { id: editors.id, why: null } : null;
+    if (!center) {
+      job.progress('Opening Accounts Center’s profiles…');
+      const found = await centerProfile(job, 'facebook', putUsername ? 'username' : 'name');
+      if (isEnd(found)) return found;
+      center = found;
+    }
+    if (putUsername) {
+      const put = await putUsernameIn(job, 'facebook', username, center);
+      if (isEnd(put)) return put;
+      if (put.refused) refused.set('username', put.refused);
+      done.add('username');
+    }
+    if (putName) {
+      if (job.stopped()) return STOPPED;
+      const put = await putNameIn(job, 'facebook', name, center);
+      if (isEnd(put)) return put;
+      if (put.refused) refused.set('name', put.refused);
+      review = put.review ?? false;
+      done.add('name');
+    }
   }
   if (more) {
     const byHand = await putInByHand(job, 'facebook', task, done);
@@ -166,7 +194,7 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   const plain = (u: string) => u.toLowerCase().replace(/\./g, '');
   const at = classifyUrl(again.url).profile?.username ?? null;
   const usernameUnseen =
-    username !== null && !refused && (at === null || plain(at) !== plain(username));
+    username !== null && !refused.has('username') && (at === null || plain(at) !== plain(username));
   // What went in but doesn't show on the profile read after: never said to be in.
   let unseen: ShownPart[] = [];
   const checked = await readAndCheck(job, async (read) => {
@@ -175,7 +203,9 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
         ? bio !== null && clean(read.bio) !== clean(bio)
         : part === 'links'
           ? task.links.some((l) => !(read.links ?? []).some((r) => sameLink(r, l)))
-          : usernameUnseen,
+          : part === 'name'
+            ? name !== null && !refused.has('name') && !review && !nameShows(read.name, name)
+            : usernameUnseen,
     );
     if (unseen.length)
       await job.report?.({
@@ -189,7 +219,8 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     ...task,
     bio: unseen.includes('bio') ? null : bio,
     links: unseen.includes('links') ? [] : task.links,
-    username: refused || unseen.includes('username') ? null : task.username,
+    username: refused.has('username') || unseen.includes('username') ? null : task.username,
+    name: refused.has('name') || review || unseen.includes('name') ? null : task.name,
   };
   const anyIn = Boolean(shown.bio || shown.name || shown.username || shown.links.length);
   const doneLine = !anyIn
@@ -197,24 +228,55 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     : shown.bio && !hasNewProfileParts(shown)
       ? P.editDone(shown.bio)
       : profileEditDoneWords('facebook', shown);
-  const after = [refused, ...unseen.map((part) => unseenWords(part, task, username))];
+  const after = [
+    refused.get('username'),
+    refused.get('name'),
+    review && name ? nameReviewWords('facebook', name) : null,
+    ...unseen.map((part) => unseenWords(part, task, username, name)),
+  ];
   const line = [doneLine, ...after].filter((l): l is string => Boolean(l)).join(' ');
-  return { line, warned: false, ...(refused || !anyIn ? { failed: true } : {}) };
+  return {
+    line,
+    warned: false,
+    ...(refused.size || (!anyIn && !review) ? { failed: true } : {}),
+  };
+}
+
+/**
+ * Whether the profile shows the new name: with Facebook's other name after it in brackets or not, and in whichever
+ * order Facebook shows it (the step after Review change keeps the order it had, which may put the last name first).
+ */
+function nameShows(read: string | null | undefined, name: string): boolean {
+  const words = (text: string) =>
+    text
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .sort()
+      .join(' ');
+  const shown = clean(read).replace(/ \(.*\)$/, '');
+  return shown !== '' && words(shown) === words(clean(name));
 }
 
 /** The parts read back on the profile after they went in, to be sure they show. */
-const SHOWN_PARTS = ['bio', 'links', 'username'] as const;
+const SHOWN_PARTS = ['bio', 'links', 'username', 'name'] as const;
 type ShownPart = (typeof SHOWN_PARTS)[number];
 
 /** What's said of a part that went in but doesn't show on the profile yet, and where to check it. */
-function unseenWords(part: ShownPart, task: EditTask, username: string | null): string {
+function unseenWords(
+  part: ShownPart,
+  task: EditTask,
+  username: string | null,
+  name: string | null,
+): string {
   if (part === 'bio')
     return `Facebook hasn’t shown your new bio on your profile yet. Check it there, and if it isn’t, press Edit bio (or Edit profile, then Bio), write “${task.bio ?? ''}”, and press Save.`;
   if (part === 'links')
     return task.links.length === 1
       ? `Facebook hasn’t shown your new link on your profile yet. Check your About tab under Contact and basic info, and if it isn’t there, press Add a website, paste “${task.links[0]}”, and press Save.`
       : `Facebook hasn’t shown all your new links on your profile yet. Check your About tab under Contact and basic info, and add any that aren’t there with Add a website and Save (${task.links.join(', ')}).`;
-  return `Facebook hasn’t shown your new username on your profile yet. Check it in Accounts Center: press Profiles, then your Facebook profile, then Username, and put “${username ?? ''}” in if it isn’t there.`;
+  return part === 'name'
+    ? centerUnseenWords('facebook', 'name', name ?? '')
+    : centerUnseenWords('facebook', 'username', username ?? '');
 }
 
 /** Where the profile is changed, as the tab finds it on their own profile; null when it can't. */
@@ -331,184 +393,4 @@ async function putLinks(
     return handed(job, linksWords(links.slice(i), result, steps), editorNote('links', steps));
   }
   return null;
-}
-
-/** What Facebook asks before a username changes, which only the person answers. */
-const ASKING_WORDS: Readonly<Record<Asking, string>> = {
-  password:
-    'Facebook wants your password to change your username. Type it in the Facebook window and press Continue there, then press Carry on.',
-  code: 'Facebook sent you a code to change your username. Type it in the Facebook window and press Continue there, then press Carry on.',
-  confirm:
-    'Facebook wants to check it’s you before your username changes. In the Facebook window, pick how (your password, or a code it sends you), type it and press Continue there. Then press Carry on.',
-};
-
-/** Facebook still asking after the person carried on, each time: the username stays as it was. */
-const KEPT_ASKING: Readonly<Record<Asking, string>> = {
-  password: 'Facebook kept asking for your password',
-  code: 'Facebook kept asking for a code',
-  confirm: 'Facebook kept asking you to confirm it’s you',
-};
-
-/** Why the username stays as it was, as Facebook said it, and what to do. */
-function refusedWords(
-  result: 'taken' | 'invalid' | 'limit',
-  u: string,
-  said: string | null,
-): string {
-  const pickAgain =
-    'Pick another under Username: in Social Outreach, go to Settings → Facebook and press Check your profile. Then press Put these in again.';
-  if (result === 'taken')
-    return `Facebook says “${said ?? `${u} isn’t available`}”, so your username stays as it was. ${pickAgain}`;
-  if (result === 'invalid')
-    return `Facebook won’t take “${u}” as your username${said ? `: it says “${said}”` : ''}. ${pickAgain}`;
-  return `Facebook won’t change your username right now${said ? `: it says “${said}”` : ''}. Try again in a few days, or keep the one you have.`;
-}
-
-/**
- * Facebook's warnings on the page the tab shows, after the person carried on or something wasn't as expected: noted,
- * and the end. On Accounts Center none are read while Facebook asks the person for something (the tab decides).
- */
-async function accountWarned(job: Job, at: string): Promise<JobEnd | null> {
-  const here = await job.tab.ask({ type: 'hfos-account-warnings' });
-  if (!here.ok || !here.warnings.length) return null;
-  await job.warn(here.warnings, at);
-  return { line: warnedLine(here.warnings), warned: true };
-}
-
-/**
- * On Accounts Center's Profiles, the Facebook profile's username page: once more after the person answers what
- * Facebook asks first. Null with why, for the note, when there's none.
- */
-async function facebookProfileUrl(
-  job: Job,
-): Promise<JobEnd | { readonly url: string | null; readonly why: string }> {
-  await job.tab.open(ACCOUNTS_PROFILES);
-  for (let turn = 0; ; turn++) {
-    const found = await job.tab.ask({ type: 'hfos-username-page' });
-    if (!found.ok)
-      return {
-        url: null,
-        why: 'Accounts Center’s Profiles didn’t open, so the username was handed to the person.',
-      };
-    if (found.warnings.length) {
-      await job.warn(found.warnings, ACCOUNTS_PROFILES);
-      return { line: warnedLine(found.warnings), warned: true };
-    }
-    if (!found.asking)
-      return {
-        url: found.url,
-        why: 'No Facebook profile among Accounts Center’s Profiles, so the username was handed to the person.',
-      };
-    if (turn > 0)
-      return {
-        url: null,
-        why: `${askedNote(found.asking)} on Accounts Center’s Profiles again, so the username was handed to the person.`,
-      };
-    // Theirs to answer, never the extension's; then Profiles is looked at again.
-    const ended = await handed(job, ASKING_WORDS[found.asking], {
-      job: 'profile_edit.username',
-      note: `${askedNote(found.asking)} on Accounts Center’s Profiles.`,
-      outline: true,
-    });
-    if (ended) return ended;
-  }
-}
-
-/**
- * The username, on Accounts Center's username page for their Facebook profile: put in by itself, waited on while
- * Facebook asks the person for something, or handed over. What Facebook refused, said; null once it's in or handed
- * over. The page's warnings are the tab's to read, as it reads none while Facebook asks for something there; any
- * other page the tab ends up on has its warnings read before a step's handed over.
- */
-async function putUsername(
-  job: Job,
-  u: string,
-  editors: OwnEditors | null,
-): Promise<JobEnd | { readonly refused: string | null }> {
-  job.progress('Opening where your username is changed…');
-  let url = usernameAddress(editors?.id);
-  let why = '';
-  if (!url) {
-    // No number on their profile: Accounts Center's Profiles, and the Facebook one among them.
-    const found = await facebookProfileUrl(job);
-    if (isEnd(found)) return found;
-    ({ url, why } = found);
-  }
-  const profile = url ? usernamePageOf(url) : null;
-  if (!url || !profile) {
-    const warned = await accountWarned(job, ACCOUNTS_PROFILES);
-    if (warned) return warned;
-    const ended = await handed(
-      job,
-      `${partStepsWords('facebook', 'username', u)} Then press Carry on.`,
-      { job: 'profile_edit.username', note: why, outline: true },
-    );
-    return ended ?? { refused: null };
-  }
-  await job.tab.open(url);
-  let asked: Asking = 'password';
-  for (let turn = 0; turn < 3; turn++) {
-    if (job.stopped()) return STOPPED;
-    job.progress('Putting your new username in…');
-    const wrote = await job.tab.ask({ type: 'hfos-write-username', username: u, profile });
-    if (!wrote.ok) {
-      // Facebook didn't open the username page: a warning there ends it; else the person goes there, as the step said.
-      const warned = await accountWarned(job, url);
-      if (warned) return warned;
-      const ended = await handed(
-        job,
-        `${partStepsWords('facebook', 'username', u)} Then press Carry on.`,
-        {
-          job: 'profile_edit.username',
-          note: 'Accounts Center’s username page didn’t open, so the username was handed to the person.',
-          outline: true,
-        },
-      );
-      return ended ?? { refused: null };
-    }
-    switch (wrote.result) {
-      case 'done':
-      case 'already':
-        return { refused: null };
-      case 'warned': {
-        const words = wrote.warnings?.length ? wrote.warnings : ['Facebook showed a warning.'];
-        await job.warn(words, url);
-        return { line: warnedLine(words), warned: true };
-      }
-      case 'waiting': {
-        // Their password, a code, or confirming it's them: theirs to answer, never the extension's.
-        asked = wrote.steps.asking ?? 'password';
-        const ended = await handed(job, ASKING_WORDS[asked], {
-          ...usernameNote(wrote.steps),
-          note: `${askedNote(asked)} before the username changed.`,
-        });
-        if (ended) return ended;
-        // After Done, it's in once they've answered (the profile read after says); before, the username goes in now.
-        if (wrote.steps.pressed) return { refused: null };
-        continue;
-      }
-      case 'taken':
-      case 'invalid':
-      case 'limit':
-        return { refused: refusedWords(wrote.result, u, wrote.said) };
-      default: {
-        const warned = await accountWarned(job, url);
-        if (warned) return warned;
-        const ended = await handed(
-          job,
-          wrote.steps.over
-            ? `Facebook opened a box after Done. In the Facebook window, press its button to change your username to “${u}”, then press Carry on.`
-            : wrote.result === 'not_saved'
-              ? `Facebook didn’t show your new username after Done. On this page, check Username says “${u}”, and press Done if it’s still there. Then press Carry on.`
-              : `Change your username: on this page, put “${u}” in Username, and press Done once Facebook says it’s available. Then press Carry on.`,
-          usernameNote(wrote.steps),
-        );
-        return ended ?? { refused: null };
-      }
-    }
-  }
-  // Facebook asked again each time they carried on: Done was never pressed.
-  return {
-    refused: `${KEPT_ASKING[asked]}, so your username stays as it was. Change it in Accounts Center (press Profiles, then your Facebook profile, then Username), or press Put these in again.`,
-  };
 }

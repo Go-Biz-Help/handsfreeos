@@ -42,6 +42,8 @@ const { rememberedFor, takeNote, withSeen } = await import('../src/hfos/noting')
 const store = new Map<string, unknown>();
 const registered = new Map<string, chrome.scripting.RegisteredContentScript>();
 let granted = false;
+/** The sites Chrome lets the extension on, once `granted`: LinkedIn's unless a test says more. */
+const grantable = new Set(['https://www.linkedin.com/*']);
 const today = () => new Date().toLocaleDateString('en-CA');
 
 beforeAll(() => {
@@ -67,7 +69,7 @@ beforeAll(() => {
     },
     permissions: {
       contains: async ({ origins }: { origins: string[] }) =>
-        granted && origins.every((o) => o === 'https://www.linkedin.com/*'),
+        granted && origins.every((o) => grantable.has(o)),
     },
     scripting: {
       getRegisteredContentScripts: async ({ ids }: { ids: string[] }) =>
@@ -81,6 +83,13 @@ beforeAll(() => {
       unregisterContentScripts: async ({ ids }: { ids: string[] }) => {
         for (const id of ids) registered.delete(id);
       },
+      updateContentScripts: async (scripts: chrome.scripting.RegisteredContentScript[]) => {
+        for (const script of scripts) {
+          const was = registered.get(script.id);
+          if (!was) throw new Error(`No script with ID '${script.id}'`);
+          registered.set(script.id, { ...was, ...script });
+        }
+      },
     },
   });
 });
@@ -89,6 +98,8 @@ beforeEach(() => {
   store.clear();
   registered.clear();
   granted = false;
+  grantable.clear();
+  grantable.add('https://www.linkedin.com/*');
   signed.place = { userId: 'u-dana', businessId: 'b-one' };
   signed.answered.length = 0;
   signed.posted.length = 0;
@@ -139,6 +150,18 @@ describe('a kit per network', () => {
     );
     expect(linkedin.workUrl('https://www.facebook.com/')).toBeNull();
     expect(facebook.workUrl('https://www.linkedin.com/feed/')).toBeNull();
+    // Instagram's own Accounts Center is where its username and name change (decision 89): its tab may go there, but
+    // the pages aren't Instagram's own, so nothing done there is noted.
+    const center = 'https://accountscenter.instagram.com/profiles/17841400000000001/name/';
+    expect(instagram.workUrl(center)).toBe(center);
+    expect(kitHere(center)).toBe(instagram);
+    expect(kitOf(center)).toBeNull();
+    expect(instagram.workUrl('https://accountscenter.facebook.com/profiles/')).toBeNull();
+    expect(facebook.workUrl(center)).toBeNull();
+    expect(instagram.hosts).toEqual([
+      'https://www.instagram.com/*',
+      'https://accountscenter.instagram.com/*',
+    ]);
   });
 
   it('starts with Facebook on and LinkedIn off, its script registered only once it’s turned on', () => {
@@ -220,6 +243,22 @@ describe('LinkedIn’s script', () => {
     expect(registered.size).toBe(1);
   });
 
+  it('is moved onto the sites its kit has now when an older build registered it on others', async () => {
+    store.set(SETTINGS_KEY, settings(true));
+    granted = true;
+    registered.set(id, {
+      id,
+      matches: ['https://www.linkedin.com/in/*'],
+      js: ['content.js'],
+      runAt: 'document_idle',
+      allFrames: false,
+      persistAcrossSessions: true,
+    });
+    await syncNetworks();
+    expect(registered.get(id)?.matches).toEqual(['https://www.linkedin.com/*']);
+    expect(registered.size).toBe(1);
+  });
+
   it('is taken away as soon as either stops: turned off, not allowed by the business, Chrome, signed out or in as someone else', async () => {
     granted = true;
     const stops: (() => void)[] = [
@@ -240,6 +279,33 @@ describe('LinkedIn’s script', () => {
       expect(registered.has(id)).toBe(false);
       expect(isWorking(linkedin, store.get(NETWORKS_KEY) as never)).toBe(false);
     }
+  });
+});
+
+describe('Instagram’s script', () => {
+  it('stays on when Chrome lets it on Instagram but not on its Accounts Center, still registered there too', async () => {
+    store.set(SETTINGS_KEY, {
+      userId: 'u-dana',
+      settings: {
+        networks: { facebook: { on: true }, linkedin: { on: false }, instagram: { on: true } },
+      },
+      rules: { networksAllowed: ['facebook', 'instagram'] },
+    });
+    granted = true;
+    grantable.add('https://www.instagram.com/*');
+    await syncNetworks();
+    expect((store.get(NETWORKS_KEY) as Record<string, unknown>)['instagram']).toEqual({
+      on: true,
+      allowed: true,
+    });
+    expect(registered.get(scriptId(instagram))?.matches).toEqual([
+      'https://www.instagram.com/*',
+      'https://accountscenter.instagram.com/*',
+    ]);
+    // Without Instagram itself, it's off.
+    grantable.delete('https://www.instagram.com/*');
+    await syncNetworks();
+    expect(registered.has(scriptId(instagram))).toBe(false);
   });
 });
 

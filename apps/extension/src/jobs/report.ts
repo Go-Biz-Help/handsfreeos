@@ -16,7 +16,9 @@ import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
 import type { PageRead } from '../networks/kit';
 import { editorMissing, type EditorSteps } from '../networks/facebook/editors';
-import { usernameMissing, type UsernameSteps } from '../networks/facebook/username';
+import { nameMissing, type NameSteps } from '../networks/accounts-center/name';
+import type { CenterNetwork } from '../networks/accounts-center/pages';
+import { usernameMissing, type UsernameSteps } from '../networks/accounts-center/username';
 import type { StepTry } from '../networks/tries';
 import {
   aboutMissing,
@@ -271,12 +273,18 @@ export function editorNote(part: 'bio' | 'links', steps: EditorSteps | undefined
   };
 }
 
-/** How putting Facebook's username in went, step by step, for the note that goes with handing it over (decision 89). */
-export function usernameNote(steps: UsernameSteps | undefined): ReportNote {
+/**
+ * How putting the username in went, on Accounts Center for the person's own Facebook or Instagram profile, step by
+ * step, for the note that goes with handing it over (decision 89).
+ */
+export function usernameNote(
+  steps: UsernameSteps | undefined,
+  network: CenterNetwork = 'facebook',
+): ReportNote {
   const job = 'profile_edit.username';
   if (!steps)
     return { job, note: 'The tab didn’t say how putting the username in went.', outline: true };
-  const missing = usernameMissing(steps);
+  const missing = usernameMissing(steps, false, network);
   const { names, asking, answer, ...counts } = steps;
   return {
     job,
@@ -286,6 +294,33 @@ export function usernameNote(steps: UsernameSteps | undefined): ReportNote {
       code: asking === 'code',
       confirm: asking === 'confirm',
       answered: answer !== 'none',
+      ...(names.length ? { seen: names } : {}),
+    },
+    note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
+    outline: true,
+  };
+}
+
+/**
+ * How putting the name in went, on Accounts Center for the person's own Facebook or Instagram profile, step by step,
+ * for the note that goes with handing it over (decision 89): as the username's, with how the name is shown.
+ */
+export function nameNote(steps: NameSteps | undefined, network: CenterNetwork): ReportNote {
+  const job = 'profile_edit.name';
+  if (!steps)
+    return { job, note: 'The tab didn’t say how putting the name in went.', outline: true };
+  const missing = nameMissing(steps, network);
+  const { names, asking, answer, order, ...counts } = steps;
+  return {
+    job,
+    found: {
+      ...counts,
+      password: asking === 'password',
+      code: asking === 'code',
+      confirm: asking === 'confirm',
+      answered: answer !== 'none',
+      orderKept: order === 'kept',
+      orderUnpicked: order === 'unpicked',
       ...(names.length ? { seen: names } : {}),
     },
     note: missing.length ? `Not done: ${missing.join('; ')}.` : null,

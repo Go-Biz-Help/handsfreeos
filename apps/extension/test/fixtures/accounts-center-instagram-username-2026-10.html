@@ -1,0 +1,43 @@
+<!doctype html>
+<!--
+  Instagram's own Accounts Center's username page for the signed-in person's Instagram profile
+  (accountscenter.instagram.com/profiles/<number>/username/), as Meta usually draws it in October 2026. Made up,
+  nobody real: the Instagram account casey.owner, profile 17841400000000001, the same made-up account as the
+  Instagram row of accounts-center-profiles-2026-10.html. Built from Meta's usual words for this page, not yet from a
+  page outline of it (decision 89).
+
+  - The username's box is named by its label, with the page's own help under it: how often a username can change.
+  - Done is off until Instagram allows it. What Instagram says as a username is typed, and what Done does, are added by
+    each test.
+-->
+<html lang="en">
+  <head>
+    <title>Username | Accounts Center</title>
+  </head>
+  <body>
+    <div role="banner">
+      <a href="https://www.instagram.com/" aria-label="Instagram"
+        ><svg aria-label="Instagram"></svg
+      ></a>
+      <span>Accounts Center</span>
+    </div>
+    <div role="navigation">
+      <a href="/profiles/"><span>Profiles</span></a>
+      <a href="/personal_info/"><span>Personal details</span></a>
+      <a href="/password_and_security/"><span>Password and security</span></a>
+    </div>
+    <div role="main">
+      <div role="dialog" aria-label="Username" id="panel">
+        <div role="button" aria-label="Back"><svg aria-hidden="true"></svg></div>
+        <h2><span>Username</span></h2>
+        <form id="username-form">
+          <label for="u1"><span>Username</span></label>
+          <input id="u1" type="text" value="casey.owner" />
+          <div><span>You can only change your username twice within 14 days.</span></div>
+          <div role="status" id="said"></div>
+        </form>
+        <div role="button" id="done" aria-disabled="true"><span>Done</span></div>
+      </div>
+    </div>
+  </body>
+</html>

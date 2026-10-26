@@ -13,8 +13,8 @@
  * - **Links:** on Contact and basic info, Add a website opens its box; a word written in it and taken out again; its
  *   Save found, never pressed; closed again with its Cancel (./links.ts).
  * - **Username:** on Accounts Center's username page, the box named Username; a word written in it to see what Facebook
- *   says, and their own put back; Done found, never pressed (./username.ts). With a password box there, nothing's
- *   written.
+ *   says, and their own put back; Done found, never pressed (../accounts-center/username.ts). With a password box
+ *   there, nothing's written.
  * - **Posting:** a group's Write something… opens the composer, with a box to write in and its Post; it's closed again,
  *   nothing written (./compose.ts).
  * - **Commenting:** on a post's own page, the post's box to comment in; a word written in it, the button that sends it
@@ -67,7 +67,7 @@ import {
   verdictOf,
   type Asking,
   type UsernameVerdict,
-} from './username';
+} from '../accounts-center/username';
 import { readWarnings } from './warnings';
 import { missingOf, TRY_WORD, untried, went, type StepTry, type TryStep } from '../tries';
 

@@ -638,6 +638,27 @@ footer details[open] summary {
   font-weight: 400;
   color: var(--text-2);
 }
+/* Advice, never a hold (docs/outreach.md, decision 90): the profile, with what's left of it and that the day doesn't
+   wait on it. */
+.pre-day li.advice {
+  color: var(--text-2);
+}
+.pre-day .advice-note {
+  color: var(--text-3);
+}
+.advice {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.advice p {
+  margin: 0 0 4px;
+}
+.advice p:last-child {
+  margin: 0;
+}
 .pre-day .sr-only {
   position: absolute;
   width: 1px;

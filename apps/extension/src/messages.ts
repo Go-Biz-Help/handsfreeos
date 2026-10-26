@@ -15,7 +15,10 @@ import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { EditorSteps } from './networks/facebook/editors';
 import type { LinkResult } from './networks/facebook/links';
 import type { BioResult, OwnEditors } from './networks/facebook/own-profile';
-import type { Asking, UsernameWrote } from './networks/facebook/username';
+import type { FormSteps } from './networks/instagram/own-profile';
+import type { NameWrote } from './networks/accounts-center/name';
+import type { Asking } from './networks/accounts-center/pages';
+import type { UsernameWrote } from './networks/accounts-center/username';
 import type { AutoResult, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
@@ -170,6 +173,8 @@ export type OwnProfileAnswer =
       readonly aboutSteps?: AboutSteps;
       /** How each step of putting Facebook's bio in went (from 0.93.0). */
       readonly bioSteps?: EditorSteps;
+      /** How each step of putting Instagram's bio in on its form went (from 0.93.0). */
+      readonly formSteps?: FormSteps;
     }
   | { readonly ok: false; readonly error: string };
 
@@ -189,14 +194,17 @@ export type WriteLinkAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
- * The new username, on Accounts Center's username page for their Facebook profile (src/networks/facebook/username.ts,
- * decision 89): how it went, what Facebook said, and the warnings that stopped it. `profile` is their Facebook
- * profile's number: the tab writes only on that profile's username page.
+ * The new username, on Accounts Center's username page for their own profile (src/networks/accounts-center/username.ts,
+ * decision 89): how it went, what the network said, and the warnings that stopped it. `profile` is their profile's
+ * number: the tab writes only on that profile's username page, on its own network's Accounts Center. `was` is the
+ * username the profile has now, when the job knows it (Instagram's): the tab types only while the box holds it or the
+ * new one.
  */
 export type WriteUsernameAsk = {
   readonly type: 'hfos-write-username';
   readonly username: string;
   readonly profile: string;
+  readonly was?: string | null;
 };
 export type WriteUsernameAnswer =
   | {
@@ -209,23 +217,49 @@ export type WriteUsernameAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
- * On Accounts Center's Profiles, the username page of the Facebook profile among them, or null; and Facebook's warnings
- * there, unless it asks for a password (decision 89).
+ * The new name, on Accounts Center's name page for their own Facebook or Instagram profile
+ * (src/networks/accounts-center/name.ts, decision 89): as the username's. Never LinkedIn's `hfos-write-name`, whose
+ * box is its intro's.
  */
-export type UsernamePageAsk = { readonly type: 'hfos-username-page' };
+export type WriteCenterNameAsk = {
+  readonly type: 'hfos-write-center-name';
+  readonly name: string;
+  readonly profile: string;
+};
+export type WriteCenterNameAnswer =
+  | {
+      readonly ok: true;
+      readonly result: NameWrote['result'];
+      readonly steps: NameWrote['steps'];
+      readonly said: string | null;
+      readonly warnings?: readonly string[];
+    }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On Accounts Center's Profiles, the person's own profile among them, or null: its number, and on Facebook its username
+ * page (`url`, as builds before 0.93.0 had it); and the network's warnings there, unless it asks for a password
+ * (decision 89). On Instagram, `username` is the account they're signed in to on instagram.com, whose row it is.
+ */
+export type UsernamePageAsk = {
+  readonly type: 'hfos-username-page';
+  readonly username?: string | null;
+};
 export type UsernamePageAnswer =
   | {
       readonly ok: true;
       readonly url: string | null;
+      readonly profile?: string | null;
       readonly warnings: readonly string[];
-      /** What Facebook asks the person for first, when it does: no profile is looked for then. */
+      /** What the network asks the person for first, when it does: no profile is looked for then. */
       readonly asking: Asking | null;
     }
   | { readonly ok: false; readonly error: string };
 
 /**
- * Facebook's warnings on the page the tab shows, after the person carried on (decision 89): on Accounts Center, none
- * while Facebook asks them for something, as its "Confirm it's you" there is no warning (decision 25).
+ * The network's warnings on the page the tab shows, after the person carried on (decision 89): on Accounts Center, none
+ * while it asks them for something, as its "Confirm it's you" there is no warning (decision 25), and never its answer
+ * about a name or a username.
  */
 export type AccountWarningsAsk = { readonly type: 'hfos-account-warnings' };
 export type AccountWarningsAnswer =
@@ -236,13 +270,19 @@ export type AccountWarningsAnswer =
     }
   | { readonly ok: false; readonly error: string };
 
-/** Put these in's own asks on Facebook (decision 89), and what each is answered. */
+/** Put these in's own asks on Facebook, and in Accounts Center on Instagram (decision 89), and what each is answered. */
 export type ProfileEditAsk =
-  OwnEditorsAsk | WriteLinkAsk | WriteUsernameAsk | UsernamePageAsk | AccountWarningsAsk;
+  | OwnEditorsAsk
+  | WriteLinkAsk
+  | WriteUsernameAsk
+  | WriteCenterNameAsk
+  | UsernamePageAsk
+  | AccountWarningsAsk;
 export interface ProfileEditAnswers {
   readonly 'hfos-own-editors': OwnEditorsAnswer;
   readonly 'hfos-write-link': WriteLinkAnswer;
   readonly 'hfos-write-username': WriteUsernameAnswer;
+  readonly 'hfos-write-center-name': WriteCenterNameAnswer;
   readonly 'hfos-username-page': UsernamePageAnswer;
   readonly 'hfos-account-warnings': AccountWarningsAnswer;
 }

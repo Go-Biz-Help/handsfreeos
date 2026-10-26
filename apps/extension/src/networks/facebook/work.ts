@@ -13,8 +13,8 @@
  * - A helpful post put up on a group's page, and who engaged with one of theirs (./compose.ts, decision 50).
  * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64); for Put
  *   these in, their bio by the About tab's editor, each new link on Contact and basic info (./links.ts), and their new
- *   username on Accounts Center's username page for their Facebook profile (./username.ts), each only on its own page
- *   and only on their own profile: one with Edit profile, or the username page by their own profile's number
+ *   username and name on Accounts Center's pages for their Facebook profile (../accounts-center/), each only on its own
+ *   page and only on their own profile: one with Edit profile, or Accounts Center's page by their own profile's number
  *   (decision 89).
  * - Check Facebook's tries: each step taken up to its last press, never that one, on the page it's for (./tries.ts,
  *   decision 77).
@@ -22,8 +22,6 @@
  * Runs in the tab, on the page in front of it: it uses the tab's own document and address.
  */
 import type {
-  AccountWarningsAnswer,
-  AccountWarningsAsk,
   AutoAnswer,
   AutoAsk,
   BrowseAnswer,
@@ -41,13 +39,11 @@ import type {
   PostsAnswer,
   TryAnswer,
   TryAsk,
-  UsernamePageAnswer,
-  UsernamePageAsk,
   WriteLinkAnswer,
   WriteLinkAsk,
-  WriteUsernameAnswer,
-  WriteUsernameAsk,
 } from '../../messages';
+import { usernamePageOf } from '../accounts-center/username';
+import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { likeTheirPost, readTheirPosts, writeComment, writeMessage } from './auto';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
 import { readComments, readReactions, writeGroupPost } from './compose';
@@ -74,14 +70,6 @@ import {
   tryUsername,
 } from './tries';
 import { classifyUrl } from './urls';
-import {
-  askingHere,
-  facebookProfileOn,
-  onAccountsCenter,
-  profilesPage,
-  usernamePageOf,
-  writeUsername,
-} from './username';
 import { readWarnings } from './warnings';
 import type { StepTry } from '../tries';
 
@@ -200,39 +188,6 @@ async function writeLinkStep(ask: WriteLinkAsk): Promise<WriteLinkAnswer> {
 const ownUsernamePage = (profile: string | null | undefined): boolean =>
   profile !== null && profile !== undefined && usernamePageOf(location.href) === profile;
 
-/** The new username (./username.ts), only on Accounts Center's username page for their Facebook profile. */
-async function writeUsernameStep(ask: WriteUsernameAsk): Promise<WriteUsernameAnswer> {
-  if (!ownUsernamePage(ask.profile))
-    return { ok: false, error: 'Facebook didn’t open Accounts Center’s username page.' };
-  return { ok: true, ...(await writeUsername(document, ask.username)) };
-}
-
-/**
- * On Accounts Center's Profiles, the Facebook profile's username page. Its warnings are read only while Facebook asks
- * the person for nothing: its "Confirm it's you" there is no warning (decision 25).
- */
-function usernamePageStep(): UsernamePageAnswer {
-  if (!profilesPage(location.href))
-    return { ok: false, error: 'Facebook didn’t open Accounts Center’s Profiles.' };
-  const asking = askingHere(document);
-  if (asking) return { ok: true, url: null, warnings: [], asking };
-  return {
-    ok: true,
-    url: facebookProfileOn(document),
-    warnings: readWarnings(document, location.href),
-    asking: null,
-  };
-}
-
-/**
- * Facebook's warnings on the page the tab shows, whatever it is, for Put these in after the person carried on. On
- * Accounts Center none are read while Facebook asks them for something (`askingHere`), as that's no warning there.
- */
-function accountWarningsStep(): AccountWarningsAnswer {
-  const asking = onAccountsCenter(location.href) ? askingHere(document) : null;
-  return { ok: true, asking, warnings: asking ? [] : readWarnings(document, location.href) };
-}
-
 /** Check Facebook's tries (./tries.ts), each only on the kind of page its step is for. */
 async function tryStep(ask: TryAsk): Promise<TryAnswer> {
   const kind = classifyUrl(location.href).kind;
@@ -329,9 +284,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-write-bio',
   'hfos-own-editors',
   'hfos-write-link',
-  'hfos-write-username',
-  'hfos-username-page',
-  'hfos-account-warnings',
+  ...CENTER_ASKS,
   'hfos-try',
 ]);
 
@@ -344,9 +297,7 @@ type WorkAsk =
   | OwnProfileAsk
   | OwnEditorsAsk
   | WriteLinkAsk
-  | WriteUsernameAsk
-  | UsernamePageAsk
-  | AccountWarningsAsk
+  | CenterAsk
   | TryAsk;
 
 /** Does one of the background's asks in this tab, and answers how it went; null for one that isn't Facebook's work. */
@@ -365,12 +316,12 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return Promise.resolve(ownEditorsStep());
     case 'hfos-write-link':
       return writeLinkStep(known);
+    // Accounts Center's, for the username and the name: only on Facebook's own (../accounts-center/work.ts).
     case 'hfos-write-username':
-      return writeUsernameStep(known);
+    case 'hfos-write-center-name':
     case 'hfos-username-page':
-      return Promise.resolve(usernamePageStep());
     case 'hfos-account-warnings':
-      return Promise.resolve(accountWarningsStep());
+      return centerWork('facebook', known, readWarnings);
     case 'hfos-group-post':
     case 'hfos-engaged':
       return groupPostStep(known);

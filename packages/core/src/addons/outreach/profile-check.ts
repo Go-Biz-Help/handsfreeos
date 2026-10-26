@@ -873,6 +873,36 @@ export function usernameProblem(platform: Platform, value: string): string | nul
   return rules.test.test(v) ? null : rules.words;
 }
 
+/**
+ * A name in the parts a page with a box for each takes (Facebook's Accounts Center, LinkedIn's intro): its first word
+ * as the first name, the rest as the last, so the name shown is the one picked. Empty parts for none.
+ */
+export function splitName(name: string): { readonly first: string; readonly last: string } {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return { first: words[0] ?? '', last: words.slice(1).join(' ') };
+}
+
+/** What a name on Facebook is made of, by its name standards: letters, and spaces, apostrophes, hyphens and dots. */
+const FACEBOOK_NAME_CHARACTER = /^[\p{L}\p{M}\s'’.-]$/u;
+
+/**
+ * Why a name can't go in as the person's name on its network (decision 89): Facebook takes a real first and last name
+ * in letters only, never a symbol, a number or business words after a bar. Null when it can; elsewhere only its length
+ * is held (`profileEditWords`), as Instagram's name says what the person does.
+ */
+export function nameProblem(platform: Platform, name: string): string | null {
+  if (platform !== 'facebook') return null;
+  const v = name.trim().replace(/\s+/g, ' ');
+  if (!v) return 'Type a name first.';
+  const bad = [...v].find((c) => !FACEBOOK_NAME_CHARACTER.test(c));
+  // Show me more is on the web's Your profile, beside Name.
+  const fix = 'Pick another under Name with Show me more on the web, then put it in.';
+  if (bad) return `Facebook names use letters only, so take out “${bad}” from “${v}”. ${fix}`;
+  if (!splitName(v).last)
+    return `Facebook asks for a first and last name, and “${v}” is one name. ${fix}`;
+  return null;
+}
+
 /** A username as people see it on its network: “@casey.roofs”, “linkedin.com/in/casey-roofs”. */
 export const shownUsername = (platform: Platform, value: string): string =>
   `${USERNAME_RULES_ON[platform]?.shown ?? '@'}${value}`;
@@ -947,7 +977,15 @@ export function checkedProfileCheck(
     ...new Set(
       ('names' in answer && answer.names ? answer.names : name ? [name] : [])
         .map((n) => unquote(sentence(n, 200)))
-        .filter((n) => n && !hasBlank(n) && n.length <= nameMost && n !== read.name),
+        // Facebook's only in letters, as its name standards take it (`nameProblem`).
+        .filter(
+          (n) =>
+            n &&
+            !hasBlank(n) &&
+            n.length <= nameMost &&
+            n !== read.name &&
+            !nameProblem(platform, n),
+        ),
     ),
   ].slice(0, platform === 'alignable' ? 0 : 3);
   const usernames = hasUsernameOn(platform)
