@@ -13,7 +13,9 @@ import {
   isMine,
   MESSAGE_NOTES_KEPT,
   MESSAGE_REWRITE_ASK,
+  MESSAGE_REWRITE_SYSTEM,
   MESSAGE_SAMPLES_ASK,
+  MESSAGE_SAMPLES_SYSTEM,
   messageNotesOf,
   messageRewritePrompt,
   MessageSamples,
@@ -63,7 +65,7 @@ const facts: SamplesFacts = {
     usefulWhat: null,
     hasVideo: false,
   },
-  offer: { line: null, outcome: 'more booked calls', guarantee: 'you only pay for results' },
+  offer: { line: null, outcome: 'more booked calls' },
   followUps: 6,
   voice: 'No emoji.',
 };
@@ -173,6 +175,14 @@ describe('what the AI is asked', () => {
     expect(said).toContain('<notes>\nFirst messages:\n- Shorter.\n</notes>');
     expect(said).toContain('- follow-up 2: Did you see this?');
     expect(said.endsWith(MESSAGE_SAMPLES_ASK)).toBe(true);
+  });
+
+  it('leaves the guarantee out of every sample (decision 65, 2026-10-26)', () => {
+    const prompt = messageSamplesPrompt(facts);
+    expect(prompt).toContain('The outcome, in a few words: more booked calls');
+    expect(prompt).not.toMatch(/guarantee,|on the guarantee/);
+    for (const system of [MESSAGE_SAMPLES_SYSTEM, MESSAGE_REWRITE_SYSTEM])
+      expect(system).toMatch(/leave its guarantee out/);
   });
 
   it('writes one again unlike it and the rest, with the notes on its part alone', () => {

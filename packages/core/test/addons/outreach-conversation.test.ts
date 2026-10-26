@@ -21,6 +21,7 @@ import { paceOf, PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks'
 import {
   answerOf,
   draftOfferOf,
+  TODAY_DRAFT_SYSTEM,
   todayDraftPrompt,
   TodayDraftAnswer,
 } from '../../src/addons/outreach/today';
@@ -69,7 +70,7 @@ describe('the conversation’s rules', () => {
     expect(ownOpenerFits('Hi {first name}!', null)).toBe(true);
   });
 
-  it('tells a draft the offer’s words for the conversation, never Reconnect, and the price only if they ask', () => {
+  it('tells a draft the offer’s words for the conversation, never Reconnect, and the guarantee and price only if they ask', () => {
     const offer = draftOfferOf(
       2,
       MainOfferParts.parse({
@@ -100,6 +101,12 @@ describe('the conversation’s rules', () => {
     expect(prompt('opener')).toMatch(/The outcome, in a few words: 10 booked inspections/);
     expect(prompt('opener')).toMatch(/The price, only when they ask: \$2,000 a month/);
     expect(prompt('opener')).toMatch(/Its only job is a yes/);
+    // No message carries the guarantee (decision 65, 2026-10-26): it's there for a reply to someone who asks.
+    expect(prompt('opener')).toMatch(
+      /The guarantee, only when they ask whether there is one: a free month if not/,
+    );
+    expect(prompt('opener')).not.toMatch(/on its guarantee|outcome and guarantee as/);
+    expect(TODAY_DRAFT_SYSTEM).toMatch(/Leave the guarantee out/);
     expect(prompt('reconnect')).not.toMatch(/<offer>/);
     expect(prompt('follow_up')).toMatch(
       /Where the conversation is: video sent\. This is follow-up 2 of 6\./,

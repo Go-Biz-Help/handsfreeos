@@ -132,7 +132,7 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
 - **The person's own Facebook profile is checked against it** (step 5, decision 64): the AI reads what the extension
   read and says what to change, with bios written from the offer.
 - **Every message is written from it** (step 6, decisions 65 to 68): the first message asks straight out whether they'd
-  be open to the outcome on the guarantee; a yes gets the playbook's short video, then the booking link; follow-ups
+  be open to the outcome, and no message carries the guarantee unless they ask (decision 65, 2026-10-26); a yes gets the playbook's short video, then the booking link; follow-ups
   come until they answer. Each person reached keeps the version they were first pitched with (`follow_ups.offer_version`,
   `sends.offer_version`), so nobody hears a new price or guarantee mid-conversation. Get ready's **Your messages**
   shows samples written from the live version, and a new version asks again.

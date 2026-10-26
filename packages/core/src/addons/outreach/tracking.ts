@@ -443,7 +443,7 @@ export function rulesReview(
         why: `${n.positive.toLocaleString('en-US')} of ${plural(n.messages, 'first message')} said yes last week, ${percent(n.positive / Math.max(1, n.messages))}. Most get 4 to 8%.`,
         steps: [
           'Read your first messages again under Get ready → Your messages. Do they ask straight out?',
-          'Check that your main offer’s outcome is clear and its guarantee strong, under Settings → Main offer.',
+          'Check that your main offer’s outcome is clear and worth a yes, under Settings → Main offer.',
           'Make sure the groups you work are full of the niche your playbook is for.',
         ],
       };
