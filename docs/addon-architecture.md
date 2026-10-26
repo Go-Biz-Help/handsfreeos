@@ -505,8 +505,9 @@ add-on's work causes, so it reads after the add-on is gone, and a purge knows ex
 search, offered only while the add-on runs and the person holds its permission; the runtime refuses any tool it
 didn't offer, and the business's ids always go on after the model's arguments. **The Assistant can do whatever the
 person can** (the owner's decision, 2026-10-26): every operation a person runs on an add-on's screens declares `ai`,
-and only what its browser extension or worker sends in doesn't (Social Outreach's test holds it to that); so does
-every worker action a person presses (its own test holds those). Look-ups
+and only what its browser extension or worker sends in doesn't, nor what the add-on's own rules keep from it (each
+add-on's catalogue test holds it to that: Social Outreach's, Real Estate's and Sales Coach's); so does every worker
+action a person presses (its own test holds those). Look-ups
 the model asks for together run at the same time; changes run one at a time, in order. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only

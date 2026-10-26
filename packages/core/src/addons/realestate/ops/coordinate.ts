@@ -421,6 +421,7 @@ export const coordinateWorkload = defineAddonQuery(realestateAddon, {
   input: CoordinateInput,
   output: WorkloadOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_workload' },
   scope: inWorkspace,
   async handler(ctx, input) {
     if (!scopeCan(ctx.scope, 'realestate.all_deals' as Permission))

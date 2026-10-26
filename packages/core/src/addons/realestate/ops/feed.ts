@@ -223,6 +223,7 @@ export const listingLookup = defineAddonCommand(realestateAddon, {
   input: ListingLookupInput,
   output: ListingLookupOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_lookup' },
   scope: inWorkspace,
   emits: ['realestate.listing.lookup_requested'],
   async handler(ctx, input) {

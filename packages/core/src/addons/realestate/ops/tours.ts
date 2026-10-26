@@ -402,6 +402,7 @@ export const tourSetStops = defineAddonCommand(realestateAddon, {
   input: TourSetStopsInput,
   output: TourChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_tour_set_stops', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.tour.stops_changed'],
   async handler(ctx, input) {
@@ -450,6 +451,7 @@ export const tourReschedule = defineAddonCommand(realestateAddon, {
   input: TourRescheduleInput,
   output: TourChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_tour_reschedule' },
   scope: inWorkspace,
   emits: ['realestate.tour.rescheduled'],
   async handler(ctx, input) {
@@ -522,6 +524,7 @@ export const tourCancel = defineAddonCommand(realestateAddon, {
   input: TourCancelInput,
   output: TourChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_tour_cancel' },
   scope: inWorkspace,
   emits: ['realestate.tour.canceled', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -588,6 +591,7 @@ export const tourRecordVisit = defineAddonCommand(realestateAddon, {
   input: TourRecordVisitInput,
   output: TourRecordVisitOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_tour_record_visit' },
   scope: inWorkspace,
   // At each stop, with no signal (board 83): seen when it was marked, by the phone's clock.
   offline: 'anytime',
@@ -660,6 +664,7 @@ export const tourFeedbackAdd = defineAddonCommand(realestateAddon, {
   input: TourFeedbackInput,
   output: TourFeedbackOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_tour_feedback' },
   scope: inWorkspace,
   // The client's reaction, as heard at the stop with no signal (board 83). The client's own from their portal, given
   // after it, stays (board 79).

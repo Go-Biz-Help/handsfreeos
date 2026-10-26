@@ -394,6 +394,7 @@ export const offerAttachDocument = defineAddonCommand(realestateAddon, {
   input: OfferAttachDocumentInput,
   output: OfferChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_offer_attach_document', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -620,6 +621,7 @@ export const offerWithdraw = defineAddonCommand(realestateAddon, {
   input: OfferWithdrawInput,
   output: OfferChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_offer_withdraw' },
   scope: inWorkspace,
   emits: ['realestate.offer.answered', ...PROOF_EVENTS],
   async handler(ctx, input) {

@@ -262,6 +262,7 @@ export const statusEmailSave = defineAddonCommand(realestateAddon, {
   input: StatusEmailSaveInput,
   output: StatusEmailSavedOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_status_email_save' },
   scope: inWorkspace,
   // Checking and editing one works anywhere; its words are checked for fair housing when it arrives (board 81).
   offline: 'anytime',
@@ -347,6 +348,7 @@ export const statusEmailAcknowledge = defineAddonCommand(realestateAddon, {
   input: StatusEmailAcknowledgeInput,
   output: StatusEmailOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_status_email_acknowledge_flags', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.status_email.flags_acknowledged'],
   async handler(ctx, input) {
@@ -524,6 +526,7 @@ export const statusEmailDiscard = defineAddonCommand(realestateAddon, {
   input: StatusEmailDraftInput,
   output: StatusEmailOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_status_email_discard', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.status_email.discarded'],
   async handler(ctx, input) {
@@ -579,6 +582,7 @@ export const statusEmailList = defineAddonQuery(realestateAddon, {
   input: StatusEmailListInput,
   output: StatusEmailListOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_status_email_list' },
   scope: inWorkspace,
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);

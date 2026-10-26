@@ -362,6 +362,7 @@ export const cmaSetSubject = defineAddonCommand(realestateAddon, {
   input: CmaSetSubjectInput,
   output: CmaChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_set_subject' },
   scope: inWorkspace,
   emits: ['realestate.cma.changed'],
   async handler(ctx, input) {
@@ -474,6 +475,7 @@ export const cmaUpdateComp = defineAddonCommand(realestateAddon, {
   input: CmaUpdateCompInput,
   output: CmaChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_update_comp' },
   scope: inWorkspace,
   emits: ['realestate.cma.changed'],
   async handler(ctx, input) {
@@ -535,6 +537,7 @@ export const cmaRemoveComp = defineAddonCommand(realestateAddon, {
   input: CmaRemoveCompInput,
   output: CmaChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_remove_comp' },
   scope: inWorkspace,
   emits: ['realestate.cma.changed'],
   async handler(ctx, input) {
@@ -562,6 +565,7 @@ export const cmaFinalize = defineAddonCommand(realestateAddon, {
   input: CmaInput,
   output: CmaChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_finalize', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.cma.finalized', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -625,6 +629,7 @@ export const cmaReopen = defineAddonCommand(realestateAddon, {
   input: CmaInput,
   output: CmaChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_reopen', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.cma.changed'],
   async handler(ctx, input) {
@@ -760,6 +765,7 @@ export const cmaSaveSummary = defineAddonCommand(realestateAddon, {
   input: CmaSaveSummaryInput,
   output: CmaSaveSummaryOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_save_summary' },
   scope: inWorkspace,
   emits: ['realestate.cma.summary_saved'],
   async handler(ctx, input) {
@@ -834,6 +840,7 @@ export const cmaAcknowledgeFlags = defineAddonCommand(realestateAddon, {
   input: CmaAcknowledgeInput,
   output: CmaChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cma_acknowledge_flags', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.cma.flags_acknowledged'],
   async handler(ctx, input) {
@@ -940,6 +947,7 @@ export const cmasList = defineAddonQuery(realestateAddon, {
   input: CmasInput,
   output: CmasOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_cmas' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

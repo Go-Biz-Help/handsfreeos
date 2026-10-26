@@ -518,6 +518,7 @@ export const homeConfirmFacts = defineAddonCommand(realestateAddon, {
   input: HomeConfirmFactsInput,
   output: HomeConfirmFactsOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_home_confirm_facts', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.home.facts_confirmed'],
   async handler(ctx, input) {

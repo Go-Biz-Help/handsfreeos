@@ -228,6 +228,7 @@ export const showingSettings = defineAddonCommand(realestateAddon, {
   input: ShowingSettingsInput,
   output: ShowingSettingsOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_showing_settings', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -275,6 +276,7 @@ export const showingAdd = defineAddonCommand(realestateAddon, {
   input: ShowingAddInput,
   output: ShowingOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_showing_add', autonomy: 'confirm' },
   scope: inWorkspace,
   // Its confirmation goes to the buyer's agent at once: another agent, so with no signal it waits and asks again after
   // 30 minutes. The phone's id is the showing's.
@@ -401,6 +403,7 @@ export const showingCheck = defineAddonCommand(realestateAddon, {
   input: ShowingCheckInput,
   output: ShowingOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_showing_check', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -483,6 +486,7 @@ export const showingFeedback = defineAddonCommand(realestateAddon, {
   input: ShowingFeedbackInput,
   output: ShowingOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_showing_feedback' },
   scope: inWorkspace,
   // What the buyer's agent said on the phone, noted with no signal. Their own answer, given after it, stays.
   offline: 'anytime',
@@ -529,6 +533,7 @@ export const showingShare = defineAddonCommand(realestateAddon, {
   input: ShowingShareInput,
   output: ShowingOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_showing_share_feedback' },
   scope: inWorkspace,
   emits: ['realestate.showing.feedback_shared'],
   async handler(ctx, input) {

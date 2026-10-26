@@ -279,6 +279,7 @@ export const termReject = defineAddonCommand(realestateAddon, {
   input: TermRejectInput,
   output: TermChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_term_reject', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.term.rejected'],
   async handler(ctx, input) {
@@ -326,6 +327,7 @@ export const termResolve = defineAddonCommand(realestateAddon, {
   input: TermResolveInput,
   output: TermChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_term_resolve_conflict' },
   scope: inWorkspace,
   emits: ['realestate.term.conflict_resolved'],
   async handler(ctx, input) {

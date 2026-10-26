@@ -128,6 +128,7 @@ export const playbookSave = defineAddonCommand(salescoachAddon, {
   input: PlaybookSaveInput,
   output: PlaybookOut,
   permission: 'salescoach.manage',
+  ai: { tool: 'salescoach_playbook_save', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['salescoach.playbook.saved'],
   async handler(ctx, input) {
@@ -185,6 +186,7 @@ export const playbookArchive = defineAddonCommand(salescoachAddon, {
   input: PlaybookArchiveInput,
   output: PlaybookOut,
   permission: 'salescoach.manage',
+  ai: { tool: 'salescoach_playbook_archive', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['salescoach.playbook.archived'],
   async handler(ctx, input) {

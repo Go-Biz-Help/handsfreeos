@@ -319,6 +319,7 @@ export const priceLetThrough = defineAddonCommand(realestateAddon, {
   input: ListingPriceChangeInput,
   output: ListingPriceChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_price_let_through', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: PRICE_EVENTS,
   async handler(ctx, input) {
@@ -354,6 +355,7 @@ export const priceWithdraw = defineAddonCommand(realestateAddon, {
   input: ListingPriceChangeInput,
   output: ListingPriceChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_price_withdraw', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.listing.price_withdrawn'],
   async handler(ctx, input) {

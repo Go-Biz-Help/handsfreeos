@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addonAiIssues,
   addonModuleIssues,
+  allAddonAiTools,
   commands,
   manifestIssues,
   queries,
@@ -44,6 +45,25 @@ describe('AI Sales Coach', () => {
 
   it('offers the AI only what it may use', () => {
     expect(addonAiIssues([salescoachAddonServer])).toEqual([]);
+  });
+  it('gives the Assistant what a person does, but never deleting a call', () => {
+    const ops = [
+      ...(salescoachAddonServer.queries ?? []),
+      ...(salescoachAddonServer.commands ?? []),
+    ];
+    const tools = new Map(allAddonAiTools([salescoachAddonServer]).map((t) => [t.op.name, t]));
+    const people = ops.filter((op) => (op.actors ?? ['human']).includes('human'));
+    // Deleting a coached call is for good, and risk 4: never the AI's (Chris, 2026-10-16).
+    expect(people.filter((op) => !tools.has(op.name)).map((op) => op.name)).toEqual([
+      'salescoach.call.delete',
+    ]);
+    expect(ops.filter((op) => !people.includes(op) && tools.has(op.name))).toEqual([]);
+    // Putting a card away is the only change it makes on its own: the rest change a playbook or stop a call.
+    expect(
+      [...tools.values()]
+        .filter((t) => t.op.kind === 'command' && t.autonomy === 'auto')
+        .map((t) => t.op.name),
+    ).toEqual(['salescoach.card.dismiss']);
   });
 });
 
