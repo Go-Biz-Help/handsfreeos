@@ -1,6 +1,8 @@
 /**
  * A business for the Action Center's worker tests (M8 step 4): booking-world's (an owner who works every hour,
- * texting ready, quiet hours off), open around the clock unless a test says otherwise, and a member to assign to.
+ * texting ready, quiet hours off), open around the clock unless a test says otherwise, a member to assign to, and
+ * its balance's floor under its $5 starting credit, so a sweep doesn't open "Balance running low" among the
+ * customers' cards these tests count.
  * Plus the helpers to file customers and leads the way the worker or a person would, to read items and the events the
  * worker recorded about them, and to run the sweep and the plan as the worker does.
  */
@@ -12,6 +14,7 @@ import {
   leadCreate,
   personCreate,
   phoneUpdateSettings,
+  walletSetAutoTopup,
   workspaceUpdate,
   type CommandDef,
 } from '@hfos/core/server';
@@ -53,6 +56,7 @@ export async function attentionWorld(label: string): Promise<AttentionWorld> {
         values (${w.workspaceId}, ${member.id}, 'member')`,
   );
   await setOpenHours(w, ALWAYS_OPEN_HOURS);
+  await run(w, walletSetAutoTopup, { workspaceId: w.workspaceId, floorCents: 0 });
   return Object.assign(w, { member });
 }
 

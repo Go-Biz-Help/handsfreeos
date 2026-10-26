@@ -13,9 +13,10 @@
  * - **Who may.** A member may read a balance and may not put a card on one.
  * - **Whose page.** A card page another business opened is refused: its id is on their address bar, and taking
  *   it would put their card on this balance.
- * - **A business that has never spent anything.** This world has no wallet row at all, which is every business
- *   until its first text — and a card is usually the first thing anybody does to a balance. Only HandsFreeOS
- *   may open a wallet, so the route opens one; before it did, the first press was refused by Postgres.
+ * - **A business that has never spent anything.** A card is usually the first thing anybody does to a balance.
+ *   A business opens its wallet as it's made, with its $5 starting credit (20261027012500); before then a
+ *   wallet waited for the first text, and the route still opens one where there is none, since only
+ *   HandsFreeOS may. Before it did, the first press was refused by Postgres.
  */
 import { randomUUID } from 'node:crypto';
 import { createTokenVerifier } from '@hfos/core/server';
@@ -90,8 +91,8 @@ async function walletRow() {
 
 describe('a card for the business’s own balance', () => {
   it('hands back the provider’s page and says the wallet is waiting for one', async () => {
-    // Nothing has been spent here, so there is no wallet row yet: the first press has to open one.
-    expect(await walletRow()).toBeNull();
+    // Nothing has been spent here: the wallet the business opened with, and no card on it or asked for.
+    expect(await walletRow()).toMatchObject({ method_token: null, card_requested_at: null });
     const res = await addCard(ownerToken);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.headers['cache-control']).toBe('no-store');
