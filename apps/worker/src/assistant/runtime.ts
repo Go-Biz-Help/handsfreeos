@@ -34,7 +34,13 @@ import {
   type PromptContext,
 } from './prompt';
 import * as store from './store';
-import { addonStepLabels, addonToolStep } from './tools-addons';
+import {
+  addonActionStep,
+  addonStepLabels,
+  addonToolStep,
+  isAddonActionTool,
+  type AddonActionTool,
+} from './tools-addons';
 import { billingStepLabels } from './tools-billing';
 import { contentStepLabels } from './tools-content';
 import { extraStepLabels } from './tools-extra';
@@ -98,7 +104,11 @@ export interface PreparedAction {
  * A tool the Assistant may be offered: one of core's, or one an add-on's operation declares (derived in
  * packages/core/src/addons/ai.ts and run through the one executor in tools-addons.ts).
  */
-export type OfferedTool = AssistantTool | AddonAiTool;
+export type OfferedTool = AssistantTool | AddonAiTool | AddonActionTool;
+
+/** An add-on's tool, an operation's or a worker action's: found by search, its arguments passed on as written. */
+const isAddonTool = (tool: OfferedTool): tool is AddonAiTool | AddonActionTool =>
+  isAddonAiTool(tool) || isAddonActionTool(tool);
 
 export interface CommittedAction {
   readonly outcome: string;
@@ -161,7 +171,7 @@ function definitionOf(tool: OfferedTool): AiToolDefinition {
   if (!made) {
     made = {
       name: tool.name,
-      description: isAddonAiTool(tool) ? addonToolDescription(tool) : tool.description,
+      description: isAddonTool(tool) ? addonToolDescription(tool) : tool.description,
       inputSchema: toolInputSchema(tool),
     };
     definitions.set(tool, made);
@@ -181,13 +191,13 @@ export function assistantRequest(
 ): { readonly system: string; readonly tools: AiToolDefinition[] } {
   // With tool search, only the tools the instructions name stay loaded; the model finds the rest when needed.
   const searching = provider.toolSearch === true;
-  const loaded = alwaysLoaded(tools.filter((t) => !isAddonAiTool(t)).map((t) => t.name));
+  const loaded = alwaysLoaded(tools.filter((t) => !isAddonTool(t)).map((t) => t.name));
   return {
     system: searching ? `${SYSTEM}\n\n${TOOL_SEARCH_NOTE}` : SYSTEM,
     tools: tools.map((t) =>
       // An add-on's tools are always found through search, never loaded up front, so neither the tools in view nor
       // the prompt the provider caches grow with the add-ons a business turns on.
-      isAddonAiTool(t) || (searching && !loaded.has(t.name))
+      isAddonTool(t) || (searching && !loaded.has(t.name))
         ? { ...definitionOf(t), deferred: true }
         : definitionOf(t),
     ),
@@ -258,7 +268,9 @@ const MORE_STEP_LABELS: Record<string, string> = {
 const stepLabel = (tool: OfferedTool) =>
   isAddonAiTool(tool)
     ? addonToolStep(tool)
-    : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
+    : isAddonActionTool(tool)
+      ? addonActionStep(tool)
+      : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
 
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
@@ -392,7 +404,7 @@ export async function ask(
     // An add-on's tool hands the operation the model's own arguments (only what the tool declares, never the
     // business's ids): the kernel parses them once, with the operation's schema, when it runs.
     const args = (
-      isAddonAiTool(tool) ? addonToolArguments(tool, call.arguments) : parsed.data
+      isAddonTool(tool) ? addonToolArguments(tool, call.arguments) : parsed.data
     ) as Record<string, unknown>;
     emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'running' });
     const base = {

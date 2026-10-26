@@ -43,6 +43,7 @@ import { ask as runQuestion, type ToolContext } from '../src/assistant/runtime';
 import { capabilityTools } from '../src/assistant/tools-addons';
 import { command, query } from '../src/assistant/tools-read';
 import { createToolExecutor } from '../src/assistant/tools-write';
+import type { AddonWorkerModule } from '../src/addons/types';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
 
@@ -964,5 +965,163 @@ describe('a task across two add-ons', () => {
       spa: { error: 'That is not something you can do here.' },
     });
     expect((await callsIn(runOf(one))).map((c) => c.tool)).toEqual([`${LIVE}_top10_visits`]);
+  });
+});
+
+describe('an add-on’s worker actions', () => {
+  /** What Pool Service's made-up worker actions did, and for whom. */
+  const did: { action: string; userId: string; input: unknown }[] = [];
+  const poolWorker: AddonWorkerModule = {
+    manifest: pool,
+    actions: {
+      [`${LIVE}.visits.plan`]: {
+        permission: `${LIVE}.read`,
+        input: z.object({ weeks: z.int().min(1).max(8).default(2) }),
+        async run(ctx, input: { weeks: number }) {
+          did.push({ action: 'plan', userId: ctx.userId, input });
+          return { planned: input.weeks, addon: ctx.actor.addon?.id ?? null };
+        },
+        ai: {
+          tool: `${LIVE}_plan_visits`,
+          description: 'Plan the next pool visits.',
+          autonomy: 'auto',
+        },
+      },
+      [`${LIVE}.owner.text`]: {
+        permission: `${LIVE}.write`,
+        input: z.object({ text: z.string().min(1).max(160) }),
+        async run(ctx, input: { text: string }) {
+          did.push({ action: 'text', userId: ctx.userId, input });
+          return { texted: true };
+        },
+        ai: {
+          tool: `${LIVE}_text_owner`,
+          description: 'Text the pool’s owner. Asks the person first.',
+          autonomy: 'confirm',
+        },
+      },
+      // What only its browser extension asks for: never a tool.
+      [`${LIVE}.page.read`]: {
+        permission: `${LIVE}.read`,
+        input: z.object({}),
+        run: async () => ({}),
+      },
+    },
+  };
+  const WORKERS = [poolWorker];
+  const actionRules: ScriptRule[] = [
+    {
+      when: /plan the pool visits/i,
+      calls: () => [
+        // The business's id in the arguments goes nowhere: the door puts this one on.
+        { name: `${LIVE}_plan_visits`, arguments: { weeks: 3, workspaceId: wsB } },
+      ],
+      reply: (_q, r) => r[`${LIVE}_plan_visits`] ?? 'null',
+    },
+    {
+      when: /text the pool owner/i,
+      calls: () => [{ name: `${LIVE}_text_owner`, arguments: { text: 'We’re on our way.' } }],
+      reply: () => 'Ready for your OK.',
+    },
+  ];
+  const services = testServices();
+  let server: FastifyInstance;
+  const buildWithActions = () => {
+    const httpDb = testDbs().worker.db;
+    return buildHttpServer({
+      ...services,
+      httpDb,
+      verifyToken: createTokenVerifier({
+        jwksUrl: `${env.supabaseUrl}/auth/v1/.well-known/jwks.json`,
+        jwtIssuer: `${env.supabaseUrl}/auth/v1`,
+      }),
+      webOrigins: ['http://localhost:3000'],
+      assistant: {
+        provider: new ScriptedProvider(actionRules),
+        tools: createToolExecutor(httpDb, null, null, '', CATALOG, { services }),
+        dailyTokens: 5_000_000,
+        addons: MODULES,
+        addonCatalog: CATALOG,
+        workerAddons: WORKERS,
+      },
+    });
+  };
+  const askActions = async (token: string, text: string) => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/v1/assistant/messages',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { workspaceId: wsA, text },
+    });
+    expect(res.statusCode).toBe(200);
+    return res.body
+      .split('\n\n')
+      .filter((chunk) => chunk.startsWith('data: '))
+      .map((chunk) => JSON.parse(chunk.slice(6)) as AssistantEvent);
+  };
+  const offered = async (u: TestUser) =>
+    (
+      await questionContext(testDbs().worker.db, actor(u), wsA, null, randomUUID(), new Date(), {
+        modules: MODULES,
+        catalog: CATALOG,
+        workerModules: WORKERS,
+      })
+    ).tools
+      .map((t) => t.name)
+      .filter((n) => n === `${LIVE}_plan_visits` || n === `${LIVE}_text_owner`);
+
+  beforeAll(async () => {
+    server = await buildWithActions();
+  });
+  afterAll(async () => {
+    await server?.close();
+  });
+
+  it('are tools only while the add-on runs, and only for people who hold their permission', async () => {
+    await setState(wsA, 'disabled');
+    expect(await offered(owner)).toEqual([]);
+    await setState(wsA, 'enabled');
+    expect(await offered(owner)).toEqual([`${LIVE}_plan_visits`, `${LIVE}_text_owner`]);
+    // Marco can see pool visits but not change them.
+    expect(await offered(member)).toEqual([`${LIVE}_plan_visits`]);
+  });
+
+  it('runs one that may go on its own through the add-on’s door, for the person, in their business', async () => {
+    await setState(wsA, 'enabled');
+    did.length = 0;
+    const events = await askActions(ownerToken, 'Plan the pool visits');
+    const said = JSON.parse(textOf(events)) as { from: string; data: Record<string, unknown> };
+    expect(said).toEqual({ from: 'Pool Service', data: { planned: 3, addon: LIVE } });
+    expect(did).toEqual([{ action: 'plan', userId: owner.id, input: { weeks: 3 } }]);
+    expect((await callsIn(runOf(events))).map((c) => [c.tool, c.status])).toEqual([
+      [`${LIVE}_plan_visits`, 'done'],
+    ]);
+  });
+
+  it('asks first for one that reaches people, does it on Confirm, and refuses once the add-on is off', async () => {
+    await setState(wsA, 'enabled');
+    did.length = 0;
+    const first = await askActions(ownerToken, 'Text the pool owner');
+    const card = confirmCard(first);
+    expect(did).toEqual([]);
+    const confirm = (id: string) =>
+      server.inject({
+        method: 'POST',
+        url: `/v1/assistant/tool-calls/${id}/confirm`,
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { workspaceId: wsA },
+      });
+    expect((await confirm(card.toolCallId)).json()).toMatchObject({ status: 'confirmed' });
+    expect(did).toEqual([
+      { action: 'text', userId: owner.id, input: { text: 'We’re on our way.' } },
+    ]);
+
+    const second = confirmCard(await askActions(ownerToken, 'Text the pool owner'));
+    await setState(wsA, 'disabled');
+    const refused = (await confirm(second.toolCallId)).json() as { status: string; error: string };
+    expect(refused.status).toBe('failed');
+    expect(refused.error).toContain('Pool Service is turned off for this business');
+    expect(did).toHaveLength(1);
+    await setState(wsA, 'enabled');
   });
 });

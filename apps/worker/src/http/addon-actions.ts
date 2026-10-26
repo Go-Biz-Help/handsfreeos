@@ -8,14 +8,12 @@
  * add-on's work does. Nothing here is in the API or its OpenAPI.
  */
 import { ADDON_CATALOG, HfosError, type Catalog } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { addonScope } from '../addons/context';
+import { runAddonAction } from '../addons/actions';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
-import { workerMeta } from '../services';
-import { authenticate, parseBody, requirePermission, type HttpDeps } from './common';
+import { authenticate, parseBody, type HttpDeps } from './common';
 
 const Body = z.strictObject({
   workspaceId: z.uuid(),
@@ -41,28 +39,14 @@ export function registerAddonActionRoutes(
       const manifest = catalog.find((m) => m.id === addonId);
       const action = modules.find((m) => m.manifest.id === addonId)?.actions?.[name];
       if (!manifest || !action) throw noSuchAction();
-      const [on] = await asWorker(deps.httpDb, { workspaceId: body.workspaceId }, (tx) =>
-        rows<{ ok: boolean; organization_id: string | null; generation: number | null }>(
-          tx,
-          sql`select private.addon_in_use(${body.workspaceId}::uuid, ${addonId}, false) as ok,
-                     private.workspace_organization(${body.workspaceId}::uuid) as organization_id,
-                     (select i.generation from app.addon_installations i
-                      where i.workspace_id = ${body.workspaceId}::uuid and i.addon_id = ${addonId}) as generation`,
-        ),
-      );
-      if (!on?.organization_id)
-        throw HfosError.notFound(
-          'This workspace isn’t there anymore. Refresh the page and try again.',
-        );
-      if (!on.ok) throw HfosError.addonInactive(manifest);
-      await requirePermission(deps, actor.userId, body.workspaceId, action.permission);
-      const input = parseBody(action.input, body.input);
-      const scope = { workspaceId: body.workspaceId, organizationId: on.organization_id };
-      const ctx = addonScope(deps, manifest, scope, on.generation ?? 1, workerMeta());
-      return action.run(
-        { ...ctx, actor: { ...ctx.actor, onBehalfOf: actor.userId }, userId: actor.userId },
-        input,
-      );
+      // The add-on on, the permission held and the input checked: the same door the Assistant uses.
+      return runAddonAction(deps, deps.httpDb, {
+        manifest,
+        action,
+        workspaceId: body.workspaceId,
+        userId: actor.userId,
+        input: body.input,
+      });
     },
   );
 }

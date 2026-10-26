@@ -63,6 +63,13 @@ async function scriptFromFile(ctx: AddonScopeContext, fileId: string): Promise<s
 
 export const playbookDraft: AddonWorkerAction<PlaybookDraftInput> = {
   permission: 'salescoach.manage',
+  ai: {
+    tool: 'salescoach_draft_playbook',
+    description:
+      "A Sales Coach playbook to start from: the AI writes one from what the business says about itself, or tidies the business's own call script, pasted (script) or read from one of its files (fileId). Nothing is saved: the owner edits it and saves.",
+    autonomy: 'auto',
+    keywords: ['draft a playbook', 'call script', 'sales playbook'],
+  },
   input: PlaybookDraftInput,
   async run(ctx, raw): Promise<PlaybookDraftOutput> {
     const input = PlaybookDraftInput.parse(raw);

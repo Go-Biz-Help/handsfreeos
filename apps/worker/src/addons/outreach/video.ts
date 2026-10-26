@@ -26,6 +26,13 @@ export const VIDEO_SCRIPT_ACTION = 'outreach.video.script';
 
 export const videoScript: AddonWorkerAction<VideoScriptInput> = {
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_write_video_script',
+    description:
+      "The AI writes the script for a playbook's short video from the live main offer and the playbook as it stands (draft), or one part of it again (mode improve, with the part and the script as it is). Nothing is saved: put it on the playbook with outreach_save_playbook once they're happy.",
+    autonomy: 'auto',
+    keywords: ['video script', 'write the video', 'improve the script'],
+  },
   input: VideoScriptInput,
   async run(ctx, raw): Promise<VideoScript> {
     const input = VideoScriptInput.parse(raw);

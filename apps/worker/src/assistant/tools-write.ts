@@ -14,7 +14,17 @@ import type {
   ToolExecutor,
   ToolOutcome,
 } from './runtime';
-import { capabilityTools, commitAddonTool, prepareAddonTool, runAddonTool } from './tools-addons';
+import {
+  capabilityTools,
+  commitAddonActionTool,
+  commitAddonTool,
+  isAddonActionTool,
+  prepareAddonActionTool,
+  prepareAddonTool,
+  runAddonActionTool,
+  runAddonTool,
+  type AddonActionDeps,
+} from './tools-addons';
 import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
 import { contactConfirmTools, contactReadTools } from './tools-contacts';
@@ -836,11 +846,15 @@ export function createToolExecutor(
   webUrl = '',
   /** The add-ons find_capabilities knows of: every one HandsFreeOS ships, unless a test says otherwise. */
   addonCatalog: Catalog = ADDON_CATALOG,
+  /** The worker's services, for the add-ons' worker actions; without them those tools can't run. */
+  addonActions: AddonActionDeps | null = null,
 ): ToolExecutor {
   return {
     async run(tool: OfferedTool, args: Args, ctx: ToolContext) {
       // An add-on's tool is its own operation, run through the kernel as the person.
       if (isAddonAiTool(tool)) return runAddonTool(db, tool, args, ctx);
+      // Or one of its worker actions, through the door its screens use.
+      if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
       const capabilities = capabilityTools[tool.name];
       if (capabilities) return capabilities(db, ctx, args, addonCatalog);
       const run =
@@ -860,12 +874,14 @@ export function createToolExecutor(
     },
     async prepare(tool, args, ctx, toolCallId) {
       if (isAddonAiTool(tool)) return prepareAddonTool(tool, args, ctx, toolCallId);
+      if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
       return t.prepare(db, ctx, args, toolCallId);
     },
     async commit(tool, args, ctx, extra) {
       if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
+      if (isAddonActionTool(tool)) return commitAddonActionTool(addonActions, db, tool, args, ctx);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
       return t.commit(db, ctx, args, { ...extra, webUrl });
@@ -889,8 +905,10 @@ export function createToolExecutor(
       }
     },
     reads(tool: OfferedTool) {
-      // An add-on's look-ups, and core's tools that only read: never one that writes, whatever its autonomy.
+      // An add-on's look-ups, and core's tools that only read: never one that writes, whatever its autonomy, nor a
+      // worker action (most ask the AI, and some reach a service).
       if (isAddonAiTool(tool)) return tool.op.kind === 'query';
+      if (isAddonActionTool(tool)) return false;
       return (
         tool.name in readTools ||
         tool.name in contactReadTools ||

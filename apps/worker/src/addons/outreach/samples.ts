@@ -147,6 +147,13 @@ async function samplesFrom(ctx: Ctx, asked: { playbookId: string | null } | 'sam
 
 export const messageSamples: AddonWorkerAction<z.input<typeof SamplesInput>> = {
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_write_sample_messages',
+    description:
+      "The AI writes the person's sample messages for one playbook, in their voice, from the live main offer: the first message, the video, the link, the follow-ups and a check-in. They're kept for Get ready's Your messages, replacing the samples there (the ones they wrote themselves stay), and the person OKs the style with outreach_ok_message_samples. Nothing is sent.",
+    autonomy: 'auto',
+    keywords: ['sample messages', 'write my messages', 'how my messages read'],
+  },
   input: SamplesInput,
   async run(ctx, raw): Promise<MessageSamples> {
     const input = SamplesInput.parse(raw);
@@ -211,6 +218,13 @@ export const messageSamples: AddonWorkerAction<z.input<typeof SamplesInput>> = {
  */
 export const messageRewrite: AddonWorkerAction<MessageRewriteInput> = {
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_rewrite_sample_message',
+    description:
+      "The AI writes one of the person's sample messages again (part and, for a follow-up, its index) with their note on what they want, and keeps the note for that part so their real messages follow it too. Nothing is sent.",
+    autonomy: 'auto',
+    keywords: ['not quite right', 'rewrite message', 'change a sample'],
+  },
   input: MessageRewriteInput,
   async run(ctx, raw): Promise<ReadinessOutput> {
     const input = MessageRewriteInput.parse(raw);

@@ -79,6 +79,13 @@ export function aiFailure(e: unknown): unknown {
 
 export const playbookAssist: AddonWorkerAction<PlaybookAssistInput> = {
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_improve_playbook_part',
+    description:
+      "The AI's help on one part of a Social Outreach playbook, as its Improve button gives it: better words for the part (mode improve) or more to add (mode suggest), from the playbook's details as they stand (draft: the playbook from outreach_playbooks) and the live main offer. Nothing is saved: offer what comes back, and save the one they pick with outreach_save_playbook.",
+    autonomy: 'auto',
+    keywords: ['improve playbook', 'suggest openers', 'better words', 'playbook help'],
+  },
   input: PlaybookAssistInput,
   async run(ctx, raw): Promise<PlaybookAssistOutput> {
     const input = PlaybookAssistInput.parse(raw);
@@ -118,6 +125,13 @@ export const playbookAssist: AddonWorkerAction<PlaybookAssistInput> = {
  */
 export const nicheFit: AddonWorkerAction<NicheFitInput> = {
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_check_niche_fit',
+    description:
+      "Whether a playbook's niche (and its biggest problem) fits the business's live main offer, as the AI reads it, with why and what to change. Nothing is saved.",
+    autonomy: 'auto',
+    keywords: ['niche fit', 'does the niche fit', 'main offer'],
+  },
   input: NicheFitInput,
   async run(ctx, raw): Promise<NicheFitOutput> {
     const input = NicheFitInput.parse(raw);
