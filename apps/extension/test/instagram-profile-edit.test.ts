@@ -7,6 +7,7 @@
  * can't do is handed to the person, a password is theirs, and only what shows on the account after is said to be in.
  */
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
+import type * as Parts from '@hfos/core/addons/outreach/profile-parts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAsk } from '../src/asks/run';
 import { KITS } from '../src/networks';
@@ -25,10 +26,25 @@ import {
 import { load } from './load';
 import { JSDOM } from 'jsdom';
 
+/**
+ * The newest build's way, or an older build's own copy of core when a test names one (decision 89): what that build
+ * didn't yet put in by itself it hands over, as core says for its computer (`partHowFor`).
+ */
+const how = vi.hoisted(() => ({ build: null as string | null }));
+vi.mock('@hfos/core/addons/outreach/profile-parts', async (original) => {
+  const real = await original<typeof Parts>();
+  return {
+    ...real,
+    partHowOn: (...args: Parameters<typeof real.partHowOn>) =>
+      how.build ? real.partHowFor(...args, how.build) : real.partHowOn(...args),
+  };
+});
+
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  how.build = null;
 });
 
 /** Runs a job with Instagram's waits skipped. */
@@ -267,6 +283,31 @@ describe('Put these in, on Instagram', () => {
       expect.objectContaining({ name: 'Casey | Columbus Roofs', bio: TASK.bio }),
     ]);
     expect(end).toEqual({ line: 'Your bio, name, username and links are in.', warned: false });
+  });
+
+  it('hands the username and name over as 0.93.0 did (builds before 0.94.0), the bio put in', async () => {
+    how.build = '0.93.0';
+    const { end, said, opened, now } = await putIn({ links: [] });
+    // Accounts Center's Profiles opened for each, never its username or name page.
+    expect(opened.slice(0, 3)).toEqual([FORM, PROFILES, PROFILES]);
+    expect(opened).not.toContain(IG_USERNAME_PAGE);
+    expect(opened).not.toContain(IG_NAME_PAGE);
+    expect(said.map((s) => s.says)).toEqual([
+      expect.stringContaining('then Name. Put in “Casey | Columbus Roofs”'),
+      expect.stringContaining('then Username. Put in “casey.roofs”'),
+    ]);
+    // The person carried on without changing them: only the bio is said to be in.
+    expect(now()).toEqual({ username: 'casey.owner', name: 'Casey', bio: TASK.bio });
+    expect(end.line).toMatch(/^Your bio now says .+ Instagram hasn’t shown your new username/);
+    // 0.94.0 puts them in itself.
+    how.build = '0.94.0';
+    const newer = await putIn({ links: [] });
+    expect(newer.said).toEqual([]);
+    expect(newer.now()).toEqual({
+      username: 'casey.roofs',
+      name: 'Casey | Columbus Roofs',
+      bio: TASK.bio,
+    });
   });
 
   it('hands the username and name over, saying why, when Accounts Center shows no Instagram profile', async () => {

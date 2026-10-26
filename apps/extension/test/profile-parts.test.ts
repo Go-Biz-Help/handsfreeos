@@ -85,7 +85,7 @@ describe('the name, username and links, put in by the person', () => {
       task({ name: 'Casey | Roofs', username: 'casey.roofs', links: ['https://cal.com/c'] }),
     );
     expect(end).toBeNull();
-    // From 0.93.0 they go in by themselves (decision 89): no page opened for one that didn't.
+    // From 0.94.0 they go in by themselves (decision 89): no page opened for one that didn't.
     expect(opened).toEqual([]);
     expect(said).toHaveLength(3);
     expect(said[0]).toContain('Name. Put in “Casey | Roofs”');

@@ -1146,6 +1146,19 @@ describe('Put these in, on Facebook', () => {
   it('puts the username and links in and hands the name over, as 0.93.0 did (builds before 0.94.0)', async () => {
     how.build = '0.93.0';
     const { said, opened, now, end } = await putIn({ bio: null });
-    console.log(JSON.stringify({ said: said.map((s) => s.says), opened, now: now(), end }, null, 1));
+    expect(opened).toEqual([`${FB}/me`, CONTACT, USERNAME_PAGE, ACCOUNTS_PROFILES, `${FB}/me`]);
+    expect(said.map((s) => s.says)).toEqual([
+      expect.stringContaining('Name. Put “Casey” in First name and “Lee” in Last name'),
+    ]);
+    // The person carried on without changing it: only what shows is said to be in.
+    expect(now()).toMatchObject({ username: 'casey.roofs', name: 'Casey Owner', added: [CAL] });
+    expect(end.line).toMatch(
+      /^Your username and links are in\. Facebook hasn’t shown your new name/,
+    );
+    // 0.94.0 puts the name in itself too.
+    how.build = '0.94.0';
+    const newer = await putIn({ bio: null });
+    expect(newer.said).toEqual([]);
+    expect(newer.now()).toMatchObject({ username: 'casey.roofs', name: 'Casey Lee', added: [CAL] });
   });
 });

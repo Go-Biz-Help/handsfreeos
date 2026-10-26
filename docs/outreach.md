@@ -1720,7 +1720,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Instagram:** its own list (a photo, a name that says what you do, the bio, the link, highlights and posts).
         The extension reads the account's own page and its form, and puts the bio in on the form, or hands that to the
         person. The AI writes a name for the person to put in, as Instagram changes names only in its app or Accounts
-        Center (from extension 0.93.0 it goes in by itself there, decision 89).
+        Center (from extension 0.94.0 it goes in by itself there, decision 89).
       - **Alignable:** its own list, ticked by the person for now. Check Alignable opens the profile's pages and its
         edit form, so its reader and writer get built from what it sends. 0.63.0 reads the profile (About Us, the
         ideal customer and partner, the services) and opens its editors; the AI's check and the writer follow.
@@ -1821,12 +1821,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       read them, and their notes (`ProfileContext`). The look advises: Get ready still goes by decision 63's items.
     - **Every part** (`PARTS_ON`, profile-parts.ts): beside the bio, the About and the checklist, the username, the
       name and the links, each as it is and as written, with who does it (`PART_HOW_ON`): the person's computer puts
-      it in (`auto`: the bio, the About, LinkedIn's name in its intro's box, and from decision 89 Facebook's name,
-      username and links and Instagram's username and name), opens the page where it's changed and hands the step
-      over with what to paste (`steps`: LinkedIn's address and links; names and usernames in Accounts Center on
-      Facebook and Instagram, and Facebook's links, were here until decision 89), says it's only in the network's app
-      (`app`: Instagram's links), or it's theirs to do (`tip`). **Put these in** is their OK for the ones ticked, one
-      `profile_edit` (name, username and links from extension 0.87.0, `PROFILE_PARTS_SINCE`).
+      it in (`auto`: the bio, the About, LinkedIn's name in its intro's box, and from decision 89 Facebook's username
+      and links from extension 0.93.0, and its name and Instagram's username and name from 0.94.0), opens the page
+      where it's changed and hands the step over with what to paste (`steps`: LinkedIn's address and links; names and
+      usernames in Accounts Center on Facebook and Instagram, and Facebook's links, were here until decision 89), says
+      it's only in the network's app (`app`: Instagram's links), or it's theirs to do (`tip`). **Put these in** is
+      their OK for the ones ticked, one `profile_edit` (name, username and links from extension 0.87.0,
+      `PROFILE_PARTS_SINCE`).
     - **Pictures:** "leave rule". The extension still never changes a picture (decision 64). The AI judges the photo,
       and the cover is made from its line, drawn in the app at the network's size (`COVER_SIZE_ON`) to download; the
       steps say where to put each in.
@@ -1990,11 +1991,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     **Put these in** has the person's computer put the bio, the username and the links in itself
     (`PART_HOW_ON.facebook`: `bio`, `username` and `links` are `auto`). Asked the same day "1. Your name too? 2.
     Instagram's username, name and bio too? 3. May I read the extension's page-layout reports?", he answered "1a 2a
-    3a": yes to all. So in the same build the name goes in by itself too (`PART_HOW_ON.facebook.name`), and so do
+    3a": yes to all. So from extension 0.94.0 the name goes in by itself too (`PART_HOW_ON.facebook.name`), and so do
     Instagram's username and name (`PART_HOW_ON.instagram`: `username` and `name` are `auto`; its bio already was, and
-    its links stay in its phone app, `app`). The problem reports' page outlines of his own pages may be read to build
-    from, for their structure only (tags, roles, and Facebook's and Instagram's own words), never copied into the repo.
-    Pictures stay theirs (decision 64).
+    its links stay in its phone app, `app`). 0.93.0 shipped the bio, the username and the links alone, so decision 90
+    could go out without waiting for the rest. The problem reports' page outlines of his own pages may be read to
+    build from, for their structure only (tags, roles, and Facebook's and Instagram's own words), never copied into the
+    repo. Pictures stay theirs (decision 64).
     - **The bio:** October 2026's profile has no Edit bio (decision 84, extension 0.90.0), so the extension follows
       Edit profile's link to the About tab's editor. There it finds the bio's own Edit by Facebook's words (Edit bio,
       Add bio, or the Bio row's own Edit: the first button after the title "Bio", with at most one line of words
@@ -2008,48 +2010,47 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **The username:** on Accounts Center's username page for their Facebook profile (the profile's number from Edit
       profile's link; without it, Profiles, then the Facebook one), and only that profile's page, never Instagram's,
       the Username box is cleared and the new one typed. Done is pressed only once Facebook allows it, and after it
-      Facebook's Change username or Confirm, once, only in the box on top, only when that box has nowhere to type and
-      doesn't offer to change the Instagram profile's too; a box after Done it doesn't know, or one with that offer,
-      is handed to the person. Then their profile is read again for its new
-      address. It still asks first (decision 84). A password or code box, or Facebook's "Confirm it's you" with ways
-      to pick, waits for the person: they answer it there and press Continue, then Carry on in HandsFreeOS. The
-      extension never types a password or a code, and reads no warning on Accounts Center while Facebook asks for
-      one, as that isn't decision 25's warning; any other warning there stops it before anything else is read. When
-      Facebook says the username isn't available or can't change yet, the ask ends saying so, and what to do: pick
-      another under Settings → Facebook, or try again in a few days. Nothing is guessed.
-    - **The name** (answer 1a): on Accounts Center's name page for their Facebook profile (`/profiles/<number>/name/`,
-      found as the username's is, and only that profile's page, never Instagram's). The name goes in as its boxes
-      take it, each found by its label: the first word in First name, the rest in Last name, and Middle name left
-      empty (`splitName`), so the name shown is the one picked. It presses Review change once Facebook allows it,
-      keeps the order the name is shown in as it is, and presses Done (or Save changes) only once Facebook allows
-      it, then its Change name or Confirm on the same terms as the username's. The same waits as the username's: a
-      password, a code or "Confirm it's you" waits for the person, never typed. A box after Done it doesn't know, or
-      an offer to change the Instagram profile's name too (ticked on the page, or in a box after Done), is handed
-      over. When Facebook refuses the name (its name standards, a change too recent, "You can't change your name
-      right now", "try again in N days"), the ask ends saying so, and what to do. Then their profile is read again
+      Facebook's Change username or Confirm, once, only in the box on top and only when that box has nowhere to type;
+      a box after Done it doesn't know is handed to the person, and from 0.94.0 so is one that offers to change the
+      Instagram profile's too. Then their profile is read again for its new address. It still asks first (decision
+      84). A password or code box, or Facebook's "Confirm it's you" with ways to pick, waits for the person: they
+      answer it there and press Continue, then Carry on in HandsFreeOS. The extension never types a password or a
+      code, and reads no warning on Accounts Center while Facebook asks for one, as that isn't decision 25's warning;
+      any other warning there stops it before anything else is read. When Facebook says the username isn't available
+      or can't change yet, the ask ends saying so, and what to do: pick another under Settings → Facebook, or try
+      again in a few days. Nothing is guessed.
+    - **The name** (answer 1a, from extension 0.94.0): on Accounts Center's name page for their Facebook profile
+      (`/profiles/<number>/name/`, found as the username's is, and only that profile's page, never Instagram's). The
+      name goes in as its boxes take it, each found by its label: the first word in First name, the rest in Last name,
+      and Middle name left empty (`splitName`), so the name shown is the one picked. It presses Review change once
+      Facebook allows it, keeps the order the name is shown in as it is, and presses Done (or Save changes) only once
+      Facebook allows it, then its Change name or Confirm on the same terms as the username's. The same waits as the
+      username's: a password, a code or "Confirm it's you" waits for the person, never typed. A box after Done it
+      doesn't know, or an offer to change the Instagram profile's name too (ticked on the page, or in a box after Done),
+      is handed over. When Facebook refuses the name (its name standards, a change too recent, "You can't change your
+      name right now", "try again in N days"), the ask ends saying so, and what to do. Then their profile is read again
       for the new name, in whichever order Facebook shows it; one Facebook is still looking at isn't said to be in. A
-      name Facebook wouldn't take is refused before it's asked (`nameProblem`: a first and last name, in letters,
-      with spaces, apostrophes, hyphens or dots between; rule `outreach_profile_edit_refused`), and the AI's names
-      for Facebook are held to it too.
-      Facebook lets a name change once in 60 days, which the words say. Put these in is the person's OK, as for the
-      bio (decision 80); only a username asks first.
-    - **Instagram's username and name** (answer 2a) go in the same way, on Accounts Center's username and name pages
-      for their Instagram profile, never Facebook's, in Instagram's own window: Instagram's Accounts Center
-      (`https://accountscenter.instagram.com/*`) joined the extension's host permissions in 0.93.0, granted with
-      nothing asked when the build is reloaded. It isn't counted in whether Chrome lets the extension on Instagram,
-      so someone who keeps the extension to some sites still has Instagram on; while Chrome keeps it off that
-      Accounts Center, the username and name are handed over, saying to allow it under the extension's Site access.
-      Its profile is only the Profiles row that says Instagram and shows the account signed in on instagram.com,
-      never another Instagram row, and a username is typed only while the Username box holds that account's
-      username or the new one. Its name is one Name box. Done is pressed only once Instagram allows it, with the same
-      waits and the same box after Done, and Instagram's own refusals (a username taken or not allowed, a name
-      changed twice in 14 days) end the ask saying so and what to do, never read as an Instagram warning; one that
-      says "Try again later" leaves the name for another day. Instagram's own "Try Again Later" box, saying nothing of
-      a username or a name, is its warning there as on its own pages (decision 25), and stops it for the day. Then
-      their Instagram profile is read again: the new username in its address, the new name on it; stopped before
-      that, nothing is said to be in. When the extension can't tell which row under Profiles is theirs, the step is
-      handed over, saying which account to press there and what to put in. Its bio goes in on its Edit profile form,
-      as since 0.62.0; its links stay in its phone app.
+      name Facebook wouldn't take is refused before it's asked (`nameProblem`: a first and last name, in letters, with
+      spaces, apostrophes, hyphens or dots between; rule `outreach_profile_edit_refused`), and the AI's names for
+      Facebook are held to it too. Facebook lets a name change once in 60 days, which the words say. Put these in is the
+      person's OK, as for the bio (decision 80); only a username asks first.
+    - **Instagram's username and name** (answer 2a, from extension 0.94.0) go in the same way, on Accounts Center's
+      username and name pages for their Instagram profile, never Facebook's, in Instagram's own window: Instagram's
+      Accounts Center (`https://accountscenter.instagram.com/*`) joined the extension's host permissions in 0.94.0,
+      granted with nothing asked when the build is reloaded. It isn't counted in whether Chrome lets the extension on
+      Instagram, so someone who keeps the extension to some sites still has Instagram on; while Chrome keeps it off that
+      Accounts Center, the username and name are handed over, saying to allow it under the extension's Site access. Its
+      profile is only the Profiles row that says Instagram and shows the account signed in on instagram.com, never
+      another Instagram row, and a username is typed only while the Username box holds that account's username or the
+      new one. Its name is one Name box. Done is pressed only once Instagram allows it, with the same waits and the same
+      box after Done, and Instagram's own refusals (a username taken or not allowed, a name changed twice in 14 days)
+      end the ask saying so and what to do, never read as an Instagram warning; one that says "Try again later" leaves
+      the name for another day. Instagram's own "Try Again Later" box, saying nothing of a username or a name, is its
+      warning there as on its own pages (decision 25), and stops it for the day. Then their Instagram profile is read
+      again: the new username in its address, the new name on it; stopped before that, nothing is said to be in. When
+      the extension can't tell which row under Profiles is theirs, the step is handed over, saying which account to
+      press there and what to put in. Its bio goes in on its Edit profile form, as since 0.62.0, and from 0.94.0 is said
+      to be in only once the form shows it after Submit; its links stay in its phone app.
     - **Only what shows is said to be in.** The profile is read again at the end, and a part that went in but doesn't
       show there yet (the bio, a link, the new name, the new username in its address) is left out of "… is in." The
       end names it, with where to check it.
@@ -2066,11 +2067,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the add for a link and its box, and the Username box and Done, a word typed in each and theirs put back. Each
       page's outline is sent, so the owner's first Check tunes them from his own pages.
     - **An older extension hands them over as before.** Each build carries its own copy of core, so one before 0.93.0
-      opens Accounts Center or the profile and hands the step over. The screens say so for its computer
-      (`PART_AUTO_SINCE_ON`, `partHowFor`): Facebook's name, username and links, and Instagram's username and name,
-      read **You put it in** until it's updated. No new refusal for an older build: `PROFILE_PARTS_SINCE` stays
-      0.87.0. On the Live tab Facebook's `profile_edit` is now **Update your profile**, as on LinkedIn and Instagram,
-      since it's more than the bio.
+      opens Accounts Center or the profile and hands Facebook's username and links over, and one before 0.94.0
+      Facebook's name and Instagram's username and name. The screens say so for its computer (`PART_AUTO_SINCE_ON`,
+      `partHowFor`): each of those reads **You put it in** until it's updated. No new refusal for an older build:
+      `PROFILE_PARTS_SINCE` stays 0.87.0. On the Live tab Facebook's `profile_edit` is now **Update your profile**, as
+      on LinkedIn and Instagram, since it's more than the bio.
 
     Built from the outline of his own profile (made up in the extension's `test/fixtures/own-profile-2026-10.html`).
     The About tab's editor, Contact and basic info, and Accounts Center's username and name pages on Facebook and
@@ -2097,7 +2098,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       `allowed`), and an owner or admin is sent to Social Outreach → Settings → General where a member is told to ask
       one. There's still no refusal for no computer, outside working hours or limits reached: the day starts and
       waits, and Today's and Live's lines already say why.
-    - **The extension's panel** follows: its Get ready counts only what holds the day, with the profile as advice.
+    - **The extension's panel** follows from extension 0.94.0: its Get ready counts only what holds the day, with the
+      profile as advice (`holdingCount`, `adviceLeft`), and once nothing does, Start my day shows with what's left of
+      the profile beside it. 0.93.0's panel still counted the profile in Get ready's number, and showed nothing of it
+      beside Start my day.
 
 ## Rules worth knowing before changing anything
 

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.93.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.94.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -52,7 +52,7 @@ next is in its kit, never in an `if`.
 | --------- | ------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | LinkedIn  | `src/networks/linkedin/`  | Yes           | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                                                                                                                                                                                                                                                                                                                             |
-| Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.93.0) |
+| Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.94.0) |
 | Alignable | `src/networks/alignable/` | Yes           | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz                                                                                                                                                                                                                                                                                       |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
@@ -63,7 +63,7 @@ is on, and both must:
   is off.
 - **Chrome:** every network's sites are the extension's from install since 0.88.0 (decision 85): LinkedIn's
   (`https://www.linkedin.com/*`), Instagram's (`https://www.instagram.com/*`) and Alignable's
-  (`https://www.alignable.com/*`), as Facebook's always were, so nothing asks you to allow one. From 0.93.0 Instagram's
+  (`https://www.alignable.com/*`), as Facebook's always were, so nothing asks you to allow one. From 0.94.0 Instagram's
   Accounts Center (`https://accountscenter.instagram.com/*`) is one too, where your Instagram username and name are
   changed (docs/outreach.md, decision 89): reloading the build grants it, with nothing asked. It isn't counted in
   whether Chrome lets the extension on Instagram (`granted` in `src/networks/scripts.ts`), so someone who keeps the
@@ -78,7 +78,7 @@ is on, and both must:
 both (`src/networks/looking/`) and each network's site (its addresses, its own words, its warnings and the buttons each
 step needs: `src/networks/instagram/site.ts`, `src/networks/alignable/site.ts`). Its script notes none of your steps
 and reads nothing as you go but its warnings; HandsFreeOS asks it nothing but its Check (`src/jobs/looking.ts`) and,
-on Instagram, reading and writing your own profile (decision 80): its bio on its Edit profile form, and from 0.93.0
+on Instagram, reading and writing your own profile (decision 80): its bio on its Edit profile form, and from 0.94.0
 its username and name on Instagram's Accounts Center (decision 89). The Check
 reads its main pages and sends a problem report of each with its outline, and looks for each step's button, pressing
 none: Instagram's bio box and Submit, Follow, Message, Like and the box to comment in; Alignable's Connect, Message,
@@ -195,25 +195,12 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
 - **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
   button among your highlights is no highlight.
 
-From 0.93.0 (the owner, 26 Oct 2026, docs/outreach.md decision 89) **Put these in** puts your Facebook bio, name,
-username and links in itself, and your Instagram username and name, where it handed them to you (`src/jobs/profile.ts`,
-`src/jobs/looking.ts`). He asked for the bio, the username and the links, then answered "1a 2a 3a" to "1. Your name
-too? 2. Instagram's username, name and bio too? 3. May I read the extension's page-layout reports?":
+From 0.94.0 (the owner, 26 Oct 2026, docs/outreach.md decision 89) **Put these in** also puts your Facebook name in
+itself, and your Instagram username and name, where 0.93.0 handed them to you (`src/jobs/profile.ts`,
+`src/jobs/looking.ts`, `src/jobs/accounts-center.ts`). After asking for the bio, the username and the links (0.93.0,
+below), he answered "1a 2a 3a" to "1. Your name too? 2. Instagram's username, name and bio too? 3. May I read the
+extension's page-layout reports?":
 
-- **The bio,** with no **Edit bio** on October 2026's profile: it follows **Edit profile**'s link to the About tab's
-  editor, presses the bio's own **Edit** there (found by Facebook's words: Edit bio, Add bio, or the Bio row's own
-  Edit, never another row's), writes your bio in the box that opens once it's the bio's, presses its **Save** and
-  checks it shows under Bio. A profile with Edit bio has it pressed, as before.
-- **The links,** on Contact and basic info (the Links card's **Edit links**): for each one that isn't there yet, it
-  presses Facebook's add for a website, types the address, presses **Save** and checks it shows. It only adds: a link
-  that's there stays.
-- **The username,** on Accounts Center's username page for your Facebook profile: it clears **Username**, types the
-  new one you picked, and presses **Done** only once Facebook allows it (and Facebook's **Change username** or
-  **Confirm** after, if it asks to be sure, never in a box offering to change Instagram's too), then reads your
-  profile again for its new address. A password or code box, or Facebook's
-  "Confirm it's you", makes it wait for you: answer it there and press Continue, then press Carry on in HandsFreeOS.
-  It never types a password or a code. When Facebook says the username isn't available or can't change yet, the ask
-  ends saying so, and what to do.
 - **The name,** on Accounts Center's name page for your Facebook profile: it puts the name you picked in **First
   name** and **Last name** (its first word, then the rest) and leaves **Middle name** empty, each box found by its
   label, presses **Review change** once Facebook allows it, keeps the order your name is shown in as it is, and
@@ -236,19 +223,46 @@ too? 2. Instagram's username, name and bio too? 3. May I read the extension's pa
   saying nothing of a username or a name, is its warning there, as on its own pages, and stops it for the day. When
   it can't tell which row under Profiles is yours, the step is handed to you, saying which account to press and what
   to put in. While Chrome keeps the extension off accountscenter.instagram.com (its **Site access**), both are handed
-  to you, saying how to allow it. Your Instagram bio goes in on its Edit profile form, as before, and its links stay
-  in its phone app.
-- **Anything it can't find** is handed to you, saying where to press on the page it's on, and its problem report
-  carries that page's outline. Each stops on the network's warning. The ask ends saying a part is in only when your
-  profile shows it after; one that doesn't show yet is named, with where to check it.
-- **Check Facebook tries each** up to its last press, which it never presses: the bio on the About tab's editor, the
-  add for a link and its box, and the Username box and Done, with a word typed and yours put back.
+  to you, saying how to allow it. Instagram's script, registered by an older build on www.instagram.com alone, is
+  moved onto both its sites.
+- **Your Instagram bio** goes in on its Edit profile form, as since 0.62.0, with **Submit** pressed only once Instagram
+  turns it on. It's kept on Instagram's "Profile saved.", or with Submit off a moment and the bio still in its box; a
+  step it can't do is handed to you, its note saying which, and your account is read again after, so a bio that
+  doesn't show isn't said to be in. Its links stay in its phone app.
+- **Never the other network's profile:** after your Facebook username's **Done** it never presses **Change
+  username** or **Confirm** in a box offering to change Instagram's too, nor Instagram's in one offering to change
+  Facebook's. That box is handed to you.
 - **The panel's Get ready** counts only what holds your day (decision 90): your profile is advice, shown with what's
   left and never counted, with "Your day doesn’t wait on this one…" under it while something else is left. Once
   nothing is, Next up has **Start my day**, with what's left of your profile beside it, "You can start now and finish
   it later." and **Check your profile** in HandsFreeOS.
-- An older build hands Facebook's name, username and links, and Instagram's username and name, to you as before (and
-  Facebook's bio where there's no Edit bio), and HandsFreeOS marks those **You put it in** for that computer.
+- 0.93.0 and older builds hand Facebook's name, and Instagram's username and name, to you as before, and HandsFreeOS
+  marks those **You put it in** for that computer.
+
+From 0.93.0 (the owner, 26 Oct 2026, docs/outreach.md decision 89) **Put these in** puts your Facebook bio, username
+and links in itself, where it handed them to you (`src/jobs/profile.ts`):
+
+- **The bio,** with no **Edit bio** on October 2026's profile: it follows **Edit profile**'s link to the About tab's
+  editor, presses the bio's own **Edit** there (found by Facebook's words: Edit bio, Add bio, or the Bio row's own
+  Edit, never another row's), writes your bio in the box that opens once it's the bio's, presses its **Save** and
+  checks it shows under Bio. A profile with Edit bio has it pressed, as before.
+- **The links,** on Contact and basic info (the Links card's **Edit links**): for each one that isn't there yet, it
+  presses Facebook's add for a website, types the address, presses **Save** and checks it shows. It only adds: a link
+  that's there stays.
+- **The username,** on Accounts Center's username page for your Facebook profile: it clears **Username**, types the
+  new one you picked, and presses **Done** only once Facebook allows it (and Facebook's **Change username** after, if
+  it asks to be sure), then reads your profile again for its new address. A password or code box, or Facebook's
+  "Confirm it's you", makes it wait for you: answer it there and press Continue, then press Carry on in HandsFreeOS.
+  It never types a password or a code. When Facebook says the username isn't available or can't change yet, the ask
+  ends saying so, and what to do.
+- **Anything it can't find** is handed to you, saying where to press on the page it's on, and its problem report
+  carries that page's outline. Each stops on a Facebook warning. The ask ends saying a part is in only when your
+  profile shows it after; one that doesn't show yet is named, with where to check it.
+- **Check Facebook tries each** up to its last press, which it never presses: the bio on the About tab's editor, the
+  add for a link and its box, and the Username box and Done, with a word typed and yours put back.
+- Your name stays yours to put in, in Accounts Center, and Instagram is as before (both go in by themselves from
+  0.94.0, above). An older build hands the username and links to you as before (and the bio where there's no Edit
+  bio), and HandsFreeOS marks its username and links **You put it in** for that computer.
 
 From 0.92.0 (the owner, 24 Oct 2026, docs/outreach.md decision 86) where someone lives is read right:
 
@@ -309,8 +323,8 @@ its name, username and links beside the bio (`src/jobs/profile-parts.ts`).
   LinkedIn's address and links, the network wants you to change yourself: the extension opens the page where it's
   changed (Accounts Center, LinkedIn's public profile settings, the profile itself) and hands the step over with what to
   put in; press Carry on once it's in. Instagram's links are only in its phone app, so that step says so. From 0.93.0
-  Facebook's name, username and links, and Instagram's username and name, go in by themselves (above), so only
-  LinkedIn's address and links are handed over this way.
+  Facebook's username and links go in by themselves, and from 0.94.0 its name and Instagram's username and name
+  (above), so only LinkedIn's address and links are handed over this way.
 - **Usernames are checked before you pick one.** For each username the AI offers, it opens that username's address and
   reads the page: nobody there, it's free; a profile, it's taken; neither, it says it couldn't tell. It presses
   nothing, and HandsFreeOS won’t let you pick one that’s taken.
@@ -443,7 +457,7 @@ From top to bottom:
   ticked), with **Open Needs you**: Carry on and Skip are pressed there, never in the panel. Until you're ready
   (docs/outreach.md, decision 63), Next up is **Get ready for your best results** instead: the main offer, a
   playbook's niche, your profile, your messages and your numbers, each ticked as it's done, from `outreach.readiness`,
-  with **Get ready in HandsFreeOS** (0.31.0). From 0.93.0 (decision 90) it counts only what holds your day
+  with **Get ready in HandsFreeOS** (0.31.0). From 0.94.0 (decision 90) it counts only what holds your day
   (`holdingCount`): your profile is advice, shown with what's left but never counted, and says "Your day doesn’t wait
   on this one: finish it before or after you start." (`profileNoHold`). Once nothing else is left, Next up has
   **Start my day**, with what's left of your profile beside it, "You can start now and finish it later."
@@ -611,7 +625,7 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 | **Read my chats** (Chats)                                                                  | Opens your chats in Messenger one at a time from the list and scrolls it for more, skipping any read in the last day that hasn't changed; group chats are left out (`src/jobs/chats.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | The same, 7 to 14 seconds a chat, up to 150                                                           |
 | **Draft a message**, **Draft a comment** (Today, while it's online)                        | Opens their profile, reads their intro and latest posts and the business page their intro links to, then has the AI draft with those lines; the drafts come back on the ask (`src/jobs/lookup.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | A window of its own, closed after                                                                     |
 | **Read my profile** (Today, Get ready)                                                     | Opens facebook.com/me, checks it's your own (**Edit profile**), reads the picture's and the cover's descriptions, the bio, the intro, what's featured and the latest posts, and sends them for the AI's check; HandsFreeOS keeps only the AI's answer (`src/jobs/profile.ts`, `src/networks/facebook/own-profile.ts`, decision 64)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | A window of its own, one read                                                                         |
-| **Put this one in**, **Put these in** (Today, Get ready, a bio the AI wrote)               | Presses **Edit bio** (or **Add bio**), or else follows **Edit profile** to the About tab's editor and presses the bio's own **Edit** (0.93.0); writes the bio you picked in place of the old one, presses **Save** and waits for it to show. For **Put these in** it also adds each new link on Contact and basic info (**Edit links**), puts the username you picked in Accounts Center's **Username** and presses **Done** once Facebook allows it (and its **Change username** if it asks to be sure), and puts your name in on Accounts Center's name page (**First name** and **Last name**, **Review change**, then **Done**, and its **Change name** or **Confirm** if it asks to be sure: 0.93.0), never pressing a box that offers to change Instagram's too; then it reads the profile again, and says a part is in only once it shows there. Any step it can't find it hands to you                                         | A window of its own, brought to the front when it hands you a step or Facebook asks for your password |
+| **Put this one in**, **Put these in** (Today, Get ready, a bio the AI wrote)               | Presses **Edit bio** (or **Add bio**), or else follows **Edit profile** to the About tab's editor and presses the bio's own **Edit** (0.93.0); writes the bio you picked in place of the old one, presses **Save** and waits for it to show. For **Put these in** it also adds each new link on Contact and basic info (**Edit links**), puts the username you picked in Accounts Center's **Username** and presses **Done** once Facebook allows it (and its **Change username** if it asks to be sure), and puts your name in on Accounts Center's name page (**First name** and **Last name**, **Review change**, then **Done**, and its **Change name** or **Confirm** if it asks to be sure: 0.94.0), never pressing a box that offers to change Instagram's too; then it reads the profile again, and says a part is in only once it shows there. Any step it can't find it hands to you                                         | A window of its own, brought to the front when it hands you a step or Facebook asks for your password |
 | **Check Facebook** (Settings, Facebook; 0.57.0)                                            | Opens your profile (and, from 0.93.0, its About tab's editor and Contact and basic info), feed, friend requests (and, after **View sent requests**, the ones you've sent), friends, groups and one of them, a people search, a groups search, your chats, one friend's profile, the profile of someone you sent a request to, your notifications, Download your information and (0.93.0) Accounts Center's username page, one at a time, and sends a problem report of each with its outline. On the way it tries each step up to its last press, which it never presses: your bio, your links (0.93.0), confirming a request, a post in a group, a comment, a friend request, joining a group, a like, unfriending, a message, cancelling a request, your username (0.93.0) and your file; a report of each says what works, and a last one names what doesn't (`src/jobs/checkup.ts`, `src/networks/facebook/tries.ts`, decision 77) | A window of its own, in front for about four minutes                                                  |
 
 - **A line per network** (the plan's "One runner, one turn"). Each network takes its own asks (`outreach.ask.take`
@@ -644,7 +658,7 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
   ("Stopped: you pressed Stop for today. Requests cancelled: 2 people.").
 - **Only its network's pages:** an ask's tab opens only https addresses of its own network: on Facebook
   www.facebook.com, web.facebook.com and accountscenter.facebook.com, on LinkedIn www.linkedin.com, on Instagram
-  www.instagram.com and, from 0.93.0, accountscenter.instagram.com (each kit's
+  www.instagram.com and, from 0.94.0, accountscenter.instagram.com (each kit's
   `workUrl`, checked in `src/tab.ts`, whose tab goes by its kit), so a bad link kept in HandsFreeOS or read off a page
   is refused with plain words and never opened. A tab does only its own network's steps (its kit's `work`); asked
   another's, it says so.
@@ -1158,11 +1172,12 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   It never types there: a password or PIN box on the page makes it wait for the person. Each step lists the words it
   may go by, the likeliest first, and one it can't find is handed to the person rather than guessed.
   `test/fetch.test.ts` walks a made-up Accounts Center, and again with bare boxes. The only other pages of Accounts
-  Center it acts on are the username and name pages of your own Facebook and Instagram profiles (0.93.0, decision
-  89), only for a **Put these in** you pressed, and only the one with that profile's number in its address, on its own
-  network's Accounts Center: your Facebook profile's on accountscenter.facebook.com, never Instagram's, and your
-  Instagram profile's on accountscenter.instagram.com, never Facebook's, found as only the Profiles row that shows the
-  Instagram account you're signed in to (`profileRowOn`). On a username page it types only into **Username**, only the
+  Center it acts on are the username and name pages of your own Facebook and Instagram profiles (decision 89: your
+  Facebook username's from 0.93.0, the rest from 0.94.0), only for a **Put these in** you pressed, and only the one
+  with that profile's number in its address, on its own network's Accounts Center: your Facebook profile's on
+  accountscenter.facebook.com, never Instagram's, and your Instagram profile's on accountscenter.instagram.com, never
+  Facebook's, found as only the Profiles row that shows the Instagram account you're signed in to (`profileRowOn`).
+  On a username page it types only into **Username**, only the
   new username you picked (on Instagram only while it holds that account's username or the new one), and presses
   **Done** only once the network allows it; after Done it presses **Change username** or **Confirm** once, only in
   the box on top, only when that box has nowhere to type and doesn't offer to change the other profile too. On a name
