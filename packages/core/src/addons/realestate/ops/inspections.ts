@@ -243,6 +243,7 @@ export const inspectionUpdate = defineAddonCommand(realestateAddon, {
   input: InspectionUpdateInput,
   output: InspectionChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_inspection_update', autonomy: 'confirm' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.inspection.changed', ...PROOF_EVENTS],
@@ -285,6 +286,7 @@ export const inspectionReportIn = defineAddonCommand(realestateAddon, {
   input: InspectionReportInInput,
   output: InspectionChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_inspection_report_in', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.inspection.report_in', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -344,6 +346,7 @@ export const inspectionCancel = defineAddonCommand(realestateAddon, {
   input: InspectionCancelInput,
   output: InspectionChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_inspection_cancel', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.inspection.changed'],
   async handler(ctx, input) {
@@ -455,6 +458,7 @@ export const findingUpdate = defineAddonCommand(realestateAddon, {
   input: FindingUpdateInput,
   output: FindingChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_finding_update' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.inspection.changed'],
@@ -495,6 +499,7 @@ export const findingRemove = defineAddonCommand(realestateAddon, {
   input: FindingRemoveInput,
   output: FindingChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_finding_remove', autonomy: 'confirm' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.inspection.changed'],
@@ -531,6 +536,7 @@ export const repairSend = defineAddonCommand(realestateAddon, {
   input: RepairSendInput,
   output: RepairChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_repair_send' },
   scope: inWorkspace,
   emits: ['realestate.repair.sent', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -606,6 +612,7 @@ export const repairAnswer = defineAddonCommand(realestateAddon, {
   input: RepairAnswerInput,
   output: RepairChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_repair_record_answer' },
   scope: inWorkspace,
   emits: ['realestate.repair.answered', ...PROOF_EVENTS],
   async handler(ctx, input) {

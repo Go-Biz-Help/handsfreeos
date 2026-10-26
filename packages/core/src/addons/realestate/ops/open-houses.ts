@@ -210,6 +210,7 @@ export const openHouseCancel = defineAddonCommand(realestateAddon, {
   input: OpenHouseCancelInput,
   output: OpenHouseChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_open_house_cancel', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.open_house.cancelled', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -265,6 +266,7 @@ export const openHouseFollowUp = defineAddonCommand(realestateAddon, {
   input: OpenHouseFollowUpInput,
   output: OpenHouseFollowUpOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_open_house_follow_up' },
   scope: inWorkspace,
   emits: ['realestate.open_house.followed_up', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -317,6 +319,7 @@ export const openHousesList = defineAddonQuery(realestateAddon, {
   input: ListingInput,
   output: OpenHousesOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_open_houses' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

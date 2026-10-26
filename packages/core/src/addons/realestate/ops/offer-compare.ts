@@ -97,6 +97,7 @@ export const netSheetSave = defineAddonCommand(realestateAddon, {
   input: NetSheetSaveInput,
   output: NetSheetSaveOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_net_sheet_save', autonomy: 'confirm' },
   scope: inWorkspace,
   // A new estimate saves with no signal (board 88), with the phone's id for the save.
   offline: 'anytime',

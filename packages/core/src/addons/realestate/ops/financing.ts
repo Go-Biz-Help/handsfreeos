@@ -175,6 +175,7 @@ export const financingSetLender = defineAddonCommand(realestateAddon, {
   input: FinancingSetLenderInput,
   output: FinancingChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_financing_set_lender', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.financing.changed'],
   async handler(ctx, input) {
@@ -247,6 +248,7 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
   input: FinancingMarkDoneInput,
   output: FinancingChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_financing_mark_done', autonomy: 'confirm' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.financing.step_done', ...PROOF_EVENTS],
@@ -325,6 +327,7 @@ export const financingReopen = defineAddonCommand(realestateAddon, {
   input: FinancingReopenInput,
   output: FinancingChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_financing_reopen_step', autonomy: 'confirm' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.financing.changed'],

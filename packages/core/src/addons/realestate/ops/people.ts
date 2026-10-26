@@ -110,6 +110,7 @@ export const dealAddPerson = defineAddonCommand(realestateAddon, {
   input: DealAddPersonInput,
   output: DealTeamOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_add_person', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.team_changed'],
   async handler(ctx, input) {
@@ -161,6 +162,7 @@ export const dealRemovePerson = defineAddonCommand(realestateAddon, {
   input: DealRemovePersonInput,
   output: DealTeamOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_remove_person', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.team_changed'],
   async handler(ctx, input) {
@@ -207,6 +209,7 @@ export const dealSetRole = defineAddonCommand(realestateAddon, {
   input: DealSetRoleInput,
   output: DealTeamOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_set_role', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.team_changed'],
   async handler(ctx, input) {
@@ -323,6 +326,7 @@ export const dealSetProperty = defineAddonCommand(realestateAddon, {
   input: DealSetPropertyInput,
   output: DealSetPropertyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_set_property', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.property_set'],
   async handler(ctx, input) {
@@ -411,6 +415,7 @@ export const dealLink = defineAddonCommand(realestateAddon, {
   input: DealLinkInput,
   output: DealLinkOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_link', autonomy: 'confirm' },
   scope: inWorkspace,
   // Spelled out: proof-hooks imports this file through duties.ts, so its list isn't there yet when this loads.
   emits: ['realestate.deal.linked', 'realestate.duty.evidence_added'],
@@ -517,6 +522,7 @@ export const dealUnlink = defineAddonCommand(realestateAddon, {
   input: DealUnlinkInput,
   output: DealLinkOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_unlink', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.unlinked'],
   async handler(ctx, input) {
@@ -568,6 +574,7 @@ export const partyAdd = defineAddonCommand(realestateAddon, {
   input: PartyAddInput,
   output: PartyAddOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_party_add', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.party.added'],
   async handler(ctx, input) {
@@ -625,6 +632,7 @@ export const partyRemove = defineAddonCommand(realestateAddon, {
   input: PartyRemoveInput,
   output: PartyRemoveOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_party_remove', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.party.removed'],
   async handler(ctx, input) {
@@ -706,6 +714,7 @@ export const dealSetCommission = defineAddonCommand(realestateAddon, {
   input: DealSetCommissionInput,
   output: DealCommissionOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_set_commission', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.commission_set'],
   async handler(ctx, input) {
@@ -762,6 +771,7 @@ export const dealSetFinalCommission = defineAddonCommand(realestateAddon, {
   input: DealSetFinalCommissionInput,
   output: DealCommissionOutput,
   permission: 'realestate.except',
+  ai: { tool: 'realestate_deal_set_final_commission', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.final_commission_set'],
   async handler(ctx, input) {
@@ -827,6 +837,7 @@ export const dealArchive = defineAddonCommand(realestateAddon, {
   input: DealArchiveInput,
   output: DealArchiveOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_archive', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -849,6 +860,7 @@ export const dealRestore = defineAddonCommand(realestateAddon, {
   input: DealArchiveInput,
   output: DealArchiveOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_restore', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {

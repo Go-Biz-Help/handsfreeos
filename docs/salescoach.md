@@ -222,6 +222,9 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   unless an owner gives `salescoach.delete` (Settings → Permissions), as with `records.delete`. Not while the coach is
   still hearing it or writing it up (`salescoach_call_in_progress`). The AI never deletes (`salescoach.call.delete` is
   risk 4). Row security holds it (`calls_delete`, `20261027008200_salescoach_delete_calls.sql`).
+- **The Assistant** does the rest of what a person does here: the live call and its cards, suggested replies,
+  playbooks and what the coach learned (each operation's `ai`). Writing or archiving a playbook, using a lesson and
+  stopping a call wait for the person's OK; putting a card away runs on its own.
 - **Consent.** The coach listens only where the number's recording notice is on (Chris, 2026-10-14). On Zoom, Zoom
   shows its own notice that an app is listening, and the panel says so too.
 - **Every call, on its own, and the rep can stop it** (Chris, 2026-10-14). The coach listens on every answered call

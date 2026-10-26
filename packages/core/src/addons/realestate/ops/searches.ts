@@ -92,6 +92,7 @@ export const searchSet = defineAddonCommand(realestateAddon, {
   input: SearchSetInput,
   output: SearchSetOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_search_set', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.search.changed'],
   async handler(ctx, input) {
@@ -304,6 +305,7 @@ export const matchDismiss = defineAddonCommand(realestateAddon, {
   input: MatchDismissInput,
   output: MatchDismissOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_match_dismiss', autonomy: 'confirm' },
   scope: inWorkspace,
   // "Not for Linh": the client never sees it, so it waits for signal as long as it takes.
   offline: 'anytime',

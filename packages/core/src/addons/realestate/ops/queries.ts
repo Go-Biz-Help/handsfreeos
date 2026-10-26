@@ -309,6 +309,7 @@ export const dealsFor = defineAddonQuery(realestateAddon, {
   input: DealsForInput,
   output: DealsForOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_for' },
   scope: inWorkspace,
   handler: async (ctx, input) => {
     const on = (end: 'a_person_id' | 'a_company_id', id: string) =>
@@ -333,6 +334,7 @@ export const propertySearch = defineAddonQuery(realestateAddon, {
   input: PropertySearchInput,
   output: PropertySearchOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_property_search' },
   scope: inWorkspace,
   handler: async (ctx, input) => {
     const kinds = await kindIds(ctx);
@@ -614,6 +616,7 @@ export const dealHistoryQuery = defineAddonQuery(realestateAddon, {
   input: DealHistoryInput,
   output: DealHistoryOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_history' },
   scope: inWorkspace,
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
