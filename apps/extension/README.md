@@ -205,33 +205,35 @@ extension's page-layout reports?":
   name** and **Last name** (its first word, then the rest) and leaves **Middle name** empty, each box found by its
   label, presses **Review change** once Facebook allows it, keeps the order your name is shown in as it is, and
   presses **Done** (or **Save changes**) only once Facebook allows it; after Done it presses **Change name** or
-  **Confirm** once, only in the box on top, only when that box has nowhere to type and doesn't offer to change your
-  Instagram name too. Then it reads your profile again for the new name, in whichever order Facebook shows it. It
+  **Confirm** once, only in the box on top, only when that box has nowhere to type or tick and doesn't offer to change
+  your Instagram name too. Then it reads your profile again for the new name, in whichever order Facebook shows it. It
   waits for a password, a code or "Confirm it's you" as the username does, and hands you any box after Done it
   doesn't know, or one offering to change Instagram's name too. When Facebook won't take the name (its name
-  standards, or a change too recent: it lets you change it once in 60 days), the ask ends saying so, and what to do.
-  HandsFreeOS refuses a Facebook name with anything but letters, spaces, apostrophes, hyphens or dots, or only one
-  word, before it asks (`nameProblem` in core).
+  standards, or a change too recent: it lets you change it once in 60 days), the ask ends saying so, and what to do;
+  once it's saved, Facebook's word on the next change is never taken for that. HandsFreeOS refuses a Facebook name
+  with anything but letters, spaces, apostrophes, hyphens or dots, or only one word, before it asks (`nameProblem` in
+  core).
 - **Your Instagram username and name,** the same way, on Instagram's own Accounts Center (accountscenter.instagram.com,
   in the Instagram window, new in the manifest: reloading the build grants it): the username and name pages for your
   Instagram profile, only the Profiles row that says Instagram and shows the account you're signed in to on
-  instagram.com, never Facebook's or another Instagram account's, and it types a username only while **Username**
-  holds that account's username or the new one. Its name is one **Name** box. Then your Instagram profile is read
-  again: the new username in its address, the new name on it. Instagram's refusals (a username taken or not allowed,
-  a name changed twice in 14 days) end the ask saying so and what to do, and are never taken for an Instagram
-  warning; one that says "Try again later" leaves the name for another day. Instagram's own "Try Again Later" box,
-  saying nothing of a username or a name, is its warning there, as on its own pages, and stops it for the day. When
-  it can't tell which row under Profiles is yours, the step is handed to you, saying which account to press and what
-  to put in. While Chrome keeps the extension off accountscenter.instagram.com (its **Site access**), both are handed
-  to you, saying how to allow it. Instagram's script, registered by an older build on www.instagram.com alone, is
-  moved onto both its sites.
+  instagram.com, never Facebook's or another Instagram account's, and it types a username only while **Username** holds
+  that account's username or the new one. Its name is one **Name** box. Instagram's "Verify your account" makes it wait
+  for you, as Facebook's "Confirm it's you" does. Then your Instagram profile is read again: the new username in its
+  address, the new name on it. Instagram's refusals (a username taken or not allowed, a name changed twice in 14 days)
+  end the ask saying so and what to do, and are never taken for an Instagram warning; one that says "Try again later"
+  leaves the name for another day. Instagram's own "Try Again Later" box, saying nothing of a username or a name, is its
+  warning there, as on its own pages, and stops it for the day. When it can't tell which row under Profiles is yours,
+  the step is handed to you, saying which account to press and what to put in. While Chrome keeps the extension off
+  accountscenter.instagram.com (its **Site access**), both are handed to you, saying how to allow it. Instagram's
+  script, registered by an older build on www.instagram.com alone, is moved onto both its sites.
 - **Your Instagram bio** goes in on its Edit profile form, as since 0.62.0, with **Submit** pressed only once Instagram
   turns it on. It's kept on Instagram's "Profile saved.", or with Submit off a moment and the bio still in its box; a
-  step it can't do is handed to you, its note saying which, and your account is read again after, so a bio that
-  doesn't show isn't said to be in. Its links stay in its phone app.
-- **Never the other network's profile:** after your Facebook username's **Done** it never presses **Change
-  username** or **Confirm** in a box offering to change Instagram's too, nor Instagram's in one offering to change
-  Facebook's. That box is handed to you.
+  warning on the form ends the ask first, a step it can't do is handed to you, its note saying which, and your account
+  is read again after, so a bio that doesn't show isn't said to be in. Its links stay in its phone app.
+- **Never the other network's profile:** it never ticks or unticks an offer, ticked on the username page, to change
+  the other profile's username too, and after your Facebook username's **Done** it never presses **Change username**
+  or **Confirm** in a box offering to change Instagram's too, nor Instagram's in one offering to change Facebook's.
+  Either is handed to you.
 - **The panel's Get ready** counts only what holds your day (decision 90): your profile is advice, shown with what's
   left and never counted, with "Your day doesn’t wait on this one…" under it while something else is left. Once
   nothing is, Next up has **Start my day**, with what's left of your profile beside it, "You can start now and finish
@@ -1180,17 +1182,20 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   On a username page it types only into **Username**, only the
   new username you picked (on Instagram only while it holds that account's username or the new one), and presses
   **Done** only once the network allows it; after Done it presses **Change username** or **Confirm** once, only in
-  the box on top, only when that box has nowhere to type and doesn't offer to change the other profile too. On a name
+  the box on top, only when that box has nowhere to type or tick and doesn't offer to change the other profile too,
+  and before reading its words, as they may say how long till the next change. On a name
   page it types only the name you picked: on Facebook into **First name** and **Last name** (its first word, then the
   rest), each found by its label, with **Middle name** left empty, then presses **Review change** once Facebook allows
   it, never picks how your name is shown (that stays as it is), and presses **Done** (or **Save changes**) once
   Facebook allows it; on Instagram into its one **Name**, then **Done**. After Done, on either, it presses **Change
-  name** or **Confirm** once, on the same terms as the username's. It never ticks or unticks an offer to change the
-  other profile's name too, and never presses a box after Done that offers to change the other profile's username or
-  name (`othersToo`): either is handed to you, so one network's never lands on the other. Any other box either
-  network opens it leaves to you. Check Facebook types a word in **Username** and puts yours back, and never presses
-  Done. It never types a password or a code: a password, PIN or code box, or "Confirm it's you" with ways to pick,
-  makes it wait for you (`askingHere`), and the network asking for one isn't taken for a warning there; nor is its
+  name** or **Confirm** once, on the same terms as the username's. It never ticks or unticks an offer, ticked on the
+  page, to change the other profile's username or name too (`syncOn`, by the tick's label and its row), and never
+  presses a box after Done that offers to change the other profile's username or name (`othersToo`): either is handed
+  to you, so one network's never lands on the other. Any other box either network opens it leaves to you, and its own
+  name page never counts as one. Check Facebook types a word in **Username** and puts yours back, and never presses
+  Done. It never types a password or a code: a password, PIN or code box, "Confirm it's you" with ways to pick, or
+  Instagram's "Verify your account", in a box, an alert or a heading, makes it wait for you (`askingHere`), and the
+  network asking for one isn't taken for a warning there; nor is its
   refusal of a name or username, which ends the ask with its words, "Try again later" beside it included. Instagram's
   own "Try Again Later" box, saying nothing of a name or a username, is its warning there (`centerWarnings`), as on
   its own pages. `test/facebook-profile-edit.test.ts`, `test/accounts-center.test.ts` (through
@@ -1210,9 +1215,9 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   (/accounts/edit/), only for a **Put this one in** or **Put these in** you pressed: it writes only in the **Bio**
   box, only the bio you picked, and presses only the form's **Submit**, never Website, Gender or anything else there,
   and only once Instagram turns it on. The bio is kept on Instagram's "Profile saved.", or with Submit off a moment
-  and the bio still in its box (`writeBioSteps`). A warning on the form ends the ask before anything is handed over,
-  and the form is read again after: a bio that doesn't show isn't said to be in. Its username and name are changed on
-  Instagram's Accounts Center instead (above). Anything not as expected is handed to you.
+  and the bio still in its box (`writeBioSteps`). From 0.94.0 a warning on the form ends the ask before anything is
+  handed over, and a bio that doesn't show on the form read again after isn't said to be in. Its username and name are
+  changed on Instagram's Accounts Center instead (above). Anything not as expected is handed to you.
   `test/instagram-profile-edit.test.ts` and `test/profile-everywhere.test.ts` walk a made-up form.
 - **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/networks/facebook/tidy.ts`) press only
   on a profile (`tidyPage`) the person ticked on the Friends tab, and only those still on its lists, after checking

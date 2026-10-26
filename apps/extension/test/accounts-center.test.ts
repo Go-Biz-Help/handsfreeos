@@ -592,7 +592,9 @@ describe('putting the username in on Instagram', () => {
   });
 
   it('waits for the person on Instagram’s “Verify your account” after Done, never pressing its Confirm', async () => {
-    const page = instagramUsernamePage({ sure: { says: 'Verify your account', button: 'Confirm' } });
+    const page = instagramUsernamePage({
+      sure: { says: 'Verify your account', button: 'Confirm' },
+    });
     const wrote = await quickly(
       writeUsername(page.doc, 'casey.roofs', { network: 'instagram', was: 'casey.owner' }),
     );
