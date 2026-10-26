@@ -59,6 +59,11 @@ export const countryUnskip = defineAddonCommand(outreachAddon, {
   input: CountryUnskipInput,
   output: CountryUnskipOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_unskip_country',
+    autonomy: 'confirm',
+    keywords: ['unskip', 'let them through'],
+  },
   scope: inWorkspace,
   emits: ['outreach.country.unskipped'],
   async handler(ctx, input) {
@@ -101,6 +106,11 @@ export const countryDecide = defineAddonCommand(outreachAddon, {
   input: CountryDecideInput,
   output: CountryDecideOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_decide_country',
+    autonomy: 'confirm',
+    keywords: ['not sure list', 'where they live'],
+  },
   scope: inWorkspace,
   emits: ['outreach.country.decided'],
   async handler(ctx, input) {
@@ -140,6 +150,10 @@ export const countriesSkipped = defineAddonQuery(outreachAddon, {
   input: CountriesSkippedInput,
   output: CountriesSkippedOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_country_skipped',
+    keywords: ['country setting', 'skipped people', 'not sure where they live'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;

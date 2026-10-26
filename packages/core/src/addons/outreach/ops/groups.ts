@@ -173,6 +173,10 @@ export const groupsList = defineAddonQuery(outreachAddon, {
   input: GroupsInput,
   output: GroupsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_groups',
+    keywords: ['facebook groups', 'work these', 'groups that fit'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

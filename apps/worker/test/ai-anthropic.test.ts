@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   AiOutputError,
   AnthropicProvider,
+  changesEffortPartway,
   emptyUsage,
   parseStructured,
   searchesTools,
@@ -121,11 +122,12 @@ const REQUEST: AiRequest = {
 };
 
 function recording(response: () => Response) {
-  const sent: { url: string; body: Record<string, unknown> }[] = [];
+  const sent: { url: string; body: Record<string, unknown>; beta: string | null }[] = [];
   const fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     sent.push({
       url: String(url),
       body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      beta: new Headers(init?.headers).get('anthropic-beta'),
     });
     return response();
   }) as typeof globalThis.fetch;
@@ -611,6 +613,52 @@ describe('AnthropicProvider', () => {
     expect(turnsThinkingOff('claude-opus-5-5')).toBe(false);
     expect(turnsThinkingOff('claude-opus-5')).toBe(true);
     expect(turnsThinkingOff('claude-haiku-4-5-20251001')).toBe(true);
+  });
+
+  it('thinks harder from a step on with an effort-only message there, where the model can, leaving the rest alone', async () => {
+    const harder: AiRequest = { ...REQUEST, effortFrom: { at: 2, effort: 'high' } };
+    const sentFor = async (options: { model: string; effort?: 'low' | 'high'; off?: boolean }) => {
+      const { sent, fetch } = recording(() => sse(TOOL_TURN));
+      const provider = new AnthropicProvider({
+        apiKey: 'k',
+        model: options.model,
+        fetch,
+        maxRetries: 0,
+        ...(options.effort ? { effort: options.effort } : {}),
+        ...(options.off ? { thinkingOff: true } : {}),
+      });
+      await provider.stream(harder);
+      await provider.stream(REQUEST);
+      return { provider, harder: sent[0]!, plain: sent[1]! };
+    };
+
+    const opus = await sentFor({ model: 'claude-opus-5-5', effort: 'low' });
+    expect(opus.provider.thinksHarderAt('high')).toBe(true);
+    expect(opus.provider.thinksHarderAt('low')).toBe(false);
+    const messages = opus.harder.body['messages'] as { role: string }[];
+    // Just before the step's results, after the turn that asked for them; the asked-for level stays low on top.
+    expect(messages.map((m) => m.role)).toEqual(['user', 'assistant', 'system', 'user']);
+    expect(messages[2]).toEqual({ role: 'system', content: [], output_config: { effort: 'high' } });
+    expect(opus.harder.body['output_config']).toEqual({ effort: 'low' });
+    expect(opus.harder.beta).toContain('mid-conversation-output-config-2026-07-01');
+    // A request that doesn't ask sends neither.
+    expect((opus.plain.body['messages'] as unknown[]).length).toBe(3);
+    expect(opus.plain.beta ?? '').not.toContain('mid-conversation-output-config');
+
+    // Already at that level, not thinking, or a model that refuses it: the request goes as it always did.
+    for (const other of [
+      await sentFor({ model: 'claude-opus-5-5', effort: 'high' }),
+      await sentFor({ model: 'claude-opus-5', effort: 'low', off: true }),
+      await sentFor({ model: 'claude-fable-5', effort: 'low' }),
+      await sentFor({ model: 'claude-opus-5-5' }),
+    ]) {
+      expect(other.provider.thinksHarderAt('high')).toBe(false);
+      expect((other.harder.body['messages'] as unknown[]).length).toBe(3);
+      expect(other.harder.beta ?? '').not.toContain('mid-conversation-output-config');
+    }
+    expect(changesEffortPartway('claude-sonnet-5-5')).toBe(true);
+    expect(changesEffortPartway('claude-fable-5')).toBe(false);
+    expect(changesEffortPartway('claude-opus-5-5-20261001')).toBe(true);
   });
 
   it('keeps a tool search in the turn, hands it back as it came, and reports a paused turn', async () => {

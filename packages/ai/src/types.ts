@@ -116,6 +116,10 @@ export interface AiResponseFormat {
   readonly schema: Record<string, unknown>;
 }
 
+/** How much a model thinks before it answers, least to most. */
+export const AI_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type AiEffort = (typeof AI_EFFORTS)[number];
+
 export interface AiRequest {
   /** Instructions that stay the same between questions; providers cache them where they can. */
   readonly system: string;
@@ -131,6 +135,12 @@ export interface AiRequest {
   readonly maxTokens?: number;
   /** The answer's text is JSON in this shape (see `parseStructured`). */
   readonly responseFormat?: AiResponseFormat;
+  /**
+   * Think harder from the message at index `at` on (a tool loop's careful step), without the provider reading the
+   * conversation before it again. A provider that can't (`thinksHarderAt`) answers as it always does. Once set in
+   * a loop it stays, at the same place, on every later call: the conversation only grows at its end.
+   */
+  readonly effortFrom?: { readonly at: number; readonly effort: AiEffort };
 }
 
 export interface AiToolCall {
@@ -204,6 +214,11 @@ export interface AiProvider {
    * it out.
    */
   warm?(request: AiRequest): Promise<AiUsage>;
+  /**
+   * Whether `effortFrom` at this level makes it think harder than it does now. Providers that can't change how
+   * much they think partway through a conversation leave it out.
+   */
+  thinksHarderAt?(effort: AiEffort): boolean;
 }
 
 export type AiErrorCode =

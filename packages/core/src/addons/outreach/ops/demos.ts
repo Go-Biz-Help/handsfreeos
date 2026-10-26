@@ -28,6 +28,10 @@ export const demoMark = defineAddonCommand(outreachAddon, {
   input: DemoMarkInput,
   output: DemoMarkOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_mark_demo',
+    keywords: ['demo booked', 'booked a call'],
+  },
   scope: inWorkspace,
   emits: ['outreach.demo.marked'],
   async handler(ctx, input) {

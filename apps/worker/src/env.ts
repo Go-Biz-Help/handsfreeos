@@ -255,6 +255,11 @@ export interface WorkerEnv {
    * tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.
    */
   readonly assistantToolSearch: boolean;
+  /**
+   * How much Ask HandsFreeOS thinks before it answers (Claude's effort, the backup's reasoning effort). Less is
+   * faster: `low` by default, so a look-up answers in a couple of seconds; `medium` or `high` think longer.
+   */
+  readonly assistantEffort: 'low' | 'medium' | 'high';
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
   /**
@@ -541,6 +546,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const assistantToolSearch = (env.ASSISTANT_TOOL_SEARCH || 'on') as string;
   if (!['on', 'off'].includes(assistantToolSearch))
     throw new Error('ASSISTANT_TOOL_SEARCH must be on or off');
+  const assistantEffort = (env.ASSISTANT_EFFORT?.trim() || 'low') as string;
+  if (!['low', 'medium', 'high'].includes(assistantEffort))
+    throw new Error('ASSISTANT_EFFORT must be low, medium or high');
   const assistantDailyTokens = Number(env.ASSISTANT_DAILY_TOKENS ?? 2_000_000);
   if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
     throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
@@ -737,6 +745,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     assistantModel: env.ASSISTANT_MODEL || 'claude-opus-5-5',
     aiModel: env.AI_MODEL || 'claude-sonnet-5',
     assistantToolSearch: assistantToolSearch === 'on',
+    assistantEffort: assistantEffort as WorkerEnv['assistantEffort'],
     assistantDailyTokens,
     openAiApiKey,
     openAiModel: env.OPENAI_MODEL?.trim() || 'gpt-6-sol',

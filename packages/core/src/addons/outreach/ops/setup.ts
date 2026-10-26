@@ -202,6 +202,10 @@ export const setupGet = defineAddonQuery(outreachAddon, {
   input: SetupInput,
   output: SetupOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_setup',
+    keywords: ['setup steps', 'getting started'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const me = meOf(ctx);
@@ -217,6 +221,10 @@ export const setupSave = defineAddonCommand(outreachAddon, {
   input: SetupSaveInput,
   output: SetupSaveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_save_setup',
+    keywords: ['leave setup for later', 'hide setup reminder'],
+  },
   scope: inWorkspace,
   emits: ['outreach.setup.saved'],
   async handler(ctx, input) {

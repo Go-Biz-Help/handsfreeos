@@ -114,6 +114,10 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
   input: PartnersNextInput,
   output: PartnersNextOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_partner_checks_next',
+    keywords: ['partners checked next'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -194,6 +198,10 @@ export const partnerSearchesNext = defineAddonQuery(outreachAddon, {
   input: PartnerSearchesInput,
   output: PartnerSearchesOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_partner_searches',
+    keywords: ['partner searches'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -530,6 +538,10 @@ export const partnersList = defineAddonQuery(outreachAddon, {
   input: PartnersInput,
   output: PartnersOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_partners',
+    keywords: ['partners', 'referral partners', 'affiliates'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -667,6 +679,11 @@ export const partnerMark = defineAddonCommand(outreachAddon, {
   input: PartnerMarkInput,
   output: PartnerMarkOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_mark_partner',
+    autonomy: 'confirm',
+    keywords: ['partner interested', 'partner call booked', 'make a partner', 'not now'],
+  },
   scope: inWorkspace,
   emits: ['outreach.partner.marked'],
   async handler(ctx, input) {

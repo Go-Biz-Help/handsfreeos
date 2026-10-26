@@ -370,6 +370,11 @@ export const dayStart = defineAddonCommand(outreachAddon, {
   input: DayInput,
   output: DayOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_start_day',
+    autonomy: 'confirm',
+    keywords: ['start my day', 'start the extension'],
+  },
   scope: inWorkspace,
   // Pressed with no signal, it waits and keeps its moment: an older press never undoes a newer one.
   offline: 'anytime',
@@ -385,6 +390,10 @@ export const dayStop = defineAddonCommand(outreachAddon, {
   input: DayInput,
   output: DayOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_stop_day',
+    keywords: ['stop for today', 'stop the extension'],
+  },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['outreach.day.stopped', 'outreach.live.changed'],
@@ -398,6 +407,10 @@ export const computerRename = defineAddonCommand(outreachAddon, {
   input: ComputerRenameInput,
   output: ComputerRenameOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_rename_computer',
+    keywords: ['rename computer'],
+  },
   scope: inWorkspace,
   emits: ['outreach.computer.renamed'],
   async handler(ctx, input) {
@@ -433,6 +446,11 @@ export const computerRemove = defineAddonCommand(outreachAddon, {
   input: ComputerRemoveInput,
   output: ComputerRemoveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_remove_computers',
+    autonomy: 'confirm',
+    keywords: ['remove computer'],
+  },
   scope: inWorkspace,
   emits: ['outreach.computer.removed'],
   async handler(ctx, input) {
@@ -480,6 +498,10 @@ export const live = defineAddonQuery(outreachAddon, {
   input: LiveInput,
   output: LiveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_live',
+    keywords: ['what the extension is doing', 'my computer', 'status', 'feed'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -583,6 +605,10 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
   input: LiveTeamInput,
   output: LiveTeamOutput,
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_team_live',
+    keywords: ['team status', 'who is working'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const { platform } = input;

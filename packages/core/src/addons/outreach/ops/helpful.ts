@@ -137,6 +137,10 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
   input: HelpfulAskInput,
   output: HelpfulAskOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_write_helpful_post',
+    keywords: ['write helpful post', 'draft group post'],
+  },
   scope: inWorkspace,
   emits: ['outreach.helpful.asked'],
   async handler(ctx, input) {
@@ -348,6 +352,11 @@ export const helpfulOk = defineAddonCommand(outreachAddon, {
   input: HelpfulOkInput,
   output: HelpfulChangeOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_ok_helpful_post',
+    autonomy: 'confirm',
+    keywords: ['ok helpful post', 'approve group post'],
+  },
   scope: inWorkspace,
   emits: ['outreach.helpful.oked'],
   async handler(ctx, input) {
@@ -389,6 +398,10 @@ export const helpfulSkip = defineAddonCommand(outreachAddon, {
   input: HelpfulSkipInput,
   output: HelpfulChangeOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_skip_helpful_post',
+    keywords: ['skip helpful post'],
+  },
   scope: inWorkspace,
   emits: ['outreach.helpful.skipped'],
   async handler(ctx, input) {
@@ -419,6 +432,10 @@ export const helpfulPosted = defineAddonCommand(outreachAddon, {
   input: HelpfulPostedInput,
   output: HelpfulChangeOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_helpful_posted',
+    keywords: ['I posted it', 'post is up', 'post link'],
+  },
   scope: inWorkspace,
   emits: ['outreach.helpful.posted'],
   async handler(ctx, input) {
@@ -536,6 +553,10 @@ export const helpfulList = defineAddonQuery(outreachAddon, {
   input: HelpfulListInput,
   output: HelpfulListOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_helpful_posts',
+    keywords: ['helpful post', 'group post', 'who engaged'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

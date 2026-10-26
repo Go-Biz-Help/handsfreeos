@@ -24,8 +24,9 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
-import type { AiProvider } from '@hfos/ai';
+import { ScriptedProvider, type AiProvider, type AiRequest } from '@hfos/ai';
 import { SPOKEN } from '../src/assistant/prompt';
+import { WARMS_PER_MINUTE } from '../src/assistant/routes';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -340,6 +341,154 @@ describe('the Assistant', () => {
       expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'budget_reached' })]);
     } finally {
       await tiny.close();
+    }
+  });
+
+  it('thinks harder once it reads the setup to change it, and says it is taking a little longer', async () => {
+    const asked: AiRequest[] = [];
+    const inner = new ScriptedProvider([
+      {
+        when: /change my texting/i,
+        calls: () => [{ name: 'get_settings', arguments: { area: 'texting', toChange: true } }],
+        reply: () => 'Here is what I would change.',
+      },
+      {
+        when: /what are my texting/i,
+        calls: () => [{ name: 'get_settings', arguments: { area: 'texting' } }],
+        reply: () => 'Here is how texting is set up.',
+      },
+    ]);
+    const careful = await build('scripted', 5_000_000, {
+      id: inner.id,
+      model: inner.model,
+      stream: (request, options) => {
+        asked.push(request);
+        return inner.stream(request, options);
+      },
+      thinksHarderAt: (effort) => effort === 'high',
+    });
+    const step = (events: AssistantEvent[]) =>
+      events.flatMap((e) => (e.type === 'step' && e.id === 'careful' ? [e.status] : []));
+    try {
+      const changing = await ask(ownerToken, 'Change my texting rules', {}, careful);
+      expect(step(changing)).toEqual(['running', 'done']);
+      // From the setup's results on: the question, the call, then the results it read.
+      expect(asked.map((r) => r.effortFrom ?? null)).toEqual([null, { at: 2, effort: 'high' }]);
+
+      asked.length = 0;
+      const reading = await ask(ownerToken, 'What are my texting rules?', {}, careful);
+      expect(step(reading)).toEqual([]);
+      expect(asked.every((r) => r.effortFrom === undefined)).toBe(true);
+    } finally {
+      await careful.close();
+    }
+  });
+
+  it('reads ahead when the panel opens, exactly what the next question sends, once in a while', async () => {
+    const warmed: AiRequest[] = [];
+    const asked: AiRequest[] = [];
+    const inner = scriptedAssistant();
+    const reading = await build('scripted', 5_000_000, {
+      ...inner,
+      stream: (request, options) => {
+        asked.push(request);
+        return inner.stream(request, options);
+      },
+      warm: async (request) => {
+        warmed.push(request);
+        return { inputTokens: 12, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 25_000 };
+      },
+    });
+    const warm = () =>
+      reading.inject({
+        method: 'POST',
+        url: '/v1/assistant/warm',
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { workspaceId },
+      });
+    try {
+      expect((await warm()).json()).toEqual({ warmed: true });
+      // What it read keeps for five minutes, so the panel opening again soon reads nothing.
+      expect((await warm()).json()).toEqual({ warmed: false });
+      expect(warmed).toHaveLength(1);
+      await ask(ownerToken, 'What needs attention?', {}, reading);
+      // The cache is found only when everything before the question is the same.
+      expect(warmed[0]).toMatchObject({
+        system: asked[0]!.system,
+        lasting: asked[0]!.lasting,
+        tools: asked[0]!.tools,
+      });
+      // Its tokens count toward the day's limit, as the Assistant's.
+      expect(
+        await rows(
+          admin(),
+          sql`select source::text, cache_write_tokens from app.ai_usage
+              where workspace_id = ${workspaceId} and user_id = ${owner.id} and source = 'assistant'`,
+        ),
+      ).toEqual([{ source: 'assistant', cache_write_tokens: 25_000 }]);
+    } finally {
+      await reading.close();
+    }
+  });
+
+  it('holds each address to a few warm-ups a minute, since reading ahead spends AI', async () => {
+    const reading = await build('scripted', 5_000_000, {
+      ...scriptedAssistant(),
+      stream: () => Promise.reject(new Error('not asked')),
+      warm: async () => ({
+        inputTokens: 1,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 1,
+      }),
+    });
+    try {
+      const codes: number[] = [];
+      for (let i = 0; i <= WARMS_PER_MINUTE; i++)
+        codes.push(
+          (
+            await reading.inject({
+              method: 'POST',
+              url: '/v1/assistant/warm',
+              headers: { authorization: `Bearer ${memberToken}` },
+              payload: { workspaceId },
+            })
+          ).statusCode,
+        );
+      expect(codes.slice(0, WARMS_PER_MINUTE).every((c) => c === 200)).toBe(true);
+      expect(codes.at(-1)).toBe(429);
+    } finally {
+      await reading.close();
+    }
+  });
+
+  it('reads nothing ahead without their OK to use the AI', async () => {
+    const newcomer = await createTestUser('assistant-newcomer');
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${newcomer.id}, 'member')`,
+    );
+    let warms = 0;
+    const inner = scriptedAssistant();
+    const reading = await build('scripted', 5_000_000, {
+      ...inner,
+      stream: (request, options) => inner.stream(request, options),
+      warm: async () => {
+        warms += 1;
+        return { inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 1 };
+      },
+    });
+    try {
+      const res = await reading.inject({
+        method: 'POST',
+        url: '/v1/assistant/warm',
+        headers: { authorization: `Bearer ${await signInTestUser(newcomer)}` },
+        payload: { workspaceId },
+      });
+      expect(res.json()).toEqual({ warmed: false });
+      expect(warms).toBe(0);
+    } finally {
+      await reading.close();
     }
   });
 

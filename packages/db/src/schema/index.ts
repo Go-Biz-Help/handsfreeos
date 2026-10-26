@@ -2831,6 +2831,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'lead_intake',
   // Drafting a funnel for the AI teammate from a description (20261027012000).
   'funnel',
+  // The Assistant reading its instructions ahead of a question, while the person types (20261027012400).
+  'assistant',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',

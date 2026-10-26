@@ -1636,6 +1636,7 @@ The defaults are right in production. Setting some of these changes real behavio
 | `OPENAI_MODEL`                             | `gpt-6-sol`                                                                | OpenAI's stand-in for `AI_MODEL` while Claude is down. See "Change the backup models".                                                                                                                                                                         |
 | `OPENAI_VOICE_MODEL`                       | `gpt-6-luna`                                                               | OpenAI's model on calls while Claude is down, whatever model they use on Claude. A fast one keeps the pauses short. See "Change the backup models".                                                                                                            |
 | `ASSISTANT_TOOL_SEARCH`                    | `on`                                                                       | `on`: Ask HandsFreeOS keeps about 20 tools loaded and finds the rest by searching (Anthropic's tool search). `off` sends every tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.                                   |
+| `ASSISTANT_EFFORT`                         | `low`                                                                      | How long Ask HandsFreeOS thinks before it answers: `low`, `medium` or `high`. Less is faster; `low` keeps a look-up's answer to a couple of seconds. See "How fast it answers" in "The Assistant: Anthropic".                                                  |
 | `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes, with the same number on `handsfreeos-api`.                                                                                                                                 |
 | `PUSH_PROVIDER`                            | `expo` when `EXPO_ACCESS_TOKEN` is set, otherwise `none`                   | Production refuses `fake`, the stand-in for local development and tests. `none` turns push off even with a token.                                                                                                                                              |
 
@@ -7036,13 +7037,39 @@ fly secrets unset --app handsfreeos-worker ASSISTANT_MODEL AI_MODEL VOICE_MODEL
 
 The daily limit counts tokens, not dollars, so a more expensive model spends more for the same limit.
 
-Ask HandsFreeOS has about 160 tools. With `ASSISTANT_TOOL_SEARCH` on (the default), it keeps about 20 of them loaded, the ones its instructions name and the everyday look-ups, and finds the rest by searching when a question needs them, so it chooses from a short list. Only some models have tool search (Claude Opus 5.5 and Opus 5 do; Claude Sonnet 5 doesn't); on the others every tool is sent, whatever the setting. If answers ever say it can't do something it should, turn search off to compare:
+Ask HandsFreeOS has about 160 tools of its own, and each add-on a business has on brings more (Social Outreach brings 72). With `ASSISTANT_TOOL_SEARCH` on (the default), it keeps about 20 of them loaded, the ones its instructions name and the everyday look-ups, and finds the rest by searching when a question needs them, so it chooses from a short list. Only some models have tool search (Claude Opus 5.5 and Opus 5 do; Claude Sonnet 5 doesn't); on the others every tool is sent, whatever the setting. If answers ever say it can't do something it should, turn search off to compare:
 
 ```bash
 fly secrets set --app handsfreeos-worker ASSISTANT_TOOL_SEARCH=off
 ```
 
 `fly secrets unset --app handsfreeos-worker ASSISTANT_TOOL_SEARCH` turns it back on.
+
+### How fast it answers
+
+The aim is that people see the Assistant start answering within 2 seconds, however many tools and add-ons a business has. Four things keep it there:
+
+- **The same short list in view.** Add-on tools are always found by search, and core's beyond the everyday ones are too, so the tools in front of the model and the instructions the provider caches stay the same size whatever is turned on. Each tool's definition is worked out once when the worker starts, not on every question.
+- **It thinks briefly, and harder only for changes.** `ASSISTANT_EFFORT` is `low` unless set. A question starts there, and Claude still decides for itself how much each answer needs. When the Assistant reads the setup in order to change it (`get_settings` with `toChange`), or a change it drafted is refused by the checks, the rest of that question thinks at `high`, and the panel shows **Taking a little longer to get this right** until the answer is done. The switch is a message in the conversation (Anthropic's per-message effort, beta `mid-conversation-output-config-2026-07-01`), so Claude doesn't read the conversation again from the start. It happens only on models that take it (Claude Opus 5.5 and Opus 5 do) and only when `ASSISTANT_EFFORT` is below `high`. With OpenAI answering, it answers as it always does. Plain look-ups, including "what are my quiet hours?", stay at `low`.
+- **It reads ahead.** When someone opens the panel on the web or the phone, the worker has Claude read the instructions, their tools and the business ahead of their question (`POST /v1/assistant/warm`), so the first answer finds them in Claude's cache instead of reading some 25,000 tokens first. It happens at most once every 4 minutes per person, only after they've said OK to the AI, and only while the business has room in today's limit. Its tokens count toward that limit, kept in `app.ai_usage` as source `assistant`. The backup AI fills its own cache, so with OpenAI answering nothing is sent.
+- **Look-ups go side by side.** When the model asks for several look-ups at once (a customer and the open times), they run at the same time. Anything that changes something still runs one at a time, in order, and the cards show in the order the model asked.
+
+To see how fast it really is, read the worker's logs (see "Reading logs") for `assistant timings`. Each question writes one line:
+
+- `firstShownMs`: from the question reaching the worker to the first step, card or word the person sees. This is the number to keep under 2,000.
+- `models`: each call to Claude, with `waitMs` until its first block and `first`, what that block was. `thinking` there with a long wait means the model thought a long time before answering.
+- `totalMs` and `rounds`: the whole answer, and how many rounds of tools it took.
+- `thoughtHarder`: `true` when it switched to `high` for a change. Those answers are meant to take longer; leave them out when you check the 2-second target.
+
+If `firstShownMs` is often over 2,000, check `models` first. Long waits that start with `thinking` mean the effort is too high for the model: set `ASSISTANT_EFFORT=low` if it isn't, or try a faster `ASSISTANT_MODEL` on your laptop first ("Change the model" above). Long waits on the first question after a quiet spell mean the cache was cold: check that `POST /v1/assistant/warm` answers `{"warmed":true}` when the panel opens.
+
+To change the effort:
+
+```bash
+fly secrets set --app handsfreeos-worker ASSISTANT_EFFORT=medium
+```
+
+`fly secrets unset --app handsfreeos-worker ASSISTANT_EFFORT` goes back to `low`.
 
 ### Rotate the key
 

@@ -137,6 +137,10 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
   input: TidyInput,
   output: TidyOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_tidy_up',
+    keywords: ['cancel friend requests', 'unfriend', 'tidy up'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

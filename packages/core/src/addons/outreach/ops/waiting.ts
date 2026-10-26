@@ -248,6 +248,10 @@ export const waiting = defineAddonQuery(outreachAddon, {
   input: WaitingInput,
   output: WaitingOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_waiting',
+    keywords: ['waiting for you', 'needs me', 'replies handed over', 'friend requests to decide'],
+  },
   // The worker asks on a person's behalf, for the pushes about what waits (decision 40).
   actors: ['human', 'system'],
   scope: inWorkspace,
@@ -353,6 +357,10 @@ export const needClear = defineAddonCommand(outreachAddon, {
   input: NeedClearInput,
   output: NeedClearOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_clear_step',
+    keywords: ['I did it', 'let it go', 'step handed to me'],
+  },
   scope: inWorkspace,
   // Pressed with no signal on the phone, it keeps the moment it was pressed.
   offline: 'anytime',
@@ -395,6 +403,10 @@ export const requestSetAside = defineAddonCommand(outreachAddon, {
   input: RequestSetAsideInput,
   output: RequestSetAsideOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_leave_request',
+    keywords: ['leave friend request', 'set aside request'],
+  },
   scope: inWorkspace,
   // Pressed with no signal on the phone, it keeps the moment it was pressed: a request that came after stays.
   offline: 'anytime',

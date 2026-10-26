@@ -888,5 +888,16 @@ export function createToolExecutor(
           );
       }
     },
+    reads(tool: OfferedTool) {
+      // An add-on's look-ups, and core's tools that only read: never one that writes, whatever its autonomy.
+      if (isAddonAiTool(tool)) return tool.op.kind === 'query';
+      return (
+        tool.name in readTools ||
+        tool.name in contactReadTools ||
+        tool.name in settingsReadTools ||
+        tool.name in moneyReadTools ||
+        tool.name in capabilityTools
+      );
+    },
   };
 }

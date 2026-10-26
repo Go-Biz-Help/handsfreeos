@@ -559,6 +559,16 @@ export const activity = defineAddonQuery(outreachAddon, {
   input: ActivityInput,
   output: ActivityOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_activity',
+    keywords: [
+      'what I did on facebook',
+      'friend requests sent',
+      'likes',
+      'comments',
+      'daily limits',
+    ],
+  },
   // The worker asks on a person's behalf for the weekly report (../results.ts).
   actors: ['human', 'system'],
   scope: inWorkspace,
@@ -683,6 +693,10 @@ export const touchedPosts = defineAddonQuery(outreachAddon, {
   input: TouchedPostsInput,
   output: TouchedPostsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_activity_posts',
+    keywords: ['posts liked', 'comments posted'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = userIdOf(ctx.actor);

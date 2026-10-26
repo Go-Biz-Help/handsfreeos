@@ -13,7 +13,13 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { deviceStore } from '@/lib/device-store';
 import { useNetwork } from '@/lib/network';
 
-import { AssistantError, assistantConfigured, stopRun, streamAnswer } from './stream';
+import {
+  AssistantError,
+  assistantConfigured,
+  stopRun,
+  streamAnswer,
+  warmAssistant,
+} from './stream';
 
 /**
  * Ask HandsFreeOS on the phone: the chat on screen, streamed in from the worker, and where each card stands. The
@@ -174,6 +180,10 @@ const newKey = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 /** The chat for one business. Lives for as long as the screen is open. */
+/** When this phone last had the AI read ahead for each business; it keeps for five minutes. */
+const warmedAt = new Map<string, number>();
+const WARM_EVERY_MS = 4 * 60_000;
+
 export function useAssistantChat(
   workspaceId: string,
   userId: string,
@@ -526,6 +536,16 @@ export function useAssistantChat(
       cancelled = true;
     };
   }, [online, userId]);
+
+  // Opening the Assistant has the AI read ahead while they type, so their first answer starts sooner: only after
+  // their OK (the worker checks too), and once in a while, since what it read keeps for a few minutes.
+  React.useEffect(() => {
+    if (!online || consentNeeded !== false) return;
+    const now = Date.now();
+    if (now - (warmedAt.get(workspaceId) ?? 0) < WARM_EVERY_MS) return;
+    warmedAt.set(workspaceId, now);
+    void warmAssistant(workspaceId);
+  }, [consentNeeded, online, workspaceId]);
 
   // The OK is kept: the question that was waiting for it is asked now.
   React.useEffect(() => {

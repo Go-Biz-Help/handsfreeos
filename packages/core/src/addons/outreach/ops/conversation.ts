@@ -286,6 +286,18 @@ export const conversationNote = defineAddonCommand(outreachAddon, {
   input: ConversationNoteInput,
   output: ConversationNoteOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_note_sent',
+    description:
+      'Note that the person sent someone they reached a message themselves (a first message, the video, the link, a follow-up, a check-in or a reply), so their follow-ups come at the playbook’s pace. The link marks them pitched; a message to a partner moves them along the Partners list.',
+    keywords: [
+      'I sent it myself',
+      'mark sent',
+      'sent the video',
+      'sent the link',
+      'sent a follow-up',
+    ],
+  },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -351,6 +363,10 @@ export const conversationStop = defineAddonCommand(outreachAddon, {
   input: ConversationStopInput,
   output: ConversationStopOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_stop_follow_ups',
+    keywords: ['stop follow-ups', 'stop check-ins'],
+  },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -386,6 +402,10 @@ export const offerVersions = defineAddonQuery(outreachAddon, {
   input: OfferVersionsInput,
   output: OfferVersionsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_offer_versions',
+    keywords: ['main offer', 'offer versions', 'results by version'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const me = userIdOf(ctx.actor);

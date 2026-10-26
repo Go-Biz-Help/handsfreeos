@@ -61,6 +61,10 @@ export const lists = defineAddonQuery(outreachAddon, {
   input: ListsInput,
   output: ListsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_lists',
+    keywords: ['lists last saved', 'friends list saved', 'groups saved'],
+  },
   scope: inWorkspace,
   handler: (ctx, input) => listsOf(ctx, requireHuman(ctx).userId, input.platform),
 });

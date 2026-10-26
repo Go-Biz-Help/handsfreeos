@@ -55,6 +55,7 @@ const assistantLines = keep([
   'ASSISTANT_MODEL',
   'AI_MODEL',
   'ASSISTANT_TOOL_SEARCH',
+  'ASSISTANT_EFFORT',
   'ASSISTANT_DAILY_TOKENS',
   // The backup AI (OpenAI), the same way.
   'OPENAI_API_KEY',

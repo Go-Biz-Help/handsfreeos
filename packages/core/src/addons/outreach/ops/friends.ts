@@ -291,6 +291,11 @@ export const friendSet = defineAddonCommand(outreachAddon, {
   input: FriendSetInput,
   output: FriendSetOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_set_friend',
+    autonomy: 'confirm',
+    keywords: ['dont pitch', 'never contact', 'keep friend'],
+  },
   scope: inWorkspace,
   emits: ['outreach.friend.marked', 'outreach.send.skipped'],
   async handler(ctx, input) {
@@ -583,6 +588,10 @@ export const friendsList = defineAddonQuery(outreachAddon, {
   input: FriendsInput,
   output: FriendsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_friends',
+    keywords: ['friends list', 'friend requests', 'good fits'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

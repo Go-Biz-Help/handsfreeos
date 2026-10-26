@@ -360,6 +360,25 @@ export const askMake = defineAddonCommand(outreachAddon, {
   input: AskMakeInput,
   output: AskMakeOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_ask_computer',
+    autonomy: 'confirm',
+    keywords: [
+      'download facebook file',
+      'save friends',
+      'find groups',
+      'save group members',
+      'find posts',
+      'read chats',
+      'join groups',
+      'put up post',
+      'unfriend',
+      'cancel requests',
+      'research someone',
+      'put new bio in',
+      'check usernames',
+    ],
+  },
   scope: inWorkspace,
   emits: ['outreach.ask.made', 'outreach.ask.ended'],
   async handler(ctx, input) {
@@ -780,6 +799,11 @@ export const askReply = defineAddonCommand(outreachAddon, {
   input: AskReplyInput,
   output: AskChangedOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_answer_step',
+    autonomy: 'confirm',
+    keywords: ['carry on', 'skip that person'],
+  },
   scope: inWorkspace,
   emits: ['outreach.ask.replied'],
   async handler(ctx, input) {
@@ -810,6 +834,11 @@ export const askCode = defineAddonCommand(outreachAddon, {
   input: AskCodeInput,
   output: AskChangedOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_enter_code',
+    autonomy: 'confirm',
+    keywords: ['security code', 'code from email'],
+  },
   scope: inWorkspace,
   // Typing it again does no harm, and no receipt keeps anything of it.
   receipt: false,
@@ -858,6 +887,10 @@ export const askCancel = defineAddonCommand(outreachAddon, {
   input: AskCancelInput,
   output: AskChangedOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_cancel_ask',
+    keywords: ['stop ask', 'cancel ask'],
+  },
   scope: inWorkspace,
   emits: ['outreach.ask.cancelled'],
   async handler(ctx, input) {
@@ -895,6 +928,10 @@ export const asksList = defineAddonQuery(outreachAddon, {
   input: AsksInput,
   output: AsksOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_asks',
+    keywords: ['asks to my computer', 'what I asked the extension'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -944,6 +981,11 @@ export const profileContact = defineAddonCommand(outreachAddon, {
   input: ProfileContactInput,
   output: ProfileSaveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_add_to_contacts',
+    autonomy: 'confirm',
+    keywords: ['add to contacts', 'make a customer'],
+  },
   scope: inWorkspace,
   emits: ['outreach.profile.saved'],
   async handler(ctx, input) {

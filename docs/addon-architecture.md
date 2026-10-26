@@ -498,7 +498,10 @@ add-on's work causes, so it reads after the add-on is gone, and a purge knows ex
 
 **The AI sees only what it may use.** An add-on operation that declares `ai` becomes a tool, always behind tool
 search, offered only while the add-on runs and the person holds its permission; the runtime refuses any tool it
-didn't offer, and the business's ids always go on after the model's arguments. `find_capabilities` answers "can
+didn't offer, and the business's ids always go on after the model's arguments. **The Assistant can do whatever the
+person can** (the owner's decision, 2026-10-26): every operation a person runs on an add-on's screens declares `ai`,
+and only what its browser extension or worker sends in doesn't (Social Outreach's test holds it to that). Look-ups
+the model asks for together run at the same time; changes run one at a time, in order. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only
 when asked what's coming, and never as something to install.

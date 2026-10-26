@@ -92,6 +92,10 @@ export const openers = defineAddonQuery(outreachAddon, {
   input: OpenersInput,
   output: OpenersOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_openers',
+    keywords: ['first messages', 'which opener works', 'reply rate'],
+  },
   // The worker asks on a person's behalf for the weekly report (../results.ts).
   actors: ['human', 'system'],
   scope: inWorkspace,
