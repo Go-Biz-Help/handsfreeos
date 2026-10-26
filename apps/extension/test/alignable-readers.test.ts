@@ -6,6 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
+import { ProblemFound } from '@hfos/core/problem-report';
 import { readAlignable } from '../src/networks/alignable/read';
 import { readReplies } from '../src/networks/alignable/replies';
 import { ALIGNABLE } from '../src/networks/alignable/site';
@@ -154,6 +155,19 @@ describe('My Network', () => {
         connect: false,
         message: true,
       },
+    ]);
+  });
+
+  it('reads a row’s Message in Alignable’s newer shape as its own (0.94.0)', () => {
+    const doc = page(
+      `${AL}/biz/my_network`,
+      `<div data-testid="connection-row">
+        <a aria-label="Robin Vale" data-testid="connection-row-profile-link" href="/biz/businesses/5150"></a>
+        <div data-testid="connection-row-summary"><div><span>Robin Vale</span><span>Pine Street Bakery</span></div></div>
+        <a data-testid="connection-row-cta" href="/biz/messages/new?recipient_ids=9001&to_user=9001">Message</a></div>`,
+    );
+    expect(readAlignable(doc, doc.location.href).businesses).toMatchObject([
+      { name: 'Robin Vale', profile: { id: '5150' }, connect: false, message: true },
     ]);
   });
 });
@@ -329,6 +343,7 @@ describe('a business’s page', () => {
       },
       tags: ['Plumbing', 'Drains'],
       connect: true,
+      connected: false,
       recommend: true,
       refer: true,
       message: false,
@@ -340,9 +355,165 @@ describe('a business’s page', () => {
       businessPitch: true,
       businessPartner: true,
       businessTags: true,
+      businessConnect: true,
+      businessConnected: false,
       businessMessage: false,
     });
     expect(JSON.stringify(found)).not.toMatch(/Realtor|Acme|leaks/);
+  });
+});
+
+/**
+ * A business's page you're connected with, rebuilt from the outline in the owner's problem report of 26 Oct 2026
+ * (0.91.0 handed it to him as "couldn't find Connect"), with made-up names where it hid them: a header with a link to
+ * your network with them, a button, Alignable's newer Message (to the person by their own id, never their business's)
+ * and their Recommend; their row of buttons twice (Refer, Introduce, Remove Connection and a menu), as a wide screen and
+ * a phone draw it; and down the side, other businesses it suggests, each with its own Connect.
+ */
+const connectedPage = (o: { row?: string; side?: string; header?: string } = {}) =>
+  page(
+    `${AL}/denton-tx/pine-street-bakery`,
+    `<main><section>
+      <div><div><img alt="cover" />
+        <div><div><h1 title="Robin Vale">Robin Vale</h1><h2 title="Pine Street Bakery">Pine Street Bakery</h2></div>
+          <div><a href="/denton-tx">Denton, TX</a></div></div>
+        <div>${
+          o.header ??
+          `<a href="/biz/my_network/5150/31?_fat=a&ov=b&pt=c">Shared connections</a>
+          <div><div><button aria-expanded="false"><svg></svg><div>More ways to connect</div></button></div></div>
+          <a href="/biz/messages/new?_faid=7&recipient_ids=9001&to_user=9001"><svg></svg>Message</a>
+          <a href="/biz/recommendations/new?cyattr=x&cyfid=y&id=5150&request_source=profile"><svg></svg></a>`
+        }</div></div>
+      ${[1, 2]
+        .map(
+          () =>
+            `<div>${
+              o.row ??
+              `<a href="/forward_referral_card/5150?cyattr=x&cyfid=y">Refer</a>
+            <button data-testid="introduce-button">Introduce</button>
+            <a href="/biz/connections/5150"><svg></svg>Remove Connection</a>
+            <button><span><svg></svg></span></button>`
+            }</div>`,
+        )
+        .join('')}
+      <div><div><div>About Us</div></div><div><p>Sourdough baked fresh every morning.</p></div></div>
+      </div>
+      <aside><h3>Businesses near you</h3>${
+        o.side ??
+        [
+          ['7501', 'denton-tx/moreno-movers', 'Kit Moreno'],
+          ['8001', 'denton-tx/tran-tax', 'Lou Tran'],
+          ['8501', 'denton-tx/bell-flowers', 'Ari Bell'],
+        ]
+          .map(
+            ([id, at, name]) => `<div><a href="/${at}?user=2">${name}</a>
+              <a href="/biz/connection_requests/make_connection?business_id=${id}&request_source=businesses-show&resource=r${id}"><div>Connect</div></a></div>`,
+          )
+          .join('')
+      }</aside>
+    </section></main>`,
+  );
+
+describe('a business’s page you’re connected with, as the owner’s report of 26 Oct 2026 outlined it', () => {
+  for (const [shape, made] of [
+    ['as its outline drew it', (doc: Document) => doc],
+    ['with a bare box around every element', boxEverything],
+  ] as const) {
+    it(`reads you’re connected, and its newer Message as theirs, never a business it suggests, ${shape}`, () => {
+      const doc = made(connectedPage());
+      expect(readAlignable(doc, doc.location.href).business).toMatchObject({
+        name: 'Robin Vale',
+        profile: {
+          id: '5150',
+          username: 'denton-tx-pine-street-bakery',
+          url: `${AL}/denton-tx/pine-street-bakery`,
+        },
+        // The Connects down the side are other businesses', by their ids: never taken for theirs.
+        connect: false,
+        connected: true,
+        recommend: true,
+        refer: true,
+        message: true,
+      });
+    });
+  }
+
+  it('says so in a report, telling the truth of each, within what a report keeps', () => {
+    const doc = connectedPage();
+    const found = pageFound(readLooking(doc, doc.location.href, ALIGNABLE));
+    expect(found).toMatchObject({
+      business: true,
+      businessProfile: true,
+      businessConnect: false,
+      businessConnected: true,
+      businessMessage: true,
+      businessRecommend: true,
+      businessRefer: true,
+    });
+    expect(ProblemFound.safeParse({ ...found, sections: ['About Us'] }).success).toBe(true);
+    expect(JSON.stringify(found)).not.toMatch(/Robin|Pine|Sourdough/);
+  });
+
+  it('tells Check Alignable you’re connected already, where no Connect shows', async () => {
+    const doc = connectedPage({ side: '' });
+    expect(await ALIGNABLE.looks.connect!.look(doc, doc.location.href)).toMatchObject({
+      tried: false,
+      missing: ['you’re connected already, or asked to be'],
+    });
+  });
+
+  it('never takes another business’s Remove Connection, nor a link there that doesn’t say so, for theirs', () => {
+    // A connection of yours down the side, with its own Remove Connection: their page still has their Connect.
+    const side = connectedPage({
+      row: `<a href="/forward_referral_card/5150">Refer</a>
+        <a href="/biz/connection_requests/make_connection?business_id=5150&request_source=profile"><div>Connect</div></a>`,
+      header: '<a href="/biz/recommendations/new?id=5150">Recommend</a>',
+      side: `<div><a href="/denton-tx/moreno-movers?user=2">Kit Moreno</a>
+        <a href="/biz/connections/7501">Remove Connection</a></div>`,
+    });
+    expect(readAlignable(side, side.location.href).business).toMatchObject({
+      connect: true,
+      connected: false,
+      message: false,
+    });
+    // Their connections listed, by the same address: not the button that says you're connected.
+    const listed = connectedPage({
+      row: `<a href="/forward_referral_card/5150">Refer</a><a href="/biz/connections/5150">See all 212 connections</a>`,
+    });
+    expect(readAlignable(listed, listed.location.href).business).toMatchObject({
+      connected: false,
+    });
+  });
+
+  it('never takes a Message beside another business for theirs: one it suggests, or a post by another', () => {
+    const doc = connectedPage({
+      header: '<a href="/biz/recommendations/new?id=5150">Recommend</a>',
+      row: `<a href="/forward_referral_card/5150">Refer</a>
+        <a href="/biz/connection_requests/make_connection?business_id=5150&request_source=profile"><div>Connect</div></a>`,
+      side: `<div><a href="/denton-tx/moreno-movers?user=2">Kit Moreno</a>
+          <a href="/biz/messages/new?recipient_ids=9100&to_user=9100">Message</a>
+          <a href="/biz/connection_requests/make_connection?business_id=7501&request_source=businesses-show"><div>Connect</div></a></div>
+        <div><div><a href="/denton-tx/tran-tax?user=3"><span>Lou Tran</span><span>at</span><span>Tran Tax</span></a></div>
+          <div><p>Tax season is coming.</p><a href="/biz/messages/new?recipient_ids=9200&to_user=9200">Message</a></div></div>`,
+    });
+    expect(readAlignable(doc, doc.location.href).business).toMatchObject({
+      connect: true,
+      connected: false,
+      message: false,
+    });
+  });
+
+  it('still reads its Message to their conversation by their business’s id, as before', () => {
+    const doc = connectedPage({
+      header: `<a href="/biz/recommendations/new?id=5150">Recommend</a>
+        <a href="/biz/conversations?with_business_id=5150">Message</a>`,
+      row: '<a href="/forward_referral_card/5150">Refer</a>',
+    });
+    expect(readAlignable(doc, doc.location.href).business).toMatchObject({
+      connect: false,
+      connected: false,
+      message: true,
+    });
   });
 });
 

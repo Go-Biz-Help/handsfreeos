@@ -7,8 +7,14 @@
 import { and, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { CommandContext } from '../../../kernel/types';
 import { clipLine } from '../live';
-import { FacebookUrl } from '../saves';
-import { NEED_QUIET_DAYS, NEED_SHOWN_DAYS, NEED_WHY_MOST, type NeedStep } from '../waiting-words';
+import type { Platform } from '../networks';
+import {
+  NEED_QUIET_DAYS,
+  NEED_SHOWN_DAYS,
+  NEED_WHY_MOST,
+  needUrlOf,
+  type NeedStep,
+} from '../waiting-words';
 import { needs, posts } from '../tables';
 
 const DAY = 86_400_000;
@@ -16,9 +22,14 @@ const DAY = 86_400_000;
 export interface NeedSeen {
   readonly step: NeedStep;
   readonly profileId: string;
+  /** Their network and their page there, as kept: the need links on that network alone. */
+  readonly profile: { readonly platform: Platform; readonly url: string };
   readonly postId?: string | null;
+  /** A comment's post, as kept: where it opens when the extension's link isn't on their network. */
+  readonly postUrl?: string | null;
   readonly sendId?: string | null;
   readonly name: string;
+  /** Where to do it, as the extension or HandsFreeOS saw it: kept when it's on their network. */
   readonly url: string | null;
   readonly why: string;
 }
@@ -43,8 +54,9 @@ export async function openNeed(
   const seen = {
     ...given,
     name: clipLine(given.name, 200),
-    // Only a Facebook address is kept: the lists link to it.
-    url: given.url && FacebookUrl.safeParse(given.url).success ? given.url.trim() : null,
+    // The lists link to it: the address given when it's on their network (the post, the chat), else the post, else
+    // their page there. One on another network would open the wrong site.
+    url: needUrlOf(given.profile.platform, given.url, given.postUrl, given.profile.url),
     why: clipLine(given.why.trim() || 'it couldn’t', NEED_WHY_MOST),
   };
   const postId = seen.postId ?? null;

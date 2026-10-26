@@ -3,6 +3,7 @@ import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   chatUrlOn,
   networkOfUrl,
+  networkOfWaiting,
   openChatWords,
   openPageWords,
   todayKindsOn,
@@ -25,7 +26,7 @@ import {
   moreWords,
   NEED_CLEARS,
   needClearedWords,
-  needTitle,
+  needTitleAround,
   needWhyWords,
   oneByOneWords,
   WAITING_KINDS,
@@ -587,15 +588,32 @@ function NeedCard({
   when: string;
   onClear: (how: NeedClear) => void;
 }) {
-  const platform = networkOfUrl(need.url);
+  // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.
+  const platform = networkOfWaiting({ kind: 'need', need });
   const messenger = need.step === 'message' ? chatUrlOn(platform, need.threadKey) : null;
-  // Only an address on a network the add-on knows opens.
-  const onFacebook = need.url && networkOfLink(need.url) ? need.url : null;
+  // Only an address on a network the add-on knows opens: their page there, the post, or the chat.
+  const page = need.url && networkOfLink(need.url) ? need.url : null;
+  const [before, after] = needTitleAround(need.step, platform);
   const why = needWhyWords(need.why);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-need-item">
       <View className="flex-row flex-wrap items-center gap-2">
-        <Text className="text-[15px] font-semibold">{needTitle(need.step, need.name)}</Text>
+        <Text className="text-[15px] font-semibold" testID="waiting-need-title">
+          {before}
+          {page ? (
+            <Text
+              role="link"
+              onPress={() => openOutside(page)}
+              className="text-[15px] font-semibold text-accent-text"
+              testID="waiting-need-link"
+            >
+              {need.name}
+            </Text>
+          ) : (
+            need.name
+          )}
+          {after}
+        </Text>
         <NetworkName platform={platform} />
       </View>
       <Note>{[why, when].filter(Boolean).join(' · ')}</Note>
@@ -621,12 +639,13 @@ function NeedCard({
         >
           {NEED_CLEARS.dismissed}
         </Button>
-        {messenger || onFacebook ? (
+        {messenger || page ? (
           <Button
             size="md"
             variant="ghost"
             icon={ExternalLink}
-            onPress={() => openOutside(messenger ?? onFacebook)}
+            onPress={() => openOutside(messenger ?? page)}
+            testID="waiting-need-open"
           >
             {messenger ? openChatWords(platform) : openPageWords(platform)}
           </Button>

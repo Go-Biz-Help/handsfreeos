@@ -446,8 +446,13 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   things need the person in one line under Next up, with a link to Needs you, and the number is on its icon. **Your computer needs you** (an ask with a step handed to the person, below, with **Carry on**, **Skip** and
   **Stop**); **Replies handed over to you** (each waits for an OK of its own); **Messages to OK**, with **Approve all**,
   which leaves a reply handed over or one to someone who needs the person; **Steps it needs you for**, a step the
-  extension couldn't do there and then (a button or box it couldn't find, a different page, Facebook not taking it, a
-  message that didn't go), with **I did it** and **Let it go**; and **Friend requests to decide**, those from the last
+  extension couldn't do there and then (a button or box it couldn't find, a different page, the network not taking
+  it, a message that didn't go), with **I did it** and **Let it go**, each marked with its profile's network
+  (`platform`) and said in that network's words ("Send … a connection request yourself" on Alignable, "Follow …
+  yourself" on Instagram, `needTitle`), the person's name a link to their page on that network (or the post, or the
+  chat) beside **Open on <network>** (`needUrlOf`: the link given when it's on their network, else their page there,
+  so every step links; one kept with none, as every network's but Facebook's were before 26 October 2026, opens their
+  page when it's read); and **Friend requests to decide**, those from the last
   two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**. Each tab's label
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
@@ -922,7 +927,10 @@ showing what's going on and prompting, the app and the phone live too, and answe
     on the phone. The owner confirmed (10 October) that **Approve all** leaves out replies handed over and messages to
     someone who needs the person: each waits for an OK of its own. The list in the extension's panel is replaced by
     decision 72: the list is on the web and the phone only, and the extension keeps the number on its icon, the
-    pop-ups (which open it in HandsFreeOS) and a line in its panel saying how many things wait there.
+    pop-ups (which open it in HandsFreeOS) and a line in its panel saying how many things wait there. Every step
+    handed over links to the person's page on its own network, so they can click it and do the step (the owner,
+    2026-10-26, after an Alignable connection request showed as Facebook's with no link): it's marked with that
+    network and said in its words, its push for each says the network, and a link on another network is never kept.
 43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
     in the app; what needs the browser is started there and done by the extension. More can be added later. Built
     (settings part 4): the panel keeps signing in with the business picker, **Right now** (what it's doing, the next step, why
@@ -1607,9 +1615,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       partner check; businesses alone, as it has no creators (`PARTNER_SEARCH_KINDS_ON`). On Today's list it does the
       warm-ups (a look at their business page and a like on a recent post of theirs, or the look alone when there's
       none) and the connection requests (their page's own Connect, by Alignable's id for the business, then their
-      page again to see it went). It sends messages once OK'd, typed only into that conversation's box. **Comments
-      and forum answers stay by hand:** each waits for the person's OK, as it's public writing (the plan's question
-      9), so `comment` isn't in its `runs.auto`, and Sending's choices say so. **Recommendations stay by hand only.**
+      page again to see it went; from extension 0.94.0, never to a business whose page shows its own Remove
+      Connection, `/biz/connections/<their id>`: that's "you’re connected already", kept as one of the person's
+      connections with `outreach.friends.save`, never handed to them). It sends messages once OK'd, typed only into
+      that conversation's box. **Comments and forum answers stay by hand:** each waits for the person's OK, as it's
+      public writing (the plan's question 9), so `comment` isn't in its `runs.auto`, and Sending's choices say so.
+      **Recommendations stay by hand only.**
       Withdrawing old requests stays the person's too: no reader of the requests they've sent is built, as their
       markup isn't known, so nothing works out which to withdraw. A reply is drafted from what HandsFreeOS knows: from
       0.84.0, their conversation as the day's Read my chats last brought it in.
@@ -2289,7 +2300,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   - **The network is on every row, by its name, never a logo** (Chris): the pipeline, friends, chats and Results'
     people (`platform` on each row of `outreach.stages`, `outreach.friends`, `outreach.chats` and
     `outreach.activity`), and Needs you's items, from their link (`networkOfWaiting`), so the phone's copy of the
-    messages needs nothing more. The pipeline, friends and chats narrow to one network (their input's `platform`,
+    messages needs nothing more; a step handed over says its profile's own (`platform` on each need), never one
+    guessed from its link, and links only there. The pipeline, friends and chats narrow to one network (their input's `platform`,
     counts too; every network's when left out).
   - **Results add "By network"** beside "By playbook" and "By offer version" (`outreach.tracking`'s `byNetwork`):
     one goal for every network, each network's share of the first messages. `private.outreach_numbers_by_network` gives each

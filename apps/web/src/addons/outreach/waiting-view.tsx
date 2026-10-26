@@ -8,8 +8,9 @@
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
  * - **Replies handed over to you**: replies that need the person, each with why, to change, send or skip;
  * - **Messages to OK**: **Approve all** OKs them, except one to someone who needs the person, which waits on its own;
- * - **Steps it needs you for**: a step the extension couldn't do, to do on Facebook (**I did it**) or **Let it go**;
- *   a message that didn't go has its words to copy;
+ * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
+ *   or **Let it go**; the person's name links to their page on that network (or the post, or the chat), and a
+ *   message that didn't go has its words to copy;
  * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
  *   **Leave it**.
  *
@@ -29,7 +30,7 @@ import {
   approveAllWords,
   moreWords,
   needClearedWords,
-  needTitle,
+  needTitleAround,
   needWhyWords,
   NEED_CLEARS,
   WAITING_KIND_KEYS,
@@ -296,13 +297,28 @@ function NeedRow({
     });
   const platform = networkOfWaiting(item);
   const messenger = need.step === 'message' ? chatUrlOn(platform, need.threadKey) : null;
-  // Only an address on a network the add-on knows is linked.
-  const onFacebook = need.url && networkOfLink(need.url) ? need.url : null;
+  // Only an address on a network the add-on knows is linked: their page there, the post, or the chat.
+  const page = need.url && networkOfLink(need.url) ? need.url : null;
+  const [before, after] = needTitleAround(need.step, platform);
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[14px] font-medium" data-testid="waiting-need">
-          {needTitle(need.step, need.name)}
+          {before}
+          {page ? (
+            <a
+              href={page}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-text underline-offset-2 hover:underline"
+              data-testid="waiting-need-link"
+            >
+              {need.name}
+            </a>
+          ) : (
+            need.name
+          )}
+          {after}
         </p>
         <NetworkName platform={platform} />
         <PersonMenu workspaceId={workspaceId} who={need} />
@@ -327,9 +343,9 @@ function NeedRow({
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {messenger || onFacebook ? (
+        {messenger || page ? (
           <a
-            href={messenger ?? onFacebook ?? ''}
+            href={messenger ?? page ?? ''}
             target="_blank"
             rel="noreferrer"
             className={buttonClassName({ variant: 'ghost', size: 'sm' })}

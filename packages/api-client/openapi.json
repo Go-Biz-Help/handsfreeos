@@ -88636,7 +88636,7 @@
     "/v1/commands/outreach.need.note": {
       "post": {
         "operationId": "command_outreach_need_note",
-        "summary": "The browser extension couldn’t do a step on the person’s list for today on Facebook (a button or box it couldn’t find, a different page, Facebook not taking it): it’s handed to the person in Waiting for you, to do themselves or let go. The same step again is the same one; one let go lately keeps nothing.",
+        "summary": "The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.",
         "tags": [
           "commands"
         ],
@@ -198173,6 +198173,15 @@
                                       }
                                     ]
                                   },
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": [
+                                      "facebook",
+                                      "linkedin",
+                                      "instagram",
+                                      "alignable"
+                                    ]
+                                  },
                                   "name": {
                                     "type": "string"
                                   },
@@ -198209,6 +198218,7 @@
                                   "profileId",
                                   "postId",
                                   "sendId",
+                                  "platform",
                                   "name",
                                   "url",
                                   "why",

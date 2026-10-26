@@ -14,6 +14,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { FitPlaybook } from '../fit';
 import { outreachAddon } from '../manifest';
+import type { Platform } from '../networks';
 import { friends, needs, posts, profiles, sends } from '../tables';
 import {
   NEED_SHOWN_DAYS,
@@ -21,6 +22,7 @@ import {
   NeedClearOutput,
   NeedNoteInput,
   NeedNoteOutput,
+  needUrlOf,
   NO_KINDS,
   REQUEST_SHOWN_DAYS,
   requestWhy,
@@ -192,7 +194,11 @@ export async function waitingFor(
   return new Map([...kinds].map(([userId, k]) => [userId, waitingCount(k)]));
 }
 
-/** The person's needs shown, the latest first, with a message's words and chat. */
+/**
+ * The person's needs shown, the latest first, with a message's words and chat; each on its profile's network, linked
+ * there: one kept with no link (before every network's were kept), or with one on another network (a chat's, kept as
+ * Messenger's whatever the network), links to their page there.
+ */
 async function neededOf(
   ctx: Ctx,
   me: string,
@@ -211,11 +217,14 @@ async function neededOf(
     created_at: Date | string;
     text: string | null;
     thread_key: string | null;
+    platform: Platform;
+    profile_url: string;
   }>(
     ctx.tx,
     sql`select n.id, n.step, n.profile_id, n.post_id, n.send_id, n.name, n.url, n.why, n.seen_at, n.created_at,
-          s.text, s.thread_key
+          s.text, s.thread_key, p.platform, p.url as profile_url
         from addon_outreach.needs n
+        join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
         left join addon_outreach.sends s on s.id = n.send_id
         where n.workspace_id = ${ctx.scope.workspaceId!} and n.user_id = ${me} and n.state = 'open'
           and private.outreach_need_shown(n.workspace_id, n.user_id, n.profile_id, n.step, n.state, n.seen_at,
@@ -231,8 +240,9 @@ async function neededOf(
       profileId: n.profile_id,
       postId: n.post_id,
       sendId: n.send_id,
+      platform: n.platform,
       name: n.name,
-      url: n.url,
+      url: needUrlOf(n.platform, n.url, n.profile_url),
       why: n.why,
       text: n.step === 'message' ? n.text : null,
       threadKey: n.step === 'message' ? n.thread_key : null,
@@ -303,7 +313,7 @@ const notWaiting = () =>
 export const needNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.need.note',
   description:
-    'The browser extension couldn’t do a step on the person’s list for today on Facebook (a button or box it couldn’t find, a different page, Facebook not taking it): it’s handed to the person in Waiting for you, to do themselves or let go. The same step again is the same one; one let go lately keeps nothing.',
+    'The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.',
   risk: 0,
   input: NeedNoteInput,
   output: NeedNoteOutput,
@@ -316,22 +326,24 @@ export const needNote = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const [profile] = await ctx.tx
-      .select({ id: profiles.id })
+      .select({ id: profiles.id, platform: profiles.platform, url: profiles.url })
       .from(profiles)
       .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
     if (!profile)
       throw HfosError.notFound(
         'That person isn’t kept in Social Outreach any more. Refresh your list for today.',
       );
+    let postUrl: string | null = null;
     if (input.postId) {
       const [post] = await ctx.tx
-        .select({ id: posts.id })
+        .select({ id: posts.id, url: posts.url })
         .from(posts)
         .where(and(eq(posts.workspaceId, ws), eq(posts.userId, me), eq(posts.id, input.postId)));
       if (!post)
         throw HfosError.notFound(
           'That post isn’t on your list any more. Refresh your list for today.',
         );
+      postUrl = post.url;
     }
     return openNeed(
       ctx,
@@ -339,7 +351,10 @@ export const needNote = defineAddonCommand(outreachAddon, {
       {
         step: input.step,
         profileId: profile.id,
+        // Linked on their network: the extension's link when it's there, else the post, else their page.
+        profile: { platform: profile.platform, url: profile.url },
         postId: input.postId,
+        postUrl,
         name: input.name,
         url: input.url,
         why: input.why,

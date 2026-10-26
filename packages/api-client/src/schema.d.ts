@@ -7227,7 +7227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The browser extension couldn’t do a step on the person’s list for today on Facebook (a button or box it couldn’t find, a different page, Facebook not taking it): it’s handed to the person in Waiting for you, to do themselves or let go. The same step again is the same one; one let go lately keeps nothing.
+         * The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.
          * @description Risk level 0. Requires outreach.use. Emits outreach.need.noted. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_need_note"];
@@ -73037,6 +73037,8 @@ export interface operations {
                                 name: string;
                                 /** Format: uuid */
                                 needId: string;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
                                 postId: string | null;
                                 /** Format: uuid */
                                 profileId: string;

@@ -10,6 +10,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
+import { chatUrlOn } from '../network-words';
 import type { Platform } from '../networks';
 import type { DraftOpener } from '../openers';
 import {
@@ -433,7 +434,7 @@ export const sendDone = defineAddonCommand(outreachAddon, {
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {
       const [to] = await ctx.tx
-        .select({ name: profiles.name, url: profiles.url })
+        .select({ name: profiles.name, url: profiles.url, platform: profiles.platform })
         .from(profiles)
         .where(eq(profiles.id, row.profileId));
       if (to)
@@ -443,11 +444,11 @@ export const sendDone = defineAddonCommand(outreachAddon, {
           {
             step: 'message',
             profileId: row.profileId,
+            profile: { platform: to.platform, url: to.url },
             sendId: row.id,
             name: to.name,
-            url: row.threadKey
-              ? `https://www.facebook.com/messages/t/${encodeURIComponent(row.threadKey)}`
-              : to.url,
+            // Their chat on their own network, else their page there.
+            url: chatUrlOn(to.platform, row.threadKey),
             why: input.why || 'it didn’t go',
           },
           at,

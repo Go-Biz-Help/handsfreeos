@@ -206,10 +206,13 @@ const post = (o: { id: number; by?: string; name?: string; when?: string; words?
 
 /**
  * A business's own page, as the owner's Check read one (0.67.0): its Recommend and Refer by Alignable's id for it, its
- * names, its town, its own Connect (or Request Sent once asked), its posts, and another business it suggests, with a
- * Connect of its own.
+ * names, its town, its own Connect (or Request Sent once asked; or once you're connected, as the owner's report of
+ * 26 Oct 2026 showed, its Remove Connection and Alignable's newer Message), its posts, and another business it
+ * suggests, with a Connect of its own.
  */
-const businessHtml = (o: { id?: string; asked?: boolean; posts?: string; extra?: string } = {}) => {
+const businessHtml = (
+  o: { id?: string; asked?: boolean; connected?: boolean; posts?: string; extra?: string } = {},
+) => {
   const id = o.id ?? '42';
   return `<main><section>
     <div><a href="/biz/recommendations/new?id=${id}">Recommend</a><a href="/forward_referral_card/${id}">Refer</a></div>
@@ -217,9 +220,13 @@ const businessHtml = (o: { id?: string; asked?: boolean; posts?: string; extra?:
     <div><a href="/austin-tx">Austin, TX</a></div>
     ${o.extra ?? ''}
     <div>${
-      o.asked
-        ? '<button disabled>Request Sent</button>'
-        : `<a id="connect" href="/biz/connection_requests/make_connection?business_id=${id}&request_source=profile"><div>Connect</div></a>`
+      o.connected
+        ? `<a href="/biz/messages/new?_faid=7&recipient_ids=9001&to_user=9001"><svg></svg>Message</a>
+          <button data-testid="introduce-button">Introduce</button>
+          <a id="remove" href="/biz/connections/${id}"><svg></svg>Remove Connection</a>`
+        : o.asked
+          ? '<button disabled>Request Sent</button>'
+          : `<a id="connect" href="/biz/connection_requests/make_connection?business_id=${id}&request_source=profile"><div>Connect</div></a>`
     }</div>
     <div><div><div>About Us</div></div><div><p>Family plumbers in Austin since 1990.</p></div></div>
     ${o.posts ?? ''}
@@ -577,6 +584,76 @@ describe('a connection request on Alignable', () => {
     });
     expect(world.noted).toEqual([]);
   });
+
+  /** Every link that would change a connection, noting which was pressed. */
+  const pressedOn = (pressed: string[]) => (doc: Document) => {
+    for (const link of doc.querySelectorAll(
+      'a[href*="connection_requests"], a[href*="/biz/connections/"]',
+    ))
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        pressed.push(link.id);
+      });
+  };
+
+  it('passes over a business their page shows you’re connected with, keeps them as a connection, and hands nothing to you', async () => {
+    // The owner's report of 26 Oct 2026: their Remove Connection and Alignable's newer Message, no Connect of theirs,
+    // and the Connect of a business their page suggests.
+    world.pages = (url) =>
+      url === DANA ? { html: businessHtml({ connected: true }), at: DANA_PAGE } : null;
+    const pressed: string[] = [];
+    world.behave = pressedOn(pressed);
+    world.hfos['hfos-save-friends'] = () => ({ saved: 1, added: 0, changed: 1 });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes: you’re connected already',
+    });
+    expect(world.opened).toEqual([DANA]);
+    expect(pressed).toEqual([]);
+    expect(world.noted).toEqual([]);
+    // Kept as one of their Alignable connections, as Save my connections keeps them: Today won't offer it again.
+    expect(world.asked.filter((a) => a.type === 'hfos-save-friends').map((a) => a.input)).toEqual([
+      {
+        workspaceId: ME.businessId,
+        platform: 'alignable',
+        list: 'friends',
+        people: [
+          {
+            name: 'Dana Reyes',
+            profile: { id: '42', username: 'austin-tx-acme-plumbing', url: DANA },
+            mutualFriends: null,
+          },
+        ],
+      },
+    ]);
+    // Its tab presses nothing there either, by Alignable's id for their business.
+    const { JSDOM } = await import('jsdom');
+    const { connectOnPage } = await import('../src/networks/alignable/auto');
+    const doc = new JSDOM(`<!doctype html><body>${businessHtml({ connected: true })}</body>`, {
+      url: DANA_PAGE,
+    }).window.document;
+    pressedOn(pressed)(doc);
+    expect(connectOnPage(doc, DANA_PAGE, { id: '42', username: null, url: DANA })).toBe('already');
+    expect(pressed).toEqual([]);
+  });
+
+  it('notes the request when their page shows you’re connected once Connect is pressed', async () => {
+    let connected = false;
+    world.pages = (url) =>
+      url === DANA ? { html: businessHtml({ connected }), at: DANA_PAGE } : null;
+    world.behave = (doc) =>
+      doc.querySelector('#connect')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        connected = true;
+      });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: true,
+      line: 'Sent Dana Reyes a connection request',
+    });
+    expect(notedAs()).toEqual([
+      { kind: 'friend_request', auto: true, postUrl: null, id: '42', platform: 'alignable' },
+    ]);
+  });
 });
 
 describe('a message on Alignable', () => {
@@ -877,6 +954,33 @@ describe('its day', () => {
     expect(store.get(ALIGNABLE_STATE_KEY)).toMatchObject({
       line: 'Sent Dana Reyes a connection request',
       done: { friend_request: 1 },
+    });
+    expect(alarms.has('hfos-auto-alignable')).toBe(true);
+  });
+
+  it('hands you nothing for a business you’re connected with already: it says so, and goes on', async () => {
+    keep(day('started'));
+    world.hfos['hfos-lists'] = saved;
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [item({})],
+      auto: ['warm_up', 'friend_request'],
+      messages: [],
+      sending: 'steps',
+      partners: [],
+    });
+    world.pages = (url) =>
+      url === DANA ? { html: businessHtml({ connected: true }), at: DANA_PAGE } : null;
+    await alignableTick();
+    expect(world.needs).toEqual([]);
+    expect(world.noted).toEqual([]);
+    expect(world.asked.find((a) => a.type === 'hfos-save-friends')?.input).toMatchObject({
+      platform: 'alignable',
+      list: 'friends',
+      people: [{ name: 'Dana Reyes', profile: { id: '42' } }],
+    });
+    expect(store.get(ALIGNABLE_STATE_KEY)).toMatchObject({
+      line: 'Dana Reyes: you’re connected already',
+      needs: false,
     });
     expect(alarms.has('hfos-auto-alignable')).toBe(true);
   });

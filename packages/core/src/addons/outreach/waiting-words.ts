@@ -9,7 +9,8 @@
  * - **Messages to OK**: every other message waiting for the person's OK. Approve all OKs them, except one to someone
  *   who needs the person (`needsYou`), which waits for an OK of its own too (`oneByOne`).
  * - **Steps it needs you for**: a step the extension couldn't do there and then (a button or box it couldn't find, a
- *   different page, Facebook not taking it, a message that didn't go), handed to the person to do or let go.
+ *   different page, Facebook not taking it, a message that didn't go), handed to the person to do or let go. Each is
+ *   marked with its network, in that network's words, and links to their page there (or the post, or the chat).
  * - **Friend requests to decide**: requests the person got in the last two weeks that Today doesn't have them confirm.
  *
  * How the phone hears of it is the person's `pushes` (./automation.ts): one bundled push at most every 2 hours in
@@ -23,6 +24,7 @@
 import { addDays, localDateOf, localInstant } from '../../calendar/engine/zoned';
 import { inWorkingHours, workWindow, type WorkingHours } from './automation';
 import type { FitLevel } from './fit';
+import { networkOfLink, NETWORKS, PLATFORMS, withArticle, type Platform } from './networks';
 
 export const WAITING_KINDS = {
   ask: 'Your computer needs you',
@@ -134,20 +136,76 @@ export const needWhyWords = (why: string): string =>
 export const messengerChatUrl = (threadKey: string | null): string | null =>
   threadKey ? `https://www.facebook.com/messages/t/${encodeURIComponent(threadKey)}` : null;
 
-/** "Confirm or delete Dana Reyes’s friend request yourself". */
-export function needTitle(step: NeedStep, name: string): string {
+/**
+ * What each network calls the steps that connect, either side of the person's name, where its kit's words don't say
+ * it: saying yes to their ask on its own buttons (LinkedIn's Accept and Ignore), and asking to connect where "Send a
+ * friend request" doesn't fit (a follow on Instagram).
+ */
+const NEED_CONNECT: Readonly<
+  Record<
+    Platform,
+    { readonly confirm: readonly [string, string]; readonly request?: readonly [string, string] }
+  >
+> = {
+  facebook: { confirm: ['Confirm or delete ', '’s friend request yourself'] },
+  linkedin: { confirm: ['Accept or ignore ', '’s invitation to connect yourself'] },
+  instagram: {
+    confirm: ['Confirm or delete ', '’s follow request yourself'],
+    request: ['Follow ', ' yourself'],
+  },
+  alignable: { confirm: ['Accept ', '’s connection request yourself'] },
+};
+
+/**
+ * A step handed over, in its network's words, either side of the person's name, so a screen can link the name to
+ * their page: ["Send ", " a connection request yourself"] on Alignable.
+ */
+export function needTitleAround(step: NeedStep, platform: Platform): readonly [string, string] {
   switch (step) {
     case 'confirm':
-      return `Confirm or delete ${name}’s friend request yourself`;
+      return NEED_CONNECT[platform].confirm;
     case 'friend_request':
-      return `Send ${name} a friend request yourself`;
+      return (
+        NEED_CONNECT[platform].request ?? [
+          'Send ',
+          ` ${withArticle(NETWORKS[platform].words.friendRequest)} yourself`,
+        ]
+      );
     case 'warm_up':
-      return `Like a post of ${name}’s yourself`;
+      return ['Like a post of ', '’s yourself'];
     case 'comment':
-      return `Comment on ${name}’s post yourself`;
+      return ['Comment on ', '’s post yourself'];
     case 'message':
-      return `Send ${name} the message yourself`;
+      return ['Send ', ' the message yourself'];
   }
+}
+
+/**
+ * "Confirm or delete Dana Reyes’s friend request yourself" on Facebook, "Send Dana Reyes an invitation to connect
+ * yourself" on LinkedIn, "Follow Dana Reyes yourself" on Instagram: each network's own words.
+ */
+export function needTitle(step: NeedStep, name: string, platform: Platform): string {
+  const [before, after] = needTitleAround(step, platform);
+  return `${before}${name}${after}`;
+}
+
+/** A need's link, at most: as the database keeps it. */
+const NEED_URL_MOST = 500;
+
+/**
+ * Where a step handed over opens (decision 42): the first address given that's on the person's own network (the
+ * extension's, a comment's post, a message's chat), or else their page there, so every step links to where it's
+ * done. Never an address on another network, which would open the wrong site. Null only with none on it.
+ */
+export function needUrlOf(
+  platform: Platform,
+  ...links: readonly (string | null | undefined)[]
+): string | null {
+  for (const link of links) {
+    const url = link?.trim();
+    if (url && url.length <= NEED_URL_MOST && networkOfLink(url) === platform) return url;
+  }
+  return null;
 }
 
 /** Why a request that fits well is still the person's to decide, rather than Today's to confirm. */
@@ -292,11 +350,15 @@ const sentence = (line: string) => {
   return t ? `${t[0]!.toUpperCase()}${t.slice(1)}` : t;
 };
 
-/** A push for one message or need, with "one for each": "Dana Reyes: a message waits for your OK". */
+/**
+ * A push for one message or need, with "one for each": "Dana Reyes: a message waits for your OK". A need's says its
+ * network when it's known: "Dana Reyes: the extension needs you on Alignable".
+ */
 export function eachPushWords(
   kind: 'message' | 'need',
   name: string,
   why: string | null = null,
+  platform: Platform | null = null,
 ): { title: string; body: string } {
   if (kind === 'message')
     return {
@@ -305,7 +367,7 @@ export function eachPushWords(
     };
   const said = why ? sentence(why) : '';
   return {
-    title: `${name}: the extension needs you`,
+    title: `${name}: the extension needs you${platform ? ` on ${PLATFORMS[platform]}` : ''}`,
     body: `${said ? `${said}. ` : ''}Do it yourself, or let it go, on Today.`,
   };
 }

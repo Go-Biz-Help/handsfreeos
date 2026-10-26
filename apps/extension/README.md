@@ -238,6 +238,11 @@ extension's page-layout reports?":
   left and never counted, with "Your day doesn’t wait on this one…" under it while something else is left. Once
   nothing is, Next up has **Start my day**, with what's left of your profile beside it, "You can start now and finish
   it later." and **Check your profile** in HandsFreeOS.
+- **Alignable: a business you're already connected with is seen as connected** (the owner's report of 26 Oct 2026),
+  from their page's own Remove Connection and its new Message link, instead of being handed to you as "couldn’t find
+  Connect". Its runner says "you’re connected already", keeps them as one of your connections so Today doesn't offer
+  the request again, and never takes the Connect or Message of a business their page suggests for theirs
+  (`src/networks/alignable/read.ts`, `src/auto/alignable.ts`).
 - 0.93.0 and older builds hand Facebook's name, and Instagram's username and name, to you as before, and HandsFreeOS
   marks those **You put it in** for that computer.
 
@@ -867,7 +872,11 @@ line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say
   look at their business page and a like on a recent post of theirs when the page shows one (never one weeks old,
   never one about grief, illness or trouble), or the look alone when it doesn't; a connection request with their
   page's own Connect, only the one carrying Alignable's id for their business, after which it opens their page again
-  to see the request went; and the messages, drafted after a look-up of their page and sent once OK'd in their
+  to see the request went (its Connect gone, or from 0.94.0 their page showing you're connected now); from 0.94.0
+  never to a business you're connected with already, by their page's own Remove Connection
+  (`/biz/connections/<their id>`, saying so), which it passes over saying "you’re connected already" and keeps as one
+  of your connections (a list of one, as Save my connections keeps them), so Today doesn't offer it again; and the
+  messages, drafted after a look-up of their page and sent once OK'd in their
   conversation (`/biz/conversations?with_business_id=…`), typed only into its own box and sent with its own Send
   (`src/networks/alignable/auto.ts`). Comments and forum answers wait for your OK each time, and you post them;
   recommendations are only ever yours. Requests they sent you are left for you to accept. Old requests are yours to
@@ -1119,7 +1128,8 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   both ways.
 - **Pressing on Alignable on its own, only on its own page** (`src/networks/alignable/auto.ts`). Like only on a post
   their business wrote, never its count or an answer's; Connect only on their business page, the link carrying
-  Alignable's id for it, and only while it says Connect; a message only in their conversation's own box
+  Alignable's id for it, only while it says Connect, and never while their page shows their own Remove Connection
+  (`/biz/connections/<their id>`, saying so: 0.94.0); a message only in their conversation's own box
   (`full-view-write-message`, on the page whose address names their business by its id), never one with writing in
   it, sent with its own Send (`messaging-send-external`). It never comments, answers or recommends there. Each is
   found by Alignable's test ids, its links' addresses and its words, never class names. `test/alignable-runner.test.ts`

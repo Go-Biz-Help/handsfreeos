@@ -326,7 +326,7 @@ describe('pushes about what waits', () => {
         user_ids: [owner.id],
       },
       {
-        title: 'Eli Brook: the extension needs you',
+        title: 'Eli Brook: the extension needs you on Facebook',
         body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],

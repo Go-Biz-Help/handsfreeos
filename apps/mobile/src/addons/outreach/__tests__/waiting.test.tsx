@@ -2,6 +2,7 @@ import { MESSAGE_MOST } from '@hfos/core/addons/outreach/limits';
 import { waitingOfCopy } from '@hfos/core/addons/outreach/views/waiting';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
+import { Linking } from 'react-native';
 
 import { change } from '@/changes';
 
@@ -53,6 +54,7 @@ const SERVER: WaitingFromServer = {
       profileId: id(150),
       postId: null,
       sendId: null,
+      platform: 'facebook',
       name: 'Riley Member',
       url: 'https://www.facebook.com/riley.member',
       why: 'facebook showed a limit',
@@ -221,6 +223,66 @@ describe('Waiting for you on the phone', () => {
     expect(screen.getByTestId('waiting-hear')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('waiting-settings'));
     expect(h.onSettings).toHaveBeenCalled();
+  });
+
+  it('marks each step with its own network, in its words, the name a link to their page there', async () => {
+    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const page = 'https://www.alignable.com/springfield-il/lane-landscaping-co';
+    const lane = {
+      ...SERVER.needs[0]!,
+      needId: id(51),
+      profileId: id(151),
+      platform: 'alignable' as const,
+      name: 'Lane Landscaping Co',
+      url: page,
+      why: 'couldn’t find Connect on their page',
+    };
+    await render(
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={{
+          ...SERVER,
+          needs: [lane],
+          kinds: { ...SERVER.kinds, need: { count: 1, newestAt: lane.seenAt } },
+        }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        {...handlers()}
+      />,
+    );
+    const step = within(screen.getByTestId('waiting-need-item'));
+    // Alignable's words and name, never Facebook's.
+    expect(step.getByText('Send Lane Landscaping Co a connection request yourself')).toBeTruthy();
+    expect(step.getByTestId('network-name').props.children).toBe('Alignable');
+    expect(step.queryByText(/friend request/)).toBeNull();
+    await fireEvent.press(step.getByTestId('waiting-need-link'));
+    expect(opened).toHaveBeenLastCalledWith(page);
+    expect(step.getByText('Open on Alignable')).toBeTruthy();
+    await fireEvent.press(step.getByTestId('waiting-need-open'));
+    expect(opened).toHaveBeenLastCalledWith(page);
+    opened.mockRestore();
+  });
+
+  it('links nothing on a site the add-on doesn’t know', async () => {
+    const odd = { ...SERVER.needs[0]!, url: 'https://example.com/riley' };
+    await render(
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={{ ...SERVER, needs: [odd] }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        {...handlers()}
+      />,
+    );
+    const step = within(screen.getByTestId('waiting-need-item'));
+    expect(step.getByText('Send Riley Member a friend request yourself')).toBeTruthy();
+    expect(step.getByTestId('network-name').props.children).toBe('Facebook');
+    expect(step.queryByTestId('waiting-need-link')).toBeNull();
+    expect(step.queryByTestId('waiting-need-open')).toBeNull();
   });
 
   it('lists first what the person asked their computer that needs them there, with Carry on, Skip and Stop', async () => {
