@@ -148,7 +148,13 @@ function contactPage(more: { boxed?: boolean; saves?: boolean } = {}) {
       const value = (form.querySelector('input') as HTMLInputElement).value;
       const row = doc.createElement('div');
       row.setAttribute('role', 'listitem');
-      row.innerHTML = `<a role="link" href="https://l.facebook.com/l.php?u=${encodeURIComponent(value)}"><span>${value.replace(/^https:\/\//, '')}</span></a>`;
+      const link = doc.createElement('a');
+      link.setAttribute('role', 'link');
+      link.setAttribute('href', `https://l.facebook.com/l.php?u=${encodeURIComponent(value)}`);
+      const words = doc.createElement('span');
+      words.textContent = value.replace(/^https:\/\//, '');
+      link.append(words);
+      row.append(link);
       list.append(row);
       form.remove();
     });
