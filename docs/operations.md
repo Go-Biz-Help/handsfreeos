@@ -6926,7 +6926,7 @@ Some things it cannot do, and says so with the steps instead: signing in to Goog
 
 Three it can do that are worth knowing about, because they cost money or cannot be undone. Each carries a warning on its card: getting a business number (a monthly cost), giving one up (gone for good), and disconnecting a payout account (anything paying on a plan stops). Taking a teammate off the business is the fourth.
 
-One deliberate speed bump is kept rather than worked around: automatic follow-ups to quiet leads stay off until an owner has read the wording on **Settings** → **Automations** and agreed to it. Asked to turn them on, the Assistant answers with a card that has no Confirm button and says where to go.
+The rest it can do too, each on a card that waits for **Confirm** (the owner's decision, 2026-10-26: the Assistant does whatever the person can): the main offer, from any box to putting a version live; turning add-ons on and off, adding and uninstalling them; bringing something back from the **Deleted bin**; how partners are paid and each partner; and **Settings** → **Safety**. Re-engaging dead leads the first time shows its message on the card, and **Confirm** counts as **Looks good, turn on**. It still never deletes anything for good, empties the bin or deletes an add-on's data: those stay the person's, on the page.
 
 ### When a question fails
 

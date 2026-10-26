@@ -98,16 +98,27 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'custom_record_type.list', as: 'kindsOfRecords' },
     { name: 'relationship_type.list', as: 'relationshipTypes' },
   ],
-  // What's in the bin, by name, when it was deleted and when it goes for good; never what's inside.
+  // What's in the bin, by name, when it was deleted and when it goes for good; never what's inside. The id is what
+  // restore_from_bin brings back.
   deleted_bin: [
     {
       name: 'bin.list',
       as: 'deletedBin',
       shape: (v) =>
         (
-          (v as { items?: { kind: string; name: string; deletedAt: string; purgeAfter: string }[] })
-            ?.items ?? []
+          (
+            v as {
+              items?: {
+                id: string;
+                kind: string;
+                name: string;
+                deletedAt: string;
+                purgeAfter: string;
+              }[];
+            }
+          )?.items ?? []
         ).map((i) => ({
+          binItemId: i.id,
           kind: i.kind,
           name: i.name,
           deletedAt: i.deletedAt,
@@ -148,7 +159,36 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'payment_connection.list', as: 'accounts' },
   ],
   products: [{ name: 'product.list', as: 'products' }],
-  partners: [{ name: 'partners.settings', as: 'partners' }],
+  partners: [
+    { name: 'partners.settings', as: 'partners' },
+    {
+      name: 'partner.list',
+      as: 'partnerList',
+      // Who each one is and what they earn now; their earnings and links are the page's.
+      shape: (v) =>
+        (
+          (
+            v as {
+              partners?: {
+                partnerId: string;
+                personId: string;
+                name: string;
+                status: string;
+                rateBp: number;
+                ownRate: boolean;
+              }[];
+            }
+          )?.partners ?? []
+        ).map((p) => ({
+          partnerId: p.partnerId,
+          personId: p.personId,
+          name: p.name,
+          status: p.status,
+          sharePercent: p.rateBp / 100,
+          ownShare: p.ownRate,
+        })),
+    },
+  ],
   usage: [{ name: 'wallet.get', as: 'balance' }],
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],

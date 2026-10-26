@@ -44,6 +44,7 @@ import { extraAutoTools, extraConfirmTools } from './tools-extra';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
 import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
 import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling';
+import { moreSettingsConfirmTools } from './tools-settings-more';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
 
 /** The rest of what people do on the screens, one file an area: run on their own. */
@@ -818,6 +819,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...billingConfirmTools,
   ...contentConfirmTools,
   ...setupConfirmTools,
+  ...moreSettingsConfirmTools,
   ...extraConfirmTools,
 };
 

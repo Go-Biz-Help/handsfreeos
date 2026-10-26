@@ -46,6 +46,7 @@ import { contentStepLabels } from './tools-content';
 import { extraStepLabels } from './tools-extra';
 import { inboxCrmStepLabels } from './tools-inbox-crm';
 import { mainOfferStepLabels } from './tools-main-offer';
+import { moreSettingsStepLabels } from './tools-settings-more';
 import { schedulingStepLabels } from './tools-scheduling';
 import { setupStepLabels } from './tools-setup';
 
@@ -264,6 +265,7 @@ const MORE_STEP_LABELS: Record<string, string> = {
   ...contentStepLabels,
   ...setupStepLabels,
   ...mainOfferStepLabels,
+  ...moreSettingsStepLabels,
   ...extraStepLabels,
   ...addonStepLabels,
 };

@@ -356,16 +356,26 @@ describe('Settings → Automations', () => {
     expect((await settings())['automations'].switches.dayBefore).toBe(true);
   });
 
-  it('won’t turn on re-engaging dead leads before its message is read, nor turn off what’s always on', async () => {
+  it('turns on re-engaging dead leads the first time with its message on the card, but never turns off what’s always on', async () => {
     const reengage = await prepare('update_automations', { turnOn: ['reengage_dead_leads'] });
-    expect(reengage.card.confirmLabel).toBe('');
-    expect(reengage.card.warnings[0]).toMatchObject({ kind: 'blocked' });
+    expect(reengage.card.confirmLabel).toBe('Save the change');
+    expect(reengage.card.warnings[0]).toMatchObject({ kind: 'caution' });
     expect(reengage.card.warnings[0]!.text).toContain('Looks good, turn on');
-    expect(reengage.result['blocked']).toBe(true);
-    await expect(confirm('update_automations', reengage.parsed)).rejects.toThrow(
-      'turns on only from Settings → Automations',
-    );
+    const message = field(reengage.card, 'Re-engage message')?.value;
+    expect(message).toBeTruthy();
     expect((await settings())['automations'].switches.reengage).toBe(false);
+    await confirm('update_automations', reengage.parsed);
+    const after = (await settings())['automations'];
+    expect(after.switches.reengage).toBe(true);
+    expect(after.reengage.reviewedAt).toBeTruthy();
+    expect(after.reengage.template).toBe(message);
+    // Back as it was, unread, for the tests after.
+    await rows(
+      admin(),
+      sql`update app.workspaces set settings = jsonb_set(jsonb_set(settings,
+            '{automations,switches,reengage}', 'false'::jsonb), '{automations,reengage,reviewedAt}', 'null'::jsonb)
+          where id = ${workspaceId}`,
+    );
 
     const locked = await prepare('update_automations', { turnOff: ['drafts_awaiting_review'] });
     expect(locked.card.confirmLabel).toBe('');
