@@ -15,7 +15,7 @@
  * with), a groups search (joining one they aren't in), their chats, one friend's profile (liking, unfriending and
  * messaging, the last as it may open Messenger), the profile of someone they sent a request to (cancelling), their
  * notifications, Accounts Center's username page for their Facebook profile (the username: no warning is read there
- * while Facebook asks for their password, as its "Confirm it's you" is none), and Download your information (the
+ * while Facebook asks them for something, as its "Confirm it's you" is none), and Download your information (the
  * file).
  */
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -129,18 +129,13 @@ export class Checkup<R extends PageRead> {
 
   /**
    * Opens a page without reading it yet, at a person's pace after the first: one whose warnings are read only once it's
-   * known Facebook isn't asking for a password there (`warnedHere`).
+   * known Facebook isn't asking the person for something there (Accounts Center's username page).
    */
   async openUnread(url: string, name: string): Promise<void> {
     if (this.pages > 0) await pause(paced(BETWEEN_MS));
     this.job.progress(`Checking ${name}…`);
     await this.job.tab.open(url);
     this.pages++;
-  }
-
-  /** A warning of the network's on the page the tab shows: noted, and the end of the job. Null when there's none. */
-  async warnedHere(): Promise<JobEnd | null> {
-    return warnedOn(this.job, await this.read(this.job.tab));
   }
 
   /** Reads the page the tab shows now, as `open` does: what a press there opened. */
