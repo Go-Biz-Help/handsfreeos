@@ -158,6 +158,7 @@ export const documentRead = defineAddonCommand(realestateAddon, {
   input: DocumentReadInput,
   output: DocumentReadOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_document_read' },
   scope: inWorkspace,
   emits: [...READ_EVENTS],
   async handler(ctx, input) {
@@ -394,6 +395,7 @@ export const contractConfirm = defineAddonCommand(realestateAddon, {
   input: ContractConfirmInput,
   output: ContractConfirmOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_contract_confirm', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.contract.confirmed', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -538,6 +540,7 @@ export const contractReject = defineAddonCommand(realestateAddon, {
   input: ContractRejectInput,
   output: ContractRejectOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_contract_reject_value', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.contract.value_rejected'],
   async handler(ctx, input) {
@@ -772,6 +775,7 @@ export const contractReadsList = defineAddonQuery(realestateAddon, {
   input: ContractReadsInput,
   output: ContractReadsOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_contract_reads' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

@@ -560,6 +560,7 @@ export const esignMarkSigned = defineAddonCommand(realestateAddon, {
   input: EsignMarkSignedInput,
   output: EsignOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_esign_mark_signed' },
   scope: inWorkspace,
   emits: ['realestate.esign.signed_reported'],
   async handler(ctx, input) {
@@ -603,6 +604,7 @@ export const esignVoid = defineAddonCommand(realestateAddon, {
   input: EsignVoidInput,
   output: EsignOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_esign_void' },
   scope: inWorkspace,
   emits: ['realestate.esign.voided'],
   async handler(ctx, input) {

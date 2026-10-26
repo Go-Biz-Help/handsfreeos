@@ -364,6 +364,7 @@ export const listingPageTakeDown = defineAddonCommand(realestateAddon, {
   input: ListingInput,
   output: ListingPageOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_page_take_down', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.listing.page_changed'],
   async handler(ctx, input) {
@@ -397,6 +398,7 @@ export const listingFlyer = defineAddonQuery(realestateAddon, {
   input: ListingInput,
   output: ListingFlyerOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_flyer' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
@@ -434,6 +436,7 @@ export const listingCampaign = defineAddonCommand(realestateAddon, {
   input: ListingCampaignInput,
   output: ListingCampaignOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_campaign' },
   scope: inWorkspace,
   emits: ['realestate.listing.campaign_started', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -701,6 +704,7 @@ export const listingPostSave = defineAddonCommand(realestateAddon, {
   input: ListingPostSaveInput,
   output: ListingPostOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_post_save' },
   scope: inWorkspace,
   emits: ['realestate.listing.post_saved'],
   async handler(ctx, input) {
@@ -778,6 +782,7 @@ export const listingMarketing = defineAddonQuery(realestateAddon, {
   input: ListingInput,
   output: ListingMarketingOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_marketing' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

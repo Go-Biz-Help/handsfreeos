@@ -53,6 +53,7 @@ export const dutyLink = defineAddonCommand(realestateAddon, {
   input: DutyLinkInput,
   output: DutyLinkOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_link', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.linked'],
   async handler(ctx, input) {
@@ -105,6 +106,7 @@ export const dutyUnlink = defineAddonCommand(realestateAddon, {
   input: DutyLinkInput,
   output: DutyLinkOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_unlink', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.unlinked'],
   async handler(ctx, input) {
@@ -143,6 +145,7 @@ export const dutyChased = defineAddonCommand(realestateAddon, {
   input: DutyChasedInput,
   output: DutyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_chased' },
   scope: inWorkspace,
   emits: ['realestate.duty.chased'],
   async handler(ctx, input) {

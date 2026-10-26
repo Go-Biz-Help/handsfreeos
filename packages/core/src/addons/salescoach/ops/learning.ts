@@ -150,6 +150,7 @@ export const lessonList = defineAddonQuery(salescoachAddon, {
   input: z.object({ workspaceId: uuid }),
   output: z.object({ lessons: z.array(LessonOut) }),
   permission: 'salescoach.manage',
+  ai: { tool: 'salescoach_lesson_list' },
   scope: inWorkspace,
   async handler(ctx) {
     const found = await ctx.tx
@@ -197,6 +198,7 @@ export const lessonDecide = defineAddonCommand(salescoachAddon, {
   input: z.object({ workspaceId: uuid, lessonId: uuid, use: z.boolean() }),
   output: z.object({ state: z.enum(['used', 'dismissed']) }),
   permission: 'salescoach.manage',
+  ai: { tool: 'salescoach_lesson_decide', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['salescoach.lesson.decided', 'salescoach.playbook.saved'],
   async handler(ctx, input) {

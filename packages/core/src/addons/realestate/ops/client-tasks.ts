@@ -265,6 +265,7 @@ export const clientTaskCancel = defineAddonCommand(realestateAddon, {
   input: ClientTaskCancelInput,
   output: ClientTaskChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_client_task_cancel', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.client_task.changed'],
   async handler(ctx, input) {
@@ -305,6 +306,7 @@ export const clientTaskMarkDone = defineAddonCommand(realestateAddon, {
   input: ClientTaskMarkDoneInput,
   output: ClientTaskChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_client_task_mark_done', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.client_task.done', ...PROOF_EVENTS],
   async handler(ctx, input) {

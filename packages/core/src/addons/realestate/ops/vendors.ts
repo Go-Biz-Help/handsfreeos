@@ -156,6 +156,7 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
   input: VendorSaveInput,
   output: VendorOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_vendor_save', autonomy: 'confirm' },
   scope: inWorkspace,
   // Adding works with no signal, with the phone's id for a new one; approving one needs an owner or admin with signal
   // (board 89).
@@ -277,6 +278,7 @@ export const vendorApprove = defineAddonCommand(realestateAddon, {
   input: VendorApproveInput,
   output: VendorOutput,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_vendor_approve' },
   scope: inWorkspace,
   emits: ['realestate.vendor.saved'],
   async handler(ctx, input) {
@@ -319,6 +321,7 @@ export const vendorArchive = defineAddonCommand(realestateAddon, {
   input: VendorArchiveInput,
   output: VendorOutput,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_vendor_archive' },
   scope: inWorkspace,
   emits: ['realestate.vendor.saved'],
   async handler(ctx, input) {
@@ -382,6 +385,7 @@ export const dutyVendorsGet = defineAddonQuery(realestateAddon, {
   input: DutyVendorsInput,
   output: DutyVendorsOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_vendors' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const { duty, deal } = await loadDuty(ctx, input.dutyId);
@@ -579,6 +583,7 @@ export const dutyVendorQuote = defineAddonCommand(realestateAddon, {
   input: DutyVendorQuoteInput,
   output: DutyVendorOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_vendor_quote', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -617,6 +622,7 @@ export const dutyVendorAppointment = defineAddonCommand(realestateAddon, {
   input: DutyVendorAppointmentInput,
   output: DutyVendorOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_vendor_appointment', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -656,6 +662,7 @@ export const dutyUnpickVendor = defineAddonCommand(realestateAddon, {
   input: DutyUnpickVendorInput,
   output: DutyVendorOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_unpick_vendor', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {

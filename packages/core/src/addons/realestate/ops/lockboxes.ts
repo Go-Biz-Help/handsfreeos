@@ -151,6 +151,7 @@ export const lockboxRemove = defineAddonCommand(realestateAddon, {
   input: LockboxRemoveInput,
   output: LockboxOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_lockbox_remove', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
@@ -327,6 +328,7 @@ export const lockboxList = defineAddonQuery(realestateAddon, {
   input: LockboxListInput,
   output: LockboxListOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_lockbox_list' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

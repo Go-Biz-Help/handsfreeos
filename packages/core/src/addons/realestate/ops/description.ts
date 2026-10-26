@@ -418,6 +418,7 @@ export const descriptionSave = defineAddonCommand(realestateAddon, {
   input: ListingDescriptionSaveInput,
   output: ListingDescriptionOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_description_save' },
   scope: inWorkspace,
   emits: ['realestate.listing.description_saved'],
   async handler(ctx, input) {
@@ -489,6 +490,7 @@ export const descriptionAcknowledgeFlags = defineAddonCommand(realestateAddon, {
   input: ListingDescriptionAcknowledgeInput,
   output: ListingDescriptionOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_description_acknowledge_flags', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.listing.description_flags_kept'],
   async handler(ctx, input) {

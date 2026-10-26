@@ -498,6 +498,7 @@ export const templateDiff = defineAddonQuery(realestateAddon, {
     changes: PlanOut,
   }),
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_diff' },
   scope: inWorkspace,
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
@@ -609,6 +610,7 @@ export const templateList = defineAddonQuery(realestateAddon, {
     unpublished: z.boolean(),
   }),
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_list' },
   scope: inWorkspace,
   handler: async (ctx) => {
     const list = await draftList(ctx);
@@ -662,6 +664,7 @@ export const templateVersions = defineAddonQuery(realestateAddon, {
     ),
   }),
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_versions' },
   scope: inWorkspace,
   handler: async (ctx) => {
     const list = await rows<{

@@ -62,6 +62,7 @@ export const contingencyAdd = defineAddonCommand(realestateAddon, {
   input: ContingencyAddInput,
   output: ContingencyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_contingency_add', autonomy: 'confirm' },
   scope: inWorkspace,
   // Saves with no signal, with the phone's id; the dates and duties that rest on it move when it arrives.
   offline: 'anytime',
@@ -151,6 +152,7 @@ export const contingencyResolve = defineAddonCommand(realestateAddon, {
   input: ContingencyResolveInput,
   output: ContingencyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_contingency_resolve' },
   scope: inWorkspace,
   // Resolved with no signal, with the signed form (a photo of it added as a document on the phone); anything it
   // moves, dates and duties, moves when it arrives, from the moment it was resolved (board 80). Without the form it's

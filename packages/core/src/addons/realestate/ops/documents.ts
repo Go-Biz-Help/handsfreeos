@@ -131,6 +131,7 @@ export const documentAdd = defineAddonCommand(realestateAddon, {
   input: DocumentAddInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_document_add', autonomy: 'confirm' },
   // The worker files a document signed at DocuSign or Dotloop (round five).
   actors: ['human', 'system'],
   scope: inWorkspace,
@@ -263,6 +264,7 @@ export const documentUpdate = defineAddonCommand(realestateAddon, {
   input: DocumentUpdateInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_document_update', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.document.updated'],
   async handler(ctx, input) {
@@ -304,6 +306,7 @@ export const documentMarkSigned = defineAddonCommand(realestateAddon, {
   input: DocumentSignedInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_document_mark_signed' },
   // The worker files a document signed at DocuSign or Dotloop (round five).
   actors: ['human', 'system'],
   scope: inWorkspace,
@@ -378,6 +381,7 @@ export const documentSetControlling = defineAddonCommand(realestateAddon, {
   input: DocumentSignedInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_document_set_controlling' },
   scope: inWorkspace,
   emits: ['realestate.document.controlling_set'],
   async handler(ctx, input) {
@@ -408,6 +412,7 @@ export const documentVoid = defineAddonCommand(realestateAddon, {
   input: DocumentVoidInput,
   output: DocumentOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_document_void' },
   scope: inWorkspace,
   emits: ['realestate.document.voided'],
   async handler(ctx, input) {

@@ -420,6 +420,7 @@ export const dutyWithdrawEvidence = defineAddonCommand(realestateAddon, {
   input: DutyWithdrawEvidenceInput,
   output: DutyEvidenceOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_withdraw_evidence', autonomy: 'confirm' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.duty.evidence_withdrawn'],
@@ -473,6 +474,7 @@ export const dutyAssign = defineAddonCommand(realestateAddon, {
   input: DutyAssignInput,
   output: DutyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_assign', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.assigned'],
   async handler(ctx, input) {
@@ -518,6 +520,7 @@ export const dutyAcknowledge = defineAddonCommand(realestateAddon, {
   input: DutyAcknowledgeInput,
   output: DutyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_acknowledge' },
   scope: inWorkspace,
   offline: 'anytime',
   emits: ['realestate.duty.acknowledged'],
@@ -707,6 +710,7 @@ export const dutyCancel = defineAddonCommand(realestateAddon, {
   input: DutyReasonInput,
   output: DutyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_cancel' },
   scope: inWorkspace,
   emits: ['realestate.duty.cancelled'],
   async handler(ctx, input) {
@@ -725,6 +729,7 @@ export const dutyReopen = defineAddonCommand(realestateAddon, {
   input: DutyReasonInput,
   output: DutyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_reopen', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.reopened'],
   async handler(ctx, input) {
@@ -775,6 +780,7 @@ export const dutySetDue = defineAddonCommand(realestateAddon, {
   input: DutySetDueInput,
   output: DutyOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_duty_set_due', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.due_set'],
   async handler(ctx, input) {

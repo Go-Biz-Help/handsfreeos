@@ -150,6 +150,7 @@ export const memoryDecide = defineAddonCommand(realestateAddon, {
   input: MemoryDecideInput,
   output: MemoryDecideOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_memory_decide', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.memory.decided'],
   async handler(ctx, input) {
@@ -222,6 +223,7 @@ export const memoryRequest = defineAddonCommand(realestateAddon, {
   input: MemoryRequestInput,
   output: MemoryRequestOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_memory_request' },
   scope: inWorkspace,
   emits: ['realestate.memory.requested'],
   async handler(ctx, input) {

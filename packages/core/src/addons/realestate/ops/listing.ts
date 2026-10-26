@@ -258,6 +258,7 @@ export const listingPaste = defineAddonCommand(realestateAddon, {
   input: ListingPasteInput,
   output: ListingPasteOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_paste' },
   scope: inWorkspace,
   emits: ['realestate.listing.pasted'],
   async handler(ctx, input) {
@@ -353,6 +354,7 @@ export const listingConfirmFacts = defineAddonCommand(realestateAddon, {
   input: ListingConfirmFactsInput,
   output: ListingConfirmFactsOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_confirm_facts', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.listing.facts_confirmed', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -417,6 +419,7 @@ export const listingRequestQuestionnaire = defineAddonCommand(realestateAddon, {
   input: ListingQuestionnaireRequestInput,
   output: ListingQuestionnaireRequestOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_request_questionnaire', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.client_task.added'],
   async handler(ctx, input) {
@@ -469,6 +472,7 @@ export const listingPhotoAdd = defineAddonCommand(realestateAddon, {
   input: ListingPhotoAddInput,
   output: ListingPhotosOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_photo_add', autonomy: 'confirm' },
   scope: inWorkspace,
   // Photos taken with no signal go on once they've uploaded, with the phone's id, so their order and cover can wait
   // beside them (board 87).
@@ -560,6 +564,7 @@ export const listingPhotosArrange = defineAddonCommand(realestateAddon, {
   input: ListingPhotosArrangeInput,
   output: ListingPhotosOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_photos_arrange', autonomy: 'confirm' },
   scope: inWorkspace,
   // Order and cover save with no signal too; photos changed since are refused, to put in order again.
   offline: 'anytime',
@@ -606,6 +611,7 @@ export const listingPhotoRemove = defineAddonCommand(realestateAddon, {
   input: ListingPhotoRemoveInput,
   output: ListingPhotosOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_photo_remove', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.listing.photos_changed'],
   async handler(ctx, input) {

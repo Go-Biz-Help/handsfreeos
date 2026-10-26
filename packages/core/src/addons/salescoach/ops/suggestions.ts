@@ -98,6 +98,7 @@ export const suggestionsGet = defineAddonQuery(salescoachAddon, {
       .nullable(),
   }),
   permission: 'salescoach.use',
+  ai: { tool: 'salescoach_suggestions' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const [s] = await ctx.tx

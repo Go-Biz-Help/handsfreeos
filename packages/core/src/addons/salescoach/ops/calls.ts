@@ -517,6 +517,7 @@ export const callStop = defineAddonCommand(salescoachAddon, {
   input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
   output: z.object({ state: z.enum(COACHED_STATES) }),
   permission: 'salescoach.use',
+  ai: { tool: 'salescoach_call_stop', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['salescoach.call.stopped'],
   async handler(ctx, input) {
@@ -555,6 +556,7 @@ export const cardDismiss = defineAddonCommand(salescoachAddon, {
   input: z.object({ workspaceId: uuid, cardId: uuid }),
   output: z.object({ cardId: uuid }),
   permission: 'salescoach.use',
+  ai: { tool: 'salescoach_card_dismiss' },
   scope: inWorkspace,
   emits: ['salescoach.card.dismissed'],
   async handler(ctx, input) {
@@ -605,6 +607,7 @@ export const live = defineAddonQuery(salescoachAddon, {
   input: z.object({ workspaceId: uuid }),
   output: LiveOutput,
   permission: 'salescoach.use',
+  ai: { tool: 'salescoach_live' },
   scope: inWorkspace,
   async handler(ctx) {
     const me = requireHuman(ctx).userId;

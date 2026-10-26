@@ -366,6 +366,7 @@ export const suggestionAdd = defineAddonCommand(realestateAddon, {
   input: SuggestionInput,
   output: SuggestionChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_suggestion_add', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.home.added', 'realestate.suggestion.decided'],
   async handler(ctx, input) {
@@ -414,6 +415,7 @@ export const suggestionNotAFit = defineAddonCommand(realestateAddon, {
   input: SuggestionNotAFitInput,
   output: SuggestionChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_suggestion_not_a_fit' },
   scope: inWorkspace,
   emits: ['realestate.suggestion.decided'],
   async handler(ctx, input) {

@@ -31,6 +31,7 @@ export const dealExport = defineAddonCommand(realestateAddon, {
   input: DealExportInput,
   output: DealExportOutput,
   permission: 'realestate.export',
+  ai: { tool: 'realestate_deal_export', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.export_requested'],
   async handler(ctx, input) {
@@ -118,6 +119,7 @@ export const exportsList = defineAddonQuery(realestateAddon, {
   input: ExportsInput,
   output: ExportsOutput,
   permission: 'realestate.export',
+  ai: { tool: 'realestate_exports' },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

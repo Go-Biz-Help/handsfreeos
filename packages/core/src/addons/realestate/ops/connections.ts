@@ -26,6 +26,7 @@ export const connectionsUses = defineAddonQuery(realestateAddon, {
   input: RealestateConnectionsUsesInput,
   output: RealestateConnectionsUsesOutput,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_connections_uses' },
   scope: inWorkspace,
   async handler(ctx) {
     const ws = ctx.scope.workspaceId!;

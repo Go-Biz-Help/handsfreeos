@@ -510,6 +510,7 @@ export const dealOfferLost = defineAddonCommand(realestateAddon, {
   input: DealOfferLostInput,
   output: DealChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_record_offer_lost' },
   scope: inWorkspace,
   emits: ['realestate.deal.offer_lost'],
   async handler(ctx, input) {
@@ -561,6 +562,7 @@ export const dealTerminate = defineAddonCommand(realestateAddon, {
   input: DealTerminateInput,
   output: DealChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_terminate' },
   scope: inWorkspace,
   emits: ['realestate.deal.terminated'],
   async handler(ctx, input) {
@@ -611,6 +613,7 @@ export const dealClose = defineAddonCommand(realestateAddon, {
   input: DealCloseInput,
   output: DealCloseOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_close' },
   scope: inWorkspace,
   emits: ['realestate.deal.closed'],
   async handler(ctx, input) {
@@ -774,6 +777,7 @@ export const dealReopen = defineAddonCommand(realestateAddon, {
   input: DealReopenInput,
   output: DealChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_reopen' },
   scope: inWorkspace,
   emits: ['realestate.deal.reopened'],
   async handler(ctx, input) {
