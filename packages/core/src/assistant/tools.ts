@@ -20,6 +20,7 @@ import { billingTools } from './tools-billing';
 import { contentTools } from './tools-content';
 import { extraTools } from './tools-extra';
 import { inboxCrmTools } from './tools-inbox-crm';
+import { mainOfferTools } from './tools-main-offer';
 import { schedulingTools } from './tools-scheduling';
 import { setupTools } from './tools-setup';
 
@@ -1350,6 +1351,7 @@ export const assistantTools = [
   ...billingTools,
   ...contentTools,
   ...setupTools,
+  ...mainOfferTools,
   ...extraTools,
   // What HandsFreeOS can do here, core and add-ons alike (the add-ons' own tools are derived from their operations).
   ...addonTools,

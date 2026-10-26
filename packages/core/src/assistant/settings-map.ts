@@ -171,18 +171,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/main-offer',
     permission: 'main_offer.manage',
-    canChange: [],
-    handovers: [
-      {
-        what: 'build the main offer, or change it and put the new version live',
-        why: 'it is built a part at a time with the AI on its own page, and which version goes live is the owner’s call',
-        steps: [
-          'Open Settings → Main offer.',
-          'Work through each part with the AI, then let it score the offer.',
-          'Press Go live once it reads right.',
-        ],
-      },
+    canChange: [
+      'change any part of it, its steps or its real results, in the draft',
+      'score the draft, or have the AI write a try and take parts of it in',
+      'put the draft live as the next version, with your OK, or throw it away',
+      'the owner’s direction for the whole offer, and the names the business goes by',
     ],
+    handovers: [],
     notHere: [
       'promotions such as $50 off this month: those are Knowledge → Promotions, not the main offer',
     ],

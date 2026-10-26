@@ -183,7 +183,7 @@ export async function authenticate(deps: HttpDeps, req: FastifyRequest): Promise
 }
 
 export async function hasPermission(
-  deps: HttpDeps,
+  deps: Pick<HttpDeps, 'httpDb'>,
   userId: string,
   workspaceId: string,
   permission: string,
@@ -198,7 +198,7 @@ export async function hasPermission(
 }
 
 export async function requirePermission(
-  deps: HttpDeps,
+  deps: Pick<HttpDeps, 'httpDb'>,
   userId: string,
   workspaceId: string,
   permission: string,
