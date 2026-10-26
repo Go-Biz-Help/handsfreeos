@@ -39141,6 +39141,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -39340,6 +39341,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -40160,6 +40162,7 @@ export interface operations {
                             work: ("same" | "other" | "none") | null;
                         } | null;
                         nameDraft?: string | null;
+                        nameOff?: boolean;
                         names?: string[];
                         notes?: {
                             about?: string[];
@@ -40354,6 +40357,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -40552,6 +40556,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -40756,6 +40761,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -71835,6 +71841,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -71931,6 +71938,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72027,6 +72035,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72123,6 +72132,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72325,6 +72335,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];

@@ -30,6 +30,7 @@ import {
   BIO_MOST_ON,
   cleanUsername,
   EARLIER_KEPT,
+  FACEBOOK_NAME_RULE,
   hasBlank,
   MATCH_PARTS,
   NAME_DRAFT_MOST,
@@ -421,6 +422,10 @@ export const linkName = (l: LinkToAdd): string =>
 export const firstUsername = (check: ProfileCheck | null): UsernameOption | null =>
   check?.usernames?.find((u) => u.free !== false) ?? null;
 
+/** What to do when the AI said the name isn't right but wrote none the network takes (`ProfileCheck.nameOff`). */
+const nameOffFix = (platform: Platform): string =>
+  `${PLATFORMS[platform]} asks for your real first and last name, in letters only. Press Show me more for one, or make sure Full name in Settings → Account is yours and press Check your profile again.`;
+
 /**
  * Every part of a network's profile as the screen lists it (decision 84), from its latest check and what's known of
  * the person's other profiles. With no check yet, each part is listed with nothing read. Who does each goes by the
@@ -460,12 +465,16 @@ export function profileParts(
         };
       case 'name': {
         const names = check?.names ?? (check?.nameDraft ? [check.nameDraft] : []);
+        // Never right when the AI said it isn't, though none of its names met the network's standards.
+        const off = check?.nameOff === true;
         return {
           ...base,
-          ok: scored ? scored.ok : check !== null && !unlike.has('name') && names.length === 0,
+          ok: scored
+            ? scored.ok
+            : check !== null && !off && !unlike.has('name') && names.length === 0,
           now: seen?.name ?? null,
           next: names,
-          fix: scored?.fix ?? null,
+          fix: scored?.fix ?? (off ? nameOffFix(platform) : null),
         };
       }
       case 'username': {
@@ -601,7 +610,10 @@ const MORE_RULES: Readonly<Record<WritePart, (platform: Platform) => string>> = 
   name: (p) =>
     p === 'instagram'
       ? 'name: each at most 64 characters, their first name, a bar, then what they do for whom and where, like “Dana | Booked jobs for Austin roofers”.'
-      : `name: their real first and last name, as ${NETWORKS[p].name} asks for it, never business words.`,
+      : [
+          `name: their real first and last name, as ${NETWORKS[p].name} asks for it, never business words.`,
+          ...(p === 'facebook' ? [FACEBOOK_NAME_RULE] : []),
+        ].join(' '),
   username: (p) => `username: ${usernameRuleWords(p)} From their name and what they do.`,
   cover: () => 'cover line: at most 8 words, the result they get people, not a sales pitch.',
   about: (p) =>
@@ -737,6 +749,29 @@ export function checkedMore(
     out.push(o);
   }
   return out.slice(0, MORE_COUNT[part]);
+}
+
+/** The chips that ask for more than a name, which Facebook's name standards don't take. */
+const MORE_THAN_A_NAME: readonly string[] = ['Add what I do', 'Add my town'];
+
+/**
+ * Why Show me more has no names, when what the AI wrote is only names the network won't take (`nameProblem`): the first
+ * of them, and what to change. Null when that isn't why.
+ */
+export function moreNamesRefused(
+  platform: Platform,
+  options: readonly string[],
+  chips: readonly string[],
+): string | null {
+  const refused = options
+    .map(unquote)
+    .find((o) => o && !hasBlank(o) && nameProblem(platform, o) !== null);
+  if (!refused) return null;
+  const off = chips.filter((c) => MORE_THAN_A_NAME.includes(c));
+  const fix = off.length
+    ? `Take off ${off.join(' and ')}, then press Show me more again.`
+    : 'Tell it you want your first and last name, then press Show me more again.';
+  return `${PLATFORMS[platform]} takes only a real first and last name in letters, and what the AI wrote wasn’t one (“${refused}”). ${fix}`;
 }
 
 const keep = (list: readonly string[], most: number) =>

@@ -447,6 +447,19 @@ describe('putting your username in', () => {
     expect(page.saved()).toBe('casey.roofs');
   });
 
+  it('never ticks or unticks Instagram’s username: with its offer on, nothing’s typed or pressed', async () => {
+    const page = usernamePageDoc();
+    page.doc
+      .getElementById('username-form')!
+      .insertAdjacentHTML(
+        'beforeend',
+        '<label><input type="checkbox" checked /> Also change your username on Instagram</label>',
+      );
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote).toMatchObject({ result: 'none', steps: { sync: true, typed: false } });
+    expect([page.box.value, page.pressed()]).toEqual(['casey.owner.7', 0]);
+  });
+
   it('never presses Change username in a box that offers to change Instagram’s too', async () => {
     const page = usernamePageDoc({
       sure: { says: 'Change your username on Instagram too?', button: 'Change username' },
@@ -1030,6 +1043,20 @@ describe('Put these in, on Facebook', () => {
       found: { password: true, reviewed: true, pressed: false },
       note: 'Facebook asked for the password before the name changed.',
     });
+    expect(now().name).toBe('Casey Lee');
+    expect(end).toEqual({ line: 'Your name is in.', warned: false });
+  });
+
+  it('sees the name in once the person saves it after the password, while Facebook then holds the next change', async () => {
+    const { end, said, now } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { password: 'review', holdsAfter: 'You can’t change your name right now.' } },
+      (_says, tab) => {
+        tab.namePage()!.continued();
+        return 'carry_on';
+      },
+    );
+    expect(said).toHaveLength(1);
     expect(now().name).toBe('Casey Lee');
     expect(end).toEqual({ line: 'Your name is in.', warned: false });
   });

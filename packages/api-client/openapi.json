@@ -92842,6 +92842,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -94030,6 +94033,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -95081,6 +95087,9 @@
                         "maxLength": 100
                       }
                     },
+                    "nameOff": {
+                      "type": "boolean"
+                    },
                     "usernames": {
                       "maxItems": 12,
                       "type": "array",
@@ -95916,6 +95925,9 @@
                                 "type": "string",
                                 "maxLength": 100
                               }
+                            },
+                            "nameOff": {
+                              "type": "boolean"
                             },
                             "usernames": {
                               "maxItems": 12,
@@ -97111,6 +97123,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -98298,6 +98313,9 @@
                                 "type": "string",
                                 "maxLength": 100
                               }
+                            },
+                            "nameOff": {
+                              "type": "boolean"
                             },
                             "usernames": {
                               "maxItems": 12,
@@ -199809,6 +199827,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -200832,6 +200853,9 @@
                                     "maxLength": 100
                                   }
                                 },
+                                "nameOff": {
+                                  "type": "boolean"
+                                },
                                 "usernames": {
                                   "maxItems": 12,
                                   "type": "array",
@@ -201479,6 +201503,9 @@
                                     "type": "string",
                                     "maxLength": 100
                                   }
+                                },
+                                "nameOff": {
+                                  "type": "boolean"
                                 },
                                 "usernames": {
                                   "maxItems": 12,
@@ -202128,6 +202155,9 @@
                                     "maxLength": 100
                                   }
                                 },
+                                "nameOff": {
+                                  "type": "boolean"
+                                },
                                 "usernames": {
                                   "maxItems": 12,
                                   "type": "array",
@@ -202775,6 +202805,9 @@
                                     "type": "string",
                                     "maxLength": 100
                                   }
+                                },
+                                "nameOff": {
+                                  "type": "boolean"
                                 },
                                 "usernames": {
                                   "maxItems": 12,

@@ -7,7 +7,8 @@
  * button only once Meta allows it.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { nameWords } from '../src/jobs/accounts-center';
+import { nameWords, usernameWords } from '../src/jobs/accounts-center';
+import { usernameNote } from '../src/jobs/report';
 import { instagram, facebook, kitHere, kitOf, KITS } from '../src/networks';
 import { writeName } from '../src/networks/accounts-center/name';
 import {
@@ -216,6 +217,48 @@ describe('putting the name in on Facebook', () => {
     expect(page.saved()).toBe('Casey Lee');
   });
 
+  it('presses Change name even when its box says how long till the next change, and sees the name saved', async () => {
+    const page = facebookNamePage({
+      sure: {
+        says: 'Change name? You can only change your name once every 60 days.',
+        button: 'Change name',
+      },
+    });
+    const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
+    expect(wrote).toMatchObject({ result: 'done', said: null, steps: { confirmed: true } });
+    expect([page.pressed().sure, page.saved()]).toEqual([1, 'Casey Lee']);
+  });
+
+  it('sees the name saved when Facebook then says how long till the next change, never a refusal', async () => {
+    const page = facebookNamePage({
+      holdsAfter: 'You changed your name recently. You can change it again on 25 December.',
+    });
+    const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
+    expect(wrote).toMatchObject({ result: 'done', said: null, steps: { answer: 'none' } });
+    expect(page.saved()).toBe('Casey Lee');
+  });
+
+  it('says it’s their name already while Facebook holds the next change, as it does right after they change it', async () => {
+    for (const plan of [{ saysFirst: 'You can’t change your name right now.' }, { held: true }]) {
+      const page = facebookNamePage(plan);
+      page.boxes.last.value = 'Lee';
+      expect((await quickly(writeName(page.doc, 'Casey Lee'))).result).toBe('already');
+      expect(page.pressed()).toEqual({ review: 0, done: 0, sure: 0 });
+    }
+  });
+
+  it('never names a box after Done that isn’t there when Done closes its step without saving', async () => {
+    for (const unsaved of ['kept', 'undone'] as const) {
+      const page = facebookNamePage({ unsaved });
+      const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
+      expect(wrote.result).toBe('not_saved');
+      expect(wrote.steps).toMatchObject({ pressed: true, over: false, saved: false });
+      expect(nameWords('facebook', 'Casey Lee', wrote)).toBe(
+        'Facebook didn’t show your new name after Done. On this page, check First name says “Casey” and Last name says “Lee”, and press Done if it’s still there. Then press Carry on.',
+      );
+    }
+  });
+
   it('waits for the person on the password Facebook asks for by Review change’s Done, never typing it or pressing Done', async () => {
     const page = facebookNamePage({ password: 'review' });
     const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
@@ -236,6 +279,20 @@ describe('putting the name in on Facebook', () => {
     const second = await quickly(writeName(confirm.doc, 'Casey Lee'));
     expect(second.result).toBe('waiting');
     expect(second.steps).toMatchObject({ asking: 'confirm', typed: false });
+  });
+
+  it('waits for the person on “Confirm it’s you” in an alert, never taking it for a warning', async () => {
+    const page = facebookNamePage();
+    page.doc
+      .querySelector('[role="main"]')!
+      .insertAdjacentHTML(
+        'afterbegin',
+        '<div role="alert"><span>Confirm it’s you to make this change.</span></div>',
+      );
+    const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
+    expect(wrote).toMatchObject({ result: 'waiting', steps: { asking: 'confirm', typed: false } });
+    expect(wrote.warnings).toBeUndefined();
+    expect(page.boxes.last.value).toBe('Owner');
   });
 
   it('waits for the person on a code Facebook asks for after Done, typing nothing in it', async () => {
@@ -349,6 +406,20 @@ describe('putting the name in on Facebook', () => {
     expect([tick.checked, page.boxes.last.value]).toEqual([true, 'Owner']);
   });
 
+  it('sees the offer in a switch named for the account, in a row that says Instagram', async () => {
+    const page = facebookNamePage();
+    page.doc
+      .getElementById('name-form')!
+      .insertAdjacentHTML(
+        'beforeend',
+        '<div><span>Also change on Instagram</span><div role="switch" aria-checked="true" aria-label="casey.owner"></div></div>',
+      );
+    const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
+    expect(wrote.result).toBe('none');
+    expect(wrote.steps).toMatchObject({ sync: true, typed: false });
+    expect(page.pressed().review).toBe(0);
+  });
+
   it('never picks how the name is shown: with none picked, Done waits for the person', async () => {
     const page = facebookNamePage({ order: 'unpicked' });
     const wrote = await quickly(writeName(page.doc, 'Casey Lee'));
@@ -439,6 +510,21 @@ describe('putting the name in on Instagram', () => {
     const wrote = await quickly(writeName(both.doc, 'Casey Lee', 'instagram'));
     expect(wrote).toMatchObject({ result: 'not_saved', steps: { sync: true, confirmed: false } });
     expect([both.sures(), both.saved()]).toEqual([0, null]);
+
+    // A switch in it, on, says nothing of whose: the person answers it.
+    const ticked = instagramNamePage({ sure: { button: 'Confirm', tick: 'casey.owner' } });
+    const over = await quickly(writeName(ticked.doc, 'Casey Lee', 'instagram'));
+    expect(over).toMatchObject({ result: 'not_saved', steps: { over: true, confirmed: false } });
+    expect([ticked.sures(), ticked.saved()]).toEqual([0, null]);
+  });
+
+  it('waits for the person on Instagram’s own check after Done, never pressing its Confirm', async () => {
+    const page = instagramNamePage({
+      sure: { says: 'Help us confirm you own this account', button: 'Confirm' },
+    });
+    const wrote = await quickly(writeName(page.doc, 'Casey Lee', 'instagram'));
+    expect(wrote).toMatchObject({ result: 'waiting', steps: { asking: 'confirm', pressed: true } });
+    expect([page.sures(), page.saved()]).toEqual([0, null]);
   });
 
   it('never changes Facebook’s name with it: with that offer on, nothing’s typed', async () => {
@@ -503,6 +589,51 @@ describe('putting the username in on Instagram', () => {
       steps: { pressed: true, confirmed: false, sync: true },
     });
     expect([page.sures(), page.saved()]).toEqual([0, null]);
+  });
+
+  it('waits for the person on Instagram’s “Verify your account” after Done, never pressing its Confirm', async () => {
+    const page = instagramUsernamePage({ sure: { says: 'Verify your account', button: 'Confirm' } });
+    const wrote = await quickly(
+      writeUsername(page.doc, 'casey.roofs', { network: 'instagram', was: 'casey.owner' }),
+    );
+    expect(wrote).toMatchObject({ result: 'waiting', steps: { asking: 'confirm', pressed: true } });
+    expect([page.sures(), page.saved()]).toEqual([0, null]);
+  });
+
+  it('never ticks or unticks Facebook’s username: with its offer on, nothing’s typed or pressed', async () => {
+    const offer =
+      '<label><input type="checkbox" checked /> Also change your username on Facebook</label>';
+    const page = instagramUsernamePage();
+    page.doc.getElementById('username-form')!.insertAdjacentHTML('beforeend', offer);
+    const wrote = await quickly(
+      writeUsername(page.doc, 'casey.roofs', { network: 'instagram', was: 'casey.owner' }),
+    );
+    expect(wrote).toMatchObject({ result: 'none', steps: { sync: true, typed: false } });
+    expect([page.box.value, page.pressed()]).toEqual(['casey.owner', 0]);
+    expect(usernameNote(wrote.steps, 'instagram').note).toBe(
+      'Not done: an offer to change the username on Facebook too was on, and left as it was.',
+    );
+    expect(usernameWords('instagram', 'casey.roofs', wrote, 'casey.owner')).toBe(
+      'Accounts Center offers to change your username on Facebook too, so the extension typed nothing. On this page, untick Facebook so only your Instagram username changes, put “casey.roofs” in Username, and press Done. Then press Carry on.',
+    );
+
+    // Its offer showing once something's typed: Done is never pressed.
+    const late = instagramUsernamePage();
+    const form = late.doc.getElementById('username-form')!;
+    late.box.addEventListener('input', () => form.insertAdjacentHTML('beforeend', offer), {
+      once: true,
+    });
+    const typed = await quickly(
+      writeUsername(late.doc, 'casey.roofs', { network: 'instagram', was: 'casey.owner' }),
+    );
+    expect(typed).toMatchObject({
+      result: 'none',
+      steps: { sync: true, typed: true, pressed: false },
+    });
+    expect([late.pressed(), late.saved()]).toEqual([0, null]);
+    expect(usernameWords('instagram', 'casey.roofs', typed, 'casey.owner')).toBe(
+      'Accounts Center offers to change your username on Facebook too, so the extension stopped before saving. On this page, untick Facebook so only your Instagram username changes, check Username says “casey.roofs”, and press Done. Then press Carry on.',
+    );
   });
 
   it('waits for the person on the password Instagram asks for after Done', async () => {

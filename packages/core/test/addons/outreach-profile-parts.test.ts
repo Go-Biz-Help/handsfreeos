@@ -35,6 +35,7 @@ import {
   carriedOver,
   checkedMore,
   linksToAdd,
+  moreNamesRefused,
   noteOf,
   partHowFor,
   partStepsWords,
@@ -487,9 +488,74 @@ describe('a name, on Facebook’s name standards (decision 89)', () => {
       1,
     );
     expect(fb.names).toEqual(['Casey Lee']);
+    expect(fb.nameOff).toBeUndefined();
     expect(checkedMore('facebook', 'name', ['Casey | Roofs', 'Casey Lee'], [])).toEqual([
       'Casey Lee',
     ]);
+  });
+
+  it('tells the AI Facebook’s name standards, for the check and for more', () => {
+    expect(profileCheckSystem('facebook')).toContain(
+      'Facebook takes a first and a last name in letters only',
+    );
+    const more = (platform: 'facebook' | 'linkedin') =>
+      profileMorePrompt({
+        platform,
+        part: 'name',
+        offer: null,
+        business: null,
+        seen: null,
+        before: [],
+        notes: [],
+      });
+    expect(more('facebook')).toContain('never a bar, brackets, numbers or emoji');
+    expect(more('linkedin')).not.toContain('never a bar');
+  });
+
+  it('never calls the name right when the AI wrote only names Facebook wouldn’t take', () => {
+    const read = ProfileRead.parse({
+      platform: 'facebook',
+      url: 'https://www.facebook.com/casey.roofing',
+      name: 'Casey’s Roofing',
+    });
+    const answer = (names: string[]) =>
+      ({
+        ...igAnswer,
+        items: items('facebook', false),
+        look: { ...igAnswer.look, unlike: [] },
+        names,
+      }) as never;
+    const nameRow = (names: string[]) => {
+      const fb = checkedProfileCheck(answer(names), read, '2026-10-26T10:00:00.000Z', 1);
+      return {
+        fb,
+        row: profileParts('facebook', { ...known(), checks: { facebook: fb } }).find(
+          (r) => r.part === 'name',
+        )!,
+      };
+    };
+    const one = nameRow(['Casey']);
+    expect(one.fb).toMatchObject({ names: [], nameOff: true });
+    expect(ProfileCheck.parse(one.fb).nameOff).toBe(true);
+    expect(one.row).toMatchObject({ ok: false, next: [], now: 'Casey’s Roofing' });
+    expect(one.row.fix).toContain('Facebook asks for your real first and last name');
+    // Its names right for Facebook: those to put in, as before.
+    expect(nameRow(['Casey Lee']).row).toMatchObject({ ok: false, next: ['Casey Lee'], fix: null });
+  });
+
+  it('says why Show me more has no names when Facebook wouldn’t take any it wrote', () => {
+    const wrote = ['Casey', 'Casey Lee | Roofing'];
+    expect(checkedMore('facebook', 'name', wrote, ['Casey Lee'])).toEqual([]);
+    expect(moreNamesRefused('facebook', wrote, ['Add what I do', 'Shorter'])).toBe(
+      'Facebook takes only a real first and last name in letters, and what the AI wrote wasn’t one (“Casey”). Take off Add what I do, then press Show me more again.',
+    );
+    expect(moreNamesRefused('facebook', ['“Casey”'], [])).toBe(
+      'Facebook takes only a real first and last name in letters, and what the AI wrote wasn’t one (“Casey”). Tell it you want your first and last name, then press Show me more again.',
+    );
+    // Not why: the AI wrote nothing, or names Facebook takes, or another network.
+    expect(moreNamesRefused('facebook', [], [])).toBeNull();
+    expect(moreNamesRefused('facebook', ['Casey Lee'], [])).toBeNull();
+    expect(moreNamesRefused('instagram', ['Casey'], [])).toBeNull();
   });
 });
 

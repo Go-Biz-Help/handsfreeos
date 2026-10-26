@@ -4,15 +4,18 @@
  * (accountscenter.instagram.com, in an Instagram window). The extension types there only on the username and name
  * pages of the person's own profile, by its number in the address, each on its own network's Accounts Center
  * (./username.ts, ./name.ts); this is what both share: the addresses, the person's own profile among Profiles, what
- * Meta asks the person for before it goes on, and its warnings there.
+ * Meta asks the person for before it goes on, an offer to change the other profile too, and its warnings there.
  *
  * - **Its own network's only.** A Facebook tab works on accountscenter.facebook.com, an Instagram tab on
  *   accountscenter.instagram.com, never the other's: a tab never answers on the other's host (./work.ts).
  * - **The person's own profile.** On Facebook, the number from their profile's Edit profile link, or else the one row
  *   among Profiles that says Facebook. On Instagram, only the row that says Instagram and shows the account they're
  *   signed in to on instagram.com: with none showing it, nothing is typed and the step is handed over.
- * - **Never a password or a code** (`askingHere`): a password box, a box for a code or a PIN, or "Confirm it's you"
- *   with ways to pick, is the person's to answer, and the page's words aren't read as a warning while Meta asks.
+ * - **Never a password or a code** (`askingHere`): a password box, a box for a code or a PIN, "Confirm it's you"
+ *   with ways to pick, or Instagram's "Verify your account", is the person's to answer, and the page's words aren't
+ *   read as a warning while Meta asks.
+ * - **Never the other profile** (`syncOn`, `othersToo`): a tick or a switch that's on and speaks of the other
+ *   network's profile, or of more than one, is never ticked or unticked; the step is handed over.
  * - **Its warnings, never its answers** (`centerWarnings`): Facebook's warnings and Instagram's blocks ("Action
  *   blocked", "Your account has been temporarily locked") on either, and on Instagram's its "Try Again Later" and "We
  *   limit how often…" in a box that says nothing of a name or a username, as on its own pages (decision 25). Never Meta
@@ -27,7 +30,7 @@ import { EDITOR_BUTTONS, fieldName } from '../facebook/editors';
 import { askingFor, placesOf, visible } from '../facebook/fetch';
 import { maskText } from '../facebook/outline';
 import { readWarnings } from '../facebook/warnings';
-import { INSTAGRAM_BLOCKS, INSTAGRAM_LATER } from '../instagram/warnings';
+import { INSTAGRAM_BLOCKS, INSTAGRAM_CHECKS, INSTAGRAM_LATER } from '../instagram/warnings';
 
 /** The networks whose own profile's username and name change in an Accounts Center. */
 export type CenterNetwork = 'facebook' | 'instagram';
@@ -56,6 +59,34 @@ const MORE_THAN_ONE = /\b(all|both|other) (of )?(your )?(profiles|accounts)\b|\b
 export function othersToo(lines: readonly string[], network: CenterNetwork): boolean {
   const other = new RegExp(`\\b${OTHER_NETWORK[network]}\\b`, 'i');
   return lines.some((line) => other.test(line) || MORE_THAN_ONE.test(line));
+}
+
+/** An offer to change a profile's username or name on the other network too, as a tick or a switch. */
+const TICKS = '[role="checkbox"], [role="switch"], input[type="checkbox"]';
+
+/** Whether a tick or a choice is on. */
+export const isOn = (element: Element): boolean =>
+  element.getAttribute('aria-checked') === 'true' ||
+  (element.tagName === 'INPUT' && (element as HTMLInputElement).checked);
+
+/**
+ * What a tick says it's for: its label and the short line around it, as either may name the other profile (a switch
+ * named for the account, in a row that says Instagram).
+ */
+function tickWords(tick: Element): string {
+  const own = fieldName(tick);
+  for (let up = tick.parentElement, steps = 0; up && steps < 3; up = up.parentElement, steps++) {
+    const words = clean(up.textContent);
+    if (words && words.length <= 200) return [own, words].filter(Boolean).join(' ');
+  }
+  return own;
+}
+
+/** An offer in the box on top, on, to change the other network's profile's username or name too. */
+export function syncOn(doc: Document, network: CenterNetwork): boolean {
+  return [...placesOf(doc)[0]!.querySelectorAll(TICKS)].some(
+    (tick) => visible(tick) && isOn(tick) && othersToo([tickWords(tick)], network),
+  );
 }
 
 const NUMBER = /^\d{1,20}$/;
@@ -192,21 +223,26 @@ export function profileRowOn(
 /** What Meta asks the person for on Accounts Center before it goes on: only they answer it. */
 export type Asking = 'password' | 'code' | 'confirm';
 
-/** Meta asking to be sure it's them, with a way to pick (a password, a code) and Continue, before any box. */
+/**
+ * Meta asking to be sure it's them, with a way to pick (a password, a code) and Continue, before any box; on Instagram's
+ * also its own words (`INSTAGRAM_CHECKS`: "Verify your account", "Help us confirm…").
+ */
 const CONFIRM_YOU = /\b(confirm|verify) (your identity|it['’]s you|that this is your account)\b/i;
 const PASSWORD_FIELD = /\bpassword\b/i;
 const CODE_FIELD = /\b(code|pin|passcode)\b/i;
 /** The boxes the extension types in there, by their labels: never taken for Meta asking for something. */
 const OWN_BOXES =
   /^(username|first name|middle name( \(optional\))?|last name|surname|name)\s*\*?$/i;
-/** Where Meta asks it: a box over the page, or a heading. */
-const ASKED_IN = '[role="dialog"], [role="alertdialog"], h1, h2, h3, [role="heading"]';
+/** Where Meta asks it: a box over the page, an alert, or a heading. */
+const ASKED_IN =
+  '[role="dialog"], [role="alertdialog"], [role="alert"], h1, h2, h3, [role="heading"]';
 
 /**
  * What Meta asks the person for on Accounts Center, when it does: their password (a password box, or one named for
  * it), a code (a box for one, a PIN's, a phone keypad's or a number box), or to confirm it's them ("Confirm it's you",
- * with ways to pick and Continue, before any box shows). The extension types none of these, and its words aren't read
- * as a warning while it asks (decision 25). Null when it asks nothing.
+ * with ways to pick and Continue, before any box shows, or Instagram's "Verify your account"). The extension types none
+ * of these, nor presses past them, and its words aren't read as a warning while it asks (decision 25). Null when it
+ * asks nothing.
  */
 export function askingHere(doc: Document): Asking | null {
   const first = askingFor(doc);
@@ -222,7 +258,12 @@ export function askingHere(doc: Document): Asking | null {
     if (type === 'tel' || type === 'number' || CODE_FIELD.test(says)) return 'code';
   }
   for (const place of doc.querySelectorAll(ASKED_IN))
-    if (visible(place) && textLines(place, 20).some((line) => CONFIRM_YOU.test(line)))
+    if (
+      visible(place) &&
+      textLines(place, 20).some(
+        (line) => CONFIRM_YOU.test(line) || INSTAGRAM_CHECKS.some((words) => words.test(line)),
+      )
+    )
       return 'confirm';
   return null;
 }
@@ -278,9 +319,10 @@ export function centerWarnings(
 /** Boxes a username or a name might be typed in: plain ones only. */
 export const FIELDS =
   'input:not([type]), input[type="text"], input[type="search"], [role="textbox"]';
-/** Anything in a box over the page that could be typed in: Meta's box to be sure has none. */
+/** Anything in a box over the page that could be typed in or ticked: Meta's box to be sure has none. */
 export const ANY_BOX =
-  'input:not([type="hidden"]), textarea, select, [contenteditable="true"], [role="textbox"]';
+  'input:not([type="hidden"]), textarea, select, [contenteditable="true"], [role="textbox"], ' +
+  '[role="checkbox"], [role="switch"]';
 /** Meta's button that saves it. */
 export const DONE = /^(done|save|save changes)$/i;
 

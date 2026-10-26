@@ -18,9 +18,12 @@
  *   again for 60 days", "You can only change your name twice within 14 days") is never taken for an answer. Its name
  *   standards, or a change made too recently ("You can't change your name right now", "try again in 30 days"), end it
  *   with the network's words, and Done is never pressed; a name it reviews first is said to be under review, never in.
- * - **After Done**, its box to be sure (**Change name** or **Confirm**) is pressed once, only when it's on top, has
- *   nowhere to type and says nothing of the other network's profile. A box over the page it doesn't know is the
- *   person's to answer, and the job hands it over.
+ *   Boxes that hold the name already are its name, whatever the page says of the next change.
+ * - **After Done**, the name is in once the network says so, leaves the page, or shows the page's boxes holding it with
+ *   its buttons off; the limit Facebook puts on the next change then is never taken for a refusal. Its box to be sure
+ *   (**Change name** or **Confirm**) is pressed once, only when it's on top, has nowhere to type or tick and says
+ *   nothing of the other network's profile, before its words are read. A box over the page it doesn't know is the
+ *   person's to answer, and the job hands it over; the name page's own panel is never taken for one.
  * - **Never a password or a code** (./pages.ts `askingHere`), before it types, on the step after Review change, or
  *   after Done: it waits for the person, nothing typed in it. Otherwise a warning stops it (`centerWarnings`).
  *
@@ -29,7 +32,7 @@
 import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { nameProblem, splitName } from '@hfos/core/addons/outreach/profile-check';
 import { clean, textLines } from '../facebook/dom';
-import { buttonsIn, EDITOR_LOOK_MS, fieldName, pause } from '../facebook/editors';
+import { buttonsIn, EDITOR_LOOK_MS, pause } from '../facebook/editors';
 import { placesOf, shown, visible } from '../facebook/fetch';
 import { typeInto } from '../facebook/join';
 import {
@@ -43,10 +46,12 @@ import {
   doneButtons,
   freshLines,
   heldBox,
+  isOn,
   linesOnTop,
   namesOn,
   othersToo,
   OTHER_NETWORK,
+  syncOn,
   valueOf,
   type Asking,
   type CenterNetwork,
@@ -61,8 +66,6 @@ const NAME = /^name\s*\*?$/i;
 const REVIEW = /^review changes?$/i;
 /** The network's box to be sure, after Done: pressed once, only when it has no box to type in. */
 const CONFIRM = /^(change name|confirm)$/i;
-/** An offer to change a profile's name on the other network too, as a tick or a switch. */
-const TICKS = '[role="checkbox"], [role="switch"], input[type="checkbox"]';
 /** How the name is shown, as Facebook asks it on the step after Review change. */
 const RADIOS = '[role="radio"], input[type="radio"]';
 
@@ -231,29 +234,6 @@ const boxesOf = (doc: Document): Boxes => ({
   name: boxesLabelled(doc, NAME),
 });
 
-/** Whether a tick or a choice is on. */
-const isOn = (element: Element): boolean =>
-  element.getAttribute('aria-checked') === 'true' ||
-  (element.tagName === 'INPUT' && (element as HTMLInputElement).checked);
-
-/** What a tick says it's for: its label, or the short line around it. */
-function tickWords(tick: Element): string {
-  const own = fieldName(tick);
-  if (own) return own;
-  for (let up = tick.parentElement, steps = 0; up && steps < 3; up = up.parentElement, steps++) {
-    const words = clean(up.textContent);
-    if (words && words.length <= 200) return words;
-  }
-  return '';
-}
-
-/** An offer on the page, on, to change the other network's profile's name too. */
-function syncOn(doc: Document, network: CenterNetwork): boolean {
-  return [...placesOf(doc)[0]!.querySelectorAll(TICKS)].some(
-    (tick) => visible(tick) && isOn(tick) && othersToo([tickWords(tick)], network),
-  );
-}
-
 /** What the network said of the name in these lines: the first that says it won't now, won't take it, or will look. */
 function answerIn(
   lines: readonly string[],
@@ -328,30 +308,34 @@ export async function writeName(
     lastBoxes: boxes.last.length,
     nameBoxes: boxes.name.length,
   };
-  // The network won't change it now: said before anything's typed.
-  const limit = [...linesOnTop(doc)].find((line) => line.length <= 300 && LIMIT_NOW.test(line));
-  if (limit) return end('limit', limit.slice(0, 150));
   const fits = facebook
     ? boxes.first.length === 1 && boxes.last.length === 1 && boxes.middle.length <= 1
     : boxes.name.length === 1;
+  const writes: readonly (readonly [HTMLElement, string])[] = !fits
+    ? []
+    : facebook
+      ? [
+          [boxes.first[0]!, parts.first],
+          ...(boxes.middle[0] ? [[boxes.middle[0], ''] as const] : []),
+          [boxes.last[0]!, parts.last],
+        ]
+      : [[boxes.name[0]!, wanted]];
+  const holds = () =>
+    fits && writes.every(([box, value]) => box.isConnected && valueOf(box) === value);
+  // Their name already, as it is right after they changed it, while the network holds the next change.
+  if (holds()) {
+    steps = { ...steps, typed: true };
+    return end('already');
+  }
+  // The network won't change it now: said before anything's typed.
+  const limit = [...linesOnTop(doc)].find((line) => line.length <= 300 && LIMIT_NOW.test(line));
+  if (limit) return end('limit', limit.slice(0, 150));
   if (!fits) return end('none');
-  const writes: readonly (readonly [HTMLElement, string])[] = facebook
-    ? [
-        [boxes.first[0]!, parts.first],
-        ...(boxes.middle[0] ? [[boxes.middle[0], ''] as const] : []),
-        [boxes.last[0]!, parts.last],
-      ]
-    : [[boxes.name[0]!, wanted]];
   if (writes.some(([box]) => heldBox(box))) return end('limit');
   // An offer to change the other network's name too, on: never pressed, so the person decides.
   if (syncOn(doc, network)) {
     steps = { ...steps, sync: true };
     return end('none');
-  }
-  const holds = () => writes.every(([box, value]) => box.isConnected && valueOf(box) === value);
-  if (holds()) {
-    steps = { ...steps, typed: true };
-    return end('already');
   }
   const before = linesOnTop(doc);
   for (const [box, value] of writes) typeInto(doc, box, value, true);
@@ -422,6 +406,9 @@ export async function writeName(
     steps = { ...steps, saved: true };
     return end('done');
   };
+  /** Whether the name's own boxes are in the box on top: the name page, never a box over it. */
+  const boxesIn = (found: Boxes): boolean =>
+    found.first.length + found.last.length + found.name.length > 0;
   let overSince: number | null = null;
   for (let waited = 0; waited < SAVE_MS; waited += EDITOR_LOOK_MS) {
     await pause(EDITOR_LOOK_MS);
@@ -431,14 +418,7 @@ export async function writeName(
     if (centerPageOf(doc.location.href, network, 'name') === null) return saved();
     const top = placesOf(doc)[0]!;
     const fresh = freshLines(top, seen);
-    const said = answerIn(fresh);
-    if (said) {
-      steps = { ...steps, answer: said.answer };
-      return end(said.answer, said.said);
-    }
     if (fresh.some((l) => SAVED.test(l))) return saved();
-    // The name page again, its boxes holding the new name and its buttons off: the network took it. The job reads the
-    // profile to be sure.
     const again = boxesOf(doc);
     const shownAgain = facebook
       ? again.first.length === 1 &&
@@ -446,36 +426,46 @@ export async function writeName(
         valueOf(again.first[0]!) === parts.first &&
         valueOf(again.last[0]!) === parts.last
       : again.name.length === 1 && valueOf(again.name[0]!) === wanted;
+    // Still the step Done is on, while it saves; or the name page itself, its own panel included.
+    const onStep = done.isConnected && top.contains(done);
+    const page = top === doc.body || boxesIn(again);
+    if (!onStep && !page) {
+      // A box over the page offering to change the other network's name too: never pressed, the person's to answer.
+      if (othersToo(textLines(top, 40), network)) {
+        steps = { ...steps, sync: true };
+        return end('not_saved');
+      }
+      // The network's box to be sure: pressed once when it has nowhere to type, before its words are read, as they may
+      // say how long till the next change.
+      const sure = buttonsIn(top, CONFIRM);
+      if (sure.length === 1 && !top.querySelector(ANY_BOX)) {
+        overSince = null;
+        if (!steps.confirmed) {
+          sure[0]!.click();
+          steps = { ...steps, confirmed: true };
+        }
+        continue;
+      }
+    }
+    // What the network said against the name, while the step with Done is on top or the boxes don't hold the name.
+    // Past that step, boxes holding it beside a limit are the hold on the next change, never a refusal.
+    const said = answerIn(fresh);
+    if (said && (said.answer === 'review' || onStep || !shownAgain)) {
+      steps = { ...steps, answer: said.answer };
+      return end(said.answer, said.said);
+    }
+    // The name page again, its boxes holding the new name and its buttons off: the network took it. The job reads the
+    // profile to be sure.
     if (shownAgain) {
       overSince = null;
       const buttonsOn = [...buttonsOnTop(doc, REVIEW), ...doneButtons(doc)].some(shown);
       if (waited >= SAVED_SETTLED_MS && !buttonsOn) return saved();
       continue;
     }
-    // Still the step Done is on, while it saves.
-    if (done.isConnected && top.contains(done)) {
+    if (onStep || page) {
+      // The step Done is on, while it saves, or the name page: with nothing over it and no boxes, in once it shows it.
       overSince = null;
-      continue;
-    }
-    if (top === doc.body) {
-      // Nothing over the page and no boxes: in once the page shows it.
-      overSince = null;
-      if (nameShown(doc, wanted)) return saved();
-      continue;
-    }
-    // A box over the page offering to change the other network's name too: never pressed, the person's to answer.
-    if (othersToo(textLines(top, 40), network)) {
-      steps = { ...steps, sync: true };
-      return end('not_saved');
-    }
-    // A box over the page: the network's to be sure, pressed once when it has nowhere to type, never a refusal.
-    const sure = buttonsIn(top, CONFIRM);
-    if (sure.length === 1 && !top.querySelector(ANY_BOX)) {
-      overSince = null;
-      if (!steps.confirmed) {
-        sure[0]!.click();
-        steps = { ...steps, confirmed: true };
-      }
+      if (top === doc.body && nameShown(doc, wanted)) return saved();
       continue;
     }
     overSince ??= waited;
@@ -484,9 +474,9 @@ export async function writeName(
       return end('not_saved');
     }
   }
-  // Still a box over the page it doesn't know: the person's to answer.
+  // Still a box over the page it doesn't know, with neither the name's boxes nor Done: the person's to answer.
   const top = placesOf(doc)[0]!;
-  if (top !== doc.body && !(done.isConnected && top.contains(done)))
+  if (top !== doc.body && !boxesIn(boxesOf(doc)) && !(done.isConnected && top.contains(done)))
     steps = { ...steps, over: true };
   return end('not_saved');
 }

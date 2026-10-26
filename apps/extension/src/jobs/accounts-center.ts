@@ -329,7 +329,7 @@ async function pageNotOpen(
 }
 
 /** What the person is asked to do with the username, on its page, by where it stopped. */
-function usernameWords(
+export function usernameWords(
   network: CenterNetwork,
   u: string,
   wrote: Pick<UsernameWrote, 'result' | 'steps'>,
@@ -338,7 +338,12 @@ function usernameWords(
   const n = PLATFORMS[network];
   if (wrote.steps.sync) {
     const other = PLATFORMS[OTHER_NETWORK[network]];
-    return `${n} offers to change your username on ${other} too, so the extension didn’t press its button. In the ${n} window, change only your ${n} username to “${u}”: untick ${other} there if you can, or press Cancel. Then press Carry on.`;
+    // In the box after Done; on the page, its box typed already; or before anything was typed.
+    if (wrote.steps.pressed)
+      return `${n} offers to change your username on ${other} too, so the extension didn’t press its button. In the ${n} window, change only your ${n} username to “${u}”: untick ${other} there if you can, or press Cancel. Then press Carry on.`;
+    if (wrote.steps.typed)
+      return `Accounts Center offers to change your username on ${other} too, so the extension stopped before saving. On this page, untick ${other} so only your ${n} username changes, check Username says “${u}”, and press Done. Then press Carry on.`;
+    return `Accounts Center offers to change your username on ${other} too, so the extension typed nothing. On this page, untick ${other} so only your ${n} username changes, put “${u}” in Username, and press Done. Then press Carry on.`;
   }
   if (wrote.steps.over)
     return `${n} opened a box after Done. In the ${n} window, press its button to change your username to “${u}”, then press Carry on.`;
@@ -503,8 +508,9 @@ export async function putNameIn(
           note: `${askedNote(asked, network)} before the name changed.`,
         });
         if (ended) return ended;
-        // After Done, it's in once they've answered (the profile read after says); before, the name goes in now.
-        if (wrote.steps.pressed) return { refused: null };
+        // After Review change they were told to press Done there, and after Done it's in once they've answered: the
+        // profile read after says, as the page then holds the next change. Before, the name goes in now.
+        if (wrote.steps.pressed || wrote.steps.reviewed) return { refused: null };
         continue;
       }
       case 'invalid':

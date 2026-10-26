@@ -31,11 +31,18 @@ const CONFIRM_FIRST =
   '<label><input type="radio" name="how" /> Get a code by email</label><div role="button">Continue</div>';
 const CODE = '<h2>Enter the code we sent</h2><input type="tel" /><div role="button">Confirm</div>';
 
-/** Meta's box after Done: its heading, and the button that saves. */
+/** Meta's box after Done: its heading, the button that saves, and a switch in it, on, named only by these words. */
 export interface Sure {
   readonly says?: string;
   readonly button: string;
+  readonly tick?: string;
 }
+
+/** A box after Done's insides: its heading, Cancel and its button, and its switch when it has one. */
+const sureHtml = (sure: Sure, heading: string): string =>
+  `<h2>${sure.says ?? heading}</h2>` +
+  (sure.tick ? `<div role="switch" aria-checked="true" aria-label="${sure.tick}"></div>` : '') +
+  `<div role="button">Cancel</div><div role="button">${sure.button}</div>`;
 
 /** The person answered what Meta asked, in its window: the box goes, and what was waiting is saved. */
 function answered(doc: Document): boolean {
@@ -76,6 +83,10 @@ export interface FacebookNamePlan {
   readonly lastFirst?: boolean;
   /** Done leaves the name page for the profile's own. */
   readonly leaves?: boolean;
+  /** Once the name saves, Facebook says this on its page and holds its boxes, as it does till the next change. */
+  readonly holdsAfter?: string;
+  /** Done closes its step and saves nothing: the boxes keep what was typed, or go back to the name there. */
+  readonly unsaved?: 'kept' | 'undone';
   /** Facebook's block over the page. */
   readonly blocked?: boolean;
 }
@@ -112,6 +123,10 @@ export function facebookNamePage(plan: FacebookNamePlan = {}, url = FB_NAME_PAGE
     step?.remove();
     step = null;
     review.setAttribute('aria-disabled', 'true');
+    if (plan.holdsAfter) {
+      said.textContent = plan.holdsAfter;
+      for (const box of [first, middle, last]) box.setAttribute('readonly', '');
+    }
     if (plan.leaves) doc.defaultView!.history.pushState({}, '', `/profiles/${FB_PROFILE}/`);
   };
   if (plan.saysFirst) said.textContent = plan.saysFirst;
@@ -188,10 +203,7 @@ export function facebookNamePage(plan: FacebookNamePlan = {}, url = FB_NAME_PAGE
         return;
       }
       if (plan.sure) {
-        const sure = dialogIn(
-          doc,
-          `<h2>${plan.sure.says ?? 'Change name?'}</h2><div role="button">Cancel</div><div role="button">${plan.sure.button}</div>`,
-        );
+        const sure = dialogIn(doc, sureHtml(plan.sure, 'Change name?'));
         sure.querySelectorAll('[role="button"]')[1]!.addEventListener('click', () => {
           pressed.sure++;
           sure.remove();
@@ -204,6 +216,18 @@ export function facebookNamePage(plan: FacebookNamePlan = {}, url = FB_NAME_PAGE
         step = null;
         review.setAttribute('aria-disabled', 'true');
         said.textContent = 'We’re reviewing your name change. This may take up to 24 hours.';
+        return;
+      }
+      if (plan.unsaved) {
+        thisStep.remove();
+        step = null;
+        if (plan.unsaved === 'undone')
+          for (const [box, value] of [
+            [first, was.first],
+            [middle, was.middle],
+            [last, was.last],
+          ] as const)
+            box.value = value;
         return;
       }
       save();
@@ -246,10 +270,7 @@ function sureBox(
   save: () => void,
   pressed: () => void,
 ) {
-  const box = dialogIn(
-    doc,
-    `<h2>${sure.says ?? heading}</h2><div role="button">Cancel</div><div role="button">${sure.button}</div>`,
-  );
+  const box = dialogIn(doc, sureHtml(sure, heading));
   box.querySelectorAll('[role="button"]')[1]!.addEventListener('click', () => {
     pressed();
     box.remove();

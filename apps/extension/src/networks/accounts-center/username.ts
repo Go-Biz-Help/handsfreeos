@@ -14,11 +14,13 @@
  *   page's own help ("can only contain letters…", "You can only change your username twice within 14 days") is never
  *   taken for an answer, and only words where the Username box is. Taken, not allowed, or not now: said as the network
  *   said it, and Done is never pressed.
+ * - **One network's username only.** An offer on the page to change the other profile's username too, when it's on,
+ *   is never ticked or unticked (`syncOn`, before it types and again before Done): the step is handed over.
  * - **After Done**, the network's box to be sure (**Change username** or **Confirm**) is pressed once, only when it's
- *   on top, has nowhere to type and says nothing of the other network's profile (`othersToo`: a box offering to change
- *   that one too is never pressed, and the job hands it over); never read as a refusal. It's in on the network's word
- *   that it's saved, on leaving the page, or with the Username box on top again holding it and Done off. A box over
- *   the page it doesn't know is the person's to answer, and the job hands it over.
+ *   on top, has nowhere to type or tick and says nothing of the other network's profile (`othersToo`: a box offering to
+ *   change that one too is never pressed, and the job hands it over); never read as a refusal. It's in on the
+ *   network's word that it's saved, on leaving the page, or with the Username box on top again holding it and Done off.
+ *   A box over the page it doesn't know is the person's to answer, and the job hands it over.
  * - **Never a password or a code** (./pages.ts `askingHere`): it waits for the person, before it types or after Done;
  *   nothing is typed in it, and the page's warnings aren't read while it asks, as that's no warning (decision 25).
  *   Otherwise a warning stops it (`centerWarnings`), before anything else is read or pressed, and the job notes it.
@@ -50,6 +52,7 @@ import {
   othersToo,
   profileRowOn,
   profilesAddress,
+  syncOn,
   valueOf,
   type Asking,
   type CenterNetwork,
@@ -170,7 +173,10 @@ export interface UsernameSteps {
   /** Done pressed, and the network's box to be sure pressed after it. */
   readonly pressed: boolean;
   readonly confirmed: boolean;
-  /** The box after Done offered to change the other network's profile's username too: never pressed, handed over. */
+  /**
+   * An offer to change the other network's profile's username too, never pressed and handed over: on the page, ticked,
+   * or (with `pressed`) in the box after Done.
+   */
   readonly sync: boolean;
   /** A box over the page after Done that it didn't know: left for the person to answer. */
   readonly over: boolean;
@@ -205,6 +211,12 @@ export function usernameMissing(
   if (steps.boxes !== 1)
     return [steps.boxes === 0 ? 'no box named Username' : `${steps.boxes} boxes named Username`];
   if (steps.other) return ['the Username box held another account’s username'];
+  if (steps.sync)
+    return [
+      steps.pressed
+        ? `the box after Done offered to change the username on ${PLATFORMS[OTHER_NETWORK[network]]} too, and wasn’t pressed`
+        : `an offer to change the username on ${PLATFORMS[OTHER_NETWORK[network]]} too was on, and left as it was`,
+    ];
   if (steps.dones !== 1)
     return [steps.dones === 0 ? 'no Done by the Username box' : `${steps.dones} Dones by it`];
   if (!steps.typed) return ['writing in Username didn’t take'];
@@ -214,10 +226,6 @@ export function usernameMissing(
       steps.answer === 'none'
         ? `${name} said nothing about whether it’s available, and Done stayed off`
         : 'Done stayed off',
-    ];
-  if (steps.sync)
-    return [
-      `the box after Done offered to change the username on ${PLATFORMS[OTHER_NETWORK[network]]} too, and wasn’t pressed`,
     ];
   if (steps.over) return [`${name} opened a box after Done that the extension doesn’t know`];
   return steps.saved ? [] : ['Done didn’t save it'];
@@ -338,6 +346,11 @@ export async function writeUsername(
     steps = { ...steps, other: true };
     return end('none');
   }
+  // An offer to change the other network's username too, on: never pressed, so the person decides.
+  if (syncOn(doc, network)) {
+    steps = { ...steps, sync: true };
+    return end('none');
+  }
   const before = linesOnTop(doc);
   typeInto(doc, box, u, true);
   await pause(300);
@@ -363,6 +376,10 @@ export async function writeUsername(
   }
   const late = stopped();
   if (late) return late;
+  if (syncOn(doc, network)) {
+    steps = { ...steps, sync: true };
+    return end('none');
+  }
   done.click();
   steps = { ...steps, pressed: true };
   const saved = () => {
