@@ -8,24 +8,37 @@
  * those it found nothing to try on. Its window stays in front while it works, as Chrome draws nothing in a window
  * hidden behind another, and then the person's own comes back. It stops on any warning of the network's.
  *
- * On Facebook: their profile (the bio), their feed, their friend requests (confirming; then View sent requests, as
+ * On Facebook: their profile (the bio; with no Edit bio, on the About tab's editor Edit profile leads to), Contact and
+ * basic info (adding a link), their feed, their friend requests (confirming; then View sent requests, as
  * Check your friend requests presses it, for someone to try cancelling on), their friends, their groups and one of them
  * (posting, and commenting on one of its posts), a people search (a friend request on someone they aren't friends
  * with), a groups search (joining one they aren't in), their chats, one friend's profile (liking, unfriending and
  * messaging, the last as it may open Messenger), the profile of someone they sent a request to (cancelling), their
- * notifications, and Download your information (the file).
+ * notifications, Accounts Center's username page for their Facebook profile (the username: no warning is read there
+ * while Facebook asks for their password, as its "Confirm it's you" is none), and Download your information (the
+ * file).
  */
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { REPORT_WORDS, type TryStepName } from '@hfos/core/addons/outreach/reports';
 import type { PageRead, ProfileRef } from '../networks/kit';
 import { FACEBOOK } from '../networks/facebook/urls';
 import { DOWNLOAD_PAGE } from '../networks/facebook/fetch';
+import { ACCOUNTS_PROFILES, usernameAddress } from '../networks/facebook/username';
 import type { ReadResult } from '../networks/facebook/types';
 import type { StepTry, TryStep } from '../networks/tries';
 import { listOnPage } from '../hfos/saves';
 import { MESSENGER } from './chats';
 import { groupSearch, YOUR_GROUPS } from './groups';
-import { pause, paced, readIn, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import {
+  pause,
+  paced,
+  readIn,
+  warnedLine,
+  warnedOn,
+  type Job,
+  type JobEnd,
+  type JobTab,
+} from './job';
 import { FRIEND_REQUESTS, VIEW_SENT, YOUR_FRIENDS } from './people';
 import { OWN_PROFILE_URL } from './profile';
 import { loadNote, ownProfileNote, tryNote } from './report';
@@ -42,6 +55,8 @@ const TRYING: Readonly<Record<TryStep, string>> = {
   headline: 'your headline',
   about: 'your About',
   bio: 'your bio',
+  links: 'your links',
+  username: 'your username',
   post: 'a post',
   comment: 'a comment',
   connect: 'connecting',
@@ -105,6 +120,22 @@ export class Checkup<R extends PageRead> {
       if (warned) return warned;
     }
     return page;
+  }
+
+  /**
+   * Opens a page without reading it yet, at a person's pace after the first: one whose warnings are read only once it's
+   * known Facebook isn't asking for a password there (`warnedHere`).
+   */
+  async openUnread(url: string, name: string): Promise<void> {
+    if (this.pages > 0) await pause(paced(BETWEEN_MS));
+    this.job.progress(`Checking ${name}…`);
+    await this.job.tab.open(url);
+    this.pages++;
+  }
+
+  /** A warning of the network's on the page the tab shows: noted, and the end of the job. Null when there's none. */
+  async warnedHere(): Promise<JobEnd | null> {
+    return warnedOn(this.job, await this.read(this.job.tab));
   }
 
   /** Reads the page the tab shows now, as `open` does: what a press there opened. */
@@ -251,11 +282,26 @@ async function checkup(job: Job): Promise<JobEnd> {
   const c = new Checkup(job, 'facebook', readFacebook);
   const stopped = (): JobEnd | null => (job.stopped() ? { line: 'Stopped.', warned: false } : null);
 
-  // Your profile: read whole, then putting the bio in tried.
+  // Your profile: read whole, then putting the bio in tried; with no Edit bio, again on the About tab's editor Edit
+  // profile leads to (decision 89). Then adding a link, on Contact and basic info where Edit links leads.
   const own = await c.open(OWN_PROFILE_URL, 'your profile');
   if (isEnd(own)) return own;
   await wholeProfile(job, true);
-  await c.tryHere('bio');
+  const places = await job.tab.ask({ type: 'hfos-own-editors' });
+  const editors = places.ok ? places.editors : null;
+  const bio = await c.tryHere('bio');
+  if (!bio.works && bio.next) {
+    if (stopped()) return stopped()!;
+    const editor = await c.open(bio.next, 'where your bio is changed');
+    if (isEnd(editor)) return editor;
+    await c.tryHere('bio');
+  }
+  if (editors?.links) {
+    if (stopped()) return stopped()!;
+    const links = await c.open(editors.links, 'where your links are changed');
+    if (isEnd(links)) return links;
+    await c.tryHere('links');
+  } else await c.failed('links', 'no Edit links on your profile', { editLinks: false });
 
   // Your feed.
   if (stopped()) return stopped()!;
@@ -389,17 +435,58 @@ async function checkup(job: Job): Promise<JobEnd> {
     await c.tryHere('cancel');
   } else if (!c.has('cancel')) await c.nothingFor('cancel', 'no friend requests you’ve sent');
 
-  // Your notifications, and Download your information.
+  // Your notifications, your username in Accounts Center, and Download your information.
   if (stopped()) return stopped()!;
   const notices = await c.open(`${FACEBOOK}/notifications`, 'your notifications');
   if (isEnd(notices)) return notices;
   await c.note('your notifications', notices.notices?.length ?? 0);
+  if (stopped()) return stopped()!;
+  const ended = await tryUsername(job, c, editors?.id ?? null);
+  if (ended) return ended;
   if (stopped()) return stopped()!;
   const file = await c.open(DOWNLOAD_PAGE, 'Download your information');
   if (isEnd(file)) return file;
   await c.tryHere('file');
 
   return c.end();
+}
+
+/**
+ * Your username, on Accounts Center's username page for your Facebook profile (by its number; else Profiles, and the
+ * Facebook one there): its box and Done tried, never pressed. Its warnings are read only when Facebook asked for no
+ * password: its "Confirm it's you" there is no warning (decision 25). How it ended, when a warning ended it.
+ */
+async function tryUsername(
+  job: Job,
+  c: Checkup<ReadResult>,
+  id: string | null,
+): Promise<JobEnd | null> {
+  let url = usernameAddress(id);
+  if (!url) {
+    await c.openUnread(ACCOUNTS_PROFILES, 'Accounts Center’s profiles');
+    const found = await job.tab.ask({ type: 'hfos-username-page' });
+    if (found.ok && found.warnings.length) {
+      await job.warn(found.warnings, ACCOUNTS_PROFILES);
+      return { line: warnedLine(found.warnings), warned: true };
+    }
+    url = found.ok ? found.url : null;
+    if (found.ok && found.asking) {
+      await c.nothingFor(
+        'username',
+        'Facebook asks for your password first, so its profiles don’t show',
+      );
+      return null;
+    }
+    if (!url) {
+      await c.failed('username', 'no Facebook profile among Accounts Center’s profiles', {
+        profile: false,
+      });
+      return null;
+    }
+  }
+  await c.openUnread(url, 'where your username is changed');
+  const tried = await c.tryHere('username');
+  return tried.found.password || tried.found.code ? null : c.warnedHere();
 }
 
 /** Check Facebook: with its window in front the whole time, then the person's own back. */

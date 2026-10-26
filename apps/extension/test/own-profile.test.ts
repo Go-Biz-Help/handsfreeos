@@ -2,8 +2,15 @@
  * The person's own profile (decision 64), on a hand-written page: what a stranger sees first, read for the AI's
  * check, and the bio put in with Edit bio and Save. The page is our best guess at Facebook's, not a saved one.
  */
-import { describe, expect, it } from 'vitest';
-import { bioOf, readOwnProfile, writeBio } from '../src/networks/facebook/own-profile';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  bioControl,
+  bioOf,
+  ownEditorsOf,
+  readOwnProfile,
+  writeBio,
+  writeBioSteps,
+} from '../src/networks/facebook/own-profile';
 import { readPage } from '../src/networks/facebook/page';
 import { classifyUrl } from '../src/networks/facebook/urls';
 import { boxEverything, load } from './load';
@@ -110,5 +117,169 @@ describe('putting your bio in', () => {
     const doc = load('own-profile.html', URL);
     doc.getElementById('bio')!.querySelector('[role="button"]')!.remove();
     expect(await writeBio(doc, 'I help roofers.')).toBe('none');
+  });
+});
+
+describe('where your own profile is changed', () => {
+  it('finds Edit profile’s and Edit links’s addresses, and the profile’s number, on October 2026’s layout', () => {
+    for (const doc of [
+      load('own-profile-2026-10.html', URL),
+      boxEverything(load('own-profile-2026-10.html', URL)),
+    ])
+      expect(ownEditorsOf(doc, URL)).toEqual({
+        about:
+          'https://www.facebook.com/profile.php?fb_profile_edit_entry_point=7&id=100001234&sk=about',
+        links: 'https://www.facebook.com/casey.owner.7/about_contact?fb_profile_edit_entry_point=9',
+        id: '100001234',
+        username: 'casey.owner.7',
+      });
+  });
+
+  it('goes by the address on the older layout, which has neither link', () => {
+    expect(ownEditorsOf(load('own-profile.html', URL), URL)).toEqual({
+      about: null,
+      links: 'https://www.facebook.com/casey.owner.7/about_contact',
+      id: null,
+      username: 'casey.owner.7',
+    });
+  });
+});
+
+describe('putting your bio in on the About tab’s editor (October 2026)', () => {
+  const EDITOR =
+    'https://www.facebook.com/profile.php?fb_profile_edit_entry_point=7&id=100001234&sk=about';
+  const NEW_BIO = 'I help roofers fill their calendars.';
+
+  afterEach(() => vi.useRealTimers());
+
+  /** Runs a step with Facebook's waits skipped. */
+  async function quickly<T>(going: Promise<T>): Promise<T> {
+    await vi.advanceTimersByTimeAsync(30_000);
+    return going;
+  }
+
+  /**
+   * The editor as Facebook behaves: the Edit after Bio opens a box (in the row, or in a box over the page) with Save
+   * and Cancel; Save shows the new bio and closes the box, unless `saves` is off.
+   */
+  function editor(
+    more: {
+      boxed?: boolean;
+      dialog?: boolean;
+      boxes?: number;
+      save?: boolean;
+      saves?: boolean;
+    } = {},
+  ) {
+    const doc = load('own-profile-about-editor-2026-10.html', EDITOR);
+    if (more.boxed) boxEverything(doc);
+    const shownBio = doc.getElementById('bio-shown')!;
+    doc.getElementById('bio-edit')!.addEventListener('click', () => {
+      const holder = more.dialog ? doc.createElement('div') : doc.getElementById('bio-row')!;
+      if (more.dialog) {
+        holder.setAttribute('role', 'dialog');
+        doc.body.append(holder);
+      }
+      const boxes = Array.from({ length: more.boxes ?? 1 }, () => {
+        const box = doc.createElement('textarea');
+        box.value = clean(shownBio.textContent);
+        return box;
+      });
+      const save = doc.createElement('div');
+      save.setAttribute('role', 'button');
+      save.textContent = 'Save';
+      save.addEventListener('click', () => {
+        if (more.saves === false) return;
+        shownBio.textContent = boxes[0]!.value;
+        for (const part of [...boxes, save]) part.remove();
+        if (more.dialog) holder.remove();
+      });
+      holder.append(...boxes, ...(more.save === false ? [] : [save]));
+    });
+    return doc;
+  }
+  const clean = (text: string | null) => (text ?? '').replace(/\s+/g, ' ').trim();
+
+  it('finds the bio’s own Edit after its title, never another row’s', () => {
+    const doc = load('own-profile-about-editor-2026-10.html', EDITOR);
+    expect(bioControl(doc)?.id).toBe('bio-edit');
+    expect(
+      bioControl(boxEverything(load('own-profile-about-editor-2026-10.html', EDITOR)))?.id,
+    ).toBe('bio-edit');
+  });
+
+  it('presses the Edit by Bio, writes the bio in the box it opens, saves, and sees it', async () => {
+    vi.useFakeTimers();
+    for (const boxed of [false, true]) {
+      const doc = editor({ boxed });
+      const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+      expect(result).toBe('done');
+      expect(steps).toMatchObject({
+        control: true,
+        boxes: 1,
+        typed: true,
+        saves: 1,
+        saveOn: true,
+        saved: true,
+      });
+      expect(clean(doc.getElementById('bio-shown')!.textContent)).toBe(NEW_BIO);
+    }
+  });
+
+  it('goes by Edit bio’s label too, with its box over the page', async () => {
+    vi.useFakeTimers();
+    const doc = editor({ dialog: true });
+    doc.getElementById('bio-edit')!.setAttribute('aria-label', 'Edit bio');
+    expect(await quickly(writeBio(doc, NEW_BIO))).toBe('done');
+    expect(doc.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('presses nothing with no Edit by Bio, and names what was there', async () => {
+    const doc = editor();
+    doc.getElementById('bio-edit')!.remove();
+    const { result, steps } = await writeBioSteps(doc, NEW_BIO);
+    expect(result).toBe('none');
+    expect(steps.control).toBe(false);
+    expect(steps.names).toContain('Edit');
+  });
+
+  it('writes in no box when two open, as it can’t tell which', async () => {
+    vi.useFakeTimers();
+    const doc = editor({ boxes: 2 });
+    const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+    expect(result).toBe('none');
+    expect(steps).toMatchObject({ control: true, boxes: 2, typed: false });
+    expect([...doc.querySelectorAll('textarea')].map((b) => b.value)).not.toContain(NEW_BIO);
+  });
+
+  it('leaves the bio in its box when there’s no Save by it, for the person to press', async () => {
+    vi.useFakeTimers();
+    const doc = editor({ save: false });
+    const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+    expect(result).toBe('none');
+    expect(steps).toMatchObject({ boxes: 1, typed: true, saves: 0 });
+    expect(doc.querySelector('textarea')!.value).toBe(NEW_BIO);
+  });
+
+  it('says so when Save didn’t put it on the page', async () => {
+    vi.useFakeTimers();
+    const doc = editor({ saves: false });
+    const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+    expect(result).toBe('not_saved');
+    expect(steps).toMatchObject({ typed: true, saves: 1, saved: false });
+  });
+
+  it('presses nothing while Facebook shows a warning', async () => {
+    const doc = editor();
+    const warning = doc.createElement('div');
+    warning.setAttribute('role', 'alert');
+    warning.textContent = 'You’re temporarily blocked from editing your profile.';
+    doc.querySelector('[role="main"]')!.prepend(warning);
+    let pressed = 0;
+    doc.getElementById('bio-edit')!.addEventListener('click', () => pressed++);
+    const { result, steps } = await writeBioSteps(doc, NEW_BIO);
+    expect(result).toBe('none');
+    expect(steps.control).toBe(true);
+    expect(pressed).toBe(0);
   });
 });

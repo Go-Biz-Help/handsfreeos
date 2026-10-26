@@ -217,7 +217,7 @@ export const today = defineAddonQuery(outreachAddon, {
       r.most = Math.min(r.most, r.done + Math.max(0, weekly - week.done));
     }
     // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
-    // done on its own: Get ready shows in place of the rest.
+    // done on its own: Get ready shows in place of the rest. Their profile never holds it (decision 90).
     const ready = (await readinessFor(ctx, me, input.platform)).ready;
     const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
     const playbooks = await playbooksInUse(ctx, input.platform);

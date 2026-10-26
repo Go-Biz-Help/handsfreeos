@@ -1,0 +1,55 @@
+<!doctype html>
+<!--
+  The signed-in person's own profile, on Contact and basic info, where the Links card's Edit links leads in Facebook's
+  October 2026 layout (/<username>/about_contact?fb_profile_edit_entry_point=9). Made up, nobody real: Casey Owner,
+  the same made-up person as own-profile-2026-10.html. Built from Facebook's usual words for this page, not yet from a
+  page outline of it (decision 89): the first Check Facebook sends the real one.
+
+  - Websites and social links lists one site, through Facebook's l.php wrapper, and offers Add a website and Add a
+    social link.
+  - Pressing Add a website, saving and cancelling are added by each test, as Facebook would.
+-->
+<html lang="en">
+  <head>
+    <title>(1) Casey Owner | Facebook</title>
+  </head>
+  <body>
+    <div>
+      <div role="banner">
+        <a href="/casey.owner.7" aria-label="Your profile"><svg aria-label="Your profile"></svg></a>
+      </div>
+      <div role="main">
+        <div>
+          <div role="button"><span>Casey Owner</span></div>
+          <a
+            role="link"
+            aria-label="Edit profile"
+            href="/profile.php?fb_profile_edit_entry_point=7&amp;id=100001234&amp;sk=about"
+          >
+            <div role="none">
+              <span dir="auto"><span>Edit</span></span>
+            </div>
+          </a>
+        </div>
+        <div>
+          <h2 dir="auto"><span>Contact and basic info</span></h2>
+          <div id="links">
+            <h3 dir="auto"><span>Websites and social links</span></h3>
+            <div role="list" id="link-list">
+              <div role="listitem">
+                <a
+                  role="link"
+                  href="https://l.facebook.com/l.php?u=https%3A%2F%2Fsummitroofleads.com%2F&amp;h=AT0abc"
+                  ><span>summitroofleads.com</span></a
+                >
+                <span dir="auto">Website</span>
+              </div>
+            </div>
+            <div role="button" id="add-website"><span>Add a website</span></div>
+            <div role="button" id="add-social"><span>Add a social link</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

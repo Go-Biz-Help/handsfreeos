@@ -18567,7 +18567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Get ready for your best results: where each of the person’s items stands before the extension reaches anyone for them (the business’s main offer, a playbook with a niche, their profile, their numbers), what’s left of each, and their goal and working days.
+         * Get ready for your best results: where each of the person’s items stands, what’s left of each, and their goal and working days. The extension reaches nobody for them until the business’s main offer, a playbook with a niche, their messages and their numbers are done; their profile on the network is advice, shown with what’s left, and never holds their day.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_readiness"];

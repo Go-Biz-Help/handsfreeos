@@ -18,7 +18,7 @@ import {
   noRunnerWords,
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
-import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { notReadyWords, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -45,7 +45,7 @@ import {
   useOutreachContext,
 } from './kit';
 import type { LiveBody } from './live';
-import { useLiveProps } from './live';
+import { StartRefusedNote, useLiveProps } from './live';
 import { useNetworksOn } from './networks';
 import { GetReadyCard, useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
@@ -56,12 +56,16 @@ import { useWaitingProps, WaitingBody } from './waiting';
  * day and Stop for today in a strip, then everything that needs them (Needs you, which works with no signal), then
  * their list for the day. A message waiting for an OK shows once, under Needs you. Until the person has set Social
  * Outreach up (decision 45), it says to do that on a computer; until they're ready (decision 63), Get ready shows
- * above the list (./ready.tsx) and Start my day waits.
+ * above the list (./ready.tsx) and Start my day waits, saying beside it what holds the day and where it's done. Their
+ * profile never holds it (decision 90): while it's left, Get ready shows it as advice beside a Start that works. A
+ * press HandsFreeOS refuses stays beside its Start in HandsFreeOS's words, with **Do it now** where it's fixed
+ * (./live.tsx, `startRefusedOf`).
  *
  * Each network on its own (Chris): with more than one network on, the strip is a row for each, by name, with its own
  * day, its own Start my day or Stop for today and its own warning line; the one shown opens in full, and the list
  * below is its own (`outreach.today` with its `platform`). Pressing a network's name shows its list. Get ready is the
- * network shown's (its own profile counts), and each other row's Start my day waits on its own readiness.
+ * network shown's, and each other row's Start my day waits on its own readiness (its own playbook counts), with its
+ * own words beside it.
  */
 export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) {
   const ctx = useOutreachContext();
@@ -76,6 +80,8 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
   // and the strip come back.
   const ready = useReadyProps(net, () => today.onRetry());
   const notReady = ready.readiness !== null && !ready.readiness.ready;
+  // What holds the day on the network shown, and where it's done: beside its Start my day.
+  const held = ready.readiness && notReady ? notReadyWords(ready.readiness) : null;
   const setup = useOutreachAnswer(
     async () =>
       unwrap(
@@ -111,7 +117,7 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
           many={many}
           shown={p === net}
           ready={!notReady}
-          shownReady={!notReady}
+          held={held}
           onShow={() => setAsked(p)}
           onDetails={() => openOutreach(ctx.workspaceId, 'live', `net=${p}`)}
         />
@@ -159,16 +165,17 @@ function FindPosts({ platform }: { platform: Platform }) {
 
 /**
  * One network's row of the strip: its own live answer, and its own Start and Stop. A row not shown asks whether the
- * person is ready there, its own profile counting; the one shown has Get ready's answer.
+ * person is ready there (its own playbook counts, never its profile) and what holds its day; the one shown has Get
+ * ready's answer.
  */
 function NetworkDay({
   platform,
   ready,
-  shownReady,
+  held,
   ...rest
-}: { platform: Platform; shownReady: boolean } & Pick<
+}: { platform: Platform } & Pick<
   React.ComponentProps<typeof LiveStrip>,
-  'many' | 'shown' | 'ready' | 'onShow' | 'onDetails'
+  'many' | 'shown' | 'ready' | 'held' | 'onShow' | 'onDetails'
 >) {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
@@ -181,21 +188,14 @@ function NetworkDay({
             await api.POST('/v1/queries/outreach.readiness', {
               body: { workspaceId: ws, platform },
             }),
-          ).ready,
+          ),
     `ready:${ws}:${platform}`,
     W.title,
   );
-  const readyHere = rest.shown ? ready : (own.data ?? ready);
-  return (
-    <LiveStrip
-      {...live}
-      platform={platform}
-      {...rest}
-      ready={readyHere}
-      // Its own profile to finish, when the one shown is ready: under its own list.
-      notReadyHere={!rest.shown && shownReady && own.data === false}
-    />
-  );
+  const readyHere = rest.shown ? ready : (own.data?.ready ?? ready);
+  // Its own reason, never the shown network's: until its own answer comes, the strip's general line.
+  const heldHere = rest.shown ? held : own.data && !own.data.ready ? notReadyWords(own.data) : null;
+  return <LiveStrip {...live} platform={platform} {...rest} ready={readyHere} held={heldHere} />;
 }
 
 const DOT = {
@@ -222,15 +222,29 @@ export function LiveStrip({
   onStart,
   onStop,
   onSettings,
+  onGeneral,
   onDetails,
+  refused = null,
+  manages = false,
   ready = true,
   many = false,
   shown = true,
   onShow,
-  notReadyHere = false,
+  held = null,
 }: Pick<
   React.ComponentProps<typeof LiveBody>,
-  'live' | 'error' | 'online' | 'now' | 'pressed' | 'onRetry' | 'onStart' | 'onStop' | 'onSettings'
+  | 'live'
+  | 'error'
+  | 'online'
+  | 'now'
+  | 'pressed'
+  | 'refused'
+  | 'manages'
+  | 'onRetry'
+  | 'onStart'
+  | 'onStop'
+  | 'onSettings'
+  | 'onGeneral'
 > & {
   /** The network whose day it is. */
   platform?: Platform;
@@ -243,8 +257,8 @@ export function LiveStrip({
   shown?: boolean;
   /** Shows this network's list. */
   onShow?: () => void;
-  /** Not ready on this network alone, another being shown: its own profile is left to finish. */
-  notReadyHere?: boolean;
+  /** While it isn't ready: what holds its day under Get ready and where it's done (`notReadyWords`). */
+  held?: string | null;
 }) {
   const name = PLATFORMS[platform];
   if (!live)
@@ -348,11 +362,16 @@ export function LiveStrip({
       {live.sending === 'off' ? (
         <View className="gap-2">
           <Note testID="live-sending-off">
-            {runsOnItsOwn(platform) ? W.sendingOff(live.canSend) : noRunnerWords(platform)}
+            {runsOnItsOwn(platform) ? W.sendingOff(live.canSend, manages) : noRunnerWords(platform)}
           </Note>
           {live.canSend && full && runsOnItsOwn(platform) ? (
             <Button variant="secondary" size="md" onPress={onSettings} testID="live-settings">
               {W.tabs.settings}
+            </Button>
+          ) : !live.canSend && manages && full && runsOnItsOwn(platform) && onGeneral ? (
+            // The business allows only Off, and this owner or admin can change that, on General.
+            <Button variant="secondary" size="md" onPress={onGeneral} testID="live-general">
+              {W.settingsGeneral}
             </Button>
           ) : null}
         </View>
@@ -387,10 +406,14 @@ export function LiveStrip({
           ) : null}
         </View>
       )}
-      {ready || !full ? null : <Note testID="live-not-ready">{READY_WORDS.stripNotReady}</Note>}
-      {notReadyHere ? (
-        <Note testID={`live-not-ready-${platform}`}>{READY_WORDS.stripNotReadyOn(name)}</Note>
-      ) : null}
+      {/* Beside a Start my day that waits on Get ready, on every row: what holds it, and where it's done. */}
+      {ready || day.state === 'started' || live.sending === 'off' ? null : (
+        <Note testID={many ? `live-not-ready-${platform}` : 'live-not-ready'}>
+          {held || READY_WORDS.stripNotReady}
+        </Note>
+      )}
+      {/* A press HandsFreeOS refused: its words, and where it's fixed. */}
+      {refused && day.state !== 'started' ? <StartRefusedNote refused={refused} /> : null}
       {said && !many ? <Note testID="live-day-words">{said}</Note> : null}
       {pressed ? <QueuedNote online={online} /> : null}
     </Card>

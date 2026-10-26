@@ -33,6 +33,8 @@ import type {
   OwnProfileAsk,
   PageThereAnswer,
   PageThereAsk,
+  ProfileEditAnswers,
+  ProfileEditAsk,
   WriteNameAsk,
   TryAnswer,
   TryAsk,
@@ -172,6 +174,7 @@ export class WorkTab {
   async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   async ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;
+  async ask<A extends ProfileEditAsk>(message: A): Promise<ProfileEditAnswers[A['type']]>;
   async ask(message: PageThereAsk): Promise<PageThereAnswer>;
   async ask(message: CodeAsk): Promise<CodeAnswer>;
   async ask(message: TryAsk): Promise<TryAnswer>;
@@ -190,6 +193,7 @@ export class WorkTab {
       | FeedPostAsk
       | OwnProfileAsk
       | WriteNameAsk
+      | ProfileEditAsk
       | PageThereAsk
       | CodeAsk
       | TryAsk
@@ -204,6 +208,7 @@ export class WorkTab {
     | GroupPostAnswer
     | FeedPostAnswer
     | OwnProfileAnswer
+    | ProfileEditAnswers[ProfileEditAsk['type']]
     | PageThereAnswer
     | CodeAnswer
     | TryAnswer

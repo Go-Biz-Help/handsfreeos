@@ -120,6 +120,28 @@ function blockOf(element: Element, root: Node): Node {
  * is one line. Text inside an element under `root` that matches `exclude` is left out.
  */
 export function textLines(root: Node, max = 60, exclude?: string): string[] {
+  return linesOf(root, max, exclude);
+}
+
+/**
+ * The lines of text under `root` as `textLines` reads them, from only the runs of text `keep` keeps: those after a
+ * part's title and before its button, say (./editors.ts).
+ */
+export function textLinesWhere(
+  root: Node,
+  keep: (text: Node) => boolean,
+  max = 60,
+  exclude?: string,
+): string[] {
+  return linesOf(root, max, exclude, keep);
+}
+
+function linesOf(
+  root: Node,
+  max: number,
+  exclude: string | undefined,
+  keep?: (text: Node) => boolean,
+): string[] {
   const lines: string[] = [];
   let block: Node | null = null;
   let current = '';
@@ -134,6 +156,7 @@ export function textLines(root: Node, max = 60, exclude?: string): string[] {
     const parent = node.parentElement;
     if (!value.trim() || !parent || unread(parent, root)) continue;
     if (exclude && excluded(parent, exclude, root)) continue;
+    if (keep && !keep(node)) continue;
     const here = blockOf(parent, root);
     if (here !== block) {
       finish();

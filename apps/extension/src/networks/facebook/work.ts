@@ -11,13 +11,19 @@
  *   today, the comment the AI drafted on a post on their list, and a message they OK'd (./auto.ts).
  * - A good group: Join group, and its questions answered with the AI's answers (./join.ts, decision 48).
  * - A helpful post put up on a group's page, and who engaged with one of theirs (./compose.ts, decision 50).
- * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64).
+ * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64); for Put
+ *   these in, their bio by the About tab's editor, each new link on Contact and basic info (./links.ts), and their new
+ *   username on Accounts Center's username page for their Facebook profile (./username.ts), each only on its own page
+ *   and only on their own profile: one with Edit profile, or the username page by their own profile's number
+ *   (decision 89).
  * - Check Facebook's tries: each step taken up to its last press, never that one, on the page it's for (./tries.ts,
  *   decision 77).
  *
  * Runs in the tab, on the page in front of it: it uses the tab's own document and address.
  */
 import type {
+  AccountWarningsAnswer,
+  AccountWarningsAsk,
   AutoAnswer,
   AutoAsk,
   BrowseAnswer,
@@ -28,11 +34,19 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  OwnEditorsAnswer,
+  OwnEditorsAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
   PostsAnswer,
   TryAnswer,
   TryAsk,
+  UsernamePageAnswer,
+  UsernamePageAsk,
+  WriteLinkAnswer,
+  WriteLinkAsk,
+  WriteUsernameAnswer,
+  WriteUsernameAsk,
 } from '../../messages';
 import { likeTheirPost, readTheirPosts, writeComment, writeMessage } from './auto';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
@@ -40,7 +54,9 @@ import { readComments, readReactions, writeGroupPost } from './compose';
 import { fetchPage, stepOnPage } from './fetch';
 import { requestsPage } from './friends';
 import { answerJoin, pressJoin } from './join';
-import { readOwnProfile, writeBio } from './own-profile';
+import { linksPage, writeLink } from './links';
+import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
+import { readProfile } from './profile';
 import { tidyPage } from './tidy';
 import {
   tryBio,
@@ -50,12 +66,23 @@ import {
   tryFile,
   tryJoin,
   tryLike,
+  tryLinks,
   tryMessage,
   tryPost,
   tryRequest,
   tryUnfriend,
+  tryUsername,
 } from './tries';
 import { classifyUrl } from './urls';
+import {
+  askingHere,
+  facebookProfileOn,
+  onAccountsCenter,
+  profilesPage,
+  usernamePageOf,
+  writeUsername,
+} from './username';
+import { readWarnings } from './warnings';
 import type { StepTry } from '../tries';
 
 /** One of the panel's steps on a download page, looked for until it shows or `waitMs` is up. */
@@ -121,7 +148,20 @@ async function groupPostStep(ask: GroupPostAsk): Promise<GroupPostAnswer> {
   };
 }
 
-/** The person's own profile (./own-profile.ts): read it for the AI's check, or put a bio in. */
+/** Whether the tab shows the person's own profile: one with Edit profile, as a button or a link. */
+function ownProfileHere(): boolean {
+  const address = classifyUrl(location.href);
+  const main = document.querySelector('[role="main"]') ?? document.body;
+  return (
+    address.kind === 'profile' &&
+    readProfile(main, address, location.href, document.title).profile.friendship === 'self'
+  );
+}
+
+/**
+ * The person's own profile (./own-profile.ts): read it for the AI's check, or put a bio in, only on their own profile
+ * (by Edit bio there, or on the About tab's editor Edit profile leads to).
+ */
 async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
   const address = classifyUrl(location.href);
   if (address.kind !== 'profile') return { ok: false, error: 'Facebook didn’t open your profile.' };
@@ -129,7 +169,68 @@ async function ownProfileStep(ask: OwnProfileAsk): Promise<OwnProfileAnswer> {
     return { ok: true, read: readOwnProfile(document, location.href, address) };
   if (ask.type === 'hfos-write-about')
     return { ok: false, error: 'Facebook has no About to put in.' };
-  return { ok: true, result: await writeBio(document, ask.bio) };
+  if (!ownProfileHere()) return { ok: false, error: 'Facebook didn’t open your profile.' };
+  const { result, steps } = await writeBioSteps(document, ask.bio);
+  return { ok: true, result, bioSteps: steps };
+}
+
+/**
+ * Where the person's own profile is changed (./own-profile.ts `ownEditorsOf`), only on their own profile: Edit profile
+ * there, as a button or a link.
+ */
+function ownEditorsStep(): OwnEditorsAnswer {
+  if (!ownProfileHere()) return { ok: false, error: 'Facebook didn’t open your profile.' };
+  return { ok: true, editors: ownEditorsOf(document, location.href) };
+}
+
+/** Whether the tab shows where the person's own links are changed: their own profile's About tab. */
+const ownLinksHere = (): boolean => linksPage(location.href) && ownProfileHere();
+
+/** One new link (./links.ts), only on their own profile's About tab, where its links are changed. */
+async function writeLinkStep(ask: WriteLinkAsk): Promise<WriteLinkAnswer> {
+  if (!ownLinksHere())
+    return { ok: false, error: 'Facebook didn’t open where your links are changed.' };
+  return { ok: true, ...(await writeLink(document, ask.link)) };
+}
+
+/**
+ * Whether the tab shows Accounts Center's username page for the person's own Facebook profile: by its number, which
+ * the job found on their profile (or the Facebook one among Accounts Center's Profiles), never another profile's.
+ */
+const ownUsernamePage = (profile: string | null | undefined): boolean =>
+  profile !== null && profile !== undefined && usernamePageOf(location.href) === profile;
+
+/** The new username (./username.ts), only on Accounts Center's username page for their Facebook profile. */
+async function writeUsernameStep(ask: WriteUsernameAsk): Promise<WriteUsernameAnswer> {
+  if (!ownUsernamePage(ask.profile))
+    return { ok: false, error: 'Facebook didn’t open Accounts Center’s username page.' };
+  return { ok: true, ...(await writeUsername(document, ask.username)) };
+}
+
+/**
+ * On Accounts Center's Profiles, the Facebook profile's username page. Its warnings are read only while Facebook asks
+ * the person for nothing: its "Confirm it's you" there is no warning (decision 25).
+ */
+function usernamePageStep(): UsernamePageAnswer {
+  if (!profilesPage(location.href))
+    return { ok: false, error: 'Facebook didn’t open Accounts Center’s Profiles.' };
+  const asking = askingHere(document);
+  if (asking) return { ok: true, url: null, warnings: [], asking };
+  return {
+    ok: true,
+    url: facebookProfileOn(document),
+    warnings: readWarnings(document, location.href),
+    asking: null,
+  };
+}
+
+/**
+ * Facebook's warnings on the page the tab shows, whatever it is, for Put these in after the person carried on. On
+ * Accounts Center none are read while Facebook asks them for something (`askingHere`), as that's no warning there.
+ */
+function accountWarningsStep(): AccountWarningsAnswer {
+  const asking = onAccountsCenter(location.href) ? askingHere(document) : null;
+  return { ok: true, asking, warnings: asking ? [] : readWarnings(document, location.href) };
 }
 
 /** Check Facebook's tries (./tries.ts), each only on the kind of page its step is for. */
@@ -143,7 +244,9 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
     Promise.resolve(step).then((t): TryAnswer => ({ ok: true, tried: t }));
   switch (ask.step) {
     case 'bio':
-      return kind === 'profile' ? tried(tryBio(document)) : wrong('your profile');
+      return kind === 'profile' && ownProfileHere()
+        ? tried(tryBio(document))
+        : wrong('your profile');
     case 'confirm':
       return requestsPage(location.href)
         ? tried(tryConfirm(document, location.href))
@@ -174,6 +277,12 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
       return kind === 'profile'
         ? tried(tryCancel(document, location.href))
         : wrong('their profile');
+    case 'links':
+      return ownLinksHere() ? tried(tryLinks(document)) : wrong('where your links are changed');
+    case 'username':
+      return ownUsernamePage(ask.profile?.id)
+        ? tried(tryUsername(document))
+        : wrong('Accounts Center’s username page');
     case 'file':
       return fetchPage(location.href)
         ? tried(tryFile(document))
@@ -218,10 +327,27 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-engaged',
   'hfos-own-profile',
   'hfos-write-bio',
+  'hfos-own-editors',
+  'hfos-write-link',
+  'hfos-write-username',
+  'hfos-username-page',
+  'hfos-account-warnings',
   'hfos-try',
 ]);
 
-type WorkAsk = FetchAsk | BrowseAsk | AutoAsk | JoinAsk | GroupPostAsk | OwnProfileAsk | TryAsk;
+type WorkAsk =
+  | FetchAsk
+  | BrowseAsk
+  | AutoAsk
+  | JoinAsk
+  | GroupPostAsk
+  | OwnProfileAsk
+  | OwnEditorsAsk
+  | WriteLinkAsk
+  | WriteUsernameAsk
+  | UsernamePageAsk
+  | AccountWarningsAsk
+  | TryAsk;
 
 /** Does one of the background's asks in this tab, and answers how it went; null for one that isn't Facebook's work. */
 export function work(ask: { readonly type: string }): Promise<unknown> | null {
@@ -235,6 +361,16 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-write-bio':
     case 'hfos-write-about':
       return ownProfileStep(known);
+    case 'hfos-own-editors':
+      return Promise.resolve(ownEditorsStep());
+    case 'hfos-write-link':
+      return writeLinkStep(known);
+    case 'hfos-write-username':
+      return writeUsernameStep(known);
+    case 'hfos-username-page':
+      return Promise.resolve(usernamePageStep());
+    case 'hfos-account-warnings':
+      return Promise.resolve(accountWarningsStep());
     case 'hfos-group-post':
     case 'hfos-engaged':
       return groupPostStep(known);

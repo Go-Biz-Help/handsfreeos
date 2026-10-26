@@ -13,12 +13,14 @@ import {
   tryFile,
   tryJoin,
   tryLike,
+  tryLinks,
   tryMessage,
   tryPost,
   tryRequest,
   tryUnfriend,
+  tryUsername,
 } from '../src/networks/facebook/tries';
-import { load } from './load';
+import { boxEverything, load } from './load';
 
 const FB = 'https://www.facebook.com';
 const DANA = `${FB}/dana.reyes.12`;
@@ -129,6 +131,170 @@ describe('trying the bio', () => {
       missing: ['no Edit bio or Add bio on your profile'],
     });
     expect(tried.seen?.length).toBeGreaterThan(0);
+  });
+});
+
+describe('trying the bio in October 2026’s layout', () => {
+  const EDITOR = `${FB}/profile.php?fb_profile_edit_entry_point=7&id=100001234&sk=about`;
+
+  it('says where Edit profile leads, to try it again there, when the profile has no Edit bio', async () => {
+    const own = `${FB}/casey.owner.7`;
+    const tried = await tryBio(load('own-profile-2026-10.html', own), own);
+    expect(tried).toMatchObject({
+      works: false,
+      found: { button: false, editProfile: true },
+      missing: ['no Edit bio or Add bio on your profile'],
+      next: EDITOR,
+    });
+  });
+
+  /** The About tab's editor: the Edit by Bio opens a box with Save and Cancel, and Cancel closes it. */
+  function editor(boxed = false) {
+    const doc = load('own-profile-about-editor-2026-10.html', EDITOR);
+    if (boxed) boxEverything(doc);
+    const row = doc.getElementById('bio-row')!;
+    let save: HTMLElement | null = null;
+    doc.getElementById('bio-edit')!.addEventListener('click', () => {
+      const box = doc.createElement('textarea');
+      box.value = 'Dad, golfer, coffee.';
+      save = buttonOf(doc, 'Save');
+      const parts: HTMLElement[] = [box, save];
+      parts.push(buttonOf(doc, 'Cancel', () => parts.forEach((p) => p.remove())));
+      row.append(...parts);
+    });
+    return { doc, saved: () => (save ? never(save)() : 0) };
+  }
+
+  it('opens the bio’s box on the editor, writes a word and puts theirs back, never saves, and closes it', async () => {
+    vi.useFakeTimers();
+    for (const boxed of [false, true]) {
+      const { doc } = editor(boxed);
+      let saves = 0;
+      doc.addEventListener(
+        'click',
+        (e) => {
+          if ((e.target as Element).closest('[aria-label="Save"]')) saves++;
+        },
+        true,
+      );
+      const tried = await quickly(tryBio(doc));
+      expect(tried).toMatchObject({
+        works: true,
+        found: {
+          button: true,
+          editBio: false,
+          box: true,
+          save: true,
+          cancel: true,
+          typed: true,
+          closed: true,
+        },
+      });
+      // The editor's outline, new to the extension, is kept even when it works.
+      expect(tried.outline).toContain('Page: profile');
+      expect(tried.next).toBeUndefined();
+      expect(saves).toBe(0);
+      expect(doc.querySelector('textarea')).toBeNull();
+    }
+  });
+});
+
+describe('trying a link', () => {
+  const CONTACT = `${FB}/casey.owner.7/about_contact?fb_profile_edit_entry_point=9`;
+
+  /** Contact and basic info: Add a website opens a box with Save and Cancel, and Cancel closes it. */
+  function contact() {
+    const doc = load('own-profile-contact-2026-10.html', CONTACT);
+    let saves = 0;
+    doc.getElementById('add-website')!.addEventListener('click', () => {
+      const box = doc.createElement('input');
+      box.setAttribute('aria-label', 'Website');
+      const parts: HTMLElement[] = [box];
+      parts.push(buttonOf(doc, 'Save', () => saves++));
+      parts.push(buttonOf(doc, 'Cancel', () => parts.forEach((p) => p.remove())));
+      doc.getElementById('links')!.append(...parts);
+    });
+    return { doc, saves: () => saves };
+  }
+
+  it('opens Add a website’s box, writes a word and takes it out, never saves, and closes it', async () => {
+    vi.useFakeTimers();
+    const { doc, saves } = contact();
+    const social = never(doc.getElementById('add-social'));
+    const tried = await quickly(tryLinks(doc));
+    expect(tried).toMatchObject({
+      step: 'links',
+      works: true,
+      found: { add: true, box: true, save: true, cancel: true, typed: true, closed: true },
+    });
+    expect(tried.outline).toContain('Add a website');
+    expect([saves(), social()]).toEqual([0, 0]);
+    expect(doc.querySelector('input[aria-label="Website"]')).toBeNull();
+  });
+
+  it('says when there’s no Add a website, with the outline', async () => {
+    vi.useFakeTimers();
+    const { doc } = contact();
+    doc.getElementById('add-website')!.remove();
+    const tried = await quickly(tryLinks(doc));
+    expect(tried).toMatchObject({
+      works: false,
+      found: { add: false },
+      missing: ['no Add a website on Contact and basic info'],
+    });
+    expect(tried.seen).toContain('Add a social link');
+  });
+});
+
+describe('trying the username', () => {
+  const PAGE = 'https://accountscenter.facebook.com/profiles/100001234/username/';
+
+  /** Accounts Center's username page: typing says whether a username is free, and turns Done on or off. */
+  function usernamePage() {
+    const doc = load('accounts-center-username-2026-10.html', PAGE);
+    const box = doc.getElementById('u1') as HTMLInputElement;
+    const done = doc.getElementById('done')!;
+    box.addEventListener('input', () => {
+      setTimeout(() => {
+        const theirs = box.value === 'casey.owner.7';
+        doc.getElementById('said')!.textContent = theirs
+          ? ''
+          : 'This username isn’t available. Try another.';
+        if (theirs) done.setAttribute('aria-disabled', 'true');
+      }, 300);
+    });
+    return { doc, box, done: never(done) };
+  }
+
+  it('writes a word in Username to see what Facebook says, puts theirs back, and never presses Done', async () => {
+    vi.useFakeTimers();
+    const { doc, box, done } = usernamePage();
+    const tried = await quickly(tryUsername(doc));
+    expect(tried).toMatchObject({
+      step: 'username',
+      works: true,
+      found: { boxes: 1, dones: 1, typed: true, answered: true, taken: true, restored: true },
+    });
+    // Facebook's words kept, the username hidden.
+    expect(tried.outline).toContain('Username');
+    expect(tried.outline).not.toContain('casey.owner.7');
+    expect(tried.outline).not.toContain('100001234');
+    expect(done()).toBe(0);
+    expect(box.value).toBe('casey.owner.7');
+  });
+
+  it('writes nothing while Facebook asks for the password first', async () => {
+    vi.useFakeTimers();
+    const { doc, box, done } = usernamePage();
+    const ask = doc.createElement('div');
+    ask.setAttribute('role', 'dialog');
+    ask.innerHTML = '<h2>Re-enter your password</h2><input type="password" />';
+    doc.body.append(ask);
+    const tried = await quickly(tryUsername(doc));
+    expect(tried).toMatchObject({ tried: false, found: { password: true } });
+    expect(tried.outline).toContain('Re-enter your password');
+    expect(box.value).toBe('casey.owner.7');
+    expect(done()).toBe(0);
   });
 });
 

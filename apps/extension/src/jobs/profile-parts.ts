@@ -3,10 +3,12 @@
  * and links, and usernames checked before one is picked.
  *
  * - **Put in, or opened for the person.** Where the network wants the person to change a part themselves (core's
- *   `PART_HOW_ON`: names and usernames in Accounts Center on Facebook and Instagram, LinkedIn's address and links),
- *   the page where it's changed is opened and the step handed over, with what to put in (`partStepsWords`); Carry on
- *   once it's in. Instagram's links are only in its phone app, so that step says so. LinkedIn's name goes in by
- *   itself, in its intro's box (./linkedin/profile.ts). Pictures are never touched (decision 64).
+ *   `PART_HOW_ON`: names in Accounts Center on Facebook and Instagram, Instagram's username, LinkedIn's address and
+ *   links), the page where it's changed is opened and the step handed over, with what to put in (`partStepsWords`);
+ *   Carry on once it's in. Instagram's links are only in its phone app, so that step says so. LinkedIn's name goes in
+ *   by itself, in its intro's box (./linkedin/profile.ts), and from 0.93.0 Facebook's username and links do too
+ *   (./profile.ts, decision 89): those jobs pass the parts they put in as `done`. A part core says goes in by itself
+ *   that isn't in `done` is still handed over in words, with no page opened. Pictures are never touched (decision 64).
  * - **Usernames checked.** Each one's address is opened in turn and the page read for whether anyone's there
  *   (../networks/there.ts): nobody, it's free; a profile, it's taken; neither, it isn't known. What it found is kept on
  *   the person's check. It presses nothing.
@@ -23,7 +25,7 @@ import {
 import { valueOf, type Job, type JobEnd } from './job';
 
 type EditTask = Extract<AskTask, { kind: 'profile_edit' }>;
-type ByHandPart = 'name' | 'username' | 'links';
+export type ByHandPart = 'name' | 'username' | 'links';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 

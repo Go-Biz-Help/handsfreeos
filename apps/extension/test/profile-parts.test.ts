@@ -114,6 +114,31 @@ describe('the name, username and links, put in by the person', () => {
   });
 });
 
+describe('a part core says goes in by itself, not put in', () => {
+  it('is still handed over in words, with no page opened: Facebook’s username, from 0.93.0', async () => {
+    const { job, opened, said } = fakeJob();
+    const end = await putInByHand(job, 'facebook', task({ username: 'casey.roofs' }));
+    expect(end).toBeNull();
+    expect(opened).toEqual([]);
+    expect(said).toEqual([
+      'In Accounts Center, press Profiles, then your Facebook profile, then Username. Put in “casey.roofs”, then Done. Then press Carry on.',
+    ]);
+  });
+
+  it('passes over the parts the job put in itself, and opens Accounts Center for the name', async () => {
+    const { job, opened, said } = fakeJob();
+    await putInByHand(
+      job,
+      'facebook',
+      task({ name: 'Casey Lee', username: 'casey.lee', links: ['https://cal.com/c'] }),
+      new Set(['username', 'links']),
+    );
+    expect(opened).toEqual(['https://accountscenter.facebook.com/profiles']);
+    expect(said).toHaveLength(1);
+    expect(said[0]).toContain('Name. Put in “Casey Lee”');
+  });
+});
+
 describe('usernames checked', () => {
   afterEach(() => vi.useRealTimers());
 

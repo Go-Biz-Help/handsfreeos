@@ -12,7 +12,7 @@
  * Built from Facebook's usual words for these editors, not yet from a page outline of them: the first Check Facebook
  * sends each one's outline, so they can be tuned from the person's own pages.
  */
-import { clean, isAfter, isHeading, labelOf } from './dom';
+import { clean, isAfter, isHeading, labelOf, textLinesWhere } from './dom';
 import { placesOf, shown, visible } from './fetch';
 
 export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -135,19 +135,67 @@ export function titlesIn(place: ParentNode, words: RegExp): Element[] {
   );
 }
 
+/** Text never read as a row's words: a button's or a box's, where its label or what's typed shows. */
+const NOT_WORDS = `${EDITOR_BUTTONS}, ${BOXES}, input, [contenteditable]`;
+
+const FOLLOWING = 0x4;
+
+/** Whether a run of text comes after `from` in the page, and before `to` when there's one, inside neither. */
+function between(text: Node, from: Element, to: Element | null): boolean {
+  if (from.contains(text) || to?.contains(text)) return false;
+  if (!(from.compareDocumentPosition(text) & FOLLOWING)) return false;
+  return !to || (text.compareDocumentPosition(to) & FOLLOWING) !== 0;
+}
+
+/** The shown lines of words in `place` after `from` and before `to`: never a button's or a box's. */
+export function linesBetween(
+  place: Element,
+  from: Element,
+  to: Element | null,
+  most = 4,
+): string[] {
+  return textLinesWhere(
+    place,
+    (text) =>
+      between(text, from, to) && text.parentElement !== null && visible(text.parentElement),
+    most,
+    NOT_WORDS,
+  );
+}
+
 /**
- * The button after a title that says one of these words, before the next heading: the Edit by Bio. It looks in the
- * nearest box around the title that has one, up to the box over the page it's in.
+ * The first line of words after a part's title on an editor (the bio as Facebook shows it, under "Bio"): in the
+ * nearest box around the title that has one, up to the box over the page it's in. Null when there's none.
  */
-export function buttonAfter(title: Element, words: RegExp): HTMLElement | null {
+export function lineAfter(title: Element): string | null {
   for (let at = title.parentElement, up = 0; at && up < 16; at = at.parentElement, up++) {
-    const next = [...at.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]')].find(
-      (h) => isAfter(h, title) && !h.contains(title),
+    const line = linesBetween(at, title, null, 1)[0];
+    if (line) return line;
+    if (at.matches(TOP)) break;
+  }
+  return null;
+}
+
+/**
+ * A part's own control on an editor, by its title ("Bio"): the first button after the title, in the nearest box around
+ * the title that has a button after it, up to the box over the page it's in. It's the part's own only when it says one
+ * of these words and at most one line of words comes between them (the part's own words, as Facebook shows them): more
+ * are another row's title and words, so its Edit is never pressed for this one. Null then, or with no button after.
+ * `between` is that line, when there's one.
+ */
+export function rowControl(
+  title: Element,
+  words: RegExp,
+): { readonly control: HTMLElement; readonly between: readonly string[] } | null {
+  for (let at = title.parentElement, up = 0; at && up < 16; at = at.parentElement, up++) {
+    const first = [...at.querySelectorAll<HTMLElement>(EDITOR_BUTTONS)].find(
+      (b) => isAfter(b, title) && shown(b) && !b.closest('[role="banner"]'),
     );
-    const found = buttonsIn(at, words).find(
-      (b) => isAfter(b, title) && (!next || !isAfter(b, next)),
-    );
-    if (found) return found;
+    if (first) {
+      if (!words.test(labelOf(first))) return null;
+      const lines = linesBetween(at, title, first, 2);
+      return lines.length <= 1 ? { control: first, between: lines } : null;
+    }
     if (at.matches(TOP)) break;
   }
   return null;
@@ -195,6 +243,11 @@ export interface EditorSteps {
   readonly control: boolean;
   /** How many boxes to write in it opened: one is wanted. */
   readonly boxes: number;
+  /**
+   * False when the one box it opened isn't the part's own by what labels it or what it holds (the bio's, found by the
+   * Edit after its title): closed again with its Cancel, nothing written. Left out where it isn't asked.
+   */
+  readonly fits?: boolean;
   /** What was written reads back from the box. */
   readonly typed: boolean;
   /** How many Saves by the box, and whether the one there was on. */
@@ -231,6 +284,8 @@ export function editorMissing(part: 'bio' | 'links', steps: EditorSteps): string
         ? 'no box to write in opened'
         : `${steps.boxes} boxes to write in opened, so it couldn’t tell which`,
     ];
+  if (steps.fits === false)
+    return ['the box that opened isn’t the bio’s, so it was closed again with nothing written'];
   if (!steps.typed) return ['writing in the box didn’t take'];
   if (steps.saves !== 1)
     return [steps.saves === 0 ? 'no Save by the box' : `${steps.saves} Saves by the box`];
@@ -284,6 +339,8 @@ export const PROFILE_EDIT_WORDS: ReadonlySet<string> = new Set([
   'username available',
   'this username isn’t available',
   "this username isn't available",
+  'this username isn’t available.',
+  "this username isn't available.",
   'this username isn’t available. try another.',
   "this username isn't available. try another.",
   'username updated',

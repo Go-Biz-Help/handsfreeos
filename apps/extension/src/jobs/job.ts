@@ -33,6 +33,8 @@ import type {
   OwnProfileAsk,
   PageThereAnswer,
   PageThereAsk,
+  ProfileEditAnswers,
+  ProfileEditAsk,
   TryAnswer,
   TryAsk,
   UnfollowAnswer,
@@ -66,6 +68,7 @@ export interface JobTab {
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   ask(message: PageThereAsk): Promise<PageThereAnswer>;
   ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;
+  ask<A extends ProfileEditAsk>(message: A): Promise<ProfileEditAnswers[A['type']]>;
   ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;

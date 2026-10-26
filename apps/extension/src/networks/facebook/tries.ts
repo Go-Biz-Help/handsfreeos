@@ -7,7 +7,14 @@
  *
  * - **Bio:** Edit bio (or Add bio) on their own profile opens its box; a word written in it, and its own put back; its
  *   Save found, never pressed; the box closed again with its Cancel (./own-profile.ts). Nothing's written in a box with
- *   no Cancel to close it.
+ *   no Cancel to close it. With no Edit bio (October 2026), it says where Edit profile leads, and it's tried again
+ *   there, on the About tab's editor, by the Bio row's own control, never another row's; nothing's written in a box
+ *   that isn't the bio's (decision 89).
+ * - **Links:** on Contact and basic info, Add a website opens its box; a word written in it and taken out again; its
+ *   Save found, never pressed; closed again with its Cancel (./links.ts).
+ * - **Username:** on Accounts Center's username page, the box named Username; a word written in it to see what Facebook
+ *   says, and their own put back; Done found, never pressed (./username.ts). With a password box there, nothing's
+ *   written.
  * - **Posting:** a group's Write something… opens the composer, with a box to write in and its Post; it's closed again,
  *   nothing written (./compose.ts).
  * - **Commenting:** on a post's own page, the post's box to comment in; a word written in it, the button that sends it
@@ -40,21 +47,34 @@ import {
 } from './auto';
 import { composer, POST, startButton } from './compose';
 import { clean, labelOf } from './dom';
+import { cancelBy, gone, newBoxAfter, saveBy, textOf as boxText } from './editors';
 import { FETCH_PLANS, findStep, shown, visible, waitingForPerson } from './fetch';
 import { CONFIRM } from './friends';
 import { joinState, typeInto } from './join';
+import { ADD_LINK } from './links';
 import { maskText, outlinePage } from './outline';
-import { bioBox, bioButton } from './own-profile';
+import { bioBox, bioBoxFits, bioButton, bioRow, ownEditorsOf } from './own-profile';
 import { readPage } from './page';
 import { readProfile } from './profile';
 import { TIDY_PLANS } from './tidy';
 import type { ProfilePage, ProfileRef } from './types';
 import { classifyUrl } from './urls';
+import {
+  askingHere,
+  doneButtons,
+  linesOnTop,
+  usernameBoxes,
+  verdictOf,
+  type Asking,
+  type UsernameVerdict,
+} from './username';
+import { readWarnings } from './warnings';
 import { missingOf, TRY_WORD, untried, went, type StepTry, type TryStep } from '../tries';
 
 /** The steps Check Facebook tries, in the order it tries them. */
 export const FACEBOOK_TRY_STEPS = [
   'bio',
+  'links',
   'confirm',
   'post',
   'comment',
@@ -64,6 +84,7 @@ export const FACEBOOK_TRY_STEPS = [
   'unfriend',
   'message',
   'cancel',
+  'username',
   'file',
 ] as const satisfies readonly TryStep[];
 
@@ -107,16 +128,6 @@ export function outlineNow(doc: Document): string {
   });
 }
 
-/** The button in a box that says one of these, shown (or, `offToo`, in sight though Facebook has it off). */
-const buttonIn = (root: ParentNode, words: RegExp, offToo = false): HTMLElement | null =>
-  [...root.querySelectorAll<HTMLElement>(BUTTONS)].find(
-    (b) => words.test(labelOf(b)) && (offToo ? visible : shown)(b),
-  ) ?? null;
-
-/** What's written in a box: a plain box's value, or a rich box's words. */
-const textOf = (box: HTMLElement): string =>
-  'value' in box && typeof box.value === 'string' ? box.value : clean(box.textContent);
-
 /** Where things stand on the profile the page shows, as the profile reader says. */
 const friendshipOn = (doc: Document, href: string): ProfilePage['friendship'] =>
   readProfile(mainOf(doc), classifyUrl(href), href, doc.title).profile.friendship;
@@ -131,68 +142,255 @@ const STANDING: Readonly<Record<ProfilePage['friendship'], string>> = {
   unknown: 'the profile doesn’t say where things stand',
 };
 
-const SAVE = /^save$/i;
-const CANCEL = /^cancel$/i;
 const CLOSE = /^close( chat)?$/i;
 const LEAVE = /^(leave|discard|leave page)$/i;
 
 // ------------------------------------------------------------------------------------------------ each step
 
-/** Putting the bio in, on their own profile: its box opened, a word written and their own put back, closed again. */
-export async function tryBio(doc: Document): Promise<StepTry> {
+/**
+ * Writes a word in a box a try opened, where its Cancel can close it again, and puts back what was there: whether the
+ * word took, and whether what was there went back.
+ */
+async function writeAndPutBack(
+  doc: Document,
+  box: HTMLElement,
+  word: string,
+): Promise<{ readonly typed: boolean; readonly restored: boolean }> {
+  const before = boxText(box);
+  typeInto(doc, box, `${before}${before ? ' ' : ''}${word}`, true);
+  await pause(500);
+  const typed = boxText(box).includes(word);
+  typeInto(doc, box, before, true);
+  await pause(300);
+  return { typed, restored: clean(boxText(box)) === clean(before) };
+}
+
+/**
+ * Putting the bio in, on their own profile or the About tab's editor: Edit bio (or the bio's own control there) opens
+ * its box; a word written and their own put back; its Save found, never pressed; closed again with its Cancel. With no
+ * control, where Edit profile leads is the address to try again on (`next`, for the job alone).
+ */
+export async function tryBio(doc: Document, href: string = doc.location.href): Promise<StepTry> {
   const button = bioButton(doc);
-  if (!button)
-    return went(
-      'bio',
-      { button: false },
-      ['no Edit bio or Add bio on your profile'],
-      namesIn(mainOf(doc)),
-    );
-  button.click();
-  const box = await waitFor(() => bioBox(doc), 8_000);
+  const row = button ? null : bioRow(doc);
+  const control = button ?? row?.control ?? null;
+  if (!control) {
+    const editor = ownEditorsOf(doc, href).about;
+    return {
+      ...went(
+        'bio',
+        { button: false, editProfile: editor !== null },
+        ['no Edit bio or Add bio on your profile'],
+        namesIn(mainOf(doc)),
+      ),
+      ...(editor && editor !== workHere(href) ? { next: editor } : {}),
+    };
+  }
+  const opened = await newBoxAfter(doc, () => control.click());
+  const box = opened.box ?? (button ? bioBox(doc) : null);
   if (!box)
     return {
       ...went(
         'bio',
-        { button: true, box: false },
-        ['Edit bio opened no box to write the bio in'],
+        { button: true, editBio: button !== null, box: false, boxes: opened.boxes },
+        [
+          opened.boxes > 1
+            ? `${button ? 'Edit bio' : 'the bio’s Edit'} opened ${opened.boxes} boxes, so it couldn’t tell which to write in`
+            : `${button ? 'Edit bio' : 'the bio’s Edit'} opened no box to write the bio in`,
+        ],
         namesIn(mainOf(doc)),
       ),
       outline: outlineNow(doc),
     };
-  const save = buttonIn(mainOf(doc), SAVE, true);
-  const cancel = buttonIn(mainOf(doc), CANCEL);
+  // The bio's own box, by its name or the bio it holds, as putting it in goes by (`bioBoxFits`); never another row's.
+  const fits = !row || bioBoxFits(box, row);
+  const save = saveBy(box).count > 0;
+  const cancel = cancelBy(box).found;
   // A word written only where Cancel can close the box again, and their own bio put back before that.
-  const before = textOf(box);
-  let typed = false;
-  let restored = true;
-  if (cancel) {
-    typeInto(doc, box, `${before}${before ? ' ' : ''}${TRY_WORD}`, true);
-    await pause(500);
-    typed = textOf(box).includes(TRY_WORD);
-    typeInto(doc, box, before, true);
-    await pause(300);
-    restored = clean(textOf(box)) === clean(before);
-  }
+  const wrote = cancel && fits ? await writeAndPutBack(doc, box, TRY_WORD) : null;
+  const typed = wrote?.typed ?? false;
   const missing = missingOf([
+    !fits && 'the box the bio’s Edit opened isn’t the bio’s, so nothing was written in it',
     !save && 'no Save by the bio’s box',
-    !cancel && 'no Cancel by the bio’s box, so nothing was written in it',
-    cancel !== null && !typed && 'writing in the bio’s box didn’t take',
-    !restored && 'your bio didn’t go back in its box',
+    fits && !cancel && 'no Cancel by the bio’s box, so nothing was written in it',
+    wrote !== null && !typed && 'writing in the bio’s box didn’t take',
+    wrote !== null && !wrote.restored && 'your bio didn’t go back in its box',
   ]);
-  // What's missing shows in the box: the page's outline is taken before it's closed.
-  const outline = missing.length ? outlineNow(doc) : undefined;
+  // What's in the box shows in the outline: taken before it's closed. Always on the About tab's editor, still new.
+  const outline = missing.length || !button ? outlineNow(doc) : undefined;
   cancel?.click();
-  const closed = cancel ? (await waitFor(() => !bioBox(doc), 4_000)) === true : false;
+  const closed = cancel ? (await waitFor(() => gone(box), 4_000)) === true : false;
   if (cancel && !closed) missing.push('the bio’s box didn’t close again');
   return {
     ...went(
       'bio',
-      { button: true, box: true, save: Boolean(save), cancel: Boolean(cancel), typed, closed },
+      {
+        button: true,
+        editBio: button !== null,
+        box: true,
+        fits,
+        save,
+        cancel: Boolean(cancel),
+        typed,
+        closed,
+      },
       missing,
       missing.length ? namesIn(box.closest('form') ?? box.parentElement ?? mainOf(doc)) : [],
     ),
     ...(outline ? { outline } : {}),
+  };
+}
+
+/** The address a tab shows, as an address the job may open: to tell a page from the one it's on. */
+const workHere = (href: string): string | null => {
+  try {
+    return new URL(href).href;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Adding a link, on Contact and basic info: Add a website opens its box; a word written in it and taken out again; its
+ * Save found, never pressed; closed again with its Cancel. Its outline is always kept, taken while the box is open.
+ */
+export async function tryLinks(doc: Document): Promise<StepTry> {
+  const add = [...doc.querySelectorAll<HTMLElement>(BUTTONS)].find(
+    (b) => ADD_LINK.test(labelOf(b)) && shown(b),
+  );
+  if (!add)
+    return {
+      ...went(
+        'links',
+        { add: false },
+        ['no Add a website on Contact and basic info'],
+        namesIn(mainOf(doc)),
+      ),
+      outline: outlineNow(doc),
+    };
+  const { box, boxes } = await newBoxAfter(doc, () => add.click());
+  if (!box)
+    return {
+      ...went(
+        'links',
+        { add: true, box: false, boxes },
+        [
+          boxes > 1
+            ? `Add a website opened ${boxes} boxes, so it couldn’t tell which to write in`
+            : 'Add a website opened no box to write the link in',
+        ],
+        namesIn(mainOf(doc)),
+      ),
+      outline: outlineNow(doc),
+    };
+  const save = saveBy(box).count > 0;
+  const cancel = cancelBy(box).found;
+  const wrote = cancel ? await writeAndPutBack(doc, box, TRY_WORD) : null;
+  const typed = wrote?.typed ?? false;
+  const missing = missingOf([
+    !save && 'no Save by the link’s box',
+    !cancel && 'no Cancel by the link’s box, so nothing was written in it',
+    wrote !== null && !typed && 'writing in the link’s box didn’t take',
+    wrote !== null && !wrote.restored && 'the link’s box didn’t empty again',
+  ]);
+  const outline = outlineNow(doc);
+  cancel?.click();
+  const closed = cancel ? (await waitFor(() => gone(box), 4_000)) === true : false;
+  if (cancel && !closed) missing.push('the link’s box didn’t close again');
+  return {
+    ...went(
+      'links',
+      { add: true, box: true, save, cancel: Boolean(cancel), typed, closed },
+      missing,
+      missing.length ? namesIn(box.closest('form') ?? box.parentElement ?? mainOf(doc)) : [],
+    ),
+    outline,
+  };
+}
+
+/** What Facebook asks for first, as a try that wasn't made says it. */
+const ASKS_FIRST: Readonly<Record<Asking, string>> = {
+  password: 'Facebook asks for your password first, so the Username box doesn’t show',
+  code: 'Facebook asks for a code first, so the Username box doesn’t show',
+  confirm: 'Facebook asks you to confirm it’s you first, so the Username box doesn’t show',
+};
+
+/**
+ * The username, on Accounts Center's username page: the box named Username; a word written in it to see what Facebook
+ * says, and their own put back; Done found, never pressed. Nothing's written while Facebook asks the person for
+ * something (`askingHere`: its "Confirm it's you" there is no warning), or shows a warning; both are looked for while
+ * the page draws, as writing it in does. Its outline is always kept, taken while Facebook's answer shows.
+ */
+export async function tryUsername(doc: Document): Promise<StepTry> {
+  const first = await waitFor((): Asking | 'warning' | HTMLElement[] | null => {
+    const asking = askingHere(doc);
+    if (asking) return asking;
+    if (readWarnings(doc, doc.location.href).length) return 'warning';
+    const found = usernameBoxes(doc);
+    return found.length ? found : null;
+  }, 8_000);
+  if (first === 'warning')
+    return untried('username', 'Facebook shows a warning on the page', { warning: true });
+  if (typeof first === 'string')
+    return {
+      ...untried('username', ASKS_FIRST[first], { [first]: true }),
+      outline: outlineNow(doc),
+    };
+  const boxes = first;
+  const dones = doneButtons(doc);
+  if (boxes?.length !== 1 || dones.length !== 1)
+    return {
+      ...went(
+        'username',
+        { boxes: boxes?.length ?? 0, dones: dones.length },
+        missingOf([
+          !boxes?.length && 'no box named Username',
+          (boxes?.length ?? 0) > 1 && `${boxes!.length} boxes named Username`,
+          dones.length === 0 && 'no Done by the Username box',
+          dones.length > 1 && `${dones.length} Dones by the Username box`,
+        ]),
+        namesIn(doc.body),
+      ),
+      outline: outlineNow(doc),
+    };
+  const box = boxes![0]!;
+  const done = dones[0]!;
+  const doneOn = shown(done);
+  const old = boxText(box);
+  const before = linesOnTop(doc);
+  typeInto(doc, box, TRY_WORD.toLowerCase(), true);
+  await pause(300);
+  const typed = clean(boxText(box)) === TRY_WORD.toLowerCase();
+  // Facebook's answer to the word, waited for: never pressed on, whatever it says.
+  const said = typed ? await waitFor(() => verdictOf(doc, before, box), 6_000) : null;
+  const doneOnAfter = shown(done);
+  const outline = outlineNow(doc);
+  typeInto(doc, box, old, true);
+  await pause(300);
+  const restored = clean(boxText(box)) === clean(old);
+  const answer = (verdict: UsernameVerdict) => said?.verdict === verdict;
+  return {
+    ...went(
+      'username',
+      {
+        boxes: 1,
+        dones: 1,
+        doneOn,
+        typed,
+        answered: said !== null,
+        free: answer('free'),
+        taken: answer('taken'),
+        invalid: answer('invalid'),
+        limit: answer('limit'),
+        doneOnAfter,
+        restored,
+      },
+      missingOf([
+        !typed && 'writing in Username didn’t take',
+        !restored && 'your username didn’t go back in its box',
+      ]),
+    ),
+    outline,
   };
 }
 

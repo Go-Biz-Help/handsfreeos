@@ -165,7 +165,10 @@ export function facebookUrl(href: string, base: string = FACEBOOK): URL | null {
   return HOSTS.has(url.hostname.toLowerCase()) ? url : null;
 }
 
-/** The only places the extension's own tab may go: Facebook's pages, and its Accounts Center for the file. */
+/**
+ * The only places the extension's own tab may go: Facebook's pages, and its Accounts Center for the file and the
+ * username.
+ */
 const WORK_HOSTS = new Set(['www.facebook.com', 'web.facebook.com', 'accountscenter.facebook.com']);
 
 /**

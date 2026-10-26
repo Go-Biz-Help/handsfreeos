@@ -6,6 +6,7 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import {
+  askingFor,
   doPath,
   doStep,
   FETCH_PLANS,
@@ -13,6 +14,7 @@ import {
   findStep,
   type FetchStep,
   type StepResult,
+  waitingForPerson,
 } from '../src/networks/facebook/fetch';
 import { boxEverything } from './load';
 
@@ -136,6 +138,17 @@ describe('doing a step', () => {
     const doc = page(`<div role="dialog"><input type="password" aria-label="Password"></div>`);
     expect(doStep(doc, press(['Download'], { exact: true }))).toBe('waiting');
     expect(doStep(page('<p>Nothing here</p>'), press(['Download']))).toBe('missing');
+  });
+
+  it('tells a password from a code, and never counts a hidden box', () => {
+    expect(askingFor(page('<input type="password" aria-label="Password">'))).toBe('password');
+    expect(waitingForPerson(page('<input type="password" aria-label="Password">'))).toBe(true);
+    expect(askingFor(page('<input autocomplete="one-time-code" aria-label="Code">'))).toBe('code');
+    expect(askingFor(page('<input inputmode="numeric" aria-label="Enter code">'))).toBe('code');
+    expect(
+      askingFor(page('<div hidden><input type="password"></div><input aria-label="Username">')),
+    ).toBe(null);
+    expect(waitingForPerson(page('<input aria-label="Username">'))).toBe(false);
   });
 
   it('finds the ⋯ beside Chats by where it is, whatever it’s called', () => {

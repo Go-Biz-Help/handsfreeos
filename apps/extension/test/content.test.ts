@@ -234,4 +234,55 @@ describe('a tab’s script, by its network', () => {
       error: 'The extension doesn’t do that on Facebook pages.',
     });
   });
+
+  it('on Facebook, puts the person’s links and username in only on the pages where they’re changed', async () => {
+    // Someone else's profile: not theirs, not where links go, and not Accounts Center.
+    const profile = await tab('profile.html', 'https://www.facebook.com/jane.doe.5', null);
+    expect(await profile.ask({ type: 'hfos-own-editors' })).toEqual({
+      ok: false,
+      error: 'Facebook didn’t open your profile.',
+    });
+    expect(
+      await profile.ask({ type: 'hfos-write-link', link: 'https://summitroofleads.com' }),
+    ).toEqual({ ok: false, error: 'Facebook didn’t open where your links are changed.' });
+    expect(await profile.ask({ type: 'hfos-write-username', username: 'casey.roofs' })).toEqual({
+      ok: false,
+      error: 'Facebook didn’t open Accounts Center’s username page.',
+    });
+    expect(await profile.ask({ type: 'hfos-username-page' })).toEqual({
+      ok: false,
+      error: 'Facebook didn’t open Accounts Center’s Profiles.',
+    });
+
+    // Accounts Center's Profiles: the Facebook profile's username page, and nothing written there.
+    const profiles = await tab(
+      'accounts-center-profiles-2026-10.html',
+      'https://accountscenter.facebook.com/profiles',
+      null,
+    );
+    expect(await profiles.ask({ type: 'hfos-username-page' })).toEqual({
+      ok: true,
+      url: 'https://accountscenter.facebook.com/profiles/100001234/username/',
+      warnings: [],
+      asking: null,
+    });
+    expect(await profiles.ask({ type: 'hfos-write-username', username: 'casey.roofs' })).toEqual({
+      ok: false,
+      error: 'Facebook didn’t open Accounts Center’s username page.',
+    });
+
+    // Its username page: the username goes in there, and no link does.
+    const username = await tab(
+      'accounts-center-username-2026-10.html',
+      'https://accountscenter.facebook.com/profiles/100001234/username/?entrypoint=fb_account_center',
+      null,
+    );
+    expect(
+      await username.ask({ type: 'hfos-write-link', link: 'https://summitroofleads.com' }),
+    ).toEqual({ ok: false, error: 'Facebook didn’t open where your links are changed.' });
+    // The one it has already: nothing typed, nothing pressed.
+    expect(
+      await username.ask({ type: 'hfos-write-username', username: 'casey.owner.7' }),
+    ).toMatchObject({ ok: true, result: 'already', steps: { boxes: 1, typed: true } });
+  });
 });

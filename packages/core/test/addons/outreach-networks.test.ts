@@ -423,14 +423,20 @@ describe('each network’s own choices', () => {
     expect(
       (await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).limits.like.most,
     ).toBe(12);
-    // The business stops allowing LinkedIn: theirs reads as off, and its day won't start.
+    // The business stops allowing LinkedIn: theirs reads as off, and its day won't start. The refusal says only an
+    // owner can allow it, and where, with the details that tell a screen it isn't theirs to turn on.
     await setRules({ networksAllowed: ['facebook'] });
     expect((await runAs(dana, ws, 'outreach.automation', {})).settings.networks.linkedin.on).toBe(
       false,
     );
-    expect(await refused(runAs(dana, ws, 'outreach.day.start', { platform: 'linkedin' }))).toBe(
-      'outreach_network_off',
+    const said = await runAs(dana, ws, 'outreach.day.start', { platform: 'linkedin' }).catch(
+      (e: { rule?: string; message: string; details?: unknown }) => e,
     );
+    expect(said).toMatchObject({
+      rule: 'outreach_network_off',
+      details: { platform: 'linkedin', allowed: false },
+    });
+    expect((said as { message: string }).message).toContain('Ask an owner of this business');
     await setRules({});
   });
 });
@@ -1100,7 +1106,7 @@ describe('each network’s own profile in Get ready', () => {
     ).toBe('validation');
   });
 
-  it('says which network’s profile isn’t ready', () => {
+  it('says which network’s profile is left, and never holds that network’s day for it', () => {
     const facts = {
       offer: null,
       playbooks: [],
@@ -1113,13 +1119,26 @@ describe('each network’s own profile in Get ready', () => {
     };
     const onLinkedIn = readinessOf({ ...facts, platform: 'linkedin' });
     expect(onLinkedIn.items.find((i) => i.item === 'profile')!.left).toContain('LinkedIn profile');
+    // Only the profile left: advice (decision 90), so nothing holds the day.
     expect(
       notReadyWords({
         ...onLinkedIn,
         items: onLinkedIn.items.map((i) => (i.item === 'profile' ? i : { ...i, state: 'done' })),
         platform: 'linkedin',
       }),
-    ).toBe('Your LinkedIn profile isn’t ready yet. Finish it under Get ready on the Today tab.');
+    ).toBe('');
+    // No playbook runs there: that's what holds it, and where it's changed.
+    expect(
+      notReadyWords({
+        ...onLinkedIn,
+        items: onLinkedIn.items.map((i) =>
+          i.item === 'profile' || i.item === 'playbook' ? i : { ...i, state: 'done' },
+        ),
+        platform: 'linkedin',
+      }),
+    ).toBe(
+      'None of your playbooks runs on LinkedIn yet. Turn LinkedIn on under Where in one on the Playbooks tab, or write one for it.',
+    );
     // LinkedIn's checklist has About; Facebook's doesn't.
     expect(PROFILE_ITEMS_ON.linkedin).toContain('about');
     expect(PROFILE_ITEMS).not.toContain('about');

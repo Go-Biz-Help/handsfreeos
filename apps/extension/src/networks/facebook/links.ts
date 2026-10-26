@@ -46,7 +46,9 @@ const TRACKING = /^(fbclid|mibextid|utm_[a-z]+)$/i;
 export function linkKey(href: string): string | null {
   const trimmed = clean(href);
   if (!trimmed || /\s/.test(trimmed)) return null;
-  const outside = outsideLink(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  const outside = outsideLink(
+    /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`,
+  );
   if (!outside) return null;
   let url: URL;
   try {
@@ -79,7 +81,10 @@ export function linksPage(href: string): boolean {
 
 /** Whether a link shows on the page, or in the box on top: as a link, or as words. */
 export function linkShown(doc: Document, link: string): boolean {
-  const places = [...placesOf(doc).filter((p) => p !== doc.body), doc.querySelector('[role="main"]') ?? doc.body];
+  const places = [
+    ...placesOf(doc).filter((p) => p !== doc.body),
+    doc.querySelector('[role="main"]') ?? doc.body,
+  ];
   return places.some(
     (place) =>
       [...place.querySelectorAll('a[href]')].some((a) =>

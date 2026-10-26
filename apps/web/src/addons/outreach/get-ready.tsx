@@ -1,12 +1,13 @@
 'use client';
 /**
- * Get ready for your best results (docs/outreach.md, decision 63; packages/core/src/addons/outreach/readiness.ts): the
- * card on Today while the person isn't ready, and the setup's step. Each item says what's left and opens where it's
- * done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own three in a sheet here:
- * their profile, read by their computer and checked by the AI (decision 64), with bios to put in and each item to tick
- * once it's right; their messages, samples the AI writes for their playbook in their voice, to OK (decisions 65 to 67),
- * each to change or to have written again with a note (decision 87); and their goal with the math worked as they
- * change it.
+ * Get ready for your best results (docs/outreach.md, decisions 63 and 90; packages/core/src/addons/outreach/readiness.ts):
+ * the card on Today while the person isn't ready, and, once they are, while their profile is left: it's advice that
+ * never holds the day, so the card then says they can start and keeps the profile's line. Each item says what's left
+ * and opens where it's done: the main offer in Settings, a playbook's niche on the Playbooks tab, and the person's own
+ * three in a sheet here: their profile, read by their computer and checked by the AI (decision 64), with bios to put in
+ * and each item to tick once it's right; their messages, samples the AI writes for their playbook in their voice, to OK
+ * (decisions 65 to 67), each to change or to have written again with a note (decision 87); and their goal with the math
+ * worked as they change it.
  *
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines up to
  * 220 characters to put in, and its whole About, each asked and ticked on LinkedIn; Instagram's its bio to put in and a
@@ -16,6 +17,9 @@
 import { bioEditShown } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
 import {
+  adviceLeft,
+  blocksStart,
+  holdingCount,
   numbersLines,
   numbersMath,
   numbersVerdict,
@@ -91,7 +95,10 @@ const STATE_ICON: Record<ReadyState, { icon: typeof Circle; className: string }>
   waiting: { icon: Clock, className: 'text-warning' },
 };
 
-/** The five items, each with what's left and where it's done. Used on Today's card and in the setup's step. */
+/**
+ * The five items, each with what's left and where it's done; the profile's says it can wait (decision 90), and that
+ * the day can start now only once nothing else holds it. Used on Today's card.
+ */
 export function ReadyItems({
   workspaceId,
   readiness,
@@ -163,6 +170,17 @@ export function ReadyItems({
                   <p className="text-[13px] text-text-2">{R.items[i.item].why}</p>
                 )}
                 {i.left ? <p className="mt-1 text-[13px]">{i.left}</p> : null}
+                {/* Advice that never holds the day: "start now" only while nothing else holds it. */}
+                {i.state !== 'done' && !blocksStart(i.item) ? (
+                  <p
+                    className="text-[13px] text-text-2"
+                    data-testid={
+                      readiness.ready ? `ready-${i.item}-later` : `ready-${i.item}-no-hold`
+                    }
+                  >
+                    {readiness.ready ? R.profileLater : R.profileNoHold}
+                  </p>
+                ) : null}
                 {(i.item === 'profile' || i.item === 'messages') &&
                 i.state === 'look_again' &&
                 readiness.changed.length ? (
@@ -212,7 +230,10 @@ export function ReadyItems({
   );
 }
 
-/** Today's card while the person isn't ready: in place of the day's list. */
+/**
+ * Today's card while the person isn't ready, in place of the day's list; and once they are, while their profile is
+ * left, as advice above it. Its count is what holds the day: the profile never counts.
+ */
 export function GetReadyCard({
   workspaceId,
   readiness: start,
@@ -227,11 +248,13 @@ export function GetReadyCard({
   useLiveRefresh(['outreach_setup', 'outreach_ask'], 800);
   const [readiness, setReadiness] = useState(start);
   useEffect(() => setReadiness(start), [start]);
-  const done = readiness.items.filter((i) => i.state === 'done').length;
-  const of = readiness.items.length;
+  const { done, of } = holdingCount(readiness.items);
   const waitingOnBusiness = readiness.items.some((i) => i.state === 'waiting');
+  // Ready, with only the profile's advice left: nothing to count, and the day can start.
+  const advice = readiness.ready;
+  if (advice && !adviceLeft(readiness.items).length) return null;
   return (
-    <Card className="p-0" data-testid="get-ready">
+    <Card className="p-0" data-testid="get-ready" data-advice={advice ? 'true' : undefined}>
       <div className="grid gap-3 p-5 pb-1">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -239,8 +262,8 @@ export function GetReadyCard({
               {R.card}
             </p>
             <h2 className="mt-1 text-lg font-semibold tracking-tight">{R.title}</h2>
-            <p className="mt-1 text-[13px] text-text-2">
-              {R.cardHint(of - done)}
+            <p className="mt-1 text-[13px] text-text-2" data-testid="get-ready-hint">
+              {advice ? R.adviceHint : R.cardHint(of - done)}
               {waitingOnBusiness ? ` ${R.waitingBusiness}` : ''}
             </p>
           </div>
@@ -267,8 +290,9 @@ export function GetReadyCard({
           asks={asks}
           onChange={(next) => {
             setReadiness(next);
-            // Ready now: Today's list comes back.
-            if (next.ready) router.refresh();
+            // Ready now, or the profile's advice done: Today's list comes back, or the card goes.
+            if (next.ready && (!readiness.ready || !adviceLeft(next.items).length))
+              router.refresh();
           }}
         />
       </div>

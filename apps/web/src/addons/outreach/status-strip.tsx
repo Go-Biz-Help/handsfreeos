@@ -9,6 +9,11 @@
  * day, its own Start my day or Stop for today (`outreach.day.*` with its `platform`) and its own warning line, and
  * **Start all** and **Stop all** press each one. Stopping one leaves the others going. The limits, the first lists
  * and the list below are the network shown (`?net=`); its name opens it.
+ *
+ * A Start my day that can't be pressed always says why beside it (the owner, 26 Oct 2026): what holds that network's
+ * day under Get ready and where it's done (`notReadyWords`; the profile never does, decision 90), the extension doing
+ * nothing on its own there with where to change it, or its warning today. A press the server refuses stays beside
+ * the button in its words, with **Do it now** where the setup fixes it (`startFix`): clients branch on the rule.
  */
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
@@ -32,6 +37,7 @@ import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { Clock } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -40,6 +46,12 @@ import { outreachHref } from './address';
 import { useRefetchWhileShown, useServerNow } from './live-view';
 import type { Live } from './types';
 import { PreDayList } from './pre-day-list';
+import {
+  keptBesideStart,
+  startRefused,
+  StartRefusedNote,
+  type StartRefused,
+} from './start-refused';
 import { useAct } from './use-act';
 
 const DOT: Record<ReturnType<typeof stateTone>, string> = {
@@ -53,8 +65,10 @@ const DOT: Record<ReturnType<typeof stateTone>, string> = {
 export interface NetworkLive {
   readonly platform: Platform;
   readonly live: Live;
-  /** Whether the person is ready there, its own profile counting: the strip's `ready` when not known. */
+  /** Whether the person is ready there (its own playbook counts, never its profile): the strip's `ready` when not known. */
   readonly ready?: boolean;
+  /** What holds its day under Get ready and where it's done (`notReadyWords`), while it isn't ready there. */
+  readonly held?: string | null;
 }
 
 type Press = 'start' | 'stop';
@@ -76,24 +90,32 @@ export const pressDay = async (workspaceId: string, platform: Platform, kind: Pr
 const canStart = (n: NetworkLive, ready: boolean) =>
   (n.ready ?? ready) && n.live.sending !== 'off' && n.live.day.why !== 'warning';
 
+/** Why a network's day is held under Get ready, beside its Start my day: its own words, or the strip's when not known. */
+const heldOf = (n: NetworkLive, ready: boolean): string | null =>
+  (n.ready ?? ready) ? null : n.held || READY_WORDS.stripNotReady;
+
 export function StatusStrip({
   workspaceId,
   networks,
   platform,
   ready = true,
+  canManage = false,
 }: {
   workspaceId: string;
   /** Each network the person works, with its live view, in the kit's order. */
   networks: readonly NetworkLive[];
   /** The network shown: its limits, its first lists and its list below. */
   platform: Platform;
-  /** Whether the person is ready (decision 63): until they are, Start my day waits and says why. */
+  /** Whether the person is ready on the network shown (decision 63): until they are, Start my day waits and says why. */
   ready?: boolean;
+  /** An owner or admin, who does the business's part a refusal may point to. */
+  canManage?: boolean;
 }) {
   useRefetchWhileShown();
   const shown = networks.find((n) => n.platform === platform) ?? networks[0];
   const now = useServerNow(shown?.live.now ?? NO_ANSWER);
   const { busy, act } = useAct();
+  const [refused, setRefused] = useState<StartRefused | null>(null);
   if (!shown) return null;
   const live = shown.live;
   const many = networks.length > 1;
@@ -118,24 +140,80 @@ export function StatusStrip({
     computer && live.status?.nextAt && state === 'waiting'
       ? seenWords(live.status.nextAt, tz, now)
       : null;
-  const press = (p: Platform, kind: Press) =>
+  // A refused Start stays beside the strip with its fix, for the network it was pressed on.
+  const pressOne = async (p: Platform, kind: Press) => {
+    try {
+      await pressDay(workspaceId, p, kind);
+    } catch (e) {
+      if (kind === 'start') setRefused(startRefused(e, p, canManage));
+      throw e;
+    }
+  };
+  const press = (p: Platform, kind: Press) => {
+    setRefused(null);
     void act(
       `${p}:${kind}`,
-      () => pressDay(workspaceId, p, kind),
+      () => pressOne(p, kind),
       kind === 'start' ? W.started(computerOpen) : many ? NW.stoppedOn(PLATFORMS[p]) : W.stopped,
+      // A refusal with a rule stays under the buttons (`StartRefusedNote`), not toasted; anything else is toasted.
+      kind === 'start' ? keptBesideStart : undefined,
     );
+  };
   // Start all and Stop all just press each one that can be.
   const toStart = networks.filter((n) => n.live.day.state !== 'started' && canStart(n, ready));
   const toStop = networks.filter((n) => n.live.day.state === 'started');
-  const pressAll = (kind: Press) =>
+  const pressAll = (kind: Press) => {
+    setRefused(null);
     void act(
       kind,
       async () => {
-        for (const n of kind === 'start' ? toStart : toStop)
-          await pressDay(workspaceId, n.platform, kind);
+        for (const n of kind === 'start' ? toStart : toStop) await pressOne(n.platform, kind);
       },
       kind === 'start' ? W.started(computerOpen) : W.stopped,
+      // A refusal with a rule stays under the buttons (`StartRefusedNote`), not toasted; anything else is toasted.
+      kind === 'start' ? keptBesideStart : undefined,
     );
+  };
+  /** Sending off on a network, beside where its Start my day would be: why there's no day, and where to change it. */
+  const sendingOff = (n: NetworkLive, testId: string) =>
+    n.live.sending === 'off' ? (
+      <p className="text-[12.5px] text-text-2" data-testid={testId}>
+        {!runsOnItsOwn(n.platform) ? (
+          noRunnerWords(n.platform)
+        ) : (
+          <>
+            {W.sendingOffNote}{' '}
+            {n.live.canSend ? (
+              <>
+                {W.changeThatIn}{' '}
+                <Link
+                  className="font-medium text-accent-text underline-offset-2 hover:underline"
+                  href={outreachHref(workspaceId, { view: 'settings', part: n.platform })}
+                >
+                  {W.tabs.settings}
+                </Link>
+                .
+              </>
+            ) : canManage ? (
+              // The business allows only Off, and this owner or admin can change that: where.
+              <>
+                {W.allowForTeamIn}{' '}
+                <Link
+                  className="font-medium text-accent-text underline-offset-2 hover:underline"
+                  href={outreachHref(workspaceId, { view: 'settings', part: 'general' })}
+                  data-testid={`${testId}-general`}
+                >
+                  {W.settingsGeneral}
+                </Link>
+                .
+              </>
+            ) : (
+              W.askToSend
+            )}
+          </>
+        )}
+      </p>
+    ) : null;
   const dayButton = (n: NetworkLive, testId: string) =>
     n.live.day.state === 'started' ? (
       <Button
@@ -277,18 +355,14 @@ export function StatusStrip({
                     {warningNote(n.live.warning, now, n.platform)}
                   </p>
                 ) : null}
-                {n.live.sending === 'off' ? (
-                  <p className="text-[12.5px] text-text-3">
-                    {runsOnItsOwn(n.platform) ? W.sendingOffNote : noRunnerWords(n.platform)}
-                  </p>
-                ) : null}
-                {/* Its own profile to finish, when the one shown is ready: shown under its own list. */}
-                {ready && !here && n.ready === false ? (
+                {sendingOff(n, `live-sending-off-${n.platform}`)}
+                {/* What holds its own day under Get ready, and where it's done: beside its Start my day. */}
+                {n.live.day.state !== 'started' && heldOf(n, ready) ? (
                   <p
                     className="text-[12.5px] text-text-2"
                     data-testid={`live-not-ready-${n.platform}`}
                   >
-                    {READY_WORDS.stripNotReadyOn(name)}
+                    {heldOf(n, ready)}
                   </p>
                 ) : null}
               </li>
@@ -349,41 +423,19 @@ export function StatusStrip({
           {warningNote(live.warning, now, shown.platform)}
         </p>
       ) : null}
-      {ready ? null : (
+      {!many && live.day.state !== 'started' && heldOf(shown, ready) ? (
         <p
           className="rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
           data-testid="live-not-ready"
         >
-          {READY_WORDS.stripNotReady}
+          {heldOf(shown, ready)}
         </p>
-      )}
+      ) : null}
       {!many && live.sending === 'off' ? (
-        <p
-          className="rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
-          data-testid="live-sending-off"
-        >
-          {!runsOnItsOwn(shown.platform) ? (
-            noRunnerWords(shown.platform)
-          ) : (
-            <>
-              {W.sendingOffNote}{' '}
-              {live.canSend ? (
-                <>
-                  {W.changeThatIn}{' '}
-                  <Link
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                    href={outreachHref(workspaceId, { view: 'settings', part: shown.platform })}
-                  >
-                    {W.tabs.settings}
-                  </Link>
-                  .
-                </>
-              ) : (
-                W.askToSend
-              )}
-            </>
-          )}
-        </p>
+        <div className="rounded-menu bg-card-2 p-2.5">{sendingOff(shown, 'live-sending-off')}</div>
+      ) : null}
+      {refused ? (
+        <StartRefusedNote workspaceId={workspaceId} refused={refused} named={many} />
       ) : null}
       {said ? (
         <p className="-mt-2 text-[12.5px] text-text-3" data-testid="live-day">
