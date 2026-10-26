@@ -128,7 +128,7 @@ export interface LookingSite {
   readonly ownProfile?: {
     readonly read: (doc: Document, href: string) => ProfileRead;
     readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
-    /** The bio put in with each step said, for the job's note (Instagram's form, from 0.93.0). */
+    /** The bio put in with each step said, for the job's note (Instagram's form, from 0.94.0). */
     readonly writeBioSteps?: (
       doc: Document,
       bio: string,

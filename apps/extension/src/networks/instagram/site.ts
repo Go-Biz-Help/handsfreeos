@@ -305,7 +305,7 @@ async function closeChat(box: HTMLElement): Promise<boolean> {
 export const INSTAGRAM: LookingSite = {
   platform: 'instagram',
   name: 'Instagram',
-  // Its own Accounts Center too, where its tab changes the person's username and name (decision 89, from 0.93.0).
+  // Its own Accounts Center too, where its tab changes the person's username and name (decision 89, from 0.94.0).
   hosts: ['https://www.instagram.com/*', 'https://accountscenter.instagram.com/*'],
   accountsCenter: 'instagram',
   // Its own readers (part 10): a profile, the person's followers, a post, a hashtag's and a place's posts, notifications,

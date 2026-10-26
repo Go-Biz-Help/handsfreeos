@@ -663,16 +663,24 @@ describe('Get ready on the phone', () => {
     expect(
       within(view.getByTestId('ready-pictures')).getByText('Use one of just you.'),
     ).toBeTruthy();
-    // From 0.93.0 the computer puts Instagram's name and username in itself.
-    await view.rerender(
-      <GetReadyCard
-        readiness={readiness}
-        asks={{ ...asks, computer: { ...asks.computer!, version: '0.93.0' } }}
-        actions={actions}
-        onTick={jest.fn()}
-        onNumbers={jest.fn()}
-      />,
-    );
+    const onBuild = (version: string) =>
+      view.rerender(
+        <GetReadyCard
+          readiness={readiness}
+          asks={{ ...asks, computer: { ...asks.computer!, version } }}
+          actions={actions}
+          onTick={jest.fn()}
+          onNumbers={jest.fn()}
+        />,
+      );
+    // 0.93.0 put in only Facebook's username and links: it still hands Instagram's name and username over.
+    await onBuild('0.93.0');
+    expect(within(namePart()).getByText(PROFILE_PART_WORDS.how.steps)).toBeTruthy();
+    expect(
+      within(view.getByTestId('ready-part-username')).getByText(PROFILE_PART_WORDS.howHint.steps),
+    ).toBeTruthy();
+    // From 0.94.0 the computer puts them in itself.
+    await onBuild('0.94.0');
     expect(within(namePart()).getByText(PROFILE_PART_WORDS.how.auto)).toBeTruthy();
     expect(within(namePart()).getByText(PROFILE_PART_WORDS.howHint.auto)).toBeTruthy();
     expect(

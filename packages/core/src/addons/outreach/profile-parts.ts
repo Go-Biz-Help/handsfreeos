@@ -6,9 +6,9 @@
  * - **Every part, with who does it.** Each network's parts are listed in the order a stranger reads them, each as it is
  *   and as the AI wrote it, and how it goes in (`PART_HOW_ON`): the person's computer puts it in (`auto`), opens the
  *   page where it's changed and hands the step over with what to paste (`steps`), it's only in the network's phone
- *   app (`app`), or it's theirs to do (`tip`): pictures stay theirs, as decision 64 keeps. From extension 0.93.0
- *   Facebook's name, username and links, and Instagram's username and name, go in by themselves (decision 89); an
- *   older build still hands them over (`partHowFor`).
+ *   app (`app`), or it's theirs to do (`tip`): pictures stay theirs, as decision 64 keeps. Facebook's username and
+ *   links go in by themselves from extension 0.93.0, and its name and Instagram's username and name from 0.94.0
+ *   (decision 89); an older build still hands them over (`partHowFor`).
  * - **Links**, worked out here rather than written by the AI (`linksToAdd`): the booking link of a playbook running
  *   there, the business's website, and the person's own other profiles as their checks read them, never one guessed. A
  *   profile that doesn't yet read as them is held back.
@@ -99,12 +99,12 @@ export type PartHow = (typeof PART_HOWS)[number];
 export const PART_HOW_ON: Readonly<
   Record<Platform, Readonly<Partial<Record<ProfilePart, PartHow>>>>
 > = {
-  // Its links, username and name go in by themselves from extension 0.93.0 (decision 89; the owner, 26 Oct 2026, "1a
-  // 2a 3a"): the username and the name on Accounts Center's pages for their Facebook profile.
+  // Its links and username go in by themselves from extension 0.93.0, and its name from 0.94.0 (decision 89; the owner,
+  // 26 Oct 2026, "1a 2a 3a"): the username and the name on Accounts Center's pages for their Facebook profile.
   facebook: { bio: 'auto', links: 'auto', username: 'auto', name: 'auto' },
   // Its name is in the same box as its headline, Edit intro.
   linkedin: { bio: 'auto', about: 'auto', links: 'steps', username: 'steps', name: 'auto' },
-  // Its username and name go in by themselves from 0.93.0 too, on Accounts Center's pages for their Instagram profile
+  // Its username and name go in by themselves from 0.94.0, on Accounts Center's pages for their Instagram profile
   // (decision 89). Its links are only in its phone app.
   instagram: { bio: 'auto', links: 'app', username: 'auto', name: 'auto' },
   alignable: { about: 'auto' },
@@ -119,8 +119,8 @@ export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
 export const PART_AUTO_SINCE_ON: Readonly<
   Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
 > = {
-  facebook: { links: '0.93.0', username: '0.93.0', name: '0.93.0' },
-  instagram: { username: '0.93.0', name: '0.93.0' },
+  facebook: { links: '0.93.0', username: '0.93.0', name: '0.94.0' },
+  instagram: { username: '0.94.0', name: '0.94.0' },
 };
 
 /**
@@ -246,9 +246,9 @@ export function partStepsWords(
 }
 
 /**
- * The page a part's step opens, for `steps` (Accounts Center for names and usernames on Facebook and Instagram). From
- * extension 0.93.0 the newest build puts these in itself (decision 89); a build before it still opens them here, and
- * the newest build's own hand-overs say where with `partStepsWords`.
+ * The page a part's step opens, for `steps` (Accounts Center for names and usernames on Facebook and Instagram). The
+ * newest build puts these in itself (decision 89, `PART_AUTO_SINCE_ON`); a build before that still opens them here,
+ * and the newest build's own hand-overs say where with `partStepsWords`.
  */
 export const PART_PAGE_ON: Readonly<
   Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
@@ -424,8 +424,8 @@ export const firstUsername = (check: ProfileCheck | null): UsernameOption | null
 /**
  * Every part of a network's profile as the screen lists it (decision 84), from its latest check and what's known of
  * the person's other profiles. With no check yet, each part is listed with nothing read. Who does each goes by the
- * build of the person's computer, when it's known (`partHowFor`): one before 0.93.0 hands Facebook's name, username
- * and links, and Instagram's username and name, over.
+ * build of the person's computer, when it's known (`partHowFor`): one before 0.93.0 hands Facebook's username and
+ * links over, and one before 0.94.0 Facebook's name and Instagram's username and name.
  */
 export function profileParts(
   platform: Platform,

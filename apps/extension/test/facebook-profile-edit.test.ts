@@ -36,16 +36,17 @@ import {
 } from './center-pages';
 import { boxEverything, load } from './load';
 
-/** Facebook's own way, or the hand-over of builds before 0.93.0 (decision 84), when a test asks for it. */
-const how = vi.hoisted(() => ({ handedOver: false }));
+/**
+ * The newest build's way, or an older build's own copy of core when a test names one (decisions 84 and 89): what that
+ * build didn't yet put in by itself it hands over, as core says for its computer (`partHowFor`).
+ */
+const how = vi.hoisted(() => ({ build: null as string | null }));
 vi.mock('@hfos/core/addons/outreach/profile-parts', async (original) => {
   const real = await original<typeof Parts>();
   return {
     ...real,
     partHowOn: (...args: Parameters<typeof real.partHowOn>) =>
-      how.handedOver && args[0] === 'facebook' && (args[1] === 'links' || args[1] === 'username')
-        ? 'steps'
-        : real.partHowOn(...args),
+      how.build ? real.partHowFor(...args, how.build) : real.partHowOn(...args),
   };
 });
 
@@ -60,7 +61,7 @@ const CAL = 'https://cal.com/casey-owner';
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.useRealTimers();
-  how.handedOver = false;
+  how.build = null;
 });
 
 /** Runs a step with Facebook's waits skipped. */
@@ -1132,7 +1133,7 @@ describe('Put these in, on Facebook', () => {
   });
 
   it('hands the username and links over as before where core says they’re the person’s (builds before 0.93.0)', async () => {
-    how.handedOver = true;
+    how.build = '0.92.0';
     const { said, opened, now } = await putIn({ bio: null, name: null });
     expect(opened).toEqual([`${FB}/me`, ACCOUNTS_PROFILES, `${FB}/me`, `${FB}/me`]);
     expect(said.map((s) => s.says)).toEqual([
@@ -1140,5 +1141,11 @@ describe('Put these in, on Facebook', () => {
       expect.stringContaining('press Edit links on the Links card'),
     ]);
     expect(now()).toMatchObject({ username: 'casey.owner.7', added: [] });
+  });
+
+  it('puts the username and links in and hands the name over, as 0.93.0 did (builds before 0.94.0)', async () => {
+    how.build = '0.93.0';
+    const { said, opened, now, end } = await putIn({ bio: null });
+    console.log(JSON.stringify({ said: said.map((s) => s.says), opened, now: now(), end }, null, 1));
   });
 });

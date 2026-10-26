@@ -346,7 +346,7 @@ export const PROFILE_EDIT_WORDS: ReadonlySet<string> = new Set([
   'username updated',
   'changes saved',
   'try again later',
-  // Accounts Center's name page (decision 89, from 0.93.0): its boxes, its steps' buttons, and the offer to change the
+  // Accounts Center's name page (decision 89, from 0.94.0): its boxes, its steps' buttons, and the offer to change the
   // other network's name too.
   'name',
   'first name',

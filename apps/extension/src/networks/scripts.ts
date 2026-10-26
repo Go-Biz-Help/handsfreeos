@@ -42,7 +42,7 @@ const isSaid = (value: unknown): value is NetworksSaid => {
 };
 
 /**
- * Whether Chrome lets the extension on all of a network's own sites. Its Accounts Center (Instagram's, from 0.93.0)
+ * Whether Chrome lets the extension on all of a network's own sites. Its Accounts Center (Instagram's, from 0.94.0)
  * isn't one of them: someone who keeps the extension to some sites in Chrome may not have let it on there, and only
  * Put these in's username and name need it, which say so themselves (../jobs/accounts-center.ts `centerAllowed`). Its
  * script is still registered there, and runs once Chrome lets it.
@@ -62,7 +62,7 @@ const sameSites = (matches: readonly string[] | undefined, hosts: readonly strin
 
 /**
  * Runs a network's script on its site, or stops it, as it should be. One registered by an older build on fewer sites
- * (Instagram's before its Accounts Center joined them, 0.93.0) is moved onto the sites the kit has now.
+ * (Instagram's before its Accounts Center joined them, 0.94.0) is moved onto the sites the kit has now.
  */
 async function place(kit: Kit, states: NetworkStates): Promise<void> {
   const id = scriptId(kit);

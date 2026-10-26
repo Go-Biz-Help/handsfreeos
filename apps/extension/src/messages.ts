@@ -173,7 +173,7 @@ export type OwnProfileAnswer =
       readonly aboutSteps?: AboutSteps;
       /** How each step of putting Facebook's bio in went (from 0.93.0). */
       readonly bioSteps?: EditorSteps;
-      /** How each step of putting Instagram's bio in on its form went (from 0.93.0). */
+      /** How each step of putting Instagram's bio in on its form went (from 0.94.0). */
       readonly formSteps?: FormSteps;
     }
   | { readonly ok: false; readonly error: string };
@@ -238,7 +238,7 @@ export type WriteCenterNameAnswer =
 
 /**
  * On Accounts Center's Profiles, the person's own profile among them, or null: its number, and on Facebook its username
- * page (`url`, as builds before 0.93.0 had it); and the network's warnings there, unless it asks for a password
+ * page (`url`, as 0.93.0 had it); and the network's warnings there, unless it asks for a password
  * (decision 89). On Instagram, `username` is the account they're signed in to on instagram.com, whose row it is.
  */
 export type UsernamePageAsk = {

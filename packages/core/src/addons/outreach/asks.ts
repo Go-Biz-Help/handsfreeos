@@ -670,9 +670,9 @@ export const AskTask = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
   plain('profile_read'),
   // What goes in: the bio (LinkedIn's headline), the About, or both. Builds before 0.62.0 read only a bio; from 0.87.0
-  // its name, username and links too (decision 84). From 0.93.0 Facebook's name, username and links, and Instagram's
-  // username and name, go in by themselves rather than being handed over (decision 89): the same ask, so an older build
-  // still takes it and hands them over.
+  // its name, username and links too (decision 84). From 0.93.0 Facebook's username and links, and from 0.94.0 its
+  // name and Instagram's username and name, go in by themselves rather than being handed over (decision 89): the same
+  // ask, so an older build still takes it and hands them over.
   z.object({
     kind: z.literal('profile_edit'),
     bio: z.string().nullable().default(null),

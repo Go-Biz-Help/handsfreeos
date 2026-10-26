@@ -269,7 +269,7 @@ async function notFound(
 
 /**
  * Whether Chrome lets the extension on a network's Accounts Center: a person who keeps the extension to some sites
- * in Chrome may not have let it on Instagram's, which joined its sites in 0.93.0. Taken as yes where Chrome can't say.
+ * in Chrome may not have let it on Instagram's, which joined its sites in 0.94.0. Taken as yes where Chrome can't say.
  */
 export async function centerAllowed(network: CenterNetwork): Promise<boolean> {
   const permissions = typeof chrome === 'undefined' ? undefined : chrome.permissions;

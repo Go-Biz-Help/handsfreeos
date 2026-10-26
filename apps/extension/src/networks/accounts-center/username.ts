@@ -1,7 +1,7 @@
 /**
  * The person's own username, changed on Accounts Center's username page for their own profile (docs/outreach.md,
  * decision 89), for a **Put these in** they pressed in HandsFreeOS: their Facebook profile's on Facebook's Accounts
- * Center, and from 0.93.0 their Instagram profile's on Instagram's (./pages.ts). It types only the new username they
+ * Center, and from 0.94.0 their Instagram profile's on Instagram's (./pages.ts). It types only the new username they
  * picked, only into the box named Username.
  *
  * - **Where:** `https://accountscenter.facebook.com/profiles/<their profile's number>/username/` (`usernameAddress`),
@@ -159,7 +159,7 @@ export interface UsernameSteps {
   readonly asking: Asking | null;
   /** How many boxes named Username: one is wanted. */
   readonly boxes: number;
-  /** The Username box held another account's username than theirs: nothing typed (Instagram's, from 0.93.0). */
+  /** The Username box held another account's username than theirs: nothing typed (Instagram's, from 0.94.0). */
   readonly other: boolean;
   /** How many Dones (or Saves) in sight, and whether the one there was on. */
   readonly dones: number;

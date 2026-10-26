@@ -418,15 +418,16 @@ describe('a profile’s name, username and links, put in or opened (decision 84)
   });
 
   it('says an older build hands what it didn’t put in over, as its own copy does', () => {
-    for (const [platform, part] of [
-      ['facebook', 'username'],
-      ['facebook', 'links'],
-      ['facebook', 'name'],
-      ['instagram', 'username'],
-      ['instagram', 'name'],
+    // 0.93.0 put Facebook's username and links in, and 0.94.0 its name and Instagram's username and name too.
+    for (const [platform, part, since, before] of [
+      ['facebook', 'username', '0.93.0', '0.92.0'],
+      ['facebook', 'links', '0.93.0', '0.92.0'],
+      ['facebook', 'name', '0.94.0', '0.93.0'],
+      ['instagram', 'username', '0.94.0', '0.93.0'],
+      ['instagram', 'name', '0.94.0', '0.93.0'],
     ] as const) {
-      expect(partHowFor(platform, part, '0.92.0')).toBe('steps');
-      expect(partHowFor(platform, part, '0.93.0')).toBe('auto');
+      expect(partHowFor(platform, part, before)).toBe('steps');
+      expect(partHowFor(platform, part, since)).toBe('auto');
       expect(partHowFor(platform, part, '1.0.0')).toBe('auto');
       // No computer known: the newest build's. One that didn't say its build is taken as older.
       expect(partHowFor(platform, part)).toBe('auto');
@@ -565,9 +566,9 @@ describe('the parts, as the screen lists them', () => {
       how: 'auto',
     });
     expect(by.picture!.how).toBe('tip');
-    // A computer before 0.93.0 hands its username and name over (decision 89).
+    // A computer before 0.94.0 hands its username and name over (decision 89).
     const older = Object.fromEntries(
-      profileParts('instagram', known(), '0.92.0').map((r) => [r.part, r.how]),
+      profileParts('instagram', known(), '0.93.0').map((r) => [r.part, r.how]),
     );
     expect(older).toMatchObject({ bio: 'auto', links: 'app', username: 'steps', name: 'steps' });
   });
@@ -576,7 +577,9 @@ describe('the parts, as the screen lists them', () => {
     const how = (version?: string | null) =>
       Object.fromEntries(profileParts('facebook', known(), version).map((r) => [r.part, r.how]));
     expect(how()).toMatchObject({ bio: 'auto', links: 'auto', username: 'auto', name: 'auto' });
-    expect(how('0.93.0')).toMatchObject({ links: 'auto', username: 'auto', name: 'auto' });
+    expect(how('0.94.0')).toMatchObject({ links: 'auto', username: 'auto', name: 'auto' });
+    // 0.93.0 put the username and links in, and still hands the name over.
+    expect(how('0.93.0')).toMatchObject({ links: 'auto', username: 'auto', name: 'steps' });
     expect(how('0.92.0')).toMatchObject({
       bio: 'auto',
       links: 'steps',

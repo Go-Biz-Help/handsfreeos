@@ -18,8 +18,8 @@
  * - **Only what shows is said to be in.** The profile is read again at the end: a part that went in but doesn't show
  *   there yet (the bio, a link, the new username in its address, the new name) is left out of what's in, and the end
  *   says where to check it. A name Facebook says it's looking at first is said to be under review, never in.
- * - **Builds before 0.93.0** handed the username, the links and the name over (./profile-parts.ts): core still says so
- *   for them (`partHowFor`).
+ * - **Older builds** hand over what they didn't put in (./profile-parts.ts): before 0.93.0 the username and the links,
+ *   and before 0.94.0 the name. Core still says so for them (`partHowFor`).
  *
  * It stops when Facebook shows a warning (decision 25), but reads none on Accounts Center while Facebook asks the
  * person for something there: its "Confirm it's you" is no warning. The tab decides that (`askingHere`), what's asked
