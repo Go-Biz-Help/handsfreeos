@@ -200,8 +200,7 @@ export function ProfileRest({
   known: ProfilesKnown | null;
   asks: Asks | null;
 }) {
-  // Who does each goes by the person's computer's build: one before 0.93.0 hands Facebook's name, username and links,
-  // and Instagram's username and name, over (decision 89).
+  // Who does each goes by the person's computer's build: an older one hands Facebook's username and links over.
   const version = asks?.computer?.version;
   const all = useMemo(
     () =>

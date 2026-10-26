@@ -29,7 +29,6 @@ import {
   hasPlaceholder,
   NAME_DRAFT_MOST,
   NAME_MOST,
-  nameProblem,
   NO_BIO_WRITES_ON,
   PROFILE_BIO_MOST,
   usernameProblem,
@@ -200,9 +199,6 @@ export function profileEditWords(
     const most = platform === 'instagram' ? NAME_DRAFT_MOST : NAME_MOST;
     if (edit.name.trim().length > most)
       return `${network}’s name takes up to ${most} characters, and this one has ${edit.name.trim().length}. Cut it to fit, then put it in.`;
-    // One with [brackets] to fill in says so, below.
-    const problem = hasPlaceholder(edit.name) ? null : nameProblem(platform, edit.name);
-    if (problem) return problem;
   }
   if (edit.username) {
     const problem = usernameProblem(platform, edit.username);
@@ -670,9 +666,8 @@ export const AskTask = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
   plain('profile_read'),
   // What goes in: the bio (LinkedIn's headline), the About, or both. Builds before 0.62.0 read only a bio; from 0.87.0
-  // its name, username and links too (decision 84). From 0.93.0 Facebook's name, username and links, and Instagram's
-  // username and name, go in by themselves rather than being handed over (decision 89): the same ask, so an older build
-  // still takes it and hands them over.
+  // its name, username and links too (decision 84). From 0.93.0 Facebook's username and links go in by themselves
+  // rather than being handed over (decision 89): the same ask, so an older build still takes it and hands them over.
   z.object({
     kind: z.literal('profile_edit'),
     bio: z.string().nullable().default(null),

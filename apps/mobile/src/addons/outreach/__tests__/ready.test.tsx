@@ -1,7 +1,6 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
 import { PROFILE_ITEMS_ON } from '@hfos/core/addons/outreach/profile-check';
-import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import {
   PROFILE_ITEMS,
   READY_WORDS,
@@ -646,10 +645,6 @@ describe('Get ready on the phone', () => {
     expect(view.queryByTestId('ready-name')).toBeNull();
     const rest = view.getByTestId('ready-profile-rest');
     expect(within(rest).getByText('Chris | Roofing leads')).toBeTruthy();
-    // Who puts it in goes by the computer's build: 0.87.0 hands Instagram's name over (decision 89).
-    const namePart = () => view.getByTestId('ready-part-name');
-    expect(within(namePart()).getByText(PROFILE_PART_WORDS.how.steps)).toBeTruthy();
-    expect(within(namePart()).getByText(PROFILE_PART_WORDS.howHint.steps)).toBeTruthy();
     // A username asks first: what changes, then the one to use.
     await fireEvent.press(view.getByTestId('ready-username-open'));
     expect(within(view.getByTestId('ready-username-ask')).getByText(/@skater22/)).toBeTruthy();
@@ -662,21 +657,6 @@ describe('Get ready on the phone', () => {
     // Pictures stay the person's: where they're changed.
     expect(
       within(view.getByTestId('ready-pictures')).getByText('Use one of just you.'),
-    ).toBeTruthy();
-    // From 0.93.0 the computer puts Instagram's name and username in itself.
-    await view.rerender(
-      <GetReadyCard
-        readiness={readiness}
-        asks={{ ...asks, computer: { ...asks.computer!, version: '0.93.0' } }}
-        actions={actions}
-        onTick={jest.fn()}
-        onNumbers={jest.fn()}
-      />,
-    );
-    expect(within(namePart()).getByText(PROFILE_PART_WORDS.how.auto)).toBeTruthy();
-    expect(within(namePart()).getByText(PROFILE_PART_WORDS.howHint.auto)).toBeTruthy();
-    expect(
-      within(view.getByTestId('ready-part-username')).getByText(PROFILE_PART_WORDS.howHint.auto),
     ).toBeTruthy();
   });
 

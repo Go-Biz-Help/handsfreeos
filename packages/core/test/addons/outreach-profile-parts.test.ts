@@ -18,7 +18,6 @@ import {
 import {
   checkedProfileCheck,
   cleanUsername,
-  nameProblem,
   PROFILE_ITEMS_ON,
   profileCheckAsk,
   profileCheckPrompt,
@@ -26,7 +25,6 @@ import {
   ProfileCheck,
   ProfileRead,
   shownUsername,
-  splitName,
   usernameProblem,
   withHandles,
   withoutTracking,
@@ -370,7 +368,7 @@ describe('a profile’s name, username and links, put in or opened (decision 84)
 
   it('says who does each part: the computer, the page it opens, the app, or the person', () => {
     expect(partHowOn('linkedin', 'name')).toBe('auto');
-    expect(partHowOn('linkedin', 'username')).toBe('steps');
+    expect(partHowOn('instagram', 'name')).toBe('steps');
     expect(partHowOn('instagram', 'links')).toBe('app');
     expect(partHowOn('facebook', 'picture')).toBe('tip');
     expect(partStepsWords('instagram', 'username', 'casey.roofs')).toContain(
@@ -381,114 +379,37 @@ describe('a profile’s name, username and links, put in or opened (decision 84)
     expect(partStepsWords('facebook', 'picture')).toContain('Upload photo');
   });
 
-  it('puts Facebook’s bio, name, username and links in, and Instagram’s username and name (decision 89)', () => {
+  it('puts Facebook’s bio, username and links in, and hands its name over (decision 89)', () => {
     expect(partHowOn('facebook', 'bio')).toBe('auto');
     expect(partHowOn('facebook', 'username')).toBe('auto');
     expect(partHowOn('facebook', 'links')).toBe('auto');
-    expect(partHowOn('facebook', 'name')).toBe('auto');
-    // The owner, 26 Oct 2026: "1a 2a 3a". Instagram's links stay in its app, and pictures stay the person's.
-    expect(partHowOn('instagram', 'bio')).toBe('auto');
-    expect(partHowOn('instagram', 'username')).toBe('auto');
-    expect(partHowOn('instagram', 'name')).toBe('auto');
-    expect(partHowOn('instagram', 'links')).toBe('app');
-    expect(partHowOn('instagram', 'picture')).toBe('tip');
+    expect(partHowOn('facebook', 'name')).toBe('steps');
+    // Instagram stays as it was.
+    expect(partHowOn('instagram', 'username')).toBe('steps');
     expect(
-      profileEditWords('facebook', {
-        name: 'Casey Lee',
-        username: 'casey.roofs',
-        links: ['https://cal.com/c'],
-      }),
+      profileEditWords('facebook', { username: 'casey.roofs', links: ['https://cal.com/c'] }),
     ).toBeNull();
-    expect(
-      profileEditWords('instagram', { name: 'Casey | Roofs', username: 'casey.roofs' }),
-    ).toBeNull();
-    // The words an older build hands them over with stay, for its computer's step, and the newest build's own.
+    // The words an older build hands them over with stay, for its computer's step.
     expect(partStepsWords('facebook', 'username', 'casey.roofs')).toContain('Put in “casey.roofs”');
     expect(partStepsWords('facebook', 'links', ['https://cal.com/c'])).toContain(
       'Edit links on the Links card',
     );
-    const name = partStepsWords('facebook', 'name', 'Casey Lee');
-    expect(name).toContain('Put “Casey” in First name and “Lee” in Last name');
-    expect(name).toContain('Review change, then Done');
-    expect(partStepsWords('facebook', 'name')).toContain('then Name. Change it, then press');
-    expect(partStepsWords('instagram', 'name', 'Casey | Roofs')).toContain(
-      'Put in “Casey | Roofs”',
-    );
     expect(askNameOn('profile_edit', 'facebook')).toBe('Update your profile');
   });
 
-  it('says an older build hands what it didn’t put in over, as its own copy does', () => {
-    for (const [platform, part] of [
-      ['facebook', 'username'],
-      ['facebook', 'links'],
-      ['facebook', 'name'],
-      ['instagram', 'username'],
-      ['instagram', 'name'],
-    ] as const) {
-      expect(partHowFor(platform, part, '0.92.0')).toBe('steps');
-      expect(partHowFor(platform, part, '0.93.0')).toBe('auto');
-      expect(partHowFor(platform, part, '1.0.0')).toBe('auto');
-      // No computer known: the newest build's. One that didn't say its build is taken as older.
-      expect(partHowFor(platform, part)).toBe('auto');
-      expect(partHowFor(platform, part, null)).toBe('steps');
-    }
+  it('says an older build hands Facebook’s username and links over, as its own copy does', () => {
+    expect(partHowFor('facebook', 'username', '0.92.0')).toBe('steps');
+    expect(partHowFor('facebook', 'links', '0.92.0')).toBe('steps');
+    expect(partHowFor('facebook', 'username', '0.93.0')).toBe('auto');
+    expect(partHowFor('facebook', 'links', '1.0.0')).toBe('auto');
+    // No computer known: the newest build's. One that didn't say its build is taken as older.
+    expect(partHowFor('facebook', 'username')).toBe('auto');
+    expect(partHowFor('facebook', 'username', null)).toBe('steps');
     // A part that went in by itself before is the same on any build.
     expect(partHowFor('facebook', 'bio', '0.87.0')).toBe('auto');
-    expect(partHowFor('instagram', 'bio', '0.80.0')).toBe('auto');
     expect(partHowFor('linkedin', 'name', '0.87.0')).toBe('auto');
-    // One that doesn't go in by itself is the same on any build too.
-    expect(partHowFor('instagram', 'links', '0.93.0')).toBe('app');
-    expect(partHowFor('linkedin', 'username', '0.93.0')).toBe('steps');
+    expect(partHowFor('instagram', 'username', '0.80.0')).toBe('steps');
     expect(partHowFor('facebook', 'picture', '0.92.0')).toBe('tip');
-  });
-});
-
-describe('a name, on Facebook’s name standards (decision 89)', () => {
-  it('takes a real first and last name in letters only, and says what to take out', () => {
-    expect(nameProblem('facebook', 'Casey Lee')).toBeNull();
-    expect(nameProblem('facebook', 'Zoë O’Brien-Núñez')).toBeNull();
-    expect(nameProblem('facebook', 'J. R. Lee')).toBeNull();
-    expect(nameProblem('facebook', 'Casey Owner | Roofs')).toBe(
-      'Facebook names use letters only, so take out “|” from “Casey Owner | Roofs”. Pick another under Name with Show me more on the web, then put it in.',
-    );
-    expect(nameProblem('facebook', 'Casey Lee 2')).toContain('take out “2”');
-    expect(nameProblem('facebook', 'Casey')).toContain('a first and last name');
-    expect(nameProblem('facebook', ' ')).toBe('Type a name first.');
-    // Instagram's name says what they do, and is held only to its length.
-    expect(nameProblem('instagram', 'Casey | Roofs in Columbus')).toBeNull();
-    expect(nameProblem('linkedin', 'Casey')).toBeNull();
-  });
-
-  it('is split as the boxes take it: the first word, then the rest', () => {
-    expect(splitName(' Casey  Lee ')).toEqual({ first: 'Casey', last: 'Lee' });
-    expect(splitName('Mary Ann Smith')).toEqual({ first: 'Mary', last: 'Ann Smith' });
-    expect(splitName('Casey')).toEqual({ first: 'Casey', last: '' });
-    expect(splitName('')).toEqual({ first: '', last: '' });
-  });
-
-  it('refuses one Facebook won’t take before it’s asked, and keeps none the AI writes', () => {
-    expect(profileEditWords('facebook', { name: 'Casey Owner | Roofs' })).toContain(
-      'Facebook names use letters only',
-    );
-    expect(profileEditWords('facebook', { name: 'Casey' })).toContain('a first and last name');
-    // One with a blank says to fill it in first, as before.
-    expect(profileEditWords('facebook', { name: '[First name] Lee' })).toContain(
-      'in your name first',
-    );
-    const fb = checkedProfileCheck(
-      {
-        ...igAnswer,
-        items: items('facebook', false),
-        names: ['Casey | Roofs', 'Casey Lee', 'Casey'],
-      } as never,
-      ProfileRead.parse({ platform: 'facebook', url: 'https://www.facebook.com/casey.lee' }),
-      '2026-10-26T10:00:00.000Z',
-      1,
-    );
-    expect(fb.names).toEqual(['Casey Lee']);
-    expect(checkedMore('facebook', 'name', ['Casey | Roofs', 'Casey Lee'], [])).toEqual([
-      'Casey Lee',
-    ]);
   });
 });
 
@@ -555,28 +476,22 @@ describe('the parts, as the screen lists them', () => {
       ok: false,
       now: 'caseyskates22',
       next: ['casey.roofs', 'casey_lee', 'casey.lee.roofing'],
-      how: 'auto',
+      how: 'steps',
     });
     expect(by.links).toMatchObject({ ok: false, how: 'app' });
     expect(by.links!.next).toHaveLength(3);
     expect(by.name).toMatchObject({
       now: 'Case',
       next: ['Casey | Booked jobs for Columbus roofers'],
-      how: 'auto',
     });
     expect(by.picture!.how).toBe('tip');
-    // A computer before 0.93.0 hands its username and name over (decision 89).
-    const older = Object.fromEntries(
-      profileParts('instagram', known(), '0.92.0').map((r) => [r.part, r.how]),
-    );
-    expect(older).toMatchObject({ bio: 'auto', links: 'app', username: 'steps', name: 'steps' });
   });
 
   it('says who does each by the build of the person’s computer, when it’s known', () => {
     const how = (version?: string | null) =>
       Object.fromEntries(profileParts('facebook', known(), version).map((r) => [r.part, r.how]));
-    expect(how()).toMatchObject({ bio: 'auto', links: 'auto', username: 'auto', name: 'auto' });
-    expect(how('0.93.0')).toMatchObject({ links: 'auto', username: 'auto', name: 'auto' });
+    expect(how()).toMatchObject({ bio: 'auto', links: 'auto', username: 'auto', name: 'steps' });
+    expect(how('0.93.0')).toMatchObject({ links: 'auto', username: 'auto' });
     expect(how('0.92.0')).toMatchObject({
       bio: 'auto',
       links: 'steps',
