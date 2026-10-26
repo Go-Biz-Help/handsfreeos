@@ -327,7 +327,7 @@ describe('your messages, written by the AI', () => {
 
   it('writes one again only of the samples there are, for the main offer live now', async () => {
     expect((await rewrite(owner, { part: 'video' })).json().error.rule).toBe(
-      'outreach_message_gone',
+      'outreach_message_no_video',
     );
     expect((await rewrite(member, { part: 'first' })).json().error.rule).toBe(
       'outreach_messages_unseen',

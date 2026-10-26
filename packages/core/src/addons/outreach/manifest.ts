@@ -300,6 +300,6 @@ export const outreachAddon = defineAddon({
   // the worker send in stays theirs (docs/outreach.md, "The Assistant").
   ai: {
     directory:
-      'Facebook, LinkedIn and Instagram outreach with a browser extension: today’s list, messages to OK, friends, chats, groups, the pipeline, helpful posts, partners, playbooks and its settings',
+      'Facebook, LinkedIn and Instagram outreach with a browser extension: today’s list, messages to OK, friends, chats, groups, the pipeline, helpful posts, partners, playbooks and its settings. A yes to the first message gets the playbook’s short video, then the booking link; with no video, the link straight away',
   },
 });

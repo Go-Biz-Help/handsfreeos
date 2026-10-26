@@ -25,6 +25,7 @@ import {
   findCapabilities,
   HfosError,
   loadCapabilityContext,
+  rehearseCommand,
   type AddonAiTool,
   type AddonManifest,
   type Catalog,
@@ -150,16 +151,19 @@ function cardFields(tool: Pick<AddonAiTool, 'input' | 'description'>, values: Ar
 
 /**
  * A change that waits for the person's OK: a card saying what it does and what it would be given. The operation's
- * own schema — refinements and all — checks the arguments first, so a card that could only fail is never drawn.
+ * own schema — refinements and all — checks the arguments first, then the operation is rehearsed through the kernel
+ * and rolled back, so a card its rules would refuse now is never drawn.
  */
-export function prepareAddonTool(
+export async function prepareAddonTool(
+  db: Db,
   tool: AddonAiTool,
   args: Args,
   ctx: ToolContext,
   toolCallId: string,
-): PreparedAction {
+): Promise<PreparedAction> {
   if (tool.op.kind !== 'command') throw new Error(`${tool.name} is a look-up`);
-  const checked = tool.op.input.safeParse(addonOperationInput(tool, args, ctx));
+  const input = addonOperationInput(tool, args, ctx);
+  const checked = tool.op.input.safeParse(input);
   if (!checked.success) {
     const issues = checked.error.issues.map((i) => ({
       path: i.path.map(String).join('.'),
@@ -170,6 +174,13 @@ export function prepareAddonTool(
       issues[0]?.message ??
         `Some of that doesn’t fit what ${tool.addonName} takes. Check the details and call ${tool.name} again.`,
     );
+  }
+  // Tried first and rolled back whole, so a change its own rules would refuse now is said before any card: nobody
+  // presses Confirm on something that can't go through.
+  try {
+    await rehearseCommand(db, tool.op, input, ctx.actor, meta(ctx));
+  } catch (e) {
+    throw saidPlainly(tool, e);
   }
   const shown = tool.input.safeParse(args);
   return {

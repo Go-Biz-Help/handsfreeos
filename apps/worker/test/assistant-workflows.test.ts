@@ -478,7 +478,7 @@ describe('workflows and knowledge in the Assistant', () => {
       // Confirming anyway (an old card, a crafted request) is refused, and no run is asked for.
       expect((await confirm(ownerToken, card.toolCallId)).json()).toMatchObject({
         status: 'failed',
-        error: why,
+        error: `Nothing was changed. ${why}`,
       });
       expect(
         await rows(

@@ -839,6 +839,28 @@ describe('the AI teammate', () => {
 });
 
 describe('your own account', () => {
+  it('reads every alert as it is set now, defaults filled in, and the phones they reach', async () => {
+    const { result } = await readTool('get_settings', 'my_account', owner);
+    const me = result['me'] as {
+      alerts: {
+        title: string;
+        about: string;
+        phone: boolean | null;
+        email: boolean | 'always' | null;
+      }[];
+      alwaysOn: string;
+    };
+    // Never changed, so every one shows its default: a booking alert on, a payment's push off.
+    expect(me.alerts.find((a) => a.title === 'Your appointments')).toMatchObject({
+      about: expect.stringMatching(/book/i),
+      phone: true,
+    });
+    expect(me.alerts.find((a) => a.title === 'A customer pays')).toMatchObject({ phone: false });
+    expect(me.alwaysOn).toContain('Safety');
+    // No phone signed in to the app yet: phone alerts reach nobody, and the model can say so.
+    expect(result['phonesForAlerts']).toEqual([]);
+  });
+
   it('turns one email off without touching the others, and keeps your name', async () => {
     const { card, parsed, tool } = await prepare(
       'update_my_account',
