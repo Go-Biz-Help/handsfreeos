@@ -23,12 +23,6 @@ export const HOME_PHONE_WORDS = {
   handingOnline: 'HandsFreeOS takes this on as soon as it can be reached.',
   /** The toast for a change made with no signal. */
   queued: (done: string) => `${done} It goes as soon as HandsFreeOS can be reached.`,
-  /** The bell beside Ask HandsFreeOS: the add-ons' alerts still open (decision 82 in docs/outreach.md). */
-  alertsLabel: (n: number) =>
-    n === 0 ? 'Notifications' : n === 1 ? 'Notifications: 1 open' : `Notifications: ${n} open`,
-  alertsTitle: 'Notifications',
-  alertsAbout: 'Each stays here until it’s done. Press one to open it.',
-  alertsNone: 'Nothing needs you right now.',
 } as const;
 
 const ACTION: Readonly<Record<HomeChange['name'], string>> = {

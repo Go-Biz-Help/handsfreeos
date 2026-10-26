@@ -17,11 +17,13 @@ type Row = {
   subtitle: string | null;
   body: string;
   path: string;
+  alert_id: string | null;
   sent_at: string;
   seen_at: Date | string | null;
   read_at: Date | string | null;
 };
 
+const UUID = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
 const iso = (v: Date | string | null): string | null =>
   v === null ? null : new Date(v).toISOString();
 
@@ -36,13 +38,14 @@ export const notificationList = defineQuery({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const cursor = decodeTimeCursor(input.cursor);
-    // Keyed on (sent_at, id) at full precision: one push reaches a person's every row at the same moment.
+    // Keyed on (sent_at, id) at full precision: two pushes can go in the same moment.
     const after = cursor
       ? sql`and (n.sent_at, n.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
       : sql``;
     const list = await rows<Row>(
       ctx.tx,
       sql`select n.id, n.workspace_id, n.category, n.title, n.subtitle, n.body, n.path,
+            case when n.refs ->> 'alertId' ~ ${UUID} then n.refs ->> 'alertId' end as alert_id,
             to_char(n.sent_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as sent_at, n.seen_at, n.read_at
           from app.notifications n
           where n.user_id = ${me} ${after}
@@ -64,6 +67,7 @@ export const notificationList = defineQuery({
         subtitle: n.subtitle,
         body: n.body,
         path: n.path,
+        alertId: n.alert_id,
         sentAt: new Date(n.sent_at).toISOString(),
         seenAt: iso(n.seen_at),
         readAt: iso(n.read_at),

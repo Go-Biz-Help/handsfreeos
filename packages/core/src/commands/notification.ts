@@ -39,7 +39,10 @@ export const notificationSeen = defineCommand({
   emits: [],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const upTo = input.upTo ? sql`and n.sent_at <= ${input.upTo}::timestamptz` : sql``;
+    // To the millisecond the bell was given (a list's times are ISO strings, which stop there).
+    const upTo = input.upTo
+      ? sql`and n.sent_at < ${input.upTo}::timestamptz + interval '1 millisecond'`
+      : sql``;
     const seen = await rows<{ id: string }>(
       ctx.tx,
       sql`update app.notifications n set seen_at = now()

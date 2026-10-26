@@ -70,6 +70,8 @@ export const BellNotification = z.object({
   body: z.string(),
   /** Where pressing it goes: the web path its push opens. */
   path: z.string(),
+  /** The add-on alert it was about (its push's `refs.alertId`): the bell counts the two as one while it's open. */
+  alertId: uuid.nullable(),
   sentAt: z.iso.datetime(),
   /** When the bell was opened with it in the list; null while it's new. */
   seenAt: z.iso.datetime().nullable(),
