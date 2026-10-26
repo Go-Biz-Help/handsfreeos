@@ -239,10 +239,12 @@ extension's page-layout reports?":
   nothing is, Next up has **Start my day**, with what's left of your profile beside it, "You can start now and finish
   it later." and **Check your profile** in HandsFreeOS.
 - **Alignable: a business you're already connected with is seen as connected** (the owner's report of 26 Oct 2026),
-  from their page's own Remove Connection and its new Message link, instead of being handed to you as "couldn’t find
-  Connect". Its runner says "you’re connected already", keeps them as one of your connections so Today doesn't offer
-  the request again, and never takes the Connect or Message of a business their page suggests for theirs
-  (`src/networks/alignable/read.ts`, `src/auto/alignable.ts`).
+  from their page's own Remove Connection (`/biz/connections/<their id>`): its runner says "you’re connected
+  already" and keeps them as one of your connections, so Today doesn't offer the request again. Alignable's new
+  Message link (`/biz/messages/new`) is read as theirs too, so a page with it and no Connect is passed over
+  ("connected already, or asked") instead of being handed to you as "couldn’t find Connect", but only Remove
+  Connection keeps them as a connection. It never takes the Connect or Message of a business their page suggests for
+  theirs (`src/networks/alignable/read.ts`, `src/auto/alignable.ts`).
 - 0.93.0 and older builds hand Facebook's name, and Instagram's username and name, to you as before, and HandsFreeOS
   marks those **You put it in** for that computer.
 

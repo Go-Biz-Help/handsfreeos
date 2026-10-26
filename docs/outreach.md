@@ -2478,12 +2478,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `partial` (the phone's Approve all, any build), passes over them, and one named among others is refused
   (`outreach_send_one_by_one`); only one named alone, without `partial`, is OK'd.
 - **A need is a step the extension couldn't do there and then** (`needs`, `openNeed`): a button or box it couldn't
-  find, a different page, Facebook not taking it, or a message that didn't go (`outreach.send.done`, which hands it
+  find, a different page, the network not taking it, or a message that didn't go (`outreach.send.done`, which hands it
   over itself). Never what changed on Facebook meanwhile ("Facebook says…"), no post to like, the AI, or a closed
   window. One open per step and person (or post, for a comment); noted again, it's seen again with the newest why. The
   step noted later, by anyone and however it was done, clears it (`clearNeeds`; a comment's by its post, or by the
   profile with no post kept or the same link), unless the extension couldn't do it again after that moment, and then
-  **I did it** says so. Only a Facebook link is kept. Its `seen_at` is when it couldn't (kept offline); it begins to
+  **I did it** says so. Its link is kept only on the profile's own network (`needUrlOf`): the link given when it's
+  there, else the comment's post, else their page there. One on another network is never kept, and one kept with none
+  is read as their page (the owner, 26 Oct 2026, decision 42). Its `seen_at` is when it couldn't (kept offline); it begins to
   wait (`created_at`) when it reaches HandsFreeOS. **Let it go** keeps the same step quiet for a week (`NEED_QUIET_DAYS`); it's shown for a
   week from the last time it couldn't (`NEED_SHOWN_DAYS`), and back after that is new again. The runner still tries
   the step another day. A confirm need hides once the request is answered on Facebook, and a friend request need once

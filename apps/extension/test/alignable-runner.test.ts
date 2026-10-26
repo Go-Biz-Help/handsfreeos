@@ -637,6 +637,31 @@ describe('a connection request on Alignable', () => {
     expect(pressed).toEqual([]);
   });
 
+  it('passes over a page with only Alignable’s newer Message of theirs, without keeping them as a connection', async () => {
+    // No Connect of theirs and no Remove Connection: their newer Message, among their own buttons, says only that
+    // they're connected already or asked. It's passed over, never handed to you, and only Remove Connection keeps them.
+    world.pages = (url) =>
+      url === DANA
+        ? {
+            html: businessHtml({
+              asked: true,
+              extra: `<div><a href="/biz/messages/new?_faid=7&recipient_ids=9001&to_user=9001"><svg></svg>Message</a>
+                <a href="/forward_referral_card/42">Refer</a></div>`,
+            }),
+            at: DANA_PAGE,
+          }
+        : null;
+    const pressed: string[] = [];
+    world.behave = pressedOn(pressed);
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes: no Connect on their page: you’re connected already, or asked',
+    });
+    expect(pressed).toEqual([]);
+    expect(world.noted).toEqual([]);
+    expect(world.asked.filter((a) => a.type === 'hfos-save-friends')).toEqual([]);
+  });
+
   it('notes the request when their page shows you’re connected once Connect is pressed', async () => {
     let connected = false;
     world.pages = (url) =>

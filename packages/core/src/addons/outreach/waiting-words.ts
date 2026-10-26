@@ -9,7 +9,7 @@
  * - **Messages to OK**: every other message waiting for the person's OK. Approve all OKs them, except one to someone
  *   who needs the person (`needsYou`), which waits for an OK of its own too (`oneByOne`).
  * - **Steps it needs you for**: a step the extension couldn't do there and then (a button or box it couldn't find, a
- *   different page, Facebook not taking it, a message that didn't go), handed to the person to do or let go. Each is
+ *   different page, the network not taking it, a message that didn't go), handed to the person to do or let go. Each is
  *   marked with its network, in that network's words, and links to their page there (or the post, or the chat).
  * - **Friend requests to decide**: requests the person got in the last two weeks that Today doesn't have them confirm.
  *
