@@ -17,7 +17,17 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { dayList } from '../automation';
 import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
-import { MessageSamples } from '../conversation';
+import {
+  messageNotesOf,
+  MessageSamples,
+  sampleAt,
+  withMineKept,
+  withNote,
+  withoutNote,
+  withSample,
+  type MessageNotes,
+  type SampleSlot,
+} from '../conversation';
 import { ProfileCheck } from '../profile-check';
 import {
   carriedOver,
@@ -29,6 +39,9 @@ import {
   withUsernames,
 } from '../profile-parts';
 import {
+  MessageEditInput,
+  MessageForgetInput,
+  MessageRewriteSaveInput,
   MessageSamplesSaveInput,
   MessagesOkInput,
   NumbersInput,
@@ -157,7 +170,12 @@ export async function readinessFor(
     offer: offer ? { version: offer.version, line: offer.line } : null,
     profile,
     profileCheck,
-    messages: { at: messages?.at ?? null, version: messages?.version ?? null, samples },
+    messages: {
+      at: messages?.at ?? null,
+      version: messages?.version ?? null,
+      samples,
+      notes: messageNotesOf(row?.messageNotes),
+    },
     numbers: {
       ...numbers,
       days: dayList(auto.settings.hours.days),
@@ -542,17 +560,23 @@ export const messageSamplesSave = defineAddonCommand(outreachAddon, {
   emits: ['outreach.readiness.saved'],
   async handler(ctx, input) {
     const at = changeMoment(ctx.meta);
+    // The ones the person wrote themselves stay as they are (decision 87).
+    const row = await setupRow(ctx, input.userId);
+    const samples = withMineKept(
+      input.samples,
+      MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null,
+    );
     const [kept] = await ctx.tx
       .insert(setup)
       .values({
         workspaceId: ctx.scope.workspaceId!,
         userId: input.userId,
-        messageSamples: input.samples,
+        messageSamples: samples,
         updatedAt: at,
       })
       .onConflictDoUpdate({
         target: [setup.workspaceId, setup.userId],
-        set: { messageSamples: input.samples, updatedAt: at },
+        set: { messageSamples: samples, updatedAt: at },
       })
       .returning({ id: setup.id });
     await ctx.emit({
@@ -565,6 +589,146 @@ export const messageSamplesSave = defineAddonCommand(outreachAddon, {
   },
 });
 
+/** The person's samples as kept, and the one at a slot: refused with none, or once that slot is gone. */
+async function sampleOf(ctx: Ctx, me: string, slot: SampleSlot) {
+  const row = await setupRow(ctx, me);
+  const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
+  if (!samples)
+    throw HfosError.rule(
+      'outreach_messages_unseen',
+      422,
+      'There are no sample messages to change yet. Press Write samples under Your messages first.',
+    );
+  if (sampleAt(samples, slot) === null)
+    throw HfosError.rule(
+      'outreach_message_gone',
+      409,
+      'That message isn’t in your samples any more, as they were written again. Change it from the ones showing now.',
+    );
+  return { samples, notes: messageNotesOf(row?.messageNotes) };
+}
+
+/** Keeps the person's samples and their notes, and says so. */
+async function saveMessages(
+  ctx: CommandContext,
+  me: string,
+  change: { readonly samples?: MessageSamples; readonly notes?: MessageNotes },
+  part: 'message_samples' | 'message_notes',
+) {
+  const at = changeMoment(ctx.meta);
+  const [kept] = await ctx.tx
+    .update(setup)
+    .set({
+      ...(change.samples ? { messageSamples: change.samples } : {}),
+      ...(change.notes ? { messageNotes: change.notes } : {}),
+      updatedAt: at,
+    })
+    .where(and(eq(setup.workspaceId, ctx.scope.workspaceId!), eq(setup.userId, me)))
+    .returning({ id: setup.id });
+  await ctx.emit({
+    type: 'outreach.readiness.saved',
+    entityType: 'outreach_setup',
+    entityId: kept!.id,
+    payload: { userId: me, part },
+  });
+  return readinessFor(ctx, me);
+}
+
+/**
+ * Change (decision 87): one sample in the person's own words, kept as they wrote it when the rest are written again,
+ * and followed by their real messages of that part. Refused with the playbook's words to avoid in it, as every message
+ * of the playbook keeps them out.
+ */
+export const messageEdit = defineAddonCommand(outreachAddon, {
+  name: 'outreach.messages.edit',
+  description:
+    'Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it.',
+  risk: 0,
+  input: MessageEditInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const { samples } = await sampleOf(ctx, me, input);
+    const playbook = (await playbooksInUse(ctx)).find((p) => p.id === samples.playbookId);
+    const lower = input.text.toLowerCase();
+    const avoided = (playbook?.details.avoid ?? []).find(
+      (w) => w.trim() && lower.includes(w.trim().toLowerCase()),
+    );
+    if (avoided && playbook)
+      throw HfosError.rule(
+        'outreach_message_avoid',
+        422,
+        `Your playbook “${playbook.name}” keeps “${avoided.trim()}” out of every message. Take it out, or ${
+          scopeCan(ctx.scope, 'outreach.manage' as Permission)
+            ? 'change Words to avoid on the playbook'
+            : 'ask an owner of this business to change the playbook’s Words to avoid'
+        }.`,
+      );
+    return saveMessages(
+      ctx,
+      me,
+      { samples: withSample(samples, input, input.text, true) },
+      'message_samples',
+    );
+  },
+});
+
+/** Forget (decision 87): a note on a part of the person's messages that the AI no longer follows. */
+export const messageForget = defineAddonCommand(outreachAddon, {
+  name: 'outreach.messages.forget',
+  description:
+    'Lets go of something the person told the AI about a part of their messages, so their samples and real messages no longer follow it.',
+  risk: 0,
+  input: MessageForgetInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const row = await setupRow(ctx, me);
+    if (!row) return readinessFor(ctx, me);
+    return saveMessages(
+      ctx,
+      me,
+      { notes: withoutNote(messageNotesOf(row.messageNotes), input.part, input.note) },
+      'message_notes',
+    );
+  },
+});
+
+/**
+ * Not quite right? (decision 87): one sample the AI wrote again on the person's say, and their note on its part, which
+ * the next samples and their real messages of that part follow too. The worker's alone, after the AI answers.
+ */
+export const messageRewriteSave = defineAddonCommand(outreachAddon, {
+  name: 'outreach.messages.rewrite_save',
+  description:
+    'Keeps one sample message the AI wrote again for a person, with what they said they want of that part of their messages.',
+  risk: 0,
+  input: MessageRewriteSaveInput,
+  output: ReadinessOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['outreach.readiness.saved'],
+  async handler(ctx, input) {
+    const { samples, notes } = await sampleOf(ctx, input.userId, input);
+    return saveMessages(
+      ctx,
+      input.userId,
+      {
+        samples: withSample(samples, input, input.text, false),
+        notes: withNote(notes, input.part, input.note),
+      },
+      'message_samples',
+    );
+  },
+});
+
 export const readinessCommands = [
   readinessProfile,
   readinessNumbers,
@@ -573,5 +737,8 @@ export const readinessCommands = [
   profileUsernamesSave,
   readinessMessages,
   messageSamplesSave,
+  messageEdit,
+  messageForget,
+  messageRewriteSave,
 ] as const;
 export const readinessQueries = [readinessGet, profilesGet] as const;

@@ -8,11 +8,20 @@
  * The step's footer (`StepFooter`): Back, Skip for now while it's left to do, and Next once it's done. Moving on reads
  * the setup afresh, so the next step not done opens.
  */
-import { BusinessRules, SENDING_MODES } from '@hfos/core/addons/outreach/automation';
+import {
+  BusinessRules,
+  businessLimitsOn,
+  SENDING_MODES,
+} from '@hfos/core/addons/outreach/automation';
 import { settingsToSave } from '@hfos/core/addons/outreach/chat-read';
-import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
-import { withNetwork } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, WORKING_PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
+import { dailyWordsOn, withNetwork } from '@hfos/core/addons/outreach/network-words';
+import {
+  networkLimitsNow,
+  PLATFORMS,
+  WORKING_PLATFORMS,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATE_KEYS, PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import {
   outreachSetupPath,
@@ -403,6 +412,8 @@ function RulesStep({ workspaceId, setup, me, business, nav }: StepProps) {
       </>
     );
   const allSending = rules.sendingAllowed.length === Object.keys(SENDING_MODES).length;
+  // Every network the business uses, Facebook always among them.
+  const networks = WORKING_PLATFORMS.filter((p) => rules.networksAllowed.includes(p));
   const row = (title: string, about: ReactNode, last = false) => (
     <div
       className={cn(
@@ -423,24 +434,26 @@ function RulesStep({ workspaceId, setup, me, business, nav }: StepProps) {
             ? W.rulesChoicesAbout
             : rules.sendingAllowed.map((m) => SENDING_MODES[m]).join(' · '),
         )}
-        {row(
-          W.rulesLimits,
-          <div className="flex flex-wrap gap-1.5">
-            {DAILY_STEPS.map((step) => (
-              <Badge key={step}>
-                {rules.dailyLimits[step] ?? DAILY_LIMITS[step]} {DAILY_WORDS[step].many}
-              </Badge>
-            ))}
-          </div>,
-        )}
-        {row(
-          W.rulesNetworks,
-          W.rulesNetworksAbout(
-            WORKING_PLATFORMS.filter((p) => rules.networksAllowed.includes(p)).map(
-              (p) => PLATFORMS[p],
-            ),
-          ),
-        )}
+        {row(W.rulesNetworks, W.rulesNetworksAbout(networks.map((p) => PLATFORMS[p])))}
+        {networks.map((p) => {
+          // The business's own on each network, at most its starting ones, as everyone's day keeps them.
+          const limits = networkLimitsNow(p, false, businessLimitsOn(rules, p));
+          const words = dailyWordsOn(p);
+          return (
+            <div key={p} data-testid={`outreach-setup-rules-limits-${p}`}>
+              {row(
+                W.rulesLimits(PLATFORMS[p]),
+                <div className="flex flex-wrap gap-1.5">
+                  {DAILY_STEPS.map((step) => (
+                    <Badge key={step}>
+                      {limits[step]} {words[step].many}
+                    </Badge>
+                  ))}
+                </div>,
+              )}
+            </div>
+          );
+        })}
         {row(
           W.rulesNew,
           rules.defaults.sending === 'off'

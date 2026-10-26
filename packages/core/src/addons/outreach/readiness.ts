@@ -22,7 +22,13 @@
 import { z } from 'zod';
 import { SCORED_PART_LABELS, SCORED_PARTS, type MainOfferParts } from '../../main-offer/parts';
 import { DAILY_LIMITS } from './limits';
-import { MessageSamples } from './conversation';
+import {
+  MESSAGE_NOTE_MOST,
+  MessageNotes,
+  MessageSamples,
+  SampleSlotInput,
+  type SamplePart,
+} from './conversation';
 import { NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import {
   ALL_PROFILE_ITEMS,
@@ -283,11 +289,15 @@ export const ReadinessOutput = z.object({
   profile: ProfileTicks,
   /** The AI's latest check of the profile, read by the extension: `checkCounts` says whether it's for the live version. */
   profileCheck: ProfileCheck.nullable(),
-  /** Your messages: when they OK'd how they read and the version then, and the samples the AI wrote for them. */
+  /**
+   * Your messages: when they OK'd how they read and the version then, the samples the AI wrote for them with the ones
+   * they wrote themselves, and what they told the AI of each part (decision 87).
+   */
   messages: z.object({
     at: z.iso.datetime().nullable(),
     version: z.number().int().min(1).nullable(),
     samples: MessageSamples.nullable(),
+    notes: MessageNotes,
   }),
   numbers: z.object({
     goal: z.number().int().nullable(),
@@ -542,6 +552,29 @@ export const READY_WORDS = {
     /** On the phone, which can't ask the AI for them. */
     onComputer:
       'Write your samples on your computer, under Get ready in HandsFreeOS. Then OK them there or here.',
+    /** Changing one, or telling the AI what's not quite right of it (decision 87). */
+    howTo:
+      'Change any message, or tell the AI what’s not quite right. Your real messages follow what you say.',
+    change: 'Change',
+    save: 'Save',
+    cancel: 'Cancel',
+    saved: 'Saved. Your real messages follow it.',
+    /** Under one the person wrote themselves, and beside Write them again while any are. */
+    yours: 'Your words',
+    mineStay: 'The ones in your words stay as you wrote them.',
+    notQuite: 'Not quite right?',
+    what: 'What should change?',
+    yourWords: 'Or say it in your words',
+    placeholder: 'Like: don’t open with “hope you are doing well”',
+    rewrite: 'Write it again',
+    rewriting: 'Writing it again. This takes a few seconds.',
+    /** Under Write it again: what's kept, and for which messages. */
+    kept: (part: SamplePart) =>
+      `The AI remembers what you say for ${SAMPLE_PART_WORDS[part]}, here and in your real messages.`,
+    /** Over a part's notes. */
+    told: 'You told the AI',
+    forget: (note: string) => `Forget “${note}”`,
+    forgot: 'Forgotten. The AI won’t follow it any more.',
   },
   changed: (parts: readonly string[]) => `What changed: ${parts.join(', ')}.`,
   profile: {
@@ -710,9 +743,45 @@ export const READY_WORDS = {
     'Still going while you get ready: saving your friends and groups, and replies to people who wrote to you.',
 } as const;
 
+/** Every message of a part, as Your messages says what the person's notes on it go for (decision 87). */
+const SAMPLE_PART_WORDS: Readonly<Record<SamplePart, string>> = {
+  first: 'every first message',
+  video: 'the video message',
+  link: 'the link message',
+  followUps: 'every follow-up',
+  checkIn: 'every check-in',
+};
+
 /** Your messages: the person OKs how the samples read, against the main offer live now. */
 export const MessagesOkInput = z.object({ workspaceId: z.uuid() });
 export type MessagesOkInput = z.input<typeof MessagesOkInput>;
+
+/** One sample in the person's own words (decision 87): kept as they wrote it, and followed by their real messages. */
+export const MessageEditInput = z.object({
+  workspaceId: z.uuid(),
+  ...SampleSlotInput,
+  text: z.string().trim().min(1).max(600),
+});
+export type MessageEditInput = z.input<typeof MessageEditInput>;
+
+/** A note on a part the person no longer wants followed. */
+export const MessageForgetInput = z.object({
+  workspaceId: z.uuid(),
+  part: SampleSlotInput.part,
+  note: z.string().trim().min(1).max(MESSAGE_NOTE_MOST),
+});
+export type MessageForgetInput = z.input<typeof MessageForgetInput>;
+
+/** One sample the AI wrote again on the person's say, with their note on its part: the worker's alone. */
+export const MessageRewriteSaveInput = z.object({
+  workspaceId: z.uuid(),
+  /** Whose: the person who asked. */
+  userId: z.uuid(),
+  ...SampleSlotInput,
+  text: z.string().trim().min(1).max(600),
+  note: z.string().trim().min(1).max(MESSAGE_NOTE_MOST).nullable().default(null),
+});
+export type MessageRewriteSaveInput = z.input<typeof MessageRewriteSaveInput>;
 
 /** The samples the AI wrote for a person's Your messages: the worker's alone, after the AI answers. */
 export const MessageSamplesSaveInput = z.object({

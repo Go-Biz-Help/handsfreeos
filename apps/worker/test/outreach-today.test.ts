@@ -25,6 +25,7 @@ import {
   playbooks,
   posts,
   profiles,
+  setup,
 } from '../../../packages/core/src/addons/outreach/tables';
 import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
 import { scriptedAi } from '../src/ai/scripted';
@@ -187,6 +188,41 @@ describe('drafts for Today', () => {
     });
     // Someone else's turns are their own.
     expect((await draft(member, { kind: 'opener', profileId })).json().opener.kind).toBe('style');
+  });
+
+  it('keeps a first message close to the one the person wrote themselves in Your messages (decision 87)', async () => {
+    const [playbook] = await testDbs()
+      .admin.db.select()
+      .from(playbooks)
+      .where(eq(playbooks.workspaceId, ws));
+    const said = {
+      messageSamples: {
+        playbookId: playbook!.id,
+        playbookName: playbook!.name,
+        first: ['Hi Sam! Open to more booked calls?', 'Hey, open to more booked calls this month?'],
+        video: null,
+        link: null,
+        followUps: [],
+        followUpGaps: [],
+        checkIn: null,
+        at: new Date().toISOString(),
+        version: 1,
+        mine: ['first.1'],
+      },
+      messageNotes: { first: ['Shorter.'] },
+    };
+    await testDbs()
+      .admin.db.insert(setup)
+      .values({ workspaceId: ws, userId: member.id, ...said })
+      .onConflictDoUpdate({ target: [setup.workspaceId, setup.userId], set: said });
+    const res = (await draft(member, { kind: 'opener', profileId })).json();
+    expect(res.drafts).toEqual(['Hey, open to more booked calls this month? (for Dana)']);
+    // The owner wrote none of theirs: their drafts are as before.
+    expect((await draft(owner, { kind: 'comment', postId })).json().drafts).toHaveLength(2);
+    await testDbs()
+      .admin.db.update(setup)
+      .set({ messageSamples: null, messageNotes: {} })
+      .where(eq(setup.userId, member.id));
   });
 
   it('drafts two comments on a post, from what the look-up found too', async () => {

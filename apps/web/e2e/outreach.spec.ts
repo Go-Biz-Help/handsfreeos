@@ -685,6 +685,16 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   await expect(setup).toHaveAttribute('data-screen', 'rules');
   await expect(rail('video')).toHaveAttribute('data-state', 'done');
   await expect(page.getByTestId('outreach-setup-rules')).toContainText('20 friend requests');
+  // Each network the business uses shows its own limits, in its own words.
+  await expect(page.getByTestId('outreach-setup-rules-limits-linkedin')).toContainText(
+    'On LinkedIn, a day',
+  );
+  await expect(page.getByTestId('outreach-setup-rules-limits-linkedin')).toContainText(
+    '15 invitations to connect',
+  );
+  await expect(page.getByTestId('outreach-setup-rules-limits-instagram')).toContainText(
+    '20 follows',
+  );
   await page.getByTestId('outreach-setup-rules-keep').click();
 
   // The extension: HandsFreeOS's own download, five steps with pictures, then it waits until the extension signs in.

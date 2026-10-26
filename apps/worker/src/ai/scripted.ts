@@ -1816,6 +1816,14 @@ function scriptedTodayDraft(message: string) {
       answer: 'none',
       drafts: [`Here’s my link to book a quick call, ${first}.`],
     };
+  // A message the owner wrote themselves in Your messages (decision 87): kept close to, fitted to them.
+  const example = /^- (.+)$/m.exec(unquote(quotedBlock(message, 'owner_example') ?? ''))?.[1];
+  if (example)
+    return {
+      simple: false,
+      answer,
+      drafts: [`${example} (for ${first})`],
+    };
   return {
     simple: theirs !== '' && !theirs.includes('?'),
     answer,
@@ -2089,6 +2097,24 @@ function scriptedSamples(message: string) {
 }
 
 /**
+ * One sample written again (decision 87): new each time, saying which note it followed last, so a test sees the note
+ * reached it.
+ */
+function scriptedRewrite(message: string) {
+  const what =
+    /^What to write: (one first message|the message after|the message when|follow-up \d+|a monthly check-in)/m.exec(
+      message,
+    )?.[1];
+  const notes = [...unquote(quotedBlock(message, 'notes') ?? '').matchAll(/^- (.+)$/gm)].map(
+    (m) => m[1]!,
+  );
+  const before = unquote(quotedBlock(message, 'before') ?? '');
+  return {
+    message: `Written again${what ? `, ${what}` : ''}${notes.length ? `, ${notes.at(-1)!.replace(/\.$/, '')}` : ''}${before.startsWith('Written again') ? ', once more' : ''}.`,
+  };
+}
+
+/**
  * A short video's script (`outreach.video.script`): every part, plain, with the playbook's niche in the first; or, asked
  * to write one part again, that part alone.
  */
@@ -2146,6 +2172,7 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Write the week’s review\.$/, json: (message) => scriptedReview(message) },
   { when: /Write the video script\.$/, json: (message) => scriptedVideoScript(message) },
   { when: /Write the sample messages\.$/, json: (message) => scriptedSamples(message) },
+  { when: /Write the message again\.$/, json: (message) => scriptedRewrite(message) },
   { when: /Score this Facebook profile\.$/, json: (message) => scriptedProfileCheck(message) },
   { when: /^Write the options\.$/m, json: (message) => scriptedProfileMore(message) },
   { when: /Does this niche fit the main offer\?$/, json: (message) => scriptedNicheFit(message) },

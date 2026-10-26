@@ -1,5 +1,6 @@
 import { bioEditShown, type AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
+import { isMine, slotKey, type SampleSlot } from '@hfos/core/addons/outreach/conversation';
 import { seenWords } from '@hfos/core/addons/outreach/live';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
@@ -300,8 +301,9 @@ export function GetReadyCard({
 }
 
 /**
- * Your messages: the samples the AI wrote on the person's computer, as they'd read in Messenger, to OK. Writing them
- * asks the AI, which the phone doesn't: with none for the live version, it says where.
+ * Your messages: the samples the AI wrote on the person's computer, as they'd read in Messenger, to OK, with the ones
+ * they wrote themselves marked (decision 87). Writing them asks the AI, which the phone doesn't: with none for the live
+ * version, it says where.
  */
 function MessagesList({
   readiness,
@@ -315,15 +317,21 @@ function MessagesList({
   const samples = readiness.messages.samples;
   const live = readiness.offer?.version ?? null;
   const fresh = samples !== null && live !== null && samples.version === live;
-  const bubble = (text: string, key?: string) => (
-    <Text
-      key={key}
-      selectable
-      className="max-w-[92%] self-start rounded-[14px] bg-accent-soft px-3 py-2 text-[14px] leading-[20px]"
-      testID="ready-message-sample"
-    >
-      {text}
-    </Text>
+  const bubble = (text: string, slot: SampleSlot) => (
+    <View key={slotKey(slot)} className="max-w-[92%] gap-0.5 self-start">
+      <Text
+        selectable
+        className="rounded-[14px] bg-accent-soft px-3 py-2 text-[14px] leading-[20px]"
+        testID="ready-message-sample"
+      >
+        {text}
+      </Text>
+      {samples && isMine(samples, slot) ? (
+        <Text className="text-[12px] text-text-3" testID="ready-message-mine">
+          {M.yours}
+        </Text>
+      ) : null}
+    </View>
   );
   const part = (title: string, children: React.ReactNode) => (
     <View className="gap-1.5">
@@ -340,24 +348,33 @@ function MessagesList({
           <Note>{M.about(samples.playbookName, samples.version)}</Note>
           {part(
             M.first,
-            samples.first.map((t) => bubble(t, t)),
+            samples.first.map((t, index) => bubble(t, { part: 'first', index })),
           )}
-          {part(M.video, samples.video ? bubble(samples.video) : <Note>{M.noVideo}</Note>)}
-          {samples.link ? part(M.link, bubble(samples.link)) : null}
+          {part(
+            M.video,
+            samples.video ? (
+              bubble(samples.video, { part: 'video', index: 0 })
+            ) : (
+              <Note>{M.noVideo}</Note>
+            ),
+          )}
+          {samples.link ? part(M.link, bubble(samples.link, { part: 'link', index: 0 })) : null}
           {samples.followUps.length
             ? part(
                 M.followUps(samples.followUps.length),
-                samples.followUps.map((t, i) => (
-                  <View key={t} className="gap-0.5">
+                samples.followUps.map((t, index) => (
+                  <View key={index} className="gap-0.5">
                     <Text className="text-[12px] text-text-3">
-                      {M.later(samples.followUpGaps[i] ?? 1)}
+                      {M.later(samples.followUpGaps[index] ?? 1)}
                     </Text>
-                    {bubble(t)}
+                    {bubble(t, { part: 'followUps', index })}
                   </View>
                 )),
               )
             : null}
-          {samples.checkIn ? part(M.checkIn, bubble(samples.checkIn)) : null}
+          {samples.checkIn
+            ? part(M.checkIn, bubble(samples.checkIn, { part: 'checkIn', index: 0 }))
+            : null}
         </>
       ) : null}
       {fresh && onOk ? (

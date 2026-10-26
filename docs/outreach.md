@@ -514,12 +514,13 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   and Live tabs, its Settings pages and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
   `sameNamePeople`), and its tabs' names and the labels its Playbooks, Groups and Chats tabs share with the phone. The web's step-by-step playbook builder keeps its own questions, which the phone doesn't ask. The helpers that write phone rows (`addon_phone_upsert` and the seals) run only as their owner: nobody
   signed in may call them.
-- **The setup** (decisions 36, 45 and 83, `/a/outreach/setup`, `setup.ts`, `ops/setup.ts`, the web's
+- **The setup** (decisions 36, 45, 83 and 87, `/a/outreach/setup`, `setup.ts`, `ops/setup.ts`, the web's
   `setup-view.tsx`, `setup-steps.tsx` and `setup-network.tsx`): Social Outreach's onboarding, a step at a time in the
   same card as the main app's, with a list of the steps beside it (folded on a phone). A **main setup** in three
   parts, once per person: **Your business** (the main offer, a playbook, a short video if the business wants one, the
-  team's rules; owners and admins only), **Your computer** (the extension) and **You** (your messages, your goal, the
-  networks you use). Then a **short setup for each network** they turn on, Facebook first: Allow it in Chrome (not on
+  team's rules, with each network's own daily limits; owners and admins only), **Your computer** (the extension) and
+  **You** (your messages, each to change or to have the AI write again with a note; your goal; the networks you
+  use). Then a **short setup for each network** they turn on, Facebook first: Allow it in Chrome (not on
   Facebook), a playbook for it (only while none runs there), your profile there, what it does there, and your first
   day there (`?net=linkedin&step=allow`). Each step ticks from what's true, never from a button pressed, and **Skip
   for now** leaves it to do. The main offer and a playbook are built on their own pages, which come back to the step
@@ -722,6 +723,8 @@ Operations, all through the kernel:
 | `outreach.asks`                                       | `outreach.use`    | The person's own asks, today's and the open ones (a tab's kinds), with their working computer and whether Facebook warned them today                                                                                                                                                                                                |
 | `outreach.setup`                                      | `outreach.use`    | The person's own setup: the main steps and each network's, where each stands and what's next, when they finished (`finishedAt`, the phone's line), the extension signed in, playbooks, the link                                                                                                                                     |
 | `outreach.setup.save`                                 | `outreach.use`    | The setup started, done, left for later, its line hidden, or the extension signed in                                                                                                                                                                                                                                                |
+| `outreach.messages.edit`                              | `outreach.use`    | One of the person's sample messages in their own words (decision 87): kept when the rest are written again, and followed by their real messages of that part. With the playbook's words to avoid in it: `outreach_message_avoid`                                                                                                    |
+| `outreach.messages.forget`                            | `outreach.use`    | Something the person told the AI of a part of their messages, let go                                                                                                                                                                                                                                                                |
 
 Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members) and **Run Social Outreach**
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
@@ -1142,7 +1145,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     messages** shows sample messages the AI writes for the person's playbook in their voice, to someone made up (the
     worker's `outreach.messages.samples`): the first messages, the video, the link, the follow-ups with their days, and
     a check-in. They OK how they read against the live version (`outreach.readiness.messages`), and a new version
-    asks again. The phone shows the samples written on the computer and OKs them. Built.
+    asks again. The phone shows the samples written on the computer and OKs them. Built. Since decision 87 each can be
+    changed, or written again with a note, and their real messages follow what they say.
 69. **The short video, scripted by the AI** (the owner's decisions: the AI writes the script; one video per
     playbook, each person's own later). On the playbook, under **Short video**, the AI writes the script from the
     live main offer and the playbook's niche (the worker's `outreach.video.script`, `video.ts`): six parts, each with
@@ -1914,6 +1918,34 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       each counts as From and waits for a look where the setting would skip it. Someone whose profile says they live in
       the countries reached is reached without a look; a later check of them can still find their friends elsewhere.
 
+87. **Your messages: change one, or tell the AI what's not quite right** (Chris, 25 Oct 2026: "need to be able to edit
+    and give feedback on specific messages when doing the onboarding in the social outreach tool"). Decision 68's
+    samples could only be written again whole, or OK'd. Now each one in Your messages, in the setup and in Get ready's
+    sheet, has two buttons under it:
+    - **Change** puts it in the person's own words (`outreach.messages.edit`). Theirs is marked **Your words**, and stays
+      as they wrote it when the rest are written again (`MessageSamples.mine`, `withMineKept`). One with the playbook's
+      words to avoid in it is refused, naming the word and where to change it (`outreach_message_avoid`).
+    - **Not quite right?** opens chips for its part (`MESSAGE_CHIPS`: Shorter, More casual, Warmer…) and a box for their
+      own words; **Write it again** has the AI write that one again, unlike it and the rest, following what they said
+      (the worker's `outreach.messages.rewrite`). The note is kept for every message of that part
+      (`setup.message_notes`, the latest 6 of each, migration 20261027012300), shown over the part as **You told the
+      AI**, each with an × to forget it (`outreach.messages.forget`).
+    - **Their real messages follow both** (`ownWordsFor`). A draft on Today is told what they said of its part
+      (`<owner_notes>`) and the ones of it they wrote themselves, to keep close to (`<owner_example>`): either first
+      message for a first message; the video, the link and the check-in their own; and a follow-up after the first
+      message the one of its number. A follow-up after the video or the link follows the notes alone, since the samples'
+      follow-ups come after the first message. A first message to someone's Requests on Instagram follows the notes but
+      not what they wrote, as it's one short text with no link. The offer's words still win over theirs, the business's
+      own openers still go as written (decision 23), and replies follow neither.
+    - **Write them again** follows the notes too, and keeps theirs. Samples written for an earlier main offer are
+      written again whole before one is written again alone (`outreach_messages_older`). The phone marks which are in
+      their own words; changing them is on the computer, like writing them.
+
+    The same day Chris asked "also the team rules only include facebook?": the setup's Team rules showed Facebook's
+    daily limits alone, under "On Facebook, a day". Each network the business uses now has its own row, in its own
+    words ("15 invitations to connect" on LinkedIn, "20 follows" on Instagram), with the limits everyone's day keeps
+    (`networkLimitsNow` with `businessLimitsOn`), as Change them already set them. Built.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2491,6 +2523,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   stopped; one a no stopped goes on only once they're back in play (`outreach.stage.mark` open).
 - **Anyone pitched keeps their version.** A draft for someone already pitched uses the main offer version they were
   first sent (`offerVersionFor`), never the live one, so nobody hears a new price or guarantee mid-conversation.
+- **What a person says of their messages is theirs, and their drafts follow it** (decision 87). Their own words are
+  marked in `setup.message_samples` (`mine`) and their notes kept in `setup.message_notes`, on their own setup row,
+  which nobody else reads. Every prompt that writes one of Your messages' parts for them follows both: the samples
+  (`messageSamplesPrompt`), one written again (`messageRewritePrompt`) and Today's drafts (`ownWordsFor` into
+  `todayDraftPrompt`). A new kind of draft that is one of those parts goes in `SAMPLE_PART_OF_KIND`. Writing the
+  samples again never drops their own words (`withMineKept`, in `outreach.messages.samples_save`), and the offer's
+  words always win over them.
 - **The offer's counts are the add-on's.** Core never reads `addon_outreach`; the main offer's page shows Social
   Outreach's counts through its `main_offer.panels` slot (`offer-panel.tsx`), from `outreach.offer.versions`.
 - **Data version 4:** the pace became how many follow-ups (5 to 7) and the quiet days before each, and a playbook got

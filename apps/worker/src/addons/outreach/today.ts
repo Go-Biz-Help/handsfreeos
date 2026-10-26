@@ -3,8 +3,9 @@
  * main offer (decision 65), a message to a friend who fits to reconnect with (decision 46), the video and the link
  * (decision 66), a follow-up or a monthly check-in (decision 67), a reply, or a comment on a group post, written by the
  * AI in the playbook's tone from the main offer's words (the version they were first pitched with), what's known
- * about the person (what the AI made of them when it checked them too), the chat or post so far, and what the
- * extension looked up on their profile and business page just before (decision 21). Core holds what the model is
+ * about the person (what the AI made of them when it checked them too), the chat or post so far, what the extension
+ * looked up on their profile and business page just before (decision 21), and what the person said of that part of
+ * their messages in Your messages, with the ones they wrote themselves (decision 87). Core holds what the model is
  * asked and checks what it answers (packages/core/src/addons/outreach/today.ts).
  *
  * For a reply, the AI also reads their answer to the person's last step (yes, a question, not now, no), which is kept
@@ -13,7 +14,13 @@
  * person (`replyNeedsYou`). Nothing else is saved or sent here: the person copies the one they like, or the extension
  * hands it to `outreach.send.queue`.
  */
-import { stepAfterYes, type ConversationStep } from '@hfos/core/addons/outreach/conversation';
+import {
+  messageNotesOf,
+  MessageSamples,
+  ownWordsFor,
+  stepAfterYes,
+  type ConversationStep,
+} from '@hfos/core/addons/outreach/conversation';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
@@ -194,6 +201,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
               (select live_version from app.main_offers where workspace_id = ${ws}))`,
       );
+      // What the person told the AI of their messages, and the ones they wrote themselves (decision 87).
+      const [said] = await rows<{ message_samples: unknown; message_notes: unknown }>(
+        tx,
+        sql`select message_samples, message_notes from addon_outreach.setup
+            where workspace_id = ${ws} and user_id = ${ctx.userId}`,
+      );
       return {
         business,
         chat,
@@ -208,6 +221,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         conversation: conversation ?? null,
         offer: offer ?? null,
         friendState: friend?.state ?? null,
+        samples: MessageSamples.safeParse(said?.message_samples ?? null).data ?? null,
+        notes: messageNotesOf(said?.message_notes),
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -336,6 +351,13 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               lastAt: found.lastAt,
               platform,
               requests: toRequests,
+              own: ownWordsFor(
+                kind,
+                found.samples,
+                found.notes,
+                found.conversation,
+                playbook?.id ?? null,
+              ),
             }),
           },
         ],
