@@ -26,6 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
 import { ScriptedProvider, type AiProvider, type AiRequest } from '@hfos/ai';
 import { SPOKEN } from '../src/assistant/prompt';
+import { WARMS_PER_MINUTE } from '../src/assistant/routes';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -425,6 +426,37 @@ describe('the Assistant', () => {
               where workspace_id = ${workspaceId} and user_id = ${owner.id} and source = 'assistant'`,
         ),
       ).toEqual([{ source: 'assistant', cache_write_tokens: 25_000 }]);
+    } finally {
+      await reading.close();
+    }
+  });
+
+  it('holds each address to a few warm-ups a minute, since reading ahead spends AI', async () => {
+    const reading = await build('scripted', 5_000_000, {
+      ...scriptedAssistant(),
+      stream: () => Promise.reject(new Error('not asked')),
+      warm: async () => ({
+        inputTokens: 1,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 1,
+      }),
+    });
+    try {
+      const codes: number[] = [];
+      for (let i = 0; i <= WARMS_PER_MINUTE; i++)
+        codes.push(
+          (
+            await reading.inject({
+              method: 'POST',
+              url: '/v1/assistant/warm',
+              headers: { authorization: `Bearer ${memberToken}` },
+              payload: { workspaceId },
+            })
+          ).statusCode,
+        );
+      expect(codes.slice(0, WARMS_PER_MINUTE).every((c) => c === 200)).toBe(true);
+      expect(codes.at(-1)).toBe(429);
     } finally {
       await reading.close();
     }
