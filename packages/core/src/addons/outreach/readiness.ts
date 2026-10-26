@@ -1,16 +1,19 @@
 /**
  * Get ready for your best results (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, "Getting ready"; docs/outreach.md,
- * decision 63): what has to be in place before Social Outreach reaches anyone for a person. Nothing outreach-like
- * happens until every item is done: Start my day is refused (`outreach_not_ready`), Today's list keeps only replies
- * owed to people who wrote first (answering isn't reaching out), with Get ready in place of the rest, and the extension
- * puts up no helpful post on its own.
+ * decisions 63 and 90): what has to be in place before Social Outreach reaches anyone for a person. Nothing
+ * outreach-like happens until every item that holds the day is done (`blocksStart`): Start my day is refused
+ * (`outreach_not_ready`, naming the first one and where it's done), Today's list keeps only replies owed to people who
+ * wrote first (answering isn't reaching out), with Get ready in place of the rest, and the extension puts up no helpful
+ * post on its own.
  *
  * - **Your main offer** (the business's): a version is live. Publishing already holds it to every part 7 or more, or
  *   an owner's Use it anyway with a reason.
  * - **A playbook with a niche** (the business's): a playbook in use has its niche and the niche's problem, and some
  *   proof when the business has any (none is ever made up).
- * - **Your profile** (each person's): the extension has read it since the main offer went live (./profile-check.ts,
- *   decision 64), and every item on the profile list is right by the AI's check of it or ticked done by hand.
+ * - **Your profile** (each person's, on each network): the extension has read it since the main offer went live
+ *   (./profile-check.ts, decision 64), and every item on the profile list is right by the AI's check of it or ticked
+ *   done by hand. It's advice (`ADVICE_ITEMS`, the owner, 26 Oct 2026): still shown with what's left and where it's
+ *   done, but it never holds a day, Today's list, a helpful post or the extension's work.
  * - **Your messages** (each person's, decisions 65 to 67): they've seen sample messages for their playbook as the AI
  *   writes them in their voice (the first message, the video when the business has one, the link, the follow-ups and
  *   a check-in) and OK'd how they read, since the live version. The short video never holds anyone up (decision 83).
@@ -52,6 +55,41 @@ import {
 
 export const READY_ITEMS = ['offer', 'playbook', 'profile', 'messages', 'numbers'] as const;
 export type ReadyItem = (typeof READY_ITEMS)[number];
+
+/**
+ * The items that are advice, never a hold (the owner, 26 Oct 2026: "should still be able to start the day even if all
+ * the profile things on the platforms are not done"): the profile, on every network. Each still shows with what's left
+ * and where it's done, beside a Start that works.
+ */
+export const ADVICE_ITEMS: ReadonlySet<ReadyItem> = new Set<ReadyItem>(['profile']);
+
+/** Whether an item left holds the person's day (Start my day, Today's list, helpful posts, the extension's work). */
+export const blocksStart = (item: ReadyItem): boolean => !ADVICE_ITEMS.has(item);
+
+/** The first item left that holds the day, in Get ready's order; none when the person is ready. */
+export function firstHolding<T extends { readonly item: ReadyItem; readonly state: ReadyState }>(
+  items: readonly T[],
+): T | undefined {
+  return items.find((i) => i.state !== 'done' && blocksStart(i.item));
+}
+
+/** The advice left: items not done that never hold the day (the profile). */
+export function adviceLeft<T extends { readonly item: ReadyItem; readonly state: ReadyState }>(
+  items: readonly T[],
+): T[] {
+  return items.filter((i) => i.state !== 'done' && !blocksStart(i.item));
+}
+
+/** How many items hold the day, and how many of those are done: Get ready's count, the profile left out. */
+export function holdingCount(
+  items: readonly { readonly item: ReadyItem; readonly state: ReadyState }[],
+): {
+  done: number;
+  of: number;
+} {
+  const holding = items.filter((i) => blocksStart(i.item));
+  return { done: holding.filter((i) => i.state === 'done').length, of: holding.length };
+}
 
 /** Whose each item is: the business's, done by an owner or admin, or each person's own. */
 export const READY_WHOSE: Record<ReadyItem, 'business' | 'person'> = {
@@ -135,9 +173,11 @@ export interface ReadyItemState {
 }
 
 export interface Readiness {
+  /** No item that holds the day is left: the profile, which is advice, may still be. */
   readonly ready: boolean;
+  /** Every item, the profile among them, with what's left of each. */
   readonly items: readonly ReadyItemState[];
-  /** The first item not done, the one to do next; null when ready. */
+  /** The first item left that holds the day, the one to do next; null when ready. */
   readonly next: ReadyItem | null;
   /** The main offer's parts that changed in its live version, by name, when the profile wants a look again. */
   readonly changed: readonly string[];
@@ -242,8 +282,9 @@ export function readinessOf(f: ReadyFacts): Readiness {
       ? { item: 'numbers', state: 'done', whose: 'person', left: null }
       : { item: 'numbers', state: 'todo', whose: 'person', left: W.numbers };
 
+  // The profile is advice (`ADVICE_ITEMS`): it stays in the items with what's left, and never holds the day.
   const items = [offer, playbook, profile, messages, numbers];
-  const next = items.find((i) => i.state !== 'done')?.item ?? null;
+  const next = firstHolding(items)?.item ?? null;
   return {
     ready: next === null,
     items,
@@ -255,17 +296,42 @@ export function readinessOf(f: ReadyFacts): Readiness {
   };
 }
 
-/** Why Start my day is refused (`outreach_not_ready`): the first item left, and where to finish it. */
-export function notReadyWords(r: Readiness & { readonly platform?: Platform }): string {
-  const first = r.items.find((i) => i.state !== 'done');
+/**
+ * Why Start my day is refused (`outreach_not_ready`), and why a Start my day waits beside it: the first item left that
+ * holds the day, and where it's done. A business's item waiting on an owner says who; a playbook says which and where,
+ * on the network it's for. The profile never does: it's advice. '' when nothing holds the day.
+ */
+export function notReadyWords(r: {
+  readonly items: readonly {
+    readonly item: ReadyItem;
+    readonly state: ReadyState;
+    readonly left: string | null;
+  }[];
+  readonly platform?: Platform | undefined;
+}): string {
+  const first = firstHolding(r.items);
   if (!first) return '';
-  if (first.state === 'waiting') return first.left!;
-  // Another network's own profile says which: "Your LinkedIn profile isn't ready yet."
-  const words =
-    first.item === 'profile' && r.platform && r.platform !== 'facebook'
-      ? `Your ${NETWORKS[r.platform].name} profile isn’t ready yet.`
-      : READY_WORDS.notReady[first.item];
-  return `${words} Finish it under Get ready on the Today tab.`;
+  if (first.state === 'waiting' && first.left) return first.left;
+  const W = READY_WORDS.notReady;
+  switch (first.item) {
+    case 'playbook': {
+      const on = r.platform ?? 'facebook';
+      if (!first.left) return `${W.playbook} ${W.where}`;
+      // None runs on another network: its own line says so, and where to change that.
+      if (on !== 'facebook' && first.left === READY_WORDS.left.playbookNoneOn(on))
+        return first.left;
+      return `${W.playbook} ${first.left}`;
+    }
+    case 'messages':
+      return first.state === 'look_again'
+        ? `${W.messagesAgain} ${W.whereAgain}`
+        : `${W.messages} ${W.where}`;
+    case 'offer':
+    case 'numbers':
+      return `${W[first.item]} ${W.where}`;
+    default:
+      return '';
+  }
 }
 
 // ------------------------------------------------------------------------------------------------- the shapes
@@ -521,20 +587,26 @@ export function numbersVerdict(
 /** Get ready's words: one copy for the web, the phone and the extension. Plain words, curly apostrophes. */
 export const READY_WORDS = {
   title: 'Get ready for your best results',
-  hint: 'Five things to do before the extension reaches anyone for you. People who do them get more replies and more calls booked.',
+  hint: 'Four things to do before the extension reaches anyone for you, and your profile, which you can finish once you’ve started. People who do them get more replies and more calls booked.',
   /** On Today, in place of the day's list. */
   card: 'Get ready',
+  /** How many items that hold the day are left (`holdingCount`): the profile never counts. */
   cardHint: (left: number) =>
     `${plural(left, 'thing')} to do before the extension reaches anyone for you.`,
   ready: 'You’re ready. Start your day when you like.',
-  /** Beside Start my day while it's held. */
-  stripNotReady: 'Get ready first: the extension reaches nobody until the things below are done.',
+  /** Beside a held Start my day when what holds it couldn't be had: `notReadyWords` says which, where it can. */
+  stripNotReady:
+    'Get ready first: the extension reaches nobody until what’s left under Get ready is done.',
+  /** The card once nothing holds the day and the profile is left: advice, beside a Start that works. */
+  adviceHint:
+    'You’re ready to start your day. Your profile is still worth finishing: people look at it before they answer.',
+  /** Under the profile's line while it's left and nothing else holds the day (decision 90). */
+  profileLater: 'You can start now and finish it later.',
   /**
-   * Another network's row in the strip while its own profile isn't ready, the one shown being ready: everything else
-   * is the same on every network.
+   * Under the profile's line while something else still holds the day: true either way, so it never says "start now"
+   * beside a Start that waits.
    */
-  stripNotReadyOn: (name: string) =>
-    `Your ${name} profile isn’t ready yet. Show ${name}’s list to finish it under Get ready.`,
+  profileNoHold: 'Your day doesn’t wait on this one: finish it before or after you start.',
   /** Over the replies owed while getting ready. */
   repliesStill: 'People who wrote to you are still answered while you get ready.',
   progress: (done: number, of: number) => `${done} of ${of} done`,
@@ -580,9 +652,10 @@ export const READY_WORDS = {
     playbookNoneOn: (platform: Platform) =>
       `None of your playbooks runs on ${NETWORKS[platform].name} yet. Turn ${NETWORKS[platform].name} on under Where in one on the Playbooks tab, or write one for it.`,
     playbookNiche: (name: string) => `Pick a niche for ${name} on the Playbooks tab.`,
-    playbookProblem: (name: string) => `Write the niche’s biggest problem in ${name}.`,
+    playbookProblem: (name: string) =>
+      `Write the niche’s biggest problem in ${name} on the Playbooks tab.`,
     playbookProof: (name: string) =>
-      `Add proof to ${name}: a real result from your main offer, or one of its own.`,
+      `Add proof to ${name} on the Playbooks tab: a real result from your main offer, or one of its own.`,
     playbookWaiting:
       'Waiting on a playbook with a niche. Ask an owner or admin of this business to pick one on the Playbooks tab.',
     playbookWaitingOn: (platform: Platform) =>
@@ -600,14 +673,19 @@ export const READY_WORDS = {
     messagesAgain: 'Your main offer changed. Look at your messages again so they still fit.',
     numbers: 'Set a goal for calls booked a month, and see what it takes each day.',
   },
-  /** Why Start my day is refused, by the first item left. */
+  /**
+   * Why Start my day is refused, and waits beside its button, by the first item left that holds the day (never the
+   * profile, which is advice): what's wrong, then where it's done (`notReadyWords`).
+   */
   notReady: {
     offer: 'Your business’s main offer isn’t live yet.',
-    playbook: 'No playbook has a niche yet.',
-    profile: 'Your profile isn’t ready yet.',
+    playbook: 'No playbook is ready to use yet.',
     messages: 'You haven’t OK’d how your messages read yet.',
+    messagesAgain: 'Your main offer changed since you OK’d how your messages read.',
     numbers: 'Your numbers aren’t set yet.',
-  } satisfies Record<ReadyItem, string>,
+    where: 'Finish it under Get ready on the Today tab.',
+    whereAgain: 'Look at them again under Get ready on the Today tab.',
+  } satisfies Record<Exclude<ReadyItem, 'profile'>, string> & Record<string, string>,
   /** Your messages' sheet (Get ready, decisions 65 to 67). */
   messages: {
     title: 'Your messages',

@@ -13,8 +13,9 @@ import { GetReadyCard } from '../ready';
 
 /**
  * Get ready on the phone (decision 63): what's left, each item's state, the person's own three done right here, the
- * profile ticked an item at a time, the messages written on their computer to OK, and the goal with its math, and
- * nothing once they're ready.
+ * profile ticked an item at a time, the messages written on their computer to OK, and the goal with its math. The
+ * profile is advice (decision 90): it isn't counted, says it can wait, and once nothing else is left the card says they
+ * can start; nothing shows once it's done too.
  */
 
 jest.mock('@/changes', () => ({
@@ -24,7 +25,7 @@ jest.mock('@/changes', () => ({
 
 const notReady: ReadinessOutput = {
   ready: false,
-  next: 'profile',
+  next: 'numbers',
   changed: [],
   items: [
     { item: 'offer', state: 'done', whose: 'business', left: null },
@@ -60,15 +61,55 @@ describe('Get ready on the phone', () => {
   it('says what’s left, and ticks a profile item', async () => {
     const onTick = jest.fn(async () => undefined);
     await render(<GetReadyCard readiness={notReady} onTick={onTick} onNumbers={jest.fn()} />);
+    // The profile is shown, never counted: only the goal holds the day.
     expect(
-      screen.getByText('2 things to do before the extension reaches anyone for you.'),
+      screen.getByText('1 thing to do before the extension reaches anyone for you.'),
     ).toBeTruthy();
     expect(screen.getByText('6 things left to check on your Facebook profile.')).toBeTruthy();
+    // The goal still holds the day, so the profile never says "start now": only that the day doesn't wait on it.
+    expect(screen.getByTestId('ready-profile-no-hold')).toHaveTextContent(
+      READY_WORDS.profileNoHold,
+    );
+    expect(screen.queryByTestId('ready-profile-later')).toBeNull();
+    expect(screen.queryByTestId('ready-numbers-no-hold')).toBeNull();
     await fireEvent.press(screen.getByTestId('ready-open-profile'));
     const list = screen.getByTestId('ready-profile-list');
     expect(within(list).getAllByRole('checkbox')).toHaveLength(PROFILE_ITEMS.length);
     await fireEvent.press(screen.getByTestId('ready-profile-bio'));
     await waitFor(() => expect(onTick).toHaveBeenCalledWith('bio', true));
+  });
+
+  it('shows the profile as advice once they’re ready, and nothing once it’s done too', async () => {
+    const goalSet = notReady.items.map((i) =>
+      i.item === 'numbers' ? { ...i, state: 'done' as const, left: null } : i,
+    );
+    const view = await render(
+      <GetReadyCard
+        readiness={{ ...notReady, ready: true, next: null, items: goalSet }}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('get-ready-hint')).toHaveTextContent(READY_WORDS.adviceHint);
+    expect(screen.getByText('6 things left to check on your Facebook profile.')).toBeTruthy();
+    expect(screen.getByTestId('ready-profile-later')).toHaveTextContent(
+      'You can start now and finish it later.',
+    );
+    expect(screen.queryByTestId('ready-profile-no-hold')).toBeNull();
+    expect(screen.getByTestId('ready-open-profile')).toBeTruthy();
+    await view.rerender(
+      <GetReadyCard
+        readiness={{
+          ...notReady,
+          ready: true,
+          next: null,
+          items: goalSet.map((i) => ({ ...i, state: 'done' as const, left: null })),
+        }}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('get-ready')).toBeNull();
   });
 
   it('shows the messages written on the computer, and OKs them', async () => {
@@ -677,16 +718,5 @@ describe('Get ready on the phone', () => {
     expect(await shown('2026-10-16T15:40:23.000Z')).toBe(0);
     // Ended after it, as one put in ends after its own read: once, not under each.
     expect(await shown('2026-10-16T17:12:20.000Z')).toBe(1);
-  });
-
-  it('shows nothing once they’re ready', async () => {
-    await render(
-      <GetReadyCard
-        readiness={{ ...notReady, ready: true, next: null }}
-        onTick={jest.fn()}
-        onNumbers={jest.fn()}
-      />,
-    );
-    expect(screen.queryByTestId('get-ready')).toBeNull();
   });
 });

@@ -8,7 +8,8 @@
  *   their goal, which counts each of those networks: decision 88). A member's main setup is their own four; the
  *   business's part shows beside it, done or waiting on an owner.
  * - **Then a short setup for each network they turn on,** Facebook first: allow it in Chrome and a playbook for it
- *   (every network but Facebook), their profile there, what it does there, then their first day there.
+ *   (every network but Facebook), their profile there, what it does there, then their first day there. The profile is
+ *   a step to do, and advice: it never holds the first day (`startAdvice`, decision 90).
  * - **Each step is worked out from facts** (`setupStepStates`, `networkStepStates`), never kept as a flag: Get ready's
  *   items (./readiness.ts), the extension signing in, their own saved settings, the team's rules saved, the computer
  *   Chrome allows on a network, and a day started there. Skipping a step leaves it to do, and the setup opens at the
@@ -390,9 +391,16 @@ export function doneOf(steps: readonly { state: StepState }[]): { done: number; 
 }
 
 /**
+ * A network's steps that are advice before its first day, never in the way of it: the profile there (the owner, 26 Oct
+ * 2026: "should still be able to start the day even if all the profile things on the platforms are not done").
+ */
+export const ADVICE_STEPS: ReadonlySet<NetworkStep> = new Set<NetworkStep>(['profile']);
+
+/**
  * Before a network's first day: the first thing still in the way, with its words, or null when nothing is. The
  * business's part a member waits on, the main setup's steps, then the network's own (not its Start, nor the optional
- * video). Start my day's own refusals still come from the server: this only says so before the press.
+ * video, nor its profile, which is advice: `startAdvice`, decision 90). Start my day's own refusals still come from the
+ * server: this only says so before the press.
  */
 export function startBlocker(
   got: SetupLaidOut & {
@@ -412,17 +420,85 @@ export function startBlocker(
   if (main)
     return { stop: { net: null, step: main.step }, state: main.state, left: main.left ?? '' };
   const net = got.networks.find((n) => n.platform === platform);
-  const own = net?.steps.find((s) => s.step !== 'start' && s.state !== 'done');
+  const own = net?.steps.find(
+    (s) => s.step !== 'start' && !ADVICE_STEPS.has(s.step) && s.state !== 'done',
+  );
   if (own)
     return { stop: { net: platform, step: own.step }, state: own.state, left: own.left ?? '' };
   return null;
 }
 
-/** Where a refusal of Start my day is fixed (clients branch on its rule, never on its words). */
-export function startFix(rule: string, platform: Platform): SetupStop | null {
-  if (rule === 'outreach_sending_off') return { net: platform, step: 'choices' };
-  if (rule === 'outreach_network_off') return { net: null, step: 'networks' };
-  return null;
+/**
+ * Advice beside a network's Start, which still works: its profile left, with what's left of it and where it's done
+ * (`SETUP_WORDS.start.later`). Null once it's done.
+ */
+export function startAdvice(
+  got: SetupLaidOut,
+  platform: Platform,
+): { stop: SetupStop; state: StepState; left: string } | null {
+  const net = got.networks.find((n) => n.platform === platform);
+  const step = net?.steps.find((s) => ADVICE_STEPS.has(s.step) && s.state !== 'done');
+  if (!step) return null;
+  return {
+    stop: { net: platform, step: step.step },
+    state: step.state,
+    left: step.left ?? SETUP_WORDS.left.profile(PLATFORMS[platform]),
+  };
+}
+
+/** A refusal of Start my day as a screen gets it: its rule, and the details that say which. */
+export interface StartRefusal {
+  readonly rule?: string | undefined;
+  readonly details?: unknown;
+}
+
+const detail = (details: unknown, key: string): unknown =>
+  details !== null && typeof details === 'object'
+    ? (details as Record<string, unknown>)[key]
+    : undefined;
+
+/**
+ * Where a refusal of Start my day is fixed in the setup (clients branch on its rule and details, never on its words);
+ * null when there's nothing to fix there (a warning today), or only someone else can (a member's business part).
+ *
+ * - `outreach_sending_off`: what it does on the network; when the business allows only Off (`details.allowed` false),
+ *   its rules, for an owner or admin only.
+ * - `outreach_network_off`: the networks they use; for a network the business doesn't use, its rules, for an owner or
+ *   admin only.
+ * - `outreach_not_ready`: the item that held it (`details.item`): the main offer, the playbook (the network's own on
+ *   any network but Facebook), the messages or the goal. A business's item is an owner's or admin's to do.
+ */
+export function startFix(
+  refusal: StartRefusal | string,
+  platform: Platform,
+  canManage = true,
+): SetupStop | null {
+  const { rule, details } =
+    typeof refusal === 'string' ? { rule: refusal, details: undefined } : refusal;
+  switch (rule) {
+    case 'outreach_sending_off':
+      if (detail(details, 'allowed') === false)
+        return canManage ? { net: null, step: 'rules' } : null;
+      return { net: platform, step: 'choices' };
+    case 'outreach_network_off':
+      if (detail(details, 'allowed') === false)
+        return canManage ? { net: null, step: 'rules' } : null;
+      return { net: null, step: 'networks' };
+    case 'outreach_not_ready': {
+      const item = detail(details, 'item');
+      const on = PLATFORM_KEYS.find((p) => p === detail(details, 'platform')) ?? platform;
+      if (item === 'offer') return canManage ? { net: null, step: 'offer' } : null;
+      if (item === 'playbook') {
+        if (!canManage) return null;
+        return on === 'facebook' ? { net: null, step: 'playbook' } : { net: on, step: 'playbook' };
+      }
+      if (item === 'messages') return { net: null, step: 'messages' };
+      if (item === 'numbers') return { net: null, step: 'numbers' };
+      return null;
+    }
+    default:
+      return null;
+  }
 }
 
 /** Never saved their own settings and never started the setup (an extension signing in doesn't count as starting). */
@@ -729,6 +805,9 @@ export const SETUP_WORDS = {
       name: 'Your profile',
       title: (n: string) => `Your ${n} profile`,
       hint: 'People look at it before they answer. Your computer reads it, and the AI says what to change.',
+      /** Under it while it's left: it's advice, and never holds the first day (decision 90). */
+      later:
+        'Your first day doesn’t wait on this. Skip it for now and finish it later if you like.',
     },
     choices: {
       name: 'What it does there',
@@ -742,7 +821,12 @@ export const SETUP_WORDS = {
     },
   } satisfies Record<
     NetworkStep,
-    { name: string; title: (n: string) => string; hint: string | ((n: string) => string) }
+    {
+      name: string;
+      title: (n: string) => string;
+      hint: string | ((n: string) => string);
+      later?: string;
+    }
   >,
   /** What's left of a step, for the reminder and the Start screen. */
   left: {
@@ -764,6 +848,8 @@ export const SETUP_WORDS = {
     allow: (n: string) => `Allow the extension on ${n} in Chrome.`,
     choices: (n: string) => `Pick what it does on its own on ${n}.`,
     start: (n: string) => `Start your first day on ${n}.`,
+    /** A profile step whose words didn't come (an older answer): it's still advice. */
+    profile: (n: string) => `Look over your ${n} profile.`,
   },
   /** The extension's install, a step at a time (decision 71). Load unpacked needs the folder that holds manifest.json. */
   install: [
@@ -884,6 +970,10 @@ export const SETUP_WORDS = {
   } satisfies Record<Exclude<SendingMode, 'off'>, { title: string; about: string }>,
   sendingOnlyOff:
     'Your business doesn’t let anyone send on their own yet. Ask an owner to allow it in Team rules.',
+  /** The same, to an owner or admin, who can allow it: with a link to the team's rules (`toRules`). */
+  sendingOnlyOffManage:
+    'Your business doesn’t let anyone’s extension work on its own yet. Allow it for your team in Team rules, then come back here to pick.',
+  toRules: 'Go to Team rules',
   /** The team's rules: kept in one press. */
   keepRules: 'Keep these',
   saveRules: 'Save and carry on',
@@ -923,6 +1013,8 @@ export const SETUP_WORDS = {
   /** The Start screen. */
   start: {
     blocked: 'One thing left before it reaches anyone for you here.',
+    /** Beside a Start that works, under what's left of the profile (decision 90). */
+    later: 'You can start now and finish it later.',
     doItNow: 'Do it now',
     happens: 'What happens next',
     steps: [

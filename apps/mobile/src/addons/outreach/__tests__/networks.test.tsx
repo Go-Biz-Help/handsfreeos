@@ -132,6 +132,47 @@ describe('Today’s strip, a row for each network', () => {
     expect(onShow).toHaveBeenCalled();
   });
 
+  it('says beside each held Start my day what holds it and where it’s done, on every row', async () => {
+    const held =
+      'None of your playbooks runs on LinkedIn yet. Turn LinkedIn on under Where in one on the Playbooks tab, or write one for it.';
+    const view = await render(
+      <LiveStrip
+        platform="linkedin"
+        live={LIVE}
+        error={null}
+        online
+        now={NOW}
+        pressed={null}
+        many
+        shown={false}
+        ready={false}
+        held={held}
+        onShow={jest.fn()}
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByTestId('live-start')).toBeDisabled();
+    expect(screen.getByTestId('live-not-ready-linkedin')).toHaveTextContent(held);
+    // The network shown, alone: the same, in its own words.
+    await view.rerender(
+      <LiveStrip
+        platform="facebook"
+        live={LIVE}
+        error={null}
+        online
+        now={NOW}
+        pressed={null}
+        ready={false}
+        held="Your numbers aren’t set yet. Finish it under Get ready on the Today tab."
+        {...handlers()}
+      />,
+    );
+    expect(screen.getByTestId('live-start')).toBeDisabled();
+    expect(screen.getByTestId('live-not-ready')).toHaveTextContent(
+      'Your numbers aren’t set yet. Finish it under Get ready on the Today tab.',
+    );
+  });
+
   it('says a list with no runner is the person’s own to do, with no Start my day or Settings to change it', async () => {
     await beforeItsRunner(async () => {
       const h = handlers();

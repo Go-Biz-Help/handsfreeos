@@ -12,23 +12,55 @@
  * - **Putting a bio in:** it presses **Edit bio** (or **Add bio**), writes the bio in the box that opens in place of
  *   what was there, presses **Save**, and waits for the bio to show. With no such button, or no box, it says so, and
  *   the job hands the step to the person.
+ * - **From October 2026, by the About tab's editor** (decision 89): with no Edit bio on the profile, the job opens
+ *   Edit profile's link (`ownEditorsOf`), and there the bio's own control is pressed (`bioRow`: Edit bio or Add bio,
+ *   or the Bio row's own Edit, never one past another row's words), the bio written in the one box it opens once that
+ *   box is known to be the bio's (`bioBoxFits`), and that box's own Save pressed (./editors.ts); it's in once the line
+ *   under the title "Bio" says it. The Links card's Edit links, and the profile's number Accounts Center goes by, are
+ *   found here too, only as links to the profile itself.
  *
  * Like the rest of the readers, it goes by what a person sees (words, labels, page order), never Facebook's class
  * names, and was tuned from page outlines, not yet tried on a real account.
  */
 import { PROFILE_READ_LIMITS, type ProfileRead } from '@hfos/core/addons/outreach/profile-check';
-import { clean, elementsIn, isBefore, isHeading, labelOf, tabsIn, textLines } from './dom';
-import { shown } from './fetch';
+import {
+  clean,
+  elementsIn,
+  inTopBar,
+  isBefore,
+  isHeading,
+  labelOf,
+  tabsIn,
+  textLines,
+} from './dom';
+import {
+  buttonsIn,
+  cancelBy,
+  EDITOR_BUTTONS,
+  fieldName,
+  gone,
+  lineAfter,
+  newBoxAfter,
+  NO_STEPS,
+  rowControl,
+  saveBy,
+  textOf,
+  titlesIn,
+  type EditorSteps,
+} from './editors';
+import { placesOf, shown } from './fetch';
 import { typeInto } from './join';
+import { maskText } from './outline';
 import { cardList, cardsIntro, cardTitles, readProfile } from './profile';
 import type { PageAddress } from './types';
+import { classifyUrl, FACEBOOK, facebookUrl, pathParts, workUrl } from './urls';
 import { isFacebookText, UI_WORDS } from './vocabulary';
+import { readWarnings } from './warnings';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 const EDIT_BIO = /^(edit|add) bio$/i;
-const SAVE = /^save$/i;
 const COVER = /\bcover (photo|picture|image)\b/i;
 const PICTURE = /\bprofile (picture|photo)\b/i;
 /** The cards after Featured: reading it stops at the first of them. */
@@ -173,7 +205,7 @@ function featuredOf(main: Element): string[] {
 const LINKS_CARD = /^links$/i;
 
 /** An address off Facebook: as it is, or the one inside Facebook's l.php link. Null for Facebook's own pages. */
-function outsideLink(href: string): string | null {
+export function outsideLink(href: string): string | null {
   let url: URL;
   try {
     url = new URL(href, 'https://www.facebook.com');
@@ -226,7 +258,7 @@ export function readOwnProfile(doc: Document, url: string, address: PageAddress)
 export type BioResult =
   /** In, and showing on the profile. */
   | 'done'
-  /** No Edit bio or Add bio here: the person does it. */
+  /** No Edit bio or Add bio here, or something else wasn't as expected: the person does it. */
   | 'none'
   /** Written, but it didn't show after Save. */
   | 'not_saved';
@@ -242,27 +274,202 @@ export function bioBox(doc: Document): HTMLElement | null {
   );
 }
 
-/** Presses Edit bio, writes the bio in place of what was there, presses Save, and waits for it to show. */
-export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
-  const button = bioButton(doc);
-  if (!button) return 'none';
-  button.click();
-  let box: HTMLElement | null = null;
-  for (let waited = 0; waited < WAIT_MS && !box; waited += LOOK_MS) {
-    await pause(LOOK_MS);
-    box = bioBox(doc);
+/** The bio's title on the About tab's editor, and the control after it that opens its box. */
+const BIO_TITLE = /^bio$/i;
+const BIO_CONTROL = /^(edit|add)( bio)?$/i;
+/** What labels the bio's own box: its name, or Facebook's hint in it. */
+const BIO_FIELD = /\bbio\b|\bdescribe who you are\b/i;
+
+/**
+ * The bio's own control where Edit bio isn't on the profile (the About tab's editor, October 2026): a button labelled
+ * Edit bio or Add bio, in the box on top first (`labelled`); else the Edit (or Add) of the Bio row itself, found by its
+ * title (./editors.ts `rowControl`): never another row's, so with no Edit of its own, none. `between` is the bio as
+ * the row shows it, when it does. Null when neither is there.
+ */
+export function bioRow(doc: Document): {
+  readonly control: HTMLElement;
+  readonly labelled: boolean;
+  readonly between: readonly string[];
+} | null {
+  const places = placesOf(doc);
+  for (const place of places) {
+    const labelled = buttonsIn(place, EDIT_BIO)[0];
+    if (labelled) return { control: labelled, labelled: true, between: [] };
   }
-  if (!box) return 'none';
+  for (const place of places)
+    for (const title of titlesIn(place, BIO_TITLE)) {
+      const row = rowControl(title, BIO_CONTROL);
+      if (row) return { ...row, labelled: false };
+    }
+  return null;
+}
+
+/** The bio's own control (`bioRow`), or null. */
+export const bioControl = (doc: Document): HTMLElement | null => bioRow(doc)?.control ?? null;
+
+/**
+ * Whether the box the Bio row's Edit opened is the bio's: named for it (Bio, "Describe who you are"), or holding the
+ * bio the row showed, or the row showing nothing between its title and its Edit. A labelled Edit bio's box always is.
+ */
+export function bioBoxFits(
+  box: HTMLElement,
+  row: { readonly labelled: boolean; readonly between: readonly string[] },
+): boolean {
+  if (row.labelled) return true;
+  const named = [fieldName(box), box.getAttribute('aria-label'), box.getAttribute('placeholder')];
+  if (named.some((n) => BIO_FIELD.test(clean(n)))) return true;
+  const shownBio = row.between[0];
+  return shownBio === undefined || clean(textOf(box)) === clean(shownBio);
+}
+
+/** The names of the buttons on the page (or in the box on top) as the outline shows them: what was there instead. */
+export function buttonNamesOn(doc: Document, most = 12): string[] {
+  const place = placesOf(doc)[0] === doc.body ? mainOf(doc) : placesOf(doc)[0]!;
+  return [...place.querySelectorAll(EDITOR_BUTTONS)]
+    .filter((b) => shown(b) && !inTopBar(b))
+    .slice(0, most)
+    .map((b) => maskText(labelOf(b)).slice(0, 60) || `(${b.tagName.toLowerCase()})`);
+}
+
+/**
+ * Whether the bio shows: as the profile reads it (by Edit bio, or above the details row), or on the About tab's editor
+ * as the line right after the title "Bio", never anywhere else on the page.
+ */
+function bioShows(doc: Document, bio: string): boolean {
+  const wanted = clean(bio);
+  if (bioOf(doc) === wanted) return true;
+  return placesOf(doc).some((place) =>
+    titlesIn(place, BIO_TITLE).some((title) => clean(lineAfter(title)) === wanted),
+  );
+}
+
+/**
+ * Puts the bio in: presses Edit bio, or else the bio's own control on the About tab's editor (`bioRow`); writes the
+ * bio in the one box that opens, in place of what was there, once it's known to be the bio's (`bioBoxFits`, else it's
+ * closed again with its Cancel); presses that box's own Save; and waits for the box to close and the bio to show
+ * under its title. Nothing is pressed while Facebook shows a warning: the job reads it. How each step went comes with
+ * it, for the note of the page when it hands the step to the person.
+ */
+export async function writeBioSteps(
+  doc: Document,
+  bio: string,
+): Promise<{ readonly result: BioResult; readonly steps: EditorSteps }> {
+  const button = bioButton(doc);
+  const row = button ? null : bioRow(doc);
+  const control = button ?? row?.control ?? null;
+  const none = (steps: EditorSteps) => ({
+    result: 'none' as const,
+    steps: { ...steps, names: buttonNamesOn(doc) },
+  });
+  if (!control) return none(NO_STEPS);
+  if (readWarnings(doc, doc.location.href).length) return none({ ...NO_STEPS, control: true });
+  const opened = await newBoxAfter(doc, () => control.click());
+  // Edit bio's box, as it was always found: the first on the profile to write in.
+  const box = opened.box ?? (button ? bioBox(doc) : null);
+  let steps: EditorSteps = { ...NO_STEPS, control: true, boxes: box ? 1 : opened.boxes };
+  if (!box) return none(steps);
+  if (row && !bioBoxFits(box, row)) {
+    // Another part's box: closed again as it was, nothing written in it.
+    cancelBy(box).found?.click();
+    return none({ ...steps, fits: false });
+  }
   typeInto(doc, box, bio, true);
   await pause(300);
-  const save = [...mainOf(doc).querySelectorAll<HTMLElement>('[role="button"], button')].find(
-    (b) => SAVE.test(labelOf(b)) && shown(b),
-  );
-  if (!save) return 'none';
-  save.click();
+  steps = { ...steps, typed: clean(textOf(box)) === clean(bio) };
+  if (!steps.typed) return none(steps);
+  const save = saveBy(box);
+  steps = { ...steps, saves: save.count, saveOn: save.on };
+  if (!save.found) return none(steps);
+  save.found.click();
   for (let waited = 0; waited < WAIT_MS; waited += LOOK_MS) {
     await pause(LOOK_MS);
-    if (!bioBox(doc) && bioOf(doc) === clean(bio)) return 'done';
+    if (gone(box) && bioShows(doc, bio))
+      return { result: 'done', steps: { ...steps, saved: true } };
   }
-  return 'not_saved';
+  return { result: 'not_saved', steps: { ...steps, names: buttonNamesOn(doc) } };
+}
+
+/** Puts the bio in (`writeBioSteps`): how it went. */
+export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
+  return (await writeBioSteps(doc, bio)).result;
+}
+
+/**
+ * Where the person's own profile is changed, from the profile the page shows (decision 89): for the job alone, never
+ * sent to HandsFreeOS.
+ */
+export interface OwnEditors {
+  /** Edit profile's link: the About tab's editor, where the bio is changed in October 2026's layout. */
+  readonly about: string | null;
+  /** The Links card's Edit links (Contact and basic info), where links are added; else that page by the address. */
+  readonly links: string | null;
+  /** The profile's number, which Accounts Center's username page goes by: Edit profile's `id=`, or the address's. */
+  readonly id: string | null;
+  /** The username in the profile's address. */
+  readonly username: string | null;
+}
+
+const EDIT_PROFILE = /^edit profile$/i;
+const EDIT_LINKS = /^edit links$/i;
+const NUMBER = /^\d{1,20}$/;
+
+/**
+ * Where the person's own profile is changed: Edit profile's and Edit links's addresses, and its number. Without their
+ * labels, only a link to this same profile counts (`ownLink`), never one to someone else's.
+ */
+export function ownEditorsOf(doc: Document, href: string): OwnEditors {
+  const links = [...mainOf(doc).querySelectorAll('a[href]')].filter((a) => !inTopBar(a));
+  const urlOf = (a: Element) => facebookUrl(a.getAttribute('href') ?? '', href);
+  const label = (a: Element) => clean(a.getAttribute('aria-label'));
+  const tabOf = (url: URL) =>
+    (pathParts(url)[0]?.toLowerCase() === 'profile.php'
+      ? url.searchParams.get('sk')
+      : pathParts(url)[1]) ?? '';
+  const profile = classifyUrl(href).profile;
+  /**
+   * A link to this profile: by its username or its number, as the address the page shows has it; with the other one,
+   * by Facebook's mark on a link to edit your own profile.
+   */
+  const ownLink = (url: URL): boolean => {
+    const to = classifyUrl(url.href).profile;
+    if (!to || !profile) return false;
+    if (to.username && profile.username)
+      return to.username.toLowerCase() === profile.username.toLowerCase();
+    if (to.id && profile.id) return to.id === profile.id;
+    return url.searchParams.has('fb_profile_edit_entry_point');
+  };
+  const aboutLink =
+    links.find((a) => EDIT_PROFILE.test(label(a))) ??
+    links.find((a) => {
+      const url = urlOf(a);
+      return (
+        url !== null &&
+        url.searchParams.has('fb_profile_edit_entry_point') &&
+        tabOf(url) === 'about' &&
+        ownLink(url)
+      );
+    });
+  const linksLink =
+    links.find((a) => EDIT_LINKS.test(label(a))) ??
+    links.find((a) => {
+      const url = urlOf(a);
+      return url !== null && tabOf(url).toLowerCase() === 'about_contact' && ownLink(url);
+    });
+  const whole = (a: Element | undefined) => {
+    const url = a ? urlOf(a) : null;
+    return url ? workUrl(url.href) : null;
+  };
+  const aboutId = aboutLink ? (urlOf(aboutLink)?.searchParams.get('id') ?? null) : null;
+  const id = aboutId && NUMBER.test(aboutId) ? aboutId : (profile?.id ?? null);
+  const built = profile?.username
+    ? `${FACEBOOK}/${encodeURIComponent(profile.username)}/about_contact`
+    : id
+      ? `${FACEBOOK}/profile.php?id=${id}&sk=about_contact`
+      : null;
+  return {
+    about: whole(aboutLink),
+    links: whole(linksLink) ?? built,
+    id,
+    username: profile?.username ?? null,
+  };
 }

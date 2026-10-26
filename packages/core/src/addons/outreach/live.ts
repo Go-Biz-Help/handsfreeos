@@ -471,9 +471,19 @@ export const warningPushWords = (
   body: `The extension stopped on ${PLATFORMS[platform]} for today.`,
 });
 
-/** Why Start my day can't start on a network the person doesn't work: where to turn it on, its page in Settings. */
-export const networkOffWords = (platform: Platform): string =>
-  `${PLATFORMS[platform]} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → ${PLATFORMS[platform]}.`;
+/**
+ * Why Start my day can't start on a network the person doesn't work: where to turn it on, its page in Settings. When
+ * the business doesn't use it (`networksAllowed`), only an owner or admin can allow it there: one who can is told to,
+ * anyone else who to ask.
+ */
+export const networkOffWords = (platform: Platform, allowed = true, canManage = false): string => {
+  const name = PLATFORMS[platform];
+  if (allowed)
+    return `${name} is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → ${name}.`;
+  return canManage
+    ? `Your business doesn’t use ${name} for outreach yet, so there’s no day to start there. Allow it for your team under Social Outreach → Settings → ${name}, then turn it on for you there.`
+    : `Your business doesn’t use ${name} for outreach, so there’s no day to start there. Ask an owner of this business to allow it under Social Outreach → Settings → ${name}.`;
+};
 
 /** Why a network still looked at (decision 78) has no day to start: only its Check runs there, for now. */
 export const networkLookingWords = (platform: Platform): string => {
@@ -489,17 +499,22 @@ export const warnedTodayWords = (platform: Platform = 'facebook'): string => {
 
 /**
  * Why Start my day can't start while the extension does nothing on its own on a network: who can change that, and
- * where (the network's page in Settings, or General's For your team).
+ * where (the network's page in Settings, or General's For your team). When the business allows only Off, an owner or
+ * admin (`canManage`) is told to allow it, anyone else who to ask.
  */
 export function sendingOffWords(
   businessAllowsMore: boolean,
   platform: Platform = 'facebook',
+  canManage = false,
 ): string {
+  const name = PLATFORMS[platform];
   // A network the extension doesn't work yet (one before its runner): nothing to pick, and nobody to ask.
   if (!runsOnItsOwn(platform))
-    return `Your computer doesn’t work on ${PLATFORMS[platform]} on its own yet, so there’s no day to start there. Today’s list on ${PLATFORMS[platform]} is yours to do, and it notes each step you take.`;
-  return businessAllowsMore
-    ? `The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → ${PLATFORMS[platform]}.`
+    return `Your computer doesn’t work on ${name} on its own yet, so there’s no day to start there. Today’s list on ${name} is yours to do, and it notes each step you take.`;
+  if (businessAllowsMore)
+    return `The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → ${name}.`;
+  return canManage
+    ? `Your business doesn’t let anyone’s extension work on its own yet, so there’s no day to start. Allow it for your team under Social Outreach → Settings → General, then pick what it does under Social Outreach → Settings → ${name}.`
     : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → General.';
 }
 

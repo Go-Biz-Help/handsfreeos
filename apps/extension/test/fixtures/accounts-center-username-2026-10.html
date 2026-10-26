@@ -1,0 +1,44 @@
+<!doctype html>
+<!--
+  Accounts Center's username page for the signed-in person's Facebook profile
+  (accountscenter.facebook.com/profiles/<number>/username/), as Facebook usually draws it in October 2026. Made up,
+  nobody real: Casey Owner, Facebook profile 100001234, username casey.owner.7, the same made-up person as
+  own-profile-2026-10.html. Built from Facebook's usual words for this page, not yet from a page outline of it
+  (decision 89): the first Check Facebook sends the real one.
+
+  - The username's box is named by its label, with the page's own help under it and the address it makes.
+  - Done is off until Facebook allows it. What Facebook says as a username is typed, and what Done does, are added by
+    each test.
+-->
+<html lang="en">
+  <head>
+    <title>Username | Accounts Center</title>
+  </head>
+  <body>
+    <div role="banner">
+      <a href="https://www.facebook.com/" aria-label="Facebook"
+        ><svg aria-label="Facebook"></svg
+      ></a>
+      <span>Accounts Center</span>
+    </div>
+    <div role="navigation">
+      <a href="/profiles/"><span>Profiles</span></a>
+      <a href="/personal_info/"><span>Personal details</span></a>
+      <a href="/password_and_security/"><span>Password and security</span></a>
+    </div>
+    <div role="main">
+      <div role="dialog" aria-label="Username" id="panel">
+        <div role="button" aria-label="Back"><svg aria-hidden="true"></svg></div>
+        <h2><span>Username</span></h2>
+        <form id="username-form">
+          <label for="u1"><span>Username</span></label>
+          <input id="u1" type="text" value="casey.owner.7" />
+          <div><span>Your username can only contain letters, numbers and periods.</span></div>
+          <div><span id="where">www.facebook.com/casey.owner.7</span></div>
+          <div role="status" id="said"></div>
+        </form>
+        <div role="button" id="done" aria-disabled="true"><span>Done</span></div>
+      </div>
+    </div>
+  </body>
+</html>

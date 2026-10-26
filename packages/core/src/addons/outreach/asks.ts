@@ -143,6 +143,8 @@ export const askableOn = (platform: Platform, kind: AskKind): boolean =>
 
 /** What a kind is called on a network where the kit's words don't say it: LinkedIn withdraws, and has a headline. */
 const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, string>>>>> = {
+  // Its username and links go in with the bio (decision 89).
+  facebook: { profile_edit: 'Update your profile' },
   linkedin: {
     cancel: 'Withdraw old invitations',
     posts: 'Find posts on LinkedIn',
@@ -664,7 +666,8 @@ export const AskTask = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('research'), profileId: z.uuid(), name: z.string() }),
   plain('profile_read'),
   // What goes in: the bio (LinkedIn's headline), the About, or both. Builds before 0.62.0 read only a bio; from 0.87.0
-  // its name, username and links too (decision 84).
+  // its name, username and links too (decision 84). From 0.93.0 Facebook's username and links go in by themselves
+  // rather than being handed over (decision 89): the same ask, so an older build still takes it and hands them over.
   z.object({
     kind: z.literal('profile_edit'),
     bio: z.string().nullable().default(null),
@@ -875,7 +878,8 @@ export const askNeedsYou = (state: AskShownState): boolean =>
 
 /** What a person may answer a step handed to them: the file's steps go on, a person ticked can be skipped. */
 export function askRepliesFor(kind: AskKind): AskReply[] {
-  // Putting the bio in by hand, where the computer couldn't find Edit bio: they say when it's in.
+  // A step of Put these in its computer couldn't find, or a password Facebook asks for before a username changes:
+  // they say when it's in.
   if (isFileKind(kind) || kind === 'profile_edit') return ['carry_on'];
   if ((TIDY_ASK_KINDS as readonly string[]).includes(kind)) return ['carry_on', 'skip'];
   return [];

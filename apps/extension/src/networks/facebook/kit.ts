@@ -17,8 +17,8 @@ import { work } from './work';
 
 /**
  * Facebook's pages, where its script runs from install: www and web, and Accounts Center, where Facebook makes the
- * person's download file (./fetch.ts). scripts/build.mjs writes the same into the manifest; test/manifest.test.ts
- * holds the two together.
+ * person's download file (./fetch.ts) and where their username is changed (./username.ts). scripts/build.mjs writes
+ * the same into the manifest; test/manifest.test.ts holds the two together.
  */
 export const FACEBOOK_HOSTS = [
   'https://www.facebook.com/*',

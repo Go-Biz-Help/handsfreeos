@@ -587,7 +587,8 @@ export const helpfulNext = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const since = new Date(Date.now() - ENGAGED_DAYS * DAY).toISOString();
-    // On its own, it posts nothing until the person is ready (decision 63); one they OK'd and asked for still goes.
+    // On its own, it posts nothing until the person is ready (decision 63; their profile never holds it, decision 90);
+    // one they OK'd and asked for still goes.
     const holds = !input.helpfulId && !(await readinessFor(ctx, me, input.platform)).ready;
     const [post] = await rows<{
       id: string;

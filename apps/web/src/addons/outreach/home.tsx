@@ -98,7 +98,10 @@ export type OutreachShown =
       readonly asks: Asks;
       /** Everything that needs the person: null when it couldn't be had. */
       readonly waiting: Waiting | null;
-      /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
+      /**
+       * Get ready on the network shown (decisions 63 and 90): what's left, the profile's advice among it. Null when it
+       * couldn't be had; `today.ready` says whether anything holds the day.
+       */
       readonly readiness: Readiness | null;
     }
   | {
@@ -572,6 +575,7 @@ export function OutreachHome({
           asks={shown.asks}
           waiting={shown.waiting}
           readiness={shown.readiness}
+          canManage={canManage}
         />
       ) : shown.view === 'live' ? (
         <LiveView

@@ -60,7 +60,9 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   (`outreach.profile.contact`); **Demo booked** (`outreach.demo.mark`) and **Don’t pitch** (`outreach.friend.set`).
   All three are online commands, so never queued.
 - **Get ready** (decision 63, `ready.tsx`) shows above Today's list until the person is ready, as the web's card,
-  and Start my day waits. Their profile list and their goal are done right there, with signal
+  and Start my day waits, saying beside it what holds the day and where it's done (`notReadyWords`), on every row of
+  the strip. Their profile never holds it (decision 90): once nothing else is left, the card stays while the profile
+  is, as advice beside a Start that works. Their profile list and their goal are done right there, with signal
   (`outreach.readiness.profile`, `.numbers`); the main offer is built on a computer (core's Settings → Main offer
   reviews it on the phone) and the playbooks are written there too. The same profile list is **Your profile** on each
   network's page of Settings (decision 80, `useProfileProps`), a network still looked at among them.

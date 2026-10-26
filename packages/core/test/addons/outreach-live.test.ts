@@ -20,6 +20,7 @@ import {
   dayWords,
   isOffline,
   LINE_MOST,
+  networkOffWords,
   LIVE_REFETCH_SECONDS,
   numberedName,
   OFFLINE_MINUTES,
@@ -183,6 +184,23 @@ describe('the live view’s words', () => {
     expect(sendingOffWords(true, 'alignable')).toContain('Settings → Alignable');
     expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');
     expect(sendingOffWords(false)).toContain('Settings → General');
+    // An owner or admin, whose business allows only Off, isn't told to ask an owner: they're told to allow it, where.
+    const owner = sendingOffWords(false, 'linkedin', true);
+    expect(owner).not.toContain('Ask an owner');
+    expect(owner).toContain('Allow it for your team under Social Outreach → Settings → General');
+    expect(owner).toContain('Settings → LinkedIn');
+    // Their own choice to pick reads the same for everyone.
+    expect(sendingOffWords(true, 'linkedin', true)).toBe(sendingOffWords(true, 'linkedin'));
+    // A network that's off says where to turn it on; one the business doesn't use, who can allow it, and where.
+    expect(networkOffWords('linkedin')).toBe(
+      'LinkedIn is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → LinkedIn.',
+    );
+    expect(networkOffWords('linkedin', false)).toBe(
+      'Your business doesn’t use LinkedIn for outreach, so there’s no day to start there. Ask an owner of this business to allow it under Social Outreach → Settings → LinkedIn.',
+    );
+    expect(networkOffWords('linkedin', false, true)).toContain(
+      'Allow it for your team under Social Outreach → Settings → LinkedIn',
+    );
   });
 
   it('cut long lines and names short rather than refuse them', () => {
@@ -446,10 +464,18 @@ describe('live status and control', () => {
           where workspace_id = ${soloWs} and addon_id = 'outreach'`,
     );
     const said = await runAs(solo, soloWs, 'outreach.day.start', {}).catch(
-      (e: { rule?: string; message: string }) => e,
+      (e: { rule?: string; message: string; details?: unknown }) => e,
     );
-    expect(said).toMatchObject({ rule: 'outreach_sending_off' });
-    expect((said as { message: string }).message).toContain('Ask an owner of this business');
+    // Sky owns the business: told to allow it for the team, and where, never to ask an owner. The details say the
+    // business allows only Off, for the fix a screen links to (the team's rules).
+    expect(said).toMatchObject({
+      rule: 'outreach_sending_off',
+      details: { platform: 'facebook', allowed: false },
+    });
+    expect((said as { message: string }).message).toContain(
+      'Allow it for your team under Social Outreach → Settings → General',
+    );
+    expect((said as { message: string }).message).not.toContain('Ask an owner');
     // Pressed the day before, and waiting on the phone since: passed over quietly, never refused.
     expect(
       await runAs(solo, soloWs, 'outreach.day.start', {}, new Date(Date.now() - 2 * DAY)),

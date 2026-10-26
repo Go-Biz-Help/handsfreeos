@@ -1,3 +1,4 @@
+import { isApiErrorBody } from '@hfos/api-client';
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
   clockWords,
@@ -23,6 +24,8 @@ import {
   teamWordsOn,
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
+import { notReadyWords, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { SETUP_WORDS, startFix } from '@hfos/core/addons/outreach/setup';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
@@ -31,6 +34,7 @@ import { View } from 'react-native';
 
 import { ChangeError } from '@/changes';
 import { useChange } from '@/changes/hooks';
+import type { OutboxRow } from '@/changes/outbox';
 import type { ChangeState } from '@/changes/rules';
 import { Check, Inbox, LoaderCircle, Pause, Play } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
@@ -64,6 +68,12 @@ import { useNetworksOn } from './networks';
  * signal and go when it's back; the rest needs signal, and with none the last answer stays, "As of" when it came.
  * The day, its warning, its limits and its first lists are one network's (`outreach.live`'s `platform`, Facebook's
  * when left out): Today's strip asks for each network the person works (./hub.tsx).
+ *
+ * A Start my day that can't be pressed says why beside it (the owner, 26 Oct 2026): what holds the day under Get ready
+ * and where it's done, the extension doing nothing on its own with where to change it, or the warning. Start is a
+ * change that waits on the phone, so HandsFreeOS's answer comes after the press: "Your day has started" shows only once
+ * it's taken, and a refusal stays beside Start in HandsFreeOS's words, with **Do it now** where it's fixed (`startFix`,
+ * by its rule and details, never its words).
  */
 
 const TONE_BADGE = { good: 'ok', waiting: 'pending', warn: 'danger', plain: 'gray' } as const;
@@ -93,6 +103,74 @@ export function pressShown(
   return (answeredAt ?? 0) <= press.at;
 }
 
+/** A press of Start my day HandsFreeOS refused, kept beside the button: its words, and where it's fixed. */
+export interface StartRefusedShown {
+  readonly words: string;
+  /** Opens where it's fixed: null when there's nothing to press (a warning today, or someone else's to do). */
+  readonly fix: (() => void) | null;
+}
+
+/** The refusal's details, from the answer the phone kept with it: what `startFix` reads. */
+function detailsOf(row: Pick<OutboxRow, 'answer'>): unknown {
+  try {
+    const body: unknown = row.answer ? JSON.parse(row.answer) : null;
+    return isApiErrorBody(body) ? body.error.details : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A refused Start my day as the phone shows it: HandsFreeOS's words, and where it's fixed on the phone. The person's
+ * choices and the networks they use are on the network's page of Settings; the business's rules on General, or the
+ * network's own page for a network the business doesn't use (`outreach.manage` only, as `startFix` decides); and
+ * Get ready's items under Get ready on Today, which the strip there already sits over (`onToday` null).
+ */
+export function startRefusedOf(
+  row: Pick<OutboxRow, 'reason' | 'rule' | 'answer'>,
+  platform: Platform,
+  to: {
+    readonly manages: boolean;
+    readonly onSettings: (part: 'general' | Platform) => void;
+    readonly onToday: (() => void) | null;
+  },
+): StartRefusedShown {
+  const rule = row.rule ?? undefined;
+  const stop = startFix({ rule, details: detailsOf(row) }, platform, to.manages);
+  const words = row.reason ?? W.startRefused;
+  if (!stop) return { words, fix: null };
+  switch (stop.step) {
+    case 'choices':
+    case 'networks':
+      return { words, fix: () => to.onSettings(platform) };
+    case 'rules':
+      return {
+        words,
+        fix: () => to.onSettings(rule === 'outreach_sending_off' ? 'general' : platform),
+      };
+    default:
+      return { words, fix: to.onToday };
+  }
+}
+
+/** A refused Start my day, beside the button: HandsFreeOS's words, with Do it now where it's fixed. */
+export function StartRefusedNote({ refused }: { refused: StartRefusedShown }) {
+  return (
+    <View
+      className="gap-2 rounded-menu bg-warning-soft px-3 py-2.5"
+      accessibilityRole="alert"
+      testID="live-start-refused"
+    >
+      <Text className="text-[13px] leading-[18px] text-warning-text">{refused.words}</Text>
+      {refused.fix ? (
+        <Button variant="secondary" size="sm" onPress={refused.fix} testID="live-start-fix">
+          {SETUP_WORDS.start.doItNow}
+        </Button>
+      ) : null}
+    </View>
+  );
+}
+
 export function StateChip({ state, testID }: { state: ShownState; testID?: string }) {
   return (
     <Badge variant={TONE_BADGE[stateTone(state)]} testID={testID}>
@@ -109,7 +187,27 @@ export function LiveScreen({ net: start = null }: { net?: Platform | null }) {
   const nets = useNetworksOn();
   const [asked, setAsked] = React.useState<Platform | null>(start);
   const net = networkShown(nets, asked);
-  return <LiveBody {...useLiveProps(true, net)} networks={nets} onNetwork={setAsked} />;
+  const ws = useOutreachContext().workspaceId;
+  // Get ready on the network shown, as Today's strip has it: Start waits while anything holds the day, saying what.
+  const ready = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.readiness', {
+          body: { workspaceId: ws, platform: net },
+        }),
+      ),
+    `ready:${ws}:${net}`,
+    W.title,
+  );
+  return (
+    <LiveBody
+      {...useLiveProps(true, net)}
+      networks={nets}
+      onNetwork={setAsked}
+      ready={ready.data?.ready ?? true}
+      held={ready.data && !ready.data.ready ? notReadyWords(ready.data) : null}
+    />
+  );
 }
 
 /**
@@ -147,31 +245,49 @@ export function useLiveProps(
   const askActions = useAskActions(asks.data, asks.reload);
   // A press waits on the phone with no signal: the day shows as pressed while it waits there, then HandsFreeOS's answer.
   const [pressed, setPressed] = React.useState<Press | null>(null);
-  const queued = useChange(pressed?.id ?? '');
+  // Only this press's own change: never an earlier one's answer, while the look-up catches up with a new press.
+  const row = useChange(pressed?.id ?? '');
+  const queued = row && pressed && row.id === pressed.id ? row : null;
   const shown = pressShown(pressed, queued, live.at);
   const sent = queued?.state === 'sent';
   const { reload } = live;
+  // A Start HandsFreeOS refused: kept beside the button until the next press, with where it's fixed.
+  const [refused, setRefused] = React.useState<StartRefusedShown | null>(null);
+  // "Your day has started", said once HandsFreeOS has taken it: a refusal says why instead.
+  const announce = React.useRef<string | null>(null);
+  const { manages } = ctx;
   React.useEffect(() => {
-    if (pressed && !shown) setPressed(null);
-  }, [pressed, shown]);
+    if (!pressed || shown) return;
+    if (pressed.state === 'started' && queued?.state === 'refused') {
+      announce.current = null;
+      setRefused(
+        startRefusedOf(queued, platform, {
+          manages,
+          onSettings: (part) => openSettingsPart(ws, part),
+          // On Today, Get ready sits under the strip; Details opens Today, where it is.
+          onToday: full ? () => openOutreach(ws, 'today', `net=${platform}`) : null,
+        }),
+      );
+    }
+    setPressed(null);
+  }, [pressed, shown, queued, platform, manages, ws, full]);
   React.useEffect(() => {
-    if (sent) reload();
+    if (!sent) return;
+    reload();
+    if (announce.current) toast.show(announce.current);
+    announce.current = null;
   }, [sent, reload]);
   const press = async (state: 'started' | 'stopped') => {
+    setRefused(null);
+    announce.current = null;
     try {
       const made = await (state === 'started' ? startDay(ws, platform) : stopDay(ws, platform));
       setPressed({ state, id: made.id, at: Date.now() });
       const computerOpen =
         !!live.data?.computer && !isOffline(live.data.computer.lastSeenAt, Date.now());
-      toast.show(
-        ctx.online
-          ? state === 'started'
-            ? W.started(computerOpen)
-            : W.stopped
-          : state === 'started'
-            ? W.startQueued
-            : W.stopQueued,
-      );
+      // With signal, a start is said once HandsFreeOS takes it (it may say why not); a stop always is.
+      if (ctx.online && state === 'started') announce.current = W.started(computerOpen);
+      else toast.show(ctx.online ? W.stopped : state === 'started' ? W.startQueued : W.stopQueued);
       if (ctx.online) setTimeout(reload, 1500);
     } catch (e) {
       toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -186,12 +302,15 @@ export function useLiveProps(
     online: ctx.online,
     now: Date.now(),
     pressed: shown && pressed ? pressed.state : null,
+    refused,
+    manages,
     onRetry: reload,
     onStart: () => void press('started'),
     onStop: () => void press('stopped'),
     onWaiting: () => openOutreach(ws, 'today'),
-    // What it does on its own is set on the network's own page of Settings.
+    // What it does on its own is set on the network's own page of Settings; the team's say, on General.
     onSettings: () => openSettingsPart(ws, platform),
+    onGeneral: () => openSettingsPart(ws, 'general'),
     asks: asks.data,
     askActions,
   };
@@ -206,11 +325,16 @@ export function LiveBody({
   online,
   now,
   pressed,
+  refused = null,
+  manages = false,
+  ready = true,
+  held = null,
   onRetry,
   onStart,
   onStop,
   onWaiting,
   onSettings,
+  onGeneral,
   asks = null,
   askActions,
   networks = [platform],
@@ -230,11 +354,21 @@ export function LiveBody({
   now: number;
   /** Start or Stop pressed on this phone, still waiting there to be sent (`pressShown`). */
   pressed: LiveDay['state'] | null;
+  /** A Start HandsFreeOS refused: its words and where it's fixed, beside the button. */
+  refused?: StartRefusedShown | null;
+  /** An owner or admin: a business that allows only Off is theirs to change, on General. */
+  manages?: boolean;
+  /** Whether the person is ready on this network (decisions 63 and 90): until they are, Start waits and says why. */
+  ready?: boolean;
+  /** While it isn't ready: what holds the day under Get ready and where it's done (`notReadyWords`). */
+  held?: string | null;
   onRetry: () => void;
   onStart: () => void;
   onStop: () => void;
   onWaiting: () => void;
   onSettings: () => void;
+  /** Opens General in Settings, where an owner or admin allows the team more. */
+  onGeneral?: () => void;
   /** What the person asked their computer, with signal. */
   asks?: AsksOutput | null;
   askActions?: AskActions;
@@ -333,11 +467,17 @@ export function LiveBody({
         {live.sending === 'off' ? (
           <>
             <Note testID="live-sending-off">
-              {runsOnItsOwn(platform) ? W.sendingOff(live.canSend) : noRunnerWords(platform)}
+              {runsOnItsOwn(platform)
+                ? W.sendingOff(live.canSend, manages)
+                : noRunnerWords(platform)}
             </Note>
-            {live.canSend && runsOnItsOwn(platform) ? (
+            {runsOnItsOwn(platform) && live.canSend ? (
               <Button variant="secondary" size="md" onPress={onSettings} testID="live-settings">
                 {W.rows.settings}
+              </Button>
+            ) : runsOnItsOwn(platform) && manages && onGeneral ? (
+              <Button variant="secondary" size="md" onPress={onGeneral} testID="live-general">
+                {W.settingsGeneral}
               </Button>
             ) : null}
           </>
@@ -346,7 +486,7 @@ export function LiveBody({
             <Button
               className="flex-1"
               icon={Play}
-              disabled={day.state === 'started' || warned}
+              disabled={day.state === 'started' || warned || !ready}
               onPress={onStart}
               testID="live-start"
             >
@@ -364,6 +504,11 @@ export function LiveBody({
             </Button>
           </View>
         )}
+        {/* Beside a Start my day that waits on Get ready: what holds it, and where it's done. */}
+        {ready || day.state === 'started' || live.sending === 'off' ? null : (
+          <Note testID="live-not-ready">{held || READY_WORDS.stripNotReady}</Note>
+        )}
+        {refused && day.state !== 'started' ? <StartRefusedNote refused={refused} /> : null}
         {dayWords(day, tz, live.lists, platform) ? (
           <Note testID="live-day-words">{dayWords(day, tz, live.lists, platform)}</Note>
         ) : null}

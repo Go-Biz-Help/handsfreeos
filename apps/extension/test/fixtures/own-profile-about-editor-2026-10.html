@@ -1,0 +1,78 @@
+<!doctype html>
+<!--
+  The signed-in person's own profile, on the About tab's editor that Edit profile leads to in Facebook's October 2026
+  layout (/profile.php?fb_profile_edit_entry_point=7&id=…&sk=about). Made up, nobody real: Casey Owner, the same
+  made-up person as own-profile-2026-10.html. Built from Facebook's usual words for this editor, not yet from a page
+  outline of it (decision 89): the first Check Facebook sends the real one.
+
+  - The profile's top, with Edit profile's link, is still there, so it's known to be their own.
+  - The About tab lists its parts; Bio is a row with its words and an Edit after it (just "Edit", a pencil).
+  - Pressing Edit, saving and cancelling are added by each test, as Facebook would.
+-->
+<html lang="en">
+  <head>
+    <title>(1) Casey Owner | Facebook</title>
+  </head>
+  <body>
+    <div>
+      <div role="banner">
+        <a href="/casey.owner.7" aria-label="Your profile"><svg aria-label="Your profile"></svg></a>
+      </div>
+      <div role="main">
+        <div>
+          <div>
+            <div role="button"><span>Casey Owner</span></div>
+            <a
+              role="link"
+              aria-label="Edit profile"
+              href="/profile.php?fb_profile_edit_entry_point=7&amp;id=100001234&amp;sk=about"
+            >
+              <div role="none">
+                <span dir="auto"><span>Edit</span></span>
+              </div>
+            </a>
+          </div>
+          <div role="tablist">
+            <a role="tab" aria-selected="false" href="/casey.owner.7/"><span>All</span></a>
+            <a role="tab" aria-selected="true" href="/casey.owner.7/about"><span>About</span></a>
+            <a role="tab" aria-selected="false" href="/casey.owner.7/photos"><span>Photos</span></a>
+          </div>
+        </div>
+        <div>
+          <div>
+            <h2 dir="auto"><span>About</span></h2>
+            <div role="list">
+              <a role="listitem" href="/casey.owner.7/about_overview"><span>Overview</span></a>
+              <a role="listitem" href="/casey.owner.7/about_contact"
+                ><span>Contact and basic info</span></a
+              >
+              <a role="listitem" href="/casey.owner.7/about_details"
+                ><span>Details about you</span></a
+              >
+            </div>
+          </div>
+          <div id="bio-row">
+            <div>
+              <h3 dir="auto"><span>Bio</span></h3>
+            </div>
+            <div id="bio-shown">
+              <span dir="auto"
+                >Dad, golfer, coffee. I help Columbus roofers book more inspections.</span
+              >
+            </div>
+            <div role="button" aria-label="Edit" id="bio-edit">
+              <svg aria-hidden="true"></svg>
+            </div>
+          </div>
+          <div id="work-row">
+            <div>
+              <h3 dir="auto"><span>Work</span></h3>
+            </div>
+            <span dir="auto">Owner at Summit Roof Leads</span>
+            <div role="button" aria-label="Edit"><svg aria-hidden="true"></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

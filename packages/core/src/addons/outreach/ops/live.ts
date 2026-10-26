@@ -8,8 +8,10 @@ import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
+import { scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext, RequestMeta } from '../../../kernel/types';
+import type { Permission } from '../../../permissions';
 import { onServerClock } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { businessDay, businessLimitsOn, choicesFor, OTHER_PLATFORMS } from '../automation';
@@ -301,24 +303,47 @@ async function setDay(
     const kept = await dayOf(ctx, me, platform, today);
     if (warning?.today || kept.why === 'warning')
       throw HfosError.rule('outreach_warned_today', 409, warnedTodayWords(platform));
-    // A network the person doesn't work has no day to start.
+    // A network the person doesn't work has no day to start: off for them, or one the business doesn't use, which
+    // only an owner or admin can allow. The details say which, for the fix a screen links to.
     const { choices: settings, rules } = await automationOf(ctx, me, Date.now(), platform);
-    if (!settings.on) throw HfosError.rule('outreach_network_off', 409, networkOffWords(platform));
+    // An owner or admin is told to change what only they can; anyone else, who to ask.
+    const canManage = scopeCan(ctx.scope, 'outreach.manage' as Permission);
+    if (!settings.on) {
+      const allowed = rules.networksAllowed.includes(platform);
+      throw new HfosError(
+        'rule_violation',
+        409,
+        networkOffWords(platform, allowed, canManage),
+        { platform, allowed },
+        'outreach_network_off',
+      );
+    }
     // A network still looked at (decision 78) has no day yet: only its Check runs there.
     if (isLooking(platform))
       throw HfosError.rule('outreach_network_looking', 409, networkLookingWords(platform));
-    // Nothing outreach-like until they're ready (decision 63): the first item left says where to finish it.
+    // Nothing outreach-like until they're ready (decisions 63 and 90): the first item left that holds the day says
+    // what it is and where it's done, and the details name it, for the fix a screen links to. The profile never does.
     const ready = await readinessFor(ctx, me, platform);
-    if (!ready.ready) throw HfosError.rule('outreach_not_ready', 409, notReadyWords(ready));
-    if (settings.sending === 'off')
-      throw HfosError.rule(
-        'outreach_sending_off',
+    if (!ready.ready)
+      throw new HfosError(
+        'rule_violation',
         409,
-        sendingOffWords(
-          rules.sendingAllowed.some((m) => m !== 'off'),
-          platform,
-        ),
+        notReadyWords(ready),
+        { item: ready.next, platform },
+        'outreach_not_ready',
       );
+    // The extension does nothing on its own there: the details say whether the business lets it (`allowed`), so a
+    // screen links to the person's own choice there, or to the team's rules for an owner or admin.
+    if (settings.sending === 'off') {
+      const allowed = rules.sendingAllowed.some((m) => m !== 'off');
+      throw new HfosError(
+        'rule_violation',
+        409,
+        sendingOffWords(allowed, platform, canManage),
+        { platform, allowed },
+        'outreach_sending_off',
+      );
+    }
   }
   // Pressed in the extension: that computer is the one the person is using, so it works. When that makes a different
   // computer the one that works, the app and the person's other computers hear it at once, day changed or not.

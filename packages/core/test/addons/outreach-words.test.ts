@@ -18,6 +18,11 @@ describe('Social Outreach’s shared words', () => {
   it('puts the note on sending together from the parts the web links', () => {
     expect(W.sendingOff(true)).toBe(`${W.sendingOffNote} ${W.changeThatIn} ${W.rows.settings}.`);
     expect(W.sendingOff(false)).toBe(`${W.sendingOffNote} ${W.askToSend}`);
+    // An owner or admin, when the business allows only Off: where they allow it, never "ask an owner".
+    expect(W.sendingOff(false, true)).toBe(
+      `${W.sendingOffNote} ${W.allowForTeamIn} ${W.settingsGeneral}.`,
+    );
+    expect(W.sendingOff(true, true)).toBe(W.sendingOff(true));
   });
 
   it('says the same of a team member’s computer and of a group, everywhere', () => {

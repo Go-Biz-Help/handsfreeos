@@ -57,7 +57,7 @@ import {
   runsOnItsOwn,
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
-import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { adviceLeft, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
@@ -144,15 +144,21 @@ export function TodayView({
   asks,
   waiting,
   readiness,
+  canManage = false,
 }: {
   workspaceId: string;
+  /** An owner or admin: a refused Start my day may point them to the business's part to fix. */
+  canManage?: boolean;
   /** The network whose list it is. */
   platform?: Platform;
   /** Each network the person works, with what their computer is doing there: the strip at the top. */
   networks: readonly NetworkLive[];
   /** The network's list for today. */
   today: TodayList;
-  /** What's left before the extension reaches anyone for them (decision 63): null once they're ready. */
+  /**
+   * Get ready on the network shown (decisions 63 and 90): what's left, the profile's advice among it; null when it
+   * couldn't be had. Whether anything holds the day is `today.ready`.
+   */
   readiness: Readiness | null;
   /** Today's helpful post, and those up lately (decision 50). */
   helpful: HelpfulList;
@@ -165,6 +171,10 @@ export function TodayView({
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
+  // Until the person is ready, Get ready shows in place of the list (decision 63); once they are, only while their
+  // profile is left, as advice above the list (decision 90).
+  const ready = today.ready;
+  const getReady = readiness && (!ready || adviceLeft(readiness.items).length) ? readiness : null;
   const live = networks.find((n) => n.platform === platform)?.live ?? null;
   const many = networks.length > 1;
   const name = PLATFORMS[platform];
@@ -198,7 +208,8 @@ export function TodayView({
           workspaceId={workspaceId}
           networks={networks}
           platform={platform}
-          ready={!readiness}
+          ready={ready}
+          canManage={canManage}
         />
       ) : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -220,8 +231,8 @@ export function TodayView({
               {wheelsWords(today.wheels)}
             </p>
           ) : null}
-          {readiness ? (
-            <GetReadyCard workspaceId={workspaceId} readiness={readiness} asks={asks} />
+          {getReady ? (
+            <GetReadyCard workspaceId={workspaceId} readiness={getReady} asks={asks} />
           ) : null}
           {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
           {helpfulOn(platform) ? (
@@ -255,9 +266,9 @@ export function TodayView({
                   </Button>
                 ) : null}
               </div>
-              {readiness ? (
+              {ready ? null : (
                 <p className="-mt-1 text-[13px] text-text-2">{READY_WORDS.repliesStill}</p>
-              ) : null}
+              )}
               <Card className="p-0" data-testid="today-list">
                 <ul>
                   {items.map((item, i) => (
@@ -274,9 +285,9 @@ export function TodayView({
                 </ul>
               </Card>
             </section>
-          ) : readiness ? null : (
+          ) : ready ? (
             <TodayStart workspaceId={workspaceId} platform={platform} />
-          )}
+          ) : null}
           {askableOn(platform, 'posts') && !runsOnItsOwn(platform) ? (
             <FindPostsCard workspaceId={workspaceId} platform={platform} asks={asks} />
           ) : null}

@@ -1,6 +1,7 @@
 import { ASK_KINDS_FOR } from '@hfos/core/addons/outreach/asks';
 import { networkShown, networksShown } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { notReadyWords } from '@hfos/core/addons/outreach/readiness';
 import { isNetworkPart } from '@hfos/core/addons/outreach/settings-parts';
 import { outreachSetupPath } from '@hfos/core/addons/outreach/setup';
 import type { Metadata } from 'next';
@@ -446,13 +447,15 @@ export default async function OutreachPage({
       ? networksShown(mine.settings, mine.rules.networksAllowed)
       : ['facebook'];
     const net = networkShown(nets, shown.net);
-    // Whether the person is ready on a network, its own profile counting: each row's Start my day waits on its own.
-    const readyOf = (platform: Platform) =>
+    // Get ready on each network: whether the person is ready there, and what holds its day, said beside its Start my
+    // day (its own playbook counts; the profile never does, decision 90). The network shown's is the Get ready card's,
+    // while anything is left on it, the profile's advice among them.
+    const readinessOf = (platform: Platform) =>
       api
         .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform } })
-        .then((r) => r.data?.ready)
-        .catch(() => undefined);
-    const [today, lives, helpful, readyOn] = await Promise.all([
+        .then((r) => r.data ?? null)
+        .catch(() => null);
+    const [today, lives, helpful, readies] = await Promise.all([
       api
         .POST('/v1/queries/outreach.today', { body: { workspaceId, platform: net } })
         .then(unwrapPage),
@@ -461,24 +464,31 @@ export default async function OutreachPage({
       api
         .POST('/v1/queries/outreach.helpful', { body: { workspaceId, platform: net } })
         .then(unwrapPage),
-      Promise.all(nets.map((p) => (p === net ? undefined : readyOf(p)))),
+      Promise.all(nets.map((p) => readinessOf(p))),
     ]);
     const networks = nets.flatMap((platform, i) => {
       const live = lives[i];
-      return live ? [{ platform, live, ready: platform === net ? today.ready : readyOn[i] }] : [];
+      const r = readies[i] ?? null;
+      const ready = platform === net ? today.ready : r?.ready;
+      return live
+        ? [{ platform, live, ready, held: ready === false && r ? notReadyWords(r) : null }]
+        : [];
     });
     const canManage = got.workspace.permissions.includes('outreach.manage');
-    // Owners and admins see who's on training wheels, to end them early; until the person is ready on the network
-    // shown, its Get ready shows in place of the day's list (decision 63).
+    // Owners and admins see who's on training wheels, to end them early. Until the person is ready on the network
+    // shown, its Get ready shows in place of the day's list (decision 63); once they are, it shows only while the
+    // profile there is left, as advice beside the list.
+    const shownReadiness = readies[nets.indexOf(net)] ?? null;
     const [wheels, readiness] = await Promise.all([
       canManage
         ? api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
         : null,
-      today.ready
-        ? null
-        : api
-            .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: net } })
-            .then(unwrapPage),
+      shownReadiness ??
+        (today.ready
+          ? null
+          : api
+              .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: net } })
+              .then(unwrapPage)),
     ]);
     return (
       <OutreachHome

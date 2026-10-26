@@ -12,7 +12,7 @@ import { openWebPath } from '@/home/open';
 
 import { OutreachFrame, OutreachWorkspace } from '../frame';
 import { LiveStrip } from '../hub';
-import { LiveBody, pressShown } from '../live';
+import { LiveBody, pressShown, startRefusedOf } from '../live';
 import { OutreachMoreRow } from '../more';
 import { isSetUp, WebOnlyBody } from '../page';
 import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
@@ -516,6 +516,152 @@ describe('The live view on the phone', () => {
     expect(within(person).getByText('Riley Member')).toBeTruthy();
     expect(within(person).getByText('Offline')).toBeTruthy();
     expect(within(person).getByText(/2 waiting · Facebook warned them$/)).toBeTruthy();
+  });
+
+  it('tells an owner or admin where to allow it when the business allows only Off, never to ask an owner', async () => {
+    const onGeneral = jest.fn();
+    await render(
+      <LiveBody
+        live={{ ...LIVE, sending: 'off', canSend: false }}
+        at={NOW}
+        error={null}
+        team={null}
+        online
+        now={NOW}
+        pressed={null}
+        manages
+        onGeneral={onGeneral}
+        {...liveHandlers()}
+      />,
+    );
+    expect(screen.getByTestId('live-sending-off')).toHaveTextContent(
+      /Allow it for your team in Settings → General\.$/,
+    );
+    expect(screen.queryByText(/Ask an owner/)).toBeNull();
+    await fireEvent.press(screen.getByTestId('live-general'));
+    expect(onGeneral).toHaveBeenCalled();
+  });
+
+  it('holds Start while something holds the day, saying what and where, as Today’s strip does', async () => {
+    const h = liveHandlers();
+    const held = 'Your numbers aren’t set yet. Finish it under Get ready on the Today tab.';
+    await render(
+      <LiveBody
+        live={LIVE}
+        at={NOW}
+        error={null}
+        team={null}
+        online
+        now={NOW}
+        pressed={null}
+        ready={false}
+        held={held}
+        {...h}
+      />,
+    );
+    expect(screen.getByTestId('live-start')).toBeDisabled();
+    expect(screen.getByTestId('live-not-ready')).toHaveTextContent(held);
+    await fireEvent.press(screen.getByTestId('live-start'));
+    expect(h.onStart).not.toHaveBeenCalled();
+  });
+
+  it('keeps a refused Start beside the button, in HandsFreeOS’s words, with Do it now where it’s fixed', async () => {
+    const fix = jest.fn();
+    const words =
+      'LinkedIn is off for you, so there’s no day to start there. Turn it on under Social Outreach → Settings → LinkedIn.';
+    const view = await render(
+      <LiveStrip
+        platform="linkedin"
+        live={LIVE}
+        error={null}
+        online
+        now={NOW}
+        pressed={null}
+        refused={{ words, fix }}
+        onDetails={jest.fn()}
+        {...liveHandlers()}
+      />,
+    );
+    const note = screen.getByTestId('live-start-refused');
+    expect(within(note).getByText(words)).toBeTruthy();
+    await fireEvent.press(within(note).getByTestId('live-start-fix'));
+    expect(fix).toHaveBeenCalled();
+    // Nothing to press when nothing fixes it here (a warning today): the words alone.
+    await view.rerender(
+      <LiveBody
+        live={LIVE}
+        at={NOW}
+        error={null}
+        team={null}
+        online
+        now={NOW}
+        pressed={null}
+        refused={{ words: 'Facebook showed you a warning today.', fix: null }}
+        {...liveHandlers()}
+      />,
+    );
+    expect(screen.getByTestId('live-start-refused')).toHaveTextContent(
+      'Facebook showed you a warning today.',
+    );
+    expect(screen.queryByTestId('live-start-fix')).toBeNull();
+  });
+
+  it('sends each refused Start to where the phone fixes it, by its rule and details', () => {
+    const to = { manages: true, onSettings: jest.fn(), onToday: jest.fn() };
+    const refusal = (rule: string, details: unknown, reason = 'Words.') => ({
+      reason,
+      rule,
+      answer: JSON.stringify({
+        error: { code: 'rule_violation', message: reason, rule, details, disposition: 'final' },
+      }),
+    });
+    // The person's own choice there, and the networks they use: the network's page of Settings.
+    startRefusedOf(
+      refusal('outreach_sending_off', { platform: 'linkedin', allowed: true }),
+      'linkedin',
+      to,
+    ).fix!();
+    expect(to.onSettings).toHaveBeenLastCalledWith('linkedin');
+    startRefusedOf(
+      refusal('outreach_network_off', { platform: 'linkedin', allowed: true }),
+      'linkedin',
+      to,
+    ).fix!();
+    expect(to.onSettings).toHaveBeenLastCalledWith('linkedin');
+    // A business that allows only Off: General, for an owner or admin; nothing to press for anyone else.
+    startRefusedOf(
+      refusal('outreach_sending_off', { platform: 'linkedin', allowed: false }),
+      'linkedin',
+      to,
+    ).fix!();
+    expect(to.onSettings).toHaveBeenLastCalledWith('general');
+    expect(
+      startRefusedOf(
+        refusal('outreach_sending_off', { platform: 'linkedin', allowed: false }),
+        'linkedin',
+        { ...to, manages: false },
+      ).fix,
+    ).toBeNull();
+    // A network the business doesn't use: its own page, where the team's say on it is.
+    startRefusedOf(
+      refusal('outreach_network_off', { platform: 'linkedin', allowed: false }),
+      'linkedin',
+      to,
+    ).fix!();
+    expect(to.onSettings).toHaveBeenLastCalledWith('linkedin');
+    // Get ready's items: under Get ready on Today, with the words kept as HandsFreeOS said them.
+    const numbers = startRefusedOf(
+      refusal('outreach_not_ready', { item: 'numbers', platform: 'facebook' }, 'Set a goal.'),
+      'facebook',
+      to,
+    );
+    expect(numbers.words).toBe('Set a goal.');
+    numbers.fix!();
+    expect(to.onToday).toHaveBeenCalled();
+    // A warning today: nothing fixes it.
+    expect(
+      startRefusedOf(refusal('outreach_warned_today', undefined), 'facebook', to).fix,
+    ).toBeNull();
   });
 
   it('offers no Start my day while a Facebook warning keeps the day stopped', async () => {

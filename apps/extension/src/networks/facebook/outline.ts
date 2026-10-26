@@ -15,6 +15,7 @@ import {
   type OutlineSite,
 } from '../outline';
 import { clean } from './dom';
+import { PROFILE_EDIT_WORDS } from './editors';
 import { FETCH_WORDS } from './fetch';
 import type { ReadResult } from './types';
 import { facebookUrl, isFacebookPathWord } from './urls';
@@ -29,6 +30,9 @@ const SHAPES: readonly RegExp[] = [
   /^(.+?)['’]s (?:profile|profile picture|cover photo|post|photo|story)$/di,
   /^(.+?) (?:accepted your friend request|sent you a friend request|reacted to your (?:post|comment|photo|video|message)|commented on your (?:post|photo|video)|mentioned you in a (?:comment|post)|replied to your comment|shared your post|posted in|invited you to join|is typing)(.*)$/di,
   /^(?:comment as|reply as|follow|unfollow|add friend|cancel request|message|invite) (.+)$/di,
+  // Accounts Center's username page (decision 89): Facebook's answer about a username, and the address it makes.
+  /^(.+?) (?:is available|isn['’]t available|is not available|is taken|is already taken)\W*$/di,
+  /^(?:https?:\/\/)?(?:www\.)?facebook\.com\/(.+)$/di,
 ];
 
 /**
@@ -44,6 +48,7 @@ export function maskText(text: string): string {
     kept: (t) =>
       isFacebookText(t) ||
       FETCH_WORDS.has(t.toLowerCase()) ||
+      PROFILE_EDIT_WORDS.has(t.toLowerCase()) ||
       BADGE.test(t) ||
       Boolean(sectionTitleOf(t)) ||
       PLAIN.test(t),

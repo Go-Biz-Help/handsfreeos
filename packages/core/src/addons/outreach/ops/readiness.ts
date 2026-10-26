@@ -1,8 +1,9 @@
 /**
- * Get ready for your best results (../readiness.ts; docs/outreach.md, decision 63): where each item stands for the
- * person, worked out each time from what's kept, and their own two: the profile items they tick, and their numbers.
+ * Get ready for your best results (../readiness.ts; docs/outreach.md, decisions 63 and 90): where each item stands for
+ * the person, worked out each time from what's kept, and their own two: the profile items they tick, and their numbers.
  * `readinessFor` is what Start my day, Today's list and the extension's own helpful posts ask before anything
- * outreach-like happens. Each person reads and writes only their own.
+ * outreach-like happens; its `ready` leaves out the profile, which is advice and never holds the day. Each person reads
+ * and writes only their own.
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { knowledgeSources, mainOffers, mainOfferVersions } from '@hfos/db/schema';
@@ -199,7 +200,7 @@ function meOf(ctx: Ctx): string {
 export const readinessGet = defineAddonQuery(outreachAddon, {
   name: 'outreach.readiness',
   description:
-    'Get ready for your best results: where each of the person’s items stands before the extension reaches anyone for them (the business’s main offer, a playbook with a niche, their profile, their numbers), what’s left of each, and their goal and working days.',
+    'Get ready for your best results: where each of the person’s items stands, what’s left of each, and their goal and working days. The extension reaches nobody for them until the business’s main offer, a playbook with a niche, their messages and their numbers are done; their profile on the network is advice, shown with what’s left, and never holds their day.',
   input: ReadinessInput,
   output: ReadinessOutput,
   permission: 'outreach.use',

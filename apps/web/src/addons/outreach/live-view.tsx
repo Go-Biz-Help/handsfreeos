@@ -52,6 +52,12 @@ import { AskLine } from './asks';
 import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import type { Asks, Live, LiveTeam } from './types';
 import { PreDayList } from './pre-day-list';
+import {
+  keptBesideStart,
+  startRefused,
+  StartRefusedNote,
+  type StartRefused,
+} from './start-refused';
 import { useAct } from './use-act';
 
 const TONES: Record<ReturnType<typeof stateTone>, BadgeVariant> = {
@@ -146,7 +152,13 @@ export function LiveView({
             />
           </div>
         ) : null}
-        <RightNow workspaceId={workspaceId} live={live} now={now} platform={platform} />
+        <RightNow
+          workspaceId={workspaceId}
+          live={live}
+          now={now}
+          platform={platform}
+          canManage={team !== null}
+        />
         <AskedCard workspaceId={workspaceId} asks={asks} />
         <StepsCard live={live} />
         {team ? <TeamCard team={team} now={now} /> : null}
@@ -164,13 +176,18 @@ function RightNow({
   live,
   now,
   platform,
+  canManage = false,
 }: {
   workspaceId: string;
   live: Live;
   now: number;
   platform: Platform;
+  /** An owner or admin: a refused Start may point them to the business's part to fix. */
+  canManage?: boolean;
 }) {
   const { busy, act } = useAct();
+  // A refused Start stays beside the buttons in the server's words, with where the setup fixes it.
+  const [refused, setRefused] = useState<StartRefused | null>(null);
   const tz = live.timezone;
   const computer = live.computer;
   const state = shownState({
@@ -191,21 +208,31 @@ function RightNow({
   const started = live.day.state === 'started';
   const stopped = live.day.state === 'stopped';
   const said = dayWords(live.day, tz, live.lists, platform);
-  const press = (kind: 'start' | 'stop') =>
+  const press = (kind: 'start' | 'stop') => {
+    setRefused(null);
     void act(
       kind,
-      async () =>
-        unwrap(
-          kind === 'start'
-            ? await apiBrowser().POST('/v1/commands/outreach.day.start', {
-                body: { workspaceId, platform },
-              })
-            : await apiBrowser().POST('/v1/commands/outreach.day.stop', {
-                body: { workspaceId, platform },
-              }),
-        ),
+      async () => {
+        try {
+          return unwrap(
+            kind === 'start'
+              ? await apiBrowser().POST('/v1/commands/outreach.day.start', {
+                  body: { workspaceId, platform },
+                })
+              : await apiBrowser().POST('/v1/commands/outreach.day.stop', {
+                  body: { workspaceId, platform },
+                }),
+          );
+        } catch (e) {
+          if (kind === 'start') setRefused(startRefused(e, platform, canManage));
+          throw e;
+        }
+      },
       kind === 'stop' ? W.stopped : W.started(!offline && computer !== null),
+      // Kept beside the buttons (below), not toasted; anything else is (a route not served yet among them).
+      kind === 'start' ? keptBesideStart : undefined,
     );
+  };
   return (
     <Card className="p-4" data-testid="live-now">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -274,6 +301,19 @@ function RightNow({
                   </Link>
                   .
                 </>
+              ) : canManage ? (
+                // The business allows only Off, and this owner or admin can change that: where.
+                <>
+                  {W.allowForTeamIn}{' '}
+                  <Link
+                    className="font-medium text-accent-text underline-offset-2 hover:underline"
+                    href={outreachHref(workspaceId, { view: 'settings', part: 'general' })}
+                    data-testid="live-sending-off-general"
+                  >
+                    {W.settingsGeneral}
+                  </Link>
+                  .
+                </>
               ) : (
                 W.askToSend
               )}
@@ -300,6 +340,9 @@ function RightNow({
           {W.stopDay}
         </Button>
       </div>
+      {refused ? (
+        <StartRefusedNote workspaceId={workspaceId} refused={refused} className="mt-3" />
+      ) : null}
       {said ? (
         <p className="mt-2 text-[12.5px] text-text-3" data-testid="live-day">
           {said}

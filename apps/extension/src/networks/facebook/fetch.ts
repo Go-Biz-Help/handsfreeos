@@ -283,7 +283,7 @@ export function visible(element: Element): boolean {
 }
 
 /** What an element is called: its label for screen readers, what labels it, or its own text. */
-function nameOf(element: Element): string {
+export function nameOf(element: Element): string {
   const label = clean(element.getAttribute('aria-label'));
   if (label) return label;
   const doc = element.ownerDocument;
@@ -326,7 +326,7 @@ function fit(name: string, word: string, step: FetchStep): number {
  * behind a dialog or menu on the page itself: a step that isn't in one is handed to the person rather than pressed on
  * the page underneath.
  */
-function placesOf(doc: Document): Element[] {
+export function placesOf(doc: Document): Element[] {
   const over = [...doc.querySelectorAll('[role="dialog"], [role="menu"], [role="listbox"]')].filter(
     shown,
   );
@@ -408,15 +408,23 @@ function chosen(element: Element): boolean {
 }
 
 /**
- * Whether Facebook is waiting for the person to type: a password, a PIN, or a code it sent. The extension never
- * types these, so the step waits for the person.
+ * What Facebook is waiting for the person to type, when it is: their password, or a PIN or a code it sent them. The
+ * extension never types either, so the step waits for the person.
  */
+export function askingFor(doc: Document): 'password' | 'code' | null {
+  if ([...doc.querySelectorAll('input[type="password"]')].some(shown)) return 'password';
+  if (
+    [
+      ...doc.querySelectorAll('input[autocomplete="one-time-code"], input[inputmode="numeric"]'),
+    ].some(shown)
+  )
+    return 'code';
+  return null;
+}
+
+/** Whether Facebook is waiting for the person to type a password, a PIN, or a code it sent. */
 export function waitingForPerson(doc: Document): boolean {
-  return [
-    ...doc.querySelectorAll(
-      'input[type="password"], input[autocomplete="one-time-code"], input[inputmode="numeric"]',
-    ),
-  ].some(shown);
+  return askingFor(doc) !== null;
 }
 
 export type StepResult =

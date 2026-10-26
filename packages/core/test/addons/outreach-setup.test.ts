@@ -32,6 +32,7 @@ import {
   setupStepStates,
   setupSteps,
   showsSetupBanner,
+  startAdvice,
   startBlocker,
   startFix,
   stopAfter,
@@ -332,6 +333,86 @@ describe('the setup’s steps', () => {
     });
     expect(startFix('outreach_network_off', 'linkedin')).toEqual({ net: null, step: 'networks' });
     expect(startFix('outreach_warned_today', 'linkedin')).toBeNull();
+  });
+
+  it('never puts the profile in the way of a first day: it’s advice beside a Start that works', () => {
+    // The owner's ask (26 Oct 2026): everything done but Facebook's profile, with two things left to change.
+    const profileLeft = {
+      ...allDone,
+      networks: [
+        net('facebook', {
+          ready: items('done').map((r) =>
+            r.item === 'profile'
+              ? { ...r, state: 'todo', left: '2 things left to change on your Facebook profile.' }
+              : r,
+          ),
+          sending: 'steps',
+        }),
+      ],
+    };
+    expect(startBlocker(laid(profileLeft), 'facebook')).toBeNull();
+    expect(startAdvice(laid(profileLeft), 'facebook')).toEqual({
+      stop: { net: 'facebook', step: 'profile' },
+      state: 'todo',
+      left: '2 things left to change on your Facebook profile.',
+    });
+    expect(SETUP_WORDS.start.later).toBe('You can start now and finish it later.');
+    // Still a step to do: the setup opens there and the reminder names it.
+    expect(setupNext(laid(profileLeft))).toEqual({ net: 'facebook', step: 'profile' });
+    // Done, there's no advice; and what does hold the day still comes first, saying so.
+    expect(startAdvice(laid(allDone), 'facebook')).toBeNull();
+    const choicesToo = {
+      ...profileLeft,
+      networks: [{ ...profileLeft.networks[0]!, sending: 'off' as const }],
+    };
+    expect(startBlocker(laid(choicesToo), 'facebook')).toMatchObject({
+      stop: { net: 'facebook', step: 'choices' },
+    });
+  });
+
+  it('sends each refusal of a first day to the step that fixes it, by its rule and details', () => {
+    const notReady = (item: string, platform = 'facebook') => ({
+      rule: 'outreach_not_ready',
+      details: { item, platform },
+    });
+    expect(startFix(notReady('offer'), 'facebook')).toEqual({ net: null, step: 'offer' });
+    expect(startFix(notReady('playbook'), 'facebook')).toEqual({ net: null, step: 'playbook' });
+    expect(startFix(notReady('playbook', 'linkedin'), 'linkedin')).toEqual({
+      net: 'linkedin',
+      step: 'playbook',
+    });
+    expect(startFix(notReady('messages'), 'linkedin')).toEqual({ net: null, step: 'messages' });
+    expect(startFix(notReady('numbers'), 'facebook')).toEqual({ net: null, step: 'numbers' });
+    // The business's items are an owner's or admin's: a member's words say who to ask, with nothing to press.
+    expect(startFix(notReady('offer'), 'facebook', false)).toBeNull();
+    expect(startFix(notReady('messages'), 'facebook', false)).toEqual({
+      net: null,
+      step: 'messages',
+    });
+    // An older API's refusal, with no details: the words alone.
+    expect(startFix({ rule: 'outreach_not_ready' }, 'facebook')).toBeNull();
+    // A network the business doesn't use: its rules, for an owner or admin only.
+    const notUsed = {
+      rule: 'outreach_network_off',
+      details: { platform: 'linkedin', allowed: false },
+    };
+    expect(startFix(notUsed, 'linkedin')).toEqual({ net: null, step: 'rules' });
+    expect(startFix(notUsed, 'linkedin', false)).toBeNull();
+    expect(
+      startFix({ rule: 'outreach_network_off', details: { allowed: true } }, 'linkedin'),
+    ).toEqual({ net: null, step: 'networks' });
+    expect(startFix({ rule: 'outreach_network_looking' }, 'linkedin')).toBeNull();
+    // Sending off: the person's own choice there while the business lets it work on its own; when it allows only
+    // Off, its rules, for an owner or admin only (a member is told who to ask, with nothing to press).
+    const onlyOff = {
+      rule: 'outreach_sending_off',
+      details: { platform: 'linkedin', allowed: false },
+    };
+    expect(startFix(onlyOff, 'linkedin')).toEqual({ net: null, step: 'rules' });
+    expect(startFix(onlyOff, 'linkedin', false)).toBeNull();
+    expect(
+      startFix({ rule: 'outreach_sending_off', details: { allowed: true } }, 'linkedin', false),
+    ).toEqual({ net: 'linkedin', step: 'choices' });
   });
 
   it('says what’s next on the tabs', () => {

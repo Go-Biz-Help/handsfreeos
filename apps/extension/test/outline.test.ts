@@ -33,6 +33,20 @@ describe('maskText', () => {
     );
     expect(maskText('Profile picture of Jane Doe')).toBe('Profile picture of [2 words]');
   });
+
+  it('keeps the words on the profile’s editors and Accounts Center’s username page, and hides the username', () => {
+    expect(maskText('Edit bio')).toBe('Edit bio');
+    expect(maskText('Add a website')).toBe('Add a website');
+    expect(maskText('Websites and social links')).toBe('Websites and social links');
+    expect(maskText('Username')).toBe('Username');
+    expect(maskText('Done')).toBe('Done');
+    expect(maskText('Re-enter your password')).toBe('Re-enter your password');
+    expect(maskText('This username isn’t available.')).toBe('This username isn’t available.');
+    expect(maskText('casey.roofs is available')).toBe('[1 word] is available');
+    expect(maskText('casey.roofs isn’t available.')).toBe('[1 word] isn’t available.');
+    expect(maskText('facebook.com/casey.roofs')).toBe('facebook.com/[1 word]');
+    expect(maskText('https://www.facebook.com/casey.roofs')).not.toContain('casey');
+  });
 });
 
 describe('Outliner.maskLink', () => {

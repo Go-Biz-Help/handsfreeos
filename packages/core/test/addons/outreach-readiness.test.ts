@@ -1,9 +1,10 @@
 /**
- * Get ready for your best results (decision 63), in a business: until every item is done, Start my day is refused
- * naming what's left, Today's list is empty with nothing done on its own, and the extension posts no helpful post on
- * its own. Someone who can't do the business's items waits on them and does their own. A new main offer asks for a
- * look again at the profile. The goal keeps its working days in the person's settings, and counts the safe pace of
- * every network they work (decision 88).
+ * Get ready for your best results (decision 63), in a business: until every item that holds the day is done, Start my
+ * day is refused naming what's left and where (with the item in its details), Today's list is empty with nothing done
+ * on its own, and the extension posts no helpful post on its own. The profile is advice (decision 90): left alone, it
+ * holds none of those. Someone who can't do the business's items waits on them and does their own. A new main offer
+ * asks for a look again at the profile and the messages. The goal keeps its working days in the person's settings,
+ * and counts the safe pace of every network they work (decision 88).
  */
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
@@ -109,7 +110,10 @@ describe('before they’re ready', () => {
     const said = await runAs(owner, ws, 'outreach.day.start', {}).catch(
       (e: { rule?: string; message: string }) => e,
     );
-    expect(said).toMatchObject({ rule: 'outreach_not_ready' });
+    expect(said).toMatchObject({
+      rule: 'outreach_not_ready',
+      details: { item: 'offer', platform: 'facebook' },
+    });
     expect((said as { message: string }).message).toContain('main offer isn’t live yet');
 
     const today = await runAs(owner, ws, 'outreach.today', {});
@@ -207,17 +211,41 @@ describe('getting ready', () => {
     expect(await refused(runAs(owner, ws, 'outreach.day.start', {}))).toBe('outreach_sending_off');
   });
 
-  it('asks everyone to look at their profile again when the main offer changes, saying what changed', async () => {
+  it('asks everyone to look at their profile and messages again when the main offer changes, saying what changed', async () => {
     await goLive(2, '$2,500 a month');
     const r = await runAs(member, ws, 'outreach.readiness', {});
-    expect(r).toMatchObject({ ready: false, next: 'profile', changed: ['Price'] });
-    expect(states(r).profile).toBe('look_again');
-    expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
+    // The messages hold the day again; the profile wants a look too, as advice (decision 90).
+    expect(r).toMatchObject({ ready: false, next: 'messages', changed: ['Price'] });
+    expect(states(r)).toMatchObject({ profile: 'look_again', messages: 'look_again' });
+    const said = await runAs(member, ws, 'outreach.day.start', {}).catch(
+      (e: { rule?: string; message: string; details?: unknown }) => e,
+    );
+    expect(said).toMatchObject({ rule: 'outreach_not_ready', details: { item: 'messages' } });
+    expect((said as { message: string }).message).toContain('OK’d how your messages read');
     // Taking one back, then ticking it, counts it for the new version; the rest still want a look.
     await runAs(member, ws, 'outreach.readiness.profile', { item: 'bio', done: false });
     const one = await runAs(member, ws, 'outreach.readiness.profile', { item: 'bio', done: true });
     expect(one.profile.bio.version).toBe(2);
     expect(states(one).profile).toBe('look_again');
+  });
+
+  it('never holds the day on the profile alone: it’s advice, still shown with what’s left', async () => {
+    // The owner's messages OK'd again for the live version, their profile not looked at again.
+    const [p] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws}`,
+    );
+    await samplesSeen(owner.id, p!.id, 2);
+    const r = await runAs(owner, ws, 'outreach.readiness.messages', {});
+    expect(r).toMatchObject({ ready: true, next: null, changed: ['Price'] });
+    expect(states(r)).toMatchObject({ profile: 'look_again', messages: 'done' });
+    expect(r.items.find((i: { item: string }) => i.item === 'profile').left).toContain(
+      'Look at your profile again',
+    );
+    // Today's list and what the extension does on its own come back; Start my day refuses only for what it did
+    // before the profile (here, Sending is off).
+    expect((await runAs(owner, ws, 'outreach.today', {})).ready).toBe(true);
+    expect(await refused(runAs(owner, ws, 'outreach.day.start', {}))).toBe('outreach_sending_off');
   });
 
   it('keeps the AI’s check only from the worker', async () => {

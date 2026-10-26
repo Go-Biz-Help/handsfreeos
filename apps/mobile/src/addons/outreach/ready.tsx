@@ -13,7 +13,10 @@ import {
   type ProfileCheck,
 } from '@hfos/core/addons/outreach/profile-check';
 import {
+  adviceLeft,
+  blocksStart,
   CALLS_GOAL,
+  holdingCount,
   numbersLines,
   numbersMath,
   numbersVerdict,
@@ -43,12 +46,14 @@ import { checkDue, PROFILE_PART_WORDS as PW } from '@hfos/core/addons/outreach/p
 import { ProfileLook, ProfilePicturesNote, ProfileRestList } from './profile-whole';
 
 /**
- * Get ready on the phone (docs/outreach.md, decisions 63 and 64; packages/core/src/addons/outreach/readiness.ts):
- * Today's card while the person isn't ready, as the web's. Their own three are done right here: the profile, read by
- * their computer and checked by the AI (**Read my profile**, then **Put this one in** for a bio), with a tick for what
- * the AI can't see; their messages, the samples written on their computer, to read and OK; and their goal with the
- * math as it changes. The main offer is built on a computer (core's Settings → Main offer reviews it here), and the
- * playbooks are written there too. It needs signal.
+ * Get ready on the phone (docs/outreach.md, decisions 63, 64 and 90; packages/core/src/addons/outreach/readiness.ts):
+ * Today's card while the person isn't ready, as the web's, and once they are, while their profile is left: it's advice
+ * that never holds the day, so the card then says they can start, its count leaves the profile out, and the profile's
+ * line says it can wait. Their own three are done right here: the profile, read by their computer and checked by the AI
+ * (**Read my profile**, then **Put this one in** for a bio), with a tick for what the AI can't see; their messages, the
+ * samples written on their computer, to read and OK; and their goal with the math as it changes. The main offer is
+ * built on a computer (core's Settings → Main offer reviews it here), and the playbooks are written there too. It
+ * needs signal.
  *
  * The profile is the network's own (`readiness.platform`): LinkedIn's has its own list in its words, headlines to put
  * in, and its whole About, each asked and ticked on LinkedIn; Instagram's its bio to put in and a name to use (decision
@@ -155,7 +160,12 @@ export function useReadyProps(
     wasReady.current = isReady;
   }, [isReady, onReady]);
   // The profile read and checked, or a bio put in, on the person's computer: once that ask is done, it shows here.
-  const asks = useAsks('today', R.card, readiness !== null && !readiness.ready);
+  // Asked while the card shows: not ready, or the profile's advice left.
+  const asks = useAsks(
+    'today',
+    R.card,
+    readiness !== null && (!readiness.ready || adviceLeft(readiness.items).length > 0),
+  );
   const actions = useAskActions(asks.data, asks.reload);
   const { reload } = ready;
   const again = React.useCallback(() => {
@@ -218,9 +228,11 @@ export function GetReadyCard({
   onNumbers: (goal: number, days: number[]) => Promise<boolean>;
 }) {
   const [open, setOpen] = React.useState<Mine | null>(null);
-  if (!readiness || readiness.ready) return null;
-  const done = readiness.items.filter((i) => i.state === 'done').length;
-  const of = readiness.items.length;
+  // Ready, with only the profile's advice left: the card says they can start. Nothing left at all: no card.
+  if (!readiness || (readiness.ready && !adviceLeft(readiness.items).length)) return null;
+  const advice = readiness.ready;
+  // Get ready's count is what holds the day: the profile never counts.
+  const { done, of } = holdingCount(readiness.items);
   return (
     <Card className="px-0 py-0" testID="get-ready">
       <View className="gap-2.5 px-4 pb-1 pt-4">
@@ -228,7 +240,7 @@ export function GetReadyCard({
           {R.card}
         </Text>
         <Text className="text-[18px] font-semibold">{R.title}</Text>
-        <Note>{R.cardHint(of - done)}</Note>
+        <Note testID="get-ready-hint">{advice ? R.adviceHint : R.cardHint(of - done)}</Note>
         <View className="h-1.5 rounded-full bg-card-2">
           <View
             className="h-1.5 rounded-full bg-accent"
@@ -253,6 +265,12 @@ export function GetReadyCard({
             <View className="min-w-0 flex-1 gap-0.5">
               <Text className="text-[15px] font-semibold">{R.items[i.item].label}</Text>
               {i.left ? <Note>{i.left}</Note> : null}
+              {/* Advice that never holds the day: "start now" only while nothing else holds it. */}
+              {i.state !== 'done' && !blocksStart(i.item) ? (
+                <Note testID={advice ? `ready-${i.item}-later` : `ready-${i.item}-no-hold`}>
+                  {advice ? R.profileLater : R.profileNoHold}
+                </Note>
+              ) : null}
               {(i.item === 'profile' || i.item === 'messages') &&
               i.state === 'look_again' &&
               readiness.changed.length ? (

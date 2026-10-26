@@ -31,6 +31,8 @@ const COMPUTER_STATES = {
 
 const SENDING_OFF = 'The extension doesn’t work on its own for you: you do everything.';
 const ASK_TO_SEND = 'Ask an owner of this business if you’d like it to.';
+const ALLOW_FOR_TEAM_IN = 'Your business doesn’t allow it yet. Allow it for your team in';
+const SETTINGS_GENERAL = 'Settings → General';
 
 const JOINED = 'You’re in it';
 const TEAM_NONE = 'Nobody uses Social Outreach here yet';
@@ -157,12 +159,26 @@ export const OUTREACH_WORDS = {
   /** Another of their computers, which stands by while one works. */
   otherComputer: (name: string, signedOut: boolean, seen: string) =>
     `${name} · ${signedOut ? COMPUTER_STATES.signedOut : COMPUTER_STATES.standingBy} · seen ${seen}`,
-  /** The note when the extension doesn't work on its own for them, in parts so the web can link Settings. */
+  /**
+   * The note when the extension doesn't work on its own for them, in parts so the web can link Settings: their own
+   * choice to change (`canSend`); else, when the business allows only Off, an owner or admin (`manages`) allows it for
+   * the team on General, and anyone else asks one.
+   */
   sendingOffNote: SENDING_OFF,
   changeThatIn: 'Change that in',
   askToSend: ASK_TO_SEND,
-  sendingOff: (canSend: boolean) =>
-    `${SENDING_OFF} ${canSend ? 'Change that in Settings.' : ASK_TO_SEND}`,
+  allowForTeamIn: ALLOW_FOR_TEAM_IN,
+  /** A Start my day refused with no words of its own kept (it never should be): what to try. */
+  startRefused: 'Your day didn’t start. Try again in a minute.',
+  settingsGeneral: SETTINGS_GENERAL,
+  sendingOff: (canSend: boolean, manages = false) =>
+    `${SENDING_OFF} ${
+      canSend
+        ? 'Change that in Settings.'
+        : manages
+          ? `${ALLOW_FOR_TEAM_IN} ${SETTINGS_GENERAL}.`
+          : ASK_TO_SEND
+    }`,
   todaySoFar: 'Today so far',
   countOf: (done: number, most: number) =>
     `${done.toLocaleString('en-US')} of ${most.toLocaleString('en-US')}`,

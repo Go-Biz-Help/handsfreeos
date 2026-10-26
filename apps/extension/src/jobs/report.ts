@@ -15,6 +15,8 @@ import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
 import type { PageRead } from '../networks/kit';
+import { editorMissing, type EditorSteps } from '../networks/facebook/editors';
+import { usernameMissing, type UsernameSteps } from '../networks/facebook/username';
 import type { StepTry } from '../networks/tries';
 import {
   aboutMissing,
@@ -244,6 +246,50 @@ export function aboutNote(steps: AboutSteps | undefined): ReportNote {
     found: { ...counts, ...(names.length ? { seen: names } : {}) },
     note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
     outline: missing.length > 0,
+  };
+}
+
+/**
+ * How putting Facebook's bio or a link in went, step by step, for the note that goes with handing it over (decision
+ * 89): as LinkedIn's headline's. `job` names the step: `profile_edit.bio`, `profile_edit.links`.
+ */
+export function editorNote(part: 'bio' | 'links', steps: EditorSteps | undefined): ReportNote {
+  const job = `profile_edit.${part}`;
+  if (!steps)
+    return {
+      job,
+      note: `The tab didn’t say how putting the ${part === 'bio' ? 'bio' : 'link'} in went.`,
+      outline: true,
+    };
+  const missing = editorMissing(part, steps);
+  const { names, ...counts } = steps;
+  return {
+    job,
+    found: { ...counts, ...(names.length ? { seen: names } : {}) },
+    note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
+    outline: true,
+  };
+}
+
+/** How putting Facebook's username in went, step by step, for the note that goes with handing it over (decision 89). */
+export function usernameNote(steps: UsernameSteps | undefined): ReportNote {
+  const job = 'profile_edit.username';
+  if (!steps)
+    return { job, note: 'The tab didn’t say how putting the username in went.', outline: true };
+  const missing = usernameMissing(steps);
+  const { names, asking, answer, ...counts } = steps;
+  return {
+    job,
+    found: {
+      ...counts,
+      password: asking === 'password',
+      code: asking === 'code',
+      confirm: asking === 'confirm',
+      answered: answer !== 'none',
+      ...(names.length ? { seen: names } : {}),
+    },
+    note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
+    outline: true,
   };
 }
 

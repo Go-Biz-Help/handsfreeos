@@ -265,8 +265,9 @@ export const TodayOutput = z.object({
   sending: z.enum(SENDING_MODE_KEYS),
   wheels: WheelsState,
   /**
-   * Whether the person is ready (./readiness.ts, decision 63). Until they are, the list keeps only replies owed to
-   * people who wrote to them, and nothing is done on its own: the screens show Get ready in place of the rest.
+   * Whether the person is ready (./readiness.ts, decision 63): their profile, which is advice, never counts (decision
+   * 90). Until they are, the list keeps only replies owed to people who wrote to them, and nothing is done on its own:
+   * the screens show Get ready in place of the rest.
    */
   ready: z.boolean(),
   /**

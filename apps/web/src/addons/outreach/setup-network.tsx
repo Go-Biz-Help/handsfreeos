@@ -7,9 +7,12 @@
  * - **Allow** ticks by itself: the computer's check-in says which networks Chrome lets it on, and the page reads the
  *   setup again every few seconds while it waits.
  * - **What it does there** asks Sending as cards, nothing picked to start (decision 26 stays), the usual one marked;
- *   everything else is under More choices.
- * - **Start** says what's still in the way before the press, and a refusal in the server's words after, each with
- *   where to fix it (clients branch on the rule, never on the words).
+ *   everything else is under More choices. A business that allows only Off says so: to an owner or admin with a link
+ *   to Team rules, to anyone else with who to ask.
+ * - **Start** says what's still in the way before the press, beside the button it keeps from being pressed, and a
+ *   refusal in the server's words after, each with where to fix it (clients branch on the rule and its details, never
+ *   on the words). The profile there is never in the way (decision 90): what's left of it shows beside a Start that
+ *   works, with **Do it now**. A warning on the network today keeps Start from being pressed, saying so.
  */
 import {
   choicesFor,
@@ -17,14 +20,15 @@ import {
   wheelsMatter,
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
+import { warnedTodayWords } from '@hfos/core/addons/outreach/live';
 import { withNetwork } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   outreachSetupPath,
   SETUP_SENDING,
   SETUP_WORDS,
+  startAdvice,
   startBlocker,
-  startFix,
   stopAfter,
   type SetupStop,
 } from '@hfos/core/addons/outreach/setup';
@@ -37,7 +41,7 @@ import { PhoneAppDialog } from '@/components/home/phone-app-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { RadioCard } from '@/components/ui/radio-card';
-import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { outreachHref } from './address';
 import { ComputerNote } from './asks';
 import { PictureStep } from './extension-download';
@@ -55,6 +59,7 @@ import {
   wheelsOf,
 } from './settings-view';
 import { getSetup, laidOut, saveSetup } from './setup-api';
+import { startRefused } from './start-refused';
 import {
   Note,
   OtherDevice,
@@ -189,7 +194,10 @@ function PlaybookOnStep({ workspaceId, at, setup, nav }: NetProps) {
   );
 }
 
-/** Their profile there: read by their computer and checked by the AI (Get ready's own part, decision 64). */
+/**
+ * Their profile there: read by their computer and checked by the AI (Get ready's own part, decision 64). Advice: the
+ * first day never waits on it (decision 90).
+ */
 function ProfileStep({ workspaceId, at, setup, asks, readiness, nav }: NetProps) {
   const router = useRouter();
   const done = stateOf(setup, at)?.state === 'done';
@@ -199,6 +207,10 @@ function ProfileStep({ workspaceId, at, setup, asks, readiness, nav }: NetProps)
         <div className="grid gap-4" data-testid="outreach-setup-profile">
           {/* Why Read my profile waits: no computer, or it's offline. */}
           {asks ? <ComputerNote asks={asks} /> : null}
+          {/* Advice, never in the way of the first day (decision 90). */}
+          {done ? null : (
+            <Note testId="outreach-setup-profile-later">{W.network.profile.later}</Note>
+          )}
           <ProfileBody
             workspaceId={workspaceId}
             readiness={readiness}
@@ -264,8 +276,26 @@ function ChoicesStep({ workspaceId, at, setup, me, nav }: NetProps) {
             </div>
           ))}
         </div>
+      ) : setup.canManage ? (
+        // The business allows only Off, and this person can change that: where.
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13.5px] text-warning-text"
+          data-testid="outreach-setup-sending-only-off"
+        >
+          <p className="min-w-0 flex-[1_1_260px]">{W.sendingOnlyOffManage}</p>
+          <ButtonLink
+            size="sm"
+            variant="secondary"
+            href={outreachSetupPath(workspaceId, { step: { net: null, step: 'rules' } })}
+            data-testid="outreach-setup-to-rules"
+          >
+            {W.toRules}
+          </ButtonLink>
+        </div>
       ) : (
-        <Note tone="wait">{W.sendingOnlyOff}</Note>
+        <Note tone="wait" testId="outreach-setup-sending-only-off">
+          {W.sendingOnlyOff}
+        </Note>
       )}
       {picked && wheelsMatter({ sending: picked, replies: network.replies }) && !wheels.from ? (
         <Note tone="wait" testId="outreach-setup-wheels">
@@ -336,11 +366,17 @@ function ChoicesStep({ workspaceId, at, setup, me, nav }: NetProps) {
   );
 }
 
-/** The first day there: what's still in the way, what happens next, and the press. */
-function StartStep({ workspaceId, at, setup, nav }: NetProps) {
+/**
+ * The first day there: what's still in the way, beside the Start it keeps from being pressed; the profile's advice
+ * beside a Start that works; what happens next, and the press.
+ */
+function StartStep({ workspaceId, at, setup, live, nav }: NetProps) {
   const router = useRouter();
   const name = PLATFORMS[at.net];
   const blocker = startBlocker(laidOut(setup), at.net);
+  const advice = startAdvice(laidOut(setup), at.net);
+  // A warning there today: nothing to fix, and no day there until tomorrow.
+  const warned = live !== null && (live.warning?.today === true || live.day.why === 'warning');
   const done = stateOf(setup, at)?.state === 'done';
   const [refused, setRefused] = useState<{ words: string; fix: SetupStop | null } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -356,18 +392,19 @@ function StartStep({ workspaceId, at, setup, nav }: NetProps) {
       const to = stopAfter(at, laidOut(await getSetup(workspaceId)));
       router.push(outreachSetupPath(workspaceId, { step: to }));
     } catch (e) {
-      if (e instanceof ApiError)
-        setRefused({ words: e.message, fix: startFix(e.rule ?? '', at.net) });
+      // A refusal with a rule stays beside Start in its words, with its fix (`startRefused`); anything else is a toast.
+      const kept = startRefused(e, at.net, setup.canManage);
+      if (kept) setRefused({ words: kept.words, fix: kept.fix });
       else toast.error(errorMessage(e));
       setBusy(false);
     }
   };
-  const fixLink = (stop: SetupStop) => (
+  const fixLink = (stop: SetupStop, testId = 'outreach-setup-fix') => (
     <ButtonLink
       size="sm"
       variant="secondary"
       href={outreachSetupPath(workspaceId, { step: stop })}
-      data-testid="outreach-setup-fix"
+      data-testid={testId}
     >
       {W.start.doItNow}
     </ButtonLink>
@@ -385,6 +422,27 @@ function StartStep({ workspaceId, at, setup, nav }: NetProps) {
             <p className="text-[13.5px]">{blocker.left}</p>
           </div>
           {blocker.stop ? fixLink(blocker.stop) : null}
+        </div>
+      ) : null}
+      {warned && !blocker && !done ? (
+        <div
+          role="alert"
+          className="rounded-card bg-danger-soft px-4 py-3.5 text-[13.5px] text-danger-text"
+          data-testid="outreach-setup-warned"
+        >
+          {warnedTodayWords(at.net)}
+        </div>
+      ) : null}
+      {advice && !blocker && !done ? (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-card-2 px-4 py-3.5 text-text-2"
+          data-testid="outreach-setup-advice"
+        >
+          {/* "Start now" only beside a Start that can be pressed: a warning or a refusal says what's in the way. */}
+          <p className="min-w-0 flex-[1_1_280px] text-[13.5px]">
+            {advice.left} {warned || refused ? W.network.profile.later : W.start.later}
+          </p>
+          {fixLink(advice.stop, 'outreach-setup-advice-fix')}
         </div>
       ) : null}
       {refused ? (
@@ -439,7 +497,7 @@ function StartStep({ workspaceId, at, setup, nav }: NetProps) {
             size="lg"
             onClick={() => void start()}
             loading={busy}
-            disabled={busy || blocker !== null}
+            disabled={busy || blocker !== null || warned}
             data-testid="outreach-setup-start-day"
           >
             <Play className="h-3.5 w-3.5" strokeWidth={1.75} />

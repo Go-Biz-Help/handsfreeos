@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AskInput,
   AskTask,
+  askNameOn,
   askTarget,
   hasNewProfileParts,
   profileEditPartsWords,
@@ -33,6 +34,7 @@ import {
   checkedMore,
   linksToAdd,
   noteOf,
+  partHowFor,
   partStepsWords,
   partHowOn,
   profileMatch,
@@ -376,6 +378,39 @@ describe('a profile’s name, username and links, put in or opened (decision 84)
     // Pictures stay the person's: the steps say where, never that the extension does it.
     expect(partStepsWords('facebook', 'picture')).toContain('Upload photo');
   });
+
+  it('puts Facebook’s bio, username and links in, and hands its name over (decision 89)', () => {
+    expect(partHowOn('facebook', 'bio')).toBe('auto');
+    expect(partHowOn('facebook', 'username')).toBe('auto');
+    expect(partHowOn('facebook', 'links')).toBe('auto');
+    expect(partHowOn('facebook', 'name')).toBe('steps');
+    // Instagram stays as it was.
+    expect(partHowOn('instagram', 'username')).toBe('steps');
+    expect(
+      profileEditWords('facebook', { username: 'casey.roofs', links: ['https://cal.com/c'] }),
+    ).toBeNull();
+    // The words an older build hands them over with stay, for its computer's step.
+    expect(partStepsWords('facebook', 'username', 'casey.roofs')).toContain('Put in “casey.roofs”');
+    expect(partStepsWords('facebook', 'links', ['https://cal.com/c'])).toContain(
+      'Edit links on the Links card',
+    );
+    expect(askNameOn('profile_edit', 'facebook')).toBe('Update your profile');
+  });
+
+  it('says an older build hands Facebook’s username and links over, as its own copy does', () => {
+    expect(partHowFor('facebook', 'username', '0.92.0')).toBe('steps');
+    expect(partHowFor('facebook', 'links', '0.92.0')).toBe('steps');
+    expect(partHowFor('facebook', 'username', '0.93.0')).toBe('auto');
+    expect(partHowFor('facebook', 'links', '1.0.0')).toBe('auto');
+    // No computer known: the newest build's. One that didn't say its build is taken as older.
+    expect(partHowFor('facebook', 'username')).toBe('auto');
+    expect(partHowFor('facebook', 'username', null)).toBe('steps');
+    // A part that went in by itself before is the same on any build.
+    expect(partHowFor('facebook', 'bio', '0.87.0')).toBe('auto');
+    expect(partHowFor('linkedin', 'name', '0.87.0')).toBe('auto');
+    expect(partHowFor('instagram', 'username', '0.80.0')).toBe('steps');
+    expect(partHowFor('facebook', 'picture', '0.92.0')).toBe('tip');
+  });
 });
 
 const known = (more: Partial<ProfilesKnown> = {}): ProfilesKnown => ({
@@ -450,6 +485,19 @@ describe('the parts, as the screen lists them', () => {
       next: ['Casey | Booked jobs for Columbus roofers'],
     });
     expect(by.picture!.how).toBe('tip');
+  });
+
+  it('says who does each by the build of the person’s computer, when it’s known', () => {
+    const how = (version?: string | null) =>
+      Object.fromEntries(profileParts('facebook', known(), version).map((r) => [r.part, r.how]));
+    expect(how()).toMatchObject({ bio: 'auto', links: 'auto', username: 'auto', name: 'steps' });
+    expect(how('0.93.0')).toMatchObject({ links: 'auto', username: 'auto' });
+    expect(how('0.92.0')).toMatchObject({
+      bio: 'auto',
+      links: 'steps',
+      username: 'steps',
+      name: 'steps',
+    });
   });
 
   it('calls a username and a name right when nothing’s unlike the other profiles and none is written', () => {

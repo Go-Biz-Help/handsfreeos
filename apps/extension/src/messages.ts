@@ -12,7 +12,10 @@ import type { DownloadPart } from '@hfos/core/addons/outreach/download-read';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { LinkedInFilePart } from './hfos/files';
 import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
-import type { BioResult } from './networks/facebook/own-profile';
+import type { EditorSteps } from './networks/facebook/editors';
+import type { LinkResult } from './networks/facebook/links';
+import type { BioResult, OwnEditors } from './networks/facebook/own-profile';
+import type { Asking, UsernameWrote } from './networks/facebook/username';
 import type { AutoResult, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
@@ -165,8 +168,84 @@ export type OwnProfileAnswer =
       readonly result: BioResult | AboutResult;
       readonly steps?: HeadlineSteps;
       readonly aboutSteps?: AboutSteps;
+      /** How each step of putting Facebook's bio in went (from 0.93.0). */
+      readonly bioSteps?: EditorSteps;
     }
   | { readonly ok: false; readonly error: string };
+
+/**
+ * Facebook's own profile, where its parts are changed (decision 89): Edit profile's and Edit links's addresses, and the
+ * profile's number Accounts Center goes by. For the job alone: never sent to HandsFreeOS.
+ */
+export type OwnEditorsAsk = { readonly type: 'hfos-own-editors' };
+export type OwnEditorsAnswer =
+  | { readonly ok: true; readonly editors: OwnEditors }
+  | { readonly ok: false; readonly error: string };
+
+/** One new link, added on Contact and basic info (src/networks/facebook/links.ts, decision 89). */
+export type WriteLinkAsk = { readonly type: 'hfos-write-link'; readonly link: string };
+export type WriteLinkAnswer =
+  | { readonly ok: true; readonly result: LinkResult; readonly steps: EditorSteps }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * The new username, on Accounts Center's username page for their Facebook profile (src/networks/facebook/username.ts,
+ * decision 89): how it went, what Facebook said, and the warnings that stopped it. `profile` is their Facebook
+ * profile's number: the tab writes only on that profile's username page.
+ */
+export type WriteUsernameAsk = {
+  readonly type: 'hfos-write-username';
+  readonly username: string;
+  readonly profile: string;
+};
+export type WriteUsernameAnswer =
+  | {
+      readonly ok: true;
+      readonly result: UsernameWrote['result'];
+      readonly steps: UsernameWrote['steps'];
+      readonly said: string | null;
+      readonly warnings?: readonly string[];
+    }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On Accounts Center's Profiles, the username page of the Facebook profile among them, or null; and Facebook's warnings
+ * there, unless it asks for a password (decision 89).
+ */
+export type UsernamePageAsk = { readonly type: 'hfos-username-page' };
+export type UsernamePageAnswer =
+  | {
+      readonly ok: true;
+      readonly url: string | null;
+      readonly warnings: readonly string[];
+      /** What Facebook asks the person for first, when it does: no profile is looked for then. */
+      readonly asking: Asking | null;
+    }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Facebook's warnings on the page the tab shows, after the person carried on (decision 89): on Accounts Center, none
+ * while Facebook asks them for something, as its "Confirm it's you" there is no warning (decision 25).
+ */
+export type AccountWarningsAsk = { readonly type: 'hfos-account-warnings' };
+export type AccountWarningsAnswer =
+  | {
+      readonly ok: true;
+      readonly warnings: readonly string[];
+      readonly asking: Asking | null;
+    }
+  | { readonly ok: false; readonly error: string };
+
+/** Put these in's own asks on Facebook (decision 89), and what each is answered. */
+export type ProfileEditAsk =
+  OwnEditorsAsk | WriteLinkAsk | WriteUsernameAsk | UsernamePageAsk | AccountWarningsAsk;
+export interface ProfileEditAnswers {
+  readonly 'hfos-own-editors': OwnEditorsAnswer;
+  readonly 'hfos-write-link': WriteLinkAnswer;
+  readonly 'hfos-write-username': WriteUsernameAnswer;
+  readonly 'hfos-username-page': UsernamePageAnswer;
+  readonly 'hfos-account-warnings': AccountWarningsAnswer;
+}
 
 /**
  * Check LinkedIn's and Check Facebook's tries (src/networks/linkedin/tries.ts, src/networks/facebook/tries.ts,

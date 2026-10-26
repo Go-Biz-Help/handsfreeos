@@ -219,14 +219,22 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await playbook.getByTestId('playbook-save').click();
   await expect(page.getByText('Book a demo is ready.')).toBeVisible();
 
-  // Get ready: the offer and the niche are done; Today waits on the owner's profile and numbers.
+  // Get ready: the offer and the niche are done; Today waits on the owner's messages and numbers, and says which is
+  // first beside Start my day. Their profile is left too, as advice that holds nothing (decision 90).
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=today`);
   const ready = page.getByTestId('get-ready');
   await expect(ready.getByTestId('ready-offer')).toHaveAttribute('data-state', 'done');
   await expect(ready.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'done');
   await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'todo');
   await expect(page.getByTestId('live-start')).toBeDisabled();
-  await expect(page.getByTestId('live-not-ready')).toBeVisible();
+  await expect(page.getByTestId('live-not-ready')).toContainText(
+    'You haven’t OK’d how your messages read yet.',
+  );
+  // Beside a Start that waits, the profile never says "start now": only that the day doesn't wait on it.
+  await expect(ready.getByTestId('ready-profile-no-hold')).toContainText(
+    'Your day doesn’t wait on this one',
+  );
+  await expect(ready.getByTestId('ready-profile-later')).toHaveCount(0);
 
   // The profile: the computer reads it (here, as the extension would, straight to the worker) and the AI checks it;
   // the two it says to change are ticked once done.

@@ -13,7 +13,7 @@
  *   list of people or of groups; on the profiles of people they ticked, Cancel request or Unfriend; once they let the
  *   extension work on its own (src/auto/run.ts), Add friend, Confirm and Like on the profiles of people on their list
  *   for today, the comment the AI drafted, and the messages they OK'd; Join group and its questions (decision 48); a
- *   helpful post; and their own profile's bio.
+ *   helpful post; and their own profile's bio and links, and in Accounts Center their username (decision 89).
  * - On LinkedIn (src/networks/linkedin/work.ts), only what they asked from HandsFreeOS: scrolling their connections,
  *   invitations, a search's results and messaging's list, and opening a conversation from it; their own profile's
  *   headline; and, on Sent invitations, withdrawing the ones they ticked.

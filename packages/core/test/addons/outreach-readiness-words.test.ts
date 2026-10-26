@@ -1,12 +1,18 @@
 /**
  * Get ready for your best results (../../src/addons/outreach/readiness.ts, decision 63): where each item stands, what
- * changed in a new main offer, and the numbers worked as the video works them, honest about the safe pace of every
+ * changed in a new main offer, the profile as advice that never holds the day (decision 90), why Start my day waits in
+ * words that name what and where, and the numbers worked as the video works them, honest about the safe pace of every
  * network the person works (decision 88). Pure.
  */
 import { describe, expect, it } from 'vitest';
 import { NETWORKS_DEFAULTS, NO_RULES } from '../../src/addons/outreach/automation';
 import {
+  ADVICE_ITEMS,
+  adviceLeft,
+  blocksStart,
   changedParts,
+  firstHolding,
+  holdingCount,
   notReadyWords,
   numbersLines,
   numbersMath,
@@ -107,7 +113,9 @@ describe('getting ready', () => {
         (i) => i.item === 'playbook',
       )!;
     expect(playbook({ niche: null }).left).toBe('Pick a niche for Roofers on the Playbooks tab.');
-    expect(playbook({ problem: ' ' }).left).toBe('Write the niche’s biggest problem in Roofers.');
+    expect(playbook({ problem: ' ' }).left).toBe(
+      'Write the niche’s biggest problem in Roofers on the Playbooks tab.',
+    );
     expect(playbook({}).state).toBe('done');
     const withProof = {
       ...ready,
@@ -167,6 +175,78 @@ describe('getting ready', () => {
     });
     expect(notReadyWords(readinessOf({ ...ready, messages: null }))).toBe(
       'You haven’t OK’d how your messages read yet. Finish it under Get ready on the Today tab.',
+    );
+  });
+
+  it('never holds the day on the profile: it’s advice, still shown with what’s left (decision 90)', () => {
+    expect([...ADVICE_ITEMS]).toEqual(['profile']);
+    expect(blocksStart('profile')).toBe(false);
+    expect(blocksStart('numbers')).toBe(true);
+    // Not read yet, read with things to change, or wanting a look again: ready all the same.
+    const v2 = MainOfferParts.parse({ ...parts, price: { amount: '$2,500 a month' } });
+    for (const f of [
+      { profileCheck: null, profile: {} },
+      { profile: {} },
+      {
+        offer: { version: 2, parts: v2, before: parts },
+        messages: { at, version: 2 },
+      },
+    ] satisfies Partial<ReadyFacts>[]) {
+      const r = readinessOf({ ...ready, ...f });
+      expect(r).toMatchObject({ ready: true, next: null });
+      expect(firstHolding(r.items)).toBeUndefined();
+      expect(adviceLeft(r.items).map((i) => i.item)).toEqual(['profile']);
+      expect(notReadyWords(r)).toBe('');
+      // Get ready counts what holds the day: the profile is shown, never counted.
+      expect(holdingCount(r.items)).toEqual({ done: 4, of: 4 });
+    }
+    // A look again says what changed, though the day isn't held.
+    expect(
+      readinessOf({
+        ...ready,
+        offer: { version: 2, parts: v2, before: parts },
+        messages: { at, version: 2 },
+      }).changed,
+    ).toEqual(['Price']);
+    // With the profile and the messages left, the messages are what holds it, and what's said.
+    const both = readinessOf({ ...ready, profile: {}, messages: null });
+    expect(both).toMatchObject({ ready: false, next: 'messages' });
+    expect(holdingCount(both.items)).toEqual({ done: 3, of: 4 });
+    expect(notReadyWords(both)).toBe(
+      'You haven’t OK’d how your messages read yet. Finish it under Get ready on the Today tab.',
+    );
+  });
+
+  it('says what holds the day and where it’s done, by the item that does', () => {
+    // A playbook says which part of which, and where.
+    const problem = readinessOf({
+      ...ready,
+      playbooks: [{ ...ready.playbooks[0]!, problem: null }],
+    });
+    expect(notReadyWords(problem)).toBe(
+      'No playbook is ready to use yet. Write the niche’s biggest problem in Roofers on the Playbooks tab.',
+    );
+    expect(notReadyWords(readinessOf({ ...ready, playbooks: [] }))).toBe(
+      'No playbook is ready to use yet. Write a playbook and pick its niche on the Playbooks tab.',
+    );
+    // On another network with none running there, its own line says so, and where.
+    const onLinkedIn = readinessOf({ ...ready, playbooks: [], platform: 'linkedin' });
+    expect(notReadyWords({ ...onLinkedIn, platform: 'linkedin' })).toBe(
+      READY_WORDS.left.playbookNoneOn('linkedin'),
+    );
+    // Messages OK'd for an older version want a look again, said so.
+    const v2 = MainOfferParts.parse({ ...parts, price: { amount: '$2,500 a month' } });
+    expect(
+      notReadyWords(readinessOf({ ...ready, offer: { version: 2, parts: v2, before: parts } })),
+    ).toBe(
+      'Your main offer changed since you OK’d how your messages read. Look at them again under Get ready on the Today tab.',
+    );
+    expect(notReadyWords(readinessOf({ ...ready, numbers: { goal: null, at: null } }))).toBe(
+      'Your numbers aren’t set yet. Finish it under Get ready on the Today tab.',
+    );
+    // Get ready's card counts only what holds the day.
+    expect(READY_WORDS.cardHint(1)).toBe(
+      '1 thing to do before the extension reaches anyone for you.',
     );
   });
 
