@@ -1363,7 +1363,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     it goes without changing anything (`src/networks/facebook/tries.ts`). Nothing is ever saved, posted, sent, liked,
     added, confirmed, cancelled, unfriended or joined:
     - **Your bio:** Edit bio (or Add bio) opens its box; a word written in it and their own put back, its Save found,
-      then its Cancel closes it. Nothing is written in a box with no Cancel to close it.
+      then its Cancel closes it. Nothing is written in a box with no Cancel to close it. From extension 0.93.0, with no
+      Edit bio, it's tried on the About tab's editor, and their links and username are tried too (decision 89).
     - **Confirming:** Confirm by the friend requests they've got.
     - **Posting:** Write something… in one of their groups opens the composer, with a box to write in and Post; it's
       closed again, nothing written.
@@ -1817,9 +1818,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       read them, and their notes (`ProfileContext`). The look advises: Get ready still goes by decision 63's items.
     - **Every part** (`PARTS_ON`, profile-parts.ts): beside the bio, the About and the checklist, the username, the
       name and the links, each as it is and as written, with who does it (`PART_HOW_ON`): the person's computer puts
-      it in (`auto`: the bio, the About, LinkedIn's name in its intro's box), opens the page where it's changed and
-      hands the step over with what to paste (`steps`: names and usernames in Accounts Center on Facebook and
-      Instagram, LinkedIn's address, links on Facebook and LinkedIn), says it's only in the network's app (`app`:
+      it in (`auto`: the bio, the About, LinkedIn's name in its intro's box, and from decision 89 Facebook's username
+      and links), opens the page where it's changed and hands the step over with what to paste (`steps`: names in
+      Accounts Center on Facebook and Instagram, Instagram's username there too, LinkedIn's address and links;
+      Facebook's username and links were here until decision 89), says it's only in the network's app (`app`:
       Instagram's links), or it's theirs to do (`tip`). **Put these in** is their OK for the ones ticked, one
       `profile_edit` (name, username and links from extension 0.87.0, `PROFILE_PARTS_SINCE`).
     - **Pictures:** "leave rule". The extension still never changes a picture (decision 64). The AI judges the photo,
@@ -1856,8 +1858,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Facebook's October 2026 profile** (extension 0.90.0, from the page outline his read sent): Edit profile is a
       link now ("Edit"), not a button, so every read since 16 Oct had taken his profile for someone else's. It's read
       by that link; the bio is the line above the details row (there's no Edit bio); the Personal details, Work and
-      Education cards stand for the Intro, and the Links card gives the links. With no Edit bio, a new bio is the
-      person's to put in.
+      Education cards stand for the Intro, and the Links card gives the links. With no Edit bio, a new bio was the
+      person's to put in, until decision 89 found the About tab's editor.
     - **The work, weighed** (`look.work`): same, other or none, against the main offer and the playbooks that run on
       the network, which the check now has, with the person's own name. A profile about another business, brand or
       line of work is never right, even as a person, and its first clash says what it's about instead. Names and
@@ -1977,6 +1979,46 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       pace together, matching Results' "By network", where every network's messages count toward the one goal.
       Built.
 
+89. **Your bio, username and links, put in for you on Facebook** (Chris, 26 Oct 2026: "the social outreach add on
+    should be able to change my facebook bio but it's asking me to do it", "it should also be able to change my
+    facebook username", "should also be able to add or change links", and "should be able to change usernames as
+    well. I changed it here", with a link to Accounts Center's username page for his Facebook profile). Changes
+    decision 84's split on Facebook. From extension 0.93.0 **Put these in** has the person's computer put the bio, the
+    username and the links in itself (`PART_HOW_ON.facebook`: `bio`, `username` and `links` are `auto`). Their name
+    stays theirs to put in, in Accounts Center, and Instagram stays as it was: he's being asked about those apart.
+    Pictures stay theirs (decision 64).
+    - **The bio:** October 2026's profile has no Edit bio (decision 84, extension 0.90.0), so the extension follows
+      Edit profile's link to the About tab's editor. There it finds the bio's own Edit by Facebook's words (Edit bio,
+      Add bio, or the Edit by Bio), writes the bio in the box that opens, presses that box's Save and checks the bio
+      shows. A profile that still has Edit bio has it pressed, as before.
+    - **The links:** the Links card's Edit links opens Contact and basic info. For each link to add that isn't there
+      yet, it presses Facebook's add for a website, types the address, presses Save and checks it shows. Links are
+      only added: one already there stays, as `linksToAdd` leaves it out.
+    - **The username:** on Accounts Center's username page for their Facebook profile (the profile's number from Edit
+      profile's link; without it, Profiles, then the Facebook one), the Username box is cleared and the new one
+      typed. Done is pressed only once Facebook allows it, then their profile is read again for its new address. It
+      still asks first (decision 84). A password or code box waits for the person: they type it there and press
+      Continue, then Carry on in HandsFreeOS. The extension never types a password or a code, and reads no warning
+      while Facebook asks for one, as a "Confirm it's you" there isn't decision 25's warning. When Facebook says the
+      username isn't available or can't change yet, the ask ends saying so, and what to do: pick another, or try
+      again in a few days. Nothing is guessed.
+    - **Found by Facebook's words, never guessed.** A step it can't find is handed to the person, saying where to
+      press on the page it's on (Carry on), and its problem report carries that page's outline. Each stops on a
+      Facebook warning (decision 25), and acts only for an ask the person made in HandsFreeOS: Put these in is their
+      OK, as their profile is public (decision 80).
+    - **Check Facebook tries them** up to their last press, never pressing it (decision 77): the bio by its new path,
+      the add for a link and its box, and the Username box and Done, a word typed in each and theirs put back. Each
+      page's outline is sent, so the owner's first Check tunes them from his own pages.
+    - **An older extension hands them over as before.** Each build carries its own copy of core, so one before 0.93.0
+      opens Accounts Center or the profile and hands the step over. The screens say so for its computer
+      (`PART_AUTO_SINCE_ON`, `partHowFor`): Facebook's username and links read **You put it in** until it's updated.
+      No new refusal: `PROFILE_PARTS_SINCE` stays 0.87.0. On the Live tab Facebook's `profile_edit` is now **Update
+      your profile**, as on LinkedIn and Instagram, since it's more than the bio.
+
+    Built from the outline of his own profile (made up in the extension's `test/fixtures/own-profile-2026-10.html`).
+    The About tab's editor, Contact and basic info and Accounts Center's username page follow Facebook's usual words,
+    not yet tried on his account.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2080,7 +2122,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`tidyPage`). It checks the profile is the one
   ticked and where things stand before pressing, and that it says Add friend after; anything else is handed to the
   person. It presses a button under their name, never a link or tab, and Unfriend and Confirm only in Facebook's box
-  on top.
+  on top. For **Put these in** (decision 89) it presses only on the person's own profile, its About tab's editor and
+  Contact and basic info, and Accounts Center's username page for their Facebook profile, and types only the new bio,
+  links and username there: never a password or a code, for which it waits for the person.
 - **On its own, it does only what's on the person's list for today, and only the kinds they let it**
   (`autoKinds`, the list's `auto`). The list holds no more than today's limits have room for, so the runner never
   passes them; it checks each profile is the one listed and where things stand before pressing and after, passes
@@ -2626,10 +2670,14 @@ in Chrome"), and the two commands can be retired; Add to Contacts is `outreach.p
 `outreach.chat.keep`.
 
 From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
-the profile's read and the bio's edit (decision 64) follow page outlines, not yet tried on the owner's account; the
-phone OKs messages and changes the video's link, but the samples and the script are written on the web; and yeses
-were first kept with step 6 (`stages.positive_at`), so weeks before it count none, and people pitched before it have
-no offer version.
+the profile's read, and putting in its bio, username and links (decisions 64 and 89), follow page outlines, not yet
+tried on the owner's account; the phone OKs messages and changes the video's link, but the samples and the script are
+written on the web; and yeses were first kept with step 6 (`stages.positive_at`), so weeks before it count none, and
+people pitched before it have no offer version.
+
+On Facebook, a link already on the profile is never changed or taken away, only new ones added, and the name is still
+handed over in Accounts Center (decision 89). Instagram's username and name are handed over as before, until the
+owner says how he wants them.
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
 came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,

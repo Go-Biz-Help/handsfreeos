@@ -42,6 +42,10 @@ describe('Check LinkedIn and Check Facebook', () => {
     expect(REPORT_WORDS.checkupAbout('facebook')).toContain(
       'your bio, a post in a group, a comment, a friend request, a message, a like',
     );
+    // Its links and username too, from 0.93.0 (decision 89).
+    expect(REPORT_WORDS.checkupAbout('facebook')).toContain(
+      'joining a group, your links, your username and your Facebook file',
+    );
     expect(REPORT_WORDS.checkupAbout('linkedin')).toContain(
       'your headline, your About, a post, a comment',
     );

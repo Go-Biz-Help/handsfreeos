@@ -57,7 +57,7 @@ export const REPORT_WORDS = {
 
 const CHECKUP_ABOUT: Readonly<Record<Platform, string>> = {
   facebook:
-    'If something on Facebook isn’t working, press this once. Your computer reads your profile, feed, friends, friend requests, groups, searches and chats, then tries each step up to its last press: your bio, a post in a group, a comment, a friend request, a message, a like, confirming and cancelling requests, unfriending, joining a group and your Facebook file. It never saves, posts, sends, likes, adds, joins or removes anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about four minutes.',
+    'If something on Facebook isn’t working, press this once. Your computer reads your profile, feed, friends, friend requests, groups, searches and chats, then tries each step up to its last press: your bio, a post in a group, a comment, a friend request, a message, a like, confirming and cancelling requests, unfriending, joining a group, your links, your username and your Facebook file. It never saves, posts, sends, likes, adds, joins, removes or changes anything: a word it types to try a box comes out again. It tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about four minutes.',
   linkedin:
     'If something on LinkedIn isn’t working, press this once. Your computer reads your profile, feed, connections, a search and your messages, then tries each step up to its last press: your headline, your About, a post, a comment, connecting, a message, a like and withdrawing. It never saves, posts, sends, likes or connects anything, and it tells HandsFreeOS what works and what doesn’t, with names and words left out. Its window comes to the front for about three minutes.',
   instagram:
@@ -66,11 +66,16 @@ const CHECKUP_ABOUT: Readonly<Record<Platform, string>> = {
     'Press this once, so the extension can learn Alignable from your own account. Your computer reads your Alignable pages and each page their menus lead to (your network, messages, the forum and the rest), your profile and a member’s, and looks for each step’s button: Connect, Message, Recommend, Like and the box to comment in. On your profile it opens your elevator pitch and your ideal customer to see where they’re written, and closes them again, then opens the pages your About Us and your details are changed on. It never presses a step’s button, and writes or saves nothing. It tells HandsFreeOS what it found, with names and words left out. Its window comes to the front for about three minutes.',
 };
 
-/** The steps Check LinkedIn (decision 76) and Check Facebook (decision 77) try, as their lines name them. */
+/**
+ * The steps Check LinkedIn (decision 76) and Check Facebook (decision 77) try, as their lines name them: Facebook's
+ * links and username from extension 0.93.0 (decision 89).
+ */
 export const TRY_STEP_NAMES = {
   headline: 'your headline',
   about: 'your About',
   bio: 'your bio',
+  links: 'your links',
+  username: 'your username',
   post: 'posting',
   comment: 'commenting',
   connect: 'connecting',

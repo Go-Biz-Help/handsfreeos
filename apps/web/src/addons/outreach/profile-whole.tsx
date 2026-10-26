@@ -200,12 +200,18 @@ export function ProfileRest({
   known: ProfilesKnown | null;
   asks: Asks | null;
 }) {
+  // Who does each goes by the person's computer's build: an older one hands Facebook's username and links over.
+  const version = asks?.computer?.version;
   const all = useMemo(
     () =>
       known && check
-        ? profileParts(platform, { ...known, checks: { ...known.checks, [platform]: check } })
+        ? profileParts(
+            platform,
+            { ...known, checks: { ...known.checks, [platform]: check } },
+            version,
+          )
         : [],
-    [known, check, platform],
+    [known, check, platform, version],
   );
   const rows = all.filter((r) => ['username', 'name', 'links'].includes(r.part) && r.how !== 'tip');
   const links = useMemo(

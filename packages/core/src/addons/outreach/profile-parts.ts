@@ -6,7 +6,9 @@
  * - **Every part, with who does it.** Each network's parts are listed in the order a stranger reads them, each as it is
  *   and as the AI wrote it, and how it goes in (`PART_HOW_ON`): the person's computer puts it in (`auto`), opens the
  *   page where it's changed and hands the step over with what to paste (`steps`), it's only in the network's phone
- *   app (`app`), or it's theirs to do (`tip`): pictures stay theirs, as decision 64 keeps.
+ *   app (`app`), or it's theirs to do (`tip`): pictures stay theirs, as decision 64 keeps. Facebook's username and
+ *   links go in by themselves from extension 0.93.0 (decision 89); an older build still hands them over
+ *   (`partHowFor`).
  * - **Links**, worked out here rather than written by the AI (`linksToAdd`): the booking link of a playbook running
  *   there, the business's website, and the person's own other profiles as their checks read them, never one guessed. A
  *   profile that doesn't yet read as them is held back.
@@ -19,6 +21,7 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
+import { appVersionAtLeast } from '../../mobile';
 import { noDashes, PLAIN_WRITING } from '../../writing';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import { offerBlock, type PlaybookOffer } from './playbook-assist';
@@ -85,7 +88,8 @@ export const PARTS_ON: Readonly<Record<Platform, readonly ProfilePart[]>> = {
 /**
  * How each part goes in (decision 84): `auto`, the person's computer puts it in (and hands it over when the page isn't
  * as it expects); `steps`, it opens the page where it's changed and hands the step over with what to paste; `app`, the
- * network changes it only in its phone app; `tip`, theirs to do, as pictures always are (decision 64).
+ * network changes it only in its phone app; `tip`, theirs to do, as pictures always are (decision 64). The newest
+ * build's: an older one may still hand a part over (`PART_AUTO_SINCE_ON`, `partHowFor`).
  */
 export const PART_HOWS = ['auto', 'steps', 'app', 'tip'] as const;
 export type PartHow = (typeof PART_HOWS)[number];
@@ -93,7 +97,9 @@ export type PartHow = (typeof PART_HOWS)[number];
 export const PART_HOW_ON: Readonly<
   Record<Platform, Readonly<Partial<Record<ProfilePart, PartHow>>>>
 > = {
-  facebook: { bio: 'auto', links: 'steps', username: 'steps', name: 'steps' },
+  // Its username and links go in by themselves from extension 0.93.0 (decision 89); its name stays the person's to put
+  // in, in Accounts Center.
+  facebook: { bio: 'auto', links: 'auto', username: 'auto', name: 'steps' },
   // Its name is in the same box as its headline, Edit intro.
   linkedin: { bio: 'auto', about: 'auto', links: 'steps', username: 'steps', name: 'auto' },
   instagram: { bio: 'auto', links: 'app', username: 'steps', name: 'steps' },
@@ -101,6 +107,33 @@ export const PART_HOW_ON: Readonly<
 };
 export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
   PART_HOW_ON[platform][part] ?? 'tip';
+
+/**
+ * The first build of the extension that puts a part in by itself, where an older one handed it over (decision 89).
+ * Each build carries its own copy of `PART_HOW_ON`, so an older one still opens the page and hands the step over.
+ */
+export const PART_AUTO_SINCE_ON: Readonly<
+  Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
+> = {
+  facebook: { links: '0.93.0', username: '0.93.0' },
+};
+
+/**
+ * How a part goes in on the person's computer, by its build of the extension: a part that goes in by itself only
+ * from a newer build is `steps` on an older one, as that build hands it over. With no computer known (`undefined`) it's
+ * the newest build's; a computer that didn't say its build is taken as older, as `tooOldFor` takes it.
+ */
+export function partHowFor(
+  platform: Platform,
+  part: ProfilePart,
+  version?: string | null,
+): PartHow {
+  const how = partHowOn(platform, part);
+  const since = PART_AUTO_SINCE_ON[platform]?.[part];
+  return how === 'auto' && since && version !== undefined && !appVersionAtLeast(version, since)
+    ? 'steps'
+    : how;
+}
 
 /** The parts a `profile_edit` takes, beside the bio and the About: what the person's computer puts in or opens. */
 export const EDIT_PARTS = ['bio', 'about', 'name', 'username', 'links'] as const;
@@ -183,7 +216,7 @@ export function partStepsWords(
     case 'facebook:username':
       return `In Accounts Center, press Profiles, then your Facebook profile, then Username.${put} then Done.`;
     case 'facebook:links':
-      return `On your Facebook profile, press About, then Contact and basic info. Under Websites and social links, press Add a website or Add a social link, paste each one${v ? ` (${v})` : ''}, and press Save.`;
+      return `On your Facebook profile, press Edit links on the Links card (or About, then Contact and basic info). Under Websites and social links, press Add a website or Add a social link, paste each one${v ? ` (${v})` : ''}, and press Save.`;
     case 'instagram:name':
       return `In Accounts Center, press Profiles, then your Instagram, then Name.${put} then Done. Instagram lets you change it twice in 14 days.`;
     case 'instagram:username':
@@ -201,7 +234,10 @@ export function partStepsWords(
   }
 }
 
-/** The page a part's step opens, for `steps` (Accounts Center for names and usernames on Facebook and Instagram). */
+/**
+ * The page a part's step opens, for `steps` (Accounts Center for names and usernames on Facebook and Instagram). An
+ * older build still opens Facebook's username and links here (decision 89).
+ */
 export const PART_PAGE_ON: Readonly<
   Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
 > = {
@@ -375,9 +411,14 @@ export const firstUsername = (check: ProfileCheck | null): UsernameOption | null
 
 /**
  * Every part of a network's profile as the screen lists it (decision 84), from its latest check and what's known of
- * the person's other profiles. With no check yet, each part is listed with nothing read.
+ * the person's other profiles. With no check yet, each part is listed with nothing read. Who does each goes by the
+ * build of the person's computer, when it's known (`partHowFor`): an older one hands Facebook's username and links over.
  */
-export function profileParts(platform: Platform, known: ProfilesKnown): ProfilePartRow[] {
+export function profileParts(
+  platform: Platform,
+  known: ProfilesKnown,
+  version?: string | null,
+): ProfilePartRow[] {
   const check = known.checks[platform] ?? null;
   const seen = check?.seen ?? null;
   const unlike = new Set<MatchPart>(check?.look?.unlike ?? []);
@@ -386,7 +427,7 @@ export function profileParts(platform: Platform, known: ProfilesKnown): ProfileP
     const item = ITEM_OF[part];
     const scored =
       item && PROFILE_ITEMS_ON[platform].includes(item) ? check?.items[item] : undefined;
-    const base = { part, name: partName(platform, part), how: partHowOn(platform, part) };
+    const base = { part, name: partName(platform, part), how: partHowFor(platform, part, version) };
     switch (part) {
       case 'bio':
         return {
