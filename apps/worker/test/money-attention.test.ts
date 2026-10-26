@@ -24,6 +24,7 @@ import {
   invoiceRecordCashPayment,
   invoiceRecordPayment,
   localDateOf,
+  walletSetAutoTopup,
   type HumanActor,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -111,6 +112,9 @@ beforeAll(async () => {
     reminders: { beforeDueDays: [], onDue: false, afterDueDays: [], estimateAfterDays: null },
   });
   w.s.payments.fake.setDeliver(async () => ({ ok: false }));
+  // A new business's $5 starting credit sits under the $10 floor, which a sweep reads as a balance running low:
+  // the floor goes under it, so the sweep's only cards are the money's.
+  await run(w, walletSetAutoTopup, { workspaceId: w.workspaceId, floorCents: 0 });
 }, 180_000);
 
 afterAll(async () => {
