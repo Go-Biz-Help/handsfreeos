@@ -15,7 +15,6 @@ import type { CommandContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { dayList } from '../automation';
-import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
 import {
   messageNotesOf,
@@ -46,6 +45,7 @@ import {
   MessageSamplesSaveInput,
   MessagesOkInput,
   NumbersInput,
+  numbersPace,
   ProfileCheckSaveInput,
   ProfileTickInput,
   ProfileTicks,
@@ -147,6 +147,8 @@ export async function readinessFor(
     goal: row?.callsGoal ?? null,
     at: row?.numbersAt?.toISOString() ?? null,
   };
+  // One goal for every network the person works: each one's safe pace counts (decision 88).
+  const pace = numbersPace(auto.settings, auto.rules);
   const r: Readiness = readinessOf({
     offer,
     playbooks: playbooks.map((p) => ({
@@ -180,10 +182,9 @@ export async function readinessFor(
     numbers: {
       ...numbers,
       days: dayList(auto.settings.hours.days),
-      canSend: Math.min(
-        DAILY_LIMITS.first_message,
-        auto.rules.dailyLimits.first_message ?? DAILY_LIMITS.first_message,
-      ),
+      canSend: pace.canSend,
+      networks: [...pace.networks],
+      more: [...pace.more],
     },
   };
 }

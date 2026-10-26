@@ -1,13 +1,16 @@
 /**
  * Get ready for your best results (../../src/addons/outreach/readiness.ts, decision 63): where each item stands, what
- * changed in a new main offer, and the numbers worked as the video works them, honest about Facebook's pace. Pure.
+ * changed in a new main offer, and the numbers worked as the video works them, honest about the safe pace of every
+ * network the person works (decision 88). Pure.
  */
 import { describe, expect, it } from 'vitest';
+import { NETWORKS_DEFAULTS, NO_RULES } from '../../src/addons/outreach/automation';
 import {
   changedParts,
   notReadyWords,
   numbersLines,
   numbersMath,
+  numbersPace,
   numbersVerdict,
   PROFILE_ITEMS,
   READY_WORDS,
@@ -199,5 +202,84 @@ describe('your numbers', () => {
     expect(numbersVerdict(big)).toContain('working Saturdays');
     // A business's lower limit lowers the pace.
     expect(numbersMath({ goal: 8, daysAWeek: 5, canSend: 5 }).pace).toEqual({ low: 1, high: 2 });
+  });
+
+  it('adds up the safe pace of every network the person works (decision 88)', () => {
+    const facebookOnly = { networks: NETWORKS_DEFAULTS };
+    expect(numbersPace(facebookOnly, NO_RULES)).toEqual({
+      canSend: 15,
+      networks: [{ platform: 'facebook', canSend: 15 }],
+      more: ['linkedin', 'instagram', 'alignable'],
+    });
+    const three = {
+      networks: {
+        ...NETWORKS_DEFAULTS,
+        linkedin: { ...NETWORKS_DEFAULTS.linkedin, on: true },
+        instagram: { ...NETWORKS_DEFAULTS.instagram, on: true },
+      },
+    };
+    expect(numbersPace(three, NO_RULES)).toEqual({
+      canSend: 40,
+      networks: [
+        { platform: 'facebook', canSend: 15 },
+        { platform: 'linkedin', canSend: 15 },
+        { platform: 'instagram', canSend: 10 },
+      ],
+      more: ['alignable'],
+    });
+    // The business's own limits on each, and only the networks it allows.
+    const rules = {
+      ...NO_RULES,
+      dailyLimits: { first_message: 10 },
+      networkLimits: { linkedin: { first_message: 5 } },
+      networksAllowed: ['facebook' as const, 'linkedin' as const],
+    };
+    expect(numbersPace(three, rules)).toEqual({
+      canSend: 15,
+      networks: [
+        { platform: 'facebook', canSend: 10 },
+        { platform: 'linkedin', canSend: 5 },
+      ],
+      more: [],
+    });
+    // A network whose first messages the business set to none isn't one to turn on.
+    const noInstagram = { ...NO_RULES, networkLimits: { instagram: { first_message: 0 } } };
+    expect(numbersPace(facebookOnly, noInstagram).more).toEqual(['linkedin', 'alignable']);
+    // Working no network at all counts Facebook, as it's on to start.
+    const none = { networks: { ...NETWORKS_DEFAULTS, facebook: { on: false } } };
+    expect(numbersPace(none, NO_RULES).networks).toEqual([{ platform: 'facebook', canSend: 15 }]);
+  });
+
+  it('names the networks it counted, and turning on another when the goal is past them', () => {
+    const both = [
+      { platform: 'facebook' as const, canSend: 15 },
+      { platform: 'linkedin' as const, canSend: 15 },
+    ];
+    // The screenshot's goal: 20 calls a month, Monday to Friday, on Facebook and LinkedIn.
+    const m = numbersMath({ goal: 20, daysAWeek: 5, canSend: 30 });
+    expect(m).toMatchObject({ messagesADay: { low: 35, high: 69 }, pace: { low: 8, high: 17 } });
+    const verdict = numbersVerdict(m, both, ['instagram', 'alignable']);
+    expect(verdict).toContain(
+      'Your safe pace is 30 first messages a day: 15 on Facebook and 15 on LinkedIn. That’s about 8 to 17 calls a month.',
+    );
+    expect(verdict).toContain('more than Facebook and LinkedIn can reach together');
+    expect(verdict).toContain('turning on Instagram or Alignable too');
+    expect(verdict).not.toContain('one Facebook account');
+    // A goal the networks reach together fits, though it's past Facebook's alone.
+    const eight = numbersMath({ goal: 8, daysAWeek: 5, canSend: 30 });
+    expect(numbersMath({ goal: 8, daysAWeek: 5 }).fits).toBe('maybe');
+    expect(eight.fits).toBe('yes');
+    expect(numbersVerdict(eight, both)).toMatch(/^Your safe pace is 30 .* Your goal fits\.$/);
+    // One network says it on its own, in its name; none given is Facebook's, as an API from before them sends.
+    const linkedIn = numbersMath({ goal: 30, daysAWeek: 5, canSend: 15 });
+    expect(numbersVerdict(linkedIn, [{ platform: 'linkedin', canSend: 15 }])).toContain(
+      'LinkedIn’s safe pace is 15 first messages a day',
+    );
+    expect(numbersVerdict(linkedIn, [{ platform: 'linkedin', canSend: 15 }])).toContain(
+      'more than one LinkedIn account can reach',
+    );
+    expect(numbersVerdict(linkedIn)).toBe(
+      `Facebook’s safe pace is 15 first messages a day, about 4 to 8 calls a month. Your goal is more than one Facebook account can reach. ${READY_WORDS.numbersHelps}`,
+    );
   });
 });

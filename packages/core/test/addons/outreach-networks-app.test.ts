@@ -211,9 +211,9 @@ describe('the networks a person works', () => {
 });
 
 describe('the setup’s networks', () => {
-  it('picks the networks last in the main setup, then sets each up on its own (decision 83)', () => {
-    expect(setupSteps(true).at(-1)).toBe('networks');
-    expect(setupSteps(false)).toEqual(['extension', 'messages', 'numbers', 'networks']);
+  it('picks the networks before the goal that counts them, then sets each up on its own (decisions 83 and 88)', () => {
+    expect(setupSteps(true).slice(-2)).toEqual(['networks', 'numbers']);
+    expect(setupSteps(false)).toEqual(['extension', 'messages', 'networks', 'numbers']);
     // Facebook is let on as the extension is put in, and its playbook is the main setup's.
     expect(networkSteps('facebook')).toEqual(['profile', 'choices', 'start']);
     expect(networkSteps('linkedin')).toEqual(['allow', 'playbook', 'profile', 'choices', 'start']);

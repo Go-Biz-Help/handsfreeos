@@ -1310,7 +1310,7 @@ export function NumbersBody({
               : 'bg-warning-soft text-warning-text',
           )}
         >
-          {numbersVerdict(m)}
+          {numbersVerdict(m, readiness.numbers.networks, readiness.numbers.more)}
         </p>
         <p className="text-[12px] text-text-3">
           {R.numbers.rates} {R.numbers.notMessages}

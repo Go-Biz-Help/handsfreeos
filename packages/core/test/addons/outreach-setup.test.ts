@@ -89,6 +89,7 @@ const allDone = facts({
 
 describe('the setup’s steps', () => {
   it('has the business’s part only for owners and admins, then the computer and them', () => {
+    // The networks before the goal, which counts every one of them (decision 88).
     expect(setupSteps(true)).toEqual([
       'offer',
       'playbook',
@@ -96,10 +97,10 @@ describe('the setup’s steps', () => {
       'rules',
       'extension',
       'messages',
-      'numbers',
       'networks',
+      'numbers',
     ]);
-    expect(setupSteps(false)).toEqual(['extension', 'messages', 'numbers', 'networks']);
+    expect(setupSteps(false)).toEqual(['extension', 'messages', 'networks', 'numbers']);
     expect(networkSteps('facebook')).toEqual(['profile', 'choices', 'start']);
     expect(networkSteps('instagram')).toEqual(['allow', 'playbook', 'profile', 'choices', 'start']);
   });
@@ -216,11 +217,24 @@ describe('the setup’s steps', () => {
       net: 'facebook',
       step: 'profile',
     });
+    // The goal comes after the networks while it's left: it counts each one turned on.
+    expect(stopAfter({ net: null, step: 'messages' }, laid(facts()))).toEqual({
+      net: null,
+      step: 'networks',
+    });
+    expect(stopAfter({ net: null, step: 'networks' }, laid(facts()))).toEqual({
+      net: null,
+      step: 'numbers',
+    });
+    expect(SETUP_WORDS.networksNext(['Facebook', 'LinkedIn'], true)).toBe(
+      'Next: your goal, then set up Facebook and LinkedIn. About 5 minutes each. Turn on more any time on the Settings tab.',
+    );
+    expect(SETUP_WORDS.networksNext(['Facebook'])).toMatch(/^Next: set up Facebook\./);
     expect(stopAfter({ net: 'facebook', step: 'start' }, laid(allDone))).toBe('done');
     expect(stopBefore({ net: null, step: 'offer' }, laid(facts()))).toBe('welcome');
     expect(stopBefore({ net: 'facebook', step: 'profile' }, laid(facts()))).toEqual({
       net: null,
-      step: 'networks',
+      step: 'numbers',
     });
   });
 
@@ -441,8 +455,8 @@ describe('each person’s setup', () => {
         'rules',
         'extension',
         'messages',
-        'numbers',
         'networks',
+        'numbers',
       ],
       business: [],
       networks: [{ platform: 'facebook' }],
@@ -462,7 +476,7 @@ describe('each person’s setup', () => {
     expect(mine.networks[0]!.steps.map((s) => s.step)).toEqual(['profile', 'choices', 'start']);
     const theirs: SetupOutput = await runAs(member, ws, 'outreach.setup', {});
     expect(theirs).toMatchObject({
-      steps: ['extension', 'messages', 'numbers', 'networks'],
+      steps: ['extension', 'messages', 'networks', 'numbers'],
       business: [
         { item: 'offer', state: 'waiting' },
         { item: 'playbook', state: 'waiting' },

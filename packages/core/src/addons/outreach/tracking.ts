@@ -50,7 +50,7 @@ export const TELL_AFTER = { messages: 25, positive: 3 } as const;
 export const TrackingTarget = z.object({
   /** Calls booked a month: the goal on Get ready's Your numbers. */
   goal: count,
-  /** First messages: enough for the goal at the worst rate, never past Facebook's safe pace. */
+  /** First messages: enough for the goal at the worst rate, never past the safe pace of every network they work. */
   messages: count,
   /** Yeses and calls, to one decimal. */
   positive: z.number().min(0),

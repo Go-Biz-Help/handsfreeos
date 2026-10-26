@@ -15,9 +15,9 @@ import { userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { ACTIVITY_PERIODS } from '../activity';
-import { DAILY_LIMITS } from '../limits';
 import { outreachAddon } from '../manifest';
 import { PLATFORM_KEYS, type Platform } from '../networks';
+import { numbersPace } from '../readiness';
 import { playbooks, reviews, setup } from '../tables';
 import {
   DayReportInput,
@@ -136,7 +136,10 @@ async function summed(ctx: Ctx, counted: readonly Counted[]) {
   };
 }
 
-/** The person's goal (Get ready's Your numbers), their working days a week, and what they can send safely a day. */
+/**
+ * The person's goal (Get ready's Your numbers), their working days a week, and what they can send safely a day: every
+ * network they work added up, as Your numbers counts it (decision 88).
+ */
 export async function goalOf(
   ctx: Ctx,
   me: string,
@@ -150,10 +153,7 @@ export async function goalOf(
   return {
     goal: kept.goal,
     daysAWeek: auto.settings.hours.days.length,
-    canSend: Math.min(
-      DAILY_LIMITS.first_message,
-      auto.rules.dailyLimits.first_message ?? DAILY_LIMITS.first_message,
-    ),
+    canSend: numbersPace(auto.settings, auto.rules).canSend,
   };
 }
 

@@ -519,9 +519,10 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   same card as the main app's, with a list of the steps beside it (folded on a phone). A **main setup** in three
   parts, once per person: **Your business** (the main offer, a playbook, a short video if the business wants one, the
   team's rules, with each network's own daily limits; owners and admins only), **Your computer** (the extension) and
-  **You** (your messages, each to change or to have the AI write again with a note; your goal; the networks you
-  use). Then a **short setup for each network** they turn on, Facebook first: Allow it in Chrome (not on
-  Facebook), a playbook for it (only while none runs there), your profile there, what it does there, and your first
+  **You** (your messages, each to change or to have the AI write again with a note; the networks you use; then your
+  goal, at the safe pace of all of them, decision 88). Then a **short setup for each network** they turn on,
+  Facebook first: Allow it in Chrome (not on Facebook), a playbook for it (only while none runs there), your profile
+  there, what it does there, and your first
   day there (`?net=linkedin&step=allow`). Each step ticks from what's true, never from a button pressed, and **Skip
   for now** leaves it to do. The main offer and a playbook are built on their own pages, which come back to the step
   (`back=`, `from=setup`). The install has five steps, each with a picture of Chrome drawn in the app's colours
@@ -1168,8 +1169,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     decision: the day's report is on to start). Results leads with the three numbers the video says to watch every
     day: first messages sent, said yes (`stages.positive_at`) and calls booked (`demos`, not taken back), for today,
     the last 7 days or the last 30 (`outreach.tracking`). Each has the person's target from their goal on Get ready's
-    Your numbers (`targetFor`: the first messages the goal takes at the worst rate, never past Facebook's safe pace,
-    and the yeses and calls it takes), and the two rates between them stand against the usual ones (4 to 8% say yes,
+    Your numbers (`targetFor`: the first messages the goal takes at the worst rate, never past the safe pace of every
+    network the person works, added up since decision 88, and the yeses and calls it takes), and the two rates between
+    them stand against the usual ones (4 to 8% say yes,
     1 in 3 of them book), "too few to tell yet" under 25 first messages or 3 yeses. Below them, by playbook (the one a
     first message's opener came from, `opener_uses`) and by the main offer's version each person was first pitched
     with (`follow_ups`). Someone counts as messaged from their first chat started or first pitch, whichever came
@@ -1776,7 +1778,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       extension, what it does on each network, and the first day there.
     - **The split:** "ok then we may need to have an overall onboarding and then have a short onboarding for each
       social media platform they turn on". The **main setup** has three parts: Your business (`offer`, `playbook`,
-      `video`, `rules`; owners and admins), Your computer (`extension`) and You (`messages`, `numbers`, `networks`).
+      `video`, `rules`; owners and admins), Your computer (`extension`) and You (`messages`, `networks`, `numbers`:
+      the networks before the goal since decision 88).
       Owners have 8 steps and members 4; a member sees the business's part as done or waiting on an owner, and their
       messages wait on it. Each network turned on (in the networks step, or later with **Set up {network}** on its
       page in Settings) gets its own: `allow` (not Facebook), `playbook` (only while no playbook runs there),
@@ -1951,6 +1954,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     words ("15 invitations to connect" on LinkedIn, "20 follows" on Instagram), with the limits everyone's day keeps
     (`networkLimitsNow` with `businessLimitsOn`), as Change them already set them. Built.
 
+88. **Your networks before your goal, and the goal counts them all** (Chris, 26 Oct 2026: "shouldn't we determine
+    the platforms we will use so that it doesn't warn about facebook only if it's going to use multiple platforms and
+    also it would know it could spread out the number of messages so it wouldn't be an issue"). The setup asked for
+    the goal before the networks, and Your numbers held any goal to one Facebook account's 15 first messages a day,
+    so 20 calls a month on Facebook and LinkedIn still read "more than one Facebook account can reach".
+    - **The networks come first:** You is now `messages`, `networks`, `numbers` (`SETUP_STEPS`). While the goal is
+      left, the networks step says it's next ("Next: your goal, then set up Facebook and LinkedIn.") and its button
+      is **Save and carry on**; once it's set, **Save and set up Facebook** as before.
+    - **One goal, every network's pace added up** (`numbersPace`), as the main offer plan's answer 2 had it ("each
+      with its own safe pace, so the targets add up across them as they come"): each network the person works, inside
+      what the business allows, brings its own first messages a day (the business's limit there, under the network's
+      starting one; never halved, as the goal is for a usual month). `outreach.readiness` gives the sum as `numbers.canSend`,
+      each network's share as `numbers.networks`, and the networks the business allows that they don't work yet as
+      `numbers.more`. Someone who works none is counted on Facebook, as it's on to start.
+    - **The verdict names them** (`numbersVerdict`): one network says it as before ("Facebook’s safe pace is 15
+      first messages a day…", or LinkedIn's); several add up, each with its share ("Your safe pace is 30 first
+      messages a day: 15 on Facebook and 15 on LinkedIn."). Past the pace, **What helps** starts with turning on a
+      network the business allows (`numbersHelpsOn`). With no networks from an API before it, screens say
+      Facebook's alone.
+    - **Results' targets count the same** (`goalOf`): a day's first messages target is never past every network's
+      pace together, matching Results' "By network", where every network's messages count toward the one goal.
+      Built.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -1997,6 +2023,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   for now never ticks one. Don't add a stored "done" for a step; add the fact. `reached` is old data, still read
   (`SETUP_REACHED`) and no longer written. A new step goes in `SETUP_STEPS` or `NETWORK_STEPS` with its words in
   `SETUP_WORDS`, which the phone reads too.
+- **A goal counts every network the person works** (decision 88): Your numbers' math, the setup's goal and Results'
+  targets all read `numbersPace`, so a network turned on or a business's limit changed moves them all. Don't hold a
+  goal to one network's limit.
 - **The setup is each person's own** (`addon_outreach.setup`). Finishing it changes nothing the extension does: the
   networks step's and each network's saves do (`outreach.automation.save`). A **first-timer**
   (`isFirstTime`) has never saved their own settings and never started the setup (`started_at`: moving on from a
@@ -2132,8 +2161,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     one goal for every network, each network's share of the first messages. `private.outreach_numbers_by_network` gives each
     count's network, from the profile reached (20261027007400).
   - **The playbook's networks step** offers each network in `details.platforms`, at least one, with where it looks
-    on each; **the setup has a step to pick networks** (`networks`, the main setup's last, then a short setup for
-    each network turned on, decision 83). **A playbook runs only on its networks** (`runsOn`, data version 7): Today, posts,
+    on each; **the setup has a step to pick networks** (`networks`, just before the goal, which counts them all
+    (decision 88), then a short setup for each network turned on, decision 83). **A playbook runs only on its
+    networks** (`runsOn`, data version 7): Today, posts,
     checks, asks and Get ready read the playbooks on the network shown. Every customers' playbook saved before then
     gets Facebook and LinkedIn, as it ran on both (`onItsNetworks` marks it done); a new one starts with every network
     that works. Get ready says when no playbook runs on the network shown (`playbookNoneOn`).

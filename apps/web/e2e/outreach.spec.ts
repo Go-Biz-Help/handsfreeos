@@ -721,23 +721,31 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   await expect(rail('extension')).toHaveAttribute('data-state', 'done');
   await page.getByTestId('outreach-setup-next').click();
 
-  // Their messages wait on the offer and a niche; their goal saves and ticks.
+  // Their messages wait on the offer and a niche.
   await expect(setup).toHaveAttribute('data-screen', 'messages');
   await page.getByTestId('outreach-setup-skip').click();
-  await expect(setup).toHaveAttribute('data-screen', 'numbers');
-  await page.getByTestId('ready-numbers-save').click();
 
-  // The networks they use: LinkedIn turned on gets a short setup of its own, after Facebook's.
+  // The networks they use come before the goal, which counts them all (decision 88). LinkedIn turned on gets a short
+  // setup of its own, after Facebook's.
   await expect(setup).toHaveAttribute('data-screen', 'networks');
-  await expect(rail('numbers')).toHaveAttribute('data-state', 'done');
   await page.getByTestId('outreach-setup-network-linkedin-on').click();
   await expect(page.getByTestId('outreach-setup-networks-next')).toContainText(
-    'Next: set up Facebook and LinkedIn.',
+    'Next: your goal, then set up Facebook and LinkedIn.',
   );
+  await expect(page.getByTestId('outreach-setup-networks-save')).toHaveText('Save and carry on');
   await page.getByTestId('outreach-setup-networks-save').click();
+
+  // Their goal, at the safe pace of both networks together; it saves and ticks.
+  await expect(setup).toHaveAttribute('data-screen', 'numbers');
+  await expect(rail('networks')).toHaveAttribute('data-state', 'done');
+  await expect(page.getByTestId('ready-verdict')).toContainText(
+    'Your safe pace is 30 first messages a day: 15 on Facebook and 15 on LinkedIn.',
+  );
+  await page.getByTestId('ready-numbers-save').click();
 
   // Facebook's short setup: the profile, what it does there, then the first day.
   await expect(setup).toHaveAttribute('data-screen', 'facebook-profile');
+  await expect(rail('numbers')).toHaveAttribute('data-state', 'done');
   await expect(page.getByTestId('outreach-setup-counter')).toHaveText('Facebook · 1 of 3');
   await expect(rail('linkedin')).toContainText('5 steps');
   await page.getByTestId('outreach-setup-skip').click();
