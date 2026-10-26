@@ -1,0 +1,260 @@
+/**
+ * The person menu on someone's name (src/addons/outreach/person-menu.ts, docs/outreach.md decision 91), which the web
+ * and the phone both draw from `personMenuItems`: their page first, their chat second, then the Pipeline's moves,
+ * Contacts, Client, Demo booked, Don't pitch and Never contact, each as where they stand says, and only the Open items
+ * with no signal. Pure: no database.
+ */
+import { describe, expect, it } from 'vitest';
+import {
+  CLIENT_SKIPPED_KINDS,
+  isClientSkipped,
+  mayTakeOff,
+  personMenuItems,
+  type PersonMenuInput,
+  type ProfileMarksOutput,
+} from '../../src/addons/outreach/person-menu';
+import { OUTREACH_WORDS } from '../../src/addons/outreach/words';
+import { CLIENT_CAUSE_WORDS, CONTACTS_WORDS } from '../../src/crm/record-words';
+
+const P = OUTREACH_WORDS.person;
+const PROFILE = '00000000-0000-4000-8000-000000000001';
+const PERSON = '00000000-0000-4000-8000-000000000002';
+
+const marks = (over: Partial<ProfileMarksOutput> = {}): ProfileMarksOutput => ({
+  profileId: PROFILE,
+  name: 'Dana Reyes',
+  platform: 'alignable',
+  url: 'https://www.alignable.com/austin-tx/reyes-plumbing',
+  personId: null,
+  partner: false,
+  demoBooked: false,
+  client: { on: false, tagged: false, because: null },
+  dontPitch: null,
+  neverContact: null,
+  canTakeOff: { dontPitch: false, neverContact: false },
+  ...over,
+});
+
+const menu = (over: Partial<PersonMenuInput> = {}) =>
+  personMenuItems({
+    row: { url: 'https://www.alignable.com/austin-tx/reyes-plumbing', platform: 'alignable' },
+    marks: marks(),
+    contactsWrite: true,
+    online: true,
+    ...over,
+  });
+const keys = (items: ReturnType<typeof menu>) => items.map((i) => i.key);
+const item = (items: ReturnType<typeof menu>, key: string) => items.find((i) => i.key === key);
+
+describe('the person menu', () => {
+  it('opens their page first, and their chat second only when it’s known', () => {
+    const items = menu();
+    expect(items[0]).toMatchObject({
+      key: 'open-page',
+      kind: 'open',
+      label: 'Open on Alignable',
+      url: 'https://www.alignable.com/austin-tx/reyes-plumbing',
+      enabled: true,
+      needsSignal: false,
+      testId: 'person-open-page',
+    });
+    expect(keys(items)).not.toContain('open-chat');
+    const fb = menu({
+      row: {
+        url: 'https://www.facebook.com/dana.reyes.7',
+        platform: 'facebook',
+        threadKey: '100077712345',
+      },
+    });
+    expect(keys(fb).slice(0, 2)).toEqual(['open-page', 'open-chat']);
+    expect(fb[1]).toMatchObject({ kind: 'open', label: 'Open in Messenger' });
+    expect(fb[1]!.url).toContain('100077712345');
+  });
+
+  it('lists everything in one order, the Pipeline’s moves after the links', () => {
+    const items = menu({
+      row: {
+        url: 'https://www.facebook.com/dana.reyes.7',
+        platform: 'facebook',
+        threadKey: '100077712345',
+      },
+      moves: [
+        { key: 'ready', label: 'Ready to pitch' },
+        { key: 'lost', label: 'Not a fit', danger: true },
+      ],
+    });
+    expect(keys(items)).toEqual([
+      'open-page',
+      'open-chat',
+      'move-to',
+      'move-ready',
+      'move-lost',
+      'add-contact',
+      'mark-client',
+      'demo',
+      'dont-pitch',
+      'never-contact',
+    ]);
+    expect(item(items, 'move-lost')).toMatchObject({
+      move: 'lost',
+      danger: true,
+      testId: 'pipeline-mark-lost',
+    });
+    expect(item(items, 'move-to')).toMatchObject({ kind: 'line', label: P.moveTo });
+  });
+
+  it('marks a client, takes the tag off, or says why Contacts counts them one', () => {
+    expect(item(menu(), 'mark-client')).toMatchObject({
+      label: P.markClient,
+      enabled: true,
+      testId: 'person-client',
+    });
+    const tagged = menu({
+      marks: marks({ personId: PERSON, client: { on: true, tagged: true, because: null } }),
+    });
+    expect(item(tagged, 'not-client')).toMatchObject({ label: P.notClient, kind: 'action' });
+    expect(keys(tagged)).toContain('in-contacts');
+    const paid = menu({
+      marks: marks({ personId: PERSON, client: { on: true, tagged: true, because: 'paid' } }),
+    });
+    expect(keys(paid)).not.toContain('not-client');
+    expect(item(paid, 'client-line')).toMatchObject({
+      kind: 'line',
+      enabled: false,
+      label: `A client in Contacts: ${CLIENT_CAUSE_WORDS.paid}`,
+    });
+    // Someone kept under the same name as a client on the same network.
+    const twin = menu({ marks: marks({ client: { on: true, tagged: false, because: null } }) });
+    expect(item(twin, 'client-line')?.label).toBe('Same name as a client in Contacts');
+  });
+
+  it('gives a partner no Client or Demo booked', () => {
+    const items = menu({ marks: marks({ partner: true }) });
+    expect(keys(items)).not.toContain('mark-client');
+    expect(keys(items)).not.toContain('demo');
+    expect(keys(items)).toContain('dont-pitch');
+    // Before the marks come, the row says so.
+    expect(
+      keys(menu({ marks: null, row: { url: null, platform: 'facebook', partner: true } })),
+    ).toEqual(['add-contact', 'dont-pitch', 'never-contact']);
+  });
+
+  it('offers Add to Contacts and Client only to someone who adds and edits customers', () => {
+    const items = menu({ contactsWrite: false });
+    expect(keys(items)).not.toContain('add-contact');
+    expect(keys(items)).not.toContain('mark-client');
+    // A client still says why, with nothing to press.
+    const tagged = menu({
+      contactsWrite: false,
+      marks: marks({ client: { on: true, tagged: true, because: null } }),
+    });
+    expect(item(tagged, 'client-line')?.label).toBe(
+      `A client in Contacts: ${CLIENT_CAUSE_WORDS.tagged}`,
+    );
+  });
+
+  it('leaves Don’t pitch and Never contact to a row with its own switches', () => {
+    const items = menu({ ownSwitches: true });
+    expect(keys(items)).not.toContain('dont-pitch');
+    expect(keys(items)).not.toContain('never-contact');
+  });
+
+  it('takes someone off a list only for whoever may, and otherwise says who put them on', () => {
+    const on = {
+      dontPitch: { by: 'Riley Member', at: '2026-10-26T15:00:00.000Z', tagged: false },
+      neverContact: { by: 'Riley Member', at: '2026-10-26T15:00:00.000Z' },
+    };
+    const mine = menu({
+      marks: marks({ ...on, canTakeOff: { dontPitch: true, neverContact: true } }),
+    });
+    expect(item(mine, 'not-dont-pitch')).toMatchObject({ label: P.notDontPitch, danger: false });
+    expect(item(mine, 'not-never-contact')).toMatchObject({ label: P.notNeverContact });
+    const theirs = menu({ marks: marks(on) });
+    expect(item(theirs, 'dont-pitch-line')?.label).toBe('Riley Member put them on Don’t pitch');
+    expect(item(theirs, 'never-contact-line')?.label).toBe(
+      'Riley Member put them on Never contact',
+    );
+    const family = menu({
+      marks: marks({ dontPitch: { by: null, at: null, tagged: true } }),
+    });
+    expect(item(family, 'dont-pitch-line')?.label).toBe(P.taggedFamily);
+  });
+
+  it('keeps the toggles waiting for where they stand, and with no signal opens their page alone', () => {
+    const loading = menu({
+      marks: null,
+      row: { url: 'https://www.facebook.com/dana.reyes.7', platform: 'facebook', personId: null },
+    });
+    expect(loading.filter((i) => i.enabled).map((i) => i.key)).toEqual([
+      'open-page',
+      'add-contact',
+    ]);
+    const offline = menu({
+      online: false,
+      row: {
+        url: 'https://www.facebook.com/dana.reyes.7',
+        platform: 'facebook',
+        threadKey: '100077712345',
+      },
+      moves: [{ key: 'ready', label: 'Ready to pitch' }],
+    });
+    expect(offline.filter((i) => i.enabled).map((i) => i.key)).toEqual(['open-page', 'open-chat']);
+    expect(offline.filter((i) => i.kind === 'action').every((i) => i.needsSignal)).toBe(true);
+  });
+});
+
+describe('who counts as a client, in words', () => {
+  it('says the Client tag beside Contacts’ own reasons', () => {
+    expect(CONTACTS_WORDS.clientRule).toContain('or they’re tagged Client.');
+    for (const words of Object.values(CLIENT_CAUSE_WORDS)) expect(words).not.toContain("'");
+  });
+
+  it('skips outreach for a client, never a reply or a partner’s message', () => {
+    expect([...CLIENT_SKIPPED_KINDS].sort()).toEqual(
+      ['check_in', 'follow_up', 'opener', 'pitch', 'reconnect', 'video'].sort(),
+    );
+    expect(isClientSkipped('reply')).toBe(false);
+    expect(isClientSkipped('partner_ask')).toBe(false);
+    expect(isClientSkipped('pitch')).toBe(true);
+  });
+
+  it('lets whoever put someone on a list, or an owner or admin, take them off', () => {
+    expect(mayTakeOff('u1', 'u1', false)).toBe(true);
+    expect(mayTakeOff('u2', 'u1', false)).toBe(false);
+    expect(mayTakeOff('u2', 'u1', true)).toBe(true);
+    expect(mayTakeOff(null, 'u1', false)).toBe(true);
+  });
+
+  it('refuses outreach to a client with what to do, by why they’re one', () => {
+    expect(P.clientNoOutreach('Dana Reyes', 'tagged')).toBe(
+      'Dana Reyes is a client, so Social Outreach doesn’t send them outreach. Their replies still come to Waiting for you. To reach out again, choose Not a client after all in their menu.',
+    );
+    expect(P.clientNoOutreach('Dana Reyes', 'paid')).toContain('because they paid a bill');
+    expect(P.clientNoOutreach('Dana Reyes', null)).toContain('same name');
+    expect(P.clientNeedsContacts('Dana Reyes')).toContain('Ask an owner of this business');
+    expect(P.clientStill('Dana Reyes', 'paid')).toBe(
+      'The Client tag is off Dana Reyes, but Contacts still counts them a client: they paid a bill. To change that, open them in Contacts.',
+    );
+  });
+
+  it('writes every new word with curly apostrophes', () => {
+    const said = [
+      P.nameHint,
+      P.loading,
+      P.markClient,
+      P.notClient,
+      P.clientLine('won'),
+      P.clientDone('Dana Reyes'),
+      P.clientOff('Dana Reyes'),
+      P.clientStill('Dana Reyes', 'plan'),
+      P.clientNeedsContacts('Dana Reyes'),
+      P.clientNoOutreach('Dana Reyes', 'job'),
+      P.notDontPitch,
+      P.putOnBy(P.neverContact, null),
+      P.taggedFamily,
+      P.needsSignal,
+    ];
+    for (const s of said) expect(s).not.toMatch(/'/);
+    expect(P.putOnBy(P.neverContact, null)).toBe('On Never contact');
+  });
+});
