@@ -190,7 +190,9 @@ export function addonAiTools(
  * What the model reads about an add-on tool: its description, the add-on it belongs to, and its extra words, so tool
  * search finds it by what people call things there.
  */
-export function addonToolDescription(tool: AddonAiTool): string {
+export function addonToolDescription(
+  tool: Pick<AddonAiTool, 'description' | 'addonName' | 'keywords'>,
+): string {
   const said = tool.description.trim();
   const sentence = /[.!?]$/.test(said) ? said : `${said}.`;
   const also = tool.keywords.length ? ` Also: ${tool.keywords.join(', ')}.` : '';
@@ -201,7 +203,10 @@ export function addonToolDescription(tool: AddonAiTool): string {
  * The model's arguments as the operation takes them: only what the tool's input declares (everything, for an input
  * that keeps unknown keys), and never the business's ids.
  */
-export function addonToolArguments(tool: AddonAiTool, raw: unknown): Record<string, unknown> {
+export function addonToolArguments(
+  tool: Pick<AddonAiTool, 'input'>,
+  raw: unknown,
+): Record<string, unknown> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const declared = new Set(Object.keys(tool.input.shape));
   const catchall = tool.input._zod.def.catchall;

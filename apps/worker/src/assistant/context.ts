@@ -20,12 +20,15 @@ import {
   type Permission,
 } from '@hfos/core/server';
 import { asWorker, type Db } from '@hfos/db/client';
+import { ADDON_WORKER_MODULES } from '../addons/modules';
+import type { AddonWorkerModule } from '../addons/types';
 import { loadGrounding } from '../knowledge/grounding';
 import type { TenantScope } from '../services';
 import { approvalPreview, approvalWhat } from './approval-words';
 import { atLabel, joinAnd, rangeLabel } from './calendar-format';
 import type { PromptContext } from './prompt';
 import type { OfferedTool } from './runtime';
+import { addonActionTools } from './tools-addons';
 
 export interface PageRecord {
   readonly type:
@@ -55,6 +58,8 @@ export const toolsFor = (can: (permission: Permission) => boolean): AssistantToo
 export interface AssistantAddons {
   readonly modules?: readonly AddonServerModule[] | undefined;
   readonly catalog?: Catalog | undefined;
+  /** Their worker halves, whose actions with `ai` are tools too. */
+  readonly workerModules?: readonly AddonWorkerModule[] | undefined;
 }
 
 /** Runs one of the person's own queries, exactly as the web app would. */
@@ -360,6 +365,11 @@ export async function questionContext(
       ...toolsFor((p) => holds(workspace, p)),
       // Only add-ons running here, only what the person may do in them; always last, in the modules' order.
       ...addonAiTools(addons.modules ?? ADDON_SERVER_MODULES, {
+        active: workspace.addons,
+        permissions: workspace.permissions,
+      }),
+      // Then their worker actions (the buttons the worker answers), the same way.
+      ...addonActionTools(addons.workerModules ?? ADDON_WORKER_MODULES, {
         active: workspace.addons,
         permissions: workspace.permissions,
       }),

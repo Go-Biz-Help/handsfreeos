@@ -51,6 +51,13 @@ const result = (l: FeedListing) => ({
 export const FEED_ACTIONS: Readonly<Record<string, AddonWorkerAction>> = {
   'realestate.feed.search': {
     permission: 'realestate.use',
+    ai: {
+      tool: 'realestate_search_listing_feed',
+      description:
+        "Look a home up in the business's connected listing feed (its MLS) by address or MLS number: up to 8 homes with price, status, beds, baths, square feet and a photo.",
+      autonomy: 'auto',
+      keywords: ['mls search', 'look up a listing', 'find a home'],
+    },
     input: SearchInput,
     async run(ctx, input: z.infer<typeof SearchInput>) {
       const query: FeedSearch = looksLikeMlsNumber(input.text)

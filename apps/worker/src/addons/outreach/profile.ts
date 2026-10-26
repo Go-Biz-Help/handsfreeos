@@ -170,6 +170,13 @@ export const profileCheck: AddonWorkerAction<ProfileRead> = {
  */
 export const profileMore: AddonWorkerAction<ProfileMoreInput> = {
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_more_profile_options',
+    description:
+      "More options from the AI for one part of the person's own profile on a network (its bio, name, username, cover line and the rest), with their note on what they want and chips for quick asks. The options are kept for them to pick from in Get ready; nothing goes on the profile until they ask their computer to put one in (outreach_ask_computer, kind profile_edit).",
+    autonomy: 'auto',
+    keywords: ['more bio options', 'rewrite my bio', 'profile ideas'],
+  },
   input: ProfileMoreInput,
   async run(ctx, raw): Promise<ProfileMoreOutput> {
     const input = ProfileMoreInput.parse(raw);

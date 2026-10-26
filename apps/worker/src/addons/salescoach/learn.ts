@@ -175,6 +175,13 @@ export const learnWeekly: AddonJobHandler = async (ctx) => {
 /** An owner or admin asked the coach to look again now (Playbooks → What’s working). */
 export const learnNow: AddonWorkerAction<Record<string, never>> = {
   permission: 'salescoach.manage',
+  ai: {
+    tool: 'salescoach_learn_from_wins',
+    description:
+      "Have the Sales Coach look at the last 90 days of won calls and conversations now, rather than at its weekly time: the AI writes better answers from the reps' winning ones and new objections, kept for owners and admins to use or dismiss in Playbooks, What's working.",
+    autonomy: 'auto',
+    keywords: ['learn from wins', 'whats working', 'update the coach'],
+  },
   input: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
   async run(ctx) {
     return { kept: await learn(ctx) };

@@ -208,4 +208,25 @@ export interface AddonWorkerAction<I = any> {
     ctx: AddonScopeContext & { readonly userId: string },
     input: I,
   ) => Promise<unknown>;
+  /**
+   * A tool for the Assistant (assistant/tools-addons.ts): offered while the add-on runs and the person holds the
+   * permission, and run through the same door as the route (addons/actions.ts). Every action a person presses on the
+   * add-on's screens has one; what only its browser extension asks for has none.
+   */
+  readonly ai?: AddonActionAi;
+}
+
+/** How a worker action reaches the Assistant. */
+export interface AddonActionAi {
+  /** The name the model sees: `<addon>_<verb>_<noun>`, letters, digits and underscores. */
+  readonly tool: string;
+  /** What the model reads to decide when to use it, and what to give it. */
+  readonly description: string;
+  /**
+   * An action has no risk to go by, so it says: `auto` when it only reads, drafts or writes the person's own
+   * suggestions; `confirm` when it reaches people, changes something kept for the business or can't be taken back.
+   */
+  readonly autonomy: 'auto' | 'confirm';
+  /** Extra words tool search should match on. */
+  readonly keywords?: readonly string[];
 }

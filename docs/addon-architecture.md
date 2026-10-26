@@ -318,6 +318,11 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   `POST /v1/addons/<id>/actions/<name>` (apps/worker/src/http/addon-actions.ts). The add-on must be on and the person
   must hold the permission; it runs as the system acting for the add-on, on their behalf, and checks they may see
   what it's about (`private.user_sees_record`). DocuSign's sending page, made fresh for whoever opens it, is one.
+  The route and the Assistant run one through the same door (`runAddonAction`, apps/worker/src/addons/actions.ts),
+  which checks the add-on, the permission and the input. An action a person presses on the add-on's screens declares
+  `ai` (`tool`, `description`, `autonomy`, `keywords`) and is a tool like an operation; it has no risk to go by, so it
+  says `confirm` when it reaches people, changes something kept or can't be taken back. What only the add-on's browser
+  extension asks for declares none (apps/worker/test/assistant-addon-actions.test.ts holds the list).
 - **A file the worker brings back** (a document signed at DocuSign, say) is uploaded to its place on the record
   (`storedFilePath`) and kept with core's `file.store`, as storage measured it, on the timeline. The add-on then
   files it its own way (Real Estate makes it a locked document).
@@ -500,7 +505,8 @@ add-on's work causes, so it reads after the add-on is gone, and a purge knows ex
 search, offered only while the add-on runs and the person holds its permission; the runtime refuses any tool it
 didn't offer, and the business's ids always go on after the model's arguments. **The Assistant can do whatever the
 person can** (the owner's decision, 2026-10-26): every operation a person runs on an add-on's screens declares `ai`,
-and only what its browser extension or worker sends in doesn't (Social Outreach's test holds it to that). Look-ups
+and only what its browser extension or worker sends in doesn't (Social Outreach's test holds it to that); so does
+every worker action a person presses (its own test holds those). Look-ups
 the model asks for together run at the same time; changes run one at a time, in order. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only

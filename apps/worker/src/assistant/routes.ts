@@ -20,8 +20,11 @@ import { users } from '@hfos/db/schema';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
 import { openStream } from '../http/sse';
+import { ADDON_WORKER_MODULES } from '../addons/modules';
+import type { AddonWorkerModule } from '../addons/types';
 import { personQuery, questionContext } from './context';
 import { ask, warmUp, type ToolContext, type ToolExecutor } from './runtime';
+import { addonActionToolByName } from './tools-addons';
 import * as store from './store';
 import type { AiProvider } from '@hfos/ai';
 
@@ -34,6 +37,8 @@ export interface AssistantServices {
   readonly addons?: readonly AddonServerModule[];
   /** The add-on catalogue the model's directory is written from (default: HandsFreeOS's). */
   readonly addonCatalog?: Catalog;
+  /** The add-ons' worker halves, whose actions can be tools (default: every one HandsFreeOS ships). */
+  readonly workerAddons?: readonly AddonWorkerModule[];
 }
 
 /**
@@ -97,7 +102,11 @@ export function registerAssistantRoutes(
       input.page,
       randomUUID(),
       new Date(),
-      { modules: assistant.addons, catalog: assistant.addonCatalog },
+      {
+        modules: assistant.addons,
+        catalog: assistant.addonCatalog,
+        workerModules: assistant.workerAddons,
+      },
     );
     const prompt = input.spoken ? { ...context.prompt, spoken: true } : context.prompt;
     const stream = openStream<AssistantEvent>(reply);
@@ -195,7 +204,11 @@ export function registerAssistantRoutes(
         null,
         randomUUID(),
         new Date(),
-        { modules: assistant.addons, catalog: assistant.addonCatalog },
+        {
+          modules: assistant.addons,
+          catalog: assistant.addonCatalog,
+          workerModules: assistant.workerAddons,
+        },
       );
       const done = await warmUp(
         { db: deps.httpDb, provider: assistant.provider, dailyTokens: assistant.dailyTokens },
@@ -234,7 +247,8 @@ export function registerAssistantRoutes(
     // the permission, when it runs, and a card for an add-on turned off since says so.
     const tool = call
       ? (assistantToolByName.get(call.tool) ??
-        addonAiToolByName(assistant.addons ?? ADDON_SERVER_MODULES, call.tool))
+        addonAiToolByName(assistant.addons ?? ADDON_SERVER_MODULES, call.tool) ??
+        addonActionToolByName(assistant.workerAddons ?? ADDON_WORKER_MODULES, call.tool))
       : undefined;
     if (!call || call.user_id !== actor.userId || !tool)
       throw HfosError.notFound(
