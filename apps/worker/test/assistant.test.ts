@@ -397,8 +397,10 @@ describe('the Assistant', () => {
       sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${newcomer.id}, 'member')`,
     );
     let warms = 0;
+    const inner = scriptedAssistant();
     const reading = await build('scripted', 5_000_000, {
-      ...scriptedAssistant(),
+      ...inner,
+      stream: (request, options) => inner.stream(request, options),
       warm: async () => {
         warms += 1;
         return { inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 1 };
