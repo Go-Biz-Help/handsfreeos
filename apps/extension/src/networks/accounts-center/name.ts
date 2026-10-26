@@ -76,7 +76,7 @@ const LIMIT = new RegExp(
 );
 /** Its name standards, as a new line says it: never the page's own advice ("Don't add any unusual…"). */
 const INVALID =
-  /\bname standards\b|\b(doesn['’]t|does not|may not) (follow|meet)\b|\bunusual (capitali[sz]ation|characters|punctuation)\b|\btoo many (characters|words|periods)\b|\b(aren['’]t|isn['’]t|not) allowed\b|\binvalid\b|\b(isn['’]t|not) (a )?valid\b|\bcan['’]?t (include|contain) (symbols|numbers|characters)\b|\bcan['’]?t use (this|that) name\b/i;
+  /\b(doesn['’]t|does not|may not|didn['’]t) (follow|meet)\b|\bunusual (capitali[sz]ation|characters|punctuation)\b|\btoo many (characters|words|periods)\b|\b(aren['’]t|isn['’]t|not) allowed\b|\binvalid\b|\b(isn['’]t|not) (a )?valid\b|\bcan['’]?t (include|contain) (symbols|numbers|characters)\b|\bcan['’]?t use (this|that) name\b/i;
 const ADVICE = /^(don['’]t|do not|please note|learn more|note:)/i;
 /** The network looks at the new name before it shows: never said to be in. */
 const REVIEWING =
@@ -382,8 +382,9 @@ export async function writeName(
   // Done, once it's on and nothing's said against the name; on Facebook's step after Review change, how the name is
   // shown left as it is, and none picked handed over.
   let done: HTMLElement | null = null;
+  // The step after Review change, as Facebook draws it.
+  if (steps.reviewed) await pause(EDITOR_LOOK_MS);
   for (let waited = 0; ; waited += EDITOR_LOOK_MS) {
-    if (steps.reviewed) await pause(EDITOR_LOOK_MS);
     const stop = stopped() ?? refused(before);
     if (stop) return stop;
     if (syncOn(doc, network)) {
@@ -402,7 +403,7 @@ export async function writeName(
       break;
     }
     if (waited >= CHECK_MS) return end('none');
-    if (!steps.reviewed) await pause(EDITOR_LOOK_MS);
+    await pause(EDITOR_LOOK_MS);
   }
   // Every line on top before Done: what the network says after it is new.
   const seen = new Set([...before, ...linesOnTop(doc)]);
