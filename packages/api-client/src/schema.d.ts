@@ -5897,6 +5897,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/notification.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark notifications as opened: the ones you pressed in the bell, or the pushes you pressed on your phone.
+         * @description Risk level 0. Emits .
+         */
+        post: operations["command_notification_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/notification.seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that you opened your notifications, so the bell stops counting the ones you saw. Ones that came in after stay new.
+         * @description Risk level 0. Emits .
+         */
+        post: operations["command_notification_seen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/number_import.cancel": {
         parameters: {
             query?: never;
@@ -17851,6 +17891,26 @@ export interface paths {
          * @description Requires money.manage.
          */
         post: operations["query_money_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/notification.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your notifications: what HandsFreeOS sent to your phone in the last 30 days, newest first, from every business you’re in, and how many are new.
+         * @description Any signed-in user.
+         */
+        post: operations["query_notification_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -34894,6 +34954,64 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_notification_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids?: string[];
+                    pushIds?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        read: number;
+                    };
+                };
+            };
+        };
+    };
+    command_notification_seen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    upTo?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        seen: number;
                     };
                 };
             };
@@ -68352,6 +68470,52 @@ export interface operations {
                         quotedCount: number;
                         refundedCents: number;
                         settlingCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_notification_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default 30 */
+                    limit?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nextCursor: string | null;
+                        notifications: {
+                            alertId: string | null;
+                            body: string;
+                            category: string;
+                            /** Format: uuid */
+                            id: string;
+                            path: string;
+                            readAt: string | null;
+                            seenAt: string | null;
+                            /** Format: date-time */
+                            sentAt: string;
+                            subtitle: string | null;
+                            title: string;
+                            workspaceId: string | null;
+                        }[];
+                        unseen: number;
                     };
                 };
             };
