@@ -412,7 +412,8 @@ export const firstUsername = (check: ProfileCheck | null): UsernameOption | null
 /**
  * Every part of a network's profile as the screen lists it (decision 84), from its latest check and what's known of
  * the person's other profiles. With no check yet, each part is listed with nothing read. Who does each goes by the
- * build of the person's computer, when it's known (`partHowFor`): an older one hands Facebook's username and links over.
+ * build of the person's computer, when it's known (`partHowFor`): an older one hands Facebook's username and links
+ * over.
  */
 export function profileParts(
   platform: Platform,
