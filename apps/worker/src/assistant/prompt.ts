@@ -60,11 +60,14 @@ export const TOOL_SEARCH_NOTE = `Most of what you can do isn't in front of you u
  * to call them) and the everyday look-ups, so the common questions need no search.
  */
 export function alwaysLoaded(offered: readonly string[]): ReadonlySet<string> {
-  const named = new Set(SYSTEM.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? []);
-  for (const everyday of EVERYDAY_TOOLS) named.add(everyday);
-  return new Set(offered.filter((name) => named.has(name)));
+  return new Set(offered.filter((name) => NAMED.has(name)));
 }
 const EVERYDAY_TOOLS = ['search_customers', 'get_customer', 'get_settings', 'settings_help'];
+/** Read from the instructions once, not on every question. */
+const NAMED: ReadonlySet<string> = new Set([
+  ...(SYSTEM.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? []),
+  ...EVERYDAY_TOOLS,
+]);
 
 /**
  * What HandsFreeOS can do, and when to say so. In the per-thread part, not SYSTEM: the fixed instructions stay the

@@ -193,6 +193,10 @@ export const tracking = defineAddonQuery(outreachAddon, {
   input: TrackingInput,
   output: TrackingOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_numbers',
+    keywords: ['first messages sent', 'positive replies', 'calls booked', 'tracking', 'results'],
+  },
   // The worker asks on a person's behalf too.
   actors: ['human', 'system'],
   scope: inWorkspace,

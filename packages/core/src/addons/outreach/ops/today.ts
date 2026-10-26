@@ -173,6 +173,10 @@ export const today = defineAddonQuery(outreachAddon, {
   input: TodayInput,
   output: TodayOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_today',
+    keywords: ['todays list', 'who to message', 'follow-ups', 'pitch', 'say hi', 'reconnect'],
+  },
   // The worker asks on a person's behalf for the morning push (decision 22).
   actors: ['human', 'system'],
   scope: inWorkspace,

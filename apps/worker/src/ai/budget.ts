@@ -6,7 +6,7 @@ import { chargeAi } from '../money/usage-capture';
 import type { WalletDeps } from '../money/wallet';
 import type { TenantScope } from '../services';
 
-/** Where AI tokens outside the Assistant were spent (app.ai_usage.source). */
+/** Where AI tokens outside the Assistant's runs were spent (app.ai_usage.source). */
 export type AiUsageSource =
   | 'workflow'
   | 'builder'
@@ -23,7 +23,9 @@ export type AiUsageSource =
   // Reading an applicant Indeed emailed the business about (funnels).
   | 'lead_intake'
   // Drafting a funnel for the AI teammate from a description (teammate funnels).
-  | 'funnel';
+  | 'funnel'
+  // The Assistant reading its instructions ahead of a question, while the person types (its runs keep the rest).
+  | 'assistant';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -80,6 +82,8 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   texting_policy: 'AI updating your privacy policy or terms',
   lead_intake: 'AI reading a job applicant’s email',
   funnel: 'AI drafting a funnel',
+  // Never charged (the Assistant isn't billed to the business); named for the record type all the same.
+  assistant: 'The Assistant getting ready',
 };
 
 /**

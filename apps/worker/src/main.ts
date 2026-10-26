@@ -177,8 +177,16 @@ const model =
     ? claudeWithBackup(
         env,
         aiSwitch,
-        { model: env.assistantModel, toolSearch: env.assistantToolSearch },
-        { model: env.openAiAssistantModel, toolSearch: env.assistantToolSearch },
+        {
+          model: env.assistantModel,
+          toolSearch: env.assistantToolSearch,
+          effort: env.assistantEffort,
+        },
+        {
+          model: env.openAiAssistantModel,
+          toolSearch: env.assistantToolSearch,
+          reasoningEffort: env.assistantEffort,
+        },
       )
     : env.assistantProvider === 'scripted'
       ? scriptedAssistant()

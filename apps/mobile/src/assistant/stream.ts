@@ -195,6 +195,13 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * The Assistant opened: the worker has the AI read ahead while the person types, so the answer starts sooner.
+ * Quiet on purpose: nothing is shown whatever comes back, and the worker sends nothing without their OK.
+ */
+export const warmAssistant = (workspaceId: string) =>
+  post<{ warmed: boolean }>('/v1/assistant/warm', { workspaceId }).catch(() => undefined);
+
 /** Stop: the worker ends the run and says "stopped" on its stream. */
 export const stopRun = (runId: string) =>
   post<{ stopping: boolean }>(`/v1/assistant/runs/${encodeURIComponent(runId)}/stop`, {});

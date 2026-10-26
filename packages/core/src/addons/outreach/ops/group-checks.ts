@@ -156,6 +156,10 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
   input: GroupsToCheckInput,
   output: GroupsToCheckOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_groups_to_check',
+    keywords: ['groups checked next'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -316,6 +320,10 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
   input: JoinsNextInput,
   output: JoinsNextOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_groups_to_join',
+    keywords: ['groups to join', 'ask to join'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

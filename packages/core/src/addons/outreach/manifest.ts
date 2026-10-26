@@ -296,8 +296,10 @@ export const outreachAddon = defineAddon({
       { path: 'playbooks/:playbookId' },
     ],
   },
+  // Its tools are everything a person does on its screens (each operation's `ai`); what the browser extension and
+  // the worker send in stays theirs (docs/outreach.md, "The Assistant").
   ai: {
     directory:
-      'saves people and chats from facebook to contacts with a browser extension, guided by playbooks',
+      'Facebook, LinkedIn and Instagram outreach with a browser extension: today’s list, messages to OK, friends, chats, groups, the pipeline, helpful posts, partners, playbooks and its settings',
   },
 });

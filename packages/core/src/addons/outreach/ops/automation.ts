@@ -395,6 +395,10 @@ export const automationGet = defineAddonQuery(outreachAddon, {
   input: AutomationInput,
   output: AutomationOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_automation',
+    keywords: ['extension settings', 'on its own', 'sending choice', 'working hours'],
+  },
   scope: inWorkspace,
   // The worker reads them for someone too: the networks they work, for the morning push.
   actors: ['human', 'system'],
@@ -413,6 +417,11 @@ export const automationSave = defineAddonCommand(outreachAddon, {
   input: AutomationSaveInput,
   output: AutomationSaveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_save_automation',
+    autonomy: 'confirm',
+    keywords: ['change extension settings', 'let it send', 'working hours'],
+  },
   scope: inWorkspace,
   emits: ['outreach.automation.saved'],
   async handler(ctx, input) {
@@ -541,6 +550,11 @@ export const wheelsEnd = defineAddonCommand(outreachAddon, {
   input: WheelsEndInput,
   output: WheelsEndOutput,
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_end_training_wheels',
+    autonomy: 'confirm',
+    keywords: ['end training wheels'],
+  },
   scope: inWorkspace,
   emits: ['outreach.wheels.ended'],
   async handler(ctx, input) {
@@ -591,6 +605,10 @@ export const wheelsList = defineAddonQuery(outreachAddon, {
   input: WheelsListInput,
   output: WheelsListOutput,
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_training_wheels',
+    keywords: ['training wheels', 'team'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const now = Date.now();
@@ -623,6 +641,10 @@ export const automationPeople = defineAddonQuery(outreachAddon, {
   input: AutomationPeopleInput,
   output: AutomationPeopleOutput,
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_team_automation',
+    keywords: ['team settings', 'what each person lets the extension do'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const now = Date.now();

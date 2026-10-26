@@ -148,6 +148,10 @@ export const checksNext = defineAddonQuery(outreachAddon, {
   input: ChecksNextInput,
   output: ChecksNextOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_checks_next',
+    keywords: ['who gets checked next', 'fit checks'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
@@ -418,6 +422,11 @@ export const checksAgain = defineAddonCommand(outreachAddon, {
   input: ChecksAgainInput,
   output: ChecksAgainOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_check_again',
+    autonomy: 'confirm',
+    keywords: ['check everyone again', 'redo fit checks'],
+  },
   scope: inWorkspace,
   emits: ['outreach.checks.again'],
   async handler(ctx) {

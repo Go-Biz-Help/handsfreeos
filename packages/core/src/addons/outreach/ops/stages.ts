@@ -260,6 +260,10 @@ export const stageMark = defineAddonCommand(outreachAddon, {
   input: StageMarkInput,
   output: StageMarkOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_mark_stage',
+    keywords: ['ready to pitch', 'pitched', 'not a fit', 'back in play'],
+  },
   scope: inWorkspace,
   emits: ['outreach.stage.marked'],
   async handler(ctx, input) {
@@ -327,6 +331,10 @@ export const stagesList = defineAddonQuery(outreachAddon, {
   input: StagesInput,
   output: StagesOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_pipeline',
+    keywords: ['pipeline', 'stages', 'pitched', 'warming up', 'booked', 'not a fit'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;

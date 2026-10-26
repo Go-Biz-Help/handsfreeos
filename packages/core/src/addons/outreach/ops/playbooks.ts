@@ -96,6 +96,10 @@ export const playbookList = defineAddonQuery(outreachAddon, {
   input: PlaybookListInput,
   output: PlaybookListOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_playbooks',
+    keywords: ['playbook', 'niche', 'who to reach', 'offer'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const rows = await ctx.tx
@@ -119,6 +123,11 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
   input: PlaybookSaveInput,
   output: PlaybookOut,
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_save_playbook',
+    autonomy: 'confirm',
+    keywords: ['write a playbook', 'change a playbook', 'new playbook'],
+  },
   scope: inWorkspace,
   emits: ['outreach.playbook.saved'],
   async handler(ctx, input) {
@@ -171,6 +180,11 @@ export const playbookArchive = defineAddonCommand(outreachAddon, {
   input: PlaybookArchiveInput,
   output: PlaybookOut,
   permission: 'outreach.manage',
+  ai: {
+    tool: 'outreach_archive_playbook',
+    autonomy: 'confirm',
+    keywords: ['archive playbook', 'restore playbook'],
+  },
   scope: inWorkspace,
   emits: ['outreach.playbook.archived'],
   async handler(ctx, input) {

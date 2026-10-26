@@ -183,6 +183,10 @@ export const readinessGet = defineAddonQuery(outreachAddon, {
   input: ReadinessInput,
   output: ReadinessOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_get_ready',
+    keywords: ['get ready', 'profile checklist', 'ready to reach people'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     return readinessFor(ctx, meOf(ctx), input.platform);
@@ -197,6 +201,10 @@ export const readinessProfile = defineAddonCommand(outreachAddon, {
   input: ProfileTickInput,
   output: ReadinessOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_tick_profile_item',
+    keywords: ['profile item done', 'checklist'],
+  },
   scope: inWorkspace,
   emits: ['outreach.readiness.saved'],
   async handler(ctx, input) {
@@ -238,6 +246,11 @@ export const readinessNumbers = defineAddonCommand(outreachAddon, {
   input: NumbersInput,
   output: ReadinessOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_set_goal',
+    autonomy: 'confirm',
+    keywords: ['calls booked goal', 'days I work', 'monthly goal'],
+  },
   scope: inWorkspace,
   emits: ['outreach.readiness.saved', 'outreach.automation.saved'],
   async handler(ctx, input) {
@@ -436,6 +449,10 @@ export const profilesGet = defineAddonQuery(outreachAddon, {
   input: ProfilesInput,
   output: ProfilesOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_my_profiles',
+    keywords: ['my profile', 'bio', 'booking link'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const me = requireHuman(ctx).userId;
@@ -471,6 +488,11 @@ export const readinessMessages = defineAddonCommand(outreachAddon, {
   input: MessagesOkInput,
   output: ReadinessOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_ok_message_samples',
+    autonomy: 'confirm',
+    keywords: ['ok sample messages', 'how my messages read'],
+  },
   scope: inWorkspace,
   emits: ['outreach.readiness.saved'],
   async handler(ctx) {

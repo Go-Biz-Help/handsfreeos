@@ -5,6 +5,7 @@ import {
   addonAiToolByName,
   AssistantAskInput,
   AssistantDecisionInput,
+  AssistantWarmInput,
   assistantConsentOf,
   assistantToolByName,
   HfosError,
@@ -19,7 +20,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
 import { openStream } from '../http/sse';
 import { personQuery, questionContext } from './context';
-import { ask, type ToolContext, type ToolExecutor } from './runtime';
+import { ask, warmUp, type ToolContext, type ToolExecutor } from './runtime';
 import * as store from './store';
 import type { AiProvider } from '@hfos/ai';
 
@@ -39,10 +40,7 @@ export interface AssistantServices {
  * question isn't asked: a refusal the panels answer with the consent step (disposition "ask").
  */
 async function assertConsented(deps: HttpDeps, actor: HumanActor): Promise<void> {
-  const [me] = await asUser(deps.httpDb, actor.claims, (tx) =>
-    tx.select({ settings: users.settings }).from(users).where(eq(users.id, actor.userId)),
-  );
-  const consent = assistantConsentOf(me?.settings);
+  const consent = await consentOf(deps, actor);
   if (consent.needed)
     throw new HfosError(
       'rule_violation',
@@ -52,6 +50,20 @@ async function assertConsented(deps: HttpDeps, actor: HumanActor): Promise<void>
       'assistant_consent_required',
     );
 }
+
+async function consentOf(deps: HttpDeps, actor: HumanActor) {
+  const [me] = await asUser(deps.httpDb, actor.claims, (tx) =>
+    tx.select({ settings: users.settings }).from(users).where(eq(users.id, actor.userId)),
+  );
+  return assistantConsentOf(me?.settings);
+}
+
+/**
+ * When each person last had the AI read ahead, on this machine: once in four minutes is enough, since the
+ * provider keeps what it read for five.
+ */
+const warmed = new Map<string, number>();
+const WARM_EVERY_MS = 4 * 60_000;
 
 /** Runs in progress on this machine, so Stop can reach them. */
 const running = new Map<string, { readonly userId: string; readonly stop: AbortController }>();
@@ -69,6 +81,7 @@ export function registerAssistantRoutes(
     );
 
   app.post('/v1/assistant/messages', async (req, reply) => {
+    const receivedAt = Date.now();
     const actor = await authenticate(deps, req);
     const input = parseBody(AssistantAskInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'assistant.use');
@@ -106,6 +119,7 @@ export function registerAssistantRoutes(
           page: input.page,
           tools: context.tools,
           prompt,
+          receivedAt,
         },
         (event) => {
           if (event.type === 'run') {
@@ -131,6 +145,50 @@ export function registerAssistantRoutes(
     } finally {
       if (runId) running.delete(runId);
       stream.end();
+    }
+  });
+
+  /**
+   * The panel opened: while the person types, the AI reads the instructions, their tools and the business ahead of
+   * the question, so the answer starts sooner (runtime.ts, warmUp). Best effort and quiet: without their OK to use
+   * the AI service, or within four minutes of the last one, nothing is sent; anything that goes wrong is only logged.
+   */
+  app.post('/v1/assistant/warm', async (req) => {
+    const actor = await authenticate(deps, req);
+    const input = parseBody(AssistantWarmInput, req.body);
+    await requirePermission(deps, actor.userId, input.workspaceId, 'assistant.use');
+    if (!assistant?.provider.warm) return { warmed: false };
+    const key = `${input.workspaceId}:${actor.userId}`;
+    const now = Date.now();
+    if (now - (warmed.get(key) ?? 0) < WARM_EVERY_MS) return { warmed: false };
+    if ((await consentOf(deps, actor)).needed) return { warmed: false };
+    warmed.set(key, now);
+    for (const [k, at] of warmed) if (now - at >= WARM_EVERY_MS) warmed.delete(k);
+    try {
+      const context = await questionContext(
+        deps.httpDb,
+        actor,
+        input.workspaceId,
+        null,
+        randomUUID(),
+        new Date(),
+        { modules: assistant.addons, catalog: assistant.addonCatalog },
+      );
+      const done = await warmUp(
+        { db: deps.httpDb, provider: assistant.provider, dailyTokens: assistant.dailyTokens },
+        {
+          userId: actor.userId,
+          workspaceId: input.workspaceId,
+          organizationId: context.organizationId,
+          tools: context.tools,
+          prompt: context.prompt,
+        },
+      );
+      return { warmed: done };
+    } catch (e) {
+      warmed.delete(key);
+      deps.log.warn({ err: e }, 'assistant warm-up failed');
+      return { warmed: false };
     }
   });
 

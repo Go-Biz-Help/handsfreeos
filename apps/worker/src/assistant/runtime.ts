@@ -2,9 +2,12 @@ import { randomUUID } from 'node:crypto';
 import {
   AiProviderError,
   emptyUsage,
+  totalTokens,
+  type AiFirstBlock,
   type AiMessage,
   type AiProvider,
   type AiToolCall,
+  type AiToolDefinition,
   type AiUsage,
 } from '@hfos/ai';
 import {
@@ -18,8 +21,9 @@ import {
   type AssistantTool,
   type HumanActor,
 } from '@hfos/core/server';
-import type { Db } from '@hfos/db/client';
+import { asWorker, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import { recordAiUsage } from '../ai/budget';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import {
   alwaysLoaded,
@@ -104,6 +108,11 @@ export interface ToolExecutor {
     extra: { readonly lostReason?: string; readonly toolCallId: string },
   ): Promise<CommittedAction>;
   undo(tool: OfferedTool, record: Record<string, unknown>, ctx: ToolContext): Promise<string>;
+  /**
+   * Whether running the tool only reads, so look-ups the model asks for together run at once. Unset, or false:
+   * one at a time.
+   */
+  reads?(tool: OfferedTool): boolean;
 }
 
 export interface RuntimeDeps {
@@ -127,6 +136,48 @@ export interface AskInput {
    */
   readonly tools: readonly OfferedTool[];
   readonly prompt: PromptContext;
+  /** When the question reached the worker (Date.now()), for the timings logged with the answer. */
+  readonly receivedAt?: number;
+}
+
+/** A tool as the provider is sent it, worked out once per tool rather than on every question. */
+const definitions = new WeakMap<OfferedTool, AiToolDefinition>();
+function definitionOf(tool: OfferedTool): AiToolDefinition {
+  let made = definitions.get(tool);
+  if (!made) {
+    made = {
+      name: tool.name,
+      description: isAddonAiTool(tool) ? addonToolDescription(tool) : tool.description,
+      inputSchema: toolInputSchema(tool),
+    };
+    definitions.set(tool, made);
+  }
+  return made;
+}
+
+/**
+ * The fixed instructions and the tools, exactly as every model call of a question sends them, and the warm-up
+ * before one: the provider finds its cache only when everything before the question matches. The same tools give
+ * the same request, so what a question costs to send doesn't grow with how many tools or add-ons there are: the
+ * tools in view stay the same short list, and the rest wait behind tool search.
+ */
+export function assistantRequest(
+  tools: readonly OfferedTool[],
+  provider: Pick<AiProvider, 'toolSearch'>,
+): { readonly system: string; readonly tools: AiToolDefinition[] } {
+  // With tool search, only the tools the instructions name stay loaded; the model finds the rest when needed.
+  const searching = provider.toolSearch === true;
+  const loaded = alwaysLoaded(tools.filter((t) => !isAddonAiTool(t)).map((t) => t.name));
+  return {
+    system: searching ? `${SYSTEM}\n\n${TOOL_SEARCH_NOTE}` : SYSTEM,
+    tools: tools.map((t) =>
+      // An add-on's tools are always found through search, never loaded up front, so neither the tools in view nor
+      // the prompt the provider caches grow with the add-ons a business turns on.
+      isAddonAiTool(t) || (searching && !loaded.has(t.name))
+        ? { ...definitionOf(t), deferred: true }
+        : definitionOf(t),
+    ),
+  };
 }
 
 const STEP_LABEL: Record<string, string> = {
@@ -223,9 +274,14 @@ function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
 export async function ask(
   deps: RuntimeDeps,
   input: AskInput,
-  emit: (event: AssistantEvent) => void,
+  send: (event: AssistantEvent) => void,
   signal: AbortSignal,
 ): Promise<void> {
+  const clock = stopwatch(input.receivedAt);
+  const emit = (event: AssistantEvent) => {
+    clock.shown(event);
+    send(event);
+  };
   const scope = { workspaceId: input.workspaceId, organizationId: input.organizationId };
   const hasRoom = async () =>
     (await store.tokensToday(deps.db, scope, input.prompt.timezone)) < deps.dailyTokens;
@@ -254,25 +310,55 @@ export async function ask(
   };
   // What was offered is all that can be called: anything else the model asks for is refused below.
   const offered = new Map<string, OfferedTool>(input.tools.map((t) => [t.name, t]));
-  // With tool search, only the tools the instructions name stay loaded; the model finds the rest when needed.
-  const searching = deps.provider.toolSearch === true;
-  const loaded = alwaysLoaded(input.tools.filter((t) => !isAddonAiTool(t)).map((t) => t.name));
-  const toolDefs = input.tools.map((t) => {
-    const addon = isAddonAiTool(t);
-    return {
-      name: t.name,
-      description: addon ? addonToolDescription(t) : t.description,
-      inputSchema: toolInputSchema(t),
-      // An add-on's tools are always found through search, never loaded up front, so neither the tools in view nor
-      // the prompt the provider caches grow with the add-ons a business turns on.
-      ...(addon || (searching && !loaded.has(t.name)) ? { deferred: true } : {}),
-    };
-  });
+  const request = assistantRequest(input.tools, deps.provider);
   const messages = modelMessages(await store.history(deps.db, scope, run.threadId));
   const cards: AssistantCard[] = [];
+  // Look-ups asked for together run at once (`reads`), but their cards still go out, and their calls are kept, in
+  // the order the model asked: each call holds its place, and waits for the calls before it to show and be kept.
+  const places: { cards: readonly AssistantCard[] | null }[] = [];
+  let kept: Promise<void> = Promise.resolve();
+  const showInOrder = () => {
+    while (places[0]?.cards)
+      for (const card of places.shift()!.cards!) {
+        cards.push(card);
+        emit({ type: 'card', card });
+      }
+  };
+  const reads = deps.tools.reads?.bind(deps.tools);
+  const together = reads
+    ? (call: AiToolCall) => {
+        const tool = offered.get(call.name);
+        return !!tool && tool.autonomy === 'auto' && reads(tool);
+      }
+    : undefined;
+
+  const execute = async (call: AiToolCall): Promise<ToolLoopAnswer> => {
+    // Its place is taken before anything waits, so places follow the model's order.
+    const place: { cards: readonly AssistantCard[] | null } = { cards: null };
+    places.push(place);
+    const before = kept;
+    let keptMine = () => {};
+    kept = new Promise((done) => (keptMine = done));
+    const keep: typeof store.recordToolCall = async (...row) => {
+      await before;
+      return store.recordToolCall(...row);
+    };
+    const shown: AssistantCard[] = [];
+    try {
+      return await runCall(call, shown, keep);
+    } finally {
+      keptMine();
+      place.cards = shown;
+      showInOrder();
+    }
+  };
 
   /** One call: "auto" tools run as the person, "confirm" tools wait as cards, errors go back to the model. */
-  const execute = async (call: AiToolCall): Promise<ToolLoopAnswer> => {
+  const runCall = async (
+    call: AiToolCall,
+    shown: AssistantCard[],
+    keep: typeof store.recordToolCall,
+  ): Promise<ToolLoopAnswer> => {
     const tool = offered.get(call.name);
     if (!tool)
       return { content: { error: 'That is not something you can do here.' }, isError: true };
@@ -303,29 +389,26 @@ export async function ask(
     try {
       let answer: ToolLoopAnswer;
       if (tool.autonomy === 'confirm') {
-        const id = await store.recordToolCall(deps.db, scope, {
+        const id = await keep(deps.db, scope, {
           ...base,
           status: 'awaiting_confirmation',
         });
         const prepared = await deps.tools.prepare(tool, args, ctx, id);
-        cards.push(prepared.card);
-        emit({ type: 'card', card: prepared.card });
+        shown.push(prepared.card);
         answer = {
           content: { status: 'waiting_for_the_person_to_confirm', ...(prepared.result as object) },
         };
       } else {
         const out = await deps.tools.run(tool, args, ctx);
-        const id = await store.recordToolCall(deps.db, scope, {
+        const id = await keep(deps.db, scope, {
           ...base,
           status: out.isError ? 'failed' : 'done',
           result: out.record ?? null,
           command: out.command ?? null,
         });
-        for (const shown of [out.card, ...(out.cards ?? [])]) {
-          if (!shown) continue;
-          const card = shown.type === 'done' ? { ...shown, toolCallId: id } : shown;
-          cards.push(card);
-          emit({ type: 'card', card });
+        for (const card of [out.card, ...(out.cards ?? [])]) {
+          if (!card) continue;
+          shown.push(card.type === 'done' ? { ...card, toolCallId: id } : card);
         }
         answer = { content: out.result, isError: !!out.isError };
       }
@@ -335,7 +418,7 @@ export async function ask(
       // A provider error ends the whole run (the loop stops on it).
       if (e instanceof AiProviderError) throw e;
       deps.log.warn({ err: e, tool: tool.name, runId: run.runId }, 'assistant tool failed');
-      await store.recordToolCall(deps.db, scope, {
+      await keep(deps.db, scope, {
         ...base,
         status: 'failed',
         error: toolErrorContent(e).error,
@@ -351,14 +434,17 @@ export async function ask(
   try {
     const loop = await runToolLoop({
       provider: deps.provider,
-      system: searching ? `${SYSTEM}\n\n${TOOL_SEARCH_NOTE}` : SYSTEM,
+      system: request.system,
       lasting: lastingText(input.prompt),
       context: turnText(input.prompt),
       messages,
-      tools: toolDefs,
+      tools: request.tools,
       maxRounds: MAX_ROUNDS,
       maxTokens: MAX_TOKENS,
       execute,
+      ...(together ? { together } : {}),
+      onAsked: clock.asked,
+      onStarted: clock.started,
       onText: (delta) => emit({ type: 'text', delta }),
       // Each call's tokens count toward the limit as soon as it ends, and every later call checks the limit
       // again (the first was checked above): a long question, or several people asking at once, stop there.
@@ -428,5 +514,72 @@ export async function ask(
           ? 'The Assistant is busy right now. Try again in a minute.'
           : 'Something went wrong. Try again.',
     });
+  } finally {
+    deps.log.info({ runId: run.runId, rounds, ...clock.read() }, 'assistant timings');
   }
+}
+
+/**
+ * How long a question took, logged with each answer ("assistant timings") so the speed people see can be read
+ * off the logs: from the question reaching the worker (its context is read first) to the first thing shown (a
+ * step, a card or the first words), each model call's wait for its first block and what that block was (thinking
+ * first is slower), and the whole answer.
+ */
+function stopwatch(receivedAt = Date.now()) {
+  let firstShownMs: number | null = null;
+  const asked = new Map<number, number>();
+  const models: { waitMs: number; first: AiFirstBlock }[] = [];
+  return {
+    shown(event: AssistantEvent) {
+      if (firstShownMs !== null) return;
+      if (event.type === 'text' || event.type === 'step' || event.type === 'card')
+        firstShownMs = Date.now() - receivedAt;
+    },
+    asked(answer: number) {
+      asked.set(answer, Date.now());
+    },
+    started(answer: number, first: AiFirstBlock) {
+      const at = asked.get(answer);
+      if (at !== undefined) models.push({ waitMs: Date.now() - at, first });
+    },
+    read: () => ({ firstShownMs, models, totalMs: Date.now() - receivedAt }),
+  };
+}
+
+export interface WarmInput {
+  readonly userId: string;
+  readonly workspaceId: string;
+  readonly organizationId: string;
+  /** Exactly the tools the person's next question will be offered. */
+  readonly tools: readonly OfferedTool[];
+  readonly prompt: PromptContext;
+}
+
+/**
+ * While the person types: the provider reads the instructions, the tools and the business's lasting context ahead of
+ * the question, so the question's first model call finds them in its cache instead of reading some 25,000 tokens
+ * first. Only with room in today's limit, and its tokens count toward it (app.ai_usage, source `assistant`). False
+ * when nothing was read: no room, or a provider with nothing to warm (the backup AI fills its own cache).
+ */
+export async function warmUp(
+  deps: Pick<RuntimeDeps, 'db' | 'provider' | 'dailyTokens'>,
+  input: WarmInput,
+): Promise<boolean> {
+  const provider = deps.provider;
+  if (!provider.warm) return false;
+  const scope = { workspaceId: input.workspaceId, organizationId: input.organizationId };
+  if ((await store.tokensToday(deps.db, scope, input.prompt.timezone)) >= deps.dailyTokens)
+    return false;
+  const request = assistantRequest(input.tools, provider);
+  const usage = await provider.warm({
+    system: request.system,
+    lasting: lastingText(input.prompt),
+    tools: request.tools,
+    messages: [],
+  });
+  if (totalTokens(usage) === 0) return false;
+  await asWorker(deps.db, scope, (tx) =>
+    recordAiUsage(tx, { source: 'assistant', userId: input.userId, model: provider.model, usage }),
+  );
+  return true;
 }

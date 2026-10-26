@@ -572,6 +572,14 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   Contacts yet: the same-named customers are offered first, or they're added. Saved again, only what's new is added.
   Nothing is read on Facebook for it.
 - **A Social card on each customer** (`person.panels`): their Facebook profile, and each chat saved to their card.
+- **The Assistant** (Ask HandsFreeOS): it can do everything a person does on the add-on's screens, on the web or the
+  phone, as that person. Its 70 tools are the add-on's own operations, each declaring `ai`: the 34 look-ups (Today,
+  Waiting for you, the pipeline, friends, chats, groups, helpful posts, partners, the numbers, the settings and the
+  team's views for owners and admins) and 36 changes. Those that reach people, change settings, add a customer or
+  can't be taken back wait for the person's OK on a card (Approve messages, Start my day, an ask of their computer,
+  a playbook, the extension's settings, Add to Contacts, Don't pitch and Never contact, and the rest the test lists);
+  the others run on their own, like skipping a message or Stop for today. What the extension reads off a network
+  and the worker's own work stay theirs (below).
 
 ## How it fits together
 
@@ -2194,6 +2202,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **An ask's line tells nobody more than every 20 seconds** (`ASK_LINE_SECONDS`) and keeps no receipt
   (`receipt: false`), as the beat; a new state goes at once. Its end keeps its moment and command id, so a retried end
   gets the first answer, and one sent after a Stop leaves it stopped.
+- **The Assistant does what a person does on the screens, and nothing the extension or the worker sends in**
+  (each operation's `ai`; `NOT_THE_ASSISTANTS` in `packages/core/test/addons/outreach.test.ts` lists the rest).
+  Only a person's own browser can see Facebook, LinkedIn or Instagram, so what the extension read, saw or did, and
+  what it asks for its own run, is never the AI's to write; nor is noting which opener a copied draft used, or the
+  worker's AI answers. A new operation is the Assistant's unless it's added to that list, and the test fails until
+  one or the other. What reaches people, changes settings, adds a customer or can't be taken back asks first
+  (`autonomy: 'confirm'`), stricter than the operation's risk: the test holds that list too.
 - **The panel shows; HandsFreeOS decides** (decision 72: progress and activity only). Nothing is saved from the
   panel: the people reached are kept as profiles by noting, and Add to Contacts, Demo booked, Keep and Don't pitch are
   in the app (Keep on the web's Friends tab). The panel's only presses are signing in and the business picker, Start

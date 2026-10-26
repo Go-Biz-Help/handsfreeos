@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import type { AssistantSavedMessage, AssistantToolStatus } from '@/lib/api/types';
 import { usePageRecord, type PageRecord } from '@/lib/assistant/page-record';
-import { stopRun, streamAnswer } from '@/lib/assistant/stream';
+import { stopRun, streamAnswer, warmAssistant } from '@/lib/assistant/stream';
 import { isMac, isShortcut } from '@/lib/keys';
 import { useMatches } from '@/lib/use-media';
 
@@ -197,6 +197,8 @@ export function useAssistant(): AssistantValue {
  * 1600 px, where the conversation keeps about 620 px with the customer pane folded away (at 1440 px its
  * header squeezed the customer's name to a letter); below that it lies over the page.
  */
+/** The provider keeps what the AI read ahead for five minutes; asking again a little before is enough. */
+const WARM_EVERY_MS = 4 * 60_000;
 const DOCK = '(min-width: 1024px)';
 const DOCK_ON_INBOX = '(min-width: 1600px)';
 const onInbox = (path: string, workspaceId: string) =>
@@ -629,6 +631,16 @@ export function AssistantProvider({
     const id = rememberedThread(workspaceId);
     if (id && !threadRef.current && !streamRef.current) void openThread(id, { silent: true });
   }, [open, openThread, workspaceId]);
+
+  // Opening the panel has the AI read ahead while they type, so their first answer starts sooner. Not before
+  // their OK to use the AI (the worker checks too), and it keeps for a few minutes, so once in a while is enough.
+  const warmedAtRef = useRef(0);
+  useEffect(() => {
+    if (!open || !enabled || consentNeeded) return;
+    if (Date.now() - warmedAtRef.current < WARM_EVERY_MS) return;
+    warmedAtRef.current = Date.now();
+    void warmAssistant(workspaceId);
+  }, [consentNeeded, enabled, open, workspaceId]);
 
   // ⌘J on a Mac, Ctrl+J elsewhere. Browsers keep only a few shortcuts for themselves (new tab or window,
   // close, switching tabs); Ctrl+J (Downloads) reaches the page, and preventDefault keeps Downloads shut.

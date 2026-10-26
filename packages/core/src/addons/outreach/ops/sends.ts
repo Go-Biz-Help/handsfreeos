@@ -226,6 +226,11 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
   input: SendApproveInput,
   output: SendApproveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_approve_messages',
+    autonomy: 'confirm',
+    keywords: ['approve all', 'send messages', 'ok messages', 'approve message'],
+  },
   scope: inWorkspace,
   // It reaches a prospect: an OK that waited on the phone goes by itself for 30 minutes, and asks "Still send?" after
   // (decision 44). The contract may grow it to `anytime` one day, never back.
@@ -323,6 +328,10 @@ export const sendSkip = defineAddonCommand(outreachAddon, {
   input: SendSkipInput,
   output: SendSkipOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_skip_message',
+    keywords: ['skip message', 'dont send'],
+  },
   scope: inWorkspace,
   // It reaches nobody, so a skip made on the phone with no signal waits as long as it takes (decision 44).
   offline: 'anytime',
@@ -461,6 +470,10 @@ export const sendsList = defineAddonQuery(outreachAddon, {
   input: SendsInput,
   output: SendsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_messages_to_ok',
+    keywords: ['drafted messages', 'waiting for my ok', 'approve'],
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const me = userIdOf(ctx.actor);

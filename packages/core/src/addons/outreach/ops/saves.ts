@@ -223,6 +223,11 @@ export const chatKeep = defineAddonCommand(outreachAddon, {
   input: ChatKeepInput,
   output: ChatSaveOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_save_chat_to_card',
+    autonomy: 'confirm',
+    keywords: ['save chat to customer', 'social card'],
+  },
   scope: inWorkspace,
   emits: ['outreach.chat.saved', 'outreach.profile.saved'],
   async handler(ctx, input) {
@@ -608,6 +613,10 @@ export const personSocial = defineAddonQuery(outreachAddon, {
     ),
   }),
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_customer_social',
+    keywords: ['facebook profile', 'social card', 'messenger chat with a customer'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;

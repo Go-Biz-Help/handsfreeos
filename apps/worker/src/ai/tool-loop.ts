@@ -7,8 +7,9 @@
  *   the text as it streams (`onText`), records each turn's tokens (`onTurnUsage`) and says whether another
  *   model call fits the budget (`checkBudget`).
  * - A round's calls run one at a time, in the model's order, and all of them run even when one ends the turn.
- *   `execute` handles its own tools' errors: it answers `isError` (in words from `toolErrorContent`) and the
- *   model reads why. Anything `execute` throws ends the loop.
+ *   Calls side by side that `together` says only read run at once, and their results still go back in the
+ *   model's order. `execute` handles its own tools' errors: it answers `isError` (in words from
+ *   `toolErrorContent`) and the model reads why. Anything `execute` throws ends the loop.
  * - The loop never retries; the provider does (the Anthropic SDK retries 408, 409, 429 and 5xx). A provider
  *   error ends the loop as `aborted` when Stop was pressed, otherwise as `error`, marked `retryable` when the
  *   provider was busy, so "try again in a minute" is the right thing to say.
@@ -69,6 +70,11 @@ export interface ToolLoopInput {
   readonly maxTokens: number;
   /** Runs one tool call. */
   readonly execute: (call: AiToolCall) => Promise<ToolLoopAnswer>;
+  /**
+   * Whether a call only reads, so it may run at the same time as the calls beside it that also only read (a
+   * customer and the open times, asked for in one round). Unset: one at a time.
+   */
+  readonly together?: (call: AiToolCall) => boolean;
   /** Each piece of the model's text as it arrives, from every turn. */
   readonly onText?: (delta: string) => void;
   /** Each tool call as the model writes it, before it runs; `answer` counts the model's answers from 1. */
@@ -199,13 +205,23 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       said(turn.content ?? (turn.text ? [{ type: 'text', text: turn.text }, ...calls] : calls));
       const results: AiContent[] = [];
       let stop = false;
-      for (const call of turn.toolCalls) {
-        const answer = await input.execute(call);
-        const content = JSON.stringify(answer.content);
-        const isError = !!answer.isError;
-        results.push({ type: 'tool_result', callId: call.id, content, isError });
-        toolCalls.push({ ...call, round: rounds, content, isError, stop: !!answer.stop });
-        if (answer.stop) stop = true;
+      const together = input.together;
+      for (let i = 0; i < turn.toolCalls.length;) {
+        // A run of look-ups side by side goes at once; anything else on its own, in order.
+        let next = i + 1;
+        if (together?.(turn.toolCalls[i]!))
+          while (next < turn.toolCalls.length && together(turn.toolCalls[next]!)) next++;
+        const batch = turn.toolCalls.slice(i, next);
+        const answers = await Promise.all(batch.map((call) => input.execute(call)));
+        batch.forEach((call, n) => {
+          const answer = answers[n]!;
+          const content = JSON.stringify(answer.content);
+          const isError = !!answer.isError;
+          results.push({ type: 'tool_result', callId: call.id, content, isError });
+          toolCalls.push({ ...call, round: rounds, content, isError, stop: !!answer.stop });
+          if (answer.stop) stop = true;
+        });
+        i = next;
       }
       messages.push({ role: 'user', content: results });
       if (stop) return end('end_turn');

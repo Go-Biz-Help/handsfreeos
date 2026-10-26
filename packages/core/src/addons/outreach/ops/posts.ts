@@ -196,6 +196,10 @@ export const postSkip = defineAddonCommand(outreachAddon, {
   input: PostSkipInput,
   output: PostSkipOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_skip_post',
+    keywords: ['put a post aside', 'skip post'],
+  },
   scope: inWorkspace,
   // It reaches nobody, so Not for me pressed on the phone with no signal waits as long as it takes (decision 44).
   offline: 'anytime',
@@ -232,6 +236,10 @@ export const postWords = defineAddonQuery(outreachAddon, {
   input: PostWordsInput,
   output: PostWordsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_post_search_words',
+    keywords: ['words posts are searched with'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const playbooks = await playbooksInUse(ctx, input.platform);

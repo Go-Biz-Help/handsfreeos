@@ -24,7 +24,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
-import type { AiProvider } from '@hfos/ai';
+import type { AiProvider, AiRequest } from '@hfos/ai';
 import { SPOKEN } from '../src/assistant/prompt';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
@@ -340,6 +340,81 @@ describe('the Assistant', () => {
       expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'budget_reached' })]);
     } finally {
       await tiny.close();
+    }
+  });
+
+  it('reads ahead when the panel opens, exactly what the next question sends, once in a while', async () => {
+    const warmed: AiRequest[] = [];
+    const asked: AiRequest[] = [];
+    const inner = scriptedAssistant();
+    const reading = await build('scripted', 5_000_000, {
+      ...inner,
+      stream: (request, options) => {
+        asked.push(request);
+        return inner.stream(request, options);
+      },
+      warm: async (request) => {
+        warmed.push(request);
+        return { inputTokens: 12, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 25_000 };
+      },
+    });
+    const warm = () =>
+      reading.inject({
+        method: 'POST',
+        url: '/v1/assistant/warm',
+        headers: { authorization: `Bearer ${ownerToken}` },
+        payload: { workspaceId },
+      });
+    try {
+      expect((await warm()).json()).toEqual({ warmed: true });
+      // What it read keeps for five minutes, so the panel opening again soon reads nothing.
+      expect((await warm()).json()).toEqual({ warmed: false });
+      expect(warmed).toHaveLength(1);
+      await ask(ownerToken, 'What needs attention?', {}, reading);
+      // The cache is found only when everything before the question is the same.
+      expect(warmed[0]).toMatchObject({
+        system: asked[0]!.system,
+        lasting: asked[0]!.lasting,
+        tools: asked[0]!.tools,
+      });
+      // Its tokens count toward the day's limit, as the Assistant's.
+      expect(
+        await rows(
+          admin(),
+          sql`select source::text, cache_write_tokens from app.ai_usage
+              where workspace_id = ${workspaceId} and user_id = ${owner.id} and source = 'assistant'`,
+        ),
+      ).toEqual([{ source: 'assistant', cache_write_tokens: 25_000 }]);
+    } finally {
+      await reading.close();
+    }
+  });
+
+  it('reads nothing ahead without their OK to use the AI', async () => {
+    const newcomer = await createTestUser('assistant-newcomer');
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${newcomer.id}, 'member')`,
+    );
+    let warms = 0;
+    const reading = await build('scripted', 5_000_000, {
+      ...scriptedAssistant(),
+      warm: async () => {
+        warms += 1;
+        return { inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 1 };
+      },
+    });
+    try {
+      const res = await reading.inject({
+        method: 'POST',
+        url: '/v1/assistant/warm',
+        headers: { authorization: `Bearer ${await signInTestUser(newcomer)}` },
+        payload: { workspaceId },
+      });
+      expect(res.json()).toEqual({ warmed: false });
+      expect(warms).toBe(0);
+    } finally {
+      await reading.close();
     }
   });
 

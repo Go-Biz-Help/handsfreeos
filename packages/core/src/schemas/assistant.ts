@@ -332,6 +332,9 @@ export const AssistantAskInput = z.object({
   spoken: z.boolean().default(false),
 });
 
+/** The panel opened: the worker has the AI read the instructions ahead of the person's question. */
+export const AssistantWarmInput = z.object({ workspaceId: uuid });
+
 export const assistantErrorCode = z.enum([
   'not_configured',
   'budget_reached',

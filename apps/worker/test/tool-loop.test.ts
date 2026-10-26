@@ -4,6 +4,7 @@ import {
   emptyUsage,
   ScriptedProvider,
   totalTokens,
+  type AiContent,
   type AiMessage,
   type AiProvider,
   type AiRequest,
@@ -128,6 +129,60 @@ describe('runToolLoop', () => {
     expect(r.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
     // The caller's conversation is left as it was.
     expect(asked).toHaveLength(1);
+  });
+
+  it('runs look-ups side by side at once and the rest in order, answering in the model’s order', async () => {
+    const provider = new ScriptedProvider([
+      {
+        when: /customer/i,
+        calls: () => [
+          { name: 'look_up', arguments: { about: 'customer' } },
+          { name: 'look_up', arguments: { about: 'times' } },
+          { name: 'add_note', arguments: { about: 'note' } },
+          { name: 'look_up', arguments: { about: 'price' } },
+        ],
+        reply: () => 'Done.',
+      },
+    ]);
+    const seen: string[] = [];
+    let open = 0;
+    let most = 0;
+    const r = await loop({
+      provider,
+      messages: question('Find the customer and their open times'),
+      together: (call) => call.name === 'look_up',
+      execute: async (call) => {
+        const about = String(call.arguments['about']);
+        most = Math.max(most, ++open);
+        seen.push(`start ${about}`);
+        // The first look-up is the slow one, so the second finishes first.
+        await new Promise((done) => setTimeout(done, about === 'customer' ? 20 : 1));
+        open--;
+        seen.push(`end ${about}`);
+        return { content: about };
+      },
+    });
+    expect(most).toBe(2);
+    expect(seen).toEqual([
+      'start customer',
+      'start times',
+      'end times',
+      'end customer',
+      'start note',
+      'end note',
+      'start price',
+      'end price',
+    ]);
+    expect(r.toolCalls.map((c) => c.content)).toEqual([
+      '"customer"',
+      '"times"',
+      '"note"',
+      '"price"',
+    ]);
+    const results = r.messages[2]!.content as readonly AiContent[];
+    expect(results.map((c) => (c.type === 'tool_result' ? c.callId : null))).toEqual(
+      r.toolCalls.map((c) => c.id),
+    );
   });
 
   it('stops at the round cap without running the calls past it', async () => {

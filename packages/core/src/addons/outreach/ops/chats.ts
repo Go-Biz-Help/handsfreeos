@@ -223,6 +223,10 @@ export const chatsList = defineAddonQuery(outreachAddon, {
   input: ChatsInput,
   output: ChatsOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_chats',
+    keywords: ['messenger chats', 'likely prospects', 'chat tags'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
