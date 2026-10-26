@@ -33,7 +33,7 @@ defaults.
 
 And the defaults kept:
 
-- **The AI never deletes.** The commands are risk 4, which is never offered to it. It can still archive with an OK.
+- **The AI never deletes.** The commands are risk 4, which is never offered to it. It can still archive with an OK, and bring something back from the bin with an OK (2026-10-26).
 - **The phone deletes only with signal.** It isn't saved up to run later.
 - **A booking still to come** asks whether to tell the customer it's cancelled, as Cancel does.
 - **The audit log keeps one line** for each thing deleted (who, when and its name). Its older lines keep their line and

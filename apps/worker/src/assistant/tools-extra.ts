@@ -629,8 +629,13 @@ interface AutomationPlan {
   readonly teammateConfig: Record<string, unknown> | null;
   readonly stores: ReadonlySet<AutomationPatch['store']>;
   readonly fields: Field[];
-  /** Asked to turn on re-engaging dead leads before anyone read its message. */
+  /** Asked to turn on an automation whose message is read first, other than re-engaging dead leads. */
   readonly reviewFirst: boolean;
+  /**
+   * Turning on re-engaging dead leads the first time: the card shows its message, and Confirm is the screen's "Looks
+   * good, turn on" (the owner, 2026-10-26: the Assistant does whatever the person can).
+   */
+  readonly readFirst: boolean;
   readonly blocked: string[];
   /** Labels of what will text or call customers on its own once this saves. */
   readonly reaching: string[];
@@ -660,6 +665,7 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
   const reaching: string[] = [];
   const notes: string[] = [];
   let reviewFirst = false;
+  let readFirst = false;
 
   // The intake form first, so turning Intake questions on in the same breath doesn't say it still needs one.
   const formId = args['intakeFormId'];
@@ -695,6 +701,21 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
         continue;
       }
       if (row.on === on) continue;
+      if (on && row.awaitingReview && id === 'reengage_dead_leads') {
+        at = {
+          ...at,
+          automations: {
+            ...at.automations,
+            switches: { ...at.automations.switches, reengage: true },
+            reengage: { ...at.automations.reengage, reviewedAt: new Date().toISOString() },
+          },
+        };
+        stores.add('automations');
+        fields.push({ label: def.label, value: 'On' });
+        reaching.push(def.label);
+        readFirst = true;
+        continue;
+      }
       if (on && row.awaitingReview) {
         reviewFirst = true;
         fields.push({ label: def.label, value: 'On' });
@@ -764,6 +785,9 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
       label: 'Re-engage: not again for',
       value: plural(reengage.cooldownDays, 'day'),
     });
+  // Turned on the first time, the message is on the card to read before Confirm.
+  if (readFirst && reengage.template === now.reengage.template)
+    fields.push({ label: 'Re-engage message', value: reengage.template });
   if (reengage.template !== now.reengage.template) {
     fields.push({ label: 'Re-engage message', value: reengage.template });
     if (reengageOn(next)) reaching.push('The re-engage message');
@@ -788,6 +812,7 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     stores,
     fields,
     reviewFirst,
+    readFirst,
     blocked,
     reaching,
     notes,
@@ -796,6 +821,11 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
 
 function automationWarnings(plan: AutomationPlan, training: boolean): Warning[] {
   const out: Warning[] = [];
+  if (plan.readFirst)
+    out.push({
+      kind: 'caution',
+      text: 'Re-engage dead leads texts open leads who haven’t heard from you in months, on its own. Read its message above: saving is your “Looks good, turn on”.',
+    });
   if (plan.reviewFirst)
     out.push({
       kind: 'blocked',

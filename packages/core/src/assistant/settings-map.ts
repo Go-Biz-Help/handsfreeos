@@ -194,16 +194,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/add-ons',
     permission: 'addons.manage',
-    canChange: [],
+    canChange: [
+      'add an add-on, turn one on or off, or uninstall one, with what has to move with it',
+    ],
     handovers: [
-      {
-        what: 'add an add-on, turn one on or off, or uninstall one',
-        why: 'it changes what everyone in the business can do, so an owner or an admin does it on the page',
-        steps: [
-          'Open Add-ons, at the bottom of the side menu.',
-          'Press Install, Turn on, Turn off or Uninstall on the add-on. If another add-on has to move with it, you are asked first.',
-        ],
-      },
       {
         what: 'delete an add-on’s data',
         why: 'it can’t be undone, so only an owner does it, typing the add-on’s name',
@@ -306,14 +300,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/deleted-bin',
     permission: 'records.delete',
-    canChange: [],
+    canChange: ['bring something back from the bin'],
     handovers: [
       {
-        what: 'bring back something deleted for good, or empty the bin',
-        why: 'deleting and bringing back is kept to the people the business trusts with it, on the page itself',
+        what: 'empty the bin, or delete something in it now',
+        why: 'the AI never deletes anything for good',
         steps: [
           'Open Settings → Deleted bin.',
-          'Press Bring back beside it, or Empty the bin to delete everything in it now.',
+          'Press Empty the bin to delete everything in it now, or Delete now beside one thing.',
         ],
       },
     ],
@@ -713,17 +707,11 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/partners',
     permission: 'partners.manage',
-    canChange: [],
-    handovers: [
-      {
-        what: 'set how partners are paid, or change their terms',
-        why: 'what partners earn is a promise to people outside the business, so a person sets it on the page',
-        steps: [
-          'Open Settings → Partners.',
-          'Change Their share, Smallest payout or The calendar their links book under How partners are paid, or the Partner terms.',
-        ],
-      },
+    canChange: [
+      'how partners are paid: their share, the smallest payout, the calendar their links book, and the terms',
+      'make a customer a partner, give one their own share, pause, end or bring one back, and mark which partner sent a customer',
     ],
+    handovers: [],
   },
   usage: {
     label: 'Usage & balance',
@@ -764,7 +752,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/automations',
     permission: 'workspace.update',
     canChange: [
-      'turn any automation on or off, except Drafts awaiting review, Connection broke and Texting turned down, which are always on',
+      'turn any automation on or off, except Drafts awaiting review, Connection broke and Texting turned down, which are always on; Re-engage dead leads the first time with its message on the card to read',
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
       'what HandsFreeOS does on its own, and how it words it',
@@ -773,18 +761,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'when the end-of-day email goes out',
       'what the AI does when a voicemail box answers its call',
     ],
-    handovers: [
-      {
-        what: 'turn on Re-engage dead leads, or automatic follow-ups on quiet leads, the first time',
-        why: 'the message goes to customers on its own, so an owner reads it before it starts',
-        on: { where: ['Settings', 'Automations'], path: '/settings/automations' },
-        steps: [
-          'Open Settings → Automations.',
-          'Press Adjust beside the automation and read its message.',
-          'Press Looks good, turn on.',
-        ],
-      },
-    ],
+    handovers: [],
     howTo: [
       'Change one automation: Settings → Automations, its switch, or Adjust beside it',
       'Set what a typical job is worth: Settings → Automations, Adjust on Hot lead alert',
@@ -948,18 +925,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/safety',
     permission: 'workspace.update',
-    canChange: [],
-    handovers: [
-      {
-        what: 'change how long before someone is asked if they are OK, or before their contacts are told, or the safety person',
-        why: 'who is told when someone may be in danger is set by an owner or admin on the screen itself, never by the Assistant',
-        steps: [
-          'Open Settings → Safety.',
-          'Set Ask them after and Then tell their contacts after, and choose who is told when someone has nobody to tell.',
-          'Press Save. Check-ins use the new times from then on.',
-        ],
-      },
+    canChange: [
+      'how long before someone is asked if they are OK, how long before their contacts are told, and the safety person',
     ],
+    handovers: [],
     howTo: [
       'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety',
       'Check in for a visit: in the phone app, open the appointment and press Check in',
