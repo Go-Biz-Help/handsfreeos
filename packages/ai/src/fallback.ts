@@ -1,6 +1,7 @@
 import {
   AiProviderError,
   emptyUsage,
+  type AiEffort,
   type AiErrorCode,
   type AiProvider,
   type AiRequest,
@@ -90,6 +91,11 @@ export class FallbackProvider implements AiProvider {
       if (streamed || options.signal?.aborted) throw e;
       return answeredBy(this.backup, request, options);
     }
+  }
+
+  /** Whoever answers now; the backup, answering a request Claude failed, simply answers as it always does. */
+  thinksHarderAt(effort: AiEffort): boolean {
+    return this.current().thinksHarderAt?.(effort) === true;
   }
 
   /** Only a provider with a cache to fill warms; the backup's fills itself. */

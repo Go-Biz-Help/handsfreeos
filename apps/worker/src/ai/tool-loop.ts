@@ -10,6 +10,8 @@
  *   Calls side by side that `together` says only read run at once, and their results still go back in the
  *   model's order. `execute` handles its own tools' errors: it answers `isError` (in words from
  *   `toolErrorContent`) and the model reads why. Anything `execute` throws ends the loop.
+ * - A tool's answer can say what comes next needs care (`harder`): from that round's results on, the model
+ *   thinks at `thinkHarder` for the rest of the loop, and `onThinkHarder` hears it once.
  * - The loop never retries; the provider does (the Anthropic SDK retries 408, 409, 429 and 5xx). A provider
  *   error ends the loop as `aborted` when Stop was pressed, otherwise as `error`, marked `retryable` when the
  *   provider was busy, so "try again in a minute" is the right thing to say.
@@ -20,9 +22,11 @@ import {
   AiProviderError,
   emptyUsage,
   type AiContent,
+  type AiEffort,
   type AiFirstBlock,
   type AiMessage,
   type AiProvider,
+  type AiRequest,
   type AiStopReason,
   type AiToolCall,
   type AiToolDefinition,
@@ -41,6 +45,8 @@ export interface ToolLoopAnswer {
   readonly isError?: boolean;
   /** Ends the loop once the round's other calls have run (the teammate's reply and hand-off tools). */
   readonly stop?: boolean;
+  /** What comes next needs more care: from the round's results on, the model thinks at `thinkHarder`. */
+  readonly harder?: boolean;
 }
 
 /** A tool call the loop ran. */
@@ -75,6 +81,13 @@ export interface ToolLoopInput {
    * customer and the open times, asked for in one round). Unset: one at a time.
    */
   readonly together?: (call: AiToolCall) => boolean;
+  /**
+   * How hard the model thinks once a tool says what comes next needs care (`harder`), for the rest of the loop:
+   * set only when the provider can (`thinksHarderAt`). Unset: the same all the way.
+   */
+  readonly thinkHarder?: AiEffort;
+  /** The loop started thinking harder: once, before the next model call. */
+  readonly onThinkHarder?: () => void;
   /** Each piece of the model's text as it arrives, from every turn. */
   readonly onText?: (delta: string) => void;
   /** Each tool call as the model writes it, before it runs; `answer` counts the model's answers from 1. */
@@ -138,6 +151,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
     lastStop,
   });
 
+  /** Where it started thinking harder, kept for every later call so the conversation before it stays the same. */
+  let effortFrom: AiRequest['effortFrom'];
   /** A turn the provider paused is carried on by the next response, so that one joins it: one turn, not two. */
   let paused = false;
   const said = (content: string | readonly AiContent[]) => {
@@ -165,6 +180,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
           messages,
           tools: input.tools,
           maxTokens: input.maxTokens,
+          ...(effortFrom ? { effortFrom } : {}),
         },
         {
           ...(input.signal ? { signal: input.signal } : {}),
@@ -205,6 +221,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       said(turn.content ?? (turn.text ? [{ type: 'text', text: turn.text }, ...calls] : calls));
       const results: AiContent[] = [];
       let stop = false;
+      let harder = false;
       const together = input.together;
       for (let i = 0; i < turn.toolCalls.length;) {
         // A run of look-ups side by side goes at once; anything else on its own, in order.
@@ -220,11 +237,17 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
           results.push({ type: 'tool_result', callId: call.id, content, isError });
           toolCalls.push({ ...call, round: rounds, content, isError, stop: !!answer.stop });
           if (answer.stop) stop = true;
+          if (answer.harder) harder = true;
         });
         i = next;
       }
       messages.push({ role: 'user', content: results });
       if (stop) return end('end_turn');
+      // From these results on: the model reads them, and everything after, thinking harder.
+      if (harder && input.thinkHarder && !effortFrom) {
+        effortFrom = { at: messages.length - 1, effort: input.thinkHarder };
+        input.onThinkHarder?.();
+      }
     }
   } catch (e) {
     return end(e instanceof AiProviderError && e.code === 'aborted' ? 'aborted' : 'error', e);

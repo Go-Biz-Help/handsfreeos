@@ -1,8 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { structuredOutputSchema } from './json-schema';
 import {
+  AI_EFFORTS,
   AiProviderError,
   type AiContent,
+  type AiEffort,
   type AiFirstBlock,
   type AiMessage,
   type AiProvider,
@@ -104,6 +106,25 @@ const TOOL_SEARCH_MODELS = [
 export const searchesTools = (model: string): boolean =>
   TOOL_SEARCH_MODELS.some((m) => model === m || model.startsWith(`${m}-`));
 
+/**
+ * The models that change how much they think partway through a conversation (platform.claude.com, "Effort", per-message
+ * effort; beta `mid-conversation-output-config-2026-07-01`), and only while they think. Matched exactly, with a date
+ * at most: Claude Fable 5 refuses it, and `claude-fable-5` isn't `claude-fable-5-1`.
+ */
+const EFFORT_PER_MESSAGE_MODELS = [
+  'claude-fable-5-1',
+  'claude-mythos-5-1',
+  'claude-opus-5-5',
+  'claude-opus-5',
+  'claude-sonnet-5-5',
+  'claude-haiku-5-5',
+];
+export const changesEffortPartway = (model: string): boolean =>
+  EFFORT_PER_MESSAGE_MODELS.some(
+    (m) => model === m || (model.startsWith(`${m}-`) && /^\d{8}$/.test(model.slice(m.length + 1))),
+  );
+const EFFORT_PARTWAY = 'mid-conversation-output-config-2026-07-01';
+
 const THINKING_OFF = { type: 'disabled' } as const satisfies Anthropic.ThinkingConfigDisabled;
 const ANY_TOOL = { type: 'any' } as const satisfies Anthropic.ToolChoiceAny;
 
@@ -141,21 +162,41 @@ export class AnthropicProvider implements AiProvider {
     });
   }
 
+  /**
+   * Only from an effort set below it, on a model that changes effort partway and while it thinks: the request then
+   * says so with an effort-only message where the step starts, which leaves the cached conversation before it alone.
+   */
+  thinksHarderAt(effort: AiEffort): boolean {
+    return (
+      this.effort !== null &&
+      !this.thinkingOff &&
+      changesEffortPartway(this.model) &&
+      AI_EFFORTS.indexOf(effort) > AI_EFFORTS.indexOf(this.effort)
+    );
+  }
+
   async stream(request: AiRequest, options: AiStreamOptions = {}): Promise<AiTurn> {
     const tools = this.toolsOf(request);
+    const harder =
+      request.effortFrom && this.thinksHarderAt(request.effortFrom.effort)
+        ? request.effortFrom
+        : null;
     try {
       const stream = this.client.messages.stream(
         {
           model: this.model,
           max_tokens: request.maxTokens ?? 2048,
           system: systemOf(request),
-          messages: messagesOf(request.messages),
+          messages: messagesOf(request.messages, harder),
           ...(tools.length ? { tools } : {}),
           ...(tools.length && this.toolEachTurn ? { tool_choice: ANY_TOOL } : {}),
           ...(this.thinkingOff ? { thinking: THINKING_OFF } : {}),
           ...outputConfigOf(request, this.effort),
         },
-        { signal: options.signal },
+        {
+          signal: options.signal,
+          ...(harder ? { headers: { 'anthropic-beta': EFFORT_PARTWAY } } : {}),
+        },
       );
       const onStarted = options.onStarted;
       if (onStarted) {
@@ -296,7 +337,10 @@ function usageOf(u: Anthropic.Usage): AiUsage {
  * or a PDF is the bulk of a turn, so the conversation's last one keeps its own mark unless the end mark already
  * covers it. With the system and lasting marks that is four at most, the API's limit.
  */
-function messagesOf(messages: readonly AiMessage[]): Anthropic.MessageParam[] {
+function messagesOf(
+  messages: readonly AiMessage[],
+  harder: AiRequest['effortFrom'] | null = null,
+): Anthropic.MessageParam[] {
   const out = messages.map(toAnthropic);
   const lastImage = out.findLastIndex(
     (m) => typeof m.content !== 'string' && m.content.some((b) => BULKY.has(b.type)),
@@ -304,6 +348,16 @@ function messagesOf(messages: readonly AiMessage[]): Anthropic.MessageParam[] {
   if (lastImage >= 0 && lastImage < out.length - 1)
     out[lastImage] = withCacheOn(out[lastImage]!, 'bulky');
   if (out.length) out[out.length - 1] = withCacheOn(out[out.length - 1]!, 'last');
+  // Thinking harder from a step on: an effort-only message just before the step's tool results, which holds from
+  // there until the loop ends. It carries no words, so it may sit anywhere.
+  if (harder && harder.at > 0 && harder.at < out.length) {
+    const effort: Anthropic.Beta.BetaMessageParam = {
+      role: 'system',
+      content: [],
+      output_config: { effort: harder.effort },
+    };
+    out.splice(harder.at, 0, effort as unknown as Anthropic.MessageParam);
+  }
   return out;
 }
 

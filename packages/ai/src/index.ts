@@ -8,6 +8,7 @@ export { AiOutputError, parseStructured } from './structured';
 export { structuredOutputSchema } from './json-schema';
 export {
   AnthropicProvider,
+  changesEffortPartway,
   searchesTools,
   takesEffort,
   turnsThinkingOff,

@@ -334,6 +334,12 @@ export const assistantTools = [
       'How one part of the business is set up right now, and where it is on screen: its calendars, services, territories, pipelines, tags, fields, members, permissions, texting, email, website chat, templates, lead intake, payments, products, balance, automations, AI teammate, knowledge base, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup to read'),
+      toChange: z
+        .boolean()
+        .default(false)
+        .describe(
+          'True when you are reading it to propose a change, so you take more care over the change; false to answer a question about it',
+        ),
     }),
     autonomy: 'auto',
     permission: 'workspace.read',

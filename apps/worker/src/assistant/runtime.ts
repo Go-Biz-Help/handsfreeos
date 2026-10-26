@@ -52,6 +52,20 @@ const MAX_TOKENS = 16_000;
 
 const BUDGET_REACHED = 'That’s today’s Assistant limit for this business. It resets at midnight.';
 
+/**
+ * How hard it thinks once a question turns into a change (it starts at ASSISTANT_EFFORT): reading the setup before
+ * changing it, or fixing a change the checks refused. A big step up from `low` is what moves the model.
+ */
+const CAREFUL_EFFORT = 'high';
+/** The look-up the instructions say to make before any change to the setup, saying when it's for one. */
+const readsToChange = (tool: OfferedTool, args: Record<string, unknown>) =>
+  tool.name === 'get_settings' && args['toChange'] === true;
+/** What the panel shows while it thinks harder, so a longer wait says why. */
+const CAREFUL_STEP = {
+  id: 'careful',
+  label: 'Taking a little longer to get this right',
+} as const;
+
 export interface ToolContext {
   readonly actor: HumanActor;
   readonly workspaceId: string;
@@ -368,7 +382,12 @@ export async function ask(
         (i: { path: PropertyKey[]; message: string }) =>
           `${i.path.map(String).join('.')}: ${i.message}`,
       );
-      return { content: { error: 'Invalid input', issues }, isError: true };
+      // A change the checks refused: the next try wants more care.
+      return {
+        content: { error: 'Invalid input', issues },
+        isError: true,
+        harder: tool.autonomy === 'confirm',
+      };
     }
     // An add-on's tool hands the operation the model's own arguments (only what the tool declares, never the
     // business's ids): the kernel parses them once, with the operation's schema, when it runs.
@@ -410,7 +429,12 @@ export async function ask(
           if (!card) continue;
           shown.push(card.type === 'done' ? { ...card, toolCallId: id } : card);
         }
-        answer = { content: out.result, isError: !!out.isError };
+        answer = {
+          content: out.result,
+          isError: !!out.isError,
+          // It read the setup to change it: the change comes next.
+          harder: readsToChange(tool, args) && !out.isError,
+        };
       }
       emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'done' });
       return answer;
@@ -424,8 +448,16 @@ export async function ask(
         error: toolErrorContent(e).error,
       });
       emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'failed' });
-      return { content: toolErrorContent(e), isError: true };
+      return { content: toolErrorContent(e), isError: true, harder: tool.autonomy === 'confirm' };
     }
+  };
+
+  // Thinking harder only where the model can, and only above what it does already.
+  const careful = deps.provider.thinksHarderAt?.(CAREFUL_EFFORT) ? CAREFUL_EFFORT : undefined;
+  let thoughtHarder = false;
+  const thinkHarder = () => {
+    thoughtHarder = true;
+    emit({ type: 'step', ...CAREFUL_STEP, status: 'running' });
   };
 
   let text = '';
@@ -443,6 +475,7 @@ export async function ask(
       maxTokens: MAX_TOKENS,
       execute,
       ...(together ? { together } : {}),
+      ...(careful ? { thinkHarder: careful, onThinkHarder: thinkHarder } : {}),
       onAsked: clock.asked,
       onStarted: clock.started,
       onText: (delta) => emit({ type: 'text', delta }),
@@ -453,6 +486,7 @@ export async function ask(
       signal,
     });
     ({ text, usage, rounds } = loop);
+    if (thoughtHarder) emit({ type: 'step', ...CAREFUL_STEP, status: 'done' });
     // Stop and provider errors end the run the way any failure below does, keeping what already streamed.
     if (loop.stoppedBy === 'aborted' || loop.stoppedBy === 'error') throw loop.error;
     if (loop.stoppedBy === 'budget') {
@@ -515,7 +549,10 @@ export async function ask(
           : 'Something went wrong. Try again.',
     });
   } finally {
-    deps.log.info({ runId: run.runId, rounds, ...clock.read() }, 'assistant timings');
+    deps.log.info(
+      { runId: run.runId, rounds, thoughtHarder, ...clock.read() },
+      'assistant timings',
+    );
   }
 }
 

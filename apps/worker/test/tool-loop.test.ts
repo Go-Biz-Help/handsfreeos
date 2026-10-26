@@ -185,6 +185,61 @@ describe('runToolLoop', () => {
     );
   });
 
+  it('thinks harder from the results of a call that asks for care, for the rest of the loop', async () => {
+    const provider = new ScriptedProvider([
+      {
+        when: /calendar/i,
+        calls: () => [{ name: 'look_up', arguments: { about: 'settings' } }],
+        reply: () => 'Here is the change.',
+      },
+    ]);
+    // Shown only the question, so it asks for the settings every turn.
+    const asking: AiProvider = {
+      id: 'asking',
+      model: 'scripted',
+      stream: (request, options) =>
+        provider.stream({ ...request, messages: request.messages.slice(0, 1) }, options),
+    };
+    const { provider: kept, requests } = recorded(asking);
+    let heard = 0;
+    const careful = (p: AiProvider) =>
+      loop({
+        provider: p,
+        maxRounds: 2,
+        messages: question('Add a calendar'),
+        thinkHarder: 'high',
+        onThinkHarder: () => heard++,
+        execute: async () => ({ content: { ok: true }, harder: true }),
+      });
+    await careful(kept);
+    // The first call as asked; every one after, from the first results on (index 2), at the same place.
+    expect(requests.map((r) => r.effortFrom ?? null)).toEqual([
+      null,
+      { at: 2, effort: 'high' },
+      { at: 2, effort: 'high' },
+    ]);
+    expect(heard).toBe(1);
+
+    // Without a level to go to, or when the call ends the turn, nothing changes and nobody hears of it.
+    const plain = recorded(provider);
+    await loop({
+      provider: plain.provider,
+      messages: question('Add a calendar'),
+      execute: async () => ({ content: { ok: true }, harder: true }),
+    });
+    expect(plain.requests.every((r) => r.effortFrom === undefined)).toBe(true);
+    const ending = recorded(provider);
+    await loop({
+      provider: ending.provider,
+      messages: question('Add a calendar'),
+      thinkHarder: 'high',
+      onThinkHarder: () => heard++,
+      execute: async () => ({ content: { ok: true }, harder: true, stop: true }),
+    });
+    expect(ending.requests).toHaveLength(1);
+    expect(heard).toBe(1);
+  });
+
   it('stops at the round cap without running the calls past it', async () => {
     const { provider, requests } = recorded(restless);
     const ran: number[] = [];

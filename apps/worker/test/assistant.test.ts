@@ -24,7 +24,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
-import type { AiProvider, AiRequest } from '@hfos/ai';
+import { ScriptedProvider, type AiProvider, type AiRequest } from '@hfos/ai';
 import { SPOKEN } from '../src/assistant/prompt';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
@@ -340,6 +340,46 @@ describe('the Assistant', () => {
       expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'budget_reached' })]);
     } finally {
       await tiny.close();
+    }
+  });
+
+  it('thinks harder once it reads the setup to change it, and says it is taking a little longer', async () => {
+    const asked: AiRequest[] = [];
+    const inner = new ScriptedProvider([
+      {
+        when: /change my texting/i,
+        calls: () => [{ name: 'get_settings', arguments: { area: 'texting', toChange: true } }],
+        reply: () => 'Here is what I would change.',
+      },
+      {
+        when: /what are my texting/i,
+        calls: () => [{ name: 'get_settings', arguments: { area: 'texting' } }],
+        reply: () => 'Here is how texting is set up.',
+      },
+    ]);
+    const careful = await build('scripted', 5_000_000, {
+      id: inner.id,
+      model: inner.model,
+      stream: (request, options) => {
+        asked.push(request);
+        return inner.stream(request, options);
+      },
+      thinksHarderAt: (effort) => effort === 'high',
+    });
+    const step = (events: AssistantEvent[]) =>
+      events.flatMap((e) => (e.type === 'step' && e.id === 'careful' ? [e.status] : []));
+    try {
+      const changing = await ask(ownerToken, 'Change my texting rules', {}, careful);
+      expect(step(changing)).toEqual(['running', 'done']);
+      // From the setup's results on: the question, the call, then the results it read.
+      expect(asked.map((r) => r.effortFrom ?? null)).toEqual([null, { at: 2, effort: 'high' }]);
+
+      asked.length = 0;
+      const reading = await ask(ownerToken, 'What are my texting rules?', {}, careful);
+      expect(step(reading)).toEqual([]);
+      expect(asked.every((r) => r.effortFrom === undefined)).toBe(true);
+    } finally {
+      await careful.close();
     }
   });
 
