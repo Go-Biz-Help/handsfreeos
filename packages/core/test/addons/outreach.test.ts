@@ -84,6 +84,7 @@ describe('Social Outreach', () => {
         'outreach.automation.save',
         'outreach.chat.keep',
         'outreach.checks.again',
+        'outreach.client.set',
         'outreach.computer.remove',
         'outreach.country.decide',
         'outreach.country.unskip',
