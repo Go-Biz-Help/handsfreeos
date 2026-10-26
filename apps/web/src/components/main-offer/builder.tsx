@@ -1219,10 +1219,7 @@ function LineStep({
           <span className="text-xs text-text-3">{W.previewNote}</span>
         </div>
         <p className="max-w-[460px] rounded-[16px_16px_16px_4px] bg-card-2 px-3.5 py-2.5 text-[14px]">
-          {firstMessagePreview(
-            partWords(parts, 'inAFewWords.outcome'),
-            partWords(parts, 'inAFewWords.guarantee'),
-          )}
+          {firstMessagePreview(partWords(parts, 'inAFewWords.outcome'))}
         </p>
       </Card>
     </>

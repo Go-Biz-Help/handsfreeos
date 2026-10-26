@@ -244,7 +244,7 @@ export const MAIN_OFFER_WORDS = {
     'We help [who] get [outcome] within [timeframe] using [method]. If [guarantee]. [Price].',
   forMessages: 'For your messages',
   forMessagesHint:
-    'A few words each, so a first message can carry them. Messages never say the price.',
+    'A few words each. A first message carries the outcome, and a reply gives the guarantee when someone asks about one. Messages never say the price.',
   previewTitle: 'How a first message will read',
   previewNote: 'Social Outreach writes each one, with something real about them first',
   scoreIt: 'Score my offer',
@@ -584,11 +584,11 @@ export function offerRowLine(offer: {
 }
 
 /**
- * How a first message carries the offer, for the builder's preview: the workbook's script, in a few words each.
- * Social Outreach writes the real ones, with something about the person first.
+ * How a first message carries the offer, for the builder's preview: the workbook's script, with the outcome in a few
+ * words and no guarantee (docs/outreach.md, decision 65). Social Outreach writes the real ones, with something about
+ * the person first.
  */
-export function firstMessagePreview(outcome: string, guarantee: string): string {
+export function firstMessagePreview(outcome: string): string {
   const o = outcome.trim() || '[the outcome]';
-  const g = guarantee.trim() || '[the guarantee]';
-  return `Just reaching out to see if you’d be open to ${o}, where ${g}? If so, let me know and I’ll send more info.`;
+  return `Just reaching out to see if you’d be open to ${o}? If so, let me know and I’ll send more info.`;
 }
