@@ -574,9 +574,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   Nothing is read on Facebook for it.
 - **A Social card on each customer** (`person.panels`): their Facebook profile, and each chat saved to their card.
 - **The Assistant** (Ask HandsFreeOS): it can do everything a person does on the add-on's screens, on the web or the
-  phone, as that person. Its 70 tools are the add-on's own operations, each declaring `ai`: the 34 look-ups (Today,
+  phone, as that person. Its 72 tools are the add-on's own operations, each declaring `ai`: the 34 look-ups (Today,
   Waiting for you, the pipeline, friends, chats, groups, helpful posts, partners, the numbers, the settings and the
-  team's views for owners and admins) and 36 changes. Those that reach people, change settings, add a customer or
+  team's views for owners and admins) and 38 changes. Those that reach people, change settings, add a customer or
   can't be taken back wait for the person's OK on a card (Approve messages, Start my day, an ask of their computer,
   a playbook, the extension's settings, Add to Contacts, Don't pitch and Never contact, and the rest the test lists);
   the others run on their own, like skipping a message or Stop for today. What the extension reads off a network

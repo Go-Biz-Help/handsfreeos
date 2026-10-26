@@ -647,6 +647,11 @@ export const messageEdit = defineAddonCommand(outreachAddon, {
   input: MessageEditInput,
   output: ReadinessOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_edit_sample_message',
+    autonomy: 'confirm',
+    keywords: ['my own words', 'edit sample message', 'how my messages read'],
+  },
   scope: inWorkspace,
   emits: ['outreach.readiness.saved'],
   async handler(ctx, input) {
@@ -685,6 +690,10 @@ export const messageForget = defineAddonCommand(outreachAddon, {
   input: MessageForgetInput,
   output: ReadinessOutput,
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_forget_message_note',
+    keywords: ['forget what I told the AI', 'message note'],
+  },
   scope: inWorkspace,
   emits: ['outreach.readiness.saved'],
   async handler(ctx, input) {

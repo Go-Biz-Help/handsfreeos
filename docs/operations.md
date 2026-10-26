@@ -7037,7 +7037,7 @@ fly secrets unset --app handsfreeos-worker ASSISTANT_MODEL AI_MODEL VOICE_MODEL
 
 The daily limit counts tokens, not dollars, so a more expensive model spends more for the same limit.
 
-Ask HandsFreeOS has about 160 tools of its own, and each add-on a business has on brings more (Social Outreach brings 70). With `ASSISTANT_TOOL_SEARCH` on (the default), it keeps about 20 of them loaded, the ones its instructions name and the everyday look-ups, and finds the rest by searching when a question needs them, so it chooses from a short list. Only some models have tool search (Claude Opus 5.5 and Opus 5 do; Claude Sonnet 5 doesn't); on the others every tool is sent, whatever the setting. If answers ever say it can't do something it should, turn search off to compare:
+Ask HandsFreeOS has about 160 tools of its own, and each add-on a business has on brings more (Social Outreach brings 72). With `ASSISTANT_TOOL_SEARCH` on (the default), it keeps about 20 of them loaded, the ones its instructions name and the everyday look-ups, and finds the rest by searching when a question needs them, so it chooses from a short list. Only some models have tool search (Claude Opus 5.5 and Opus 5 do; Claude Sonnet 5 doesn't); on the others every tool is sent, whatever the setting. If answers ever say it can't do something it should, turn search off to compare:
 
 ```bash
 fly secrets set --app handsfreeos-worker ASSISTANT_TOOL_SEARCH=off
