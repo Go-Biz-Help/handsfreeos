@@ -7157,6 +7157,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.messages.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_messages_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.messages.forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lets go of something the person told the AI about a part of their messages, so their samples and real messages no longer follow it.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.readiness.saved.
+         */
+        post: operations["command_outreach_messages_forget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.need.clear": {
         parameters: {
             query?: never;
@@ -38909,6 +38949,390 @@ export interface operations {
             };
         };
     };
+    command_outreach_messages_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 0 */
+                    index?: number;
+                    /** @enum {string} */
+                    part: "first" | "video" | "link" | "followUps" | "checkIn";
+                    text: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        messages: {
+                            at: string | null;
+                            notes: {
+                                /** @default [] */
+                                checkIn: string[];
+                                /** @default [] */
+                                first: string[];
+                                /** @default [] */
+                                followUps: string[];
+                                /** @default [] */
+                                link: string[];
+                                /** @default [] */
+                                video: string[];
+                            };
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
+                                followUps: string[];
+                                link: string | null;
+                                /** @default [] */
+                                mine: string[];
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            aboutDraft?: string | null;
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            coverLines?: string[];
+                            earlier?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                            };
+                            feature: string[];
+                            items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                bio?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                link?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                name?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            look?: {
+                                clashes: string[];
+                                ok: boolean;
+                                /** @enum {string} */
+                                reads: "person" | "personal" | "brand" | "unclear";
+                                title: string;
+                                /** @default [] */
+                                unlike: ("name" | "username" | "line" | "link")[];
+                                /** @default null */
+                                work: ("same" | "other" | "none") | null;
+                            } | null;
+                            nameDraft?: string | null;
+                            names?: string[];
+                            notes?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                                username?: string[];
+                            };
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
+                            seen?: {
+                                line: string | null;
+                                links: string[];
+                                name: string | null;
+                                url: string | null;
+                                username: string | null;
+                            } | null;
+                            usernames?: {
+                                free: boolean | null;
+                                value: string;
+                            }[];
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_messages_forget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    /** @enum {string} */
+                    part: "first" | "video" | "link" | "followUps" | "checkIn";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                        items: {
+                            /** @enum {string} */
+                            item: "offer" | "playbook" | "profile" | "messages" | "numbers";
+                            left: string | null;
+                            /** @enum {string} */
+                            state: "done" | "todo" | "look_again" | "waiting";
+                            /** @enum {string} */
+                            whose: "business" | "person";
+                        }[];
+                        messages: {
+                            at: string | null;
+                            notes: {
+                                /** @default [] */
+                                checkIn: string[];
+                                /** @default [] */
+                                first: string[];
+                                /** @default [] */
+                                followUps: string[];
+                                /** @default [] */
+                                link: string[];
+                                /** @default [] */
+                                video: string[];
+                            };
+                            samples: {
+                                /** Format: date-time */
+                                at: string;
+                                checkIn: string | null;
+                                first: string[];
+                                /** @default [] */
+                                followUpGaps: number[];
+                                followUps: string[];
+                                link: string | null;
+                                /** @default [] */
+                                mine: string[];
+                                /** Format: uuid */
+                                playbookId: string;
+                                playbookName: string;
+                                version: number | null;
+                                video: string | null;
+                            } | null;
+                            version: number | null;
+                        };
+                        next: ("offer" | "playbook" | "profile" | "messages" | "numbers") | null;
+                        numbers: {
+                            at: string | null;
+                            canSend: number;
+                            days: number[];
+                            goal: number | null;
+                        };
+                        offer: {
+                            line: string;
+                            version: number;
+                        } | null;
+                        /** @enum {string} */
+                        platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                        profile: {
+                            [key: string]: {
+                                /** Format: date-time */
+                                at: string;
+                                version: number | null;
+                            };
+                        };
+                        profileCheck: {
+                            aboutDraft?: string | null;
+                            /** Format: date-time */
+                            at: string;
+                            bios: string[];
+                            coverLine: string | null;
+                            coverLines?: string[];
+                            earlier?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                            };
+                            feature: string[];
+                            items: {
+                                about?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                bio?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                cover?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                featured?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                link?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                name?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                picture?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                posts?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                                work?: {
+                                    fix: string | null;
+                                    ok: boolean;
+                                    why: string;
+                                };
+                            };
+                            look?: {
+                                clashes: string[];
+                                ok: boolean;
+                                /** @enum {string} */
+                                reads: "person" | "personal" | "brand" | "unclear";
+                                title: string;
+                                /** @default [] */
+                                unlike: ("name" | "username" | "line" | "link")[];
+                                /** @default null */
+                                work: ("same" | "other" | "none") | null;
+                            } | null;
+                            nameDraft?: string | null;
+                            names?: string[];
+                            notes?: {
+                                about?: string[];
+                                bio?: string[];
+                                cover?: string[];
+                                name?: string[];
+                                username?: string[];
+                            };
+                            recommendations?: number | null;
+                            recommendNote?: string | null;
+                            seen?: {
+                                line: string | null;
+                                links: string[];
+                                name: string | null;
+                                url: string | null;
+                                username: string | null;
+                            } | null;
+                            usernames?: {
+                                free: boolean | null;
+                                value: string;
+                            }[];
+                            version: number | null;
+                        } | null;
+                        ready: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_need_clear: {
         parameters: {
             query?: never;
@@ -39762,6 +40186,18 @@ export interface operations {
                         }[];
                         messages: {
                             at: string | null;
+                            notes: {
+                                /** @default [] */
+                                checkIn: string[];
+                                /** @default [] */
+                                first: string[];
+                                /** @default [] */
+                                followUps: string[];
+                                /** @default [] */
+                                link: string[];
+                                /** @default [] */
+                                video: string[];
+                            };
                             samples: {
                                 /** Format: date-time */
                                 at: string;
@@ -39771,6 +40207,8 @@ export interface operations {
                                 followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
+                                /** @default [] */
+                                mine: string[];
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
@@ -39938,6 +40376,18 @@ export interface operations {
                         }[];
                         messages: {
                             at: string | null;
+                            notes: {
+                                /** @default [] */
+                                checkIn: string[];
+                                /** @default [] */
+                                first: string[];
+                                /** @default [] */
+                                followUps: string[];
+                                /** @default [] */
+                                link: string[];
+                                /** @default [] */
+                                video: string[];
+                            };
                             samples: {
                                 /** Format: date-time */
                                 at: string;
@@ -39947,6 +40397,8 @@ export interface operations {
                                 followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
+                                /** @default [] */
+                                mine: string[];
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
@@ -40120,6 +40572,18 @@ export interface operations {
                         }[];
                         messages: {
                             at: string | null;
+                            notes: {
+                                /** @default [] */
+                                checkIn: string[];
+                                /** @default [] */
+                                first: string[];
+                                /** @default [] */
+                                followUps: string[];
+                                /** @default [] */
+                                link: string[];
+                                /** @default [] */
+                                video: string[];
+                            };
                             samples: {
                                 /** Format: date-time */
                                 at: string;
@@ -40129,6 +40593,8 @@ export interface operations {
                                 followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
+                                /** @default [] */
+                                mine: string[];
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;
@@ -71635,6 +72101,18 @@ export interface operations {
                         }[];
                         messages: {
                             at: string | null;
+                            notes: {
+                                /** @default [] */
+                                checkIn: string[];
+                                /** @default [] */
+                                first: string[];
+                                /** @default [] */
+                                followUps: string[];
+                                /** @default [] */
+                                link: string[];
+                                /** @default [] */
+                                video: string[];
+                            };
                             samples: {
                                 /** Format: date-time */
                                 at: string;
@@ -71644,6 +72122,8 @@ export interface operations {
                                 followUpGaps: number[];
                                 followUps: string[];
                                 link: string | null;
+                                /** @default [] */
+                                mine: string[];
                                 /** Format: uuid */
                                 playbookId: string;
                                 playbookName: string;

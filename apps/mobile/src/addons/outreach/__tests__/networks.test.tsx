@@ -7,6 +7,7 @@ import {
 } from '@hfos/core/addons/outreach/automation';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
 import { NETWORKS, type NetworkKit } from '@hfos/core/addons/outreach/networks';
 import type { ReadinessOutput } from '@hfos/core/addons/outreach/readiness';
@@ -684,7 +685,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
       offer: { version: 1, line: 'We help roofers get booked inspections.' },
       profile: {},
       profileCheck: null,
-      messages: { at: null, version: null, samples: null },
+      messages: { at: null, version: null, samples: null, notes: NO_MESSAGE_NOTES },
       numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
     };
     const onTick = jest.fn(async () => undefined);

@@ -1,4 +1,5 @@
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
 import { PROFILE_ITEMS_ON } from '@hfos/core/addons/outreach/profile-check';
 import {
   PROFILE_ITEMS,
@@ -44,7 +45,7 @@ const notReady: ReadinessOutput = {
   offer: { version: 1, line: 'We help roofers get booked inspections.' },
   profile: {},
   profileCheck: null,
-  messages: { at: null, version: null, samples: null },
+  messages: { at: null, version: null, samples: null, notes: NO_MESSAGE_NOTES },
   numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
 };
 
@@ -90,7 +91,10 @@ describe('Get ready on the phone', () => {
           checkIn: 'Thought you might like our storm-season checklist.',
           at: '2026-10-15T09:00:00.000Z',
           version: 1,
+          // The second follow-up in their own words, written on their computer (decision 87).
+          mine: ['followUps.1'],
         },
+        notes: { ...NO_MESSAGE_NOTES, followUps: ['Less pushy.'] },
       },
     };
     await render(
@@ -104,6 +108,7 @@ describe('Get ready on the phone', () => {
     await fireEvent.press(screen.getByTestId('ready-open-messages'));
     const list = screen.getByTestId('ready-messages-list');
     expect(within(list).getAllByTestId('ready-message-sample')).toHaveLength(5);
+    expect(within(list).getAllByTestId('ready-message-mine')).toHaveLength(1);
     expect(within(list).getByText('If they go quiet: 2 follow-ups')).toBeTruthy();
     expect(within(list).getByText('2 days later')).toBeTruthy();
     expect(within(list).getByText(READY_WORDS.messages.noVideo)).toBeTruthy();

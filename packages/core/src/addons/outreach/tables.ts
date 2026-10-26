@@ -38,7 +38,13 @@ import type {
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict } from './checks';
-import type { Answer, ConversationStep, FollowUpNext, MessageSamples } from './conversation';
+import type {
+  Answer,
+  ConversationStep,
+  FollowUpNext,
+  MessageNotes,
+  MessageSamples,
+} from './conversation';
 import type { CountryHow, MutualCountries } from './countries';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
@@ -1059,6 +1065,8 @@ export const setup = addonOutreach.table(
     messagesAt: ts('messages_at'),
     messagesVersion: integer('messages_version'),
     messageSamples: jsonb('message_samples').$type<MessageSamples>(),
+    /** What they told the AI of each part of their messages (decision 87): the samples and real messages follow it. */
+    messageNotes: jsonb('message_notes').$type<Partial<MessageNotes>>().notNull().default({}),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

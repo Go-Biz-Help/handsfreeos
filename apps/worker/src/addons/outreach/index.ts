@@ -12,7 +12,12 @@ import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../types';
 import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
-import { MESSAGE_SAMPLES_ACTION, messageSamples } from './samples';
+import {
+  MESSAGE_REWRITE_ACTION,
+  MESSAGE_SAMPLES_ACTION,
+  messageRewrite,
+  messageSamples,
+} from './samples';
 import { VIDEO_SCRIPT_ACTION, videoScript } from './video';
 import { PROFILE_CHECK_ACTION, PROFILE_MORE_ACTION, profileCheck, profileMore } from './profile';
 import { NICHE_FIT_ACTION, nicheFit, PLAYBOOK_ASSIST_ACTION, playbookAssist } from './assist';
@@ -184,6 +189,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // Show me more of one part of it, with the person's note (decision 84).
     [PROFILE_MORE_ACTION]: profileMore,
     [MESSAGE_SAMPLES_ACTION]: messageSamples,
+    // One of them written again, with the person's note on its part (decision 87).
+    [MESSAGE_REWRITE_ACTION]: messageRewrite,
     [VIDEO_SCRIPT_ACTION]: videoScript,
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
