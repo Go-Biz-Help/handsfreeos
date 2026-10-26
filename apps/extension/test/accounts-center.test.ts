@@ -36,6 +36,9 @@ import {
 } from './center-pages';
 import { load } from './load';
 
+// A test walks a page's every step, some twice over: about a second here, several on a busy CI machine.
+vi.setConfig({ testTimeout: 20_000 });
+
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.useRealTimers();
