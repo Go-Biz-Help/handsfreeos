@@ -146,6 +146,18 @@ A button that runs a command sends it with the app's usual headers (`x-hfos-clie
 
 Every button command waits on a phone like the same command from a screen: Reply, Let AI handle, Let HandsFreeOS handle and Approve are fresh for 30 minutes and then ask "Still send?"; Snooze goes any time. A reply that lands in the business's quiet hours is refused with `disposition: ask` (`quiet_hours`): open the conversation and ask, then send again under the same command id.
 
+## Under the bell
+
+Every push is also kept for the person it reached (20261027012600), so the bell lists what came, newest first: at the top right of the phone app, and on the web at the top of the side menu (beside Ask HandsFreeOS at phone width). The words the bell uses are `BELL_WORDS` in `packages/core/src/bell.ts`.
+
+- **One line per person per thing:** a row in `app.notifications` keyed on the push's `collapseId` (a conversation, a support ticket), or on the push itself when it replaces nothing. The send job keeps it (`private.keep_push_notification`) once a phone was handed the push, or may have been (a lost answer); a push every phone refused isn't kept. A newer push about the same thing takes the line over: its words, at the top, new again. The same push again, or an older one that went late, changes nothing. Only people who can still open the business get one.
+- **Its words are the push's:** title, subtitle (it names the business), body, and `data.path`, where pressing the line opens, as tapping the push does. `refs` are kept too, so an add-on alert's push (`refs.alertId`) and the alert itself count once.
+- **Kept 30 days.** The nightly `notifications.clean_up` job (`private.delete_old_notifications`, beside the receipts' clean-up) removes older ones, and a support person's desk notifications once they no longer answer support. Losing access to a business removes that business's; deleting an account removes them all.
+- **Reading them:** `notification.list` (`{ limit?, cursor? }`) gives the person's own from every business they're in, newest first, a page at a time, with how many are `unseen`. The phone syncs them in `me_v1` (`notifications`), so its bell works offline.
+- **Seen and read:** opening the bell sends `notification.seen { upTo }`, the newest time it showed, which clears the count. Pressing a line sends `notification.read { ids }`, and tapping the push itself `notification.read { pushIds: [data.notificationId] }`; a line stays marked "Not opened yet" until then. Both are the person's own: online only, no event, no receipt. The app and the web show them at once, before HandsFreeOS answers.
+- **Live on the web:** keeping one broadcasts `notification.kept` on the business's channel, so a page open in that business refreshes its bell. One from another business shows within a minute, or when the tab comes back.
+- **The add-ons' alerts** still open in the business sit at the top of the bell, under Needs you, until they're done.
+
 ## Trying it locally
 
 - `PUSH_PROVIDER=fake` is the default outside production. The stand-in keeps every message it was handed. A token with `Gone` in it gets `DeviceNotRegistered` in its receipt; one with `Dead` in it, on its ticket.
