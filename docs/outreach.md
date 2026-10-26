@@ -579,8 +579,12 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   team's views for owners and admins) and 38 changes. Those that reach people, change settings, add a customer or
   can't be taken back wait for the person's OK on a card (Approve messages, Start my day, an ask of their computer,
   a playbook, the extension's settings, Add to Contacts, Don't pitch and Never contact, and the rest the test lists);
-  the others run on their own, like skipping a message or Stop for today. What the extension reads off a network
-  and the worker's own work stay theirs (below).
+  the others run on their own, like skipping a message or Stop for today. Its AI buttons are tools too, from the
+  worker actions' `ai`: Improve on a playbook's part, the niche check, Draft a message, writing the sample messages and
+  one again, more options for a part of the profile, and the video script. Each only drafts or writes the person's
+  own suggestions, so they run on their own. What the extension reads off a network and the worker's own work stay
+  theirs (below), and so do the actions only the extension asks for (`outreach.profile.check`, `outreach.like.pick`,
+  `outreach.join.answer`).
 
 ## How it fits together
 

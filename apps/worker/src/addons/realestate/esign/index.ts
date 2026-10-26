@@ -585,6 +585,13 @@ const asRefusal = (e: unknown): never => {
 export const ESIGN_ACTIONS: Readonly<Record<string, AddonWorkerAction>> = {
   'realestate.esign.open': {
     permission: 'realestate.use',
+    ai: {
+      tool: 'realestate_open_signing_page',
+      description:
+        "The page at the e-sign service (DocuSign or dotloop) where the agent places fields and sends a document that's waiting, made fresh for them: a link to open. Nothing is sent from here.",
+      autonomy: 'auto',
+      keywords: ['place fields', 'docusign page', 'open signing'],
+    },
     input: OpenInput,
     async run(ctx, input: z.infer<typeof OpenInput>) {
       const row = await personsEnvelope(ctx, input.envelopeId);
@@ -616,6 +623,13 @@ export const ESIGN_ACTIONS: Readonly<Record<string, AddonWorkerAction>> = {
   },
   'realestate.esign.remind': {
     permission: 'realestate.use',
+    ai: {
+      tool: 'realestate_remind_signers',
+      description:
+        "Remind everyone who hasn't signed a document that's out for signing, through the e-sign service. Asks the person first.",
+      autonomy: 'confirm',
+      keywords: ['remind signers', 'nudge to sign'],
+    },
     input: OpenInput,
     async run(ctx, input: z.infer<typeof OpenInput>) {
       const row = await personsEnvelope(ctx, input.envelopeId);
@@ -646,6 +660,13 @@ export const ESIGN_ACTIONS: Readonly<Record<string, AddonWorkerAction>> = {
   },
   'realestate.esign.check': {
     permission: 'realestate.use',
+    ai: {
+      tool: 'realestate_check_signing',
+      description:
+        'Ask the e-sign service where a document out for signing stands now, and bring its state up to date here.',
+      autonomy: 'auto',
+      keywords: ['signing status', 'has it been signed'],
+    },
     input: OpenInput,
     async run(ctx, input: z.infer<typeof OpenInput>) {
       const row = await personsEnvelope(ctx, input.envelopeId);

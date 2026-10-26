@@ -76,6 +76,13 @@ export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
 export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_draft_message',
+    description:
+      "Draft a message for someone the person reached, as Draft a message on Today does: up to three drafts from the AI in the playbook's tone, for a first message, a reconnect, a pitch, a follow-up, a reply (with the chat) or a comment (with the post). Nothing is sent: the person copies one and sends it, then outreach_note_sent notes it.",
+    autonomy: 'auto',
+    keywords: ['draft a message', 'write a first message', 'draft a reply', 'draft a comment'],
+  },
   input: TodayDraftInput,
   async run(ctx, raw): Promise<TodayDraftOutput> {
     const input = TodayDraftInput.parse(raw);

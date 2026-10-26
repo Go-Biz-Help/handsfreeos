@@ -187,13 +187,14 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
   the business's alert people (owners or people who see every deal; the owners when nobody is picked).
   Acknowledging stops an alert climbing. A changed wire raises a critical alert at once and a duty finished only by
   a phone check.
-- **The Assistant** looks things up on its own and changes things only with a person's OK. It never makes
-  exceptions, waives, ends or archives a deal, sets the final commission, changes the team or edits the duty list.
-  Everything else a person does on the add-on's screens is one of its tools (each operation's `ai`, 200 in all); the
-  changes it makes without asking are only the agent's own notes, drafts and records (a field note, a tour's
-  feedback, a draft CMA's comps), never a deal's state or anything a client or the public sees.
-  `NOT_THE_ASSISTANTS` in `packages/core/test/addons/realestate.test.ts` lists what it never runs, and the same
-  test holds the list of changes that run on their own. A lockbox's code never goes through it.
+- **The Assistant** looks things up on its own and changes things only with a person's OK. Everything a person does
+  on the add-on's screens is one of its tools (each operation's `ai`, 216 in all). That includes exceptions, waives,
+  ending or archiving a deal, the final commission, the team and the duty list (Chris, 2026-10-26, which lifted
+  2026-09-30's "never"): each waits for a person's OK, and each still needs that person's permission. The changes
+  it makes without asking are only the agent's own notes, drafts and records (a field note, a tour's feedback, a
+  draft CMA's comps), never a deal's state or anything a client or the public sees. `NOT_THE_ASSISTANTS` in
+  `packages/core/test/addons/realestate.test.ts` lists what it never runs (a lockbox's code, a visitor's own sign-in
+  at an open house, and search's own part), and the same test holds the list of changes that run on their own.
 - **Client updates are drafted, never sent, by the AI.** The agent checks and sends each from their own mailbox
   (else their address, else the team inbox). Every draft's words are checked for fair-housing risk by a fixed list
   and by the AI; it goes only once each flag is fixed or kept with a reason, and every check is kept.

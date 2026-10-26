@@ -2,7 +2,9 @@ import type { AiToolDefinition } from '@hfos/ai';
 import { ADDON_SERVER_MODULES, allAddonAiTools, assistantTools } from '@hfos/core/server';
 import { describe, expect, it } from 'vitest';
 import { contextText, lastingText, turnText, type PromptContext } from '../src/assistant/prompt';
+import { ADDON_WORKER_MODULES } from '../src/addons/modules';
 import { assistantRequest } from '../src/assistant/runtime';
+import { allAddonActionTools } from '../src/assistant/tools-addons';
 
 const PROMPT: PromptContext = {
   businessName: 'Lone Star HVAC',
@@ -57,6 +59,12 @@ describe('what every question sends (assistantRequest)', () => {
     expect(all.tools.filter((t) => t.name.startsWith('outreach_')).every((t) => t.deferred)).toBe(
       true,
     );
+    // The add-ons' worker actions too: found by search, never in view.
+    const actions = allAddonActionTools(ADDON_WORKER_MODULES);
+    expect(actions.length).toBeGreaterThan(10);
+    const withActions = assistantRequest([...assistantTools, ...addonTools, ...actions], searching);
+    expect(inView(withActions.tools)).toEqual(inView(core.tools));
+    expect(withActions.system).toBe(core.system);
   });
 
   it('works out each tool once, so the next question sends the very same definitions', () => {

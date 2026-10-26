@@ -228,6 +228,9 @@ const app = await buildHttpServer({
           { ai, log, wallet },
           { ai, log, wallet },
           env.webUrl,
+          undefined,
+          // The add-ons' worker actions run as the route runs them, with the worker's services.
+          { services },
         ),
         dailyTokens: env.assistantDailyTokens,
       }

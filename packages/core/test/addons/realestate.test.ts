@@ -127,32 +127,11 @@ describe('Real Estate Agent', () => {
 });
 
 /**
- * People's operations the Assistant never runs. Most are the owner's decision (2026-09-30, docs/realestate.md): it
- * never makes exceptions, waives, ends or archives a deal, sets the final commission, changes the team or edits the
- * duty list. The rest are what they are.
+ * People's operations the Assistant never runs. Everything else is a tool: exceptions, waives, ending or archiving a
+ * deal, the final commission, the team and the duty list too, each with a person's OK (the owner's decision,
+ * 2026-10-26, docs/realestate.md).
  */
 const NOT_THE_ASSISTANTS = new Set([
-  // Exceptions: done without the proof, waived, or let through without the seller's sign-off.
-  'realestate.duty.complete_with_exception',
-  'realestate.duty.waive',
-  'realestate.listing.description.let_through',
-  'realestate.listing.price.let_through',
-  // Ending or archiving a deal.
-  'realestate.deal.end',
-  'realestate.deal.archive',
-  // The final commission.
-  'realestate.deal.set_final_commission',
-  // The team.
-  'realestate.deal.add_person',
-  'realestate.deal.remove_person',
-  'realestate.deal.set_role',
-  // The duty list.
-  'realestate.template.set_override',
-  'realestate.template.clear_override',
-  'realestate.template.save_custom',
-  'realestate.template.archive_custom',
-  'realestate.template.publish',
-  'realestate.deal.apply_template_version',
   // Search everything's own part, which core runs.
   'realestate.search',
   // A visitor signing in at an open house on the host's phone: theirs, not the agent's.

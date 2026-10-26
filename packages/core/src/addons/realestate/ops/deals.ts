@@ -691,6 +691,7 @@ export const dealEnd = defineAddonCommand(realestateAddon, {
   input: DealEndInput,
   output: DealChangeOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_end', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.ended'],
   async handler(ctx, input) {

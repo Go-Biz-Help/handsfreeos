@@ -154,6 +154,7 @@ export const templateSetOverride = defineAddonCommand(realestateAddon, {
   }),
   output: Changed,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_set_override', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.template.changed'],
   async handler(ctx, input) {
@@ -208,6 +209,7 @@ export const templateClearOverride = defineAddonCommand(realestateAddon, {
   input: z.object({ ...ws, dutyKey: catalogKey }),
   output: Changed,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_clear_override', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.template.changed'],
   async handler(ctx, input) {
@@ -240,6 +242,7 @@ export const templateSaveCustom = defineAddonCommand(realestateAddon, {
   input: z.object({ ...ws, dutyKey: customKey.optional(), duty: CustomDutySchema }),
   output: Changed,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_save_custom', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.template.changed'],
   async handler(ctx, input) {
@@ -305,6 +308,7 @@ export const templateArchiveCustom = defineAddonCommand(realestateAddon, {
   input: z.object({ ...ws, dutyKey: customKey }),
   output: Changed,
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_archive_custom', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.template.changed'],
   async handler(ctx, input) {
@@ -342,6 +346,7 @@ export const templatePublish = defineAddonCommand(realestateAddon, {
   input: z.object({ ...ws, note: z.string().trim().max(500).optional() }),
   output: z.object({ templateSetId: uuid, version: z.number().int(), duties: z.number().int() }),
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_template_publish', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.template.published'],
   async handler(ctx, input) {
@@ -529,6 +534,7 @@ export const dealApplyTemplateVersion = defineAddonCommand(realestateAddon, {
   input: z.object({ ...ws, dealId: uuid, templateSetId: uuid.optional() }),
   output: z.object({ dealId: uuid, version: z.number().int(), changes: PlanOut }),
   permission: 'realestate.manage',
+  ai: { tool: 'realestate_deal_apply_template_version', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.template_applied'],
   async handler(ctx, input) {

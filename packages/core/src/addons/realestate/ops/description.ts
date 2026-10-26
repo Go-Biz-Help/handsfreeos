@@ -612,6 +612,7 @@ export const descriptionLetThrough = defineAddonCommand(realestateAddon, {
   input: ListingDescriptionLetThroughInput,
   output: ListingDescriptionOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_listing_description_let_through', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.listing.description_signed', ...PROOF_EVENTS],
   async handler(ctx, input) {

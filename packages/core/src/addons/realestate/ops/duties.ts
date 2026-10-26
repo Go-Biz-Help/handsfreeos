@@ -669,6 +669,7 @@ export const dutyCompleteWithException = defineAddonCommand(realestateAddon, {
   input: DutyReasonInput,
   output: DutyOutput,
   permission: 'realestate.except',
+  ai: { tool: 'realestate_duty_complete_with_exception', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.completed'],
   async handler(ctx, input) {
@@ -692,6 +693,7 @@ export const dutyWaive = defineAddonCommand(realestateAddon, {
   input: DutyReasonInput,
   output: DutyOutput,
   permission: 'realestate.except',
+  ai: { tool: 'realestate_duty_waive', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.duty.waived'],
   async handler(ctx, input) {

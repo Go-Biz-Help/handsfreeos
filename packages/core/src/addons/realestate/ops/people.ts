@@ -110,6 +110,7 @@ export const dealAddPerson = defineAddonCommand(realestateAddon, {
   input: DealAddPersonInput,
   output: DealTeamOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_add_person', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.team_changed'],
   async handler(ctx, input) {
@@ -161,6 +162,7 @@ export const dealRemovePerson = defineAddonCommand(realestateAddon, {
   input: DealRemovePersonInput,
   output: DealTeamOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_remove_person', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.team_changed'],
   async handler(ctx, input) {
@@ -207,6 +209,7 @@ export const dealSetRole = defineAddonCommand(realestateAddon, {
   input: DealSetRoleInput,
   output: DealTeamOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_set_role', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.team_changed'],
   async handler(ctx, input) {
@@ -768,6 +771,7 @@ export const dealSetFinalCommission = defineAddonCommand(realestateAddon, {
   input: DealSetFinalCommissionInput,
   output: DealCommissionOutput,
   permission: 'realestate.except',
+  ai: { tool: 'realestate_deal_set_final_commission', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: ['realestate.deal.final_commission_set'],
   async handler(ctx, input) {
@@ -833,6 +837,7 @@ export const dealArchive = defineAddonCommand(realestateAddon, {
   input: DealArchiveInput,
   output: DealArchiveOutput,
   permission: 'realestate.use',
+  ai: { tool: 'realestate_deal_archive', autonomy: 'confirm' },
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
