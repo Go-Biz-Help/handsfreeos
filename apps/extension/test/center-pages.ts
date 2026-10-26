@@ -149,11 +149,12 @@ export function facebookNamePage(plan: FacebookNamePlan = {}, url = FB_NAME_PAGE
     }
     const name = nameNow();
     const order = plan.order ?? 'picked';
+    // What was typed goes into the choices as text, never as HTML.
     const radios =
       order === 'none'
         ? ''
-        : `<div role="radiogroup"><label><input type="radio" name="order" ${order === 'picked' ? 'checked' : ''} /> ${name}</label>` +
-          `<label><input type="radio" name="order" /> ${last.value}, ${first.value}</label></div>`;
+        : `<div role="radiogroup"><label><input type="radio" name="order" ${order === 'picked' ? 'checked' : ''} /> <span data-order="picked"></span></label>` +
+          '<label><input type="radio" name="order" /> <span data-order="last-first"></span></label></div>';
     const password =
       plan.password === 'review'
         ? '<span>To save this setting, enter your Facebook password.</span><input type="password" aria-label="Password" />'
@@ -166,6 +167,8 @@ export function facebookNamePage(plan: FacebookNamePlan = {}, url = FB_NAME_PAGE
       `<h2>Review your name</h2><span>How would you like it to appear on your profile?</span>${radios}${password}${sync}` +
         '<div role="button" id="name-done"><span>Done</span></div>',
     );
+    step.querySelector('[data-order="picked"]')?.append(name);
+    step.querySelector('[data-order="last-first"]')?.append(`${last.value}, ${first.value}`);
     const thisStep = step;
     thisStep.querySelector('#name-done')!.addEventListener('click', () => {
       pressed.done++;
