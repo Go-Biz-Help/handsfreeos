@@ -108,7 +108,7 @@ export const mine = (ctx: Ctx, me: string) =>
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
-    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead.',
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
   risk: 0,
   input: SendQueueInput,
   output: SendQueueOutput,
