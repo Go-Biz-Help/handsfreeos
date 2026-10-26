@@ -23,7 +23,12 @@ import { REPORT_WORDS, type TryStepName } from '@hfos/core/addons/outreach/repor
 import type { PageRead, ProfileRef } from '../networks/kit';
 import { FACEBOOK } from '../networks/facebook/urls';
 import { DOWNLOAD_PAGE } from '../networks/facebook/fetch';
-import { ACCOUNTS_PROFILES, usernameAddress } from '../networks/facebook/username';
+import {
+  ACCOUNTS_PROFILES,
+  usernameAddress,
+  usernamePageOf,
+  type Asking,
+} from '../networks/facebook/username';
 import type { ReadResult } from '../networks/facebook/types';
 import type { StepTry, TryStep } from '../networks/tries';
 import { listOnPage } from '../hfos/saves';
@@ -451,16 +456,30 @@ async function checkup(job: Job): Promise<JobEnd> {
   return c.end();
 }
 
+/** What Facebook asked for first on Accounts Center's Profiles, as the step with nothing to try on says it. */
+const PROFILES_ASK: Readonly<Record<Asking, string>> = {
+  password: 'Facebook asks for your password first, so its profiles don’t show',
+  code: 'Facebook asks for a code first, so its profiles don’t show',
+  confirm: 'Facebook asks you to confirm it’s you first, so its profiles don’t show',
+};
+
 /**
  * Your username, on Accounts Center's username page for your Facebook profile (by its number; else Profiles, and the
- * Facebook one there): its box and Done tried, never pressed. Its warnings are read only when Facebook asked for no
- * password: its "Confirm it's you" there is no warning (decision 25). How it ended, when a warning ended it.
+ * Facebook one there): its box and Done tried, never pressed, only on that profile's page. Its warnings are read only
+ * while Facebook asks for nothing there (the tab decides): its "Confirm it's you" is no warning (decision 25). How it
+ * ended, when a warning ended it.
  */
 async function tryUsername(
   job: Job,
   c: Checkup<ReadResult>,
   id: string | null,
 ): Promise<JobEnd | null> {
+  const warnedThere = async (at: string): Promise<JobEnd | null> => {
+    const here = await job.tab.ask({ type: 'hfos-account-warnings' });
+    if (!here.ok || !here.warnings.length) return null;
+    await job.warn(here.warnings, at);
+    return { line: warnedLine(here.warnings), warned: true };
+  };
   let url = usernameAddress(id);
   if (!url) {
     await c.openUnread(ACCOUNTS_PROFILES, 'Accounts Center’s profiles');
@@ -469,24 +488,27 @@ async function tryUsername(
       await job.warn(found.warnings, ACCOUNTS_PROFILES);
       return { line: warnedLine(found.warnings), warned: true };
     }
-    url = found.ok ? found.url : null;
     if (found.ok && found.asking) {
-      await c.nothingFor(
-        'username',
-        'Facebook asks for your password first, so its profiles don’t show',
-      );
+      await c.nothingFor('username', PROFILES_ASK[found.asking]);
       return null;
     }
+    url = found.ok ? found.url : null;
     if (!url) {
+      const warned = await warnedThere(ACCOUNTS_PROFILES);
+      if (warned) return warned;
       await c.failed('username', 'no Facebook profile among Accounts Center’s profiles', {
         profile: false,
       });
       return null;
     }
   }
+  const number = usernamePageOf(url);
   await c.openUnread(url, 'where your username is changed');
-  const tried = await c.tryHere('username');
-  return tried.found.password || tried.found.code ? null : c.warnedHere();
+  await c.tryHere(
+    'username',
+    number ? { id: number, username: null, url: `${FACEBOOK}/profile.php?id=${number}` } : undefined,
+  );
+  return warnedThere(url);
 }
 
 /** Check Facebook: with its window in front the whole time, then the person's own back. */
