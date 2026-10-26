@@ -34,7 +34,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client';
 import { z } from 'zod';
-import type { JobHandler, JobMap } from '../jobs';
+import type { JobContext, JobHandler, JobMap } from '../jobs';
 import { errorMessage } from '../outbox';
 import { tenantOf } from '../services';
 import { messageFor, type PushNotice } from './payload';
@@ -260,21 +260,36 @@ const writeDelivery = (tx: Tx, jobId: string, delivery: Delivery) =>
 
 /**
  * The push, kept under the bell of each person whose phones it was handed to (20261027012600): a new row, or the row
- * of what it replaces on the phone. Kept once per push, so a retried send changes nothing.
+ * of what it replaces on the phone. Kept once per push, so a retried send changes nothing. In a savepoint: the bell
+ * is a second copy, and one it can't keep never undoes what the send records about the phones.
  */
-const keepUnderBell = (tx: Tx, p: z.infer<typeof SendPayload>, devices: readonly Device[]) => {
+const keepUnderBell = async (
+  ctx: JobContext,
+  tx: Tx,
+  p: z.infer<typeof SendPayload>,
+  devices: readonly Device[],
+) => {
   const userIds = [...new Set(devices.map((d) => d.userId))];
-  if (userIds.length === 0) return Promise.resolve();
-  return tx.execute(
-    sql`select private.keep_push_notification(
-          array[${sql.join(
-            userIds.map((id) => sql`${id}::uuid`),
-            sql`, `,
-          )}],
-          ${p.workspaceId}::uuid, ${p.notificationId}::uuid, ${p.collapseId ?? null}, ${p.category},
-          ${p.title}, ${p.subtitle}, ${p.body}, ${p.path}, ${JSON.stringify(p.refs)}::jsonb,
-          ${p.sentAt}::timestamptz)`,
-  );
+  if (userIds.length === 0) return;
+  try {
+    await tx.transaction((sp) =>
+      sp.execute(
+        sql`select private.keep_push_notification(
+              array[${sql.join(
+                userIds.map((id) => sql`${id}::uuid`),
+                sql`, `,
+              )}],
+              ${p.workspaceId}::uuid, ${p.notificationId}::uuid, ${p.collapseId ?? null}, ${p.category},
+              ${p.title}, ${p.subtitle}, ${p.body}, ${p.path}, ${JSON.stringify(p.refs)}::jsonb,
+              ${p.sentAt}::timestamptz)`,
+      ),
+    );
+  } catch (e) {
+    ctx.log.warn(
+      { err: errorMessage(e), notificationId: p.notificationId },
+      'could not keep a push under the bell',
+    );
+  }
 };
 
 /** Counts of each error word, for a log line that says what went wrong without saying to whom. */
@@ -369,7 +384,7 @@ export const pushSendJob: JobHandler = async (ctx) => {
       handedOver.push(...ids);
       await asWorker(ctx.db, {}, async (tx) => {
         await writeDelivery(tx, ctx.job.id, { handedOver, inFlight: [] });
-        await keepUnderBell(tx, p, chunk);
+        await keepUnderBell(ctx, tx, p, chunk);
       });
       ctx.log.warn(
         { err: errorMessage(e), notificationId: p.notificationId, phones: ids.length },
@@ -397,7 +412,7 @@ export const pushSendJob: JobHandler = async (ctx) => {
     });
     const turnedOff = await asWorker(ctx.db, scope, async (tx) => {
       await writeDelivery(tx, ctx.job.id, { handedOver, inFlight: [] });
-      await keepUnderBell(tx, p, chunk);
+      await keepUnderBell(ctx, tx, p, chunk);
       if (accepted.length > 0)
         await scheduleJob(tx, {
           kind: PUSH_JOBS.receipts,

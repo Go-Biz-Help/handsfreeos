@@ -11,6 +11,8 @@
  *   mid-send and a try that stopped partway never push a phone twice.
  * - **Receipts:** a phone the app is gone from is turned off, from its ticket at once or its receipt later, unless
  *   it registered again since.
+ * - **Under the bell:** each push is kept once for each person its phones were handed, one line per thing, and a bell
+ *   that can't keep one never holds up the send.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -1453,6 +1455,45 @@ describe('the moments, on a business with phones', () => {
       );
       await drain(w);
       expect(await lines()).toBe(before + 1);
+    });
+
+    it('never lets the bell hold up a send: one it can’t keep still goes once, and its receipts are checked', async () => {
+      const title = `Kept nowhere ${randomUUID().slice(0, 8)}`;
+      // The bell refusing this one push, as a broken database function would.
+      const refuse = `test_bell_refuses_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+      await admin().execute(
+        sql.raw(`create function public.${refuse}() returns trigger language plpgsql as $$
+          begin
+            if new.title = '${title}' then raise exception 'the bell is broken'; end if;
+            return new;
+          end $$;
+          create trigger ${refuse} before insert on app.notifications
+            for each row execute function public.${refuse}();`),
+      );
+      try {
+        const before = (await bellOf(sam)).length;
+        const pushes = toSam().length;
+        const key = await queueFor([sam.id], { title });
+        await drain(w);
+        expect(toSam()).toHaveLength(pushes + 1);
+        expect(await bellOf(sam)).toHaveLength(before);
+        expect((await pushJob(key))!.status).toBe('done');
+        const pushed = dataOf(toSam().at(-1)!.message);
+        const receipts = await rows(
+          admin(),
+          sql`select 1 from app.scheduled_jobs
+              where kind = ${PUSH_JOBS.receipts} and status = 'pending'
+                and payload ->> 'notificationId' = ${pushed.notificationId}`,
+        );
+        expect(receipts).toHaveLength(1);
+        // Run again, it hands nothing over twice.
+        await drain(w);
+        expect(toSam()).toHaveLength(pushes + 1);
+      } finally {
+        await admin().execute(
+          sql.raw(`drop trigger ${refuse} on app.notifications; drop function public.${refuse}();`),
+        );
+      }
     });
   });
 
