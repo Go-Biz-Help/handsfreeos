@@ -7,7 +7,7 @@
  * and a change saves the whole group it's in, `user.update_profile` with every push switch (`settings.push`) or every
  * email one (`settings.notifications`). New support tickets is a row only for people who answer HandsFreeOS support.
  */
-import type { PushSwitch } from '../push';
+import { pushSwitchOn, type PushSwitch } from '../push';
 
 /** The email switches, each on unless turned off. */
 export interface EmailSwitches {
@@ -232,4 +232,45 @@ export function managesAnAgency(me: {
       (o.role === 'owner' || o.role === 'admin') &&
       me.businesses.filter((b) => b.organizationId === o.id).length > 1,
   );
+}
+
+/** One moment as the person has it set now: its push and its email, each on, off, always, or not a choice. */
+export interface NotificationState {
+  readonly title: string;
+  /** What it's about, as the screen's line under the title says it. */
+  readonly about: string;
+  /** Phone alerts: on, off, or null for a moment that never pushes. */
+  readonly phone: boolean | null;
+  /** Its email: on, off, 'always' for one that always goes, or null for a moment that never emails. */
+  readonly email: boolean | 'always' | null;
+  /** Only for owners and admins of an agency. */
+  readonly agencyOnly?: true;
+  /** Only for people who answer HandsFreeOS support. */
+  readonly supportOnly?: true;
+}
+
+/**
+ * Every moment the person can be told about, as Settings → Account shows it to them: each switch as they set it, or
+ * its default when they never did (on, but payments' push off until turned on).
+ */
+export function notificationStates(settings: unknown): NotificationState[] {
+  const group =
+    typeof settings === 'object' && settings !== null
+      ? (settings as Record<string, unknown>)['notifications']
+      : undefined;
+  const emailOn = (key: EmailSwitch) => {
+    const v =
+      typeof group === 'object' && group !== null
+        ? (group as Record<string, unknown>)[key]
+        : undefined;
+    return typeof v === 'boolean' ? v : true;
+  };
+  return [...NOTIFICATION_ROWS, ...EMAIL_ONLY_ROWS].map((r) => ({
+    title: r.title,
+    about: r.description,
+    phone: r.push ? pushSwitchOn(settings, r.push) : null,
+    email: r.email === 'always' ? 'always' : r.email ? emailOn(r.email) : null,
+    ...(r.agencyOnly ? { agencyOnly: true as const } : {}),
+    ...(r.staffOnly ? { supportOnly: true as const } : {}),
+  }));
 }

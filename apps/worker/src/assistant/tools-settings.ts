@@ -12,6 +12,7 @@
 
 import {
   handoverScreen,
+  notificationStates,
   settingsArea,
   settingsWhere,
   type AssistantCard,
@@ -193,7 +194,22 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
-  my_account: [{ name: 'account.me', as: 'me' }],
+  my_account: [
+    { name: 'account.me', as: 'me' },
+    {
+      // The phones their alerts go to, as Settings → Account lists them: none means phone alerts reach nobody.
+      name: 'push_device.list',
+      as: 'phonesForAlerts',
+      shape: (v) =>
+        (
+          (
+            v as {
+              devices?: { platform: string; deviceName: string | null; lastSeenAt: string }[];
+            }
+          )?.devices ?? []
+        ).map((d) => ({ phone: d.deviceName ?? d.platform, lastSeenAt: d.lastSeenAt })),
+    },
+  ],
   my_calendar: [{ name: 'schedule.team', as: 'schedules' }],
   // Check-ins (round six): the business's times and safety person; never anyone's contacts.
   safety: [{ name: 'safety.settings', as: 'safety' }],
@@ -207,11 +223,21 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   ],
 };
 
-/** Everything `account.me` holds that isn't this person's own settings; the model never needs it. */
+/**
+ * This person's own account, as Settings → Account shows it: their name and address, their settings, and every alert
+ * as it is set now, defaults filled in, so "will I hear about a booking?" has an answer. The rest of `account.me` (the
+ * businesses they reach) the model never needs.
+ */
 const meShape = (me: unknown) => {
   const user = (me as { user?: Record<string, unknown> } | null)?.user;
   return user
-    ? { fullName: user['fullName'], email: user['email'], settings: user['settings'] }
+    ? {
+        fullName: user['fullName'],
+        email: user['email'],
+        settings: user['settings'],
+        alerts: notificationStates(user['settings']),
+        alwaysOn: 'Safety check-in alerts always reach their phones; they can’t be turned off.',
+      }
     : null;
 };
 

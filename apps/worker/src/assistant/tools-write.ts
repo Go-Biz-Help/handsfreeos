@@ -882,7 +882,7 @@ export function createToolExecutor(
       return flow(db, ctx, args, workflows);
     },
     async prepare(tool, args, ctx, toolCallId) {
-      if (isAddonAiTool(tool)) return prepareAddonTool(tool, args, ctx, toolCallId);
+      if (isAddonAiTool(tool)) return prepareAddonTool(db, tool, args, ctx, toolCallId);
       if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
       const offer = mainOfferConfirmTools[tool.name];
       if (offer) return offer.prepare(db, ctx, args, toolCallId);
