@@ -19,6 +19,7 @@ import { outreachAddon } from '../manifest';
 import {
   messageNotesOf,
   MessageSamples,
+  noSample,
   sampleAt,
   withMineKept,
   withNote,
@@ -590,7 +591,10 @@ export const messageSamplesSave = defineAddonCommand(outreachAddon, {
   },
 });
 
-/** The person's samples as kept, and the one at a slot: refused with none, or once that slot is gone. */
+/**
+ * The person's samples as kept, and the one at a slot: refused with none, or with the reason that slot has nothing
+ * (no short video yet, fewer follow-ups, or written again).
+ */
 async function sampleOf(ctx: Ctx, me: string, slot: SampleSlot) {
   const row = await setupRow(ctx, me);
   const samples = MessageSamples.safeParse(row?.messageSamples ?? null).data ?? null;
@@ -600,12 +604,15 @@ async function sampleOf(ctx: Ctx, me: string, slot: SampleSlot) {
       422,
       'There are no sample messages to change yet. Press Write samples under Your messages first.',
     );
-  if (sampleAt(samples, slot) === null)
-    throw HfosError.rule(
-      'outreach_message_gone',
-      409,
-      'That message isn’t in your samples any more, as they were written again. Change it from the ones showing now.',
-    );
+  if (sampleAt(samples, slot) === null) {
+    const playbooks = await playbooksInUse(ctx);
+    const why = noSample(samples, slot, {
+      // As the samples are written: their playbook's video, or any playbook's.
+      has: playbooks.some((p) => !!p.details.videoLink?.trim()),
+      playbook: playbooks.find((p) => p.id === samples.playbookId)?.name ?? null,
+    });
+    throw HfosError.rule(why.rule, 409, why.message);
+  }
   return { samples, notes: messageNotesOf(row?.messageNotes) };
 }
 
@@ -650,6 +657,8 @@ export const messageEdit = defineAddonCommand(outreachAddon, {
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_edit_sample_message',
+    description:
+      'Puts one of the person’s sample messages in their own words: a first message, the video, the link, a follow-up or the check-in. Their real messages of that part follow it. Only a message the samples have: the video message is there only once a playbook has its short video (videoLink, saved with outreach_save_playbook), and with none a yes gets the link message straight away.',
     autonomy: 'confirm',
     keywords: ['my own words', 'edit sample message', 'how my messages read'],
   },

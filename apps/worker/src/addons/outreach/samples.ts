@@ -25,6 +25,7 @@ import {
   MessageSamples,
   MessageSamplesAnswer,
   messageSamplesPrompt,
+  noSample,
   sampleAt,
   slotKey,
   slotsOf,
@@ -229,7 +230,10 @@ export const messageRewrite: AddonWorkerAction<MessageRewriteInput> = {
   async run(ctx, raw): Promise<ReadinessOutput> {
     const input = MessageRewriteInput.parse(raw);
     const slot = { part: input.part, index: input.index };
-    const { version, samples, notes, facts } = await samplesFrom(ctx, 'samples');
+    const { version, playbook, hasVideo, samples, notes, facts } = await samplesFrom(
+      ctx,
+      'samples',
+    );
     if (!samples)
       throw HfosError.rule(
         'outreach_messages_unseen',
@@ -237,12 +241,13 @@ export const messageRewrite: AddonWorkerAction<MessageRewriteInput> = {
         'There are no sample messages to change yet. Press Write samples under Your messages first.',
       );
     const before = sampleAt(samples, slot);
-    if (before === null)
-      throw HfosError.rule(
-        'outreach_message_gone',
-        409,
-        'That message isn’t in your samples any more, as they were written again. Change it from the ones showing now.',
-      );
+    if (before === null) {
+      const why = noSample(samples, slot, {
+        has: hasVideo,
+        playbook: playbook.id === samples.playbookId ? playbook.name : null,
+      });
+      throw HfosError.rule(why.rule, 409, why.message);
+    }
     if (samples.version !== version)
       throw HfosError.rule(
         'outreach_messages_older',

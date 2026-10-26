@@ -267,18 +267,34 @@ describe('in a business', () => {
 
   afterAll(closeTestDbs);
 
-  it('changes one only once there are samples, and only one they have', async () => {
+  it('changes one only once there are samples, and only one they have, saying why it isn’t there', async () => {
     expect(
       await refused(
         runAs(member, ws, 'outreach.messages.edit', { part: 'first', index: 0, text: 'Hi!' }),
       ),
     ).toBe('outreach_messages_unseen');
     await written(member.id, ['Just checking in.', 'Any thoughts?']);
-    expect(
-      await refused(
-        runAs(member, ws, 'outreach.messages.edit', { part: 'video', index: 0, text: 'Hi!' }),
+    // No video message: the playbook has no short video yet, and the refusal says so, never "written again".
+    const noVideo = await runAs(member, ws, 'outreach.messages.edit', {
+      part: 'video',
+      index: 0,
+      text: 'Hi!',
+    }).catch((e: unknown) => e as { rule: string; message: string });
+    expect(noVideo).toMatchObject({ rule: 'outreach_message_no_video' });
+    expect((noVideo as { message: string }).message).toMatch(
+      /has no short video yet\. Paste its link under Your short video/,
+    );
+    const past = await runAs(member, ws, 'outreach.messages.edit', {
+      part: 'followUps',
+      index: 4,
+      text: 'Hi!',
+    }).catch((e: unknown) => e as { rule: string; message: string });
+    expect(past).toMatchObject({
+      rule: 'outreach_message_gone',
+      message: expect.stringContaining(
+        'Your samples have 2 follow-ups, so there’s no follow-up 5.',
       ),
-    ).toBe('outreach_message_gone');
+    });
   });
 
   it('puts one in their own words, keeps the words to avoid out, and keeps theirs when written again', async () => {

@@ -164,6 +164,35 @@ export function sampleAt(samples: MessageSamples, slot: SampleSlot): string | nu
   }
 }
 
+/**
+ * Why there's no sample at a slot, for the refusal (decision 87): its own cause, never a guess. The video message is
+ * there only once a playbook has its short video (decision 66); the follow-ups are as many as the pace sends;
+ * anything else was there and went when the samples were written again.
+ */
+export function noSample(
+  samples: MessageSamples,
+  slot: SampleSlot,
+  video: { readonly has: boolean; readonly playbook: string | null },
+): { readonly rule: string; readonly message: string } {
+  if (slot.part === 'video' && samples.video === null)
+    return {
+      rule: 'outreach_message_no_video',
+      message: video.has
+        ? 'There’s no video message in these samples: they were written before your playbook had its short video. Press Write samples under Your messages to write them again with it.'
+        : `There’s no video message, because ${video.playbook ? `your playbook “${video.playbook}”` : 'your playbook'} has no short video yet. Paste its link under Your short video in the playbook, on the Playbooks tab, then press Write samples again. Someone who says yes then gets the video before your booking link.`,
+    };
+  if (slot.part === 'followUps' && slot.index >= samples.followUps.length)
+    return {
+      rule: 'outreach_message_gone',
+      message: `Your samples have ${samples.followUps.length} follow-ups, so there’s no follow-up ${slot.index + 1}. Change one of those, or set how many go out under Steps and pace in your playbook.`,
+    };
+  return {
+    rule: 'outreach_message_gone',
+    message:
+      'That message isn’t in your samples any more, as they were written again. Change it from the ones showing now.',
+  };
+}
+
 /** Every slot the samples have, in the order Your messages shows them. */
 export function slotsOf(samples: MessageSamples): SampleSlot[] {
   return [
