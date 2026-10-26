@@ -260,8 +260,6 @@ export interface WorkerEnv {
    * faster: `low` by default, so a look-up answers in a couple of seconds; `medium` or `high` think longer.
    */
   readonly assistantEffort: 'low' | 'medium' | 'high';
-  /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
-  readonly assistantDailyTokens: number;
   /**
    * OpenAI, the backup for every AI feature while Claude is in trouble (ai/switch.ts). Unset: no backup, Claude
    * alone as before. Only with the Anthropic provider: the scripted stand-in needs none.
@@ -549,9 +547,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const assistantEffort = (env.ASSISTANT_EFFORT?.trim() || 'low') as string;
   if (!['low', 'medium', 'high'].includes(assistantEffort))
     throw new Error('ASSISTANT_EFFORT must be low, medium or high');
-  const assistantDailyTokens = Number(env.ASSISTANT_DAILY_TOKENS ?? 2_000_000);
-  if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
-    throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
   const openAiApiKey = env.OPENAI_API_KEY?.trim() || null;
   const emails = (value: string | undefined) =>
     (value || '')
@@ -746,7 +741,6 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     aiModel: env.AI_MODEL || 'claude-sonnet-5',
     assistantToolSearch: assistantToolSearch === 'on',
     assistantEffort: assistantEffort as WorkerEnv['assistantEffort'],
-    assistantDailyTokens,
     openAiApiKey,
     openAiModel: env.OPENAI_MODEL?.trim() || 'gpt-6-sol',
     openAiAssistantModel: env.OPENAI_ASSISTANT_MODEL?.trim() || 'gpt-6-sol',

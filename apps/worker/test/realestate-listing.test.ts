@@ -113,7 +113,7 @@ async function drain() {
 }
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi(RULES), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi(RULES) } });
   agent = await createTestUser('rel-worker-agent', { fullName: 'Dana Reyes' });
   ws = await realestateBusiness(agent, 'Listing Worker Realty');
   maria = (

@@ -29,6 +29,7 @@ import {
   walletForgetCard,
   walletGet,
   walletRecordCard,
+  walletSetAiLimit,
   walletSetAutoTopup,
   walletTopUp,
 } from '../src/server';
@@ -58,11 +59,13 @@ async function walletRow() {
     auto_topup: boolean;
     floor_cents: number;
     topup_cents: number;
+    ai_daily_limit_cents: number;
     method_token: string | null;
   }>(
     admin(),
     sql`select stage::text as stage, balance_cents::int as balance_cents, auto_topup,
-          floor_cents::int as floor_cents, topup_cents::int as topup_cents, method_token
+          floor_cents::int as floor_cents, topup_cents::int as topup_cents,
+          ai_daily_limit_cents::int as ai_daily_limit_cents, method_token
         from app.usage_wallets where workspace_id = ${workspaceId}`,
   );
   return row ?? null;
@@ -90,11 +93,17 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 describe('a business that has never spent anything', () => {
-  it('has no wallet at all until somebody touches its balance', async () => {
-    expect(await walletRow()).toBeNull();
+  it('starts with a wallet: Stopped at zero, with the $5 starting credit and a $10 daily AI limit', async () => {
+    // Silent is gone (20261027012500): a new business opens its wallet as it's made, so it can set up and try
+    // the AI and texting before it adds a card.
+    expect(await walletRow()).toMatchObject({
+      stage: 'enforce',
+      balance_cents: 500,
+      ai_daily_limit_cents: 1000,
+    });
   });
 
-  it('lets its owner set the top-up amount, which opens the wallet', async () => {
+  it('lets its owner set the top-up amount', async () => {
     const { output } = await settings(owner, { floorCents: 1000, topupCents: 2500 });
     expect(output).toMatchObject({ workspaceId, floorCents: 1000, topupCents: 2500 });
     expect(await walletRow()).toMatchObject({ floor_cents: 1000, topup_cents: 2500 });
@@ -102,10 +111,10 @@ describe('a business that has never spent anything', () => {
 
   it('opens it the way every business starts, with nothing its owner chose', async () => {
     const w = await walletRow();
-    // Nothing spent and no card, the two things a person must never be able to hand themselves — and
+    // No card and only the starting credit, the things a person must never be able to hand themselves — and
     // `stage` where a new business begins. Which stage a business is on is HandsFreeOS's to set (the
     // update guard says so in those words); naming it on the way in would be naming it all the same.
-    expect(w).toMatchObject({ stage: 'off', balance_cents: 0 });
+    expect(w).toMatchObject({ stage: 'enforce', balance_cents: 500 });
     expect(w?.method_token).toBeNull();
     // Meaning to top itself up from the start, which is the table's own default and the kind one: a
     // business that runs out mid-job did not choose to. It charges nothing until there is a card.
@@ -154,6 +163,41 @@ describe('a member', () => {
     expect((e as HfosError).code).toBe('forbidden');
     // And nothing of theirs landed.
     expect((await walletRow())?.topup_cents).toBe(2500);
+  });
+});
+
+describe('the daily AI limit', () => {
+  const aiLimit = (who: TestUser, cents: number) =>
+    executeCommand(
+      api(),
+      walletSetAiLimit,
+      { workspaceId, aiDailyLimitCents: cents },
+      human(who),
+      meta(),
+    );
+
+  it('is the business’s own to raise whenever it needs more, with no ceiling HandsFreeOS sets', async () => {
+    const { output } = await aiLimit(owner, 250_000);
+    expect(output).toEqual({ workspaceId, aiDailyLimitCents: 250_000 });
+    expect((await walletRow())?.ai_daily_limit_cents).toBe(250_000);
+    const [event] = await rows<{ before: unknown; after: unknown }>(
+      admin(),
+      sql`select a.before->'aiDailyLimitCents' as before, a.after->'aiDailyLimitCents' as after
+          from app.events e join app.audit_logs a on a.event_id = e.id
+          where e.workspace_id = ${workspaceId} and e.event_type = 'wallet.ai_limit_changed'`,
+    );
+    expect(event).toEqual({ before: 1000, after: 250_000 });
+    // Usage & balance shows it, and what the AI has come to today.
+    const wallet = await executeQuery(api(), walletGet, { workspaceId }, human(owner), meta());
+    expect(wallet).toMatchObject({ aiDailyLimitCents: 250_000, aiSpentTodayCents: 0 });
+    await aiLimit(owner, 1000);
+  });
+
+  it('is at least a dollar, and a member may not change it', async () => {
+    await expect(aiLimit(owner, 99)).rejects.toBeInstanceOf(HfosError);
+    const e = await aiLimit(member, 5000).catch((x: unknown) => x);
+    expect((e as HfosError).code).toBe('forbidden');
+    expect((await walletRow())?.ai_daily_limit_cents).toBe(1000);
   });
 });
 

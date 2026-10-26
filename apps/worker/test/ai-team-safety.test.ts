@@ -14,7 +14,6 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { aiBudget } from '../src/ai/budget';
-import { tokensToday } from '../src/assistant/store';
 import {
   admin,
   aiMessages,
@@ -22,7 +21,6 @@ import {
   appointmentsOf,
   attendeeByToken,
   bookOnline,
-  CHI,
   conversationOf,
   customer,
   emailIn,
@@ -356,18 +354,19 @@ describe('plain-language opt-outs', () => {
 describe('the teammate’s share of the daily AI limit', () => {
   let b: TeammateWorld;
   beforeAll(async () => {
-    b = await teammateWorld('tmbudget', { status: 'automatic', dailyTokens: 10_000 });
+    b = await teammateWorld('tmbudget', { status: 'automatic' });
   });
   afterAll(async () => {
     await b.app.close();
   });
 
   it('hands off without calling the model once its share is used, while the Assistant still has room', async () => {
-    // 7,000 of the business's 10,000 today, all the teammate's: over its 60% share, under the whole limit.
+    // $7 of the business's $10 today (2,333,334 input tokens at $3 a million), all the teammate's: over its
+    // 60% share, under the whole limit.
     await rows(
       admin(),
       sql`insert into app.ai_usage (workspace_id, source, teammate_id, model, input_tokens)
-          values (${b.workspaceId}, 'teammate', ${b.teammateId}, 'scripted', 7000)`,
+          values (${b.workspaceId}, 'teammate', ${b.teammateId}, 'scripted', 2333334)`,
     );
     const c = await newCustomer(b, 'Ivy');
     const asked = teammateRequests(b).length;
@@ -384,13 +383,9 @@ describe('the teammate’s share of the daily AI limit', () => {
     expect(line!.body_text).toMatch(HANDOFF_LINE);
     const scope = scopeOf(b);
     // The Assistant, workflow AI steps and the builder check the whole limit, which has room.
-    expect(await tokensToday(b.s.db, scope, CHI)).toBeLessThan(10_000);
+    expect(await aiBudget.reached(b.s.db, scope)).toBeNull();
     expect(
-      await aiBudget.teammateHasRoom(b.s.db, scope, {
-        teammateId: b.teammateId,
-        dailyTokens: 10_000,
-        sharePercent: 60,
-      }),
+      await aiBudget.teammateHasRoom(b.s.db, scope, { teammateId: b.teammateId, sharePercent: 60 }),
     ).toBe(false);
   });
 });

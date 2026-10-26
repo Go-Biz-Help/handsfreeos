@@ -233,7 +233,7 @@ describe('phone alerts', () => {
 
 describe('posts asking for what the business offers', () => {
   it('pushes a fresh one to the person who found it, once, and puts it first on Today', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await outreachBusiness(owner, 'Outreach Fast Posts Co');
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
     await runAs(owner, ws, 'outreach.playbook.save', {

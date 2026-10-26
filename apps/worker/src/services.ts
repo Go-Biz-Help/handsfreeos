@@ -124,10 +124,10 @@ export interface WorkerServices {
    */
   readonly fetchUrl: SafeFetch;
   /**
-   * The model behind workflow AI steps, the AI builder and the knowledge base (none without a key), and the
-   * daily token limit per workspace they share with the Assistant (ai/ask.ts, ai/budget.ts).
+   * The model behind workflow AI steps, the AI builder and the knowledge base (none without a key). Each
+   * business's own daily AI limit, shared with the Assistant, is in the database (ai/budget.ts).
    */
-  readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
+  readonly ai: { readonly provider: AiProvider | null };
   /**
    * Which AI answers, Claude or OpenAI while Claude is in trouble (ai/switch.ts): what the 5-minute check works
    * on. Missing without OPENAI_API_KEY, and then there is no backup.

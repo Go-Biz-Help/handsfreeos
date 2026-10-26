@@ -13,6 +13,7 @@ import {
 import {
   addonToolArguments,
   addonToolDescription,
+  aiLimitReached,
   isAddonAiTool,
   isScreenReadTool,
   toolInputSchema,
@@ -22,10 +23,11 @@ import {
   type AssistantTool,
   type HumanActor,
 } from '@hfos/core/server';
-import { asWorker, type Db } from '@hfos/db/client';
+import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
-import { recordAiUsage } from '../ai/budget';
+import { aiBudget, chargeAssistantRun, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
+import type { WalletDeps } from '../money/wallet';
 import {
   alwaysLoaded,
   lastingText,
@@ -59,8 +61,6 @@ const MAX_ROUNDS = 8;
  * is sized for that as well as a short reply and a round of tool calls.
  */
 const MAX_TOKENS = 16_000;
-
-const BUDGET_REACHED = 'That’s today’s Assistant limit for this business. It resets at midnight.';
 
 /**
  * How hard it thinks once a question turns into a change (it starts at ASSISTANT_EFFORT): reading the setup before
@@ -147,7 +147,8 @@ export interface RuntimeDeps {
   readonly db: Db;
   readonly provider: AiProvider;
   readonly tools: ToolExecutor;
-  readonly dailyTokens: number;
+  /** Where each question, and each read-ahead, is charged: the business pays for Ask HandsFreeOS too. */
+  readonly wallet: WalletDeps;
   readonly log: Logger;
 }
 
@@ -317,10 +318,11 @@ export async function ask(
     send(event);
   };
   const scope = { workspaceId: input.workspaceId, organizationId: input.organizationId };
-  const hasRoom = async () =>
-    (await store.tokensToday(deps.db, scope, input.prompt.timezone)) < deps.dailyTokens;
-  if (!(await hasRoom())) {
-    emit({ type: 'error', code: 'budget_reached', message: BUDGET_REACHED });
+  // The business's own daily AI limit and, once it's Stopped at zero, its balance: null while there's room.
+  const noRoom = () => aiBudget.noRoom(deps.db, scope, deps.log);
+  const blocked = await noRoom();
+  if (blocked) {
+    emit({ type: 'error', code: blocked.code, message: blocked.message });
     return;
   }
   if (input.threadId) await store.expireWaiting(deps.db, scope, input.threadId);
@@ -500,9 +502,11 @@ export async function ask(
       onStarted: clock.started,
       onText: (delta) => emit({ type: 'text', delta }),
       // Each call's tokens count toward the limit as soon as it ends, and every later call checks the limit
-      // again (the first was checked above): a long question, or several people asking at once, stop there.
+      // and the balance again (the first was checked above): a long question, or several people asking at once,
+      // stop there.
       onTurnUsage: (turn) => store.addRunUsage(deps.db, scope, run.runId, turn),
-      checkBudget: (used) => used.inputTokens + used.outputTokens === 0 || hasRoom(),
+      checkBudget: async (used) =>
+        used.inputTokens + used.outputTokens === 0 || (await noRoom()) === null,
       signal,
     });
     ({ text, usage, rounds } = loop);
@@ -510,7 +514,7 @@ export async function ask(
     // Stop and provider errors end the run the way any failure below does, keeping what already streamed.
     if (loop.stoppedBy === 'aborted' || loop.stoppedBy === 'error') throw loop.error;
     if (loop.stoppedBy === 'budget') {
-      const note = `${text ? '\n\n' : ''}${BUDGET_REACHED}`;
+      const note = `${text ? '\n\n' : ''}${(await noRoom())?.message ?? aiLimitReached()}`;
       text += note;
       emit({ type: 'text', delta: note });
     }
@@ -540,6 +544,7 @@ export async function ask(
       cards,
     });
     await store.finishRun(deps.db, scope, run.runId, { status: 'done', usage, toolRounds: rounds });
+    await chargeAssistantRun(deps, scope, { runId: run.runId, model: deps.provider.model, usage });
     emit({ type: 'done', messageId });
   } catch (e) {
     const stopped = e instanceof AiProviderError && e.code === 'aborted';
@@ -559,6 +564,8 @@ export async function ask(
       toolRounds: rounds,
       error: e instanceof Error ? e.message : String(e),
     });
+    // What it spent before it stopped was spent all the same.
+    await chargeAssistantRun(deps, scope, { runId: run.runId, model: deps.provider.model, usage });
     emit({
       type: 'error',
       code: stopped ? 'stopped' : busy ? 'busy' : 'failed',
@@ -615,18 +622,18 @@ export interface WarmInput {
 /**
  * While the person types: the provider reads the instructions, the tools and the business's lasting context ahead of
  * the question, so the question's first model call finds them in its cache instead of reading some 25,000 tokens
- * first. Only with room in today's limit, and its tokens count toward it (app.ai_usage, source `assistant`). False
- * when nothing was read: no room, or a provider with nothing to warm (the backup AI fills its own cache).
+ * first. Only with room in today's AI limit and on the balance, and its tokens count toward the limit and are
+ * charged (app.ai_usage, source `assistant`). False when nothing was read: no room, or a provider with nothing to
+ * warm (the backup AI fills its own cache).
  */
 export async function warmUp(
-  deps: Pick<RuntimeDeps, 'db' | 'provider' | 'dailyTokens'>,
+  deps: Pick<RuntimeDeps, 'db' | 'provider' | 'wallet' | 'log'>,
   input: WarmInput,
 ): Promise<boolean> {
   const provider = deps.provider;
   if (!provider.warm) return false;
   const scope = { workspaceId: input.workspaceId, organizationId: input.organizationId };
-  if ((await store.tokensToday(deps.db, scope, input.prompt.timezone)) >= deps.dailyTokens)
-    return false;
+  if (await aiBudget.noRoom(deps.db, scope, deps.log)) return false;
   const request = assistantRequest(input.tools, provider);
   const usage = await provider.warm({
     system: request.system,
@@ -635,8 +642,11 @@ export async function warmUp(
     messages: [],
   });
   if (totalTokens(usage) === 0) return false;
-  await asWorker(deps.db, scope, (tx) =>
-    recordAiUsage(tx, { source: 'assistant', userId: input.userId, model: provider.model, usage }),
-  );
+  await recordAndChargeAi(deps, scope, {
+    source: 'assistant',
+    userId: input.userId,
+    model: provider.model,
+    usage,
+  });
   return true;
 }

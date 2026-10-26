@@ -130,16 +130,18 @@ export const DESK_BUSINESS_WORDS = {
 export type DeskWalletStage = 'off' | 'warn' | 'enforce' | 'agency';
 
 /**
- * The rollout's stages, in the order the buttons come. Moving a business from silent to warned to stopped is the only
- * control in HandsFreeOS that can stop somebody's phone working, so it is one business at a time, with a reason.
- * Paid by the agency sits beside the rollout: its usage is still recorded, but nothing is shown and nothing stops.
+ * The stages, in the order the buttons come. A new business starts Stopped at zero with a $5 starting credit, and
+ * Silent is gone (the owner's decision, 26 October 2026): it stays here only to name a row written before then.
+ * Moving a business is the only control in HandsFreeOS that can stop somebody's phone working, so it is one
+ * business at a time, with a reason. Paid by the agency is for the businesses HandsFreeOS covers: their usage is
+ * still recorded, but nothing is shown and nothing stops.
  */
 export const DESK_WALLET_STAGES: Readonly<
   Record<DeskWalletStage, { readonly label: string; readonly what: string }>
 > = {
   off: {
     label: 'Silent',
-    what: 'They do not know the balance exists. Nothing is shown to them and nothing stops.',
+    what: 'No longer used. They do not know the balance exists, and nothing is shown to them or stops.',
   },
   warn: {
     label: 'Warned',
@@ -147,7 +149,7 @@ export const DESK_WALLET_STAGES: Readonly<
   },
   enforce: {
     label: 'Stopped at zero',
-    what: 'The same, and outgoing texts and calls stop once the balance runs out. No overdraft applies.',
+    what: 'The same, and outgoing texts and calls and the AI stop once the balance runs out. No overdraft applies. Where a new business starts.',
   },
   agency: {
     label: 'Paid by the agency',
@@ -165,9 +167,14 @@ export const DESK_WALLET_STAGE_TONES: Readonly<
   agency: 'ok',
 };
 
-/** The stages a business can be moved to from where it is. */
-export const deskWalletMoves = (stage: DeskWalletStage): readonly DeskWalletStage[] =>
-  (Object.keys(DESK_WALLET_STAGES) as DeskWalletStage[]).filter((s) => s !== stage);
+/** Where a business can be moved: anywhere but Silent, which is gone (20261027012500). */
+export type DeskWalletMove = Exclude<DeskWalletStage, 'off'>;
+
+/** The stages a business can be moved to from where it is: never back to Silent. */
+export const deskWalletMoves = (stage: DeskWalletStage): readonly DeskWalletMove[] =>
+  (Object.keys(DESK_WALLET_STAGES) as DeskWalletStage[]).filter(
+    (s): s is DeskWalletMove => s !== stage && s !== 'off',
+  );
 
 /** What `platform.wallet.get` says of a balance, as far as the desk shows it. */
 export interface DeskWallet {

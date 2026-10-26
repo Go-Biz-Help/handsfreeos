@@ -194,7 +194,7 @@ describe('quick setup reading the business’s website', () => {
   beforeAll(async () => {
     const s = testServices({
       fetchOrigins: [site.origin],
-      ai: { provider: model.provider, dailyTokens: 5_000_000 },
+      ai: { provider: model.provider },
     });
     site.requests.length = 0;
     site.change('/services', SERVICES_WITH_PLANTED);
@@ -297,7 +297,7 @@ describe('when quick setup can’t read the website', () => {
       ws = await saveAndRead(
         testServices({
           fetchOrigins: [site.origin],
-          ai: { provider: model.provider, dailyTokens: 5_000_000 },
+          ai: { provider: model.provider },
         }),
         'Robots HVAC',
       );
@@ -315,7 +315,7 @@ describe('when quick setup can’t read the website', () => {
     const ws = await saveAndRead(
       testServices({
         fetchOrigins: [site.origin],
-        ai: { provider: model.provider, dailyTokens: 5_000_000 },
+        ai: { provider: model.provider },
       }),
       'Moved HVAC',
       (id) =>

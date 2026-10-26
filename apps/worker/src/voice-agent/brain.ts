@@ -489,9 +489,7 @@ export async function thinkTurn(
   const hasRoom = () =>
     aiBudget.teammateHasRoom(deps.db, scope, {
       teammateId: call.teammate.id,
-      dailyTokens: deps.ai.dailyTokens,
       sharePercent: call.config.limits.dailySharePercent,
-      timeZone: rc.workspace.timeZone,
     });
 
   // What one turn did starts over; what it offered and found stays for the rest of the call.

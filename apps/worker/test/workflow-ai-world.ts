@@ -1,7 +1,7 @@
 /**
  * Workflow worlds whose AI steps answer from a model, through the worker's real runner (createWorkflowAi,
- * wired as main.ts wires it): the scripted stand-in by default, or a test's own provider, inside a daily
- * token limit. `recording` keeps every request a provider saw, and can fail the next calls on purpose.
+ * wired as main.ts wires it): the scripted stand-in by default, or a test's own provider, inside the business's
+ * own daily AI limit. `recording` keeps every request a provider saw, and can fail the next calls on purpose.
  */
 import type { AiProvider, AiRequest } from '@hfos/ai';
 import { rows, sql } from '@hfos/db/client';
@@ -14,15 +14,11 @@ import { admin, drain, flowWorld, type World } from './workflow-world';
 export interface AiWorldOptions {
   /** The model (default: the scripted stand-in); null for none. */
   readonly provider?: AiProvider | null;
-  readonly dailyTokens?: number;
 }
 
 /** Gives a world's worker services a model and the workflow AI runner that uses it. */
 export function withWorkflowAi(w: World, opts: AiWorldOptions = {}): World {
-  const ai = {
-    provider: opts.provider === undefined ? scriptedAi() : opts.provider,
-    dailyTokens: opts.dailyTokens ?? 5_000_000,
-  };
+  const ai = { provider: opts.provider === undefined ? scriptedAi() : opts.provider };
   const s = {
     ...w.s,
     ai,

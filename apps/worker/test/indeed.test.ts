@@ -114,7 +114,7 @@ beforeAll(async () => {
     sql`select address from app.email_addresses where workspace_id = ${workspaceId} and is_default`,
   );
   address = a!.address;
-  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 2_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi() } });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
@@ -192,7 +192,7 @@ describe('an applicant Indeed emailed about', () => {
   });
 
   it('reads the email’s own shapes when the AI isn’t there', async () => {
-    const without = testServices({ ai: { provider: null, dailyTokens: 2_000_000 } });
+    const without = testServices({ ai: { provider: null } });
     const out = await fileIndeedApplicant(
       without,
       { workspaceId, organizationId },

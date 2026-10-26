@@ -59,7 +59,8 @@ function aiError(e: unknown): unknown {
     case 'ai_unavailable':
       return HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
     case 'budget_reached':
-      return HfosError.rule('budget_reached', 429, AI_BUDGET_MESSAGE);
+      // The business's own limit, with its amount, in the words the check that reached it wrote.
+      return HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);
     case 'wallet_empty':
       return HfosError.rule('wallet_empty', 402, e.message);
     case 'provider_error':

@@ -46,7 +46,7 @@ let owner: TestUser;
 let workspaceId: string;
 let organizationId: string;
 
-const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+const s = testServices({ ai: { provider: scriptedAi() } });
 const tools = () => createToolExecutor(db(), { ai: s.ai, log: s.log, wallet: s.wallet });
 
 const ctx = (): ToolContext => ({

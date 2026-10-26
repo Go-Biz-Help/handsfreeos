@@ -5,6 +5,7 @@ import {
   executeCommand,
   knowledgeItemCreate,
   knowledgeProfileUpdate,
+  money,
   organizationCreate,
   type AssistantEvent,
   type HumanActor,
@@ -28,7 +29,7 @@ import { createToolExecutor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
 import { TRY_PER_MINUTE } from '../src/knowledge/routes';
 import { TRY_SYSTEM } from '../src/knowledge/try';
-import { testServices, type TestServices } from './helpers';
+import { setAiLimit, testServices, type TestServices } from './helpers';
 
 /** "Try it": the same grounding as AI steps, the items it used, gaps, and the shared daily limit. */
 
@@ -81,10 +82,7 @@ const model = recording(
   ]),
 );
 
-async function build(
-  ai: TestServices['ai'],
-  assistantTokens: number | null = null,
-): Promise<FastifyInstance> {
+async function build(ai: TestServices['ai'], withAssistant = false): Promise<FastifyInstance> {
   const s = testServices({ ai });
   const httpDb = testDbs().worker.db;
   return buildHttpServer({
@@ -95,14 +93,9 @@ async function build(
       jwtIssuer: `${env.supabaseUrl}/auth/v1`,
     }),
     webOrigins: ['http://localhost:3000'],
-    assistant:
-      assistantTokens === null
-        ? null
-        : {
-            provider: scriptedAssistant(),
-            tools: createToolExecutor(httpDb),
-            dailyTokens: assistantTokens,
-          },
+    assistant: withAssistant
+      ? { provider: scriptedAssistant(), tools: createToolExecutor(httpDb) }
+      : null,
   });
 }
 
@@ -182,7 +175,7 @@ beforeAll(async () => {
     'draft',
   );
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
-  app = await build({ provider: model.provider, dailyTokens: 5_000_000 });
+  app = await build({ provider: model.provider });
 });
 afterAll(async () => {
   await app?.close();
@@ -279,7 +272,7 @@ describe('Try it', () => {
   });
 
   it('says so when no model is set up', async () => {
-    const none = await build({ provider: null, dailyTokens: 5_000_000 });
+    const none = await build({ provider: null });
     try {
       const res = await tryIt(none, ownerToken, 'Do you offer financing?');
       expect(res.statusCode).toBe(503);
@@ -295,24 +288,27 @@ describe('Try it', () => {
     }
   });
 
-  it('over today’s limit answers 429, and the Assistant counts the same tokens', async () => {
-    const used = await aiBudget.usedToday(testDbs().worker.db, {
+  it('over the business’s daily AI limit answers 429, and the Assistant counts the same spending', async () => {
+    const today = await aiBudget.today(testDbs().worker.db, {
       workspaceId: ws,
       organizationId: org,
     });
-    expect(used).toBeGreaterThan(0);
-    // Every token so far was knowledge usage: none of it is the Assistant's own.
+    expect(today.spentCents).toBeGreaterThan(0);
+    // Everything so far was knowledge usage: none of it is the Assistant's own.
     expect(
       await rows(admin(), sql`select 1 from app.assistant_runs where workspace_id = ${ws}`),
     ).toEqual([]);
-    const limited = await build({ provider: model.provider, dailyTokens: used }, used);
+    // The business sets its limit at what it has spent: Try it and the Assistant both stop there.
+    const limitCents = Math.floor(today.spentCents);
+    const was = await setAiLimit(ws, limitCents);
+    const limited = await build({ provider: model.provider }, true);
     try {
       const res = await tryIt(limited, ownerToken, 'Do you offer financing?');
       expect(res.statusCode).toBe(429);
       expect(res.json()).toMatchObject({
         error: {
           rule: 'budget_reached',
-          message: 'That’s today’s AI limit for this business. It resets at midnight.',
+          message: `This business reached the ${money(limitCents)} daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.`,
         },
       });
       const asked = await limited.inject({
@@ -328,11 +324,12 @@ describe('Try it', () => {
       expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'budget_reached' })]);
     } finally {
       await limited.close();
+      await setAiLimit(ws, was);
     }
   });
 
   it('limits how often one address can ask', async () => {
-    const fresh = await build({ provider: model.provider, dailyTokens: 5_000_000 });
+    const fresh = await build({ provider: model.provider });
     try {
       for (let i = 0; i < TRY_PER_MINUTE; i++)
         expect((await tryIt(fresh, ownerToken, 'Where do you work?')).statusCode).toBe(200);

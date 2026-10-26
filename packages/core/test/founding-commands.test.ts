@@ -164,7 +164,8 @@ describe('a free seat', () => {
     });
 
     const done = await run(foundingClaim, { token, workspaceId: wsId }, owner);
-    expect(done).toMatchObject({ grantId, plan: 'founding_free', creditedCents: 1000 });
+    // Topped up to the offer's $10: the workspace already had the $5 every new business starts with.
+    expect(done).toMatchObject({ grantId, plan: 'founding_free', creditedCents: 500 });
     expect(await eventsOf('founding.claimed', grantId)).toHaveLength(1);
   });
 
@@ -430,7 +431,8 @@ describe('giving a seat', () => {
 
   it('credits the starting credit once, however often the seat is turned back on', async () => {
     const first = await give({});
-    expect(first.creditedCents).toBe(1000);
+    // The offer's $10 in all: the business already had the $5 every new business starts with.
+    expect(first.creditedCents).toBe(500);
     await admin().execute(
       sql`update platform.founding_grants set status = 'expired', workspace_id = null, activated_at = null,
             expires_at = now() - interval '1 day'

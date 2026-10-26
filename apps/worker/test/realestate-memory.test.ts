@@ -170,7 +170,7 @@ const pendingReads = () =>
   );
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi() } });
   agent = await createTestUser('rem-worker-agent', { fullName: 'Sam Rivera' });
   ws = await realestateBusiness(agent, 'Buyer Memory Realty');
   const [w] = await rows<{ organization_id: string }>(

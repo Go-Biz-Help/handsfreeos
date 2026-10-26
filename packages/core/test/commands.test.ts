@@ -557,6 +557,7 @@ describe('registry', () => {
       'subscription.record_cycle',
       // M16: what a business pays HandsFreeOS, and how far along the rollout it is.
       'wallet.set_auto_topup',
+      'wallet.set_ai_limit',
       'wallet.request_card',
       'wallet.forget_card',
       'wallet.top_up',

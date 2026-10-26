@@ -63,6 +63,9 @@ test('assistant-attention: the same list as Home, and items handled, snoozed and
       openHours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' })),
     },
   });
+  // A new business's $5 starting credit sits under the $10 floor, which a sweep reads as a balance running low:
+  // the floor goes under it, so the list is customers' cards only.
+  await api(token, 'commands', 'wallet.set_auto_topup', { workspaceId, floorCents: 0 });
   await setUpTexting(page, workspaceId);
   await page.getByTestId('quiet-hours-switch').click();
   await expect(page.getByText('Quiet hours off')).toBeVisible();

@@ -76,7 +76,8 @@ afterAll(async () => {
 
 describe('topping up the balance', () => {
   it('charges the card when somebody presses Top up now, and again the next time', async () => {
-    expect(await balance()).toBe(0);
+    // The $5 every business starts with.
+    expect(await balance()).toBe(500);
     await topUp(2_500);
     await drain(on);
     expect(await topUps()).toEqual([
@@ -85,12 +86,12 @@ describe('topping up the balance', () => {
     expect(charges()).toEqual([
       expect.objectContaining({ amountCents: 2_500, status: 'succeeded' }),
     ]);
-    expect(await balance()).toBe(2_500);
+    expect(await balance()).toBe(3_000);
     // The one that went through no longer holds the next one up.
     await topUp(5_000);
     await drain(on);
     expect(charges()).toHaveLength(2);
-    expect(await balance()).toBe(7_500);
+    expect(await balance()).toBe(8_000);
   });
 
   it('cancels a press while the wallet is off, rather than charging it or leaving it waiting', async () => {
@@ -101,12 +102,12 @@ describe('topping up the balance', () => {
       failure_message: 'Top-ups are switched off right now, so the card wasn’t charged.',
     });
     expect(charges()).toHaveLength(2);
-    expect(await balance()).toBe(7_500);
+    expect(await balance()).toBe(8_000);
     // And the next press isn't refused as one already going through.
     await topUp(2_500);
     await drain(on);
     expect(charges()).toHaveLength(3);
-    expect(await balance()).toBe(10_000);
+    expect(await balance()).toBe(10_500);
   });
 
   it('arms the hourly sweep for a wallet that could need a top-up', async () => {

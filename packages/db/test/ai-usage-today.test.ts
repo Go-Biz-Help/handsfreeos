@@ -99,7 +99,7 @@ describe('private.ai_tokens_today', () => {
   });
 
   it('counts as the daily budget does: the same sources, token columns and midnight', async () => {
-    // apps/worker/src/ai/budget.ts (usedSinceMidnight), run where every row is visible.
+    // The sources and midnight the daily AI limit counts by (private.ai_spend_today), run where every row is visible.
     const [budget] = await rows<{ n: string }>(
       dbs.admin.db,
       sql`with since as (

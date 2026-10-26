@@ -1,7 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import type { AiProvider } from '@hfos/ai';
 import { rows, sql } from '@hfos/db/client';
-import { testDbs, testEnv } from '@hfos/db/testing';
+import { asService, testDbs, testEnv } from '@hfos/db/testing';
 import pino from 'pino';
+import { scriptedAi } from '../src/ai/scripted';
 import { createBookingLinks } from '../src/booking/links';
 import type { FakeCalendars } from '../src/calendar/fake';
 import { fakeCalendarServices, type CalendarServices } from '../src/calendar/index';
@@ -155,7 +157,7 @@ export function testServices(
       key: randomBytes(32).toString('base64'),
     }),
     fetchUrl: createSafeFetch({ testOrigins: opts.fetchOrigins ?? [] }),
-    ai: opts.ai ?? { provider: null, dailyTokens: 2_000_000 },
+    ai: opts.ai ?? { provider: null },
     // The push stand-in: what it was handed is `push.fake.sent`.
     push: fakePushServices(),
   };
@@ -235,6 +237,64 @@ export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}):
 export async function countOf(query: ReturnType<typeof sql>): Promise<number> {
   const [row] = await rows<{ count: number }>(testDbs().admin.db, query);
   return row?.count ?? 0;
+}
+
+/**
+ * A model whose every answer reads 10,000 tokens (3¢ at the card's $3 a million): with a 1¢ daily AI limit
+ * (`setAiLimit`), a business's first AI call goes through and the limit is reached after it.
+ */
+export function costlyAi(inner: AiProvider = scriptedAi()): AiProvider {
+  return {
+    ...inner,
+    stream: async (request, options) => {
+      const turn = await inner.stream(request, options);
+      return { ...turn, usage: { ...turn.usage, inputTokens: 10_000 } };
+    },
+  };
+}
+
+/**
+ * Sets a business's own daily AI limit, in cents, as its owner would on Usage & balance (0 pauses its AI, which
+ * a person can't set). Returns what it was, so a test that pauses the AI can put it back.
+ */
+export async function setAiLimit(workspaceId: string, cents: number): Promise<number> {
+  const [was] = await rows<{ cents: number | string }>(
+    testDbs().admin.db,
+    sql`select ai_daily_limit_cents as cents from app.usage_wallets where workspace_id = ${workspaceId}`,
+  );
+  await testDbs().admin.db.execute(
+    sql`insert into app.usage_wallets (workspace_id, organization_id, ai_daily_limit_cents)
+        select w.id, w.organization_id, ${cents} from app.workspaces w where w.id = ${workspaceId}
+        on conflict (workspace_id) do update set ai_daily_limit_cents = excluded.ai_daily_limit_cents`,
+  );
+  return Number(was?.cents ?? 1000);
+}
+
+/**
+ * Moves a business's balance to `cents` with one adjustment line in the worker's scope, the only way a balance
+ * moves. A new business starts Stopped at zero with $5, so at 0 its AI and texts stop. Returns what it was, so
+ * a test can put it back.
+ */
+export async function setBalance(
+  scope: { readonly workspaceId: string; readonly organizationId: string },
+  cents: number,
+): Promise<number> {
+  const [was] = await rows<{ cents: number | string }>(
+    testDbs().admin.db,
+    sql`select balance_cents as cents from app.usage_wallets where workspace_id = ${scope.workspaceId}`,
+  );
+  const from = Number(was?.cents ?? 0);
+  if (cents !== from)
+    await asService(scope)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, subject,
+              idempotency_key)
+            values (${scope.workspaceId}, ${scope.organizationId}, 'adjustment', ${cents - from},
+              'A test’s adjustment', ${`test:${randomUUID()}`})`,
+      ),
+    );
+  return from;
 }
 
 /** Something a migration should have written here, and how to count it. */

@@ -1,9 +1,12 @@
 'use client';
 import {
+  AI_LIMIT_WORDS,
   BALANCE_WORDS,
   balanceHeadline,
   cardLine,
+  MIN_AI_DAILY_LIMIT_CENTS,
   money,
+  parseMoney,
   topUpCapLine,
   usageQuantityWords,
   type SettingKey,
@@ -122,7 +125,33 @@ export function UsagePage({
   const [autoTopup, setAutoTopup] = useState(wallet.autoTopup);
   const [floor, setFloor] = useState(String(wallet.floorCents / 100));
   const [topup, setTopup] = useState(String(wallet.topupCents / 100));
+  const [aiLimit, setAiLimit] = useState(String(wallet.aiDailyLimitCents / 100));
   const words = balanceHeadline(wallet);
+
+  /** The daily AI limit, saved when the box is left: any amount from a dollar up, the business's own to set. */
+  const saveAiLimit = () => {
+    const cents = parseMoney(aiLimit);
+    const refuse = (why: string) => {
+      toast.error(why);
+      setAiLimit(String(wallet.aiDailyLimitCents / 100));
+    };
+    if (cents === null) return refuse(AI_LIMIT_WORDS.refused);
+    if (cents === wallet.aiDailyLimitCents) return;
+    if (cents < MIN_AI_DAILY_LIMIT_CENTS) return refuse(AI_LIMIT_WORDS.tooSmall);
+    startSaving(async () => {
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/wallet.set_ai_limit', {
+            body: { workspaceId, aiDailyLimitCents: cents },
+          }),
+        );
+        toast.success(AI_LIMIT_WORDS.saved(cents));
+        router.refresh();
+      } catch (e) {
+        refuse(errorMessage(e));
+      }
+    });
+  };
 
   const save = (body: Record<string, unknown>, done: string) =>
     startSaving(async () => {
@@ -339,6 +368,33 @@ export function UsagePage({
         {!wallet.card ? (
           <p className="mt-3 text-[13px] text-text-3">{BALANCE_WORDS.autoNeedsCard}</p>
         ) : null}
+      </Section>
+
+      <Section
+        title={AI_LIMIT_WORDS.title}
+        description={AI_LIMIT_WORDS.detail}
+        testId="usage-ai-limit"
+        setting="usage.ai_limit"
+      >
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <label className="flex flex-col gap-1.5 text-[13px]">
+            <span className="text-text-2">{AI_LIMIT_WORDS.label}</span>
+            <span className="flex items-center gap-2">
+              <Input
+                value={aiLimit}
+                inputMode="decimal"
+                className="w-[120px]"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setAiLimit(e.target.value)}
+                onBlur={saveAiLimit}
+                data-testid="usage-ai-limit-input"
+              />
+              <span className="text-text-3">{AI_LIMIT_WORDS.perDay}</span>
+            </span>
+          </label>
+        </div>
+        <p className="mt-3 text-[13px] text-text-3" data-testid="usage-ai-today">
+          {AI_LIMIT_WORDS.today(wallet.aiSpentTodayCents, wallet.aiDailyLimitCents)}
+        </p>
       </Section>
 
       <Section

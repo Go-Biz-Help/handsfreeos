@@ -140,7 +140,8 @@ describe('a free seat, taken up from its link', () => {
 
     const [done] = await claimFree(owner, token, ws);
     expect(done).toMatchObject({ grant_id: grantId, plan: 'founding_free' });
-    expect(Number(done!.credited_cents)).toBe(1000);
+    // Topped up to the offer's $10: the workspace already had the $5 every new business starts with.
+    expect(Number(done!.credited_cents)).toBe(500);
 
     const [plan] = await rows<{ plan: string; status: string }>(
       admin,

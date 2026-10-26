@@ -23,7 +23,7 @@ import { processJobs } from '../src/jobs';
 import { SCAN_LIMITS, type ScanPage } from '../src/knowledge/scan';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
-import { testServices, type TestServices } from './helpers';
+import { setAiLimit, testServices, type TestServices } from './helpers';
 
 /** "Scan our website" against the stand-in site: robots.txt, one site only, the caps, safety, and rescans. */
 
@@ -189,7 +189,7 @@ describe('scanning the business’s website', () => {
 
   beforeAll(async () => {
     ws = await business('Scan Test HVAC');
-    ({ s, logs } = services({ provider: model.provider, dailyTokens: 5_000_000 }));
+    ({ s, logs } = services({ provider: model.provider }));
     site.requests.length = 0;
     first = await scan(s, ws);
   }, 180_000);
@@ -386,7 +386,7 @@ describe('scanning the business’s website', () => {
 describe('scanning without a model', () => {
   it('suggests each page as one article of its own text', async () => {
     const ws = await business('Plain Scan HVAC');
-    const { s } = services({ provider: null, dailyTokens: 5_000_000 });
+    const { s } = services({ provider: null });
     const { scanId, row } = await scan(s, ws);
     expect(row.status).toBe('done');
     const pages = readPages(row);
@@ -412,11 +412,20 @@ describe('scanning without a model', () => {
 describe('the daily AI limit', () => {
   it('stops a scan with a note to run it again tomorrow', async () => {
     const ws = await business('Budget Scan HVAC');
+    // Each page reads 10,000 tokens (3¢ at $3 a million), over the business's 1¢ limit after the first.
     const model = recording();
-    const { s } = services({ provider: model.provider, dailyTokens: 50 });
+    const heavy: AiProvider = {
+      ...model.provider,
+      stream: async (request, options) => {
+        const turn = await model.provider.stream(request, options);
+        return { ...turn, usage: { ...turn.usage, inputTokens: 10_000 } };
+      },
+    };
+    await setAiLimit(ws, 1);
+    const { s } = services({ provider: heavy });
     const { scanId, row } = await scan(s, ws);
     expect(row.status).toBe('failed');
-    // The first page used up the day's tokens; the second wasn't sent, and isn't recorded as read.
+    // The first page used up the day's limit; the second wasn't sent, and isn't recorded as read.
     expect(model.requests).toHaveLength(1);
     expect(row.pages).toEqual([
       expect.objectContaining({ url: `${site.origin}/`, status: 'new', analysis: 'ai' }),

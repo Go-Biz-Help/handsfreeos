@@ -14,10 +14,7 @@ import type { WorkerServices } from '../services';
 import { scriptedAi, type TeammateRule } from './scripted';
 import { AiSwitchboard } from './switch';
 
-type AiEnv = Pick<
-  WorkerEnv,
-  'assistantProvider' | 'anthropicApiKey' | 'openAiApiKey' | 'aiModel' | 'assistantDailyTokens'
->;
+type AiEnv = Pick<WorkerEnv, 'assistantProvider' | 'anthropicApiKey' | 'openAiApiKey' | 'aiModel'>;
 
 /**
  * The switch behind every AI feature's backup (ai/switch.ts): only with Claude and an OpenAI key. Without one,
@@ -67,7 +64,8 @@ export function claudeWithBackup(
 /**
  * The model behind the AI teammate, workflow AI steps, the AI builder and the knowledge base: Claude (AI_MODEL)
  * with the Assistant's key, with OpenAI (OPENAI_MODEL) behind it when there's a key for it, the scripted
- * stand-in with ASSISTANT_PROVIDER=scripted, otherwise none. They share the Assistant's daily token limit.
+ * stand-in with ASSISTANT_PROVIDER=scripted, otherwise none. They share the business's own daily AI limit with the
+ * Assistant (`aiBudget`).
  */
 export function createAi(
   env: AiEnv & Pick<WorkerEnv, 'openAiModel'>,
@@ -81,5 +79,5 @@ export function createAi(
       : env.assistantProvider === 'scripted'
         ? scriptedAi([], { teammate: scriptedTeammate })
         : null;
-  return { provider, dailyTokens: env.assistantDailyTokens };
+  return { provider };
 }

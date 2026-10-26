@@ -546,7 +546,8 @@ export const platformWalletGet = defineQuery({
     if (!w)
       return {
         opened: false,
-        stage: 'off' as const,
+        // Where its wallet starts when one opens: Silent is gone (20261027012500).
+        stage: 'enforce' as const,
         balanceCents: 0,
         autoTopup: true,
         floorCents: 1000,

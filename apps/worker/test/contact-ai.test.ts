@@ -39,7 +39,7 @@ const tag: Record<string, string> = {};
 /** Gives a world the scripted model. */
 function withModel<T extends { s: TestServices }>(world: T): T {
   return Object.assign(world, {
-    s: { ...world.s, ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } } as TestServices,
+    s: { ...world.s, ai: { provider: scriptedAi() } } as TestServices,
   });
 }
 

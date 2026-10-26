@@ -562,8 +562,8 @@ describe('one business', () => {
   it('shows the API’s words in the sheet when a move is refused', async () => {
     answers['/v1/commands/wallet.set_stage'] = null;
     await showDesk(<Business />, () => answers);
-    await fireEvent.press(await screen.findByTestId('wallet-to-off'));
-    await fireEvent.changeText(screen.getByTestId('wallet-move-reason'), 'Back to silent');
+    await fireEvent.press(await screen.findByTestId('wallet-to-agency'));
+    await fireEvent.changeText(screen.getByTestId('wallet-move-reason'), 'Our own business');
     await fireEvent.press(screen.getByTestId('wallet-move-confirm'));
     await waitFor(() =>
       expect(screen.getByTestId('wallet-move-error')).toHaveTextContent(
@@ -638,7 +638,7 @@ describe('one business', () => {
   it('shows an agent the page but none of the switches', async () => {
     await showDesk(<Business />, () => answers, agent);
     await screen.findByTestId('business-wallet');
-    expect(screen.queryByTestId('wallet-to-off')).toBeNull();
+    expect(screen.queryByTestId('wallet-to-enforce')).toBeNull();
     expect(screen.queryByTestId('wallet-credit')).toBeNull();
     expect(screen.queryByTestId('phone-model-default')).toBeNull();
     expect(screen.getByTestId('phone-model-value')).toHaveTextContent('Default');
@@ -658,7 +658,7 @@ describe('one business', () => {
   it('keeps own-business marking to those who may, and opens as owner for the founder', async () => {
     await showDesk(<Business />, () => answers, { ...notOwnMarker, founder: true });
     await screen.findByTestId('business-wallet');
-    expect(screen.getByTestId('wallet-to-off')).toBeTruthy();
+    expect(screen.getByTestId('wallet-to-enforce')).toBeTruthy();
     expect(screen.queryByTestId('own-business-yes')).toBeNull();
     expect(screen.getByTestId('business-look-on-web')).toHaveTextContent(
       DESK_PHONE_WORDS.openAsOwnerOnWeb,

@@ -47,7 +47,13 @@ export async function seedAssistant(
     const context = await questionContext(d.worker, dale, ws.id, page, randomUUID());
     const events: AssistantEvent[] = [];
     await ask(
-      { db: d.worker, provider, tools, dailyTokens: Number.MAX_SAFE_INTEGER, log: d.log },
+      {
+        db: d.worker,
+        provider,
+        tools,
+        wallet: { db: d.worker, log: d.log, mode: 'off' },
+        log: d.log,
+      },
       {
         actor: dale,
         workspaceId: ws.id,

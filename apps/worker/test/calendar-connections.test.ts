@@ -353,7 +353,7 @@ beforeAll(async () => {
   google = `dale-${token()}@gmail.fake`;
   outlook = `priya-${token()}@outlook.fake`;
   // The scripted AI reads recorded calls' transcripts (meetings/review.ts).
-  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi() } });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,

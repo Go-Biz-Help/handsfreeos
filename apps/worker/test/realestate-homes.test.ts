@@ -105,7 +105,7 @@ async function drain() {
 }
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi(RULES), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi(RULES) } });
   agent = await createTestUser('reh-worker-agent', { fullName: 'Sam Rivera' });
   ws = await realestateBusiness(agent, 'Listing Facts Realty');
   const client = (
@@ -175,7 +175,7 @@ describe('a home’s facts from its pasted listing', () => {
 
   it('are left to the agent when the model can’t be asked', async () => {
     const saved = s;
-    s = testServices({ ai: { provider: null, dailyTokens: 5_000_000 } });
+    s = testServices({ ai: { provider: null } });
     try {
       const { homeId } = await run('realestate.home.add', {
         dealId: deal,

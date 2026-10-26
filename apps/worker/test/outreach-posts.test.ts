@@ -13,7 +13,7 @@ import { CHECK_POSTS_JOB } from '../src/addons/outreach/posts';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
-import { testServices, type TestServices } from './helpers';
+import { costlyAi, setAiLimit, testServices, type TestServices } from './helpers';
 
 const admin = () => testDbs().admin.db;
 const handlers = withAddons({});
@@ -101,7 +101,7 @@ afterAll(closeTestDbs);
 
 describe('checking group posts', () => {
   it('marks each post good or not, with why', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await seen('Outreach Posts Worker Co', [
       'Can anyone recommend a CRM for my crew?',
       'Business owners: what are you grilling this weekend?',
@@ -122,12 +122,13 @@ describe('checking group posts', () => {
   });
 
   it('leaves the rest waiting at the day’s AI limit', async () => {
-    const none = testServices({ ai: { provider: scriptedAi(), dailyTokens: 1 } });
+    const none = testServices({ ai: { provider: costlyAi() } });
     const ws = await seen('Outreach Capped Posts Co', [
       'Can anyone recommend a CRM?',
       'Looking for a bookkeeper',
       'Anyone tried a scheduling app?',
     ]);
+    await setAiLimit(ws, 1);
     await drain(none, ws);
     expect((await states(ws)).filter((p) => p.check_state === 'waiting').length).toBeGreaterThan(0);
     const [job] = await rows<{ later: boolean }>(

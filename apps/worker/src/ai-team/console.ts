@@ -136,7 +136,7 @@ export type ConsoleEvent = TestEvent;
 
 export interface ConsoleDeps {
   readonly db: Db;
-  readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
+  readonly ai: { readonly provider: AiProvider | null };
   /** The model that thinks on a call (VOICE_MODEL). */
   readonly voiceAi?: AiProvider | null;
   /** The AI with a model named at run time: the business's phone model, when support picked one. */
@@ -305,9 +305,7 @@ export async function prepareTest(
   });
   const room = await aiBudget.teammateHasRoom(deps.db, scope, {
     teammateId: teammate.id,
-    dailyTokens: deps.ai.dailyTokens,
     sharePercent: config.limits.dailySharePercent,
-    timeZone,
   });
   if (!room)
     throw HfosError.rule(
@@ -1738,9 +1736,7 @@ export async function runTest(
     const hasRoom = () =>
       aiBudget.teammateHasRoom(deps.db, t.scope, {
         teammateId: t.teammate.id,
-        dailyTokens: deps.ai.dailyTokens,
         sharePercent: t.config.limits.dailySharePercent,
-        timeZone: t.timeZone,
       });
     const base = {
       provider: t.provider,

@@ -1181,8 +1181,8 @@ function LimitsModule({ draft, patch, workspaceId, catalogs }: ModuleProps) {
   const m = draft.money;
   const name = draft.identity.name;
   const usage = catalogs.aiUsage;
-  const usedWidth = usage.dailyTokens
-    ? Math.min(100, (usage.teammateTokens / usage.dailyTokens) * 100)
+  const usedWidth = usage.dailyLimitCents
+    ? Math.min(100, (usage.teammateCents / usage.dailyLimitCents) * 100)
     : 0;
   const prices = catalogs.pricesAllowed;
   return (
@@ -1258,7 +1258,7 @@ function LimitsModule({ draft, patch, workspaceId, catalogs }: ModuleProps) {
         </div>
         <div className="flex flex-wrap justify-between gap-x-2 text-xs text-text-3">
           <span data-testid="limits-usage">
-            Today so far: {name} {percentOfLimit(usage.teammateTokens, usage.dailyTokens)} of the
+            Today so far: {name} {percentOfLimit(usage.teammateCents, usage.dailyLimitCents)} of the
             limit
           </span>
           <span>Its share ends at {l.dailySharePercent}%</span>

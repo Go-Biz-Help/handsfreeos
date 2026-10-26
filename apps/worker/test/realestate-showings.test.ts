@@ -227,7 +227,7 @@ const ANA = {
 };
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi(RULES), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi(RULES) } });
   [owner, agent] = await Promise.all([
     createTestUser('wsh-owner'),
     createTestUser('wsh-agent', { fullName: 'Dana Reyes' }),

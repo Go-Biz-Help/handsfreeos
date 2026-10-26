@@ -9,7 +9,7 @@ import {
 import type { z } from 'zod';
 import type { TenantScope, WorkerServices } from '../services';
 import { asWorker } from '@hfos/db/client';
-import { walletRoom, WALLET_REFUSALS } from '@hfos/core/server';
+import { aiLimitReached, walletRoom, WALLET_REFUSALS } from '@hfos/core/server';
 import { aiBudget, recordAndChargeAi, type AiUsageRef } from './budget';
 
 export type AiAskErrorCode =
@@ -36,9 +36,11 @@ export class AiAskError extends Error {
   }
 }
 
-/** The Assistant's wording, for everything else that uses the AI. */
-export const AI_BUDGET_MESSAGE =
-  'That’s today’s AI limit for this business. It resets at midnight.';
+/**
+ * The daily AI limit's words where only "it was reached" is known. A check that reached it says the amount
+ * (`aiBudget.reached`), and those words travel on the error.
+ */
+export const AI_BUDGET_MESSAGE = aiLimitReached();
 export const AI_UNAVAILABLE_MESSAGE =
   'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
 export const AI_BUSY_MESSAGE = 'The AI is busy right now. Try again in a minute.';
@@ -87,10 +89,10 @@ export async function askStructured<S extends z.ZodType>(
 ): Promise<AskStructuredResult<z.output<S>>> {
   const provider = ctx.ai.provider;
   if (!provider) throw new AiAskError('ai_unavailable', AI_UNAVAILABLE_MESSAGE);
-  if ((await aiBudget.usedToday(ctx.db, scope)) >= ctx.ai.dailyTokens)
-    throw new AiAskError('budget_reached', AI_BUDGET_MESSAGE);
-  // Beside the daily token limit, and for the same reason: both are a business's spending running out, and
-  // both stop before the provider is asked rather than after the tokens are gone.
+  const reached = await aiBudget.reached(ctx.db, scope);
+  if (reached) throw new AiAskError('budget_reached', reached);
+  // Beside the daily AI limit, and for the same reason: both are a business's spending running out, and both
+  // stop before the provider is asked rather than after the tokens are gone.
   const room = await asWorker(ctx.db, scope, (tx) =>
     walletRoom(tx, scope.workspaceId, 'ai', (m, e) => ctx.log.error({ err: e }, m)),
   );

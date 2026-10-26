@@ -108,7 +108,7 @@ beforeAll(async () => {
     sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${ws}, ${member.id}, 'member')`,
   );
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
-  const s = testServices({ ai: { provider: model.provider, dailyTokens: 5_000_000 } });
+  const s = testServices({ ai: { provider: model.provider } });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,

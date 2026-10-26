@@ -1,4 +1,4 @@
-import { BALANCE_WORDS } from '@hfos/core';
+import { AI_LIMIT_WORDS, BALANCE_WORDS } from '@hfos/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -87,6 +87,8 @@ const WALLET = {
   spentThisMonthCents: 4000,
   pendingTopUpCents: null,
   escalation: null,
+  aiDailyLimitCents: 1000,
+  aiSpentTodayCents: 125,
 };
 
 const PRICES = {
@@ -180,6 +182,7 @@ beforeEach(() => {
       status: 'pending',
     },
     '/v1/commands/wallet.set_auto_topup': { workspaceId: LONE_STAR },
+    '/v1/commands/wallet.set_ai_limit': { workspaceId: LONE_STAR, aiDailyLimitCents: 2500 },
     '/v1/commands/wallet.forget_card': { workspaceId: LONE_STAR, hasCard: false },
   };
   jest.spyOn(toast, 'show').mockImplementation(() => 1);
@@ -246,6 +249,26 @@ it('refuses a top-up under the smallest one, then saves the amount', async () =>
   expect(sent('/v1/commands/wallet.set_auto_topup')[0]![1]).toEqual({
     body: { workspaceId: LONE_STAR, topupCents: 2500 },
   });
+});
+
+it('shows the daily AI limit and today’s AI, and saves a new limit, refusing one under a dollar', async () => {
+  await show();
+  const row = await screen.findByTestId('balance-ai-limit-row');
+  expect(row).toHaveTextContent(AI_LIMIT_WORDS.today(125, 1000), { exact: false });
+  expect(row).toHaveTextContent('$10 a day', { exact: false });
+  await fireEvent.press(row);
+  await fireEvent.changeText(screen.getByTestId('balance-ai-limit-input'), '0.50');
+  await fireEvent.press(screen.getByTestId('balance-ai-limit-save'));
+  expect(screen.getByTestId('balance-ai-limit-refused')).toHaveTextContent(AI_LIMIT_WORDS.tooSmall);
+  expect(sent('/v1/commands/wallet.set_ai_limit')).toHaveLength(0);
+
+  await fireEvent.changeText(screen.getByTestId('balance-ai-limit-input'), '25');
+  await fireEvent.press(screen.getByTestId('balance-ai-limit-save'));
+  await waitFor(() => expect(sent('/v1/commands/wallet.set_ai_limit')).toHaveLength(1));
+  expect(sent('/v1/commands/wallet.set_ai_limit')[0]![1]).toEqual({
+    body: { workspaceId: LONE_STAR, aiDailyLimitCents: 2500 },
+  });
+  expect(toast.show).toHaveBeenCalledWith(AI_LIMIT_WORDS.saved(2500));
 });
 
 it('turns automatic top-up off through the same command', async () => {

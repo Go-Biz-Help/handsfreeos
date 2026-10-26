@@ -90,7 +90,7 @@ beforeAll(async () => {
   );
   pipelineId = made.output.pipelineId;
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
-  const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  const s = testServices({ ai: { provider: scriptedAi() } });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,

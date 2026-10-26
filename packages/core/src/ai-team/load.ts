@@ -28,12 +28,8 @@ import {
 import type { WorkspaceRole } from '../permissions';
 import { openHoursOf } from '../schemas/workspace';
 import { parseStoredDefinition } from '../workflows/load';
-import {
-  DEFAULT_AI_DAILY_TOKENS,
-  workflowTextsNewLeads,
-  type TeammateAiUsage,
-  type TeammateCatalogs,
-} from './catalogs';
+import { DEFAULT_AI_DAILY_LIMIT_CENTS } from '../money/wallet-words';
+import { workflowTextsNewLeads, type TeammateAiUsage, type TeammateCatalogs } from './catalogs';
 import { emptyTeammateConfig, parseTeammateConfig, type TeammateConfig } from './config';
 
 export type TeammateRow = typeof aiTeammates.$inferSelect;
@@ -128,41 +124,28 @@ export function teammateUserIds(config: TeammateConfig): string[] {
 }
 
 /**
- * The daily AI limit the worker enforces: ASSISTANT_DAILY_TOKENS when it's a whole number above zero, else the
- * default. The worker reads the same variable, so a deployment that changes it sets it for the API too.
- */
-export function aiDailyTokens(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-): number {
-  const n = Number(env['ASSISTANT_DAILY_TOKENS'] || DEFAULT_AI_DAILY_TOKENS);
-  return Number.isInteger(n) && n >= 1 ? n : DEFAULT_AI_DAILY_TOKENS;
-}
-
-/**
- * Today's AI use: the whole business's, exactly as the worker's budget counts it (private.ai_tokens_today:
- * the Assistant's runs, everyone's, plus app.ai_usage since midnight in the business's zone, cache reads
- * and writes included), and the teammate's part of it since midnight in `timeZone` (the business's zone).
+ * Today's AI against the business's own daily AI limit, exactly as the worker's budget counts it
+ * (private.ai_spend_today: the Assistant's runs, everyone's, plus app.ai_usage since midnight in the business's
+ * zone, priced as it's charged), and the teammate's part of it.
  */
 export async function teammateAiUsage(
   tx: Tx,
   workspaceId: string,
-  timeZone: string,
   teammateId: string | null,
 ): Promise<TeammateAiUsage> {
-  const [u] = await rows<{ used: string | number | null; teammate: string | number | null }>(
+  const [u] = await rows<{
+    limit_cents: string | number | null;
+    spent_cents: string | number | null;
+    teammate_cents: string | number | null;
+  }>(
     tx,
-    sql`with since as (select date_trunc('day', now() at time zone ${timeZone}) at time zone ${timeZone} as t)
-        select
-          private.ai_tokens_today(${workspaceId}::uuid) as used,
-          coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
-            from app.ai_usage u, since
-            where u.workspace_id = ${workspaceId} and u.source = 'teammate' and u.created_at >= since.t
-              ${teammateId ? sql`and u.teammate_id = ${teammateId}::uuid` : sql``}), 0) as teammate`,
+    sql`select limit_cents, spent_cents, teammate_cents
+        from private.ai_spend_today(${workspaceId}::uuid, ${teammateId}::uuid)`,
   );
   return {
-    dailyTokens: aiDailyTokens(),
-    usedTokens: Number(u?.used ?? 0),
-    teammateTokens: Number(u?.teammate ?? 0),
+    dailyLimitCents: Number(u?.limit_cents ?? DEFAULT_AI_DAILY_LIMIT_CENTS),
+    usedCents: Math.round(Number(u?.spent_cents ?? 0)),
+    teammateCents: Math.round(Number(u?.teammate_cents ?? 0)),
   };
 }
 
@@ -249,12 +232,7 @@ export async function loadTeammateCatalogs(
     .from(knowledgeProfiles)
     .where(eq(knowledgeProfiles.workspaceId, workspaceId));
   const profile = profileRow ? KnowledgeProfile.safeParse(profileRow.profile) : null;
-  const aiUsage = await teammateAiUsage(
-    tx,
-    workspaceId,
-    ws.timezone || 'UTC',
-    opts.teammateId ?? null,
-  );
+  const aiUsage = await teammateAiUsage(tx, workspaceId, opts.teammateId ?? null);
   const team = await rows<{
     id: string;
     role: WorkspaceRole;

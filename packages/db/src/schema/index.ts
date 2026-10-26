@@ -6121,10 +6121,13 @@ export const usageWallets = app.table('usage_wallets', {
   lowWarnedAt: ts('low_warned_at'),
   warnFingerprint: text('warn_fingerprint'),
   /**
-   * How far along the wallet this business is: `off` (silent), `warn` (told, nothing stops) or `enforce`
-   * (stopped past the overdraft). Off everywhere until staff move it, one business at a time.
+   * How far along the wallet this business is: `warn` (told, nothing stops), `enforce` (Stopped at zero, where a
+   * new business starts) or `agency` (Paid by the agency). Silent (`off`) is gone since 20261027012500; only staff
+   * move a business, one at a time.
    */
-  stage: walletStage('stage').notNull().default('off'),
+  stage: walletStage('stage').notNull().default('enforce'),
+  /** The most its AI may be charged in a day, in cents. The business's own to set; $10 until it does. */
+  aiDailyLimitCents: bigint('ai_daily_limit_cents', { mode: 'number' }).notNull().default(1000),
   ...timestamps(),
 });
 

@@ -30,7 +30,7 @@ import { WARMS_PER_MINUTE } from '../src/assistant/routes';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
-import { testServices } from './helpers';
+import { setAiLimit, setBalance, testServices } from './helpers';
 
 const env = testEnv();
 const actor = (u: TestUser): HumanActor => ({
@@ -56,7 +56,6 @@ let app: FastifyInstance;
 
 async function build(
   assistant: 'scripted' | null,
-  dailyTokens = 5_000_000,
   provider: AiProvider = scriptedAssistant(),
 ): Promise<FastifyInstance> {
   const s = testServices();
@@ -69,7 +68,7 @@ async function build(
       jwtIssuer: `${env.supabaseUrl}/auth/v1`,
     }),
     webOrigins: ['http://localhost:3000'],
-    assistant: assistant ? { provider, tools: createToolExecutor(httpDb), dailyTokens } : null,
+    assistant: assistant ? { provider, tools: createToolExecutor(httpDb) } : null,
   });
 }
 
@@ -171,7 +170,7 @@ describe('the Assistant', () => {
   it('writes its answer to be heard when the question was asked out loud', async () => {
     const contexts: string[] = [];
     const inner = scriptedAssistant();
-    const listening = await build('scripted', 5_000_000, {
+    const listening = await build('scripted', {
       ...inner,
       stream: (request, options) => {
         contexts.push(request.context ?? '');
@@ -334,14 +333,71 @@ describe('the Assistant', () => {
     );
   });
 
-  it('stops at the daily limit and says when it resets', async () => {
-    const tiny = await build('scripted', 1);
+  it('stops at the business’s own daily AI limit, and says when it starts again and where to raise it', async () => {
+    const was = await setAiLimit(workspaceId, 0);
     try {
-      const events = await ask(ownerToken, 'What needs attention?', {}, tiny);
-      expect(events).toEqual([expect.objectContaining({ type: 'error', code: 'budget_reached' })]);
+      const events = await ask(ownerToken, 'What needs attention?');
+      expect(events).toEqual([
+        expect.objectContaining({
+          type: 'error',
+          code: 'budget_reached',
+          message:
+            'This business reached the $0 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+        }),
+      ]);
     } finally {
-      await tiny.close();
+      await setAiLimit(workspaceId, was);
     }
+  });
+
+  it('stops when a business Stopped at zero has run its balance out, and says a top-up brings it back', async () => {
+    const scope = { workspaceId, organizationId };
+    const was = await setBalance(scope, 0);
+    try {
+      const events = await ask(ownerToken, 'What needs attention?');
+      expect(events).toEqual([
+        expect.objectContaining({
+          type: 'error',
+          code: 'wallet_empty',
+          message:
+            'Your balance has run out, so the AI has paused. Top up in Settings → Usage & balance and it picks up where it left off.',
+        }),
+      ]);
+    } finally {
+      await setBalance(scope, was);
+    }
+    expect((await ask(ownerToken, 'What needs attention?')).at(-1)).toMatchObject({
+      type: 'done',
+    });
+  });
+
+  it('charges each question to the business’s balance, once, as one line', async () => {
+    const events = await ask(ownerToken, 'What needs attention?');
+    const started = events.find((e) => e.type === 'run');
+    expect(started).toBeDefined();
+    const runId = (started as { runId: string }).runId;
+    const [run] = await rows<{ model: string; tokens: number }>(
+      admin(),
+      sql`select model, (input_tokens + output_tokens + cache_read_tokens + cache_write_tokens)::int as tokens
+          from app.assistant_runs where id = ${runId}`,
+    );
+    expect(run!.tokens).toBeGreaterThan(0);
+    const charged = await rows<{
+      subject: string;
+      amount_cents: number | string;
+      entity_type: string;
+    }>(
+      admin(),
+      sql`select subject, amount_cents, entity_type from app.usage_ledger
+          where workspace_id = ${workspaceId} and entity_id = ${runId}`,
+    );
+    expect(charged).toEqual([
+      expect.objectContaining({
+        subject: 'Ask HandsFreeOS answering a question',
+        entity_type: 'assistant_run',
+      }),
+    ]);
+    expect(Number(charged[0]!.amount_cents)).toBeLessThan(0);
   });
 
   it('thinks harder once it reads the setup to change it, and says it is taking a little longer', async () => {
@@ -358,7 +414,7 @@ describe('the Assistant', () => {
         reply: () => 'Here is how texting is set up.',
       },
     ]);
-    const careful = await build('scripted', 5_000_000, {
+    const careful = await build('scripted', {
       id: inner.id,
       model: inner.model,
       stream: (request, options) => {
@@ -388,7 +444,7 @@ describe('the Assistant', () => {
     const warmed: AiRequest[] = [];
     const asked: AiRequest[] = [];
     const inner = scriptedAssistant();
-    const reading = await build('scripted', 5_000_000, {
+    const reading = await build('scripted', {
       ...inner,
       stream: (request, options) => {
         asked.push(request);
@@ -432,7 +488,7 @@ describe('the Assistant', () => {
   });
 
   it('holds each address to a few warm-ups a minute, since reading ahead spends AI', async () => {
-    const reading = await build('scripted', 5_000_000, {
+    const reading = await build('scripted', {
       ...scriptedAssistant(),
       stream: () => Promise.reject(new Error('not asked')),
       warm: async () => ({
@@ -470,7 +526,7 @@ describe('the Assistant', () => {
     );
     let warms = 0;
     const inner = scriptedAssistant();
-    const reading = await build('scripted', 5_000_000, {
+    const reading = await build('scripted', {
       ...inner,
       stream: (request, options) => inner.stream(request, options),
       warm: async () => {
@@ -488,6 +544,40 @@ describe('the Assistant', () => {
       expect(res.json()).toEqual({ warmed: false });
       expect(warms).toBe(0);
     } finally {
+      await reading.close();
+    }
+  });
+
+  it('reads nothing ahead once a business Stopped at zero has run its balance out', async () => {
+    const broke = await createTestUser('assistant-broke');
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${broke.id}, 'member')`,
+    );
+    await consentToAssistant(broke);
+    let warms = 0;
+    const inner = scriptedAssistant();
+    const reading = await build('scripted', {
+      ...inner,
+      stream: (request, options) => inner.stream(request, options),
+      warm: async () => {
+        warms += 1;
+        return { inputTokens: 1, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 1 };
+      },
+    });
+    const scope = { workspaceId, organizationId };
+    const was = await setBalance(scope, 0);
+    try {
+      const res = await reading.inject({
+        method: 'POST',
+        url: '/v1/assistant/warm',
+        headers: { authorization: `Bearer ${await signInTestUser(broke)}` },
+        payload: { workspaceId },
+      });
+      expect(res.json()).toEqual({ warmed: false });
+      expect(warms).toBe(0);
+    } finally {
+      await setBalance(scope, was);
       await reading.close();
     }
   });

@@ -143,7 +143,7 @@ beforeAll(async () => {
       meta(),
     )
   ).output.id;
-  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi() } });
 }, 60_000);
 afterAll(closeTestDbs);
 

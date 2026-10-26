@@ -1,6 +1,6 @@
 /**
  * AI outside the Assistant: workflow AI steps, the AI builder and the knowledge base. One structured call at
- * a time through `askStructured`, inside the daily token limit the Assistant shares (`aiBudget`).
+ * a time through `askStructured`, inside the business's daily AI limit the Assistant shares (`aiBudget`).
  */
 export {
   AI_BUDGET_MESSAGE,
@@ -12,6 +12,14 @@ export {
   type AskStructuredInput,
   type AskStructuredResult,
 } from './ask';
-export { aiBudget, recordAiUsage, type AiUsageRef, type AiUsageSource } from './budget';
+export {
+  aiBudget,
+  chargeAssistantRun,
+  recordAiUsage,
+  type AiNoRoom,
+  type AiToday,
+  type AiUsageRef,
+  type AiUsageSource,
+} from './budget';
 export { createAi } from './provider';
 export { scriptedAi } from './scripted';

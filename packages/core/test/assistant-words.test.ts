@@ -48,13 +48,28 @@ const confirm = (over: Partial<ConfirmCard> = {}): ConfirmCard => ({
 });
 
 describe('the notice cards', () => {
-  it('names the business in the day’s limit, and says what still works', () => {
+  it('names the business at its daily AI limit, and says when it starts again and where to raise it', () => {
     const notice = assistantNotice('budget_reached', {
       workspaceName: 'Lone Star HVAC',
       message: 'ignored',
     })!;
-    expect(notice.title).toBe('That’s today’s Assistant limit for Lone Star HVAC');
-    expect(notice.sub).toBe('It resets at midnight. Everything else in HandsFreeOS still works.');
+    expect(notice.title).toBe('Lone Star HVAC reached its daily AI limit');
+    expect(notice.sub).toBe(
+      'The AI pauses until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+    );
+    expect(notice.tone).toBe('warning');
+    expect(assistantNoticeAction(notice)).toBe(null);
+  });
+
+  it('names the business whose balance ran out, and says a top-up brings the AI back', () => {
+    const notice = assistantNotice('wallet_empty', {
+      workspaceName: 'Lone Star HVAC',
+      message: 'ignored',
+    })!;
+    expect(notice.title).toBe('Lone Star HVAC’s balance has run out');
+    expect(notice.sub).toBe(
+      'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Usage & balance.',
+    );
     expect(notice.tone).toBe('warning');
     expect(assistantNoticeAction(notice)).toBe(null);
   });

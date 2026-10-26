@@ -41261,6 +41261,72 @@
         }
       }
     },
+    "/v1/commands/wallet.set_ai_limit": {
+      "post": {
+        "operationId": "command_wallet_set_ai_limit",
+        "summary": "Set the daily AI limit: the most the business’s AI (the Assistant, the AI teammate, workflows, add-ons) may be charged in a day before it pauses until midnight.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires money.manage. Emits wallet.ai_limit_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "aiDailyLimitCents": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 100000000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "aiDailyLimitCents"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "aiDailyLimitCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "aiDailyLimitCents"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/wallet.request_card": {
       "post": {
         "operationId": "command_wallet_request_card",
@@ -41656,7 +41722,6 @@
                   "stage": {
                     "type": "string",
                     "enum": [
-                      "off",
                       "warn",
                       "enforce",
                       "agency"
@@ -140279,26 +140344,26 @@
                         "aiUsage": {
                           "type": "object",
                           "properties": {
-                            "dailyTokens": {
+                            "dailyLimitCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "usedTokens": {
+                            "usedCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "teammateTokens": {
+                            "teammateCents": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             }
                           },
                           "required": [
-                            "dailyTokens",
-                            "usedTokens",
-                            "teammateTokens"
+                            "dailyLimitCents",
+                            "usedCents",
+                            "teammateCents"
                           ],
                           "additionalProperties": false
                         },
@@ -156855,7 +156920,7 @@
     "/v1/queries/wallet.get": {
       "post": {
         "operationId": "query_wallet_get",
-        "summary": "A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, and why its top-up is the size it is.",
+        "summary": "A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, why its top-up is the size it is, and its daily AI limit with what its AI has come to today.",
         "tags": [
           "queries"
         ],
@@ -157038,6 +157103,16 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "aiDailyLimitCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "aiSpentTodayCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
@@ -157054,7 +157129,9 @@
                     "spent30dCents",
                     "spentThisMonthCents",
                     "pendingTopUpCents",
-                    "escalation"
+                    "escalation",
+                    "aiDailyLimitCents",
+                    "aiSpentTodayCents"
                   ],
                   "additionalProperties": false
                 }

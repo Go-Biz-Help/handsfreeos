@@ -1,5 +1,5 @@
 'use client';
-import type { TeammateAiUsage } from '@hfos/core';
+import { money, type TeammateAiUsage } from '@hfos/core';
 import {
   AlertCircle,
   BookOpen,
@@ -328,12 +328,12 @@ export function TeammateActivityView({
         <span
           className="inline-flex min-w-0 items-center gap-1.5 text-xs text-text-3 sm:ml-auto"
           data-testid="activity-ai-usage"
-          title={`${usage.usedTokens.toLocaleString('en-US')} of ${usage.dailyTokens.toLocaleString('en-US')} tokens`}
+          title={`${money(usage.usedCents)} of ${money(usage.dailyLimitCents)} today`}
         >
           <Gauge className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
           <span>
-            AI used today: {percentOfLimit(usage.usedTokens, usage.dailyTokens)} of the daily limit
-            · {name} {percentOfLimit(usage.teammateTokens, usage.dailyTokens)}
+            AI used today: {percentOfLimit(usage.usedCents, usage.dailyLimitCents)} of the daily
+            limit · {name} {percentOfLimit(usage.teammateCents, usage.dailyLimitCents)}
           </span>
         </span>
       </div>

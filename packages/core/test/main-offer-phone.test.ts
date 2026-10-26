@@ -137,8 +137,10 @@ describe('the builder’s steps and the AI’s refusals', () => {
     expect(offerAiWords(refusal(403, null))).toBe(
       'Only owners and admins can build the main offer.',
     );
-    expect(offerAiWords(refusal(429, 'budget_reached'))).toBe(
-      'That’s today’s AI limit for this business. It resets at midnight.',
+    // The worker names the business's own limit, so its words come through.
+    expect(offerAiWords(refusal(429, 'budget_reached'))).toBe('The worker’s words.');
+    expect(offerAiWords({ ...refusal(429, 'budget_reached'), message: '' })).toMatch(
+      /AI limit, so the AI is paused until midnight/,
     );
     expect(offerAiWords({ ...refusal(503, null, 'ai_not_configured'), rule: undefined })).toMatch(
       /isn’t set up/,

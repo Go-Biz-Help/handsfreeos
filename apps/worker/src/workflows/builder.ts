@@ -45,7 +45,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { z } from 'zod';
-import { AI_BUDGET_MESSAGE, AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
+import { AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { systemActor, workerMeta, type TenantScope, type WorkerServices } from '../services';
 
@@ -325,8 +325,8 @@ export async function draftProposal(
     organizationId: workspace.organizationId,
   };
   const start = await asWorker(deps.db, scope, (tx) => loadStart(tx, scope.workspaceId, input));
-  if ((await aiBudget.usedToday(deps.db, scope)) >= deps.ai.dailyTokens)
-    throw HfosError.rule('budget_reached', 429, AI_BUDGET_MESSAGE);
+  const reached = await aiBudget.reached(deps.db, scope);
+  if (reached) throw HfosError.rule('budget_reached', 429, reached);
 
   const catalogs = start.catalogs;
   const context = builderContext({

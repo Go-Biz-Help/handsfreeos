@@ -227,7 +227,7 @@ describe('if nobody answers', () => {
 describe('the teammate’s share of the AI limit', () => {
   let b: TeammateWorld;
   beforeAll(async () => {
-    b = await teammateWorld('tmlimit', { status: 'automatic', dailyTokens: 10_000 });
+    b = await teammateWorld('tmlimit', { status: 'automatic' });
   });
   afterAll(async () => {
     await b.app.close();

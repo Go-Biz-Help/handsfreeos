@@ -30,7 +30,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
-import { AI_BUDGET_MESSAGE, AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
+import { AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { TenantScope, WorkerServices } from '../services';
 
@@ -109,8 +109,8 @@ export async function draftForm(
     workspaceId: input.workspaceId,
     organizationId: workspace.organizationId,
   };
-  if ((await aiBudget.usedToday(deps.db, scope)) >= deps.ai.dailyTokens)
-    throw HfosError.rule('budget_reached', 429, AI_BUDGET_MESSAGE);
+  const reached = await aiBudget.reached(deps.db, scope);
+  if (reached) throw HfosError.rule('budget_reached', 429, reached);
 
   const loaded = await asWorker(deps.db, scope, (tx) =>
     loadForm(tx, scope.workspaceId, input.formId),

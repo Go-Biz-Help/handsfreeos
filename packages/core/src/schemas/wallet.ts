@@ -1,12 +1,13 @@
 /**
  * What goes in and out of the usage wallet's commands (M16, step 5).
  *
- * The line running through all of this: **a person owns four settings and nothing else.** The balance, the card
- * and where the top-up and decline ladders have got to are the worker's, written by `actors: ['system']`
- * commands and guarded in Postgres besides. A schema that let a person post a balance would be a schema the
+ * The line running through all of this: **a person owns four top-up settings and the daily AI limit, and nothing
+ * else.** The balance, the card and where the top-up and decline ladders have got to are the worker's, written by
+ * `actors: ['system']` commands and guarded in Postgres besides. A schema that let a person post a balance would be a schema the
  * database refuses, which is a confusing way to find out.
  */
 import { z } from 'zod';
+import { MAX_AI_DAILY_LIMIT_CENTS, MIN_AI_DAILY_LIMIT_CENTS } from '../money/wallet-words';
 import { uuid } from './common';
 
 /** Every command here names the business it acts on, as every other workspace command does. */
@@ -26,6 +27,20 @@ export const WalletSettingsInput = z.strictObject({
    * the gate reads it as zero there, and `wallet.set_auto_topup` refuses a non-zero one.
    */
   overdraftCents: cents(0, 10_000_000).optional(),
+});
+
+/**
+ * The business's daily AI limit: the most its AI may be charged in a day. At least a dollar, and as much as it
+ * likes above that — HandsFreeOS sets no ceiling, the bound is only the column's own.
+ */
+export const WalletAiLimitInput = z.strictObject({
+  ...inWorkspace,
+  aiDailyLimitCents: cents(MIN_AI_DAILY_LIMIT_CENTS, MAX_AI_DAILY_LIMIT_CENTS),
+});
+
+export const WalletAiLimitOutput = z.strictObject({
+  workspaceId: uuid,
+  aiDailyLimitCents: z.int(),
 });
 
 export const WalletRefOutput = z.strictObject({

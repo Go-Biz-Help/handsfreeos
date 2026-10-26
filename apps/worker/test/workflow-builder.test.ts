@@ -4,6 +4,7 @@ import {
   applyWorkflowOps,
   createTokenVerifier,
   executeCommand,
+  money,
   organizationCreate,
   parseDefinition,
   workflowCreate,
@@ -26,7 +27,7 @@ import { aiBudget } from '../src/ai/budget';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
 import { BUILDER_ASKS, BUILDER_MAX_REPAIRS, BUILDER_SYSTEM } from '../src/workflows/builder';
-import { testServices, type TestServices } from './helpers';
+import { setAiLimit, testServices, type TestServices } from './helpers';
 
 /**
  * The AI builder (POST /v1/workflows/ai/edit): plain words become checked patch ops, stored as a proposal
@@ -165,7 +166,7 @@ beforeAll(async () => {
     sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${ws}, ${member.id}, 'member')`,
   );
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
-  app = await build({ provider: model.provider, dailyTokens: 5_000_000 });
+  app = await build({ provider: model.provider });
 });
 afterAll(async () => {
   await app?.close();
@@ -378,7 +379,7 @@ describe('the AI builder', () => {
         ]);
       },
     ]);
-    const server = await build({ provider: turns.provider, dailyTokens: 5_000_000 });
+    const server = await build({ provider: turns.provider });
     try {
       const res = await edit(server, ownerToken, {
         workflowId: w.id,
@@ -411,7 +412,7 @@ describe('the AI builder', () => {
           finish('Removes it.', ['Call them automatically']),
         ]),
     ]);
-    const server = await build({ provider: turns.provider, dailyTokens: 5_000_000 });
+    const server = await build({ provider: turns.provider });
     try {
       const res = await edit(server, ownerToken, {
         workflowId: w.id,
@@ -508,7 +509,7 @@ describe('the AI builder', () => {
 
   it('says so when no model is set up, and stops at the daily limit', async () => {
     const w = await speedToLead('Limits');
-    const none = await build({ provider: null, dailyTokens: 5_000_000 });
+    const none = await build({ provider: null });
     try {
       const res = await edit(none, ownerToken, {
         workflowId: w.id,
@@ -526,12 +527,15 @@ describe('the AI builder', () => {
     } finally {
       await none.close();
     }
-    const used = await aiBudget.usedToday(testDbs().worker.db, {
+    const today = await aiBudget.today(testDbs().worker.db, {
       workspaceId: ws,
       organizationId: org,
     });
-    expect(used).toBeGreaterThan(0);
-    const limited = await build({ provider: model.provider, dailyTokens: used });
+    expect(today.spentCents).toBeGreaterThan(0);
+    // The business sets its daily AI limit at what it has spent: the builder asks the model nothing more.
+    const limitCents = Math.floor(today.spentCents);
+    const was = await setAiLimit(ws, limitCents);
+    const limited = await build({ provider: model.provider });
     const asked = model.requests.length;
     try {
       const res = await edit(limited, ownerToken, {
@@ -543,12 +547,13 @@ describe('the AI builder', () => {
       expect(res.json()).toMatchObject({
         error: {
           rule: 'budget_reached',
-          message: 'That’s today’s AI limit for this business. It resets at midnight.',
+          message: `This business reached the ${money(limitCents)} daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.`,
         },
       });
       expect(model.requests.length).toBe(asked);
     } finally {
       await limited.close();
+      await setAiLimit(ws, was);
     }
   });
 });
