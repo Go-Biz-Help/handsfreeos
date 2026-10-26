@@ -183,3 +183,31 @@ export async function clearNeeds(
       ),
     );
 }
+
+/**
+ * Many people's steps were taken at `at`, as a list saved from the network shows (friends now: their friend request
+ * was sent and accepted): the person's open needs for those steps are done, but one the extension couldn't do again
+ * after that moment. The needs done, for the caller to tell (`outreach.need.cleared`).
+ */
+export async function doneNeeds(
+  ctx: CommandContext,
+  me: string,
+  to: { readonly profileIds: readonly string[]; readonly steps: readonly NeedStep[] },
+  at: Date,
+): Promise<{ readonly id: string; readonly step: NeedStep }[]> {
+  if (!to.profileIds.length || !to.steps.length) return [];
+  return ctx.tx
+    .update(needs)
+    .set({ state: 'done', clearedAt: at, updatedAt: new Date() })
+    .where(
+      and(
+        eq(needs.workspaceId, ctx.scope.workspaceId!),
+        eq(needs.userId, me),
+        eq(needs.state, 'open'),
+        inArray(needs.step, [...to.steps]),
+        inArray(needs.profileId, [...new Set(to.profileIds)]),
+        lte(needs.seenAt, at),
+      ),
+    )
+    .returning({ id: needs.id, step: needs.step });
+}

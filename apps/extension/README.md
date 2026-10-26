@@ -245,6 +245,11 @@ extension's page-layout reports?":
   ("connected already, or asked") instead of being handed to you as "couldn’t find Connect", but only Remove
   Connection keeps them as a connection. It never takes the Connect or Message of a business their page suggests for
   theirs (`src/networks/alignable/read.ts`, `src/auto/alignable.ts`).
+- **A problem report stays within the 40 things core keeps** (`PROBLEM_FOUND_MOST`), where an Alignable business's
+  page with posts and answers on it found 41 to 43 and was refused: past it, the lists with none are named in one,
+  then each list's parts are folded into those some of its rows lacked, then lists' counts go, always the same way,
+  and the page's own read, its warnings and notes, its sections and the step's own facts are kept
+  (`reportFound` in `src/jobs/report.ts`).
 - 0.93.0 and older builds hand Facebook's name, and Instagram's username and name, to you as before, and HandsFreeOS
   marks those **You put it in** for that computer.
 

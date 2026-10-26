@@ -6,8 +6,11 @@
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { people, recordTags, tags } from '@hfos/db/schema';
+import { personClientCause, personIsClient } from '../../../crm/clients';
+import { CLIENT_CAUSES, type ClientCause } from '../../../crm/record-words';
 import { fullName, requirePerson, userRef } from '../../../crm/records';
 import { personCreate } from '../../../commands/person.create';
+import { tagCreate } from '../../../commands/tag.create';
 import { splitName } from '../../../inbox/contact';
 import { userIdOf } from '../../../kernel/actor';
 import { HfosError } from '../../../errors';
@@ -21,12 +24,14 @@ import { outreachSettings, type OutreachSettings } from '../chat-read';
 import { countryRuleOn, linesCountry, type CountryHow, type CountryRule } from '../countries';
 import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
+import type { MessageKind } from '../automation';
 import { outreachAddon } from '../manifest';
 import { profileMisfit } from '../networks';
+import type { ClientStanding } from '../person-menu';
 import { PARTNER_GOAL, PLATFORMS, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
-import { friends, profiles } from '../tables';
+import { friends, profiles, sends } from '../tables';
 
 export type Ctx = CommandContext | QueryContext;
 
@@ -176,14 +181,163 @@ export const reachedElsewhere = (p: string) => sql`(${sql.raw(p)}.person_id is n
     where d.person_id = ${sql.raw(p)}.person_id and d.profile_id <> ${sql.raw(p)}.id and d.undone_at is null)))`;
 
 /**
- * A profile still in play for the person `me` (decision 47): not marked not a fit, by them or by the AI's read of their
- * chat. "Not interested" ends outreach for good, until they put them back in play. Nor is one whose customer was
- * pitched or booked on another of their profiles (`reachedElsewhere`). `p` is its alias.
+ * What makes someone a client in Social Outreach (decision 91): core's rule (crm/clients.ts), the Client tag and
+ * everything Contacts counts besides (a won lead, a job, a visit, a plan, a paid bill), as the owner chose (Chris,
+ * 26 Oct 2026, built with the default asked). To go by the Client tag alone, make this `['tagged']`.
  */
-export const inPlay = (me: string, p: string) => sql`(not exists (
+export const OUTREACH_CLIENT_CAUSES: readonly ClientCause[] = CLIENT_CAUSES;
+
+/** Contacts' own reasons among them, besides the tag: what Not a client after all can't take off. */
+const OTHER_CAUSES = OUTREACH_CLIENT_CAUSES.filter((c) => c !== 'tagged');
+
+/**
+ * Every customer with a profile here who is a client (`OUTREACH_CLIENT_CAUSES`), read once for the whole query, as
+ * `neverPeople` is. Never kept: worked out each time.
+ */
+const clientPeople = sql`select cp.id from app.people cp
+  where cp.id in (select m.person_id from addon_outreach.profiles m where m.person_id is not null)
+    and ${personIsClient('cp', OUTREACH_CLIENT_CAUSES)}`;
+
+/**
+ * The profiles on those customers, as their workspace, network and name, read once for the whole query: someone kept
+ * twice under the same name on the same network is a client too, as Don't pitch's twins are (`neverNames`).
+ */
+const clientNames = sql`select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
+  where m.person_id in (${clientPeople})`;
+
+/**
+ * A client (decision 91): the profile's customer is one, on any network, or a profile kept under its name on its
+ * network is on one. A client gets no outreach (`inPlay`, `outreach_client`), only replies. `p` is its alias.
+ */
+export const isClient = (p: string) =>
+  sql`((${sql.raw(p)}.person_id is not null and ${sql.raw(p)}.person_id in (${clientPeople}))
+    or (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${clientNames}))`;
+
+/**
+ * A profile open to the person `me` (decision 47): not marked not a fit, by them or by the AI's read of their chat.
+ * "Not interested" ends outreach for good, until they put them back in play. Nor is one whose customer was pitched or
+ * booked on another of their profiles (`reachedElsewhere`). Confirming a friend request goes by this alone: saying yes
+ * is no pitch, so a client's is confirmed too. `p` is its alias.
+ */
+export const openToMe = (me: string, p: string) => sql`(not exists (
   select 1 from addon_outreach.stages st
   where st.profile_id = ${sql.raw(p)}.id and st.user_id = ${me} and st.mark = 'lost')
   and not ${reachedElsewhere(p)})`;
+
+/**
+ * A profile still in play for the person `me`: open to them (`openToMe`), and not a client (`isClient`, decision
+ * 91), who gets no outreach. Every pick on Today but a reply they're owed goes by it. `p` is its alias.
+ */
+export const inPlay = (me: string, p: string) =>
+  sql`(${openToMe(me, p)} and not ${isClient(p)})`;
+
+/**
+ * The profiles the client rule covers for one customer (`isClient`): every profile on them, on any network, and any
+ * kept under the same name as one of those on the same network.
+ */
+export async function clientProfiles(ctx: CommandContext, personId: string): Promise<string[]> {
+  const found = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select o.id from addon_outreach.profiles o
+        where o.workspace_id = ${ctx.scope.workspaceId!}
+          and (o.person_id = ${personId}
+            or (o.workspace_id, o.platform, ${nameKeyOf('o')}) in (
+              select m.workspace_id, m.platform, ${nameKeyOf('m')} from addon_outreach.profiles m
+              where m.person_id = ${personId}))`,
+  );
+  return found.map((f) => f.id);
+}
+
+/**
+ * Where someone stands as a client (decision 91): one or not, as `isClient` says; their customer tagged Client; and
+ * Contacts' own reason besides the tag, first in `CLIENT_CAUSES`' order.
+ */
+export async function clientOf(ctx: Ctx, profileId: string): Promise<ClientStanding> {
+  const [found] = await rows<{ is_client: boolean; tagged: boolean; because: ClientCause | null }>(
+    ctx.tx,
+    sql`select ${isClient('p')} as is_client,
+          (cp.id is not null and ${personIsClient('cp', ['tagged'])}) as tagged,
+          ${personClientCause('cp', OTHER_CAUSES)} as because
+        from addon_outreach.profiles p
+        left join app.people cp on cp.id = p.person_id
+        where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${profileId}`,
+  );
+  return {
+    on: found?.is_client ?? false,
+    tagged: found?.tagged ?? false,
+    because: found?.because ?? null,
+  };
+}
+
+/**
+ * Why someone is a client, in a lateral join's column (`because`) for a page of profiles: the first of
+ * `OUTREACH_CLIENT_CAUSES` on their customer, the tag included, or null for one kept under a client's name. `p` is the
+ * profile's alias.
+ */
+export const clientCauseOf = (p: string) => sql`(select ${personClientCause('ccp', OUTREACH_CLIENT_CAUSES)}
+  from app.people ccp where ccp.id = ${sql.raw(p)}.person_id)`;
+
+/**
+ * Skips the messages waiting for an OK, or OK'd and not sent, to some profiles, anyone's: of `kinds`, or every kind.
+ * Each skipped tells (`outreach.send.skipped`), so Waiting for you and the phone's copy let it go. How many.
+ */
+export async function skipOutreachTo(
+  ctx: CommandContext,
+  profileIds: readonly string[],
+  kinds?: readonly MessageKind[],
+): Promise<number> {
+  if (!profileIds.length || kinds?.length === 0) return 0;
+  const at = changeMoment(ctx.meta);
+  const skipped = await ctx.tx
+    .update(sends)
+    .set({ state: 'skipped', doneAt: at, updatedAt: at })
+    .where(
+      and(
+        eq(sends.workspaceId, ctx.scope.workspaceId!),
+        inArray(sends.profileId, [...new Set(profileIds)]),
+        inArray(sends.state, ['waiting', 'approved']),
+        ...(kinds ? [inArray(sends.kind, [...kinds])] : []),
+      ),
+    )
+    .returning({ kind: sends.kind, profileId: sends.profileId });
+  for (const s of skipped)
+    await ctx.emit({
+      type: 'outreach.send.skipped',
+      entityType: 'outreach_profile',
+      entityId: s.profileId,
+      payload: { kind: s.kind },
+    });
+  return skipped.length;
+}
+
+/** The business's tags by these names, any capitals, made where they're missing (`tag.create`). Their ids. */
+export async function tagIdsFor(ctx: CommandContext, names: readonly string[]): Promise<string[]> {
+  if (!names.length) return [];
+  const ws = ctx.scope.workspaceId!;
+  const had = await ctx.tx
+    .select({ id: tags.id, name: tags.name })
+    .from(tags)
+    .where(
+      and(
+        eq(tags.workspaceId, ws),
+        // The name is citext, whose own = isn't on the search path here: compared without capitals instead.
+        sql`lower(${tags.name}::text) in (${sql.join(
+          names.map((n) => sql`${n.toLowerCase()}`),
+          sql`, `,
+        )})`,
+      ),
+    );
+  const byKey = new Map(had.map((t) => [String(t.name).toLowerCase(), t.id]));
+  const ids: string[] = [];
+  for (const name of names) {
+    const id =
+      byKey.get(name.toLowerCase()) ??
+      (await executeCommandWithin(ctx, tagCreate, { workspaceId: ws, name })).output.tagId;
+    byKey.set(name.toLowerCase(), id);
+    ids.push(id);
+  }
+  return [...new Set(ids)];
+}
 
 /** The business's Social Outreach settings, as they're read: the defaults where they aren't set. */
 export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {

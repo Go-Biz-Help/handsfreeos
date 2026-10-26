@@ -61,6 +61,7 @@ import {
   inPlay,
   inWorkspace,
   notNever,
+  openToMe,
   pitchable,
   recentOf,
   type Ctx,
@@ -137,7 +138,8 @@ export const requestFit = (playbooks: readonly FitPlaybook[], p: RequestGot): Fi
  * The requests the person got that Today lists as **Confirm their request** (decision 30): with a playbook in use,
  * from people who are pitched and fit one well, the best first, as many as Today lists of a kind; the rest of the good
  * fits on a later day. Waiting for you (./waiting.ts) lists the requests lately that aren't good fits for this, as the
- * person's to decide. A partner's is confirmed like anyone's (decision 81): saying yes to a request is no pitch.
+ * person's to decide. A partner's is confirmed like anyone's (decision 81), and so is a client's (decision 91): saying
+ * yes to a request is no pitch (`openToMe`, not `inPlay`).
  */
 export async function requestsToConfirm(
   ctx: Ctx,
@@ -156,7 +158,7 @@ export async function requestsToConfirm(
         join addon_outreach.profiles p on p.id = f.profile_id
         left join addon_outreach.groups g on g.id = p.group_id
         where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-          and f.state = 'request_received' and ${notNever('p')} and ${inPlay(me, 'p')} and ${lets}
+          and f.state = 'request_received' and ${notNever('p')} and ${openToMe(me, 'p')} and ${lets}
         order by f.since desc limit ${CANDIDATES_MOST}`,
   );
   return asked
