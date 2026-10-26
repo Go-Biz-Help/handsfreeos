@@ -5,6 +5,7 @@
  * handed to the person. It never types a password or a code, and presses Done only once Facebook allows it.
  */
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
+import { JSDOM } from 'jsdom';
 import type * as Parts from '@hfos/core/addons/outreach/profile-parts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAsk } from '../src/asks/run';
@@ -15,12 +16,15 @@ import { readPage } from '../src/networks/facebook/page';
 import { classifyUrl } from '../src/networks/facebook/urls';
 import {
   ACCOUNTS_PROFILES,
+  askingHere,
   facebookProfileOn,
+  onAccountsCenter,
   profilesPage,
   usernameAddress,
   usernamePage,
   writeUsername,
 } from '../src/networks/facebook/username';
+import { readWarnings } from '../src/networks/facebook/warnings';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import type { ReportNote } from '../src/jobs/report';
 import { boxEverything, load } from './load';
@@ -202,6 +206,14 @@ function usernamePageDoc(
     limit?: boolean;
     password?: 'before' | 'after';
     confirm?: boolean;
+    /** Facebook's box to be sure says this, and its button this; the page under it hidden from screen readers. */
+    sure?: { readonly says?: string; readonly button: string; readonly hidesPage?: boolean };
+    /** Facebook asks for a code after Done, in a box for a phone's keypad. */
+    code?: boolean;
+    /** Facebook asks how to confirm it's them first: ways to pick and Continue, no box yet. */
+    confirmFirst?: boolean;
+    /** Facebook's block over the page. */
+    blocked?: boolean;
   } = {},
 ) {
   const doc = load('accounts-center-username-2026-10.html', USERNAME_PAGE);
@@ -224,6 +236,17 @@ function usernamePageDoc(
   };
   if (more.limit) said.textContent = 'You can’t change your username right now. Try again later.';
   if (more.password === 'before') password();
+  if (more.confirmFirst)
+    dialogIn(
+      doc,
+      '<h2>Confirm it’s you</h2><label><input type="radio" name="how" /> Enter your password</label>' +
+        '<label><input type="radio" name="how" /> Get a code by email</label><div role="button">Continue</div>',
+    );
+  if (more.blocked)
+    dialogIn(
+      doc,
+      '<h2>You’re temporarily blocked</h2><span>It looks like you were going too fast. Try again later.</span><div role="button">OK</div>',
+    );
   box.addEventListener('input', () => {
     done.setAttribute('aria-disabled', 'true');
     said.textContent = '';
@@ -243,6 +266,26 @@ function usernamePageDoc(
     pressed++;
     if (done.getAttribute('aria-disabled') === 'true') return;
     if (more.password === 'after') return void password();
+    if (more.code)
+      return void dialogIn(
+        doc,
+        '<h2>Enter the code we sent</h2><input type="tel" /><div role="button">Confirm</div>',
+      );
+    if (more.sure) {
+      const { says = 'Change username?', button, hidesPage } = more.sure;
+      const main = doc.querySelector('[role="main"]')!;
+      if (hidesPage) main.setAttribute('aria-hidden', 'true');
+      const sure = dialogIn(
+        doc,
+        `<h2>${says}</h2><div role="button">Cancel</div><div role="button">${button}</div>`,
+      );
+      sure.querySelectorAll('[role="button"]')[1]!.addEventListener('click', () => {
+        sure.remove();
+        main.removeAttribute('aria-hidden');
+        save();
+      });
+      return;
+    }
     if (more.confirm) {
       const sure = dialogIn(
         doc,
@@ -378,6 +421,69 @@ describe('putting your username in', () => {
     expect(page.box.value).toBe('casey.owner.7');
   });
 
+  it('takes Facebook’s block saying “Try again later” for a warning, never a username it won’t change', async () => {
+    const page = usernamePageDoc({ blocked: true });
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote.result).toBe('warned');
+    expect(wrote.warnings).toContain('You’re temporarily blocked');
+    expect([page.box.value, page.pressed()]).toEqual(['casey.owner.7', 0]);
+  });
+
+  it('presses Facebook’s Change username even when its box says how long till the next change', async () => {
+    const page = usernamePageDoc({
+      sure: {
+        says: 'You can’t change your username again for 14 days',
+        button: 'Change username',
+      },
+    });
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote.result).toBe('done');
+    expect(wrote.steps.confirmed).toBe(true);
+    expect(page.saved()).toBe('casey.roofs');
+  });
+
+  it('never takes a box after Done it doesn’t know for saved, the page under it hidden or not', async () => {
+    for (const hidesPage of [false, true]) {
+      const page = usernamePageDoc({ sure: { button: 'Yes, change it', hidesPage } });
+      const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+      expect(wrote.result).toBe('not_saved');
+      expect(wrote.steps).toMatchObject({
+        pressed: true,
+        confirmed: false,
+        over: true,
+        saved: false,
+      });
+      // Its buttons as the outline shows them: Facebook's own words, others counted.
+      expect(wrote.steps.names).toEqual(['Cancel', '[3 words]']);
+      expect(page.saved()).toBeNull();
+    }
+  });
+
+  it('waits for the person when Facebook asks for a code after Done, in a box for a phone’s keypad, pressing nothing', async () => {
+    const page = usernamePageDoc({ code: true });
+    let pressed = 0;
+    page.doc.addEventListener(
+      'click',
+      (e) => {
+        if ((e.target as Element).textContent === 'Confirm') pressed++;
+      },
+      true,
+    );
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote.result).toBe('waiting');
+    expect(wrote.steps).toMatchObject({ asking: 'code', pressed: true, confirmed: false });
+    expect(pressed).toBe(0);
+    expect(page.doc.querySelector<HTMLInputElement>('input[type="tel"]')!.value).toBe('');
+  });
+
+  it('waits for the person when Facebook asks how to confirm it’s them, before any box, never a warning', async () => {
+    const page = usernamePageDoc({ confirmFirst: true });
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote.result).toBe('waiting');
+    expect(wrote.steps).toMatchObject({ asking: 'confirm', typed: false, pressed: false });
+    expect(page.box.value).toBe('casey.owner.7');
+  });
+
   it('never reads Facebook’s “Confirm it’s you” over a password box as a warning', async () => {
     const page = usernamePageDoc();
     dialogIn(
@@ -396,7 +502,15 @@ interface Plan {
   readonly taken?: boolean;
   /** Facebook says nothing of the username typed, and keeps Done off. */
   readonly silent?: boolean;
-  readonly password?: 'after';
+  readonly password?: 'before' | 'after';
+  /** A box after Done it doesn't know. */
+  readonly sure?: { readonly button: string };
+  /** Facebook's block over the username page. */
+  readonly blocked?: boolean;
+  /** Accounts Center's Profiles asks for the password first, till the person types it. */
+  readonly profilesPassword?: boolean;
+  /** /me keeps showing the bio and links it had, whatever was saved. */
+  readonly stale?: boolean;
   /** A Facebook warning on the About tab's editor. */
   readonly warnedOnEditor?: boolean;
   /** No Edit by Bio on the editor. */
@@ -414,6 +528,7 @@ function fakeTab(plan: Plan = {}) {
   const asked: string[] = [];
   let usernamePage_: ReturnType<typeof usernamePageDoc> | null = null;
 
+  let profilesAsked = plan.profilesPassword ?? false;
   const show = (url: string) => {
     // What Facebook saved since the last page was drawn.
     username = usernamePage_?.saved() ?? username;
@@ -423,8 +538,8 @@ function fakeTab(plan: Plan = {}) {
       const line = [...doc.querySelectorAll('span[dir="auto"]')].find((s) =>
         clean(s.textContent).startsWith('Dad, golfer'),
       );
-      if (line) line.textContent = bio;
-      for (const link of added) {
+      if (line && !plan.stale) line.textContent = bio;
+      for (const link of plan.stale ? [] : added) {
         const list = doc.querySelectorAll('[role="list"]')[2];
         list?.insertAdjacentHTML(
           'beforeend',
@@ -472,11 +587,18 @@ function fakeTab(plan: Plan = {}) {
         taken: plan.taken,
         silent: plan.silent,
         password: plan.password,
+        sure: plan.sure,
+        blocked: plan.blocked,
       });
       doc = usernamePage_.doc;
     } else if (url === ACCOUNTS_PROFILES) {
       at = url;
       doc = load('accounts-center-profiles-2026-10.html', at);
+      if (profilesAsked)
+        dialogIn(
+          doc,
+          '<h2>Re-enter your password</h2><input type="password" aria-label="Password" /><div role="button">Continue</div>',
+        );
     } else throw new Error(`Not expected: ${url}`);
   };
 
@@ -518,17 +640,25 @@ function fakeTab(plan: Plan = {}) {
             ? { ok: true, ...(await writeLink(page, message.link as string)) }
             : { ok: false, error: 'Facebook didn’t open where your links are changed.' };
         case 'hfos-write-username': {
-          if (!usernamePage(at))
+          if (!usernamePage(at) || message.profile !== '100001234')
             return { ok: false, error: 'Facebook didn’t open Accounts Center’s username page.' };
           const wrote = await writeUsername(page, message.username as string);
           const name = usernamePage_?.saved();
           if (name) username = name;
           return { ok: true, ...wrote };
         }
-        case 'hfos-username-page':
-          return profilesPage(at)
-            ? { ok: true, url: facebookProfileOn(page), warnings: [], asking: null }
-            : { ok: false, error: 'Facebook didn’t open Accounts Center’s Profiles.' };
+        case 'hfos-username-page': {
+          if (!profilesPage(at))
+            return { ok: false, error: 'Facebook didn’t open Accounts Center’s Profiles.' };
+          const asking = askingHere(page);
+          return asking
+            ? { ok: true, url: null, warnings: [], asking }
+            : { ok: true, url: facebookProfileOn(page), warnings: readWarnings(page, at), asking };
+        }
+        case 'hfos-account-warnings': {
+          const asking = onAccountsCenter(at) ? askingHere(page) : null;
+          return { ok: true, asking, warnings: asking ? [] : readWarnings(page, at) };
+        }
         default:
           return { ok: false, error: `Not expected: ${message.type}` };
       }
@@ -540,6 +670,18 @@ function fakeTab(plan: Plan = {}) {
     asked,
     now: () => ({ username, bio, added: [...added] }),
     passwordPage: () => usernamePage_,
+    /** Facebook sends the tab to one of its checkpoints. */
+    checkpoint: () => {
+      at = `${FB}/checkpoint/`;
+      doc = new JSDOM('<!doctype html><html><body><div role="main"></div></body></html>', {
+        url: at,
+      }).window.document;
+    },
+    /** The person typed their password on Profiles: it shows its profiles now. */
+    profilesAnswered: () => {
+      profilesAsked = false;
+      doc?.querySelector('input[type="password"]')?.closest('[role="dialog"]')?.remove();
+    },
   };
 }
 
@@ -604,7 +746,7 @@ describe('Put these in, on Facebook', () => {
     expect(passwordPage()!.pressed()).toBe(0);
     expect(now().username).toBe('casey.owner.7');
     expect(end).toEqual({
-      line: 'Your bio and links are in. Facebook says “This username isn’t available. Try another.”, so your username stays as it was. Pick another under Username in Get ready, then put it in again.',
+      line: 'Your bio and links are in. Facebook says “This username isn’t available. Try another.”, so your username stays as it was. Pick another under Username: in Social Outreach, go to Settings → Facebook and press Check your profile. Then press Put these in again.',
       warned: false,
       failed: true,
     });
@@ -633,16 +775,106 @@ describe('Put these in, on Facebook', () => {
     expect(end).toEqual({ line: 'Your username is in.', warned: false });
   });
 
-  it('says so when Facebook hasn’t shown the new username on the profile after', async () => {
+  it('never says the username is in when Facebook hasn’t shown it on the profile after', async () => {
+    // The person pressed Carry on without typing the password: nothing saved.
     const { end } = await putIn(
       { bio: null, name: null, links: [] },
       { password: 'after' },
       () => 'carry_on',
     );
     expect(end).toEqual({
-      line: 'Your username is in. Facebook hasn’t shown your new username on your profile yet. Check it in Accounts Center: press Profiles, then your Facebook profile.',
+      line: 'Facebook hasn’t shown your new username on your profile yet. Check it in Accounts Center: press Profiles, then your Facebook profile, then Username, and put “casey.roofs” in if it isn’t there.',
+      warned: false,
+      failed: true,
+    });
+  });
+
+  it('says only what shows on the profile after is in, and where to check the rest', async () => {
+    const { end } = await putIn({ name: null }, { stale: true });
+    expect(end).toEqual({
+      line: `Your username is in. Facebook hasn’t shown your new bio on your profile yet. Check it there, and if it isn’t, press Edit bio (or Edit profile, then Bio), write “${TASK.bio}”, and press Save. Facebook hasn’t shown your new link on your profile yet. Check your About tab under Contact and basic info, and if it isn’t there, press Add a website, paste “${CAL}”, and press Save.`,
       warned: false,
     });
+  });
+
+  it('stops for the day on a Facebook block over the username page', async () => {
+    const { end, warned, passwordPage } = await putIn(
+      { bio: null, name: null, links: [] },
+      { blocked: true },
+    );
+    expect(warned).toEqual([
+      ['You’re temporarily blocked', 'It looks like you were going too fast. Try again later.'],
+    ]);
+    expect(end).toMatchObject({ warned: true });
+    expect(passwordPage()!.pressed()).toBe(0);
+  });
+
+  it('hands over a box Facebook opened after Done that it doesn’t know, never saying the username is in', async () => {
+    const { said, end } = await putIn(
+      { bio: null, name: null, links: [] },
+      { sure: { button: 'Yes, change it' } },
+    );
+    expect(said.map((s) => s.says)).toEqual([
+      'Facebook opened a box after Done. In the Facebook window, press its button to change your username to “casey.roofs”, then press Carry on.',
+    ]);
+    expect(said[0]!.note).toMatchObject({
+      job: 'profile_edit.username',
+      found: { pressed: true, over: true, saved: false },
+    });
+    expect(end).toMatchObject({ failed: true });
+    expect(end.line).not.toContain('Your username is in');
+  });
+
+  it('ends saying so when Facebook keeps asking for the password, never typing it', async () => {
+    const { said, end, passwordPage } = await putIn(
+      { bio: null, name: null, links: [] },
+      { password: 'before' },
+    );
+    expect(said.map((s) => s.says)).toEqual(
+      Array(3).fill(
+        'Facebook wants your password to change your username. Type it in the Facebook window and press Continue there, then press Carry on.',
+      ),
+    );
+    expect(passwordPage()!.passwordBox()!.value).toBe('');
+    expect(end).toEqual({
+      line: 'Facebook kept asking for your password, so your username stays as it was. Change it in Accounts Center (press Profiles, then your Facebook profile, then Username), or press Put these in again.',
+      warned: false,
+      failed: true,
+    });
+  });
+
+  it('stops for the day when Facebook sends the tab to a checkpoint after the person carried on', async () => {
+    const { said, warned, end } = await putIn(
+      { bio: null, name: null, links: [] },
+      { password: 'before' },
+      (_says, tab) => {
+        tab.checkpoint();
+        return 'carry_on';
+      },
+    );
+    expect(said).toHaveLength(1);
+    expect(warned).toEqual([['Facebook is asking you to check your account before you go on.']]);
+    expect(end).toMatchObject({ warned: true });
+  });
+
+  it('waits for the password on Accounts Center’s Profiles, then finds the Facebook profile there', async () => {
+    const { said, opened, end } = await putIn(
+      { bio: null, name: null, links: [] },
+      { own: 'own-profile.html', profilesPassword: true },
+      (_says, tab) => {
+        tab.profilesAnswered();
+        return 'carry_on';
+      },
+    );
+    expect(said.map((s) => s.says)).toEqual([
+      'Facebook wants your password to change your username. Type it in the Facebook window and press Continue there, then press Carry on.',
+    ]);
+    expect(said[0]!.note).toMatchObject({
+      job: 'profile_edit.username',
+      note: 'Facebook asked for the password on Accounts Center’s Profiles.',
+    });
+    expect(opened).toEqual([`${FB}/me`, ACCOUNTS_PROFILES, USERNAME_PAGE, `${FB}/me`]);
+    expect(end).toEqual({ line: 'Your username is in.', warned: false });
   });
 
   it('hands the username over on its page when Facebook keeps Done off, its note saying which step', async () => {

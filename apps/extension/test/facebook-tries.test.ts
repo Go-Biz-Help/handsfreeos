@@ -155,8 +155,9 @@ describe('trying the bio in October 2026’s layout', () => {
     const row = doc.getElementById('bio-row')!;
     let save: HTMLElement | null = null;
     doc.getElementById('bio-edit')!.addEventListener('click', () => {
+      // Facebook's box holds the bio the row shows.
       const box = doc.createElement('textarea');
-      box.value = 'Dad, golfer, coffee.';
+      box.value = (doc.getElementById('bio-shown')!.textContent ?? '').replace(/\s+/g, ' ').trim();
       save = buttonOf(doc, 'Save');
       const parts: HTMLElement[] = [box, save];
       parts.push(buttonOf(doc, 'Cancel', () => parts.forEach((p) => p.remove())));
@@ -196,6 +197,50 @@ describe('trying the bio in October 2026’s layout', () => {
       expect(saves).toBe(0);
       expect(doc.querySelector('textarea')).toBeNull();
     }
+  });
+
+  it('never presses another row’s Edit when the Bio row has none and the titles are plain words', async () => {
+    vi.useFakeTimers();
+    const doc = load('own-profile-about-editor-2026-10.html', EDITOR);
+    for (const heading of [...doc.querySelectorAll('h3')]) {
+      const words = doc.createElement('span');
+      words.innerHTML = heading.innerHTML;
+      heading.replaceWith(words);
+    }
+    doc.getElementById('bio-edit')!.remove();
+    const work = doc.querySelector<HTMLElement>('#work-row [role="button"]')!;
+    const pressed = never(work);
+    work.addEventListener('click', () => {
+      const box = doc.createElement('input');
+      box.setAttribute('aria-label', 'Company');
+      doc.getElementById('work-row')!.append(box, buttonOf(doc, 'Save'), buttonOf(doc, 'Cancel'));
+    });
+    const tried = await quickly(tryBio(doc));
+    expect(tried).toMatchObject({ works: false, found: { button: false } });
+    expect(pressed()).toBe(0);
+    expect(doc.querySelector('input[aria-label="Company"]')).toBeNull();
+  });
+
+  it('writes nothing in a box the bio’s Edit opened that isn’t the bio’s, and closes it', async () => {
+    vi.useFakeTimers();
+    const doc = load('own-profile-about-editor-2026-10.html', EDITOR);
+    let saves = 0;
+    doc.getElementById('bio-edit')!.addEventListener('click', () => {
+      const box = doc.createElement('input');
+      box.setAttribute('aria-label', 'Company');
+      box.value = 'Summit Roof Leads';
+      const parts: HTMLElement[] = [box, buttonOf(doc, 'Save', () => saves++)];
+      parts.push(buttonOf(doc, 'Cancel', () => parts.forEach((p) => p.remove())));
+      doc.getElementById('bio-row')!.append(...parts);
+    });
+    const tried = await quickly(tryBio(doc));
+    expect(tried).toMatchObject({
+      works: false,
+      found: { button: true, box: true, fits: false, typed: false, closed: true },
+      missing: ['the box the bio’s Edit opened isn’t the bio’s, so nothing was written in it'],
+    });
+    expect(saves).toBe(0);
+    expect(doc.querySelector('input[aria-label="Company"]')).toBeNull();
   });
 });
 
@@ -295,6 +340,41 @@ describe('trying the username', () => {
     expect(tried.outline).toContain('Re-enter your password');
     expect(box.value).toBe('casey.owner.7');
     expect(done()).toBe(0);
+  });
+
+  it('takes Facebook’s “Confirm it’s you” with ways to pick as asking the person, never a warning, drawn a moment after', async () => {
+    vi.useFakeTimers();
+    const { doc, box, done } = usernamePage();
+    doc.getElementById('u1')!.closest('form')!.remove();
+    setTimeout(() => {
+      const ask = doc.createElement('div');
+      ask.setAttribute('role', 'dialog');
+      ask.innerHTML =
+        '<h2>Confirm it’s you</h2><label><input type="radio" name="how" /> Enter your password</label>' +
+        '<label><input type="radio" name="how" /> Get a code by email</label><div role="button">Continue</div>';
+      doc.body.append(ask);
+    }, 1_000);
+    const tried = await quickly(tryUsername(doc));
+    expect(tried).toMatchObject({
+      tried: false,
+      found: { confirm: true },
+      missing: ['Facebook asks you to confirm it’s you first, so the Username box doesn’t show'],
+    });
+    expect(box.value).toBe('casey.owner.7');
+    expect(done()).toBe(0);
+  });
+
+  it('says so when Facebook shows a warning on the page, nothing written', async () => {
+    vi.useFakeTimers();
+    const { doc, box } = usernamePage();
+    const warning = doc.createElement('div');
+    warning.setAttribute('role', 'dialog');
+    warning.innerHTML =
+      '<h2>You’re temporarily blocked</h2><span>It looks like you were going too fast. Try again later.</span>';
+    doc.body.append(warning);
+    const tried = await quickly(tryUsername(doc));
+    expect(tried).toMatchObject({ tried: false, found: { warning: true } });
+    expect(box.value).toBe('casey.owner.7');
   });
 });
 

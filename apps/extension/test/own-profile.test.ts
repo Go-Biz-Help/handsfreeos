@@ -135,6 +135,20 @@ describe('where your own profile is changed', () => {
       });
   });
 
+  it('without their labels, goes only by links to this same profile, never someone else’s', () => {
+    const doc = load('own-profile-2026-10.html', URL);
+    const editLinks = doc.querySelector('[aria-label="Edit links"]')!;
+    editLinks.removeAttribute('aria-label');
+    editLinks.setAttribute('href', '/jane.doe.5/about_contact');
+    doc.querySelector('[aria-label="Edit profile"]')!.removeAttribute('aria-label');
+    expect(ownEditorsOf(doc, URL)).toMatchObject({
+      // Edit profile's link still carries Facebook's mark for editing your own profile.
+      about:
+        'https://www.facebook.com/profile.php?fb_profile_edit_entry_point=7&id=100001234&sk=about',
+      links: 'https://www.facebook.com/casey.owner.7/about_contact',
+    });
+  });
+
   it('goes by the address on the older layout, which has neither link', () => {
     expect(ownEditorsOf(load('own-profile.html', URL), URL)).toEqual({
       about: null,
@@ -281,5 +295,107 @@ describe('putting your bio in on the About tab’s editor (October 2026)', () =>
     expect(result).toBe('none');
     expect(steps.control).toBe(true);
     expect(pressed).toBe(0);
+  });
+
+  /**
+   * The editor with its rows titled by plain words rather than headings, as Facebook may draw them: Work's Edit opens
+   * a Company box with Save and Cancel, and Save puts what's in it under Work.
+   */
+  function plainTitles(doc: Document) {
+    for (const heading of [...doc.querySelectorAll('h3')]) {
+      const words = doc.createElement('span');
+      words.setAttribute('dir', 'auto');
+      words.innerHTML = heading.innerHTML;
+      heading.replaceWith(words);
+    }
+    const row = doc.getElementById('work-row')!;
+    const work = row.querySelector<HTMLElement>('[role="button"]')!;
+    const shownWork = row.querySelector('span[dir="auto"]:not(:has(span))') ?? row.children[1]!;
+    let opened = 0;
+    let saves = 0;
+    work.addEventListener('click', () => {
+      opened++;
+      const box = doc.createElement('input');
+      box.setAttribute('aria-label', 'Company');
+      box.value = 'Summit Roof Leads';
+      const [save, cancel] = ['Save', 'Cancel'].map((label) => {
+        const button = doc.createElement('div');
+        button.setAttribute('role', 'button');
+        button.textContent = label;
+        return button;
+      });
+      save!.addEventListener('click', () => {
+        saves++;
+        shownWork.textContent = box.value;
+        for (const part of [box, save!, cancel!]) part.remove();
+      });
+      cancel!.addEventListener('click', () => {
+        for (const part of [box, save!, cancel!]) part.remove();
+      });
+      row.append(box, save!, cancel!);
+    });
+    return { opened: () => opened, saves: () => saves, work: () => clean(row.textContent) };
+  }
+
+  it('never presses another row’s Edit when the Bio row has none and the titles are plain words', async () => {
+    vi.useFakeTimers();
+    for (const boxed of [false, true]) {
+      const doc = editor({ boxed });
+      const work = plainTitles(doc);
+      doc.getElementById('bio-edit')!.remove();
+      expect(bioControl(doc)).toBeNull();
+      const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+      expect(result).toBe('none');
+      expect(steps.control).toBe(false);
+      expect([work.opened(), work.saves()]).toEqual([0, 0]);
+      expect(work.work()).toContain('Owner at Summit Roof Leads');
+    }
+  });
+
+  it('still finds the Bio row’s own Edit with plain-word titles', async () => {
+    vi.useFakeTimers();
+    const doc = editor();
+    const work = plainTitles(doc);
+    expect(bioControl(doc)?.id).toBe('bio-edit');
+    expect(await quickly(writeBio(doc, NEW_BIO))).toBe('done');
+    expect(work.opened()).toBe(0);
+  });
+
+  it('closes a box that isn’t the bio’s, writing nothing in it', async () => {
+    vi.useFakeTimers();
+    const doc = editor();
+    const work = plainTitles(doc);
+    // The Edit by Bio opens Work's box, as a page drawn some other way might.
+    const edit = doc.getElementById('bio-edit')!;
+    edit.replaceWith(edit.cloneNode(true));
+    doc
+      .getElementById('bio-edit')!
+      .addEventListener('click', () =>
+        doc.querySelector<HTMLElement>('#work-row [role="button"]')!.click(),
+      );
+    const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+    expect(result).toBe('none');
+    expect(steps).toMatchObject({ control: true, boxes: 1, fits: false, typed: false });
+    expect(work.saves()).toBe(0);
+    expect(doc.querySelector('input[aria-label="Company"]')).toBeNull();
+    expect(work.work()).toContain('Owner at Summit Roof Leads');
+  });
+
+  it('says it didn’t save when the bio shows anywhere but under Bio', async () => {
+    vi.useFakeTimers();
+    const doc = editor({ saves: false });
+    // Save closes the box and puts the bio under Work: not the bio's place.
+    doc.getElementById('bio-edit')!.addEventListener('click', () => {
+      const save = [...doc.querySelectorAll<HTMLElement>('#bio-row [role="button"]')].find(
+        (b) => b.textContent === 'Save',
+      )!;
+      save.addEventListener('click', () => {
+        doc.getElementById('work-row')!.insertAdjacentHTML('beforeend', `<span>${NEW_BIO}</span>`);
+        doc.querySelector('#bio-row textarea')?.remove();
+      });
+    });
+    const { result, steps } = await quickly(writeBioSteps(doc, NEW_BIO));
+    expect(result).toBe('not_saved');
+    expect(steps).toMatchObject({ typed: true, saves: 1, saved: false });
   });
 });

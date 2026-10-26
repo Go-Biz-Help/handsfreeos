@@ -10,7 +10,8 @@ import { runAsk } from '../src/asks/run';
 import { DOWNLOAD_PAGE } from '../src/networks/facebook/fetch';
 import { outlinePage } from '../src/networks/facebook/outline';
 import { ownEditorsOf, readOwnProfile } from '../src/networks/facebook/own-profile';
-import { ACCOUNTS_PROFILES } from '../src/networks/facebook/username';
+import { ACCOUNTS_PROFILES, askingHere, onAccountsCenter } from '../src/networks/facebook/username';
+import { readWarnings } from '../src/networks/facebook/warnings';
 import { readPage } from '../src/networks/facebook/page';
 import { classifyUrl } from '../src/networks/facebook/urls';
 import type { StepTry, TryStep } from '../src/networks/tries';
@@ -79,10 +80,7 @@ function facebookPage(
  * A Facebook tab that opens the pages above by address. View sent requests shows the requests sent; each try answers
  * as planned (each of a step's tries in turn), or works.
  */
-function fakeTab(
-  tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {},
-  more: { readonly passwordOnUsername?: boolean } = {},
-) {
+function fakeTab(tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {}, more: Asked = {}) {
   let doc: Document | null = null;
   let reading = '';
   let sent = false;
@@ -99,12 +97,20 @@ function fakeTab(
       reading = page.at;
       doc = load(page.fixture, page.at);
     }
-    // Facebook asks for the password before its username page, with its own "Confirm it's you".
-    if (url === USERNAME_PAGE && more.passwordOnUsername && doc) {
+    // Facebook asks for the password before its username page, with its own "Confirm it's you"; or first asks how.
+    if (url === USERNAME_PAGE && (more.passwordOnUsername || more.confirmOnUsername) && doc) {
+      const ask = doc.createElement('div');
+      ask.setAttribute('role', 'dialog');
+      ask.innerHTML = more.passwordOnUsername
+        ? '<h2>Confirm it’s you</h2><input type="password" /><div role="button">Continue</div>'
+        : '<h2>Confirm it’s you</h2><label><input type="radio" name="how" /> Enter your password</label><div role="button">Continue</div>';
+      doc.body.append(ask);
+    }
+    if (url === USERNAME_PAGE && more.blockedOnUsername && doc) {
       const ask = doc.createElement('div');
       ask.setAttribute('role', 'dialog');
       ask.innerHTML =
-        '<h2>Confirm it’s you</h2><input type="password" /><div role="button">Continue</div>';
+        '<h2>You’re temporarily blocked</h2><span>It looks like you were going too fast. Try again later.</span>';
       doc.body.append(ask);
     }
   };
@@ -138,6 +144,10 @@ function fakeTab(
           return { ok: true, read: readOwnProfile(doc, reading, classifyUrl(reading)) };
         case 'hfos-own-editors':
           return { ok: true, editors: ownEditorsOf(doc, reading) };
+        case 'hfos-account-warnings': {
+          const asking = onAccountsCenter(reading) ? askingHere(doc) : null;
+          return { ok: true, asking, warnings: asking ? [] : readWarnings(doc, reading) };
+        }
         case 'hfos-fetch-step':
           // View sent requests, on the requests page: the ones sent show.
           sent = true;
@@ -158,9 +168,16 @@ function fakeTab(
   return { tab, opened, asked, tried, order };
 }
 
+/** What Facebook shows over its username page: its password box, its ways to confirm it's you, or a warning. */
+interface Asked {
+  readonly passwordOnUsername?: boolean;
+  readonly confirmOnUsername?: boolean;
+  readonly blockedOnUsername?: boolean;
+}
+
 async function checkWith(
   tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {},
-  more: { readonly passwordOnUsername?: boolean } = {},
+  more: Asked = {},
 ) {
   const { tab, opened, asked, tried, order } = fakeTab(tries, more);
   const notes: ReportNote[] = [];
@@ -187,7 +204,14 @@ describe('Check Facebook', () => {
     expect(order).toEqual(['in front', 'back']);
     // The job only reads, and presses View sent requests as Check your friend requests does; the tab tries.
     expect(new Set(asked)).toEqual(
-      new Set(['hfos-read', 'hfos-own-profile', 'hfos-own-editors', 'hfos-try', 'hfos-fetch-step']),
+      new Set([
+        'hfos-read',
+        'hfos-own-profile',
+        'hfos-own-editors',
+        'hfos-try',
+        'hfos-fetch-step',
+        'hfos-account-warnings',
+      ]),
     );
     expect(tried.map(([step]) => step)).toEqual([
       'bio',
@@ -322,6 +346,35 @@ describe('Check Facebook', () => {
     expect(tried.map(([step]) => step)).toContain('file');
     expect(end.warned).toBe(false);
     expect(end.line).toContain('Nothing to try on: your username.');
+  });
+
+  it('reads no warning there while Facebook asks how to confirm it’s you, before any box', async () => {
+    const { end, warned, tried } = await checkWith(
+      {
+        username: {
+          step: 'username',
+          tried: false,
+          works: false,
+          found: { confirm: true },
+          missing: [
+            'Facebook asks you to confirm it’s you first, so the Username box doesn’t show',
+          ],
+        },
+      },
+      { confirmOnUsername: true },
+    );
+    expect(warned).toEqual([]);
+    expect(tried.map(([step]) => step)).toContain('file');
+    expect(end.warned).toBe(false);
+  });
+
+  it('stops on a Facebook warning on the username page', async () => {
+    const { end, warned, tried } = await checkWith({}, { blockedOnUsername: true });
+    expect(warned).toEqual([
+      ['You’re temporarily blocked', 'It looks like you were going too fast. Try again later.'],
+    ]);
+    expect(tried.map(([step]) => step)).not.toContain('file');
+    expect(end.warned).toBe(true);
   });
 
   it('tries a friend request on the next person from the search when the first is a friend', async () => {

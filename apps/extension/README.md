@@ -193,23 +193,26 @@ From 0.93.0 (the owner, 26 Oct 2026, docs/outreach.md decision 89) **Put these i
 and links in itself, where it handed them to you (`src/jobs/profile.ts`):
 
 - **The bio,** with no **Edit bio** on October 2026's profile: it follows **Edit profile**'s link to the About tab's
-  editor, presses the bio's own **Edit** there (found by Facebook's words: Edit bio, Add bio, or the Edit by Bio),
-  writes your bio in the box that opens, presses its **Save** and checks it shows. A profile with Edit bio has it
-  pressed, as before.
+  editor, presses the bio's own **Edit** there (found by Facebook's words: Edit bio, Add bio, or the Bio row's own
+  Edit, never another row's), writes your bio in the box that opens once it's the bio's, presses its **Save** and
+  checks it shows under Bio. A profile with Edit bio has it pressed, as before.
 - **The links,** on Contact and basic info (the Links card's **Edit links**): for each one that isn't there yet, it
   presses Facebook's add for a website, types the address, presses **Save** and checks it shows. It only adds: a link
   that's there stays.
 - **The username,** on Accounts Center's username page for your Facebook profile: it clears **Username**, types the
-  new one you picked, and presses **Done** only once Facebook allows it, then reads your profile again for its new
-  address. A password or code box makes it wait for you: type it there and press Continue, then press Carry on in
-  HandsFreeOS. It never types a password or a code. When Facebook says the username isn't available or can't change
-  yet, the ask ends saying so, and what to do.
+  new one you picked, and presses **Done** only once Facebook allows it (and Facebook's **Change username** after, if
+  it asks to be sure), then reads your profile again for its new address. A password or code box, or Facebook's
+  "Confirm it's you", makes it wait for you: answer it there and press Continue, then press Carry on in HandsFreeOS.
+  It never types a password or a code. When Facebook says the username isn't available or can't change yet, the ask
+  ends saying so, and what to do.
 - **Anything it can't find** is handed to you, saying where to press on the page it's on, and its problem report
-  carries that page's outline. Each stops on a Facebook warning.
+  carries that page's outline. Each stops on a Facebook warning. The ask ends saying a part is in only when your
+  profile shows it after; one that doesn't show yet is named, with where to check it.
 - **Check Facebook tries each** up to its last press, which it never presses: the bio on the About tab's editor, the
   add for a link and its box, and the Username box and Done, with a word typed and yours put back.
-- Your name stays yours to put in, in Accounts Center, and Instagram is as before. An older build hands the bio,
-  username and links to you as before, and HandsFreeOS says so beside each for its computer.
+- Your name stays yours to put in, in Accounts Center, and Instagram is as before. An older build hands the username
+  and links to you as before (and the bio where there's no Edit bio), and HandsFreeOS marks its username and links
+  **You put it in** for that computer.
 
 From 0.92.0 (the owner, 24 Oct 2026, docs/outreach.md decision 86) where someone lives is read right:
 
@@ -566,7 +569,7 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 | **Read my chats** (Chats)                                                                  | Opens your chats in Messenger one at a time from the list and scrolls it for more, skipping any read in the last day that hasn't changed; group chats are left out (`src/jobs/chats.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | The same, 7 to 14 seconds a chat, up to 150                                                           |
 | **Draft a message**, **Draft a comment** (Today, while it's online)                        | Opens their profile, reads their intro and latest posts and the business page their intro links to, then has the AI draft with those lines; the drafts come back on the ask (`src/jobs/lookup.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | A window of its own, closed after                                                                     |
 | **Read my profile** (Today, Get ready)                                                     | Opens facebook.com/me, checks it's your own (**Edit profile**), reads the picture's and the cover's descriptions, the bio, the intro, what's featured and the latest posts, and sends them for the AI's check; HandsFreeOS keeps only the AI's answer (`src/jobs/profile.ts`, `src/networks/facebook/own-profile.ts`, decision 64)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | A window of its own, one read                                                                         |
-| **Put this one in**, **Put these in** (Today, Get ready, a bio the AI wrote)               | Presses **Edit bio** (or **Add bio**), or else follows **Edit profile** to the About tab's editor and presses the bio's own **Edit** (0.93.0); writes the bio you picked in place of the old one, presses **Save** and waits for it to show. For **Put these in** it also adds each new link on Contact and basic info (**Edit links**), puts the username you picked in Accounts Center's **Username** and presses **Done** once Facebook allows it, and opens Accounts Center for your name and hands that to you (0.93.0); then it reads the profile again. Any step it can't find it hands to you                                                                                                                                                                                                                                                                                                                                  | A window of its own, brought to the front when it hands you a step or Facebook asks for your password |
+| **Put this one in**, **Put these in** (Today, Get ready, a bio the AI wrote)               | Presses **Edit bio** (or **Add bio**), or else follows **Edit profile** to the About tab's editor and presses the bio's own **Edit** (0.93.0); writes the bio you picked in place of the old one, presses **Save** and waits for it to show. For **Put these in** it also adds each new link on Contact and basic info (**Edit links**), puts the username you picked in Accounts Center's **Username** and presses **Done** once Facebook allows it (and its **Change username** if it asks to be sure), and opens Accounts Center for your name and hands that to you (0.93.0); then it reads the profile again, and says a part is in only once it shows there. Any step it can't find it hands to you                                                                                                                                                                                                                              | A window of its own, brought to the front when it hands you a step or Facebook asks for your password |
 | **Check Facebook** (Settings, Facebook; 0.57.0)                                            | Opens your profile (and, from 0.93.0, its About tab's editor and Contact and basic info), feed, friend requests (and, after **View sent requests**, the ones you've sent), friends, groups and one of them, a people search, a groups search, your chats, one friend's profile, the profile of someone you sent a request to, your notifications, Download your information and (0.93.0) Accounts Center's username page, one at a time, and sends a problem report of each with its outline. On the way it tries each step up to its last press, which it never presses: your bio, your links (0.93.0), confirming a request, a post in a group, a comment, a friend request, joining a group, a like, unfriending, a message, cancelling a request, your username (0.93.0) and your file; a report of each says what works, and a last one names what doesn't (`src/jobs/checkup.ts`, `src/networks/facebook/tries.ts`, decision 77) | A window of its own, in front for about four minutes                                                  |
 
 - **A line per network** (the plan's "One runner, one turn"). Each network takes its own asks (`outreach.ask.take`
@@ -1112,10 +1115,25 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   PIN box on the page makes it wait for the person. Each step lists the words it may go by, the likeliest first, and
   one it can't find is handed to the person rather than guessed. `test/fetch.test.ts` walks a made-up Accounts Center,
   and again with bare boxes. The one other page of Accounts Center it acts on is the username page for your Facebook
-  profile (0.93.0, decision 89), only for a **Put these in** you pressed: it types only into **Username**, only the
-  new username you picked, and presses **Done** only once Facebook allows it. Check Facebook types a word there and
-  puts yours back, and never presses Done. It never types a password or a code: a password, PIN or code box makes it
-  wait for you, and Facebook asking for one isn't taken for a warning.
+  profile (0.93.0, decision 89), only for a **Put these in** you pressed, and only the one with your Facebook
+  profile's number in its address, never Instagram's (`usernamePageOf`): it types only into **Username**, only the
+  new username you picked, and presses **Done** only once Facebook allows it. After Done it presses Facebook's
+  **Change username** or **Confirm** once, only in the box on top and only when that box has nowhere to type; any
+  other box Facebook opens it leaves to you. Check Facebook types a word there and puts yours back, and never presses
+  Done. It never types a password or a code: a password, PIN or code box, or Facebook's "Confirm it's you" with ways
+  to pick, makes it wait for you (`askingHere`), and Facebook asking for one isn't taken for a warning there.
+  `test/facebook-profile-edit.test.ts` walks a made-up username page.
+- **Pressing on your own profile only for Put these in** (0.93.0, decision 89). Only on your own profile (one with
+  **Edit profile**), only for a **Put these in** you pressed. On the About tab's editor: **Edit bio** or **Add bio**,
+  else the Bio row's own **Edit** (or **Add**), found by its title "Bio" with at most one line of words between them,
+  never one past another row's words (`bioRow`, `rowControl`); it writes only in the one box that opens, once it's
+  the bio's by its name or the bio it holds (`bioBoxFits`; else that box's **Cancel** closes it), and presses only
+  that box's own **Save** (`writeBioSteps`). On Contact and basic info: **Add a website** (or Add a link, `ADD_LINK`),
+  the address in the one box it opens, and that box's own **Save** (`writeLink`). It never presses **Add a social
+  link**, and never removes or changes a link that's there. Check Facebook opens the same boxes, writes a word and
+  takes it out, and closes them with their **Cancel**, never Save. Anything not as expected is handed to you.
+  `test/own-profile.test.ts` and `test/facebook-profile-edit.test.ts` walk each on made-up pages, and with bare
+  boxes.
 - **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/networks/facebook/tidy.ts`) press only
   on a profile (`tidyPage`) the person ticked on the Friends tab, and only those still on its lists, after checking
   it's them (`sameProfile`) and where things

@@ -238,11 +238,7 @@ export type AccountWarningsAnswer =
 
 /** Put these in's own asks on Facebook (decision 89), and what each is answered. */
 export type ProfileEditAsk =
-  | OwnEditorsAsk
-  | WriteLinkAsk
-  | WriteUsernameAsk
-  | UsernamePageAsk
-  | AccountWarningsAsk;
+  OwnEditorsAsk | WriteLinkAsk | WriteUsernameAsk | UsernamePageAsk | AccountWarningsAsk;
 export interface ProfileEditAnswers {
   readonly 'hfos-own-editors': OwnEditorsAnswer;
   readonly 'hfos-write-link': WriteLinkAnswer;

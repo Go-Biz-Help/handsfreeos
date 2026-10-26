@@ -501,7 +501,9 @@ async function tryUsername(
   await c.openUnread(url, 'where your username is changed');
   await c.tryHere(
     'username',
-    number ? { id: number, username: null, url: `${FACEBOOK}/profile.php?id=${number}` } : undefined,
+    number
+      ? { id: number, username: null, url: `${FACEBOOK}/profile.php?id=${number}` }
+      : undefined,
   );
   return warnedThere(url);
 }

@@ -156,8 +156,7 @@ export function linesBetween(
 ): string[] {
   return textLinesWhere(
     place,
-    (text) =>
-      between(text, from, to) && text.parentElement !== null && visible(text.parentElement),
+    (text) => between(text, from, to) && text.parentElement !== null && visible(text.parentElement),
     most,
     NOT_WORDS,
   );

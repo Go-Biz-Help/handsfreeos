@@ -12,13 +12,17 @@
  *   again for a new check, and for the new username in its address (decision 89).
  * - **A step it can't find is handed over**, saying where to press on the page it's on (**Carry on** once it's in),
  *   with a note of that page (decision 74): only that step, never what went in by itself. A password or code Facebook
- *   asks for is theirs to type, never the extension's; it waits for them. A username Facebook says is taken, or can't
- *   change yet, ends the ask saying so and what to do.
+ *   asks for, or its "Confirm it's you", is theirs to answer, never the extension's; it waits for them. A username
+ *   Facebook says is taken, or can't change yet, ends the ask saying so and what to do.
+ * - **Only what shows is said to be in.** The profile is read again at the end: a part that went in but doesn't show
+ *   there yet (the bio, a link, the new username in its address) is left out of what's in, and the end says where to
+ *   check it.
  * - **Its name** (decision 84) stays theirs: Accounts Center is opened for them, and the step handed over with what to
  *   put in (./profile-parts.ts).
  *
- * It stops when Facebook shows a warning (decision 25), but reads none on Accounts Center's username page while Facebook
- * asks for a password there: its "Confirm it's you" is no warning. The tab decides that, password first.
+ * It stops when Facebook shows a warning (decision 25), but reads none on Accounts Center while Facebook asks the
+ * person for something there: its "Confirm it's you" is no warning. The tab decides that (`askingHere`), what's asked
+ * first.
  */
 import {
   cleanUsername,
@@ -205,9 +209,11 @@ type ShownPart = (typeof SHOWN_PARTS)[number];
 /** What's said of a part that went in but doesn't show on the profile yet, and where to check it. */
 function unseenWords(part: ShownPart, task: EditTask, username: string | null): string {
   if (part === 'bio')
-    return `Facebook hasn’t shown your new bio on your profile yet. Check it on your profile: press Edit profile, and put “${task.bio ?? ''}” in under Bio if it isn’t there.`;
+    return `Facebook hasn’t shown your new bio on your profile yet. Check it there, and if it isn’t, press Edit bio (or Edit profile, then Bio), write “${task.bio ?? ''}”, and press Save.`;
   if (part === 'links')
-    return `Facebook hasn’t shown ${task.links.length === 1 ? 'your new link' : 'all your new links'} on your profile yet. Check on your profile: press Edit links on the Links card, and add any that aren’t there with Add a website.`;
+    return task.links.length === 1
+      ? `Facebook hasn’t shown your new link on your profile yet. Check your About tab under Contact and basic info, and if it isn’t there, press Add a website, paste “${task.links[0]}”, and press Save.`
+      : `Facebook hasn’t shown all your new links on your profile yet. Check your About tab under Contact and basic info, and add any that aren’t there with Add a website and Save (${task.links.join(', ')}).`;
   return `Facebook hasn’t shown your new username on your profile yet. Check it in Accounts Center: press Profiles, then your Facebook profile, then Username, and put “${username ?? ''}” in if it isn’t there.`;
 }
 

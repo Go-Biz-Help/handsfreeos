@@ -245,7 +245,9 @@ describe('a tab’s script, by its network', () => {
     expect(
       await profile.ask({ type: 'hfos-write-link', link: 'https://summitroofleads.com' }),
     ).toEqual({ ok: false, error: 'Facebook didn’t open where your links are changed.' });
-    expect(await profile.ask({ type: 'hfos-write-username', username: 'casey.roofs' })).toEqual({
+    expect(
+      await profile.ask({ type: 'hfos-write-username', username: 'casey.roofs', profile: '1' }),
+    ).toEqual({
       ok: false,
       error: 'Facebook didn’t open Accounts Center’s username page.',
     });
@@ -266,7 +268,13 @@ describe('a tab’s script, by its network', () => {
       warnings: [],
       asking: null,
     });
-    expect(await profiles.ask({ type: 'hfos-write-username', username: 'casey.roofs' })).toEqual({
+    expect(
+      await profiles.ask({
+        type: 'hfos-write-username',
+        username: 'casey.roofs',
+        profile: '100001234',
+      }),
+    ).toEqual({
       ok: false,
       error: 'Facebook didn’t open Accounts Center’s username page.',
     });
@@ -280,9 +288,55 @@ describe('a tab’s script, by its network', () => {
     expect(
       await username.ask({ type: 'hfos-write-link', link: 'https://summitroofleads.com' }),
     ).toEqual({ ok: false, error: 'Facebook didn’t open where your links are changed.' });
+    // Another profile's username page (an Instagram one, say): nothing typed there.
+    expect(
+      await username.ask({
+        type: 'hfos-write-username',
+        username: 'casey.owner.7',
+        profile: '100009999',
+      }),
+    ).toEqual({ ok: false, error: 'Facebook didn’t open Accounts Center’s username page.' });
     // The one it has already: nothing typed, nothing pressed.
     expect(
-      await username.ask({ type: 'hfos-write-username', username: 'casey.owner.7' }),
+      await username.ask({
+        type: 'hfos-write-username',
+        username: 'casey.owner.7',
+        profile: '100001234',
+      }),
     ).toMatchObject({ ok: true, result: 'already', steps: { boxes: 1, typed: true } });
+    // Check Facebook's try goes only by their own profile's number too.
+    expect(await username.ask({ type: 'hfos-try', step: 'username' })).toEqual({
+      ok: false,
+      error: 'Facebook didn’t open Accounts Center’s username page.',
+    });
+    // Its warnings, read as Facebook asks the person for nothing there: none.
+    expect(await username.ask({ type: 'hfos-account-warnings' })).toEqual({
+      ok: true,
+      warnings: [],
+      asking: null,
+    });
+  });
+
+  it('on Facebook, adds links only on the person’s own profile’s About tab', async () => {
+    const theirs = await tab(
+      'profile-2026.html',
+      'https://www.facebook.com/jane.doe.5/about_contact',
+      null,
+    );
+    expect(
+      await theirs.ask({ type: 'hfos-write-link', link: 'https://summitroofleads.com' }),
+    ).toEqual({ ok: false, error: 'Facebook didn’t open where your links are changed.' });
+    expect(await theirs.ask({ type: 'hfos-write-bio', bio: 'Roofs.' })).toEqual({
+      ok: false,
+      error: 'Facebook didn’t open your profile.',
+    });
+    const own = await tab(
+      'own-profile-contact-2026-10.html',
+      'https://www.facebook.com/casey.owner.7/about_contact?fb_profile_edit_entry_point=9',
+      null,
+    );
+    expect(await own.ask({ type: 'hfos-write-link', link: 'https://summitroofleads.com' })).toEqual(
+      { ok: true, result: 'already', steps: expect.objectContaining({ control: false }) },
+    );
   });
 });

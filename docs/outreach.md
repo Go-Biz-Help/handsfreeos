@@ -1088,20 +1088,23 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     answered. Built (data version 3). The new pace came with the plan's step 6 (decision 67), and the short video's
     link and script with step 7 (decision 69).
 63. **Get ready for your best results, and it blocks** (the owner's decision: present it as getting the best
-    results). Nothing outreach-like happens for a person until four things are done: the business's main offer is
-    live, a playbook in use has its niche and the niche's problem (and proof when the main offer has any), every item
-    on the person's Facebook profile list is right since the live version (by the AI's check, decision 64, or their
-    own tick), and they've set a monthly goal for
-    calls booked and seen what it takes each day. Until then Start my day is refused (`outreach_not_ready`, naming the
-    first thing left and where), Today's list keeps only replies owed to people who wrote first, the extension puts up
-    no helpful post on its own, and Today, the phone's Today and the extension's panel show **Get ready** in place of
-    the rest. What only reads goes on (decision 60's lists, groups and checks, asks, Read my chats, Find posts), and
-    joining groups. A member waits on the business's two and does their own meanwhile. A new main offer version asks
-    everyone to look at their profile again, saying what changed. It's worked out each time (`outreach.readiness`,
-    `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row, and the goal's working
-    days in their settings. Its items are setup steps of their own (decision 83): the main offer, the playbook, your
-    messages and your goal in the main setup, and your profile in each network's. Built. **Your messages** joined
-    with the plan's step 6 (decision 68), so it's five items; it doesn't wait on a short video (decision 83).
+    results; the profile is advice since decision 90). Nothing outreach-like happens for a person until four things
+    are done: the business's main offer is live, a playbook in use has its niche and the niche's problem (and proof
+    when the main offer has any), they've OK'd how their messages read (decision 68), and they've set a monthly goal
+    for calls booked and seen what it takes each day. Their profile on each network (every item on its list right
+    since the live version, by the AI's check, decision 64, or their own tick) is a Get ready item too, shown with
+    what's left and **Do it now**, but it's advice and never holds anything (decision 90). Until the four are done
+    Start my day is refused (`outreach_not_ready`, with the first thing left and where it's done, and its `item` and
+    `platform` in the refusal's details), Today's list keeps only replies owed to people who wrote first, the
+    extension puts up no helpful post on its own, and Today, the phone's Today and the extension's panel show **Get
+    ready** in place of the rest. What only reads goes on (decision 60's lists, groups and checks, asks, Read my
+    chats, Find posts), and joining groups. A member waits on the business's two and does their own meanwhile. A new
+    main offer version asks everyone to look at their profile again, saying what changed. It's worked out each time
+    (`outreach.readiness`, `readiness.ts`), never kept as a flag; the person's ticks and goal are on their setup row,
+    and the goal's working days in their settings. Its items are setup steps of their own (decision 83): the main
+    offer, the playbook, your messages and your goal in the main setup, and your profile in each network's. Built.
+    **Your messages** joined with the plan's step 6 (decision 68), so it's five items, four that hold the day and the
+    profile; it doesn't wait on a short video (decision 83).
 64. **Your profile, read by the extension and checked by the AI.** From Get ready, **Read my profile** asks the
     person's computer (`profile_read`, extension 0.32.0): it opens their own profile in a window of its own, checks
     it's theirs, and reads the picture's and the cover's descriptions, the short bio, the intro's lines, what's
@@ -1989,23 +1992,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     Pictures stay theirs (decision 64).
     - **The bio:** October 2026's profile has no Edit bio (decision 84, extension 0.90.0), so the extension follows
       Edit profile's link to the About tab's editor. There it finds the bio's own Edit by Facebook's words (Edit bio,
-      Add bio, or the Edit by Bio), writes the bio in the box that opens, presses that box's Save and checks the bio
-      shows. A profile that still has Edit bio has it pressed, as before.
+      Add bio, or the Bio row's own Edit: the first button after the title "Bio", with at most one line of words
+      between them, so never one past another row's title and words). It writes the bio only in the one box that
+      opens once that box is the bio's, by its name or the bio it holds (else it closes it with its Cancel and hands
+      the step over), presses that box's Save, and checks the bio shows under its title. A profile that still has
+      Edit bio has it pressed, as before.
     - **The links:** the Links card's Edit links opens Contact and basic info. For each link to add that isn't there
       yet, it presses Facebook's add for a website, types the address, presses Save and checks it shows. Links are
       only added: one already there stays, as `linksToAdd` leaves it out.
     - **The username:** on Accounts Center's username page for their Facebook profile (the profile's number from Edit
-      profile's link; without it, Profiles, then the Facebook one), the Username box is cleared and the new one
-      typed. Done is pressed only once Facebook allows it, then their profile is read again for its new address. It
-      still asks first (decision 84). A password or code box waits for the person: they type it there and press
-      Continue, then Carry on in HandsFreeOS. The extension never types a password or a code, and reads no warning
-      while Facebook asks for one, as a "Confirm it's you" there isn't decision 25's warning. When Facebook says the
-      username isn't available or can't change yet, the ask ends saying so, and what to do: pick another, or try
-      again in a few days. Nothing is guessed.
+      profile's link; without it, Profiles, then the Facebook one), and only that profile's page, never Instagram's,
+      the Username box is cleared and the new one typed. Done is pressed only once Facebook allows it, and after it
+      Facebook's Change username or Confirm, once, only in the box on top and only when that box has nowhere to type;
+      a box after Done it doesn't know is handed to the person. Then their profile is read again for its new
+      address. It still asks first (decision 84). A password or code box, or Facebook's "Confirm it's you" with ways
+      to pick, waits for the person: they answer it there and press Continue, then Carry on in HandsFreeOS. The
+      extension never types a password or a code, and reads no warning on Accounts Center while Facebook asks for
+      one, as that isn't decision 25's warning; any other warning there stops it before anything else is read. When
+      Facebook says the username isn't available or can't change yet, the ask ends saying so, and what to do: pick
+      another under Settings → Facebook, or try again in a few days. Nothing is guessed.
+    - **Only what shows is said to be in.** The profile is read again at the end, and a part that went in but doesn't
+      show there yet (the bio, a link, the new username in its address) is left out of "… is in." The end names it,
+      with where to check it.
     - **Found by Facebook's words, never guessed.** A step it can't find is handed to the person, saying where to
       press on the page it's on (Carry on), and its problem report carries that page's outline. Each stops on a
       Facebook warning (decision 25), and acts only for an ask the person made in HandsFreeOS: Put these in is their
-      OK, as their profile is public (decision 80).
+      OK, as their profile is public (decision 80). It presses only what the extension's README lists under
+      "Pressing on your own profile only for Put these in" and the Accounts Center rule: the bio's Edit and its box's
+      Save, Add a website and its box's Save, and Done by Username with Facebook's Change username or Confirm after it.
+      It never presses Add a social link, and never removes or changes a link that's there.
     - **Check Facebook tries them** up to their last press, never pressing it (decision 77): the bio by its new path,
       the add for a link and its box, and the Username box and Done, a word typed in each and theirs put back. Each
       page's outline is sent, so the owner's first Check tunes them from his own pages.
@@ -2018,6 +2033,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     Built from the outline of his own profile (made up in the extension's `test/fixtures/own-profile-2026-10.html`).
     The About tab's editor, Contact and basic info and Accounts Center's username page follow Facebook's usual words,
     not yet tried on his account.
+
+90. **Start my day doesn't wait on your profile, and says what it does wait on** (Chris, 26 Oct 2026, with a picture
+    of the setup's Start your day on Facebook, its Start greyed out under "2 things left to change on your Facebook
+    profile": "should still be able to start the day even if all the profile things on the platforms are not done"
+    and "and if there is something else preventing the day from starting it should tell the user what it is").
+    Changes decision 63 for the profile only.
+    - **The profile is advice, on every network** (`ADVICE_ITEMS`, `blocksStart`, `holdingCount`, `adviceLeft` in
+      `readiness.ts`). It's still a Get ready item and a step of each network's setup, shown with what's left and
+      **Do it now**, but it never holds Start my day, Today's list, a helpful post or the runner. The main offer, the
+      playbook, your messages and your goal still do. Get ready counts only those, and says under the profile "You
+      can start now and finish it later." once nothing else holds the day (`profileLater`), or that the day doesn't
+      wait on it while something else does (`profileNoHold`).
+    - **The setup's Start works with the profile left** (`startBlocker` skips it, `startAdvice` says what's left of
+      it beside an enabled Start). A Facebook warning today greys Start with its own words.
+    - **What holds a day is said beside every Start:** the setup's, each row of Today's strip and Details on the web,
+      and the phone's strip and Details (`notReadyWords`: the first thing left, by name, and where it's done). A
+      refused Start keeps its words beside the button with **Do it now** where there's a screen that fixes it
+      (`startFix`, from the refusal's rule and details), on the web and the phone, rather than a toast that goes.
+      `outreach_not_ready`, `outreach_network_off` and `outreach_sending_off` carry details (`item`, `platform`,
+      `allowed`), and an owner or admin is sent to Social Outreach → Settings → General where a member is told to ask
+      one. There's still no refusal for no computer, outside working hours or limits reached: the day starts and
+      waits, and Today's and Live's lines already say why.
+    - **The extension's panel** follows: its Get ready counts only what holds the day, with the profile as advice.
 
 ## Rules worth knowing before changing anything
 
