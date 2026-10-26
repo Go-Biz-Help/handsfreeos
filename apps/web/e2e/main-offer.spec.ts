@@ -106,7 +106,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await builder.getByLabel('The outcome, in a few words').fill('10 to 20 booked inspections');
   await builder.getByLabel('The guarantee, in a few words').fill('you only pay for results');
   await expect(builder.getByTestId('offer-preview')).toContainText(
-    'open to 10 to 20 booked inspections, where you only pay for results?',
+    'open to 10 to 20 booked inspections? If so',
   );
   await next.click();
 

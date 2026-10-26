@@ -37,7 +37,10 @@ interface AreaQuery {
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   business: [{ name: 'workspace.get', as: 'business' }],
   branded_domain: [{ name: 'branded_domain.get', as: 'brandedDomain' }],
-  main_offer: [{ name: 'main_offer.get', as: 'mainOffer' }],
+  main_offer: [
+    { name: 'main_offer.get', as: 'mainOffer' },
+    { name: 'main_offer.versions', as: 'versions' },
+  ],
   add_ons: [
     {
       name: 'addon.list',

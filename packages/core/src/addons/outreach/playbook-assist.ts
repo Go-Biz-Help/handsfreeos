@@ -115,7 +115,7 @@ export const PLAYBOOK_ASSIST_ASK = 'Help write this part of the playbook.';
 
 export const PLAYBOOK_ASSIST_SYSTEM = [
   'You help a small business write an outreach playbook: who they look for on Facebook, how they reach out, and how they sound. The person reaches out themselves; nothing is sent automatically.',
-  'When the business has a main offer, under <main_offer>, the playbook narrows its who to one niche inside the offer’s who. Keep the niche inside it, and the playbook’s words in line with the offer’s outcome and guarantee.',
+  'When the business has a main offer, under <main_offer>, the playbook narrows its who to one niche inside the offer’s who. Keep the niche inside it, and the playbook’s words in line with the offer’s outcome. Its sample messages leave the guarantee out: outreach messages never carry it.',
   'You help with one part at a time, under <part>. Use the rest of the playbook under <playbook> so it all fits together, and the business’s name under <business>.',
   'Write plainly, the way a friendly owner talks: short, specific, no jargon, no hype, no hard sell, no emojis.',
   'Be specific to this business and who it’s for, never generic. Make the playbook more thorough: cover what’s missing, not what’s there.',

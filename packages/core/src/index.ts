@@ -56,6 +56,7 @@ export * from './messaging/bridge';
 export * from './messaging/number-import';
 export * from './schemas/assistant';
 export * from './assistant/tools';
+export * from './assistant/tools-main-offer';
 export * from './assistant/consent';
 // How the business is set up, and where each part of it lives (M12).
 export * from './assistant/settings-map';

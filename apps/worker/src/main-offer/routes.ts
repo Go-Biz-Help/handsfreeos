@@ -109,6 +109,9 @@ function aiError(e: unknown): unknown {
 
 const meta = () => ({ correlationId: randomUUID(), channel: 'web' as const });
 
+/** What the AI's help needs: the database, the model, and the wallet and log its asks are counted against. */
+export type MainOfferDeps = Pick<HttpDeps, 'httpDb' | 'ai' | 'log' | 'wallet'>;
+
 function noDraft(message: string): HfosError {
   return HfosError.rule('main_offer_no_draft', 409, message);
 }
@@ -125,7 +128,7 @@ function draftMoved(what: string): HfosError {
  * its name, line of work and profile brief.
  */
 async function preparing(
-  deps: HttpDeps,
+  deps: MainOfferDeps,
   actor: HumanActor,
   id: string,
 ): Promise<{ scope: TenantScope; business: OfferBusiness; offer: MainOfferGetOutput }> {
@@ -154,7 +157,7 @@ async function preparing(
   };
 }
 
-const services = (deps: HttpDeps) => ({
+const services = (deps: MainOfferDeps) => ({
   db: deps.httpDb,
   ai: deps.ai,
   log: deps.log,
@@ -162,7 +165,7 @@ const services = (deps: HttpDeps) => ({
 });
 
 export async function offerNiche(
-  deps: HttpDeps,
+  deps: MainOfferDeps,
   actor: HumanActor,
   input: z.output<typeof NicheBody>,
 ): Promise<{ options: OfferNicheOption[] }> {
@@ -185,7 +188,7 @@ export async function offerNiche(
 }
 
 export async function offerAssist(
-  deps: HttpDeps,
+  deps: MainOfferDeps,
   actor: HumanActor,
   input: z.output<typeof AssistBody>,
 ): Promise<OfferAssistOutput> {
@@ -209,7 +212,7 @@ export async function offerAssist(
 
 /** The AI's score of an offer, with the owner's direction when there is one. */
 async function scored(
-  deps: HttpDeps,
+  deps: MainOfferDeps,
   actor: HumanActor,
   scope: TenantScope,
   business: OfferBusiness,
@@ -233,7 +236,7 @@ async function scored(
 
 /** Scores the draft as it's kept (never what the screen sends), and keeps the score for that revision. */
 export async function offerScore(
-  deps: HttpDeps,
+  deps: MainOfferDeps,
   actor: HumanActor,
   input: z.output<typeof ScoreBody>,
 ): Promise<{ saved: boolean; score: MainOfferScore }> {
@@ -259,7 +262,7 @@ export async function offerScore(
  * keep; scores it; and keeps it beside the draft for that revision. Two asks of the model, both counted.
  */
 export async function offerTry(
-  deps: HttpDeps,
+  deps: MainOfferDeps,
   actor: HumanActor,
   input: z.output<typeof TryBody>,
 ): Promise<{ saved: boolean; try: MainOfferTryOut | null }> {

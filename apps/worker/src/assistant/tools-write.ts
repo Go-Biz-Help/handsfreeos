@@ -41,6 +41,7 @@ import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from '
 import { billingAutoTools, billingConfirmTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
 import { extraAutoTools, extraConfirmTools } from './tools-extra';
+import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
 import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
 import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
@@ -835,6 +836,8 @@ export const executorFor = (name: string) =>
   formAutoTools[name] ??
   moreAutoTools[name] ??
   capabilityTools[name] ??
+  mainOfferAutoTools[name] ??
+  mainOfferConfirmTools[name] ??
   confirmTools[name];
 
 /** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
@@ -849,6 +852,8 @@ export function createToolExecutor(
   /** The worker's services, for the add-ons' worker actions; without them those tools can't run. */
   addonActions: AddonActionDeps | null = null,
 ): ToolExecutor {
+  // The main offer's score and tries are the builder's own, which ask the model with the worker's AI services.
+  const offerDeps = workflows ? { ...workflows, httpDb: db } : null;
   return {
     async run(tool: OfferedTool, args: Args, ctx: ToolContext) {
       // An add-on's tool is its own operation, run through the kernel as the person.
@@ -857,6 +862,8 @@ export function createToolExecutor(
       if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
       const capabilities = capabilityTools[tool.name];
       if (capabilities) return capabilities(db, ctx, args, addonCatalog);
+      const offer = mainOfferAutoTools[tool.name];
+      if (offer) return offer(db, ctx, args, offerDeps);
       const run =
         readTools[tool.name] ??
         contactReadTools[tool.name] ??
@@ -875,6 +882,8 @@ export function createToolExecutor(
     async prepare(tool, args, ctx, toolCallId) {
       if (isAddonAiTool(tool)) return prepareAddonTool(tool, args, ctx, toolCallId);
       if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
+      const offer = mainOfferConfirmTools[tool.name];
+      if (offer) return offer.prepare(db, ctx, args, toolCallId);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
       return t.prepare(db, ctx, args, toolCallId);
@@ -882,6 +891,8 @@ export function createToolExecutor(
     async commit(tool, args, ctx, extra) {
       if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
       if (isAddonActionTool(tool)) return commitAddonActionTool(addonActions, db, tool, args, ctx);
+      const offer = mainOfferConfirmTools[tool.name];
+      if (offer) return offer.commit(db, ctx, args, offerDeps);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
       return t.commit(db, ctx, args, { ...extra, webUrl });

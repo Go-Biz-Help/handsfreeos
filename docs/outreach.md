@@ -1116,8 +1116,9 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
 65. **Warm up, then ask straight out** (the owner's decisions: direct after they accept; warm up with likes and
     comments first). Before a friend request the extension likes one of their posts, and when the post is about their
     work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
-    the **First message** asks straight out whether they'd be open to the main offer's outcome on its guarantee, and
-    says more info follows if so. A personal line goes first only when the look-up found something real that fits.
+    the **First message** asks straight out whether they'd be open to the main offer's outcome, and says more info
+    follows if so. No message carries the guarantee (the owner, 2026-10-26: "it made them feel disjointed and
+    unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
     The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
     This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
     another way (Reconnect, the download file, people who wrote first). Built.

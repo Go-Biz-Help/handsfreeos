@@ -2085,9 +2085,9 @@ function scriptedSamples(message: string) {
   const many = Number(/- followUps: (\d+) short follow-ups/.exec(message)?.[1] ?? 6);
   return {
     first: [
-      'Hi Sam! Open to more booked calls on a results guarantee? If so, I’ll send more info.',
-      'Hi Sam! Open to more booked calls on a results guarantee? If so, I’ll send more info.',
-      'Hey Sam, would more booked calls with a guarantee be worth a look? Happy to send details.',
+      'Hi Sam! Open to more booked calls? If so, I’ll send more info.',
+      'Hi Sam! Open to more booked calls? If so, I’ll send more info.',
+      'Hey Sam, would more booked calls be worth a look? Happy to send details.',
     ],
     video: video ? 'Great! Here’s a short video on how it works: [video link]' : null,
     link: 'Here’s my link to book a quick call: [booking link]',

@@ -31,6 +31,7 @@ to 70.
 | Database                               | `20261027006100_main_offer.sql`: `app.main_offers`, `app.main_offer_versions`; `20261027007800_main_offer_tries.sql`: the direction, `app.main_offer_tries`; `20261027010800_main_offer_names.sql`: the names                                                                     |
 | The AI's help: prompts and checks      | `packages/core/src/main-offer/assist.ts` (the niche finder, Improve and Write it for me, the score, a try)                                                                                                                                                                        |
 | The AI's routes                        | `apps/worker/src/main-offer/routes.ts` (`/v1/main-offer/niche`, `/assist`, `/score`, `/try`); the scripted stand-in's `MAIN_OFFER_RULES`                                                                                                                                          |
+| By asking the Assistant                | `packages/core/src/assistant/tools-main-offer.ts` (`edit_main_offer`, `main_offer_go_live`, `manage_main_offer`, `score_main_offer`, `try_main_offer`); `apps/worker/src/assistant/tools-main-offer.ts`                                                                           |
 | Examples by line of work               | `packages/core/src/main-offer/examples.ts`                                                                                                                                                                                                                                        |
 | What the screens say                   | `packages/core/src/main-offer/words.ts`, with what the web and the phone both work out (`underBarTitle`, `offerChecks`, `goingInto`, `offerAiWords`, `offerStepOf`, `offerRowLine`)                                                                                               |
 | Settings → Main offer                  | `apps/web/src/app/app/w/[workspaceId]/settings/main-offer/`, `apps/web/src/components/main-offer/page.tsx`                                                                                                                                                                        |
@@ -132,7 +133,7 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
 - **The person's own Facebook profile is checked against it** (step 5, decision 64): the AI reads what the extension
   read and says what to change, with bios written from the offer.
 - **Every message is written from it** (step 6, decisions 65 to 68): the first message asks straight out whether they'd
-  be open to the outcome on the guarantee; a yes gets the playbook's short video, then the booking link; follow-ups
+  be open to the outcome, and no message carries the guarantee unless they ask (decision 65, 2026-10-26); a yes gets the playbook's short video, then the booking link; follow-ups
   come until they answer. Each person reached keeps the version they were first pitched with (`follow_ups.offer_version`,
   `sends.offer_version`), so nobody hears a new price or guarantee mid-conversation. Get ready's **Your messages**
   shows samples written from the live version, and a new version asks again.
@@ -169,6 +170,12 @@ Social Outreach declares `uses: ['main_offer']` and reads the live version where
   marked down for being broad, and the part says it was scored that way. It never outranks the rule on inventing
   nothing, the plain-writing rules, or the scale and the bar, and anything it says about scores is ignored. It's
   quoted as data in every prompt, like the owner's notes.
+- **The Assistant can do what the screen does** (the owner, 2026-10-26: whatever the person can). Someone with
+  `main_offer.manage` can ask it to change any box, the steps or the results, score the draft, write a try and take
+  its parts in, set the direction and the names, throw the draft away, and put the draft live. Every change shows a
+  card and waits for their OK, so what it writes is used only once they pick it; a score and a try are the
+  builder's own (`offerScore`, `offerTry`) and change nothing in the offer. Going live holds to the bar as the
+  screen does: under it, only with the person's own reason. Results go in only as the person gave them.
 - **Nothing the AI writes is used until a person picks it.** A try sits beside the draft and never changes
   (`private.forbid_change`); only `main_offer.try_apply`, a person's pick, moves its parts into the draft, and every
   part starts on the draft's side. Kept parts, the niche and proof are the draft's exactly in every try.
