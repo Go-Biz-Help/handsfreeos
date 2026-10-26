@@ -2,12 +2,14 @@
  * Get ready for your best results (decision 63), in a business: until every item is done, Start my day is refused
  * naming what's left, Today's list is empty with nothing done on its own, and the extension posts no helpful post on
  * its own. Someone who can't do the business's items waits on them and does their own. A new main offer asks for a
- * look again at the profile. The goal keeps its working days in the person's settings.
+ * look again at the profile. The goal keeps its working days in the person's settings, and counts the safe pace of
+ * every network they work (decision 88).
  */
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { withNetwork } from '../../src/addons/outreach/network-words';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { PROFILE_ITEMS } from '../../src/addons/outreach/readiness';
 import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
@@ -131,7 +133,13 @@ describe('before they’re ready', () => {
     const read = await checked(member.id, null);
     expect(states(read)).toMatchObject({ profile: 'done' });
     expect(read.profileCheck.bios).toEqual(['I help roofers fill their calendars.']);
-    expect(set.numbers).toMatchObject({ goal: 8, days: [1, 2, 3, 4, 5], canSend: 15 });
+    expect(set.numbers).toMatchObject({
+      goal: 8,
+      days: [1, 2, 3, 4, 5],
+      canSend: 15,
+      networks: [{ platform: 'facebook', canSend: 15 }],
+      more: ['linkedin', 'instagram', 'alignable'],
+    });
     expect(await refused(runAs(member, ws, 'outreach.day.start', {}))).toBe('outreach_not_ready');
   });
 });
@@ -227,5 +235,29 @@ describe('getting ready', () => {
     expect(
       await refused(runAs(owner, ws, 'outreach.readiness.numbers', { goal: 8, days: [] })),
     ).toBe('validation');
+  });
+});
+
+describe('the goal across networks', () => {
+  it('adds up the safe pace of every network the person turns on, for Results’ targets too', async () => {
+    const { settings } = await runAs(member, ws, 'outreach.automation', {});
+    await runAs(member, ws, 'outreach.automation.save', {
+      settings: withNetwork(settings, 'linkedin', { on: true }),
+    });
+    const set = await runAs(member, ws, 'outreach.readiness.numbers', {
+      goal: 20,
+      days: [1, 2, 3, 4, 5],
+    });
+    expect(set.numbers).toMatchObject({
+      canSend: 30,
+      networks: [
+        { platform: 'facebook', canSend: 15 },
+        { platform: 'linkedin', canSend: 15 },
+      ],
+      more: ['instagram', 'alignable'],
+    });
+    // 20 calls a month take 35 to 69 first messages a day: a day's target is all 30 the two send safely.
+    const today = await runAs(member, ws, 'outreach.tracking', { period: 'today' });
+    expect(today.target).toMatchObject({ goal: 20, messages: 30 });
   });
 });

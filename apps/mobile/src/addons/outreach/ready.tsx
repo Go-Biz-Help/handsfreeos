@@ -796,7 +796,7 @@ function Numbers({
               m.fits === 'yes' ? 'text-success-text' : 'text-warning-text',
             )}
           >
-            {numbersVerdict(m)}
+            {numbersVerdict(m, readiness.numbers.networks, readiness.numbers.more)}
           </Text>
         </View>
         <Note>

@@ -4,8 +4,9 @@
  * setup".
  *
  * - **A main setup, once:** their business (the main offer, a playbook, a short video if they want one, and the team's
- *   rules: owners and admins), their computer (the extension), and them (their messages, their goal, the networks they
- *   use). A member's main setup is their own four; the business's part shows beside it, done or waiting on an owner.
+ *   rules: owners and admins), their computer (the extension), and them (their messages, the networks they use, then
+ *   their goal, which counts each of those networks: decision 88). A member's main setup is their own four; the
+ *   business's part shows beside it, done or waiting on an owner.
  * - **Then a short setup for each network they turn on,** Facebook first: allow it in Chrome and a playbook for it
  *   (every network but Facebook), their profile there, what it does there, then their first day there.
  * - **Each step is worked out from facts** (`setupStepStates`, `networkStepStates`), never kept as a flag: Get ready's
@@ -35,7 +36,8 @@ export type SetupPart = (typeof SETUP_PARTS)[number];
 /**
  * The main setup's steps, in the order they depend on each other: the offer before the playbook (its builder reads
  * it), the video after the playbook (its script is the offer and the niche), the team's rules before anyone's own
- * choices, the extension before anything it reads, and the messages before the networks they go out on.
+ * choices, the extension before anything it reads, the messages before the networks they go out on, and the networks
+ * before the goal, whose safe pace is every one of them added up (decision 88).
  */
 export const SETUP_STEPS = [
   'offer',
@@ -44,8 +46,8 @@ export const SETUP_STEPS = [
   'rules',
   'extension',
   'messages',
-  'numbers',
   'networks',
+  'numbers',
 ] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number];
 
@@ -56,8 +58,8 @@ export const SETUP_PART_OF: Record<SetupStep, SetupPart> = {
   rules: 'business',
   extension: 'computer',
   messages: 'you',
-  numbers: 'you',
   networks: 'you',
+  numbers: 'you',
 };
 
 /** A step that never holds anyone up: done once there's a video, or the business says it doesn't use one. */
@@ -659,7 +661,7 @@ export const SETUP_WORDS = {
         'Your main offer, a playbook and your team’s rules. A short video too, if you want one.',
     },
     computer: { name: 'Your computer', about: 'Put the extension in Chrome and sign in.' },
-    you: { name: 'You', about: 'OK your messages, set your goal, pick the networks you use.' },
+    you: { name: 'You', about: 'OK your messages, pick the networks you use, set your goal.' },
   } satisfies Record<SetupPart, { name: string; about: string }>,
   /** The rail's group of networks, and what it says over the business's part for a member. */
   networksHead: 'Then, each network',
@@ -701,15 +703,15 @@ export const SETUP_WORDS = {
       title: 'Your messages',
       hint: 'What goes out in your name, on every network. OK them before anything is sent.',
     },
-    numbers: {
-      name: 'Your goal',
-      title: 'Your goal',
-      hint: 'How many calls you want booked a month. It sets how many people to reach each day.',
-    },
     networks: {
       name: 'Your networks',
       title: 'The networks you use',
-      hint: 'Facebook is on to start. Each one you turn on gets a short setup of its own next.',
+      hint: 'Facebook is on to start. Your goal counts every one you turn on, and each gets a short setup of its own.',
+    },
+    numbers: {
+      name: 'Your goal',
+      title: 'Your goal',
+      hint: 'How many calls you want booked a month. It sets how many people to reach each day on your networks.',
     },
   } satisfies Record<SetupStep, { name: string; title: string; hint: string }>,
   network: {
@@ -853,8 +855,9 @@ export const SETUP_WORDS = {
     instagram: 'Follows and messages',
     alignable: 'Local business owners near you',
   } satisfies Record<Platform, string>,
-  networksNext: (names: readonly string[]) =>
-    `Next: set up ${andWords(names)}. About 5 minutes each. Turn on more any time on the Settings tab.`,
+  /** Under the switches: what comes next, the goal first while it's left (it counts each network, decision 88). */
+  networksNext: (names: readonly string[], goalFirst = false) =>
+    `Next: ${goalFirst ? 'your goal, then ' : ''}set up ${andWords(names)}. About 5 minutes each. Turn on more any time on the Settings tab.`,
   networksNone: 'Turn on at least one network to carry on.',
   networksNotAllowed: (names: readonly string[]) =>
     `Your business doesn’t use ${andWords(names)}. An owner can change that in Team rules.`,
@@ -972,9 +975,9 @@ export const SETUP_WORDS = {
       ? 'A short setup of its own: your profile there, what it does there and your first day.'
       : 'A short setup of its own: Chrome’s Allow, your profile there, what it does there and your first day.',
   againAbout:
-    'Go through the setup again: your computer, your messages, your goal and your networks.',
+    'Go through the setup again: your computer, your messages, your networks and your goal.',
   againAboutManage:
-    'Go through the setup again: your business, your computer, your messages, your goal and your networks.',
+    'Go through the setup again: your business, your computer, your messages, your networks and your goal.',
   download: 'Download HandsFreeOS Social',
   /** Where the team gets the extension (`extensionLink`): Settings' For your team and the install step, on the web and the phone. */
   link: {

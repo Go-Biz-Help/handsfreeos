@@ -46,7 +46,14 @@ const notReady: ReadinessOutput = {
   profile: {},
   profileCheck: null,
   messages: { at: null, version: null, samples: null, notes: NO_MESSAGE_NOTES },
-  numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
+  numbers: {
+    goal: null,
+    at: null,
+    days: [1, 2, 3, 4, 5],
+    canSend: 15,
+    networks: [{ platform: 'facebook', canSend: 15 }],
+    more: [],
+  },
 };
 
 describe('Get ready on the phone', () => {
@@ -126,6 +133,28 @@ describe('Get ready on the phone', () => {
     expect(screen.getByText('9 calls a month ÷ 26 working days = 0.3 calls a day')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('ready-numbers-save'));
     await waitFor(() => expect(onNumbers).toHaveBeenCalledWith(9, [1, 2, 3, 4, 5, 6]));
+  });
+
+  it('counts the goal against every network the person works (decision 88)', async () => {
+    const both: ReadinessOutput = {
+      ...notReady,
+      numbers: {
+        ...notReady.numbers,
+        canSend: 30,
+        networks: [
+          { platform: 'facebook', canSend: 15 },
+          { platform: 'linkedin', canSend: 15 },
+        ],
+        more: ['instagram'],
+      },
+    };
+    await render(<GetReadyCard readiness={both} onTick={jest.fn()} onNumbers={jest.fn()} />);
+    await fireEvent.press(screen.getByTestId('ready-open-numbers'));
+    expect(
+      screen.getByText(
+        'Your safe pace is 30 first messages a day: 15 on Facebook and 15 on LinkedIn. That’s about 8 to 17 calls a month. Your goal fits.',
+      ),
+    ).toBeTruthy();
   });
 
   it('shows the AI’s check, and asks the computer to put a bio in', async () => {

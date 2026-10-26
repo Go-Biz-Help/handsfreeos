@@ -39026,6 +39026,14 @@ export interface operations {
                             canSend: number;
                             days: number[];
                             goal: number | null;
+                            /** @default [] */
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            /** @default [] */
+                            networks: {
+                                canSend: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
                         };
                         offer: {
                             line: string;
@@ -39217,6 +39225,14 @@ export interface operations {
                             canSend: number;
                             days: number[];
                             goal: number | null;
+                            /** @default [] */
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            /** @default [] */
+                            networks: {
+                                canSend: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
                         };
                         offer: {
                             line: string;
@@ -40223,6 +40239,14 @@ export interface operations {
                             canSend: number;
                             days: number[];
                             goal: number | null;
+                            /** @default [] */
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            /** @default [] */
+                            networks: {
+                                canSend: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
                         };
                         offer: {
                             line: string;
@@ -40413,6 +40437,14 @@ export interface operations {
                             canSend: number;
                             days: number[];
                             goal: number | null;
+                            /** @default [] */
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            /** @default [] */
+                            networks: {
+                                canSend: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
                         };
                         offer: {
                             line: string;
@@ -40609,6 +40641,14 @@ export interface operations {
                             canSend: number;
                             days: number[];
                             goal: number | null;
+                            /** @default [] */
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            /** @default [] */
+                            networks: {
+                                canSend: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
                         };
                         offer: {
                             line: string;
@@ -41070,7 +41110,7 @@ export interface operations {
                         next: ({
                             net: null;
                             /** @enum {string} */
-                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         } | {
                             /** @enum {string} */
                             net: "facebook" | "linkedin" | "instagram" | "alignable";
@@ -41097,9 +41137,9 @@ export interface operations {
                             /** @enum {string} */
                             state: "done" | "todo" | "again" | "waiting";
                             /** @enum {string} */
-                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         }[];
-                        steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks")[];
+                        steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers")[];
                     };
                 };
             };
@@ -72138,6 +72178,14 @@ export interface operations {
                             canSend: number;
                             days: number[];
                             goal: number | null;
+                            /** @default [] */
+                            more: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            /** @default [] */
+                            networks: {
+                                canSend: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
                         };
                         offer: {
                             line: string;
@@ -72384,7 +72432,7 @@ export interface operations {
                         next: ({
                             net: null;
                             /** @enum {string} */
-                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         } | {
                             /** @enum {string} */
                             net: "facebook" | "linkedin" | "instagram" | "alignable";
@@ -72411,9 +72459,9 @@ export interface operations {
                             /** @enum {string} */
                             state: "done" | "todo" | "again" | "waiting";
                             /** @enum {string} */
-                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks";
+                            step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         }[];
-                        steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "numbers" | "networks")[];
+                        steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers")[];
                     };
                 };
             };

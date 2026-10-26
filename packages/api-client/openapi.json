@@ -91822,8 +91822,8 @@
                           "rules",
                           "extension",
                           "messages",
-                          "numbers",
-                          "networks"
+                          "networks",
+                          "numbers"
                         ]
                       }
                     },
@@ -91841,8 +91841,8 @@
                               "rules",
                               "extension",
                               "messages",
-                              "numbers",
-                              "networks"
+                              "networks",
+                              "numbers"
                             ]
                           },
                           "state": {
@@ -91986,8 +91986,8 @@
                                     "rules",
                                     "extension",
                                     "messages",
-                                    "numbers",
-                                    "networks"
+                                    "networks",
+                                    "numbers"
                                   ]
                                 }
                               },
@@ -93378,13 +93378,56 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "facebook",
+                                  "linkedin",
+                                  "instagram",
+                                  "alignable"
+                                ]
+                              },
+                              "canSend": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "canSend"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "more": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "goal",
                         "at",
                         "days",
-                        "canSend"
+                        "canSend",
+                        "networks",
+                        "more"
                       ],
                       "additionalProperties": false
                     }
@@ -94523,13 +94566,56 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "facebook",
+                                  "linkedin",
+                                  "instagram",
+                                  "alignable"
+                                ]
+                              },
+                              "canSend": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "canSend"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "more": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "goal",
                         "at",
                         "days",
-                        "canSend"
+                        "canSend",
+                        "networks",
+                        "more"
                       ],
                       "additionalProperties": false
                     }
@@ -96367,13 +96453,56 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "facebook",
+                                  "linkedin",
+                                  "instagram",
+                                  "alignable"
+                                ]
+                              },
+                              "canSend": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "canSend"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "more": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "goal",
                         "at",
                         "days",
-                        "canSend"
+                        "canSend",
+                        "networks",
+                        "more"
                       ],
                       "additionalProperties": false
                     }
@@ -97518,13 +97647,56 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "facebook",
+                                  "linkedin",
+                                  "instagram",
+                                  "alignable"
+                                ]
+                              },
+                              "canSend": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "canSend"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "more": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "goal",
                         "at",
                         "days",
-                        "canSend"
+                        "canSend",
+                        "networks",
+                        "more"
                       ],
                       "additionalProperties": false
                     }
@@ -98663,13 +98835,56 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "facebook",
+                                  "linkedin",
+                                  "instagram",
+                                  "alignable"
+                                ]
+                              },
+                              "canSend": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "canSend"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "more": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "goal",
                         "at",
                         "days",
-                        "canSend"
+                        "canSend",
+                        "networks",
+                        "more"
                       ],
                       "additionalProperties": false
                     }
@@ -198581,8 +198796,8 @@
                           "rules",
                           "extension",
                           "messages",
-                          "numbers",
-                          "networks"
+                          "networks",
+                          "numbers"
                         ]
                       }
                     },
@@ -198600,8 +198815,8 @@
                               "rules",
                               "extension",
                               "messages",
-                              "numbers",
-                              "networks"
+                              "networks",
+                              "numbers"
                             ]
                           },
                           "state": {
@@ -198745,8 +198960,8 @@
                                     "rules",
                                     "extension",
                                     "messages",
-                                    "numbers",
-                                    "networks"
+                                    "networks",
+                                    "numbers"
                                   ]
                                 }
                               },
@@ -200118,13 +200333,56 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "networks": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "platform": {
+                                "type": "string",
+                                "enum": [
+                                  "facebook",
+                                  "linkedin",
+                                  "instagram",
+                                  "alignable"
+                                ]
+                              },
+                              "canSend": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "platform",
+                              "canSend"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "more": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          }
                         }
                       },
                       "required": [
                         "goal",
                         "at",
                         "days",
-                        "canSend"
+                        "canSend",
+                        "networks",
+                        "more"
                       ],
                       "additionalProperties": false
                     }

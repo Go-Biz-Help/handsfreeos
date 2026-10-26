@@ -686,7 +686,14 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
       profile: {},
       profileCheck: null,
       messages: { at: null, version: null, samples: null, notes: NO_MESSAGE_NOTES },
-      numbers: { goal: null, at: null, days: [1, 2, 3, 4, 5], canSend: 15 },
+      numbers: {
+        goal: null,
+        at: null,
+        days: [1, 2, 3, 4, 5],
+        canSend: 15,
+        networks: [{ platform: 'facebook', canSend: 15 }],
+        more: [],
+      },
     };
     const onTick = jest.fn(async () => undefined);
     await render(

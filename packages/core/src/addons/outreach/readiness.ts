@@ -14,13 +14,15 @@
  * - **Your messages** (each person's, decisions 65 to 67): they've seen sample messages for their playbook as the AI
  *   writes them in their voice (the first message, the video when the business has one, the link, the follow-ups and
  *   a check-in) and OK'd how they read, since the live version. The short video never holds anyone up (decision 83).
- * - **Your numbers** (each person's): a monthly goal for calls booked, and the math seen.
+ * - **Your numbers** (each person's): a monthly goal for calls booked, and the math seen, against the safe pace of
+ *   every network they work added up (decision 88).
  *
  * Worked out each time from what's kept (`outreach.readiness`), never stored as a flag. Browser-safe: the web, the
  * phone and the extension read the items, the words and the math from here.
  */
 import { z } from 'zod';
 import { SCORED_PART_LABELS, SCORED_PARTS, type MainOfferParts } from '../../main-offer/parts';
+import { businessLimitsOn, type AutomationSettings, type BusinessRules } from './automation';
 import { DAILY_LIMITS } from './limits';
 import {
   MESSAGE_NOTE_MOST,
@@ -29,7 +31,13 @@ import {
   SampleSlotInput,
   type SamplePart,
 } from './conversation';
-import { NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
+import {
+  NETWORKS,
+  networkLimitsNow,
+  PLATFORM_KEYS,
+  WORKING_PLATFORMS,
+  type Platform,
+} from './networks';
 import {
   ALL_PROFILE_ITEMS,
   checkCounts,
@@ -269,6 +277,13 @@ export const ReadinessInput = z.object({
 });
 export type ReadinessInput = z.input<typeof ReadinessInput>;
 
+/** A network the person works, and the first messages a day its safe pace allows there (`numbersPace`). */
+export const NetworkPace = z.object({
+  platform: z.enum(PLATFORM_KEYS),
+  canSend: z.number().int().min(0),
+});
+export type NetworkPace = z.output<typeof NetworkPace>;
+
 export const ReadinessOutput = z.object({
   /** The network it's for: its profile, its items and its words. Facebook when left out. */
   platform: z.enum(PLATFORM_KEYS).optional(),
@@ -304,8 +319,12 @@ export const ReadinessOutput = z.object({
     at: z.iso.datetime().nullable(),
     /** The days they work, from their settings' working hours. */
     days: z.array(z.number().int().min(0).max(6)),
-    /** First messages a day the business's daily limit allows. */
+    /** First messages a day at a safe pace, every network they work added up (the business's limits on each). */
     canSend: z.number().int().min(0),
+    /** Each network they work with its share of `canSend`, Facebook first. Missing from an API from before it. */
+    networks: z.array(NetworkPace).default([]),
+    /** Networks the business allows that they don't work yet and that would add first messages: they help a goal. */
+    more: z.array(z.enum(PLATFORM_KEYS)).default([]),
   }),
 });
 export type ReadinessOutput = z.output<typeof ReadinessOutput>;
@@ -370,7 +389,7 @@ export interface NumbersMath {
   readonly yesesADay: number;
   /** First messages a day it takes: at the best rate, and at the worst. */
   readonly messagesADay: { readonly low: number; readonly high: number };
-  /** First messages Facebook's safe pace allows a day (the business's limit). */
+  /** First messages a day the safe pace allows, on every network they work together (`numbersPace`). */
   readonly canSend: number;
   /** Calls a month that pace brings, at the worst rate and the best. */
   readonly pace: { readonly low: number; readonly high: number };
@@ -381,8 +400,8 @@ export interface NumbersMath {
 /**
  * What a monthly goal takes each day, worked as the video works it: calls a month ÷ working days = calls a day; ÷ the
  * booking rate = yeses a day; ÷ the yes rate = first messages a day. A friend request is never a message. Then the
- * honest part: what one Facebook account's safe pace (`DAILY_LIMITS.first_message`, or the business's lower one)
- * brings in a month.
+ * honest part: what the safe pace of the networks they work brings in a month (`canSend`, from `numbersPace`; one
+ * Facebook account's, `DAILY_LIMITS.first_message`, when left out).
  */
 export function numbersMath(input: {
   readonly goal: number;
@@ -408,9 +427,48 @@ export function numbersMath(input: {
   return { daysAMonth, callsADay, yesesADay, messagesADay, canSend, pace, fits };
 }
 
+/** What a person can send a day on the networks they work, as Your numbers and their targets count it. */
+export interface NumbersPace {
+  /** First messages a day, every network added up. */
+  readonly canSend: number;
+  /** Each network they work, Facebook first, with its own share. */
+  readonly networks: readonly NetworkPace[];
+  /** The networks the business allows that they don't work yet, each one that would add first messages. */
+  readonly more: readonly Platform[];
+}
+
+/**
+ * The safe pace of every network a person works, added up (decision 88): one goal for all their networks, so each
+ * one's first messages count toward it. A network's pace is the business's own limit there, under the network's
+ * starting one; never halved, as a warning's slower week passes and the goal is for a usual month. Someone who works
+ * no network is counted on Facebook, as it's on to start.
+ */
+export function numbersPace(
+  settings: Pick<AutomationSettings, 'networks'>,
+  rules: Pick<BusinessRules, 'dailyLimits' | 'networkLimits' | 'networksAllowed'>,
+): NumbersPace {
+  const allowed = WORKING_PLATFORMS.filter((p) => rules.networksAllowed.includes(p));
+  const on = allowed.filter((p) => settings.networks[p].on);
+  const counted: readonly Platform[] = on.length ? on : ['facebook'];
+  const paceOn = (platform: Platform) =>
+    networkLimitsNow(platform, false, businessLimitsOn(rules, platform)).first_message;
+  const networks = counted.map((platform) => ({ platform, canSend: paceOn(platform) }));
+  return {
+    canSend: networks.reduce((sum, n) => sum + n.canSend, 0),
+    networks,
+    // Turning one on helps only where the business lets it send first messages.
+    more: allowed.filter((p) => !counted.includes(p) && paceOn(p) > 0),
+  };
+}
+
 /** One decimal, without a trailing .0: 0.4, 1.1, 2. */
 const short = (n: number) => String(Math.round(n * 10) / 10);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** "Facebook and LinkedIn", "Instagram or Alignable". */
+const listWords = (parts: readonly string[], joiner: 'and' | 'or') =>
+  parts.length < 2
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} ${joiner} ${parts.at(-1)}`;
 
 /** The math as lines, shown as it's worked. */
 export function numbersLines(goal: number, m: NumbersMath): string[] {
@@ -421,13 +479,41 @@ export function numbersLines(goal: number, m: NumbersMath): string[] {
   ];
 }
 
-/** What the math says about the goal against Facebook's safe pace, and what helps when it's past it. */
-export function numbersVerdict(m: NumbersMath): string {
-  const pace = `Facebook’s safe pace is ${m.canSend} first messages a day, about ${m.pace.low} to ${m.pace.high} calls a month.`;
+/**
+ * What the math says about the goal against the safe pace of the networks the person works (`numbersPace`), and what
+ * helps when it's past it: turning on a network the business allows comes first. One network says it on its own
+ * ("Facebook’s safe pace is 15…"), several add up, each with its share. With none given (an API from before them),
+ * Facebook's alone.
+ */
+export function numbersVerdict(
+  m: NumbersMath,
+  networks: readonly NetworkPace[] = [],
+  more: readonly Platform[] = [],
+): string {
+  const names = networks.map((n) => NETWORKS[n.platform].name);
+  const one = names.length < 2 ? (names[0] ?? NETWORKS.facebook.name) : null;
+  const sends = `${plural(m.canSend, 'first message')} a day`;
+  const calls = `${m.pace.low} to ${m.pace.high} calls a month`;
+  const pace = one
+    ? `${one}’s safe pace is ${sends}, about ${calls}.`
+    : `Your safe pace is ${sends}: ${listWords(
+        networks.map((n) => `${n.canSend} on ${NETWORKS[n.platform].name}`),
+        'and',
+      )}. That’s about ${calls}.`;
   if (m.fits === 'yes') return `${pace} Your goal fits.`;
-  if (m.fits === 'maybe')
-    return `${pace} Your goal fits only if your messages do well. ${READY_WORDS.numbersHelps}`;
-  return `${pace} Your goal is more than one Facebook account can reach. ${READY_WORDS.numbersHelps}`;
+  const helps = more.length
+    ? READY_WORDS.numbersHelpsOn(
+        listWords(
+          more.map((p) => NETWORKS[p].name),
+          'or',
+        ),
+      )
+    : READY_WORDS.numbersHelps;
+  if (m.fits === 'maybe') return `${pace} Your goal fits only if your messages do well. ${helps}`;
+  const reach = one
+    ? `one ${one} account can reach`
+    : `${listWords(names, 'and')} can reach together`;
+  return `${pace} Your goal is more than ${reach}. ${helps}`;
 }
 
 // ------------------------------------------------------------------------------------------------- the words
@@ -736,6 +822,9 @@ export const READY_WORDS = {
   },
   numbersHelps:
     'What helps: more friends to message (Reconnect on Today), helpful posts in your groups that bring people to you, and working Saturdays.',
+  /** The same, while the business allows a network they don't work yet: "Instagram or Alignable". */
+  numbersHelpsOn: (networks: string) =>
+    `What helps: turning on ${networks} too (under Settings), more friends to message (Reconnect on Today), helpful posts in your groups that bring people to you, and working Saturdays.`,
   waitingBusiness: 'You can do your own items meanwhile: your profile and your numbers.',
   /** In the extension's panel. */
   panelGo: 'Get ready in HandsFreeOS',

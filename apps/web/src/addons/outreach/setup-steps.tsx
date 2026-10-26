@@ -1,9 +1,10 @@
 'use client';
 /**
- * The main setup's steps (docs/outreach.md, decision 83; the canvas "Social Outreach setup"): the business's part
- * (the main offer, a playbook, a short video if it wants one, the team's rules), the computer (the extension), and the
- * person (their messages, their goal, the networks they use). Each says where it stands from the server's facts, and
- * its own button does the step: built elsewhere (the main offer, a playbook), it opens there and comes back here.
+ * The main setup's steps (docs/outreach.md, decisions 83 and 88; the canvas "Social Outreach setup"): the business's
+ * part (the main offer, a playbook, a short video if it wants one, the team's rules), the computer (the extension), and
+ * the person (their messages, the networks they use, then their goal across those networks). Each says where it stands
+ * from the server's facts, and its own button does the step: built elsewhere (the main offer, a playbook), it opens
+ * there and comes back here.
  *
  * The step's footer (`StepFooter`): Back, Skip for now while it's left to do, and Next once it's done. Moving on reads
  * the setup afresh, so the next step not done opens.
@@ -554,7 +555,7 @@ function MessagesStep({ workspaceId, setup, readiness, nav }: StepProps) {
   );
 }
 
-/** The goal: calls booked a month, the days, and the math (Get ready's own part). */
+/** The goal: calls booked a month, the days, and the math on the networks picked before it (Get ready's own part). */
 function NumbersStep({ workspaceId, setup, readiness, nav }: StepProps) {
   const router = useRouter();
   const done = stateOf(setup, { net: null, step: 'numbers' })?.state === 'done';
@@ -583,6 +584,8 @@ function NetworksStep({ workspaceId, setup, me, nav }: StepProps) {
   const not = WORKING_PLATFORMS.filter((p) => !allowed.includes(p));
   const on = may.filter((p) => value.networks[p].on);
   const done = stateOf(setup, { net: null, step: 'networks' })?.state === 'done';
+  // The goal comes next while it's left: it counts every network turned on here (decision 88).
+  const goalFirst = stateOf(setup, { net: null, step: 'numbers' })?.state !== 'done';
   const save = async () => {
     const ok = await nav.act('networks', async () =>
       unwrap(
@@ -632,7 +635,12 @@ function NetworksStep({ workspaceId, setup, me, nav }: StepProps) {
       </ul>
       {not.length ? <Note>{W.networksNotAllowed(not.map((p) => PLATFORMS[p]))}</Note> : null}
       <Note testId="outreach-setup-networks-next">
-        {on.length ? W.networksNext(on.map((p) => PLATFORMS[p])) : W.networksNone}
+        {on.length
+          ? W.networksNext(
+              on.map((p) => PLATFORMS[p]),
+              goalFirst,
+            )
+          : W.networksNone}
       </Note>
       <StepFooter nav={nav} done={done}>
         <Button
@@ -642,7 +650,7 @@ function NetworksStep({ workspaceId, setup, me, nav }: StepProps) {
           disabled={nav.busy !== null || !on.length}
           data-testid="outreach-setup-networks-save"
         >
-          {on.length ? W.saveAndSetUp(PLATFORMS[on[0]!]) : W.next}
+          {!on.length ? W.next : goalFirst ? W.saveAndCarryOn : W.saveAndSetUp(PLATFORMS[on[0]!])}
           <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
         </Button>
       </StepFooter>
@@ -681,9 +689,9 @@ export function MainStep({
       return <ExtensionStep {...all} />;
     case 'messages':
       return <MessagesStep {...all} />;
-    case 'numbers':
-      return <NumbersStep {...all} />;
     case 'networks':
       return <NetworksStep {...all} />;
+    case 'numbers':
+      return <NumbersStep {...all} />;
   }
 }
