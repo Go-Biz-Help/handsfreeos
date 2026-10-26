@@ -35,7 +35,7 @@ const draft = async (u: TestUser, input: Record<string, unknown>) =>
   });
 
 beforeAll(async () => {
-  const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  const s = testServices({ ai: { provider: scriptedAi() } });
   [owner, member] = await Promise.all([
     createTestUser('coach-draft-owner'),
     createTestUser('coach-draft-member'),

@@ -14,7 +14,7 @@ import { CHECK_PEOPLE_JOB } from '../src/addons/outreach/checks';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
-import { testServices, type TestServices } from './helpers';
+import { costlyAi, setAiLimit, testServices, type TestServices } from './helpers';
 
 const admin = () => testDbs().admin.db;
 const handlers = withAddons({});
@@ -106,7 +106,7 @@ afterAll(closeTestDbs);
 
 describe('checking the people the person knows', () => {
   it('says whether each fits, and lets their pages go', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await looked('Outreach Checks Worker Co', [
       ['Owner at Lane Plumbing'],
       ['Office manager at a dental practice'],
@@ -145,7 +145,7 @@ describe('checking the people the person knows', () => {
   });
 
   it('weighs where they live from their profile and mutual friends while the business reaches only some countries', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await outreachBusiness(owner, 'Outreach Country Looks Co');
     await rows(
       admin(),
@@ -196,12 +196,13 @@ describe('checking the people the person knows', () => {
   });
 
   it('leaves the rest waiting at the day’s AI limit', async () => {
-    const none = testServices({ ai: { provider: scriptedAi(), dailyTokens: 1 } });
+    const none = testServices({ ai: { provider: costlyAi() } });
     const ws = await looked('Outreach Capped Checks Co', [
       ['Owner at Lane Plumbing'],
       ['Owner at Cho Electric'],
       ['Owner at Ford Roofing'],
     ]);
+    await setAiLimit(ws, 1);
     await drain(none, ws);
     const waiting = (await states(ws)).filter((c) => c.verdict === 'waiting');
     expect(waiting.length).toBeGreaterThan(0);

@@ -3,8 +3,8 @@
  *
  * **Who may write what** is the whole design, and it is the same arrangement a subscription's card has:
  *
- * - A **person** with `money.manage` owns four settings, may ask for a card, may forget one, and may press Top
- *   up. That is the complete list.
+ * - A **person** with `money.manage` owns four top-up settings and the daily AI limit, may ask for a card, may
+ *   forget one, and may press Top up. That is the complete list.
  * - The **worker** writes everything the provider decides and everywhere the ladders have got to: the card, the
  *   recharge rows, the suspensions. Those are `actors: ['system']`, so `apps/api/src/routes.ts` never mounts an
  *   HTTP route for them and no browser can reach them at all.
@@ -26,6 +26,8 @@ import { topUpUsageKey } from '../money/usage-keys';
 import {
   WalletAdjustInput,
   WalletAdjustOutput,
+  WalletAiLimitInput,
+  WalletAiLimitOutput,
   WalletCardOutput,
   WalletRecordCardInput,
   WalletRecordRechargeInput,
@@ -60,7 +62,7 @@ type WalletRow = typeof usageWallets.$inferSelect;
  * insert privilege on the table and never will: what that closes off is somebody opening a wallet of their
  * own choosing, with a balance on it or its stage turned off. The function checks `money.manage` for itself,
  * reads the organisation from the workspace, and writes defaults and only defaults — so this is the one way
- * a business's own press opens its wallet, and the four `money.manage` commands below all use it.
+ * a business's own press opens its wallet, and the `money.manage` commands below all use it.
  */
 async function wallet(ctx: CommandContext): Promise<WalletRow> {
   const ws = ctx.scope.workspaceId!;
@@ -148,6 +150,43 @@ export const walletSetAutoTopup = defineCommand({
       after: { autoTopup: after.autoTopup, floor: after.floorCents, topup: after.topupCents },
     });
     return refOf(after);
+  },
+});
+
+/**
+ * The business's daily AI limit (20261027012500): the most its AI may be charged in a day, its own to set to any
+ * amount from a dollar up. It's there so a runaway can't charge the business all day; a business that needs more
+ * raises it whenever it likes.
+ */
+export const walletSetAiLimit = defineCommand({
+  name: 'wallet.set_ai_limit',
+  description:
+    'Set the daily AI limit: the most the business’s AI (the Assistant, the AI teammate, workflows, add-ons) may be charged in a day before it pauses until midnight.',
+  risk: 2,
+  input: WalletAiLimitInput,
+  output: WalletAiLimitOutput,
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['wallet.ai_limit_changed'],
+  /** How much money the AI may spend, like the top-up settings: never replayed from a phone that waited. */
+  offline: 'online',
+  async handler(ctx, input) {
+    const before = await wallet(ctx);
+    if (before.aiDailyLimitCents === input.aiDailyLimitCents)
+      return { workspaceId: before.workspaceId, aiDailyLimitCents: before.aiDailyLimitCents };
+    await ctx.tx
+      .update(usageWallets)
+      .set({ aiDailyLimitCents: input.aiDailyLimitCents })
+      .where(eq(usageWallets.workspaceId, before.workspaceId));
+    await ctx.emit({
+      type: 'wallet.ai_limit_changed',
+      entityType: 'usage_wallet',
+      entityId: before.workspaceId,
+      payload: { aiDailyLimitCents: input.aiDailyLimitCents },
+      before: { aiDailyLimitCents: before.aiDailyLimitCents },
+      after: { aiDailyLimitCents: input.aiDailyLimitCents },
+    });
+    return { workspaceId: before.workspaceId, aiDailyLimitCents: input.aiDailyLimitCents };
   },
 });
 
@@ -686,6 +725,7 @@ export const walletSetStage = defineCommand({
 
 export const walletCommands = [
   walletSetAutoTopup,
+  walletSetAiLimit,
   walletRequestCard,
   walletForgetCard,
   walletTopUp,

@@ -431,7 +431,6 @@ function build(provider: AiProvider = new ScriptedProvider(rules)): Promise<Fast
     assistant: {
       provider,
       tools: createToolExecutor(httpDb, null, null, '', CATALOG),
-      dailyTokens: 5_000_000,
       addons: MODULES,
       addonCatalog: CATALOG,
     },
@@ -590,8 +589,8 @@ describe('which add-on tools the Assistant offers', () => {
           db,
           provider,
           tools: createToolExecutor(db),
-          dailyTokens: 5e6,
           log: pino({ level: 'silent' }),
+          wallet: { db, log: pino({ level: 'silent' }), mode: 'off' },
         },
         {
           actor: actor(owner),
@@ -1039,7 +1038,6 @@ describe('an add-on’s worker actions', () => {
       assistant: {
         provider: new ScriptedProvider(actionRules),
         tools: createToolExecutor(httpDb, null, null, '', CATALOG, { services }),
-        dailyTokens: 5_000_000,
         addons: MODULES,
         addonCatalog: CATALOG,
         workerAddons: WORKERS,

@@ -18,6 +18,7 @@ export type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 /** Why an answer stopped short; each has its own card (design/m4/States.dc.html). */
 export type AssistantNoticeCode =
   | 'budget_reached'
+  | 'wallet_empty'
   | 'busy'
   | 'already_running'
   | 'failed'
@@ -50,8 +51,16 @@ const NOTICES: Record<Exclude<AssistantNoticeCode, 'stopped'>, NoticeCopy> = {
   budget_reached: {
     icon: 'limit',
     tone: 'warning',
-    title: (ws) => `That’s today’s Assistant limit for ${ws}`,
-    sub: 'It resets at midnight. Everything else in HandsFreeOS still works.',
+    title: (ws) => `${ws} reached its daily AI limit`,
+    sub: 'The AI pauses until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+    action: null,
+  },
+  // Unlike the daily limit, nothing waits for midnight: a top-up and the next question goes through.
+  wallet_empty: {
+    icon: 'limit',
+    tone: 'warning',
+    title: (ws) => `${ws}’s balance has run out`,
+    sub: 'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Usage & balance.',
     action: null,
   },
   busy: {

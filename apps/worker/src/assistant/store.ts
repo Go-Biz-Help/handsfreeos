@@ -1,7 +1,6 @@
 import { HfosError, uuidArray } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { AiUsage } from '@hfos/ai';
-import { aiBudget } from '../ai/budget';
 
 /** The worker's writes for the Assistant: threads, runs, messages and tool calls, inside one workspace. */
 export interface Scope {
@@ -244,14 +243,6 @@ export async function expireWaiting(db: Db, scope: Scope, threadId: string): Pro
     tx.execute(sql`update app.assistant_tool_calls set status = 'expired'
       where thread_id = ${threadId} and status = 'awaiting_confirmation'`),
   );
-}
-
-/**
- * Every AI token the workspace used today, in its own time zone: the Assistant's runs plus workflow AI
- * steps, the AI builder and the knowledge base (app.ai_usage). One limit per workspace.
- */
-export async function tokensToday(db: Db, scope: Scope, timezone: string): Promise<number> {
-  return aiBudget.usedToday(db, scope, timezone);
 }
 
 export interface HistoryItem {

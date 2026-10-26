@@ -51,7 +51,7 @@ beforeAll(async () => {
   w = await attentionWorld('svc');
   // The scripted model reads the promises.
   Object.assign(w, {
-    s: { ...w.s, ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } } as TestServices,
+    s: { ...w.s, ai: { provider: scriptedAi() } } as TestServices,
   });
   calendar = await makeCalendar(w, 'AC tune-up');
   await run(w, pushDeviceRegister, {

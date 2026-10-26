@@ -93,7 +93,7 @@ beforeAll(async () => {
     sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${ws}, ${member.id}, 'member')`,
   );
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
-  const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  const s = testServices({ ai: { provider: scriptedAi() } });
   app = await buildHttpServer({
     ...s,
     fetchUrl: media.fetchUrl,

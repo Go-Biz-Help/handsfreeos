@@ -83,7 +83,7 @@ const idOf = async (fb: string) =>
   )[0]!.id;
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi() } });
   owner = await createTestUser('outreach-groups-owner', { fullName: 'Pat Owner' });
   ws = await outreachBusiness(owner, 'Outreach Groups Worker Co');
   const crm = PLAYBOOK_TEMPLATES.crm_demos;

@@ -70,7 +70,7 @@ export const catalogs: TeammateCatalogs = {
   knowledge: { published: 12 },
   profile: { filled: 6, total: 7 },
   pricesAllowed: false,
-  aiUsage: { dailyTokens: 2_000_000, usedTokens: 680_000, teammateTokens: 420_000 },
+  aiUsage: { dailyLimitCents: 1000, usedCents: 340, teammateCents: 210 },
   businessHours: WEEKDAYS_8_TO_5,
   members: [
     { userId: DALE, name: 'Dale', role: 'owner', active: true },

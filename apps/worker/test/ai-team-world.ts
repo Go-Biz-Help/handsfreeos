@@ -70,7 +70,6 @@ export interface TeammateWorldOptions {
   readonly status?: 'training' | 'automatic';
   /** A calendar's name, made (public and active) before the teammate. */
   readonly calendar?: string;
-  readonly dailyTokens?: number;
 }
 
 const ownerOf = (w: World): HumanActor => ({
@@ -106,12 +105,12 @@ export async function teammateWorld(
       status: 'automatic',
     });
   const tw = Object.assign(w, { teammateId, requests: [] as AiRequest[], calendar });
-  useModel(tw, scriptedAi(), opts.dailyTokens);
+  useModel(tw, scriptedAi());
   return tw;
 }
 
 /** The world's model from now on (the scripted stand-in by default), with its requests kept. */
-export function useModel(w: TeammateWorld, inner: AiProvider, dailyTokens = 5_000_000): void {
+export function useModel(w: TeammateWorld, inner: AiProvider): void {
   const warm = inner.warm?.bind(inner);
   const provider: AiProvider = {
     id: 'recording',
@@ -122,7 +121,7 @@ export function useModel(w: TeammateWorld, inner: AiProvider, dailyTokens = 5_00
     },
     ...(warm ? { warm } : {}),
   };
-  Object.assign(w, { s: { ...w.s, ai: { provider, dailyTokens } } as TestServices });
+  Object.assign(w, { s: { ...w.s, ai: { provider } } as TestServices });
 }
 
 /** The teammate's requests (not the workflow AI's or the knowledge base's). */

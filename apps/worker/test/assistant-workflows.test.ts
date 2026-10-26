@@ -232,7 +232,7 @@ beforeAll(async () => {
   approvalId = a!.id;
 
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
-  const ai = { provider: scriptedAi(), dailyTokens: 5_000_000 };
+  const ai = { provider: scriptedAi() };
   const s = testServices({ ai });
   const httpDb = testDbs().worker.db;
   app = await buildHttpServer({
@@ -250,7 +250,6 @@ beforeAll(async () => {
         log: pino({ level: 'silent' }),
         wallet: { db: httpDb, log: pino({ level: 'silent' }), mode: 'shadow' as const },
       }),
-      dailyTokens: 5_000_000,
     },
   });
 });

@@ -46,7 +46,6 @@ import { localMinutes } from '../src/messaging/quiet-hours';
 import { DEFAULT_OPEN_HOURS, openHoursOf } from '../src/schemas/workspace';
 import {
   activityLog,
-  aiDailyTokens,
   aiTeammateActivity,
   aiTeammateCreate,
   aiTeammateDecideDraft,
@@ -2024,7 +2023,8 @@ describe('the teammate’s settings and status', () => {
     expect(visits.lengths.length).toBeGreaterThan(0);
     expect(visits.lengths.every((n) => Number.isInteger(n) && n > 0)).toBe(true);
     expect(before.catalogs.pricesAllowed).toBe(false);
-    expect(before.catalogs.aiUsage.dailyTokens).toBe(aiDailyTokens());
+    // The business's own daily AI limit (Settings → Usage & balance): $10 until it sets one.
+    expect(before.catalogs.aiUsage.dailyLimitCents).toBe(1000);
     const spend = (source: 'teammate' | 'workflow', [i, o, r, w]: readonly number[]) =>
       rows(
         admin(),
@@ -2033,9 +2033,11 @@ describe('the teammate’s settings and status', () => {
             values (${a.wsId}, ${source}::app.ai_usage_source, ${source === 'teammate' ? a.teammateId : null},
               'test-model', ${i}, ${o}, ${r}, ${w})`,
       );
-    await spend('teammate', [1000, 200, 30, 4]);
-    await spend('workflow', [400, 100, 0, 0]);
-    // The owner's Assistant chat counts too, though the member can't see it (private.ai_tokens_today).
+    // Priced as they're charged, from the card's AI lines: 30¢ + 30¢ + 3¢ + 3¢, then 12¢ + 15¢.
+    await spend('teammate', [100_000, 20_000, 100_000, 8_000]);
+    await spend('workflow', [40_000, 10_000, 0, 0]);
+    // The owner's Assistant chat counts too, though the member can't see it (private.ai_spend_today), at Claude
+    // Opus's own lines: 50,000 input tokens at $6 a million is 30¢.
     const [thread] = await rows<{ id: string }>(
       admin(),
       sql`insert into app.assistant_threads (workspace_id, user_id) values (${a.wsId}, ${a.owner.id})
@@ -2044,7 +2046,7 @@ describe('the teammate’s settings and status', () => {
     await rows(
       admin(),
       sql`insert into app.assistant_runs (workspace_id, user_id, thread_id, model, correlation_id, status, input_tokens)
-          values (${a.wsId}, ${a.owner.id}, ${thread!.id}, 'test-model', gen_random_uuid(), 'done', 2000)`,
+          values (${a.wsId}, ${a.owner.id}, ${thread!.id}, 'claude-opus-5-5', gen_random_uuid(), 'done', 50000)`,
     );
     await rows(
       admin(),
@@ -2053,18 +2055,12 @@ describe('the teammate’s settings and status', () => {
     );
     const after = await get();
     expect(after.catalogs.pricesAllowed).toBe(true);
-    expect(after.catalogs.aiUsage.teammateTokens - before.catalogs.aiUsage.teammateTokens).toBe(
-      1234,
-    );
-    expect(after.catalogs.aiUsage.usedTokens - before.catalogs.aiUsage.usedTokens).toBe(3734);
+    expect(after.catalogs.aiUsage.teammateCents - before.catalogs.aiUsage.teammateCents).toBe(66);
+    expect(after.catalogs.aiUsage.usedCents - before.catalogs.aiUsage.usedCents).toBe(123);
     await rows(
       admin(),
       sql`update app.knowledge_profiles set allow_prices = false where workspace_id = ${a.wsId}`,
     );
-    // The limit is the worker's: ASSISTANT_DAILY_TOKENS when it's a whole number, else 2,000,000.
-    expect(aiDailyTokens({ ASSISTANT_DAILY_TOKENS: '4000000' })).toBe(4_000_000);
-    expect(aiDailyTokens({ ASSISTANT_DAILY_TOKENS: '4,000,000' })).toBe(2_000_000);
-    expect(aiDailyTokens({})).toBe(2_000_000);
   });
 
   it('won’t turn on with conflicting settings, and moves between training and automatic', async () => {

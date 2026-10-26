@@ -27,6 +27,7 @@ import { aiBudget } from '../src/ai/budget';
 import { scriptedAi } from '../src/ai/scripted';
 import { systemActor } from '../src/services';
 import { AI_STEP_ASKS, AI_STEP_SYSTEM } from '../src/workflows/ai-runner';
+import { setAiLimit } from './helpers';
 import { recording, runJobNow, withWorkflowAi } from './workflow-ai-world';
 import {
   addWorkflow,
@@ -448,8 +449,9 @@ describe('an AI-sorted branch and a summary', () => {
 });
 
 describe('the daily limit', () => {
-  it('uses the fallback over the limit, and counts the tokens so far in the Assistant’s limit', async () => {
-    const v = withWorkflowAi(await flowWorld('wfaibud'), { dailyTokens: 1 });
+  it('uses the fallback over the limit, and counts what it spent in the Assistant’s limit', async () => {
+    const v = withWorkflowAi(await flowWorld('wfaibud'));
+    const scope = { workspaceId: v.workspaceId, organizationId: v.organizationId };
     try {
       const aiId = sid('bwrite');
       const wf = await addWorkflow(
@@ -459,6 +461,10 @@ describe('the daily limit', () => {
       );
       const first = await start(wf.id, 'Bea', undefined, v);
       expect((await stepOf(first.runId, aiId))!.output).toMatchObject({ fallback: false });
+      // The business sets its daily AI limit at what it has spent, so the next AI step is over it.
+      const spent = (await aiBudget.today(v.s.db, scope)).spentCents;
+      expect(spent).toBeGreaterThan(0);
+      await setAiLimit(v.workspaceId, Math.floor(spent));
       const second = await start(wf.id, 'Bob', undefined, v);
       expect((await stepOf(second.runId, aiId))!.output).toMatchObject({
         value: FALLBACK,
@@ -475,13 +481,8 @@ describe('the daily limit', () => {
       );
       expect(usage!.n).toBe(1);
       expect(usage!.total).toBeGreaterThan(0);
-      // The Assistant's own limit reads the same total (assistant/store.ts tokensToday).
-      expect(
-        await aiBudget.usedToday(v.s.db, {
-          workspaceId: v.workspaceId,
-          organizationId: v.organizationId,
-        }),
-      ).toBe(usage!.total);
+      // The Assistant's own limit reads the same spending.
+      expect(await aiBudget.reached(v.s.db, scope)).toMatch(/paused until midnight/);
     } finally {
       await v.app.close();
     }

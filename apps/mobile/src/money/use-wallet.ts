@@ -9,7 +9,7 @@ import { appFetch, useNetwork } from '@/lib/network';
 
 /**
  * The business's own balance on the phone — what `wallet.get`, `usage.prices` and `usage.statement` answer, and the
- * four things a person may do to it.
+ * things a person may do to it.
  *
  * **None of this is in the phone's copy, and it shouldn't be.** A balance sitting in SQLite from yesterday morning
  * is a number somebody would act on: top up when they already have, or not top up when they're about to be cut off.
@@ -165,8 +165,9 @@ export async function walletCard(input: {
 }
 
 /**
- * The three commands the screen sends. They go straight out rather than into the queue of changes: money moving on a
- * card, and the card itself, are not things to do silently three hours later when a signal turns up.
+ * The commands the screen sends. They go straight out rather than into the queue of changes: money moving on a
+ * card, the card itself and how much the AI may spend are not things to do silently three hours later when a
+ * signal turns up.
  */
 export const walletCommands = {
   async setAutoTopup(
@@ -175,6 +176,13 @@ export const walletCommands = {
   ): Promise<void> {
     unwrap(
       await api.POST('/v1/commands/wallet.set_auto_topup', { body: { workspaceId, ...patch } }),
+    );
+  },
+  async setAiLimit(workspaceId: string, aiDailyLimitCents: number): Promise<void> {
+    unwrap(
+      await api.POST('/v1/commands/wallet.set_ai_limit', {
+        body: { workspaceId, aiDailyLimitCents },
+      }),
     );
   },
   async topUp(workspaceId: string): Promise<void> {

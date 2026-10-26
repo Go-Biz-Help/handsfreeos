@@ -99,9 +99,19 @@ export function registerTeammateTestRoutes(
     return asWorker(deps.db, scope, async (tx) => {
       const teammate = await loadTeammate(tx, scope.workspaceId);
       if (!teammate) throw HfosError.notFound('This business has no AI teammate.');
-      const share = Math.ceil(
-        (deps.ai.dailyTokens * runtimeConfigOf(teammate.config).limits.dailySharePercent) / 100,
+      // Its share is in cents now (the business's own daily AI limit), so it's the input tokens that come to it at
+      // the live card's price: the same pricing private.ai_spend_today counts by.
+      const [p] = await rows<{ limit_cents: string | number; per_mtok_cents: string | number }>(
+        tx,
+        sql`select s.limit_cents,
+              (select r.cost_micros::numeric * r.markup_bp / 10000 / 10000
+                from platform.usage_rates_live r where r.key = 'ai.input.mtok') as per_mtok_cents
+            from private.ai_spend_today(${scope.workspaceId}::uuid) s`,
       );
+      const shareCents =
+        (Number(p?.limit_cents ?? 0) * runtimeConfigOf(teammate.config).limits.dailySharePercent) /
+        100;
+      const share = Math.ceil((shareCents / Number(p?.per_mtok_cents || 1)) * 1_000_000);
       await tx.execute(
         sql`insert into app.ai_usage (workspace_id, source, teammate_id, model, input_tokens)
             values (${scope.workspaceId}, 'teammate', ${teammate.id}, ${TEST_BUDGET_MODEL}, ${share})`,

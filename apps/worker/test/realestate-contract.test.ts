@@ -154,7 +154,7 @@ const alertOf = async (readId: string) =>
 
 beforeAll(async () => {
   s = {
-    ...testServices({ ai: { provider: scriptedAi(RULES), dailyTokens: 5_000_000 } }),
+    ...testServices({ ai: { provider: scriptedAi(RULES) } }),
     store: media.store,
   };
   agent = await createTestUser('rec-worker-agent', { fullName: 'Dana Reyes' });

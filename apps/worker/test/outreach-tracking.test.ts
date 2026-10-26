@@ -213,7 +213,7 @@ describe('the day’s report', () => {
 
 describe('the week’s review', () => {
   it('has the AI say what to fix first on Monday, keeps it for Results and pushes it, once', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await business('Outreach Review Co');
     const { week } = reviewWeek(Date.now(), 'UTC');
     // Last Tuesday: 3 first messages. And a reply this week, which arms the review.

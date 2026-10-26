@@ -670,9 +670,7 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
   const hasRoom = () =>
     aiBudget.teammateHasRoom(ctx.db, scope, {
       teammateId: run.teammate.id,
-      dailyTokens: ctx.ai.dailyTokens,
       sharePercent: rc.config.limits.dailySharePercent,
-      timeZone: rc.workspace.timeZone,
     });
   const budget: HandOff = {
     reason: 'budget',

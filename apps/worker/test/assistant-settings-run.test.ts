@@ -115,7 +115,6 @@ beforeAll(async () => {
     assistant: {
       provider: scriptedAssistant(),
       tools: createToolExecutor(httpDb),
-      dailyTokens: 5_000_000,
     },
   });
 }, 90_000);

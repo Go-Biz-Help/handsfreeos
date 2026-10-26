@@ -173,6 +173,11 @@ describe('the seeded card', () => {
       'ai.output.mtok': 1500,
       'ai.cache_read.mtok': 30,
       'ai.cache_write.mtok': 375,
+      // Ask HandsFreeOS, on Claude Opus: 1.5× its own prices (20261027012500).
+      'ai.opus.input.mtok': 600,
+      'ai.opus.output.mtok': 3000,
+      'ai.opus.cache_read.mtok': 30,
+      'ai.opus.cache_write.mtok': 750,
       // Speech is billed in running totals; one unit on its own is lifted by the floor.
       'speech.live.minute': 2,
       'speech.recording.minute': 1,

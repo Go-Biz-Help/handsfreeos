@@ -51,20 +51,20 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 
 Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and pays for every account below. Client businesses never get accounts of their own: their phone lines live in Twilio subaccounts under your master account, and their email goes through your one Postmark server. Prices were checked in September 2026 and will change.
 
-| Account                                                             | What HandsFreeOS uses it for                                                                                                                                                                            | Rough cost                                                                                                                                                                                                                                                                                   | More in                                     |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                                                                                                                    | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                                                                                  | "The database: Supabase (hosted)"           |
-| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                                                                                                                         | About $9.60 a month in `iad` with two API machines and one worker machine, or about $12.80 with two worker machines (about $12 and $16 in `dfw`), plus about $13 to $15 for the sync service                                                                                                 | "Hosting: the API and the worker on Fly.io" |
-| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                                                                                                                       | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                                                                                       | "The web app on Vercel"                     |
-| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                                                                                                                         | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance.                                                           | "The phone carrier: Twilio"                 |
-| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                                                                                                                     | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                                                                                      | "Email: Postmark"                           |
-| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                                                                                                                 | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                                                                            | "Connected mailboxes: Outlook and Gmail"    |
-| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                                                                                      | "Connected mailboxes: Outlook and Gmail"    |
-| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. Ask HandsFreeOS uses Claude Opus 5.5 ($4 per million tokens sent, $20 per million written back); everything else uses Claude Sonnet 5 ($2 and $10). HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $40 a day per workspace. | "The Assistant: Anthropic"                  |
-| OpenAI (an OpenAI Platform organization, with prepaid credits)      | GPT, the backup that answers every AI feature while Claude is down                                                                                                                                      | Pay as you go from prepaid credits. It answers only while Claude is in trouble, so most months it costs little or nothing. Businesses pay the same whichever AI answers.                                                                                                                     | "The backup AI: OpenAI"                     |
-| GitHub, organization `Go-Biz-Help` (already exists)                 | The repository `Go-Biz-Help/handsfreeos`, CI and the Deploy workflow                                                                                                                                    | No new cost                                                                                                                                                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
-| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                                                                                    | Several sections                            |
-| Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                                                                          | "The public website on Vercel"              |
+| Account                                                             | What HandsFreeOS uses it for                                                                                                                                                                            | Rough cost                                                                                                                                                                                                                                                                                    | More in                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Supabase, organization `Go Biz Help` (already exists)               | The database, sign-in, file storage and live updates                                                                                                                                                    | Pro plan from $25 a month for the whole organization, plus about $10 a month for this project's Micro compute. Point-in-time recovery is optional, about $105 a month more.                                                                                                                   | "The database: Supabase (hosted)"           |
+| Fly.io (a new organization, with a card)                            | Runs the API, the worker and the sync service for the phone app                                                                                                                                         | About $9.60 a month in `iad` with two API machines and one worker machine, or about $12.80 with two worker machines (about $12 and $16 in `dfw`), plus about $13 to $15 for the sync service                                                                                                  | "Hosting: the API and the worker on Fly.io" |
+| Vercel (a Pro team)                                                 | Runs the web app at `https://app.handsfreeos.com`                                                                                                                                                       | $20 a month, including one seat that can deploy and $20 of usage credit. 14-day trial.                                                                                                                                                                                                        | "The web app on Vercel"                     |
+| Twilio (one master account, upgraded to paid)                       | Phone numbers, texts and calls for every client                                                                                                                                                         | A starting balance of about $50. Then $1.15 a month per local number, $2.15 per toll-free number, texts and minutes, and carrier registration fees for local numbers. All client subaccounts draw on the master account's balance.                                                            | "The phone carrier: Twilio"                 |
+| Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                                                                                                                     | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                                                                                       | "Email: Postmark"                           |
+| Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                                                                                                                 | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                                                                             | "Connected mailboxes: Outlook and Gmail"    |
+| Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                                                                                       | "Connected mailboxes: Outlook and Gmail"    |
+| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. Ask HandsFreeOS uses Claude Opus 5.5 ($4 per million tokens sent, $20 per million written back); everything else uses Claude Sonnet 5 ($2 and $10). Businesses pay for their own AI at 1.5×, each up to the daily AI limit it sets itself ($10 to start). | "The Assistant: Anthropic"                  |
+| OpenAI (an OpenAI Platform organization, with prepaid credits)      | GPT, the backup that answers every AI feature while Claude is down                                                                                                                                      | Pay as you go from prepaid credits. It answers only while Claude is in trouble, so most months it costs little or nothing. Businesses pay the same whichever AI answers.                                                                                                                      | "The backup AI: OpenAI"                     |
+| GitHub, organization `Go-Biz-Help` (already exists)                 | The repository `Go-Biz-Help/handsfreeos`, CI and the Deploy workflow                                                                                                                                    | No new cost                                                                                                                                                                                                                                                                                   | "Hosting: the API and the worker on Fly.io" |
+| Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                                                                                     | Several sections                            |
+| Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                                                                           | "The public website on Vercel"              |
 
 ### Tools on your Mac
 
@@ -1498,21 +1498,20 @@ Nothing on Fly reads a `.env` file. The images contain none, because `.dockerign
 
 #### The API (`handsfreeos-api`)
 
-| Name                     | How it is set | Required                                | Default if unset                                        | Where the value comes from                                                                                                                                                     |
-| ------------------------ | ------------- | --------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `NODE_ENV`               | `[env]`       | Yes                                     | Not set (the Dockerfile also sets `production`)         | Already `production`                                                                                                                                                           |
-| `HOST`                   | `[env]`       | Yes, must be `0.0.0.0` on Fly           | `127.0.0.1` in the code. The Dockerfile sets `0.0.0.0`. | Already `0.0.0.0`                                                                                                                                                              |
-| `PORT`                   | `[env]`       | Yes, must match `internal_port = 4000`  | `4000` (the Dockerfile also sets `4000`)                | Already `4000`                                                                                                                                                                 |
-| `TRUST_PROXY`            | `[env]`       | Recommended                             | Off (on only when exactly `true`)                       | Already `true`. Fly's proxy passes on each visitor's address.                                                                                                                  |
-| `WEB_ORIGINS`            | `[env]`       | Yes, or the browser cannot call the API | `http://localhost:3000`                                 | Already `https://app.handsfreeos.com`. Separate several with commas.                                                                                                           |
-| `SUPABASE_URL`           | `[env]`       | Yes, the API will not start without it  | None                                                    | Already `https://ybupfghakoszfcxhyrby.supabase.co`                                                                                                                             |
-| `LOG_LEVEL`              | `[env]`       | No                                      | `info`                                                  | Already `info`                                                                                                                                                                 |
-| `DATABASE_URL`           | Fly secret    | Yes, the API will not start without it  | None                                                    | The transaction pooler string (port `6543`) for the `hfos_api` role (Fly Part 6). It must not use the `postgres` role.                                                         |
-| `SUPABASE_JWT_ISSUER`    | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                                                                                                 |
-| `SUPABASE_JWKS_URL`      | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                                                                                                 |
-| `ASSISTANT_DAILY_TOKENS` | Fly secret    | Only when you change the daily AI limit | `2000000`                                               | The same number as the worker's. The API shows each business's AI use against it, in the AI teammate's **Limits**. See "Change the daily limit" in "The Assistant: Anthropic". |
+| Name                  | How it is set | Required                                | Default if unset                                        | Where the value comes from                                                                                             |
+| --------------------- | ------------- | --------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`            | `[env]`       | Yes                                     | Not set (the Dockerfile also sets `production`)         | Already `production`                                                                                                   |
+| `HOST`                | `[env]`       | Yes, must be `0.0.0.0` on Fly           | `127.0.0.1` in the code. The Dockerfile sets `0.0.0.0`. | Already `0.0.0.0`                                                                                                      |
+| `PORT`                | `[env]`       | Yes, must match `internal_port = 4000`  | `4000` (the Dockerfile also sets `4000`)                | Already `4000`                                                                                                         |
+| `TRUST_PROXY`         | `[env]`       | Recommended                             | Off (on only when exactly `true`)                       | Already `true`. Fly's proxy passes on each visitor's address.                                                          |
+| `WEB_ORIGINS`         | `[env]`       | Yes, or the browser cannot call the API | `http://localhost:3000`                                 | Already `https://app.handsfreeos.com`. Separate several with commas.                                                   |
+| `SUPABASE_URL`        | `[env]`       | Yes, the API will not start without it  | None                                                    | Already `https://ybupfghakoszfcxhyrby.supabase.co`                                                                     |
+| `LOG_LEVEL`           | `[env]`       | No                                      | `info`                                                  | Already `info`                                                                                                         |
+| `DATABASE_URL`        | Fly secret    | Yes, the API will not start without it  | None                                                    | The transaction pooler string (port `6543`) for the `hfos_api` role (Fly Part 6). It must not use the `postgres` role. |
+| `SUPABASE_JWT_ISSUER` | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                                         |
+| `SUPABASE_JWKS_URL`   | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                                         |
 
-`DATABASE_URL` is the API's only secret. `ASSISTANT_DAILY_TOKENS` is set the same way when you change the daily limit, but it isn't secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_`, `OPENAI_` or `EXPO_` (upper or lower case; the phone app's public `EXPO_PUBLIC_` settings are allowed), or is `CHAT_IP_KEY`. Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
+`DATABASE_URL` is the API's only secret. At startup the API checks the name of every variable. It refuses to start if a name contains `SECRET`, `SERVICE_ROLE`, `SIGNING_KEY`, `ENCRYPTION_KEY` or `_OAUTH_` (such as `MICROSOFT_OAUTH_`, `GOOGLE_OAUTH_` and `GOOGLE_CALENDAR_OAUTH_`), starts with `TWILIO_`, `POSTMARK_`, `TURNSTILE_`, `ANTHROPIC_`, `OPENAI_` or `EXPO_` (upper or lower case; the phone app's public `EXPO_PUBLIC_` settings are allowed), or is `CHAT_IP_KEY`. Its log then says `The API process must never hold privileged keys. Remove: <names>`. Fly's own variables (`FLY_*`, `PRIMARY_REGION`) are fine. Never run a worker secrets command with `--app handsfreeos-api`.
 
 Both apps check sign-ins against Supabase's published signing keys and cache them. So rotating Supabase's signing keys needs no deploy.
 
@@ -1637,13 +1636,11 @@ The defaults are right in production. Setting some of these changes real behavio
 | `OPENAI_VOICE_MODEL`                       | `gpt-6-luna`                                                               | OpenAI's model on calls while Claude is down, whatever model they use on Claude. A fast one keeps the pauses short. See "Change the backup models".                                                                                                            |
 | `ASSISTANT_TOOL_SEARCH`                    | `on`                                                                       | `on`: Ask HandsFreeOS keeps about 20 tools loaded and finds the rest by searching (Anthropic's tool search). `off` sends every tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.                                   |
 | `ASSISTANT_EFFORT`                         | `low`                                                                      | How long Ask HandsFreeOS thinks before it answers: `low`, `medium` or `high`. Less is faster; `low` keeps a look-up's answer to a couple of seconds. See "How fast it answers" in "The Assistant: Anthropic".                                                  |
-| `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes, with the same number on `handsfreeos-api`.                                                                                                                                 |
 | `PUSH_PROVIDER`                            | `expo` when `EXPO_ACCESS_TOKEN` is set, otherwise `none`                   | Production refuses `fake`, the stand-in for local development and tests. `none` turns push off even with a token.                                                                                                                                              |
 
 #### Settings outside Fly that must match
 
 - **GitHub:** the repository secret `FLY_API_TOKEN` (Fly Part 9).
-- **The API:** when the worker has `ASSISTANT_DAILY_TOKENS`, `handsfreeos-api` needs the same number ("Change the daily limit" in "The Assistant: Anthropic").
 - **Turnstile:** the site key on Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) and the worker's `TURNSTILE_SECRET_KEY` come from the same Cloudflare widget.
 - **Vercel:** `NEXT_PUBLIC_API_URL` must be `https://api.handsfreeos.com`, and `NEXT_PUBLIC_WORKER_URL` must be `https://hooks.handsfreeos.com` (Fly Part 10). If the API address is missing, the web app tries `http://127.0.0.1:4000`. If the worker address is missing, number search, browser calls, mailbox and calendar sign-in and the booking pages try `http://127.0.0.1:4100`.
 - **Providers:** Twilio, Postmark, Microsoft, Google, Meta, Stripe and Square must call `https://hooks.handsfreeos.com`, never `handsfreeos-worker.fly.dev`. A Twilio request sent to any other address fails with `403 Invalid signature`. Stripe’s Connect endpoint is `https://hooks.handsfreeos.com/webhooks/stripe` and Square’s is `https://hooks.handsfreeos.com/webhooks/square`; the OAuth returns are `https://hooks.handsfreeos.com/oauth/stripe/callback` and `https://hooks.handsfreeos.com/oauth/square/callback`. Meta’s webhook is `https://hooks.handsfreeos.com/webhooks/meta`, and its sign-in returns to `https://hooks.handsfreeos.com/oauth/facebook/callback` (“Facebook and Instagram messages: Meta”).
@@ -6775,9 +6772,9 @@ Anthropic charges by the token. A token is a small piece of text, about four cha
 
 Haiku 5.5's prices are for a request of up to 100,000 tokens; a longer one costs five times as much. A call's requests are far shorter than that.
 
-Businesses don't pay for Ask HandsFreeOS: its tokens are HandsFreeOS's own cost. Everything on Sonnet 5 and Haiku 5.5 is charged to the business's balance at the rate card's AI prices, which are set for Sonnet 5.
+Businesses pay for all of their AI, Ask HandsFreeOS included (since `20261027012500`). Ask HandsFreeOS is charged at the rate card's Claude Opus lines (`ai.opus.*`, 1.5× Opus 5.5's prices), once per question, as "Ask HandsFreeOS answering a question", and its reading ahead as "Ask HandsFreeOS getting ready". Everything on Sonnet 5 and Haiku 5.5 is charged at the card's other AI lines, which are set for Sonnet 5. A question that the backup AI (OpenAI) answered is still charged at the Opus lines. A question has cost about 16¢ on the card. Only the businesses on "Paid by the agency" are covered by HandsFreeOS (see "Usage balances: what businesses pay us").
 
-HandsFreeOS limits each workspace to 2,000,000 tokens a day, counting all four kinds (see "Change the daily limit" below). Even if every one of them were an Opus 5.5 output token, that is $40 a day per workspace. The monthly spend limit you set in Anthropic's console is the hard stop for the whole bill.
+Each business sets its own daily AI limit, in dollars, and starts at $10 a day (see "Change the daily limit" below). The monthly spend limit you set in Anthropic's console is the hard stop for the whole bill.
 
 ### Make the account and set a spend limit
 
@@ -6948,42 +6945,15 @@ In all of these, the panel says "Something went wrong". When the cause is on Ant
 
 ### Change the daily limit
 
-Each workspace may use 2,000,000 tokens a day. That counts every kind of token its questions use: sent, written back, and written to or read from Anthropic's cache. The day runs from midnight to midnight in the workspace's own time zone. The worker checks the total before each question, so the last question of the day can go a little over. The same number applies to every workspace. Workflow AI steps, **Describe**, website scans and **Try it** count toward the same limit (see "AI steps and the daily AI limit" in "Workflows, the knowledge base and agency templates"). So does the AI teammate, which may use at most its share of it: 60% unless its **Limits** say otherwise ("The AI teammate and website chat").
+Each business sets its own daily AI limit: the most its AI may be charged in a day, in dollars. A new business starts at $10. An owner or admin (anyone with **Manage money**) changes it at any time on **Settings** → **Usage & balance** → **Daily AI limit**, on the web or the phone, to any amount from $1 up. HandsFreeOS sets no ceiling. It's there so a runaway (a stuck workflow, a flood of website chats) can't charge the business all day; a business that needs more raises it.
 
-When a workspace reaches it, the panel says "That’s today’s Assistant limit for {workspace}" and "It resets at midnight. Everything else in HandsFreeOS still works."
+- **What counts.** Everything its AI did since midnight in the business's own time zone, priced as it's charged from the live rate card: Ask HandsFreeOS (everyone's questions, and its reading ahead), the AI teammate, workflow AI steps, **Describe**, website scans, **Try it** and add-ons. It's the same pricing `private.ai_spend_today` does for every page that shows it. Speech (talking out loud, call transcripts) isn't counted.
+- **When it's checked.** Before each model call, so the last call of the day can go a little over.
+- **The AI teammate** may use at most its share of the limit: 60% unless its **Limits** say otherwise ("The AI teammate and website chat").
+- **When it's reached,** every AI feature pauses until midnight and says why: "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance." Ask HandsFreeOS's panel says "{business} reached its daily AI limit". Everything else in HandsFreeOS still works.
+- **A business on "Paid by the agency"** has a limit too, set the same way. Its AI is HandsFreeOS's own cost.
 
-1. Pick the new number. Use digits only, with no commas or spaces: `4000000`, not `4,000,000`. With anything else the worker refuses to start, and its log says `ASSISTANT_DAILY_TOKENS must be a whole number above zero`.
-2. Start an import. The number is not a secret, but a Fly secret changes it without a code change or a deploy.
-
-   ```bash
-   fly secrets import --app handsfreeos-worker
-   ```
-
-3. Paste the line with your number, then press Return and Control-D.
-
-   ```text
-   ASSISTANT_DAILY_TOKENS=4000000
-   ```
-
-   Fly restarts the worker.
-
-4. Watch the worker's log.
-
-   ```bash
-   fly logs --app handsfreeos-worker
-   ```
-
-   You should see a new `worker started` line. Press Control-C to stop watching.
-
-5. Give the API the same number. The worker enforces the limit, and the API shows each business's use against it (the AI teammate's **Limits**), so the two must match. Start an import on the API.
-
-   ```bash
-   fly secrets import --app handsfreeos-api
-   ```
-
-6. Paste the same line, then press Return and Control-D. Fly restarts the API. The API doesn't check the number: with anything but digits it quietly uses 2,000,000, and the use it shows is off.
-
-To go back to 2,000,000, remove it from both apps:
+This replaced `ASSISTANT_DAILY_TOKENS`, a single number of tokens for every business, which counted a cheap cache read the same as an expensive answer. Neither app reads it any more. If either still has it, remove it:
 
 ```bash
 fly secrets unset --app handsfreeos-worker ASSISTANT_DAILY_TOKENS
@@ -6992,8 +6962,6 @@ fly secrets unset --app handsfreeos-worker ASSISTANT_DAILY_TOKENS
 ```bash
 fly secrets unset --app handsfreeos-api ASSISTANT_DAILY_TOKENS
 ```
-
-Each extra million tokens a day can add up to $10 a day per workspace. Raise the spend limit in the Console to match if you need to.
 
 ### Change the model
 
@@ -7035,7 +7003,7 @@ To go back to the models HandsFreeOS ships with:
 fly secrets unset --app handsfreeos-worker ASSISTANT_MODEL AI_MODEL VOICE_MODEL
 ```
 
-The daily limit counts tokens, not dollars, so a more expensive model spends more for the same limit.
+The daily AI limit counts dollars at the rate card's AI prices, which are set for Sonnet 5 (and Opus 5.5 for Ask HandsFreeOS, by the `ai.opus.*` lines), whatever model answered. A more expensive model costs HandsFreeOS more than the card charges: add lines for it on the card before switching ("Part 3: Fixing the card" in "Usage balances: what businesses pay us").
 
 Ask HandsFreeOS has about 160 tools of its own, and each add-on a business has on brings more (Social Outreach brings 72). With `ASSISTANT_TOOL_SEARCH` on (the default), it keeps about 20 of them loaded, the ones its instructions name and the everyday look-ups, and finds the rest by searching when a question needs them, so it chooses from a short list. Only some models have tool search (Claude Opus 5.5 and Opus 5 do; Claude Sonnet 5 doesn't); on the others every tool is sent, whatever the setting. If answers ever say it can't do something it should, turn search off to compare:
 
@@ -8076,7 +8044,7 @@ Where to find them:
 
 Owners and admins of a business build, test, publish and pause its workflows, and edit its knowledge base. Everyone in the business can look at both, add a customer to a workflow or take them out, and decide an approval that names them.
 
-There is nothing new to set up on Fly.io or Vercel. The worker runs the workflows and the website scans. The AI parts use the Assistant's Anthropic key, model and daily limit ("The Assistant: Anthropic"). Without the key, everything else works, and the AI parts fall back as described below. The tables come from the migrations `20260916000100_workflows.sql` to `20260916000710_knowledge_files.sql`, and the daily agency digest needs `20260917000100_agency_digest.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+There is nothing new to set up on Fly.io or Vercel. The worker runs the workflows and the website scans. The AI parts use the Assistant's Anthropic key and model, and the business's own daily AI limit ("The Assistant: Anthropic"). Without the key, everything else works, and the AI parts fall back as described below. The tables come from the migrations `20260916000100_workflows.sql` to `20260916000710_knowledge_files.sql`, and the daily agency digest needs `20260917000100_agency_digest.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
 
 ### How workflows run
 
@@ -8190,7 +8158,7 @@ The email goes to the people named on the step, or else to the business's own ow
 An AI step writes a message, sorts a customer's reply into categories, picks a path, or writes a summary for the team. It uses Claude with the Assistant's key and model.
 
 - It writes from the knowledge base (see "How the AI uses the knowledge base" below).
-- AI steps, **Describe**, website scans and **Try it** share the Assistant's daily limit: 2,000,000 tokens a day per business, unless `ASSISTANT_DAILY_TOKENS` says otherwise ("Change the daily limit" in "The Assistant: Anthropic"). Their tokens go in the `ai_usage` table, the Assistant's stay with its chats, and the limit adds the two.
+- AI steps, **Describe**, website scans and **Try it** share the business's own daily AI limit with the Assistant: $10 a day unless the business changes it on **Settings** → **Usage & balance** ("Change the daily limit" in "The Assistant: Anthropic"). Their tokens go in the `ai_usage` table, the Assistant's stay with its chats, and the limit prices the two as they're charged.
 - With no model on the worker, over the day's limit, or with an answer it can't use, the step takes its fallback. A written message uses the step's fallback text, a sort uses its fallback category, and an AI-picked path takes the last path. The step log says so, for example "(today’s AI limit was reached, so the fallback)".
 - When Anthropic is busy, the step is tried again like any other error. On its last try it takes the fallback instead, so a busy Anthropic never fails a run.
 - A written message with no fallback text leaves nothing to send. The text or email that uses it is then skipped, and the step log says "Skipped: no value for" and the missing detail.
@@ -8377,7 +8345,7 @@ The `worker started` line in the `pnpm dev` window says which model the worker u
 | `"scripted"`  | The scripted stand-in the browser tests use. It answers from the prompt in the right shape, the same way every time, and costs nothing.                           | Add `ASSISTANT_PROVIDER=scripted` to `apps/worker/.env` and restart `pnpm dev`. It wins over a key in the same file. The worker refuses it in production. |
 | `"anthropic"` | Claude, as in production (`ASSISTANT_MODEL` and `AI_MODEL`, as in "Change the model"). It costs money from your Anthropic credits.                                | Add a local key as in "Trying the Assistant" in "Local development".                                                                                      |
 
-The daily limit of 2,000,000 tokens per business applies to all three. `pnpm env:local` keeps the `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL`, `AI_MODEL`, `ASSISTANT_TOOL_SEARCH` and `ASSISTANT_DAILY_TOKENS` lines, but removes `ASSISTANT_PROVIDER`, so add it back after each run.
+Each business's own daily AI limit ($10 unless it changes it) applies to all three. `pnpm env:local` keeps the `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL`, `AI_MODEL` and `ASSISTANT_TOOL_SEARCH` lines, but removes `ASSISTANT_PROVIDER`, so add it back after each run.
 
 #### See a wait without waiting
 
@@ -8475,7 +8443,7 @@ The step log says why, for example "Skipped: they haven’t agreed to texts", "S
 The step log ends "(today’s AI limit was reached, so the fallback)" or "(the fallback)".
 
 - **No model.** The worker's `worker started` line shows `"assistant":"none"`. Give it the key ("Give the worker the key" in "The Assistant: Anthropic").
-- **The daily limit.** The business used its tokens for the day, counting the Assistant, AI steps, **Describe**, scans and **Try it**. It resets at midnight in the business's time zone. **Try it** says "That’s today’s AI limit for this business. It resets at midnight." To raise it, see "Change the daily limit" in "The Assistant: Anthropic".
+- **The daily AI limit.** The business's AI reached the limit it set, counting the Assistant, the AI teammate, AI steps, **Describe**, scans, **Try it** and add-ons. It resets at midnight in the business's time zone. **Try it** says "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance." with the business's own amount. An owner or admin raises it there ("Change the daily limit" in "The Assistant: Anthropic").
 - **Anthropic is busy or refuses.** The worker's log shows `AI call failed`. "When a question fails" in "The Assistant: Anthropic" explains the errors.
 
 #### A website scan found nothing
@@ -8506,17 +8474,16 @@ Where to find them:
 
 Everyone in a business can see the teammate and its **Activity**, and approve or reject its reply drafts. Owners and admins set it up, change its status, approve the discounts it wants to offer, and set up the website chat.
 
-It uses the Assistant's Anthropic key, model and daily limit ("The Assistant: Anthropic"). Without the key, every conversation it would answer goes to **Needs a person** with the note "The AI isn’t set up for this business yet, so it couldn’t answer." The tables come from the migrations `20260918000100_ai_team_enums.sql` to `20260918000900_ai_usage_today.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+It uses the Assistant's Anthropic key and model, and the business's own daily AI limit ("The Assistant: Anthropic"). Without the key, every conversation it would answer goes to **Needs a person** with the note "The AI isn’t set up for this business yet, so it couldn’t answer." The tables come from the migrations `20260918000100_ai_team_enums.sql` to `20260918000900_ai_usage_today.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
 
 ### Settings each app reads
 
-| Name                             | Where it goes                                               | Required                                                  | What it does                                                                                                                                                                                                      |
-| -------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CHAT_IP_KEY`                    | Fly secret on `handsfreeos-worker`                          | Yes. In production the worker won't start without it.     | The website chat keeps visitors' IP addresses only as a one-way hash made with this key, for its limits and network blocks. It must be 32 characters or more ("Generate and save the chat IP key" in Fly Part 6). |
-| `TURNSTILE_SECRET_KEY`           | Fly secret on `handsfreeos-worker`                          | Recommended before any business turns on its website chat | The Cloudflare Turnstile widget's secret key. The worker checks every booking with Cloudflare, and every chat's first message, every 50th, and the first after a visitor's weekly new token.                      |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Vercel, **Production** and **Preview**                      | With the secret                                           | The same widget's site key. Not a secret. Set it and redeploy before the worker gets the secret.                                                                                                                  |
-| `ASSISTANT_DAILY_TOKENS`         | Fly secret on `handsfreeos-worker` and on `handsfreeos-api` | No. The default is 2,000,000.                             | Tokens each business may use a day. The worker enforces it and the API shows each business's use against it, so both need the same number ("Change the daily limit" in "The Assistant: Anthropic").               |
-| `CHAT_LOOKUP_CACHE_MS`           | Vercel (read only by the web app's server)                  | No. Leave it unset.                                       | How long, in milliseconds, the web app keeps each widget's settings before asking the worker again. Production keeps them for a minute. `0` keeps nothing, which the browser tests use.                           |
+| Name                             | Where it goes                              | Required                                                  | What it does                                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHAT_IP_KEY`                    | Fly secret on `handsfreeos-worker`         | Yes. In production the worker won't start without it.     | The website chat keeps visitors' IP addresses only as a one-way hash made with this key, for its limits and network blocks. It must be 32 characters or more ("Generate and save the chat IP key" in Fly Part 6). |
+| `TURNSTILE_SECRET_KEY`           | Fly secret on `handsfreeos-worker`         | Recommended before any business turns on its website chat | The Cloudflare Turnstile widget's secret key. The worker checks every booking with Cloudflare, and every chat's first message, every 50th, and the first after a visitor's weekly new token.                      |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Vercel, **Production** and **Preview**     | With the secret                                           | The same widget's site key. Not a secret. Set it and redeploy before the worker gets the secret.                                                                                                                  |
+| `CHAT_LOOKUP_CACHE_MS`           | Vercel (read only by the web app's server) | No. Leave it unset.                                       | How long, in milliseconds, the web app keeps each widget's settings before asking the worker again. Production keeps them for a minute. `0` keeps nothing, which the browser tests use.                           |
 
 Turnstile's two keys are set up with "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking": one widget covers the booking pages and the website chat. Your laptop and CI get Cloudflare's always-pass test keys from `pnpm env:local` instead, and production refuses the test secret.
 
@@ -8699,7 +8666,7 @@ Do these once for HandsFreeOS, before any client uses the teammate or the websit
 
    You should see `CHAT_IP_KEY` and `TURNSTILE_SECRET_KEY` in the `NAME` column.
 
-4. **The daily AI limit.** If the worker has `ASSISTANT_DAILY_TOKENS`, give the API the same number ("Change the daily limit" in "The Assistant: Anthropic").
+4. **The daily AI limit.** Each business sets its own on **Settings** → **Usage & balance**, $10 a day until it does ("Change the daily limit" in "The Assistant: Anthropic"). Nothing to set on Fly.
 5. **A test run.** In your own business, set up a teammate in training, turn on the website chat for a site you control, and send a message from that site.
 
    You should see the teammate's draft in the inbox, and after you approve it, the reply in the chat window.
@@ -9540,23 +9507,54 @@ say so, and somebody will eventually try to "unify" them.
 
 The whole thing runs on two switches that are easy to confuse, so learn them first:
 
-|                      | What it decides                                             | Where it lives                                                      |
-| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
-| `WALLET_MODE`        | Whether we **count** — `off`, `shadow` or `on`              | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
-| A wallet's **stage** | Whether we **speak** — `off`, `warn`, `enforce` or `agency` | On each business's own row, moved from `/admin` one at a time       |
+|                      | What it decides                                      | Where it lives                                                      |
+| -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------- |
+| `WALLET_MODE`        | Whether we **count** — `off`, `shadow` or `on`       | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
+| A wallet's **stage** | Whether we **speak** — `warn`, `enforce` or `agency` | On each business's own row, moved from `/admin` one at a time       |
 
-Nothing a business sees or feels depends on `WALLET_MODE`. It depends on that business's stage, which starts
-at `off` for everybody and only moves when somebody moves it. That is what makes the shadow week silent: the
-ledger fills for a week, every balance goes deep into the negative because nobody has a card, and not one
-business hears a word about it.
+Nothing a business sees or feels depends on `WALLET_MODE`. It depends on that business's stage. A new business
+starts at `enforce` (Stopped at zero) with a $5 starting credit, and only moves when somebody moves it. Silent
+(`off`), where a business didn't know its balance existed, is gone: see "No more Silent" below.
 
 `WALLET_MODE` is **not a secret** — it goes in `fly.toml` beside `TELEPHONY_PROVIDER`, not in
 `fly secrets import`. Putting it in the file means the current mode is visible in git and every change of it
 is a one-line commit somebody reviewed.
 
 **Where it is now: `on`, since 18 October 2026**, after the shadow week from 3 October. Top-ups charge cards: a
-balance under its floor tops itself up from its card, and **Top up now** charges at once. Every business is still
-at stage `off` until it's moved from `/admin`, so none of them sees or feels any of it yet.
+balance under its floor tops itself up from its card, and **Top up now** charges at once. Since
+`20261027012500`, every business pays for its own usage, AI and Ask HandsFreeOS included, except the ones
+HandsFreeOS covers, which are on `agency` (Paid by the agency).
+
+### No more Silent (20261027012500)
+
+The owner's decisions, 26 October 2026:
+
+- **Every business pays for its own usage**, Ask HandsFreeOS included ("What it costs" in "The Assistant:
+  Anthropic"). HandsFreeOS covers only the businesses on **Paid by the agency**.
+- **Silent is gone.** The migration moves HandsFreeOS's own business (the one marked in `/admin`, `is_platform`) to
+  Paid by the agency and every other Silent business to **Stopped at zero**. `/admin` can no longer move a business
+  to Silent, and the database refuses it too.
+- **A new business starts Stopped at zero with a $5 starting credit** ("Starting credit" on its statement), enough
+  to set up and try the AI and texting. When it's spent, outgoing texts, calls and the AI stop until the business
+  adds a card and tops up. Ask HandsFreeOS stops too, with "…’s balance has run out" in the chat, and starts again
+  as soon as there's money on the balance. A founding partner's founding credit tops this up to the offer's
+  amount ($10 in all) rather than adding to it. A business that was Silent and never had a credit gets the $5 too.
+- **A new business sees "Balance running low" on Home from its first hourly sweep:** $5 is under the $10 floor,
+  and there's no card on file. That's on purpose, so it adds a card before the $5 runs out. It goes once the
+  business adds a card with automatic top-up on, tops up past the floor, or dismisses it.
+- **Each business sets its own daily AI limit**, $10 a day to start ("Change the daily limit" in "The Assistant:
+  Anthropic").
+
+To apply it:
+
+1. In `/admin`, move every business HandsFreeOS covers that isn't marked as its own business to **Paid by the
+   agency** (Go Biz Help, for one). Do this first: the migration moves every other Silent business to Stopped at
+   zero, and one already below zero stops at once.
+2. Apply the migration ("Apply new migrations").
+3. In `/admin`, check each business's stage. Any business below zero on Stopped at zero has outgoing texts, calls
+   and the AI paused until it tops up; a credit from support (`wallet.adjust`) starts it again.
+4. Remove `ASSISTANT_DAILY_TOKENS` from both apps if it's set ("Change the daily limit" in "The Assistant:
+   Anthropic").
 
 **Top-ups before 18 October 2026 didn't work**, and nobody noticed because no business had a card on yet:
 
@@ -9743,23 +9741,21 @@ It refuses a set that does not cover every key the live card has, and it is staf
 that priced it, so a mid-month change is honest — old rows still say what they were charged under and why.
 `/admin/rates` shows the live card and the realised margin against it.
 
-### Part 4: Switching a business on
+### Part 4: Moving a business
 
-One business at a time, from `/admin/businesses/<id>`. **Two steps, never one.**
+Since "No more Silent", a business starts **Stopped at zero** and the rollout below is history. Moving one is
+still one business at a time, from `/admin/businesses/<id>`, with a reason:
 
-1. **Move them to Warned.** They now see their balance, their statement and what things cost, and they are
-   told — by email, by push and on Home — when the balance runs low or runs out. Nothing stops. This is the
-   stretch where they put a card on. Watch what they actually do with it.
-2. **Then move them to Stopped at zero**, once they have a card and have had the warnings. From that moment
-   outgoing texts and calls stop when the balance is past its overdraft. **Calls coming in still reach them**,
-   and incoming messages are still received and filed — that is a promise in terms §3, not a nicety.
+1. **Warned.** They see their balance, their statement and what things cost, and they are told — by email, by
+   push and on Home — when the balance runs low or runs out. Nothing stops. Use it for a business that needs time
+   to put a card on.
+2. **Stopped at zero.** The same, and outgoing texts and calls and the AI stop when the balance runs out. **Calls
+   coming in still reach them**, and incoming messages are still received and filed — that is a promise in terms
+   §3, not a nicety.
 
-Order: internal first, then a handful of friendly businesses, then everyone. The dialog asks why, and the
-reason goes on the event, because a rollout is a series of decisions somebody should be able to explain a
-month later.
-
-There is deliberately **no global switch** for this. A global switch is how this gets turned on for a thousand
-businesses by accident at two in the morning.
+The dialog asks why, and the reason goes on the event, because each move is a decision somebody should be able to
+explain a month later. There is deliberately **no global switch**: a global switch is how something gets turned on
+for a thousand businesses by accident at two in the morning.
 
 **Paid by the agency** is the other stage, for a business the agency runs for itself. Everything it uses is
 still recorded at cost and price, and `/admin` shows it under that business like any other, but the business
@@ -9775,16 +9771,18 @@ WALLET_MODE = "off"
 ```
 
 Deploy. Counting stops immediately; nothing already recorded is lost, no balance is touched, and no business
-is told anything. To stop a single business instead, move its stage back to Silent from `/admin` — that is the
-faster and smaller answer to "this one business is having a bad time".
+is told anything. For a single business having a bad time, move it to Warned from `/admin` (nothing stops), or
+put a credit on its balance; Silent is gone.
 
 ### When something goes wrong
 
 - **A business says its texts stopped and it should not have:** check its stage at `/admin/businesses/<id>`.
   Only `enforce` stops anything. If it is on `enforce` and the balance is fine, look at "Balances that
   disagree" on `/admin/health` — a drifted cache is the one way a gate refuses a business that has money.
-- **A business was warned during the shadow week:** it should be impossible; every channel checks the stage.
-  If it happened, that business's stage is not `off`. Move it back and find out who moved it — the event says.
+- **A business says its AI stopped:** either its balance ran out on `enforce` ("Your balance has run out, so the
+  AI has paused") or it reached its own daily AI limit ("This business reached the $10 daily AI limit…"). The
+  first needs a top-up; the second resets at midnight, or an owner or admin raises it on **Settings** →
+  **Usage & balance**.
 - **The margin looks impossible (very high, or infinite):** a rate key with charges but no cost. Usually the
   provider's daily records have not arrived for those days yet — they lag by about two. The other cause is a
   carrier charge we do not price at all; the reconciler will not invent a category for it, it logs a warning
@@ -11114,7 +11112,7 @@ Do these once, in order.
 
    Each file starts with a comment saying it was generated and must not be committed, and Git ignores all four. Their values only work against the local stack.
 
-   `pnpm env:local` rewrites all four files from scratch every time you run it. In `apps/worker/.env` it keeps `WORKER_ENCRYPTION_KEY`, which the worker seals carrier and mailbox credentials with and needs to open them later, and the Assistant's `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` and `ASSISTANT_DAILY_TOKENS` lines. Any other line you added to these files by hand is gone after the next run, so add it back afterwards. It also writes Cloudflare's always-pass Turnstile test keys (`TURNSTILE_SECRET_KEY` for the worker, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for the web app), so bookings and website chats run the human check the way production does. The check goes through Cloudflare, so it needs the internet.
+   `pnpm env:local` rewrites all four files from scratch every time you run it. In `apps/worker/.env` it keeps `WORKER_ENCRYPTION_KEY`, which the worker seals carrier and mailbox credentials with and needs to open them later, and the Assistant's `ANTHROPIC_API_KEY` and `ASSISTANT_MODEL` lines. Any other line you added to these files by hand is gone after the next run, so add it back afterwards. It also writes Cloudflare's always-pass Turnstile test keys (`TURNSTILE_SECRET_KEY` for the worker, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for the web app), so bookings and website chats run the human check the way production does. The check goes through Cloudflare, so it needs the internet.
 
 4. Fill the database with demo data.
 
@@ -11347,9 +11345,9 @@ Locally the worker has no Anthropic key, so its `worker started` line shows `ass
 
 Good to know:
 
-- `pnpm env:local` keeps the key, and any `ASSISTANT_MODEL` or `ASSISTANT_DAILY_TOKENS` line, when it rewrites `apps/worker/.env`.
+- `pnpm env:local` keeps the key, and any `ASSISTANT_MODEL` line, when it rewrites `apps/worker/.env`.
 - Never `export ANTHROPIC_API_KEY` in your shell. The API refuses to start while it can see any name that starts with `ANTHROPIC_`, and the worker would use the shell's key instead of the one in `apps/worker/.env`.
-- The daily limit of 2,000,000 tokens per workspace applies here too. To try another model or limit, add an `ASSISTANT_MODEL=` or `ASSISTANT_DAILY_TOKENS=` line the same way and restart `pnpm dev`.
+- Each business's own daily AI limit applies here too: $10 a day unless you change it on **Settings** → **Usage & balance**. To try another model, add an `ASSISTANT_MODEL=` line the same way and restart `pnpm dev`.
 - The browser tests never call Anthropic. Their worker uses a scripted stand-in and an empty key, and the empty key wins over the one in `apps/worker/.env`.
 - After 30 days the key expires. Questions then end with "Something went wrong", and the `pnpm dev` window shows `assistant run failed` with `authentication_error`. Make a new local key and replace the line.
 
@@ -12790,7 +12788,6 @@ A wrong password or user inside `DATABASE_URL` does not stop the API. It starts 
 | `ASSISTANT_PROVIDER must be anthropic, scripted or none`                                                       | A value is misspelled. Remove any `ASSISTANT_PROVIDER` secret: the worker picks `anthropic` itself when `ANTHROPIC_API_KEY` is set.                                                                                                                           |
 | `ASSISTANT_PROVIDER=scripted is for development and tests only`                                                | Same fix.                                                                                                                                                                                                                                                     |
 | `ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic`                                              | Set `ANTHROPIC_API_KEY` ("Give the worker the key" in "The Assistant: Anthropic"), or remove the `ASSISTANT_PROVIDER` secret.                                                                                                                                 |
-| `ASSISTANT_DAILY_TOKENS must be a whole number above zero`                                                     | Set digits only, with no commas or spaces (for example `2000000`), or remove the secret to use the default.                                                                                                                                                   |
 | `TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one`                                           | Replace it with the widget's real secret key ("Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking"), or remove the secret.                                                                              |
 | `CHAT_IP_KEY must be a long random value (32+ characters): openssl rand -base64 32`                            | Set `CHAT_IP_KEY` from your password manager ("Generate and save the chat IP key" in Fly Part 6), or make one there if you never did. Every deploy that includes the website chat needs it.                                                                   |
 | `PUSH_PROVIDER must be expo, fake or none`                                                                     | A value is misspelled. Remove any `PUSH_PROVIDER` secret: the worker picks `expo` itself when `EXPO_ACCESS_TOKEN` is set.                                                                                                                                     |

@@ -13,6 +13,42 @@ import { money } from './format';
 /** The smallest top-up the commands accept (`WalletTopUpInput`), so a page can say so before the API does. */
 export const MIN_TOPUP_CENTS = 500;
 
+/**
+ * The daily AI limit (20261027012500): the most a business's AI may be charged in a day, which the business sets
+ * itself. $10 until it does; a person may set anything from $1 (below that the AI would pause on its first
+ * answer) up to the column's own bound, which is a sanity check and not a ceiling HandsFreeOS sets.
+ */
+export const DEFAULT_AI_DAILY_LIMIT_CENTS = 1000;
+export const MIN_AI_DAILY_LIMIT_CENTS = 100;
+export const MAX_AI_DAILY_LIMIT_CENTS = 100_000_000;
+
+/**
+ * What the AI says when the business's daily AI limit is reached, wherever it stops: what happened, when it
+ * comes back, and who can change it where. The amount when it's known; a few paths only know it was reached.
+ */
+export function aiLimitReached(limitCents?: number | null): string {
+  const limit =
+    limitCents === undefined || limitCents === null
+      ? 'today’s AI limit'
+      : `the ${money(limitCents)} daily AI limit`;
+  return `This business reached ${limit}, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.`;
+}
+
+/** The daily AI limit's words, on the web's Usage & balance and the phone's Balance screen alike. */
+export const AI_LIMIT_WORDS = {
+  title: 'Daily AI limit',
+  detail:
+    'The most your AI can spend in a day: Ask HandsFreeOS, your AI teammate, workflows and add-ons. It stops a runaway from charging you all day. When it’s reached, the AI pauses until midnight.',
+  label: 'Pause the AI after',
+  perDay: 'a day',
+  today: (spentCents: number, limitCents: number) =>
+    `${money(spentCents)} of ${money(limitCents)} used today`,
+  saved: (limitCents: number) => `The AI can now spend up to ${money(limitCents)} a day.`,
+  refused: 'Type an amount, like 10.',
+  tooSmall: `The smallest daily AI limit is ${money(MIN_AI_DAILY_LIMIT_CENTS)}.`,
+  memberNote: 'Only an owner or an admin can change the daily AI limit.',
+} as const;
+
 /** `wallet.get`'s answer, narrowed to what these words actually read. */
 export interface WalletShown {
   /** False for a business that has never spent anything: "nothing yet", not "empty". */

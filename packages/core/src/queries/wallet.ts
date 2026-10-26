@@ -19,10 +19,12 @@ import { defineQuery } from '../kernel/define';
 import { walletSpeaks } from '../money/wallet-gate';
 import { decodeCursor, encodeCursor } from '../kernel/pagination';
 import {
+  DEFAULT_AI_DAILY_LIMIT_CENTS,
   escalationCeilingCents,
   escalationWords,
   ESCALATION_MAX_MULTIPLE,
   isUsageKey,
+  priceEvent,
   priceOf,
   SEED_CARD,
   type RateCard,
@@ -83,7 +85,7 @@ async function liveCard(ctx: QueryContext): Promise<RateCard> {
 export const walletGet = defineQuery({
   name: 'wallet.get',
   description:
-    'A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, and why its top-up is the size it is.',
+    'A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, why its top-up is the size it is, and its daily AI limit with what its AI has come to today.',
   input: WalletGetInput,
   output: WalletGetOutput,
   permission: 'money.read',
@@ -134,10 +136,20 @@ export const walletGet = defineQuery({
             join app.workspaces ws on ws.id = w.workspace_id
           where w.workspace_id = ${ws}`,
     );
+    // The daily AI limit and today's AI, whatever the stage: a business HandsFreeOS covers sets a limit too.
+    const [ai] = await rows<{ limit_cents: number | string; spent_cents: number | string }>(
+      ctx.tx,
+      sql`select limit_cents, spent_cents from private.ai_spend_today(${ws}::uuid)`,
+    );
+    const aiToday = {
+      aiDailyLimitCents: Number(ai?.limit_cents ?? DEFAULT_AI_DAILY_LIMIT_CENTS),
+      aiSpentTodayCents: Math.round(Number(ai?.spent_cents ?? 0)),
+    };
     // A business that has never spent anything has no row, and one that is not on the wallet yet is told the
     // same thing for the same reason: nothing has happened here. "Nothing yet" rather than a scary zero.
     if (!w || !walletSpeaks(w.stage))
       return {
+        ...aiToday,
         opened: false,
         balanceCents: 0,
         autoTopup: true,
@@ -157,6 +169,7 @@ export const walletGet = defineQuery({
     const topup = Number(w.topup_cents);
     const pending = w.pending_recharge_cents === null ? null : Number(w.pending_recharge_cents);
     return {
+      ...aiToday,
       opened: true,
       balanceCents: Number(w.balance_cents),
       autoTopup: w.auto_topup,
@@ -295,6 +308,17 @@ export const usagePrices = defineQuery({
       priceOf(card, 'ai.input.mtok', 0.0012).amountCents +
       priceOf(card, 'ai.output.mtok', 0.0005).amountCents;
     /**
+     * A question to Ask HandsFreeOS, on its own lines: one question as they ran in October 2026, reading ahead
+     * included — mostly its instructions and tools read back from the cache, a little written to it, a little
+     * sent and written back. Priced as one event, the way the statement charges a question.
+     */
+    const askQuestion = priceEvent(card, [
+      { key: 'ai.opus.cache_read.mtok', quantity: 0.109 },
+      { key: 'ai.opus.cache_write.mtok', quantity: 0.013 },
+      { key: 'ai.opus.input.mtok', quantity: 0.0023 },
+      { key: 'ai.opus.output.mtok', quantity: 0.0005 },
+    ]).amountCents;
+    /**
      * Speech costs a fraction of a cent a minute and is billed in running totals, so it's shown for ten of
      * something: one minute on its own would read as the floor rather than the price.
      */
@@ -317,6 +341,12 @@ export const usagePrices = defineQuery({
         say('number.local.month', 'A phone number', 'a month'),
         say('number.tollfree.month', 'A toll-free number', 'a month'),
         { key: null, what: 'An AI reply', unit: 'about', cents: Math.max(1, aiReply) },
+        {
+          key: null,
+          what: 'A question to Ask HandsFreeOS',
+          unit: 'about',
+          cents: Math.max(1, askQuestion),
+        },
         tenOf('speech.live.minute', 'The AI listening on a call', 'for 10 minutes'),
         tenOf('speech.recording.minute', 'Talk turned into words', 'for 10 minutes'),
         tenOf('speech.voice.kchar', 'The AI speaking', 'for 10,000 characters'),

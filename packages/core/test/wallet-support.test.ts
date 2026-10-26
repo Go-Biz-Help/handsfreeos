@@ -90,32 +90,33 @@ afterAll(closeTestDbs);
 describe('a staff admin', () => {
   it('puts a credit on a balance, and it lands on the business’s statement', async () => {
     const { output } = await credit(staffAdmin, 2500, 'ticket-1', 'Sorry about the outage');
-    expect(output).toMatchObject({ workspaceId, balanceCents: 2500, recorded: true });
+    // On top of the $5 every new business starts with.
+    expect(output).toMatchObject({ workspaceId, balanceCents: 3000, recorded: true });
     expect(output.entryId).not.toBeNull();
     expect(await statement()).toEqual([
+      { kind: 'credit', amount: 500, subject: 'Starting credit' },
       { kind: 'credit', amount: 2500, subject: 'Sorry about the outage' },
     ]);
   });
 
-  it('opens a wallet for a business that has never spent anything', async () => {
-    // The credit above was the first thing to touch this business's balance; there was no wallet row before it.
+  it('finds the wallet the business has had since it was made', async () => {
     const [w] = await rows<{ balance: number }>(
       admin(),
       sql`select balance_cents::int as balance from app.usage_wallets where workspace_id = ${workspaceId}`,
     );
-    expect(Number(w?.balance)).toBe(2500);
+    expect(Number(w?.balance)).toBe(3000);
   });
 
   it('counts the same decision once, however many times it is sent', async () => {
     const again = await credit(staffAdmin, 2500, 'ticket-1', 'Sorry about the outage');
-    expect(again.output).toMatchObject({ recorded: false, entryId: null, balanceCents: 2500 });
-    expect(await statement()).toHaveLength(1);
+    expect(again.output).toMatchObject({ recorded: false, entryId: null, balanceCents: 3000 });
+    expect(await statement()).toHaveLength(2);
   });
 
   it('takes a credit back, which is an adjustment rather than a spend', async () => {
     const { output } = await credit(staffAdmin, -500, 'ticket-2', 'Applied twice');
-    expect(output).toMatchObject({ balanceCents: 2000, recorded: true });
-    expect((await statement())[1]).toEqual({
+    expect(output).toMatchObject({ balanceCents: 2500, recorded: true });
+    expect((await statement())[2]).toEqual({
       kind: 'adjustment',
       amount: -500,
       subject: 'Applied twice',
@@ -140,12 +141,12 @@ describe('everybody else', () => {
     expect(e).toBeInstanceOf(HfosError);
     // Not found rather than forbidden: the support desk does not exist for someone who does not work here.
     expect((e as HfosError).status).toBeGreaterThanOrEqual(400);
-    expect(await statement()).toHaveLength(2);
+    expect(await statement()).toHaveLength(3);
   });
 
   it('refuses a support agent, who may read a business but not move its money', async () => {
     await expect(credit(agent, 10_000, 'agent-try')).rejects.toBeInstanceOf(HfosError);
-    expect(await statement()).toHaveLength(2);
+    expect(await statement()).toHaveLength(3);
   });
 
   it('refuses a staff admin asking about a business that does not exist', async () => {
@@ -168,7 +169,14 @@ describe('everybody else', () => {
 
 describe('moving a business along the wallet', () => {
   const move = (who: TestUser, stage: 'off' | 'warn' | 'enforce' | 'agency', reason = 'Rollout') =>
-    executeCommand(api(), walletSetStage, { workspaceId, stage, reason }, human(who), meta());
+    executeCommand(
+      api(),
+      walletSetStage,
+      // Silent is refused at the door; the cast is the old client that still sends it.
+      { workspaceId, stage: stage as 'warn', reason },
+      human(who),
+      meta(),
+    );
   const stage = async () => {
     const [w] = await rows<{ stage: string }>(
       admin(),
@@ -177,9 +185,10 @@ describe('moving a business along the wallet', () => {
     return w?.stage;
   };
 
-  it('a staff admin moves it from silent to warned to stopped, and back', async () => {
+  it('starts a new business Stopped at zero, and a staff admin moves it to warned and back', async () => {
+    expect(await stage()).toBe('enforce');
     expect((await move(staffAdmin, 'warn')).output).toMatchObject({
-      was: 'off',
+      was: 'enforce',
       stage: 'warn',
       changed: true,
     });
@@ -191,14 +200,24 @@ describe('moving a business along the wallet', () => {
     expect(await stage()).toBe('enforce');
     // The same click twice is visibly a no-op.
     expect((await move(staffAdmin, 'enforce')).output.changed).toBe(false);
-    await move(staffAdmin, 'off');
-    expect(await stage()).toBe('off');
+  });
+
+  it('never moves a business back to Silent, which is gone', async () => {
+    await expect(move(staffAdmin, 'off')).rejects.toBeInstanceOf(HfosError);
+    // Nor the database, asked directly by the staff admin it would otherwise let through.
+    const direct = await asUser(api(), staffAdmin.claims, (tx) =>
+      rows(tx, sql`select * from private.set_wallet_stage(${workspaceId}::uuid, 'off')`),
+    ).catch((e: unknown) => e);
+    let err = direct as { detail?: string; cause?: unknown } | undefined;
+    while (err && !err.detail && err.cause) err = err.cause as typeof err;
+    expect(err?.detail).toBe('wallet_stage_off_is_gone');
+    expect(await stage()).toBe('enforce');
   });
 
   it('refuses a support agent and the business’s own owner, and the owner writing it directly', async () => {
-    await expect(move(agent, 'enforce')).rejects.toBeInstanceOf(HfosError);
+    await expect(move(agent, 'warn')).rejects.toBeInstanceOf(HfosError);
     await expect(move(owner, 'warn')).rejects.toBeInstanceOf(HfosError);
-    expect(await stage()).toBe('off');
+    expect(await stage()).toBe('enforce');
     const direct = await asUser(api(), owner.claims, (tx) =>
       rows(
         tx,
@@ -206,7 +225,7 @@ describe('moving a business along the wallet', () => {
       ),
     ).catch((e: unknown) => e);
     expect(direct instanceof Error || (Array.isArray(direct) && direct.length === 0)).toBe(true);
-    expect(await stage()).toBe('off');
+    expect(await stage()).toBe('enforce');
   });
 });
 

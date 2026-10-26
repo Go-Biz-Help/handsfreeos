@@ -232,7 +232,6 @@ const app = await buildHttpServer({
           // The add-ons' worker actions run as the route runs them, with the worker's services.
           { services },
         ),
-        dailyTokens: env.assistantDailyTokens,
       }
     : null,
   migrationAdapters,

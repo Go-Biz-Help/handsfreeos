@@ -334,6 +334,13 @@ const ROWS = {
     words: ['auto top up', 'recharge', 'reload'],
     phone: 'settings/usage',
   },
+  'usage.ai_limit': {
+    page: 'usage',
+    section: null,
+    label: 'Daily AI limit',
+    words: ['ai limit', 'ai spending', 'assistant limit', 'ai budget', 'pause the ai', 'ai cap'],
+    phone: 'settings/usage',
+  },
   'usage.card': {
     page: 'usage',
     section: null,

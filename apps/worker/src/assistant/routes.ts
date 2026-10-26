@@ -28,11 +28,13 @@ import { addonActionToolByName } from './tools-addons';
 import * as store from './store';
 import type { AiProvider } from '@hfos/ai';
 
-/** What the worker needs to answer: a model, the tools' hands, and the daily token budget per workspace. */
+/**
+ * What the worker needs to answer: a model and the tools' hands. Each business's daily AI limit is its own, in the
+ * database (ai/budget.ts), and each question is charged to its balance (`deps.wallet`).
+ */
 export interface AssistantServices {
   readonly provider: AiProvider;
   readonly tools: ToolExecutor;
-  readonly dailyTokens: number;
   /** The add-ons whose operations can be tools (default: every one HandsFreeOS ships; tests bring their own). */
   readonly addons?: readonly AddonServerModule[];
   /** The add-on catalogue the model's directory is written from (default: HandsFreeOS's). */
@@ -119,7 +121,7 @@ export function registerAssistantRoutes(
           db: deps.httpDb,
           provider: assistant.provider,
           tools: assistant.tools,
-          dailyTokens: assistant.dailyTokens,
+          wallet: deps.wallet,
           log: deps.log,
         },
         {
@@ -211,7 +213,7 @@ export function registerAssistantRoutes(
         },
       );
       const done = await warmUp(
-        { db: deps.httpDb, provider: assistant.provider, dailyTokens: assistant.dailyTokens },
+        { db: deps.httpDb, provider: assistant.provider, wallet: deps.wallet, log: deps.log },
         {
           userId: actor.userId,
           workspaceId: input.workspaceId,

@@ -1,7 +1,9 @@
 import {
+  AI_LIMIT_WORDS,
   BALANCE_WORDS,
   balanceHeadline,
   cardLine,
+  MIN_AI_DAILY_LIMIT_CENTS,
   MIN_TOPUP_CENTS,
   money,
   parseMoney,
@@ -158,6 +160,17 @@ export default function Balance() {
             busy={busy}
             onSave={(patch, said) =>
               void run(() => walletCommands.setAutoTopup(business.id, patch), said)
+            }
+          />
+          <AiLimit
+            wallet={wallet}
+            manage={manage}
+            busy={busy}
+            onSave={(cents) =>
+              void run(
+                () => walletCommands.setAiLimit(business.id, cents),
+                AI_LIMIT_WORDS.saved(cents),
+              )
             }
           />
           <CardOnFile
@@ -353,6 +366,7 @@ function AutoTopUp({
       ) : null}
       <AmountSheet
         which={editing}
+        testID="balance-amount"
         cents={editing === 'floor' ? wallet.floorCents : wallet.topupCents}
         onClose={() => setEditing(null)}
         onSave={(cents) => {
@@ -365,14 +379,63 @@ function AutoTopUp({
   );
 }
 
-/** One amount, typed. The top-up has a floor of its own, so it is refused here rather than by the API. */
+/**
+ * The daily AI limit: the most the AI may spend in a day, and what it has come to today. The business's own to
+ * change whenever it needs more, so it's a row like the top-up amounts, typed in the same sheet.
+ */
+function AiLimit({
+  wallet,
+  manage,
+  busy,
+  onSave,
+}: {
+  wallet: Wallet;
+  manage: boolean;
+  busy: boolean;
+  onSave: (cents: number) => void;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  return (
+    <>
+      <ListLabel>{AI_LIMIT_WORDS.title}</ListLabel>
+      <List testID="balance-ai-limit">
+        <ListRow
+          label={AI_LIMIT_WORDS.label}
+          detail={AI_LIMIT_WORDS.today(wallet.aiSpentTodayCents, wallet.aiDailyLimitCents)}
+          end={`${money(wallet.aiDailyLimitCents)} ${AI_LIMIT_WORDS.perDay}`}
+          onPress={manage && !busy ? () => setEditing(true) : undefined}
+          testID="balance-ai-limit-row"
+        />
+      </List>
+      <Text className="px-1 text-[12.5px] leading-[18px] text-text-3">{AI_LIMIT_WORDS.detail}</Text>
+      <AmountSheet
+        which={editing ? 'ai' : null}
+        testID="balance-ai-limit"
+        cents={wallet.aiDailyLimitCents}
+        onClose={() => setEditing(false)}
+        onSave={(cents) => {
+          setEditing(false);
+          onSave(cents);
+        }}
+      />
+    </>
+  );
+}
+
+/**
+ * One amount, typed. The top-up and the daily AI limit have floors of their own, so they are refused here rather
+ * than by the API.
+ */
 function AmountSheet({
   which,
+  testID,
   cents,
   onClose,
   onSave,
 }: {
-  which: 'floor' | 'topup' | null;
+  which: 'floor' | 'topup' | 'ai' | null;
+  /** Where its parts are found: each sheet on the screen names its own. */
+  testID: string;
   cents: number;
   onClose: () => void;
   onSave: (cents: number) => void;
@@ -389,21 +452,25 @@ function AmountSheet({
 
   const save = () => {
     const parsed = parseMoney(typed);
-    if (parsed === null) return setRefused(BALANCE_WORDS.amountRefused);
+    if (parsed === null)
+      return setRefused(which === 'ai' ? AI_LIMIT_WORDS.refused : BALANCE_WORDS.amountRefused);
     if (which === 'topup' && parsed < MIN_TOPUP_CENTS)
       return setRefused(BALANCE_WORDS.amountTooSmall);
+    if (which === 'ai' && parsed < MIN_AI_DAILY_LIMIT_CENTS)
+      return setRefused(AI_LIMIT_WORDS.tooSmall);
     onSave(parsed);
   };
 
+  const title =
+    which === 'floor'
+      ? BALANCE_WORDS.floorLabel
+      : which === 'ai'
+        ? AI_LIMIT_WORDS.title
+        : BALANCE_WORDS.amountLabel;
   return (
-    <Sheet
-      open={which !== null}
-      onClose={onClose}
-      title={which === 'floor' ? BALANCE_WORDS.floorLabel : BALANCE_WORDS.amountLabel}
-      testID="balance-amount-sheet"
-    >
+    <Sheet open={which !== null} onClose={onClose} title={title} testID={`${testID}-sheet`}>
       <View className="mt-1 gap-1.5">
-        <Label>{BALANCE_WORDS.amountLabel}</Label>
+        <Label>{which === 'ai' ? AI_LIMIT_WORDS.label : BALANCE_WORDS.amountLabel}</Label>
         <Input
           value={typed}
           onChangeText={(next) => {
@@ -413,15 +480,15 @@ function AmountSheet({
           keyboardType="decimal-pad"
           invalid={refused !== null}
           autoFocus
-          testID="balance-amount-input"
+          testID={`${testID}-input`}
         />
-        <FieldError testID="balance-amount-refused">{refused}</FieldError>
+        <FieldError testID={`${testID}-refused`}>{refused}</FieldError>
       </View>
       <View className="mt-4 gap-2">
-        <Button onPress={save} testID="balance-amount-save">
+        <Button onPress={save} testID={`${testID}-save`}>
           {BALANCE_WORDS.save}
         </Button>
-        <Button variant="ghost" onPress={onClose} testID="balance-amount-cancel">
+        <Button variant="ghost" onPress={onClose} testID={`${testID}-cancel`}>
           {BALANCE_WORDS.cancel}
         </Button>
       </View>

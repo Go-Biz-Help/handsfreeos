@@ -1,5 +1,12 @@
 import type { AiUsage } from '@hfos/ai';
-import { aiUsageKey } from '@hfos/core/server';
+import {
+  aiLimitReached,
+  aiUsageKey,
+  assistantUsageKey,
+  DEFAULT_AI_DAILY_LIMIT_CENTS,
+  walletRoom,
+  WALLET_REFUSALS,
+} from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { chargeAi } from '../money/usage-capture';
@@ -82,8 +89,8 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   texting_policy: 'AI updating your privacy policy or terms',
   lead_intake: 'AI reading a job applicant’s email',
   funnel: 'AI drafting a funnel',
-  // Never charged (the Assistant isn't billed to the business); named for the record type all the same.
-  assistant: 'The Assistant getting ready',
+  // Reading ahead while the person types: on the balance like the questions themselves (20261027012500).
+  assistant: 'Ask HandsFreeOS getting ready',
 };
 
 /**
@@ -115,66 +122,109 @@ export async function recordAndChargeAi(
 }
 
 /**
- * Tokens used today (since midnight in `timezone`, the workspace's own when missing), cache reads and writes
- * included: the whole workspace (the Assistant's runs plus app.ai_usage), and one teammate's share of it.
+ * One Ask HandsFreeOS question, charged once when its run ends: everything its model calls came to, as one line
+ * on the statement. Failed and stopped runs are charged too: the tokens were spent all the same. Ask HandsFreeOS
+ * runs on Claude Opus, which `chargeAi` prices from its own lines.
  */
-async function usedSinceMidnight(
-  db: Db,
+export async function chargeAssistantRun(
+  deps: { readonly wallet: WalletDeps },
   scope: TenantScope,
-  timezone: string | null | undefined,
-  teammateId: string | null,
-): Promise<{ total: number; teammate: number }> {
-  const [row] = await asWorker(db, scope, (tx) =>
-    rows<{ total: string | number | null; teammate: string | number | null }>(
-      tx,
-      sql`with since as (
-            select date_trunc('day', now() at time zone z.tz) at time zone z.tz as t
-            from (select coalesce(${timezone ?? null}::text,
-                    (select w.timezone from app.workspaces w where w.id = ${scope.workspaceId}), 'UTC') as tz) z
-          )
-          select
-            coalesce((select sum(r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens)
-              from app.assistant_runs r, since
-              where r.workspace_id = ${scope.workspaceId} and r.started_at >= since.t), 0)
-            + coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
-              from app.ai_usage u, since
-              where u.workspace_id = ${scope.workspaceId} and u.created_at >= since.t), 0) as total,
-            coalesce((select sum(u.input_tokens + u.output_tokens + u.cache_read_tokens + u.cache_write_tokens)
-              from app.ai_usage u, since
-              where u.workspace_id = ${scope.workspaceId} and u.source = 'teammate'
-                and u.teammate_id = ${teammateId}::uuid and u.created_at >= since.t), 0) as teammate`,
-    ),
-  );
-  return { total: Number(row?.total ?? 0), teammate: Number(row?.teammate ?? 0) };
+  input: { readonly runId: string; readonly model: string; readonly usage: AiUsage },
+): Promise<void> {
+  const u = input.usage;
+  if (u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheWriteTokens <= 0) return;
+  await chargeAi(deps.wallet, scope, {
+    tokens: u,
+    idempotencyKey: assistantUsageKey(input.runId),
+    subject: 'Ask HandsFreeOS answering a question',
+    entityType: 'assistant_run',
+    entityId: input.runId,
+    known: true,
+    model: input.model,
+  });
+}
+
+/** Today's AI against the business's own daily AI limit, in cents priced as it's charged. */
+export interface AiToday {
+  readonly limitCents: number;
+  readonly spentCents: number;
+  /** One teammate's part of `spentCents`, when one was asked about. */
+  readonly teammateCents: number;
 }
 
 /**
- * The one daily AI limit per workspace: the Assistant, workflow AI steps, the AI builder, the knowledge base
- * and the AI teammate all draw on it. The teammate may use only its share (its settings' dailySharePercent,
- * 60% by default), so strangers writing in never use up what the Assistant and workflows need.
+ * Everything the business's AI came to since midnight where it is (the Assistant's runs plus app.ai_usage),
+ * priced from the live card, beside the limit it set: private.ai_spend_today, which the API's pages read too.
+ */
+async function aiToday(db: Db, scope: TenantScope, teammateId: string | null): Promise<AiToday> {
+  const [row] = await asWorker(db, scope, (tx) =>
+    rows<{
+      limit_cents: string | number | null;
+      spent_cents: string | number | null;
+      teammate_cents: string | number | null;
+    }>(
+      tx,
+      sql`select limit_cents, spent_cents, teammate_cents
+          from private.ai_spend_today(${scope.workspaceId}::uuid, ${teammateId}::uuid)`,
+    ),
+  );
+  return {
+    limitCents: Number(row?.limit_cents ?? DEFAULT_AI_DAILY_LIMIT_CENTS),
+    spentCents: Number(row?.spent_cents ?? 0),
+    teammateCents: Number(row?.teammate_cents ?? 0),
+  };
+}
+
+/** Why there's no room for another AI call, and the words that say so. */
+export interface AiNoRoom {
+  readonly code: 'budget_reached' | 'wallet_empty';
+  readonly message: string;
+}
+
+/**
+ * The one daily AI limit per business, which it sets itself in dollars (Settings → Usage & balance): the
+ * Assistant, the AI teammate, workflow AI steps, the builders, the knowledge base and add-ons all draw on it.
+ * The teammate may use only its share (its settings' dailySharePercent, 60% by default), so strangers writing
+ * in never use up what the Assistant and workflows need. Checked before each model call, so the last call of
+ * the day can go a little over.
  */
 export const aiBudget = {
-  /**
-   * Every token the workspace's AI used today, cache reads and writes included: the Assistant's runs plus
-   * app.ai_usage, since midnight in `timezone` (the workspace's own when missing).
-   */
-  async usedToday(db: Db, scope: TenantScope, timezone?: string | null): Promise<number> {
-    return (await usedSinceMidnight(db, scope, timezone, null)).total;
+  /** Today's AI and the limit. */
+  today(db: Db, scope: TenantScope): Promise<AiToday> {
+    return aiToday(db, scope, null);
   },
 
-  /** Whether the teammate may make another model call: the workspace is under its limit, and it under its share. */
+  /**
+   * Null while there's room for another AI call; once today's AI has reached the limit, the words that say so,
+   * with the amount and where to raise it.
+   */
+  async reached(db: Db, scope: TenantScope): Promise<string | null> {
+    const t = await aiToday(db, scope, null);
+    return t.spentCents >= t.limitCents ? aiLimitReached(t.limitCents) : null;
+  },
+
+  /**
+   * The limit and the balance together, for a caller that only asks once: null while there's room; otherwise
+   * which ran out first, today's AI limit or, for a business Stopped at zero, its balance.
+   */
+  async noRoom(db: Db, scope: TenantScope, log?: Logger): Promise<AiNoRoom | null> {
+    const reached = await aiBudget.reached(db, scope);
+    if (reached) return { code: 'budget_reached', message: reached };
+    const room = await asWorker(db, scope, (tx) =>
+      walletRoom(tx, scope.workspaceId, 'ai', (m, e) => log?.error({ err: e }, m)),
+    );
+    return room.allowed ? null : { code: 'wallet_empty', message: WALLET_REFUSALS.ai };
+  },
+
+  /** Whether the teammate may make another model call: the business is under its limit, and it under its share. */
   async teammateHasRoom(
     db: Db,
     scope: TenantScope,
-    input: {
-      readonly teammateId: string;
-      readonly dailyTokens: number;
-      readonly sharePercent: number;
-      readonly timeZone?: string | null;
-    },
+    input: { readonly teammateId: string; readonly sharePercent: number },
   ): Promise<boolean> {
-    const used = await usedSinceMidnight(db, scope, input.timeZone, input.teammateId);
-    const share = Math.floor((input.dailyTokens * input.sharePercent) / 100);
-    return used.total < input.dailyTokens && used.teammate < share;
+    const t = await aiToday(db, scope, input.teammateId);
+    return (
+      t.spentCents < t.limitCents && t.teammateCents < (t.limitCents * input.sharePercent) / 100
+    );
   },
 };

@@ -15,7 +15,7 @@ import { CHECK_PARTNERS_JOB, partnerFacts } from '../src/addons/outreach/partner
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
-import { testServices, type TestServices } from './helpers';
+import { costlyAi, setAiLimit, testServices, type TestServices } from './helpers';
 
 const admin = () => testDbs().admin.db;
 const handlers = withAddons({});
@@ -168,7 +168,7 @@ describe('the AI’s partner check', () => {
   });
 
   it('tells the AI how a search found someone, and lets them go from those found once it has answered', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await outreachBusiness(owner, 'Outreach Partner Search Worker Co');
     await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Partners',
@@ -220,7 +220,7 @@ describe('the AI’s partner check', () => {
   });
 
   it('puts a good partner and a maybe on the list, and lets their profiles go', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await looked('Outreach Partners Worker Co');
     await drain(s, ws);
     expect(await states(ws)).toEqual([
@@ -261,8 +261,9 @@ describe('the AI’s partner check', () => {
   });
 
   it('leaves the rest waiting at the day’s AI limit', async () => {
-    const none = testServices({ ai: { provider: scriptedAi(), dailyTokens: 1 } });
+    const none = testServices({ ai: { provider: costlyAi() } });
     const ws = await looked('Outreach Capped Partners Co');
+    await setAiLimit(ws, 1);
     await drain(none, ws);
     const waiting = (await states(ws)).filter((r) => r.fit === 'waiting');
     expect(waiting.length).toBeGreaterThan(0);

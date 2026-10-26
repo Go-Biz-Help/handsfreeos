@@ -1271,7 +1271,7 @@ export function teammateLimitEmail(input: {
   const used = `${input.teammate} used its share of ${input.business}’s AI for today (${input.sharePercent}% of the daily limit), so it stopped answering.`;
   const meanwhile =
     'Until the limit resets at midnight, customers who write get your hand-off message once, and their conversations go to Needs a person.';
-  const foot = `You can change its share in Limits. Sent once a day to the owners of ${input.business}.`;
+  const foot = `You can change its share in Limits, or raise ${input.business}’s daily AI limit in Settings → Usage & balance. Sent once a day to the owners of ${input.business}.`;
   const text = [
     used,
     '',

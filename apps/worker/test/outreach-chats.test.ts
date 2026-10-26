@@ -14,7 +14,7 @@ import { READ_CHATS_BATCH, READ_CHATS_JOB } from '../src/addons/outreach/chats';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
-import { testServices, type TestServices } from './helpers';
+import { costlyAi, setAiLimit, testServices, type TestServices } from './helpers';
 
 const admin = () => testDbs().admin.db;
 const handlers = withAddons({});
@@ -100,7 +100,7 @@ afterAll(closeTestDbs);
 
 describe('reading the chats a download brought in', () => {
   it('reads each one, and puts the tagged and likely prospects in Contacts with their tags', async () => {
-    const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await broughtIn('Outreach Chats Worker Co', [
       chat('Avery Lane', 'I’m a business owner and want a demo', daysAgo(3)),
       chat('Quinn Harper', 'Happy birthday!', daysAgo(2)),
@@ -131,13 +131,14 @@ describe('reading the chats a download brought in', () => {
     const many = Array.from({ length: READ_CHATS_BATCH + 5 }, (_, i) =>
       chat(`Made Up Person ${i}`, 'Hello there', daysAgo(10 + i)),
     );
-    const all = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+    const all = testServices({ ai: { provider: scriptedAi() } });
     const ws = await broughtIn('Outreach Many Chats Co', many);
     await drain(all, ws);
     expect((await states(ws)).every((c) => c.read_state === 'read')).toBe(true);
 
-    const none = testServices({ ai: { provider: scriptedAi(), dailyTokens: 1 } });
+    const none = testServices({ ai: { provider: costlyAi() } });
     const capped = await broughtIn('Outreach Capped Chats Co', many.slice(0, 3));
+    await setAiLimit(capped, 1);
     await drain(none, capped);
     // The first, the latest, used up the day; the others wait.
     expect((await states(capped)).map((c) => c.read_state)).toEqual(['read', 'waiting', 'waiting']);

@@ -632,8 +632,8 @@ export const TeammateCatalogsOut = z.object({
   profile: z.object({ filled: z.int(), total: z.int() }),
   /** The business profile lets the AI quote prices. */
   pricesAllowed: z.boolean(),
-  /** Today's AI tokens against the daily limit, and the teammate's part (see TeammateAiUsage). */
-  aiUsage: z.object({ dailyTokens: z.int(), usedTokens: z.int(), teammateTokens: z.int() }),
+  /** Today's AI against the daily AI limit, in cents, and the teammate's part (see TeammateAiUsage). */
+  aiUsage: z.object({ dailyLimitCents: z.int(), usedCents: z.int(), teammateCents: z.int() }),
   businessHours: WeeklyHours.nullable(),
   members: z.array(
     z.object({ userId: uuid, name: z.string(), role: workspaceRole, active: z.boolean() }),

@@ -278,7 +278,7 @@ async function main(): Promise<void> {
       key,
     }),
     fetchUrl: createSafeFetch(),
-    ai: { provider: null, dailyTokens: 2_000_000 },
+    ai: { provider: null },
     // The seed registers no phones, so nothing is pushed; the stand-in keeps it that way.
     push: fakePushServices(),
     workerId: `seed:${hostname()}:${process.pid}`,
@@ -426,7 +426,7 @@ async function main(): Promise<void> {
   );
 
   // Milestone 6: the stand-in model (with the seed's own rules) answers AI steps, Try it and the website scan.
-  const ai = { provider: seedAi(), dailyTokens: 2_000_000 };
+  const ai = { provider: seedAi() };
   const flow = {
     ...deps,
     ai,

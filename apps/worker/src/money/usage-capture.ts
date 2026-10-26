@@ -14,7 +14,13 @@
  * this wrong is not a rounding error — it is the difference between a 1.5× margin and a loss.
  */
 import { callLegUsageKey, callUsageKey, mmsUsageKey, smsUsageKey } from '@hfos/core/server';
-import { roundedSeconds, type RateCard, type UsageKey, type UsagePart } from '@hfos/core/server';
+import {
+  aiRateKeys,
+  roundedSeconds,
+  type RateCard,
+  type UsageKey,
+  type UsagePart,
+} from '@hfos/core/server';
 import { formatPhone } from '@hfos/core';
 import type { TenantScope } from '../services';
 import { chargeUsage, rateCard, type Charged, type WalletDeps } from './wallet';
@@ -191,12 +197,14 @@ export async function chargeAi(
   },
 ): Promise<Charged> {
   const t = input.tokens;
+  // Claude Opus (Ask HandsFreeOS) has lines of its own; private.ai_spend_today picks them by the same rule.
+  const keys = aiRateKeys(input.model);
   const parts: UsagePart[] = input.known
     ? [
-        { key: 'ai.input.mtok', quantity: mtok(t.inputTokens) },
-        { key: 'ai.output.mtok', quantity: mtok(t.outputTokens) },
-        { key: 'ai.cache_read.mtok', quantity: mtok(t.cacheReadTokens) },
-        { key: 'ai.cache_write.mtok', quantity: mtok(t.cacheWriteTokens) },
+        { key: keys.input, quantity: mtok(t.inputTokens) },
+        { key: keys.output, quantity: mtok(t.outputTokens) },
+        { key: keys.cacheRead, quantity: mtok(t.cacheReadTokens) },
+        { key: keys.cacheWrite, quantity: mtok(t.cacheWriteTokens) },
       ]
     : [
         {

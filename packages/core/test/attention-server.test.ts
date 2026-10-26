@@ -49,6 +49,7 @@ import {
   personCreate,
   phoneUpdateSettings,
   taskCreate,
+  walletSetAutoTopup,
   workspaceUpdate,
 } from '../src/server';
 
@@ -225,6 +226,9 @@ async function setup(label: string): Promise<Biz> {
     { workspaceId: biz.wsId, settings: { openHours: ALWAYS_OPEN_HOURS } },
     owner,
   );
+  // A new business's $5 starting credit sits under the $10 floor, which a full sweep reads as a balance
+  // running low. These tests count the cards customers open, so the floor goes under it.
+  await run(walletSetAutoTopup, { workspaceId: biz.wsId, floorCents: 0 }, owner);
   return biz;
 }
 

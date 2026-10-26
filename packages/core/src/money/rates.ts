@@ -53,6 +53,12 @@ export const USAGE_KEYS = [
   'ai.output.mtok',
   'ai.cache_read.mtok',
   'ai.cache_write.mtok',
+  // Ask HandsFreeOS runs on Claude Opus, which costs twice what the lines above are priced for, so it has its own
+  // four (20261027012500). `aiRateKeys` picks a model's lines; private.ai_spend_today prices by the same rule.
+  'ai.opus.input.mtok',
+  'ai.opus.output.mtok',
+  'ai.opus.cache_read.mtok',
+  'ai.opus.cache_write.mtok',
   // ---------- the AI's hearing and voice (Deepgram) ----------
   /** Listening live while the AI teammate is on a phone call, per minute of the call. */
   'speech.live.minute',
@@ -116,6 +122,10 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'ai.output.mtok': 'mtok',
   'ai.cache_read.mtok': 'mtok',
   'ai.cache_write.mtok': 'mtok',
+  'ai.opus.input.mtok': 'mtok',
+  'ai.opus.output.mtok': 'mtok',
+  'ai.opus.cache_read.mtok': 'mtok',
+  'ai.opus.cache_write.mtok': 'mtok',
   'speech.live.minute': 'minute',
   'speech.recording.minute': 'minute',
   'speech.voice.kchar': 'kchar',
@@ -240,6 +250,35 @@ export const priceOf = (card: RateCard, key: UsageKey, quantity: number): Priced
 /** What a line charges for one unit, in cents, for "a text is 2¢" on the usage page. Never our own cost. */
 export const unitPriceCents = (card: RateCard, key: UsageKey): number =>
   priceOf(card, key, 1).amountCents;
+
+/** The four lines one AI request is priced from, one per token bucket. */
+export interface AiRateKeys {
+  readonly input: UsageKey;
+  readonly output: UsageKey;
+  readonly cacheRead: UsageKey;
+  readonly cacheWrite: UsageKey;
+}
+
+/**
+ * Which lines price a model's tokens: a Claude Opus model (Ask HandsFreeOS) its own, every other model the card's
+ * AI lines. private.ai_spend_today prices today's AI by the same rule (`model like 'claude-opus%'`), so the daily
+ * AI limit and the statement agree.
+ */
+export function aiRateKeys(model: string | null | undefined): AiRateKeys {
+  return (model ?? '').startsWith('claude-opus')
+    ? {
+        input: 'ai.opus.input.mtok',
+        output: 'ai.opus.output.mtok',
+        cacheRead: 'ai.opus.cache_read.mtok',
+        cacheWrite: 'ai.opus.cache_write.mtok',
+      }
+    : {
+        input: 'ai.input.mtok',
+        output: 'ai.output.mtok',
+        cacheRead: 'ai.cache_read.mtok',
+        cacheWrite: 'ai.cache_write.mtok',
+      };
+}
 
 /** The markup realised on a key over a period: 1.5 means we charged one and a half times what we paid. */
 export const realisedMarkup = (chargedCents: number, costCents: number): number | null =>
@@ -373,6 +412,39 @@ export const SEED_RATES: readonly {
     minChargeCents: 0,
     roundUpTo: 'none',
     notes: 'claude-sonnet-5 cache write, a quarter more than input. Charged $3.75.',
+  },
+  {
+    key: 'ai.opus.input.mtok',
+    costMicros: 4_000_000,
+    markupBp: 15_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'Ask HandsFreeOS (claude-opus-5-5) input, $4.00 a million tokens. Charged $6.00.',
+  },
+  {
+    key: 'ai.opus.output.mtok',
+    costMicros: 20_000_000,
+    markupBp: 15_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'Ask HandsFreeOS (claude-opus-5-5) output, $20.00 a million tokens. Charged $30.00.',
+  },
+  {
+    key: 'ai.opus.cache_read.mtok',
+    costMicros: 200_000,
+    markupBp: 15_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes: 'Ask HandsFreeOS (claude-opus-5-5) cache read, $0.20 a million tokens. Charged $0.30.',
+  },
+  {
+    key: 'ai.opus.cache_write.mtok',
+    costMicros: 5_000_000,
+    markupBp: 15_000,
+    minChargeCents: 0,
+    roundUpTo: 'none',
+    notes:
+      'Ask HandsFreeOS (claude-opus-5-5) cache write, a quarter more than input. Charged $7.50.',
   },
   {
     key: 'speech.live.minute',

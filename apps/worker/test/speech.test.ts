@@ -6,14 +6,7 @@
  */
 import { createTokenVerifier } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import {
-  asService,
-  closeTestDbs,
-  createTestUser,
-  signInTestUser,
-  testDbs,
-  testEnv,
-} from '@hfos/db/testing';
+import { closeTestDbs, createTestUser, signInTestUser, testDbs, testEnv } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildHttpServer } from '../src/http/server';
@@ -21,6 +14,7 @@ import { clipListenParams, heardClipOf } from '../src/voice-agent/deepgram-speec
 import { createFakeSpeech, FAKE_HEARD, silentWav } from '../src/voice-agent/fake-speech';
 import type { SpeechServices } from '../src/voice-agent/speech';
 import { admin, saveTeammate, teammateWorld, type TeammateWorld } from './ai-team-world';
+import { setBalance } from './helpers';
 
 const env = testEnv();
 let w: TeammateWorld;
@@ -190,27 +184,16 @@ describe('what it costs', () => {
   });
 
   it('stops when the balance has run out and the wallet is enforced, as the rest of the AI does', async () => {
+    // A new business is Stopped at zero already, with $5 to start: spending it is all that's left.
     const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
-    await asService(scope)((tx) =>
-      rows(
-        tx,
-        sql`insert into app.usage_wallets (workspace_id, organization_id, stage, overdraft_cents)
-            values (${w.workspaceId}, ${w.organizationId}, 'enforce', 0)
-            on conflict (workspace_id) do update set stage = 'enforce', overdraft_cents = 0`,
-      ),
-    );
+    const was = await setBalance(scope, 0);
     try {
       for (const res of [await hear(ownerToken, 'Hi'), await say(ownerToken, { text: 'Hi' })]) {
         expect(res.statusCode).toBe(402);
         expect(res.json()).toMatchObject({ error: { rule: 'wallet_empty' } });
       }
     } finally {
-      await asService(scope)((tx) =>
-        rows(
-          tx,
-          sql`update app.usage_wallets set stage = 'off' where workspace_id = ${w.workspaceId}`,
-        ),
-      );
+      await setBalance(scope, was);
     }
   });
 });

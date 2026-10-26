@@ -3,6 +3,7 @@
  * One copy for the web and the phone. Browser-safe.
  */
 import { joinAnd } from '../attention/home-words';
+import { aiLimitReached } from '../money/wallet-words';
 import type { OfferAssistPath } from './assist';
 import {
   clearsBar,
@@ -551,8 +552,8 @@ export function offerAiWords(e: {
   const why = e.rule ?? e.code;
   if (e.status === 0) return 'The AI isn’t reachable right now. Try again in a minute.';
   if (e.status === 403) return 'Only owners and admins can build the main offer.';
-  if (why === 'budget_reached')
-    return 'That’s today’s AI limit for this business. It resets at midnight.';
+  // The worker's own words name the business's limit; these are for when they didn't arrive.
+  if (why === 'budget_reached') return e.message || aiLimitReached();
   if (why === 'ai_not_configured')
     return 'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
   return e.message;

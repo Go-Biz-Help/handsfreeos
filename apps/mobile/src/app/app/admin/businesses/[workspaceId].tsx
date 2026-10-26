@@ -24,7 +24,7 @@ import {
   PHONE_MODEL_LABELS,
   PHONE_MODELS,
   TICKET_STATUS_WORDS,
-  type DeskWalletStage,
+  type DeskWalletMove,
   type PhoneListener,
   type PhoneModel,
 } from '@hfos/core';
@@ -283,7 +283,7 @@ function WalletSection({
   onChanged: () => void;
 }) {
   const keyboard = useKeyboardHeight();
-  const [moving, setMoving] = React.useState<DeskWalletStage | null>(null);
+  const [moving, setMoving] = React.useState<DeskWalletMove | null>(null);
   const [crediting, setCrediting] = React.useState(false);
   const [reason, setReason] = React.useState('');
   const [amount, setAmount] = React.useState<string>(DESK_WALLET_WORDS.defaultAmount);
@@ -324,7 +324,7 @@ function WalletSection({
   };
 
   // Why first, as the web asks it: the commands refuse a change nobody explained.
-  const moveTo = (to: DeskWalletStage) => {
+  const moveTo = (to: DeskWalletMove) => {
     if (!deskReasonGiven(reason)) return setError(DESK_WALLET_WORDS.sayWhy);
     void run(
       () =>

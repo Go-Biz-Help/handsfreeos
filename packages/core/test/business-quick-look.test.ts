@@ -60,13 +60,14 @@ beforeAll(async () => {
   );
   troubled = await business(`Quick Look Troubled ${randomUUID().slice(0, 8)}`);
   calm = await business(`Quick Look Calm ${randomUUID().slice(0, 8)}`);
-  // A balance they are shown, run out, on a card that keeps being declined.
+  // A balance they are shown, run out, on a card that keeps being declined: the $5 every business starts with,
+  // and $3 past it.
   await executeCommand(
     api(),
     walletAdjust,
     {
       workspaceId: troubled,
-      amountCents: -300,
+      amountCents: -800,
       reason: 'Opening the balance',
       reference: randomUUID(),
     },

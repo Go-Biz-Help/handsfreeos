@@ -231,7 +231,6 @@ beforeAll(async () => {
     assistant: {
       provider: scriptedAssistant(),
       tools: createToolExecutor(httpDb),
-      dailyTokens: 5e6,
     },
   });
 });
@@ -507,8 +506,8 @@ describe('the Assistant on the calendar', () => {
         db,
         provider,
         tools: createToolExecutor(db),
-        dailyTokens: 5e6,
         log: pino({ level: 'silent' }),
+        wallet: { db, log: pino({ level: 'silent' }), mode: 'off' },
       },
       {
         actor: actor(member),
@@ -561,8 +560,8 @@ describe('the Assistant on the calendar', () => {
           db,
           provider,
           tools: createToolExecutor(db),
-          dailyTokens: 5e6,
           log: pino({ level: 'silent' }),
+          wallet: { db, log: pino({ level: 'silent' }), mode: 'off' },
         },
         {
           actor: actor(member),
@@ -618,8 +617,8 @@ describe('the Assistant on the calendar', () => {
           db,
           provider,
           tools: createToolExecutor(db),
-          dailyTokens: 5e6,
           log: pino({ level: 'silent' }),
+          wallet: { db, log: pino({ level: 'silent' }), mode: 'off' },
         },
         {
           actor: actor(member),

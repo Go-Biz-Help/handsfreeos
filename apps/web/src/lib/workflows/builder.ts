@@ -1,5 +1,10 @@
 'use client';
-import type { WorkflowDefinition, WorkflowIssue, WorkflowOp } from '@hfos/core';
+import {
+  aiLimitReached,
+  type WorkflowDefinition,
+  type WorkflowIssue,
+  type WorkflowOp,
+} from '@hfos/core';
 import { ApiError, errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 
@@ -46,8 +51,8 @@ export function builderErrorMessage(e: unknown): string {
   const why = e.rule ?? e.code;
   if (e.status === 0) return 'The AI isn’t reachable right now. Try again in a minute.';
   if (e.status === 403) return 'Only owners and admins can change workflows.';
-  if (why === 'budget_reached')
-    return 'That’s today’s AI limit for this business. It resets at midnight.';
+  // The worker's own words name the business's daily AI limit; these are for when they didn't arrive.
+  if (why === 'budget_reached') return e.message || aiLimitReached();
   if (why === 'ai_not_configured')
     return 'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
   if (why === 'revision_conflict')

@@ -338,6 +338,8 @@ export const AssistantWarmInput = z.object({ workspaceId: uuid });
 export const assistantErrorCode = z.enum([
   'not_configured',
   'budget_reached',
+  // A business Stopped at zero whose balance ran out (20261027012500): Ask HandsFreeOS is charged like the rest.
+  'wallet_empty',
   'busy',
   'already_running',
   'failed',

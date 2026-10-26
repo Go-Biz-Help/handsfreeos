@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Usage & balance' };
 
 /**
  * Settings → Usage & balance (owners and admins): what the business has left, what it has spent, the card that
- * tops it up, and a statement of every text, call, number and AI reply it has been charged for. A founding seat paid
+ * tops it up, its daily AI limit, and a statement of every text, call, number and AI reply it has been charged for. A founding seat paid
  * by the year shows here too, above the balance: when it renews, and the way to stop it.
  *
  * Deliberately not part of Settings → Payments. That page is the business's own customers paying **them**;

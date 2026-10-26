@@ -5,6 +5,7 @@
 import type { CatalogPipeline } from '../calendar/catalogs';
 import type { WeeklyHours } from '../calendar/config';
 import type { QuietHoursWindow } from '../messaging/quiet-hours';
+import { DEFAULT_AI_DAILY_LIMIT_CENTS } from '../money/wallet-words';
 import type { WorkspaceRole } from '../permissions';
 import type { WorkflowDefinition } from '../workflows/definition';
 import { allSteps } from '../workflows/walk';
@@ -17,17 +18,17 @@ export interface TeammateMember {
   readonly active: boolean;
 }
 
-/** The business's daily AI limit in tokens, unless the deployment sets ASSISTANT_DAILY_TOKENS. */
-export const DEFAULT_AI_DAILY_TOKENS = 2_000_000;
-
-/** Today's AI tokens (since midnight in the business's zone) against the business's daily limit. */
+/**
+ * Today's AI (since midnight in the business's zone) against the business's own daily AI limit, in cents priced
+ * as it's charged (private.ai_spend_today).
+ */
 export interface TeammateAiUsage {
-  /** The daily limit every AI feature shares. */
-  readonly dailyTokens: number;
-  /** Used today, cache reads and writes included. */
-  readonly usedTokens: number;
-  /** The teammate's part of `usedTokens`; its settings cap it at `limits.dailySharePercent` of the limit. */
-  readonly teammateTokens: number;
+  /** The daily AI limit every AI feature shares, which the business sets on Settings → Usage & balance. */
+  readonly dailyLimitCents: number;
+  /** What all its AI has come to today. */
+  readonly usedCents: number;
+  /** The teammate's part of `usedCents`; its settings cap it at `limits.dailySharePercent` of the limit. */
+  readonly teammateCents: number;
 }
 
 export interface TeammateCatalogs {
@@ -82,7 +83,7 @@ export function emptyTeammateCatalogs(timeZone = 'America/Chicago'): TeammateCat
     knowledge: { published: 0 },
     profile: { filled: 0, total: 7 },
     pricesAllowed: false,
-    aiUsage: { dailyTokens: DEFAULT_AI_DAILY_TOKENS, usedTokens: 0, teammateTokens: 0 },
+    aiUsage: { dailyLimitCents: DEFAULT_AI_DAILY_LIMIT_CENTS, usedCents: 0, teammateCents: 0 },
     businessHours: null,
     members: [],
     newLeadTextWorkflows: [],

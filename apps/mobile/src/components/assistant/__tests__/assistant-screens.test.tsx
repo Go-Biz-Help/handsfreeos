@@ -217,14 +217,30 @@ describe('with no signal', () => {
     expect(onRetry).toHaveBeenCalled();
   });
 
-  it('the day’s limit names the business and says everything else still works', async () => {
+  it('the daily AI limit names the business and says where to raise it', async () => {
     await render(
       <NoticeCard
         notice={{ code: 'budget_reached', message: 'ignored' }}
         businessName="Lone Star HVAC"
       />,
     );
-    expect(screen.getByText('That’s today’s Assistant limit for Lone Star HVAC')).toBeTruthy();
+    expect(screen.getByText('Lone Star HVAC reached its daily AI limit')).toBeTruthy();
+  });
+
+  it('an empty balance names the business and says a top-up brings the AI back', async () => {
+    await render(
+      <NoticeCard
+        notice={{ code: 'wallet_empty', message: 'ignored' }}
+        businessName="Lone Star HVAC"
+      />,
+    );
+    expect(screen.getByText('Lone Star HVAC’s balance has run out')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Usage & balance.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('assistant-notice-action')).toBeNull();
   });
 });
 

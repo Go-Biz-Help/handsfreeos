@@ -276,6 +276,11 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'That business isn’t there anymore. It may have been deleted. Refresh the list and pick another.',
   },
+  wallet_stage_off_is_gone: {
+    status: 400,
+    message:
+      'Silent isn’t a stage any more. Move the business to Paid by the agency, Warned or Stopped at zero.',
+  },
   platform_holds_our_domain: {
     status: 409,
     message:

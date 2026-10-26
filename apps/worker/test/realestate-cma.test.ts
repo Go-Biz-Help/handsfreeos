@@ -93,7 +93,7 @@ async function drain() {
 const read = async () => (await ask('realestate.cma', { cmaId: cma })).cma;
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  s = testServices({ ai: { provider: scriptedAi() } });
   agent = await createTestUser('rcw-agent', { fullName: 'Sam Rivera' });
   ws = await realestateBusiness(agent, 'Summary Realty');
   const client = (
@@ -178,7 +178,7 @@ describe('a CMA’s summary', () => {
 
   it('is left to the agent when the model can’t be asked', async () => {
     const saved = s;
-    s = testServices({ ai: { provider: null, dailyTokens: 5_000_000 } });
+    s = testServices({ ai: { provider: null } });
     try {
       const home = (
         await run('realestate.home.add', { dealId: deal, address: '9 Oak Ln, Austin, TX' })

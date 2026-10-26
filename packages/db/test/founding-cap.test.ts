@@ -297,7 +297,8 @@ describe('the starting credit', () => {
       );
 
     const [first] = await credit();
-    expect(Number(first?.credited_cents)).toBe(1000);
+    // The offer's $10 in all: the business already had the $5 every new business starts with.
+    expect(Number(first?.credited_cents)).toBe(500);
     expect(first?.recorded).toBe(true);
 
     const [second] = await credit();

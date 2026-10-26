@@ -8,6 +8,7 @@ import {
   deskReasonGiven,
   deskWalletLines,
   deskWalletMoves,
+  type DeskWalletMove,
 } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
@@ -21,7 +22,6 @@ import type { Ok } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 
 type Wallet = Ok<'/v1/queries/platform.wallet.get'>;
-type Stage = Wallet['stage'];
 
 function Line({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -55,7 +55,7 @@ export function WalletBlock({
   canChange: boolean;
 }) {
   const router = useRouter();
-  const [moving, setMoving] = useState<Stage | null>(null);
+  const [moving, setMoving] = useState<DeskWalletMove | null>(null);
   const [crediting, setCrediting] = useState(false);
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState<string>(DESK_WALLET_WORDS.defaultAmount);
@@ -88,7 +88,7 @@ export function WalletBlock({
     }
   };
 
-  const moveTo = (stage: Stage) =>
+  const moveTo = (stage: DeskWalletMove) =>
     run(async () =>
       unwrap(
         await apiBrowser().POST('/v1/commands/wallet.set_stage', {

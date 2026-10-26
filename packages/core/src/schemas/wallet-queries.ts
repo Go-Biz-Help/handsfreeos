@@ -43,6 +43,12 @@ export const WalletGetOutput = z.strictObject({
   pendingTopUpCents: z.int().nullable(),
   /** Why the top-up is bigger than usual, and how to make it stop. Null when it is not. */
   escalation: z.string().nullable(),
+  /**
+   * The daily AI limit the business set, and what its AI has come to since midnight where it is, priced as it's
+   * charged. Shown whatever the stage: a business HandsFreeOS covers has a limit too.
+   */
+  aiDailyLimitCents: z.int(),
+  aiSpentTodayCents: z.int(),
 });
 
 export const UsageStatementInput = z.strictObject({

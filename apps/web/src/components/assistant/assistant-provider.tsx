@@ -34,6 +34,7 @@ export interface Step {
 /** Why an answer stopped short; each has its own card (design/m4/States.dc.html). */
 export type NoticeCode =
   | 'budget_reached'
+  | 'wallet_empty'
   | 'busy'
   | 'already_running'
   | 'failed'

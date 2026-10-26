@@ -10,6 +10,9 @@
  * The fifth is the one that is easy to get wrong and expensive to discover: the balance may go **below zero**.
  * Every other money column in this repo is `>= 0`, so the first person to "fix" this one needs a test telling
  * them not to.
+ *
+ * Every business opens its wallet as it's made, Stopped at zero with a $5 starting credit (20261027012500), so
+ * each balance here starts at 500.
  */
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -27,7 +30,7 @@ import {
 
 let owner: TestUser;
 let outsider: TestUser;
-/** A third business, kept spotless: nothing is ever charged to it, so it never gets a wallet by accident. */
+/** A third business, kept spotless: nothing is ever charged to it, so it holds only what it was made with. */
 let newcomer: TestUser;
 interface Business {
   readonly ws: string;
@@ -90,11 +93,9 @@ beforeAll(async () => {
   B = { ws: orgB.wsId, org: orgB.orgId };
   const orgC = await bootstrapOrganization(newcomer, 'Wallet Org C', 'Wallet C');
   C = { ws: orgC.wsId, org: orgC.orgId };
+  // Warned rather than Stopped at zero, so A owns all four of its top-up settings (an overdraft among them).
   await worker(A)((tx) =>
-    tx.execute(
-      sql`insert into app.usage_wallets (workspace_id, organization_id) values (${A.ws}, ${A.org})
-          on conflict (workspace_id) do nothing`,
-    ),
+    tx.execute(sql`update app.usage_wallets set stage = 'warn' where workspace_id = ${A.ws}`),
   );
 });
 afterAll(closeAll);
@@ -109,8 +110,9 @@ describe('the balance', () => {
     );
     await spend(A, 200, 'sms:SMtest1');
     const { cached, summed } = await balances(A);
-    expect(cached).toBe(2300);
-    expect(summed).toBe(2300);
+    // The $5 it started with, the top-up, less the text.
+    expect(cached).toBe(2800);
+    expect(summed).toBe(2800);
   });
 
   it('writes what was left onto the row itself, so a statement needs no window function', async () => {
@@ -119,14 +121,14 @@ describe('the balance', () => {
       sql`select balance_after_cents::int as after from app.usage_ledger
           where workspace_id = ${A.ws} and idempotency_key = 'sms:SMtest1'`,
     );
-    expect(row?.after).toBe(2300);
+    expect(row?.after).toBe(2800);
   });
 
-  it('opens a wallet for a business that spends before anybody opened one', async () => {
+  it('takes a new business’s first spend off the starting credit it was made with', async () => {
     await spend(B, 150, 'sms:SMtest-b');
     const { cached, summed } = await balances(B);
-    expect(cached).toBe(-150);
-    expect(summed).toBe(-150);
+    expect(cached).toBe(350);
+    expect(summed).toBe(350);
   });
 
   /**
@@ -175,7 +177,8 @@ describe('the ledger', () => {
     await spend(B, 100, 'sms:SMshared');
     const [count] = await rows<{ n: number }>(
       dbs.admin.db,
-      sql`select count(*)::int as n from app.usage_ledger where idempotency_key = 'sms:SMshared'`,
+      sql`select count(*)::int as n from app.usage_ledger
+          where idempotency_key = 'sms:SMshared' and workspace_id in (${A.ws}, ${B.ws})`,
     );
     expect(count?.n).toBe(2);
   });
@@ -244,8 +247,8 @@ describe('who sees what', () => {
       rows<{ n: number }>(tx, sql`select count(*)::int as n from app.usage_ledger`),
     );
     expect(mine[0]!.n).toBeGreaterThan(0);
-    // B's own rows, and not one of A's.
-    expect(theirs[0]!.n).toBe(2);
+    // B's own rows (its starting credit and two texts), and not one of A's.
+    expect(theirs[0]!.n).toBe(3);
   });
 
   it('lets a business change its own four settings', async () => {
@@ -261,6 +264,37 @@ describe('who sees what', () => {
           where workspace_id = ${A.ws}`,
     );
     expect(w).toEqual({ floor: 2000, topup: 5000 });
+  });
+
+  it('lets a business set its own daily AI limit, and nobody else', async () => {
+    await as(owner)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set ai_daily_limit_cents = 250000 where workspace_id = ${A.ws}`,
+      ),
+    );
+    // Another business's row is simply not there to change.
+    await as(outsider)((tx) =>
+      tx.execute(
+        sql`update app.usage_wallets set ai_daily_limit_cents = 1 where workspace_id = ${A.ws}`,
+      ),
+    );
+    const [w] = await rows<{ limit: number }>(
+      dbs.admin.db,
+      sql`select ai_daily_limit_cents::int as limit from app.usage_wallets where workspace_id = ${A.ws}`,
+    );
+    expect(w?.limit).toBe(250000);
+    // Never below nothing.
+    expect(
+      (
+        await expectPgError(() =>
+          as(owner)((tx) =>
+            tx.execute(
+              sql`update app.usage_wallets set ai_daily_limit_cents = -1 where workspace_id = ${A.ws}`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('23514');
   });
 
   it('never lets a person write the card, which is the provider’s', async () => {
@@ -356,7 +390,7 @@ describe('who sees what', () => {
     const [found] = await rows<{ n: number }>(
       dbs.admin.db,
       sql`select count(*)::int as n from app.usage_wallets
-          where workspace_id = ${B.ws} and balance_cents > 0`,
+          where workspace_id = ${B.ws} and balance_cents >= 500000`,
     );
     expect(found?.n).toBe(0);
   });
@@ -386,7 +420,8 @@ describe('opening a wallet', () => {
       code: '42501',
       detail: 'wallet_open_is_money_manage',
     });
-    expect(await walletCount(C)).toBe(0);
+    // The one it was made with, and nothing more.
+    expect(await walletCount(C)).toBe(1);
   });
 
   it('refuses them the same way for a business that already has one', async () => {
@@ -400,7 +435,7 @@ describe('opening a wallet', () => {
     });
   });
 
-  it('opens an empty one for somebody who can, with the limit still on', async () => {
+  it('answers somebody who can with the one it was made with: Stopped at zero, with the starting credit', async () => {
     await open(newcomer, C);
     const [w] = await rows<{
       org: string;
@@ -413,7 +448,7 @@ describe('opening a wallet', () => {
           from app.usage_wallets where workspace_id = ${C.ws}`,
     );
     // The organisation is read from the workspace, never taken from whoever asked.
-    expect(w).toMatchObject({ org: C.org, stage: 'off', balance: 0 });
+    expect(w).toMatchObject({ org: C.org, stage: 'enforce', balance: 500 });
     expect(w?.method_token).toBeNull();
   });
 

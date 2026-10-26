@@ -480,8 +480,14 @@ export type BusinessGlance = z.infer<typeof BusinessGlanceOutput>;
 
 // ---------- one business's usage balance ----------
 
-/** `agency`: its agency pays for what it uses, and it never hears of a balance. */
+/**
+ * `agency`: its agency pays for what it uses, and it never hears of a balance. `off` (Silent) is gone since
+ * 20261027012500 and is read only from what was written before it.
+ */
 export const WalletStageValue = z.enum(['off', 'warn', 'enforce', 'agency']);
+
+/** Where staff may move a business: anywhere but Silent, which is gone. */
+export const WalletMoveStageValue = z.enum(['warn', 'enforce', 'agency']);
 
 export const AdminWalletGetInput = z.object({ workspaceId: uuid });
 
@@ -513,7 +519,7 @@ export const AdminWalletGetOutput = z.object({
 
 export const WalletSetStageInput = z.object({
   workspaceId: uuid,
-  stage: WalletStageValue,
+  stage: WalletMoveStageValue,
   /** Why, in a few words. Stored on the event: a rollout is a series of decisions somebody made. */
   reason: z.string().trim().min(3).max(300),
 });

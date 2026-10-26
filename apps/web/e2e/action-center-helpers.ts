@@ -58,6 +58,9 @@ export async function actionCenterOwner(page: Page, label: string): Promise<AcOw
   });
   // These specs are about the cards a conversation opens, so the stranger who texts stays a stranger.
   await leadIntakeOff(token, workspaceId);
+  // And a new business's $5 starting credit sits under the $10 floor, which a sweep reads as a balance running
+  // low: the floor goes under it, so the counts are customers' cards only.
+  await api(token, 'commands', 'wallet.set_auto_topup', { workspaceId, floorCents: 0 });
   return { token, userId, workspaceId, email };
 }
 

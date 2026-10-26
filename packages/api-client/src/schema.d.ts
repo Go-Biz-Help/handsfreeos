@@ -14597,6 +14597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/wallet.set_ai_limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the daily AI limit: the most the business’s AI (the Assistant, the AI teammate, workflows, add-ons) may be charged in a day before it pauses until midnight.
+         * @description Risk level 2. Requires money.manage. Emits wallet.ai_limit_changed.
+         */
+        post: operations["command_wallet_set_ai_limit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/wallet.set_auto_topup": {
         parameters: {
             query?: never;
@@ -21167,7 +21187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, and why its top-up is the size it is.
+         * A business’s balance and how it keeps itself topped up: what is left, the card on file, the settings, what it has spent lately, why its top-up is the size it is, and its daily AI limit with what its AI has come to today.
          * @description Requires money.read.
          */
         post: operations["query_wallet_get"];
@@ -55247,6 +55267,38 @@ export interface operations {
             };
         };
     };
+    command_wallet_set_ai_limit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    aiDailyLimitCents: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        aiDailyLimitCents: number;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_wallet_set_auto_topup: {
         parameters: {
             query?: never;
@@ -55300,7 +55352,7 @@ export interface operations {
                 "application/json": {
                     reason: string;
                     /** @enum {string} */
-                    stage: "off" | "warn" | "enforce" | "agency";
+                    stage: "warn" | "enforce" | "agency";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -58803,9 +58855,9 @@ export interface operations {
                         canManage: boolean;
                         catalogs: {
                             aiUsage: {
-                                dailyTokens: number;
-                                teammateTokens: number;
-                                usedTokens: number;
+                                dailyLimitCents: number;
+                                teammateCents: number;
+                                usedCents: number;
                             };
                             businessHours: {
                                 day: number;
@@ -82130,6 +82182,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        aiDailyLimitCents: number;
+                        aiSpentTodayCents: number;
                         autoTopup: boolean;
                         balanceCents: number;
                         card: {

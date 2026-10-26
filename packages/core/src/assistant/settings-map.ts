@@ -715,11 +715,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   usage: {
     label: 'Usage & balance',
-    what: 'what the business pays HandsFreeOS: the balance texts, calls, phone numbers and AI replies come out of, top-ups, the card and the statement',
+    what: 'what the business pays HandsFreeOS: the balance texts, calls, phone numbers and AI replies come out of, top-ups, the daily AI limit, the card and the statement',
     where: ['Settings', 'Usage & balance'],
     onScreen: [
       'Your balance: Top up now',
       'Automatic top-up',
+      'Daily AI limit: the most the AI may spend in a day, and what it has spent today',
       'Card on file',
       'What things cost',
       'Statement',
@@ -735,6 +736,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Open Settings → Usage & balance.',
           'Press Top up now.',
           'Card on file is where the card is added or changed.',
+        ],
+      },
+      {
+        what: 'raise or lower the daily AI limit',
+        why: 'it decides how much the business’s AI may spend, which an owner or admin sets themselves',
+        steps: [
+          'Open Settings → Usage & balance.',
+          'Under Daily AI limit, type the most the AI may spend in a day.',
         ],
       },
     ],

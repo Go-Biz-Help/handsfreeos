@@ -53,7 +53,7 @@ const draft = {
 };
 
 beforeAll(async () => {
-  const s = testServices({ ai: { provider: scriptedAi(), dailyTokens: 5_000_000 } });
+  const s = testServices({ ai: { provider: scriptedAi() } });
   [owner, member] = await Promise.all([
     createTestUser('outreach-assist-owner'),
     createTestUser('outreach-assist-member'),
