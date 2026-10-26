@@ -292,6 +292,12 @@ export function registerAssistantRoutes(
     undone,
   });
 
+  /** A refused card says first that nothing changed, then why, unless the refusal says so already. */
+  const nothingChanged = (message: string) =>
+    /nothing (was|has been) (changed|done|saved)/i.test(message)
+      ? message
+      : `Nothing was changed. ${message}`;
+
   app.post<{ Params: { id: string } }>('/v1/assistant/tool-calls/:id/confirm', async (req) => {
     const { input, scope, call, tool, ctx, executor } = await ownCall(req);
     if (!(await store.claimToolCall(deps.httpDb, scope, call.id, 'confirmed')))
@@ -312,7 +318,7 @@ export function registerAssistantRoutes(
     } catch (e) {
       const message =
         e instanceof HfosError
-          ? e.message
+          ? nothingChanged(e.message)
           : 'Something went wrong on our side, so nothing was changed. Try again in a minute.';
       if (!(e instanceof HfosError))
         deps.log.error({ err: e, toolCallId: call.id }, 'assistant confirm failed');

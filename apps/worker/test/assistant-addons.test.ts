@@ -14,6 +14,7 @@ import {
   defineAddonQuery,
   executeCommand,
   executeQuery,
+  HfosError,
   organizationCreate,
   requireHuman,
   type AddonServerModule,
@@ -281,6 +282,13 @@ const cancelVisit = defineAddonCommand(pool, {
       entityType: 'pool_visit',
       payload: { visit: input.visit, reason: input.reason ?? null },
     });
+    // Refused by the handler, after it wrote: only a rehearsal that rolls back whole keeps nothing.
+    if (input.visit.toLowerCase() === 'friday')
+      throw HfosError.rule(
+        'visit_done',
+        409,
+        'Friday’s visit is already done, so there’s nothing to cancel.',
+      );
     return { cancelled: true as const };
   },
 });
@@ -813,6 +821,33 @@ describe('running an add-on’s tools', () => {
       sql`select status::text as status from app.assistant_tool_calls where id = ${card.toolCallId}`,
     );
     expect(row?.status).toBe('failed');
+  });
+
+  it('rehearses a change before its card, so one its handler would refuse says why, and keeps nothing', async () => {
+    await setState(wsA, 'enabled');
+    const asked = await ask(ownerToken, 'Cancel the Friday visit');
+    expect(asked.some((e) => e.type === 'card')).toBe(false);
+    expect(resultOf(asked)).toMatchObject({
+      error: 'Friday’s visit is already done, so there’s nothing to cancel.',
+    });
+    expect(
+      (await events(wsA, `${LIVE}.visit.cancelled`)).filter((e) => e.payload['visit'] === 'Friday'),
+    ).toEqual([]);
+  });
+
+  it('says plainly on a refused card that nothing was changed', async () => {
+    await setState(wsA, 'enabled');
+    const card = confirmCard(await ask(ownerToken, 'Cancel the Thursday visit'));
+    // Refused between the card and Confirm: the handler's rule now holds for this visit.
+    await rows(
+      admin(),
+      sql`update app.assistant_tool_calls set arguments = jsonb_set(arguments, '{visit}', '"Friday"')
+          where id = ${card.toolCallId}`,
+    );
+    expect((await decide(card.toolCallId, 'confirm')).json()).toMatchObject({
+      status: 'failed',
+      error: 'Nothing was changed. Friday’s visit is already done, so there’s nothing to cancel.',
+    });
   });
 
   it('never draws a card the operation’s own rules would refuse', async () => {

@@ -2,6 +2,7 @@ import {
   ADDON_CATALOG,
   HfosError,
   isAddonAiTool,
+  isScreenReadTool,
   type AssistantCard,
   type Catalog,
 } from '@hfos/core/server';
@@ -44,6 +45,7 @@ import { extraAutoTools, extraConfirmTools } from './tools-extra';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
 import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
 import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling';
+import { runScreenRead } from './tools-screen-reads';
 import { moreSettingsConfirmTools } from './tools-settings-more';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
 
@@ -862,6 +864,8 @@ export function createToolExecutor(
       if (isAddonAiTool(tool)) return runAddonTool(db, tool, args, ctx);
       // Or one of its worker actions, through the door its screens use.
       if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
+      // Or a screen's own query, as the person.
+      if (isScreenReadTool(tool)) return runScreenRead(db, tool, args, ctx);
       const capabilities = capabilityTools[tool.name];
       if (capabilities) return capabilities(db, ctx, args, addonCatalog);
       const offer = mainOfferAutoTools[tool.name];
@@ -882,7 +886,7 @@ export function createToolExecutor(
       return flow(db, ctx, args, workflows);
     },
     async prepare(tool, args, ctx, toolCallId) {
-      if (isAddonAiTool(tool)) return prepareAddonTool(tool, args, ctx, toolCallId);
+      if (isAddonAiTool(tool)) return prepareAddonTool(db, tool, args, ctx, toolCallId);
       if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
       const offer = mainOfferConfirmTools[tool.name];
       if (offer) return offer.prepare(db, ctx, args, toolCallId);
@@ -922,6 +926,7 @@ export function createToolExecutor(
       // worker action (most ask the AI, and some reach a service).
       if (isAddonAiTool(tool)) return tool.op.kind === 'query';
       if (isAddonActionTool(tool)) return false;
+      if (isScreenReadTool(tool)) return true;
       return (
         tool.name in readTools ||
         tool.name in contactReadTools ||

@@ -12,6 +12,7 @@
 
 import {
   handoverScreen,
+  notificationStates,
   settingsArea,
   settingsWhere,
   type AssistantCard,
@@ -149,7 +150,11 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
       }),
     },
   ],
-  email: [{ name: 'email.setup_status', as: 'email' }],
+  email: [
+    { name: 'email.setup_status', as: 'email' },
+    { name: 'email_sender_rule.list', as: 'senderRules' },
+    { name: 'email_suppression.list', as: 'blockedAddresses' },
+  ],
   website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
   facebook_instagram: [{ name: 'meta_account.list', as: 'facebookInstagram' }],
   templates: [{ name: 'template.list', as: 'templates' }],
@@ -161,6 +166,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   products: [{ name: 'product.list', as: 'products' }],
   partners: [
     { name: 'partners.settings', as: 'partners' },
+    { name: 'partner.payouts', as: 'payouts' },
     {
       name: 'partner.list',
       as: 'partnerList',
@@ -189,12 +195,46 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
         })),
     },
   ],
-  usage: [{ name: 'wallet.get', as: 'balance' }],
+  usage: [
+    { name: 'wallet.get', as: 'balance' },
+    { name: 'usage.prices', as: 'prices' },
+    { name: 'usage.statement', as: 'statement' },
+    { name: 'founding.mine', as: 'founding' },
+  ],
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
-  my_account: [{ name: 'account.me', as: 'me' }],
-  my_calendar: [{ name: 'schedule.team', as: 'schedules' }],
+  my_account: [
+    { name: 'account.me', as: 'me' },
+    {
+      // The phones their alerts go to, as Settings → Account lists them: none means phone alerts reach nobody.
+      name: 'push_device.list',
+      as: 'phonesForAlerts',
+      shape: (v) =>
+        (
+          (
+            v as {
+              devices?: { platform: string; deviceName: string | null; lastSeenAt: string }[];
+            }
+          )?.devices ?? []
+        ).map((d) => ({ phone: d.deviceName ?? d.platform, lastSeenAt: d.lastSeenAt })),
+    },
+  ],
+  my_calendar: [
+    { name: 'schedule.team', as: 'schedules' },
+    // The calendars and meeting accounts they connected, as Settings → My calendar lists them.
+    {
+      name: 'calendar_connection.list',
+      as: 'connectedCalendars',
+      input: (ctx) => ({ userId: ctx.actor.userId }),
+    },
+    {
+      name: 'meeting_connection.list',
+      as: 'meetingAccounts',
+      input: (ctx) => ({ userId: ctx.actor.userId }),
+    },
+    { name: 'live_meeting_account.mine', as: 'liveMeetings' },
+  ],
   // Check-ins (round six): the business's times and safety person; never anyone's contacts.
   safety: [{ name: 'safety.settings', as: 'safety' }],
   imports: [{ name: 'import.list', as: 'imports' }],
@@ -207,11 +247,21 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   ],
 };
 
-/** Everything `account.me` holds that isn't this person's own settings; the model never needs it. */
+/**
+ * This person's own account, as Settings → Account shows it: their name and address, their settings, and every alert
+ * as it is set now, defaults filled in, so "will I hear about a booking?" has an answer. The rest of `account.me` (the
+ * businesses they reach) the model never needs.
+ */
 const meShape = (me: unknown) => {
   const user = (me as { user?: Record<string, unknown> } | null)?.user;
   return user
-    ? { fullName: user['fullName'], email: user['email'], settings: user['settings'] }
+    ? {
+        fullName: user['fullName'],
+        email: user['email'],
+        settings: user['settings'],
+        alerts: notificationStates(user['settings']),
+        alwaysOn: 'Safety check-in alerts always reach their phones; they can’t be turned off.',
+      }
     : null;
 };
 

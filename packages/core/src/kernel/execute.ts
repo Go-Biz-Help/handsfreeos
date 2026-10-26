@@ -714,6 +714,51 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   }
 }
 
+/** What a rehearsal throws once the command ran, so its transaction rolls back. */
+class Rehearsed extends Error {}
+
+/**
+ * A person's command run as executeCommand runs it, then rolled back whole: it resolves when the command would go
+ * through now, and throws the refusal it would give. For a card that asks before a change (the Assistant's add-on
+ * tools), so a change that can't go through is said before anyone presses Confirm. Nothing is kept: a command's
+ * writes, events, outbox and audit rows are all in its transaction, and no receipt is claimed.
+ */
+export async function rehearseCommand<I extends z.ZodType, O extends z.ZodType>(
+  db: Db,
+  cmd: CommandDef<I, O>,
+  rawInput: unknown,
+  actor: HumanActor,
+  meta: RequestMeta,
+): Promise<void> {
+  assertActorAllowed(cmd, actor);
+  assertNotTestRun(actor);
+  assertAppRequest(meta);
+  const input = parseInput(cmd.input, rawInput);
+  const scopeRef = cmd.scope(input);
+  try {
+    // executeCommand's way for a person, without the receipt.
+    await asUser(db, actor.claims, async (tx) => {
+      const view = await namedView(tx, meta, scopeRef);
+      if (view) throw viewRefusal(view);
+      const scope = await resolveScope(tx, scopeRef);
+      if (scope.viewAs)
+        throw HfosError.forbidden(
+          'You are looking at this business, not working in it. Nothing here can be changed.',
+          'view_as_read_only',
+        );
+      assertOnTime(cmd, meta, new Date());
+      await assertAddonRuns(tx, cmd.addon ?? null, scope.workspaceId, true);
+      if (cmd.permission) assertPermission(scope, cmd.permission);
+      await shareChangeMoment(tx, meta);
+      await runCommand(tx, cmd, input, actor, scope, meta, cmd.addon ?? null);
+      throw new Rehearsed();
+    });
+  } catch (e) {
+    if (e instanceof Rehearsed) return;
+    throw translateDbError(e);
+  }
+}
+
 /** executeCommandIn's caller must hold exactly the actor's tenant, as the service actor, and nothing more. */
 async function assertWorkerTx(tx: Tx, actor: WorkerActor): Promise<void> {
   const [row] = await rows<{ role: string; workspace_id: string | null; org_id: string | null }>(

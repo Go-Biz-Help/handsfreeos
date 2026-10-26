@@ -503,7 +503,10 @@ add-on's work causes, so it reads after the add-on is gone, and a purge knows ex
 
 **The AI sees only what it may use.** An add-on operation that declares `ai` becomes a tool, always behind tool
 search, offered only while the add-on runs and the person holds its permission; the runtime refuses any tool it
-didn't offer, and the business's ids always go on after the model's arguments. **The Assistant can do whatever the
+didn't offer, and the business's ids always go on after the model's arguments. A change that waits for the person's
+OK is rehearsed first through the kernel (`rehearseCommand`, rolled back whole), so a card its rules would refuse is
+never drawn: the model gets the refusal and says why. A card refused at Confirm says first that nothing was changed.
+**The Assistant can do whatever the
 person can** (the owner's decision, 2026-10-26): every operation a person runs on an add-on's screens declares `ai`,
 and only what its browser extension or worker sends in doesn't, nor what the add-on's own rules keep from it (each
 add-on's catalogue test holds it to that: Social Outreach's, Real Estate's and Sales Coach's); so does every worker
