@@ -136,8 +136,14 @@ function valueOf(v: unknown): string {
   return clip(JSON.stringify(v));
 }
 
-/** The card's lines: what it does, then what it would be given, in the input's own order. */
-function cardFields(tool: Pick<AddonAiTool, 'input' | 'description'>, values: Args): Field[] {
+/**
+ * The card's lines: what it does, then what it would be given, in the input's own order. A screen's command the
+ * Assistant runs as it is (tools-screen-actions.ts) draws its card the same way.
+ */
+export function cardFields(
+  tool: Pick<AddonAiTool, 'input' | 'description'>,
+  values: Args,
+): Field[] {
   const given = Object.keys(tool.input.shape)
     .map((key) => ({ label: labelOf(key), value: valueOf(values[key]) }))
     .filter((f) => f.value);

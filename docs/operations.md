@@ -6928,9 +6928,31 @@ Some things it cannot do, and says so with the steps instead: signing in to Goog
 
 Three it can do that are worth knowing about, because they cost money or cannot be undone. Each carries a warning on its card: getting a business number (a monthly cost), giving one up (gone for good), and disconnecting a payout account (anything paying on a plan stops). Taking a teammate off the business is the fourth.
 
-The rest it can do too, each on a card that waits for **Confirm** (the owner's decision, 2026-10-26: the Assistant does whatever the person can): the main offer, from any box to putting a version live; turning add-ons on and off, adding and uninstalling them; bringing something back from the **Deleted bin**; how partners are paid and each partner; and **Settings** → **Safety**. Re-engaging dead leads the first time shows its message on the card, and **Confirm** counts as **Looks good, turn on**. It still never deletes anything for good, empties the bin or deletes an add-on's data: those stay the person's, on the page.
+The rest it can do too, each on a card that waits for **Confirm** (the owner's decision, 2026-10-26: the Assistant does whatever the person can): the main offer, from any box to putting a version live; turning add-ons on and off, adding and uninstalling them; bringing something back from the **Deleted bin**; how partners are paid and each partner; and **Settings** → **Safety**. Re-engaging dead leads the first time shows its message on the card, and **Confirm** counts as **Looks good, turn on**. It can move customers, conversations, bookings, leads, companies and records to the **Deleted bin** for someone who may delete them (the owner's decision, 2026-10-27): the card lists what goes with them, as the page's own box does, and they come back from the bin for 30 days. It still never deletes anything for good, empties the bin or deletes an add-on's data: those stay the person's, on the page.
 
 It can also see whatever the person can see. Every query a screen on the web or the phone loads that its own tools don't read is a look-up of its own (`read_<query>`, from `packages/core/src/assistant/screen-reads.ts`), run as the person, so it sees exactly what they would and never more. They wait behind tool search like the rest. `apps/worker/test/assistant-screen-reads.test.ts` fails when a new screen loads a query that isn't covered; add it to `SCREEN_READS`, or to `NOT_FOR_THE_ASSISTANT` with the reason.
+
+And it can press whatever button the person can. Every command a screen runs that its own tools don't is a tool of its own (`do_<command>`, from `SCREEN_ACTIONS` in `packages/core/src/assistant/coverage.ts`), made from the command itself: its description, its input without the business's ids, its permission and its risk. It runs as the person, through the kernel, in the business they asked in. Risk 0 runs on its own; everything else waits on a card that shows what it would be given, after the command is tried and rolled back, with a warning when it costs money or can't be taken back.
+
+For HandsFreeOS's own staff, it also does the Admin area: support tickets, saved replies, the staff team, businesses, founding seats, ideas, What's new, rates and wallets. Those tools are offered by the staff role's permissions alone, so nobody else is offered them or hears of them (the owner's decision, 2026-10-27). A staff tool names the business it acts on; everyone else's always acts in the business they asked in.
+
+### Keeping the Assistant able to do everything
+
+The owner's rule (2026-10-26 and 2026-10-27) is that the Assistant can do everything a person can, settings inside settings too, and stays that way as HandsFreeOS changes. `packages/core/test/assistant-coverage.test.ts` holds it, from the code, so CI fails the moment a screen gets a button or a setting the Assistant can't use:
+
+- **Every command a screen runs** (each `/v1/commands/…` in `apps/web/src` and `apps/mobile/src`) is one of the Assistant's own tools, an add-on's, a screen action, or listed in `packages/core/src/assistant/coverage.ts` with the reason.
+- **Every setting row** (`SETTINGS` in `packages/core/src/settings/catalog.ts`) names the tool and the field that change it in `SETTING_TOOLS`, says why it doesn't in `SETTINGS_NEVER`, or sits on a page still to check in `SETTINGS_NOT_YET`.
+
+When the test fails on a new command, pick one, in this order:
+
+1. **It's a plain change:** add it to `SCREEN_ACTIONS`. Give it a `warning` when it costs money or can't be taken back (risk 4 must have one). Give it `offeredTo` when the command's own permission isn't one the Assistant can check: an agency's (`org.*`) goes on `workspace.update`, and one anybody may run goes on `assistant.use`.
+2. **It needs a better card or more care:** give it a tool of its own in `apps/worker/src/assistant`, writing the command's name out in full. The test finds it by that name.
+3. **The Assistant must never do it:** add it to `NEVER_FOR_THE_ASSISTANT` with the reason. That covers deleting for good, signing in, paying on Stripe's page, uploading a file and anything only the app does by itself.
+4. **It can't yet:** add it to `ASSISTANT_NOT_YET`, under its page, with why.
+
+When it fails on a new setting row, add the row to `SETTING_TOOLS` (the tool, the field in its input, and the value when it's one choice of several; the test checks the tool takes it) or to `SETTINGS_NEVER` with the reason.
+
+`ASSISTANT_NOT_YET` and `SETTINGS_NOT_YET` are the list of gaps, in the order of the side menu and of Settings. A daily routine takes the first page of each, closes the gaps, and opens a pull request for the owner to merge. A page comes off `SETTINGS_NOT_YET` only when every one of its rows is in `SETTING_TOOLS` or `SETTINGS_NEVER`.
 
 ### When a question fails
 

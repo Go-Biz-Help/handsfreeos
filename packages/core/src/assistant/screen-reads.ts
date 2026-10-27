@@ -8,10 +8,10 @@
  * query that is neither one of these, read by the Assistant's own tools, an add-on's tool, nor kept out below.
  */
 import { z } from 'zod';
-import { modelInput, type ScopeKey } from '../addons/ai';
+import { scopedInput, type ScopeKey } from '../addons/ai';
 import type { Registry } from '../kernel/registry';
 import type { QueryDef } from '../kernel/types';
-import type { Permission } from '../permissions';
+import { isStaffPermission, type Permission } from '../permissions';
 import type { AssistantTool } from './tool-kit';
 
 /** The screens' queries the Assistant reads through these tools, by name. */
@@ -82,11 +82,34 @@ export const SCREEN_READS = [
   'whats_new.unseen',
   'workflow.proposal_get',
   'workflow.stats',
+  // HandsFreeOS's own staff screens (the owner, 2026-10-27): offered only to staff, by their staff permissions.
+  'addon_pick.overview',
+  'idea.team_view',
+  'idea.triage',
+  'platform.ai_provider.get',
+  'platform.business.get',
+  'platform.business.glance',
+  'platform.business.list',
+  'platform.founding',
+  'platform.founding.business',
+  'platform.health.summary',
+  'platform.onboarding.counts',
+  'platform.partner_payouts.get',
+  'platform.problem_report.get',
+  'platform.problem_report.list',
+  'platform.rates',
+  'platform.wallet.get',
+  'support.canned_reply.list',
+  'support.queue.summary',
+  'support.staff.list',
+  'support.ticket.get',
+  'support.ticket.list',
 ] as const;
 
 /**
- * What a screen loads that the Assistant never reads, and why: HandsFreeOS's own staff screens, the panel's own
- * history, signed-out pages and the extension's, a download, and steps of something only a person does.
+ * What a screen loads that the Assistant never reads, and why: the panel's own history, signed-out pages and the
+ * extension's, a download, what a screen shows while someone looks as another person, and steps of something only a
+ * person does.
  */
 export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'assistant_thread.get': 'the panel’s own history, which it already has',
@@ -98,17 +121,15 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'founding.counts':
     'the plan page a new business pays on, before it is set up and has an Assistant',
   'file.fingerprints': 'the upload box telling a file it already has',
-  'bin.preview': 'what a delete would take, and the AI never deletes',
   'outreach.lookup': 'what the browser extension reads off a network',
   'form.response_export': 'a spreadsheet download',
   'pm.lease.list': 'an add-on’s, which reaches the Assistant through its own `ai`',
-  'addon_pick.overview': 'HandsFreeOS’s own add-on vote, for its staff',
-  'idea.team_view': 'HandsFreeOS’s own ideas desk, for its staff',
-  'idea.triage': 'HandsFreeOS’s own ideas desk, for its staff',
+  'platform.me': 'whether the person is HandsFreeOS staff, which the Assistant already knows',
+  'platform.view_as.current':
+    'which business a staff member is looking at, which this screen shows',
+  'teammate_view.current': 'whether the person is looking as a teammate, which this screen shows',
+  'teammate_view.lens': 'what the screens show while someone looks as a teammate',
 };
-
-/** Staff screens, by the start of their queries' names: HandsFreeOS's own desk, never a business's. */
-export const STAFF_QUERY_PREFIXES = ['platform.', 'support.', 'teammate_view.'] as const;
 
 /** One of a screen's queries, offered to the Assistant as a look-up. */
 export interface ScreenReadTool extends AssistantTool<z.ZodObject> {
@@ -124,21 +145,25 @@ export const isScreenReadTool = (tool: object): tool is ScreenReadTool =>
 /** `timeline.list` → `read_timeline_list`. */
 export const screenReadName = (query: string) => `read_${query.replace(/\./g, '_')}`;
 
-/** The tools, from the registry: one a query, its permission or, with none, the Assistant's own. */
+/**
+ * The tools, from the registry: one a query, its permission or, with none, the Assistant's own. The business's ids
+ * are put on by the executor, except on a staff screen's, which looks across businesses: the model names the one.
+ */
 export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTool[] {
   return SCREEN_READS.flatMap((name) => {
     const query = registry.query(name);
     if (!query || !(query.input instanceof z.ZodObject)) return [];
-    const view = modelInput(query.input);
+    const staff = !!query.permission && isStaffPermission(query.permission);
+    const view = staff ? { input: query.input, scope: [] } : scopedInput(query.input);
     return [
       {
         name: screenReadName(name),
         description: `${query.description} What the person sees on the screen it’s on.`,
-        input: view?.input ?? (query.input as z.ZodObject),
+        input: view.input,
         autonomy: 'auto' as const,
         permission: (query.permission ?? 'assistant.use') as Permission,
         query,
-        scope: view?.scope ?? [],
+        scope: view.scope,
       },
     ];
   });

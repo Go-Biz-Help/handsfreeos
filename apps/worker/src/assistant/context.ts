@@ -9,15 +9,18 @@ import {
   executeQuery,
   groundingRules,
   holds,
+  isStaffPermission,
   quoteData,
   registry,
   ROLE_LABELS,
+  STAFF_ROLE_LABELS,
   type AddonServerModule,
   type AssistantTool,
   type AttentionKind,
   type Catalog,
   type HumanActor,
   type Permission,
+  type StaffRole,
 } from '@hfos/core/server';
 import { asWorker, type Db } from '@hfos/db/client';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
@@ -29,6 +32,7 @@ import { atLabel, joinAnd, rangeLabel } from './calendar-format';
 import type { PromptContext } from './prompt';
 import type { OfferedTool } from './runtime';
 import { addonActionTools } from './tools-addons';
+import { screenActionToolsFor } from './tools-screen-actions';
 import { screenReadToolsFor } from './tools-screen-reads';
 
 export interface PageRecord {
@@ -112,6 +116,10 @@ interface CalendarGet {
 }
 interface ServiceList {
   items: { id: string; name: string; durations: number[]; archivedAt: string | null }[];
+}
+/** Whether they answer HandsFreeOS support, and what their staff role lets them do. */
+interface PlatformMe {
+  staff: { role: StaffRole; permissions: string[] } | null;
 }
 interface AppointmentLite {
   id: string;
@@ -321,12 +329,16 @@ export async function questionContext(
   // The business id goes on last, so no input can point a look-up at another business (audit AI-3).
   const ask: Ask = (name, input = {}) =>
     personQuery(db, name, { ...input, workspaceId }, actor, correlationId);
-  const [{ workspace }, { pipelines }, team, services] = await Promise.all([
+  const [{ workspace }, { pipelines }, team, services, { staff }] = await Promise.all([
     ask<WorkspaceGet>('workspace.get'),
     ask<PipelineList>('pipeline.list'),
     ask<Members>('workspace.members'),
     ask<ServiceList>('service.list').catch((): ServiceList => ({ items: [] })),
+    ask<PlatformMe>('platform.me').catch((): PlatformMe => ({ staff: null })),
   ]);
+  // HandsFreeOS's own staff get the Admin area's tools too, by their staff role; nobody else ever sees them.
+  const staffMay = new Set(staff?.permissions ?? []);
+  const can = (p: Permission) => (isStaffPermission(p) ? staffMay.has(p) : holds(workspace, p));
   const me =
     team.members.find((m) => m.userId === actor.userId) ??
     team.organizationAdmins.find((m) => m.userId === actor.userId);
@@ -363,9 +375,11 @@ export async function questionContext(
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
     tools: [
-      ...toolsFor((p) => holds(workspace, p)),
+      ...toolsFor(can),
       // What the person's screens show that the tools above don't read: each screen's query, as a look-up.
-      ...screenReadToolsFor((p) => holds(workspace, p)),
+      ...screenReadToolsFor(can),
+      // And what their screens do that the tools above don't: each screen's command, on a card for their OK.
+      ...screenActionToolsFor(can),
       // Only add-ons running here, only what the person may do in them; always last, in the modules' order.
       ...addonAiTools(addons.modules ?? ADDON_SERVER_MODULES, {
         active: workspace.addons,
@@ -411,6 +425,7 @@ export async function questionContext(
       knowledge,
       attention: attentionFor(attention),
       addons: addonDirectory(addons.catalog ?? ADDON_CATALOG, workspace.addons),
+      staffRole: staff ? STAFF_ROLE_LABELS[staff.role] : null,
     },
   };
 }

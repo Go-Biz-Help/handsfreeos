@@ -53,6 +53,7 @@ Don't route around these. The tests hold most of them.
 - **The web talks to Supabase Auth and the API only**, never to the database.
 - **Providers talk to the worker, never the API.** Provider keys belong to the worker, and the API refuses to start with one in its environment.
 - **Screens ask for a permission** (from `workspace.get`), never a role.
+- **The Assistant can do what a screen does.** A new screen command or setting row fails `packages/core/test/assistant-coverage.test.ts` until `packages/core/src/assistant/coverage.ts` covers it or says why not. See "Keeping the Assistant able to do everything" in `docs/operations.md`.
 - **Side effects come from events**, which the worker takes from the outbox.
 - **One copy of shared logic.** What the web and the phone both show or decide lives once, in `@hfos/core`. Money is worked out in `packages/core/src/money`, the push categories are in `push.ts`, and the Add-ons page's words are in `addons/words.ts`.
 
