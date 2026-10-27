@@ -525,6 +525,16 @@ export type JoinAnswer =
       readonly title: string;
       readonly business: string;
       readonly when: string;
+    }
+  | {
+      /** A HandsFreeOS video call, open now: the page is the call (docs/video-calls.md). */
+      readonly state: 'call';
+      readonly title: string;
+      readonly business: string;
+      readonly when: string;
+      /** The name on their booking, filled in for them. */
+      readonly name: string;
+      readonly look: NonNullable<PublicBusiness['look']>;
     };
 
 /**
@@ -532,3 +542,60 @@ export type JoinAnswer =
  * script asks this, so a text app or a mail scanner previewing the link never counts.
  */
 export const joinSession = (token: string) => post<JoinAnswer>(`/public/join/${seg(token)}`, {});
+
+// ---------- HandsFreeOS video calls (docs/video-calls.md) ----------
+
+/** What a browser connects to LiveKit with: a ticket the worker signed, good for minutes. `fake:` is the stand-in. */
+export interface VideoTicket {
+  readonly url: string;
+  readonly token: string;
+}
+
+/**
+ * A customer on their own Join link pressed Join (the worker's video-calls/routes.ts). `in` comes with a ticket;
+ * `waiting` asks again in a few seconds; `removed` asks to come back in with `ask` and a key, and is `knocking`.
+ */
+export interface EnterAnswer {
+  readonly status: 'in' | 'waiting' | 'removed' | 'knocking' | 'full';
+  readonly callId: string;
+  readonly personId: string | null;
+  readonly name: string;
+  /** Who they're waiting for, by first name. */
+  readonly host: string | null;
+  readonly ticket: VideoTicket | null;
+}
+
+export const enterCall = (token: string, body: { name: string; ask?: boolean; key?: string }) =>
+  post<EnterAnswer>(`/public/join/${seg(token)}/enter`, body, PRIVATE);
+
+/** A call's link, as anyone on it sees it: the business, never the appointment (the link may have been passed on). */
+export interface PublicCall {
+  readonly business: string;
+  readonly look: NonNullable<PublicBusiness['look']>;
+  readonly state: 'open' | 'live' | 'ended';
+  readonly host: string | null;
+  /** Calls are on for the business and set up here; otherwise the page says so instead of a Join button. */
+  readonly ready: boolean;
+}
+
+export const getPublicCall = (callId: string) =>
+  call<PublicCall>(`/public/calls/${seg(callId)}`, PRIVATE);
+
+/** Asking to be let in, from the call's link: `key` is the page's own, and only its hash is kept. */
+export const knockCall = (callId: string, body: { name: string; key: string }) =>
+  post<{ status: 'waiting'; personId: string; host: string | null }>(
+    `/public/calls/${seg(callId)}/knock`,
+    body,
+    PRIVATE,
+  );
+
+export interface KnockAnswer {
+  readonly status: 'waiting' | 'in' | 'turned_away' | 'removed' | 'left';
+  readonly name: string;
+  readonly host: string | null;
+  readonly ticket: VideoTicket | null;
+}
+
+/** How a request to be let in stands, asked by the page that made it. */
+export const knockStatus = (callId: string, personId: string, key: string) =>
+  post<KnockAnswer>(`/public/calls/${seg(callId)}/knock/${seg(personId)}`, { key }, PRIVATE);

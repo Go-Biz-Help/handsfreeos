@@ -3,10 +3,12 @@
  * A person's Join link for an online session (funnels): `/j/<token>`, on the business's own domain when one is
  * serving. The page asks the worker from the browser, which records that they joined and answers with the
  * meeting's address, then sends them on. Link previews and mail scanners don't run this, so they never count.
- * Outside the session's hour-before-to-end, it says when the session is instead.
+ * Outside the session's hour-before-to-end, it says when the session is instead. For a HandsFreeOS video call the
+ * page is the call itself (video-call/customer-call.tsx), and joining counts once they're really in it.
  */
 import { CalendarClock, CalendarOff, LinkIcon, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CustomerCall } from '@/components/video-call/customer-call';
 import { ApiError } from '@/lib/api/errors';
 import { joinSession, type JoinAnswer } from '@/lib/api/public-booking';
 import { PublicFrame, PublicState } from './public-shell';
@@ -45,6 +47,9 @@ export function JoinSession({ token }: { token: string }) {
     };
   }, [token]);
 
+  // A HandsFreeOS video call: this page is the call (docs/video-calls.md).
+  if (shown.kind === 'answer' && shown.a.state === 'call')
+    return <CustomerCall token={token} answer={shown.a} />;
   return (
     <PublicFrame business={null} byline="Sessions by HandsFreeOS">
       <JoinState shown={shown} />
@@ -106,6 +111,8 @@ function JoinState({ shown }: { shown: Shown }) {
           {`This booking was cancelled. Get in touch with ${a.business} to book another time.`}
         </PublicState>
       );
+    case 'call':
+      return null;
     default:
       return (
         <PublicState icon={<LinkIcon size={20} />} title={a.title} testId="join-no-link">
