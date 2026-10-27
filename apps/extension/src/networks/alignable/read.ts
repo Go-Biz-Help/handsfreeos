@@ -926,23 +926,25 @@ const someonesIn = (root: ParentNode, base: string) =>
   );
 
 /**
- * A group's own controls on its page: never one in another group's card (one it suggests), nor in a post or a
- * person's row, whose Connect says Request Sent or Pending once asked, as a group's Join does. A control is the
- * group's when the nearest part around it that links to a group or to someone links to this group alone, or none
- * does. The part with the group's name (its h1) is its own, even with a leader's link in it.
+ * A group's own controls on its page: never one in another group's card (one it suggests), nor an asked one in a
+ * post or a person's row, whose Connect says Request Sent or Pending once asked, as a group's Join does. A control is
+ * the group's when the nearest part around it that links to a group links to this group alone, or none does. Only
+ * the asked words are looked at for someone's part: a Join or Joined beside a leader's link is still the group's,
+ * and the part with the group's name (its h1) is its own whatever it holds.
  */
 function ownControls(main: Element, base: string, id: string): HTMLElement[] {
   const key = id.toLowerCase();
   const name = main.querySelector('h1');
   return [...main.querySelectorAll<HTMLElement>(CONTROLS)].filter((control) => {
     if (inMenu(control) || control.closest(PART('discussion-comment'))) return false;
+    const asked = JOIN_ASKED.test(nameOf(control));
     for (
       let up = control.parentElement, steps = 0;
       up && up !== main && steps < OWN_STEPS;
       up = up.parentElement, steps++
     ) {
-      // Someone's post or row, even one that links to this group ("Posted in").
-      if (!(name && up.contains(name)) && someonesIn(up, base)) return false;
+      // A Connect asked in someone's post or row, even one that links to this group ("Posted in").
+      if (asked && !(name && up.contains(name)) && someonesIn(up, base)) return false;
       const groups = groupsIn(up, base);
       if (groups.size) return groups.size === 1 && groups.has(key);
     }

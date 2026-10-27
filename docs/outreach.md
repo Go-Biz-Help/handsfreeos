@@ -2541,7 +2541,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   number, and each post keeps the phrase that found it (`posts.words`); partner searches keep their own words
   (`signWords`). A good post's writer, and who commented on and reacted to it (up to 5 posts a day, never a
   1st-degree connection), are found and checked by the AI from their own profile inside the 40 profiles read: found
-  people first, up to 30, then connection checks and partner reads take what's left. Only a good check puts them on
+  people first, up to 30, then connection checks and partner reads take what's left; nothing is held for found
+  people while the likes for good fits are behind, since none are checked then. Only a good check puts them on
   Today: a like on the post it found (a reactor's or commenter's on a recent post of theirs) where a comment used to
   stand in, then the invitation. LinkedIn's limits don't grow.
 - **LinkedIn's data file** ("Get a copy of your data"; `linkedin-export.ts`, no zod, read in the browser as

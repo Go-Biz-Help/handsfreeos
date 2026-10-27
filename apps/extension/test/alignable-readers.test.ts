@@ -916,6 +916,32 @@ describe('groups, as Alignable lists them (decision 92)', () => {
     expect(groupStanding(doc, doc.location.href)?.join?.textContent).toBe('Join');
   });
 
+  it('still reads a group’s own Join and Joined beside a leader’s Message link or members’ pictures', () => {
+    // Its name in a part of its own, and its controls beside links to people.
+    const join = page(
+      `${AL}/groups/home-pros-network`,
+      `<main><div><h1>Home Pros Network</h1><span>1,204 members</span></div>
+        <div><a href="/biz/messages/new?business_id=42">Message leader</a><button>Join</button></div>
+        <div><a href="/salem-or/vale-bookkeeping/morgan-vale"><img alt="Morgan Vale"></a></div></main>`,
+    );
+    expect(groupFacts(join, join.location.href)).toMatchObject({
+      joined: false,
+      asked: false,
+      join: true,
+    });
+    const joined = page(
+      `${AL}/groups/riverbend-roofers`,
+      `<main><div><h1>Riverbend Roofers</h1></div>
+        <div><a href="/salem-or/vale-bookkeeping/morgan-vale"><img alt="Morgan Vale"></a>
+          <a href="/biz/discussions/new">Start a discussion</a><button>Joined</button></div></main>`,
+    );
+    expect(groupFacts(joined, joined.location.href)).toMatchObject({
+      joined: true,
+      asked: false,
+      join: false,
+    });
+  });
+
   it('reads a group you’re in, and one you asked to join, on its About page', () => {
     const joined = page(
       `${AL}/groups/riverbend-roofers/about`,

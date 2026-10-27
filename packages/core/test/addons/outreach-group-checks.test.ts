@@ -209,7 +209,7 @@ describe('each network’s groups (decision 92)', () => {
       { words: 'bookkeeping', anywhere: true },
       { words: 'roofers', anywhere: true },
     ]);
-    // Facebook's group search is as it was: never told to go anywhere, so each word once.
+    // Facebook's group search is never told to go anywhere, so each word once, whatever its case.
     expect(groupSearchWords(playbooks, 'facebook')).toEqual([
       { words: 'roofers', anywhere: false },
       { words: 'Austin trades', anywhere: false },

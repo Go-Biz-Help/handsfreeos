@@ -206,8 +206,8 @@ const ago = (now: number, days: number) => new Date(now - days * DAY).toISOStrin
  * The words to search a network for groups with: the playbooks' words for groups, with whether that word's playbook
  * works with clients online (decision 92), so the search goes anywhere rather than the person's town. Each once for
  * each way (`eachSearchOnce`): a word a local playbook and an online one share is searched both ways. Anywhere only
- * where groups go by the AI's check of the people in them (`groupsByCheck`, Alignable's); Facebook's searches stay as
- * they were.
+ * where groups go by the AI's check of the people in them (`groupsByCheck`, Alignable's); Facebook's never go
+ * anywhere, so each word is searched there once, whatever its case.
  */
 export function groupSearchWords(
   playbooks: readonly { readonly details: Pick<PlaybookDetails, 'groupWords' | 'worksOnline'> }[],
