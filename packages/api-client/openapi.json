@@ -194929,7 +194929,7 @@
     "/v1/queries/outreach.today": {
       "post": {
         "operationId": "query_outreach_today",
-        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.",
+        "summary": "The person’s list for today on a network (Facebook unless named), for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts) or, on Instagram, LinkedIn and Alignable, to people found by topic whom the AI checked as good fits from their own page, a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.",
         "tags": [
           "queries"
         ],
