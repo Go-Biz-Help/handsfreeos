@@ -31,7 +31,8 @@ const CAUSE_SQL: Readonly<Record<ClientCause, (p: SQL) => SQL>> = {
     sql`exists (select 1 from app.leads cl where cl.person_id = ${p}.id and cl.status = 'won' and cl.archived_at is null)`,
   job: (p) => sql`exists (select 1 from app.jobs cj where cj.person_id = ${p}.id
       and cj.status in ('on_the_way', 'in_progress', 'waiting_on_parts', 'done'))`,
-  visit: (p) => sql`exists (select 1 from app.appointment_attendees ca join app.appointments cap on cap.id = ca.appointment_id
+  visit: (p) => sql`exists (select 1 from app.appointment_attendees ca
+      join app.appointments cap on cap.id = ca.appointment_id
       where ca.person_id = ${p}.id and (ca.status = 'attended' or (ca.status = 'booked' and cap.status = 'completed')))`,
   plan: (p) => sql`exists (select 1 from app.subscriptions cs where cs.person_id = ${p}.id
       and cs.status in ('active', 'past_due', 'paused', 'unmanaged'))`,
@@ -39,7 +40,8 @@ const CAUSE_SQL: Readonly<Record<ClientCause, (p: SQL) => SQL>> = {
     sql`exists (select 1 from app.invoices ci where ci.person_id = ${p}.id and ci.status <> 'void' and ci.amount_paid_cents > 0)`,
   // By the record's own index (workspace, type, id). The name is citext, whose own = isn't on an app session's search
   // path: compared without capitals instead.
-  tagged: (p) => sql`exists (select 1 from app.record_tags crt join app.tags ctg on ctg.id = crt.tag_id
+  tagged: (p) => sql`exists (select 1 from app.record_tags crt
+      join app.tags ctg on ctg.id = crt.tag_id
       where crt.workspace_id = ${p}.workspace_id and crt.record_type = 'person' and crt.record_id = ${p}.id
         and lower(ctg.name::text) = lower(${CLIENT_TAG}))`,
 };

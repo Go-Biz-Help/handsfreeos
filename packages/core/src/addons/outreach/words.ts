@@ -397,8 +397,7 @@ export const OUTREACH_WORDS = {
     neverContact: 'Never contact',
     notNeverContact: 'Take off Never contact',
     /** Who put them on a list, where only they or an owner or admin can take them off: "Riley Member put them on Never contact". */
-    putOnBy: (list: string, by: string | null) =>
-      by ? `${by} put them on ${list}` : `On ${list}`,
+    putOnBy: (list: string, by: string | null) => (by ? `${by} put them on ${list}` : `On ${list}`),
     /** Never pitched for their tag in Contacts, which only Contacts takes off. */
     taggedFamily: `Tagged ${DONT_PITCH_TAG} in Contacts, so never pitched`,
     /** The phone's menu with no signal. */

@@ -272,9 +272,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   const personId = marks ? marks.personId : (row.personId ?? null);
   const personKnown = known || row.personId !== undefined;
   if (personId)
-    items.push(
-      press('in-contacts', P.inContacts, 'person-in-contacts', { waitsForMarks: false }),
-    );
+    items.push(press('in-contacts', P.inContacts, 'person-in-contacts', { waitsForMarks: false }));
   else if (contactsWrite)
     items.push({
       ...press('add-contact', P.addToContacts, 'person-add-contact', { waitsForMarks: false }),
@@ -311,7 +309,8 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   // 7 and 8: the lists, unless the row has its own switches.
   if (!input.ownSwitches) {
     const dontPitch = marks?.dontPitch ?? null;
-    if (!dontPitch) items.push(press('dont-pitch', P.dontPitch, 'person-dont-pitch', { danger: true }));
+    if (!dontPitch)
+      items.push(press('dont-pitch', P.dontPitch, 'person-dont-pitch', { danger: true }));
     else if (marks?.canTakeOff.dontPitch)
       items.push(press('not-dont-pitch', P.notDontPitch, 'person-dont-pitch'));
     else
@@ -329,7 +328,11 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
       items.push(press('not-never-contact', P.notNeverContact, 'person-never-contact'));
     else
       items.push(
-        line('never-contact-line', P.putOnBy(P.neverContact, never.by), 'person-never-contact-line'),
+        line(
+          'never-contact-line',
+          P.putOnBy(P.neverContact, never.by),
+          'person-never-contact-line',
+        ),
       );
   }
   return items;

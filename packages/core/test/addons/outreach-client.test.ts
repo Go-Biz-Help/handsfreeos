@@ -161,7 +161,9 @@ describe('Mark as client', () => {
       sql`select first_name, last_name, source from app.people where id = ${marked.personId}`,
     );
     expect(person).toEqual({ first_name: 'Dana', last_name: 'Reyes', source: 'Facebook' });
-    expect(await clientTags(ws)).toEqual([{ id: made.tagId, name: 'client', carried: [marked.personId] }]);
+    expect(await clientTags(ws)).toEqual([
+      { id: made.tagId, name: 'client', carried: [marked.personId] },
+    ]);
     // Dana kept by name is the same person: the member's first message to her waits no more.
     expect(await stateOf(sent.danaOpener!)).toBe('skipped');
     expect(await events(ws, 'outreach.send.skipped')).toBe(skippedBefore + 1);
@@ -209,9 +211,8 @@ describe('Mark as client', () => {
   });
 
   it('ties them to the customer named instead', async () => {
-    const named = (
-      await runAs(owner, ws, 'person.create', { firstName: 'Kit', lastName: 'Lowe' })
-    ).personId;
+    const named = (await runAs(owner, ws, 'person.create', { firstName: 'Kit', lastName: 'Lowe' }))
+      .personId;
     const marked = await set(owner, kit, true, named);
     expect(marked).toMatchObject({ personId: named, client: true, addedPerson: false });
   });
@@ -284,7 +285,9 @@ describe('Mark as client', () => {
       await refused(runAs(owner, elsewhere, 'outreach.profile.marks', { profileId: avery })),
     ).toBe('not_found');
     expect(
-      await refused(runAs(owner, elsewhere, 'outreach.client.set', { profileId: avery, client: true })),
+      await refused(
+        runAs(owner, elsewhere, 'outreach.client.set', { profileId: avery, client: true }),
+      ),
     ).toBe('not_found');
   });
 
@@ -459,7 +462,11 @@ describe('a client on Today and in the Pipeline', () => {
     ])
       expect(after).not.toContain(gone);
     expect(after).toEqual(
-      expect.arrayContaining(['reply: Quinn Harper', 'confirm: Jo Banks', 'friend_request: Sam Lee']),
+      expect.arrayContaining([
+        'reply: Quinn Harper',
+        'confirm: Jo Banks',
+        'friend_request: Sam Lee',
+      ]),
     );
     // A client's reply carries no demo link.
     expect((await items()).find((i) => i.name === 'Quinn Harper')!.demoLink).toBeNull();
@@ -470,9 +477,7 @@ describe('a client on Today and in the Pipeline', () => {
     expect(all.people).toEqual([]);
     expect(all.counts).toMatchObject({ all: 0, client: 3, lost: 0 });
     const clients = await pipeline('client');
-    expect(
-      clients.people.map((p) => [p.name, p.stage, p.why, p.nextStep]).sort(),
-    ).toEqual([
+    expect(clients.people.map((p) => [p.name, p.stage, p.why, p.nextStep]).sort()).toEqual([
       ['Avery Lane', 'client', ['A client in Contacts: they’re tagged Client'], null],
       ['Casey Moreno', 'client', ['Same name as a client in Contacts'], null],
       ['Quinn Harper', 'client', ['A client in Contacts: they’re tagged Client'], null],

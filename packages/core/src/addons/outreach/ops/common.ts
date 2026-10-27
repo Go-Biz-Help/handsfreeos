@@ -228,8 +228,7 @@ export const openToMe = (me: string, p: string) => sql`(not exists (
  * A profile still in play for the person `me`: open to them (`openToMe`), and not a client (`isClient`, decision
  * 91), who gets no outreach. Every pick on Today but a reply they're owed goes by it. `p` is its alias.
  */
-export const inPlay = (me: string, p: string) =>
-  sql`(${openToMe(me, p)} and not ${isClient(p)})`;
+export const inPlay = (me: string, p: string) => sql`(${openToMe(me, p)} and not ${isClient(p)})`;
 
 /**
  * The profiles the client rule covers for one customer (`isClient`): every profile on them, on any network, and any
@@ -274,7 +273,9 @@ export async function clientOf(ctx: Ctx, profileId: string): Promise<ClientStand
  * `OUTREACH_CLIENT_CAUSES` on their customer, the tag included, or null for one kept under a client's name. `p` is the
  * profile's alias.
  */
-export const clientCauseOf = (p: string) => sql`(select ${personClientCause('ccp', OUTREACH_CLIENT_CAUSES)}
+export const clientCauseOf = (
+  p: string,
+) => sql`(select ${personClientCause('ccp', OUTREACH_CLIENT_CAUSES)}
   from app.people ccp where ccp.id = ${sql.raw(p)}.person_id)`;
 
 /**

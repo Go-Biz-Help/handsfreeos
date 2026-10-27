@@ -214,7 +214,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   sends: the extension notes the step, which takes it off the list. Each person kept as a profile has a menu, here
   (on the web and the phone) and on the Friends tab, the Chats tab and Waiting for you (`person-menu.tsx`): **Add to Contacts** (customers with the
   same name offered first, **It’s them** or **Add as new**; `outreach.profile.contact`), or **In Contacts** once they
-  are; **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
+  are; **Mark as client** or **Not a client after all** (decision 91); **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
   requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
@@ -513,8 +513,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   then, and is never queued: saving settings (someone's, `outreach.automation.save`, and the business's,
   `addon.save_settings`), ending training wheels (`outreach.wheels.end`), writing or archiving a playbook
   (`outreach.playbook.save`, `.archive`), asking the computer, Carry on, Skip and Stop (`outreach.ask.make`, `.reply`,
-  `.cancel`), and the person menu's Add to Contacts, Demo booked and Don't pitch (`outreach.profile.contact`,
-  `outreach.demo.mark`, `outreach.friend.set`). The words the web and the phone
+  `.cancel`), and the person menu's Add to Contacts, Mark as client, Demo booked, Don't pitch and Never contact
+  (`outreach.profile.contact`, `outreach.client.set`, `outreach.demo.mark`, `outreach.friend.set`, with where they
+  stand from `outreach.profile.marks`; its Open items work with none). The words the web and the phone
   both say are core's `words.ts` (`OUTREACH_WORDS`), which the web reads too: its Settings, Waiting for you, Today
   and Live tabs, its Settings pages and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
   `sameNamePeople`), and its tabs' names and the labels its Playbooks, Groups and Chats tabs share with the phone. The web's step-by-step playbook builder keeps its own questions, which the phone doesn't ask. The helpers that write phone rows (`addon_phone_upsert` and the seals) run only as their owner: nobody
@@ -659,18 +660,20 @@ Operations, all through the kernel:
 | `outreach.chat.keep`                                  | `outreach.use`    | Save to their card: one of the person's own chats on the Chats tab onto the customer's Social card; refused until they say who (`outreach_chat_who`)                                                                                                                                                                                |
 | `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, who in Contacts has a name, and Keep and Don't pitch (Add to Contacts' same-name check; no longer used by the extension)                                                                                                                                                              |
 | `outreach.profile.contact`                            | `outreach.use`    | Add to Contacts: a profile kept here becomes a customer (source Facebook), or is tied to the one named                                                                                                                                                                                                                              |
+| `outreach.client.set`                                 | `outreach.use`    | Mark as client, or Not a client after all: the Client tag on their customer in Contacts (added first when they aren't there), and anyone's outreach to them waiting skipped; needs `records.write` too                                                                                                                              |
+| `outreach.profile.marks`                              | `outreach.use`    | Where someone stands as their person menu opens: in Contacts, a client and why, a partner, a demo booked, on Don't pitch or Never contact and who put them on, and whether the person may take them off                                                                                                                             |
 | `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                                                                                                                                                                                                                                                |
 | `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from                                                                                                                                                                                                                                  |
 | `outreach.activity.posts`                             | `outreach.use`    | The posts liked and commented on over a stretch, the latest first, with what the extension's own said; everyone's for owners, admins. Not them: `outreach_activity_everyone`                                                                                                                                                        |
 | `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins                                                                                                                                                                                                                                  |
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                                                                                                                                                                                                                                        |
-| `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                                                                                                                                                                                                                                               |
-| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own), or Don't pitch or Never contact (the business's), for someone; Never contact skips the messages waiting for them                                                                                                                                                                                           |
+| `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time; a friend on it now clears the person's need to send them a request                                                                                                                                                                           |
+| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own), or Don't pitch or Never contact (the business's), for someone; Don't pitch skips the outreach waiting for them (a reply stays), Never contact every message waiting                                                                                                                                        |
 | `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit, the good fits with the AI's check; and how far checking has come                                                                                                                                                                         |
 | `outreach.checks.next`                                | `outreach.use`    | Who the person's computer checks next for a good fit, in order, no more than today has room for                                                                                                                                                                                                                                     |
 | `outreach.check.look`                                 | `outreach.use`    | What someone's profile and business page said as the computer read it, for the AI; or that Facebook showed someone else                                                                                                                                                                                                             |
 | `outreach.check.save`                                 | the worker        | What the AI made of them: good, might fit or not, the playbook, why, who they are and a first step; the lines go                                                                                                                                                                                                                    |
-| `outreach.stages`                                     | `outreach.use`    | The Pipeline: everyone the person reached by where they stand, counted by stage, one stage or all in play, by name                                                                                                                                                                                                                  |
+| `outreach.stages`                                     | `outreach.use`    | The Pipeline: everyone the person reached by where they stand, counted by stage, one stage or all in play (never clients or not a fit), by name                                                                                                                                                                                     |
 | `outreach.stage.mark`                                 | `outreach.use`    | Ready to pitch, pitched, not a fit, or back in play, for someone the person reached                                                                                                                                                                                                                                                 |
 | `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in                                                                                                                                                                                                                                    |
 | `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read                                                                                                                                                                                                                                   |
@@ -2118,6 +2121,53 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the profile beside it. 0.93.0's panel still counted the profile in Get ready's number, and showed nothing of it
       beside Start my day.
 
+91. **Tap a name for everything about them, and mark people as clients** (Chris, 26 Oct 2026: "i should be able to
+    click their names and select dont contact, don't pitch, etc" and "also should be able to mark people as clients",
+    after his earlier "it should provide a link to their profile so i can just click it and request"). Builds on the
+    person menu (decision 44) and the links to someone's page on their own network.
+    - **Every name opens the person menu**, on Today, Waiting for you, the Pipeline, the Friends and Chats tabs and the
+      phone's screens alike (`personMenuItems` in `person-menu.ts`): **Open on Facebook** (their page on their
+      network, `openPageWords`) first, **Open in Messenger** second when their chat is known, then the Pipeline's
+      moves on its board, **Add to Contacts** or **In Contacts**, **Mark as client**, **Demo booked**, **Don't pitch**
+      and **Never contact**, each as where they stand says (`outreach.profile.marks`, asked as it opens). The Open
+      items work with no signal; the rest need it. A card's own Open button stays. A partner gets no Client or Demo
+      booked, and a row with its own Don't pitch and Never contact switches (the Friends tab) keeps them there.
+    - **A client is core's rule, worked out and never kept** (owner question 1, built with its default: yes). Core's
+      `personIsClient` (`crm/clients.ts`) counts a customer tagged **Client**, in any capitals, beside a won lead, a
+      job underway or done, a visit they came to, a plan and a paid bill, so Contacts' Leads and Clients, its Client
+      badge and Search's agree; `CONTACTS_CLIENT_CAUSES` takes the tag out again in one place. Social Outreach counts
+      anyone Contacts counts (`OUTREACH_CLIENT_CAUSES`; `['tagged']` goes by the tag alone), on every profile of that
+      customer on any network, and any profile kept under the same name on the same network, as Don't pitch's twins
+      are (decision 51).
+    - **Mark as client** (`outreach.client.set`; Social Outreach and Add and edit customers) adds them to Contacts
+      when they aren't there (same-named customers offered first, as Add to Contacts does), puts the Client tag on
+      their customer through core's `record.set_tags` (the business's own tag of that name, or one made once), and
+      skips anyone's outreach to them waiting for an OK, or OK'd and not sent: first messages, Reconnect, pitches,
+      videos, follow-ups and check-ins (`CLIENT_SKIPPED_KINDS`). Replies and a partner's messages stay. It puts nobody
+      on Don't pitch or Never contact, and changes no demo, mark, chat, friend or partner. Without Add and edit
+      customers it's refused (`outreach_client_needs_contacts`), saying to ask an owner.
+    - **A client gets replies, never outreach.** Today leaves them out of every outreach step (`inPlay`); a reply
+      they're owed still shows, with no demo link, and their fitting friend request is still confirmed (`openToMe`:
+      saying yes is no pitch, as for a partner in decision 81). The worker drafts their replies as replies, with no
+      demo or video link, and their yes never turns into a pitch. `outreach.send.queue` refuses outreach to them
+      (`outreach_client`), saying why they're one and what to change.
+    - **The Pipeline's Client stage** comes ahead of Booked and Not a fit, with why ("A client in Contacts: they paid
+      a bill", or "Same name as a client in Contacts"), no next step and no moves. It's left out of All in play and
+      its count (`counts.client` beside it), with a Client chip on both apps and a "Clients N" link beside Not a fit's
+      on the web's board.
+    - **Not a client after all** takes only the Client tag off; what was skipped stays skipped. When Contacts still
+      counts them a client for another reason (`because`), the menu says that reason instead of offering the switch,
+      and where to change it.
+    - **Don't pitch skips outreach waiting too** (owner question 2: yes). Putting someone on Don't pitch now skips
+      anyone's outreach to them waiting for an OK, as Mark as client does, never a reply. Never contact still skips
+      every message. Taking someone off either list stays with whoever put them on, or an owner or admin
+      (`mayTakeOff`); the menu says who put them on to everyone else.
+    - **An accepted request clears the need to send it.** When the person's friends (or connections) list shows
+      someone, their own handed-over friend request to them is done (`outreach.friends.save`, which tells
+      `outreach.need.cleared`), however it was sent; a need noted after that look stays.
+
+    No migration: the tag is core's, and the rest is worked out each time.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2558,8 +2608,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **Friends are each person's own; Don't pitch is the business's.** Where someone's own Facebook stands with a
   person (friends, request sent, asked to be friends, request deleted, not friends) is kept per user in `friends`,
   with when it started; so is Keep. The Don't pitch list is the business's and says who added each person and when.
-  Only they, or someone with `outreach.manage`, take a person off (`outreach_dont_pitch_not_yours`). Customers tagged
-  **Friend or family** in Contacts count as on it.
+  Only they, or someone with `outreach.manage`, take a person off (`mayTakeOff`, `outreach_dont_pitch_not_yours`).
+  Customers tagged **Friend or family** in Contacts count as on it. Putting someone on it skips anyone's outreach to
+  them waiting for an OK, or OK'd and not sent (`CLIENT_SKIPPED_KINDS`: first messages, Reconnect, pitches, videos,
+  follow-ups and check-ins), never a reply or a partner's message (decision 91).
 - **Don't pitch covers a person kept twice** (decision 51). Facebook shows one person by number in one place and by
   username in another, so the same person can be kept as two profiles. A profile kept under the same name on the same
   network as one on the list, or tagged Friend or family, is never pitched either (`neverTwins` and `pitchable` in
@@ -2573,12 +2625,31 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   another: `inPlay` leaves them out of every pick on Today but a reply they're owed (`reachedElsewhere`).
 - **Never contact goes further than Don't pitch** (`contactable`): a profile on it, kept under its name on its
   network, or on its customer, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
-  requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
+  requests to decide, a reply's push, a reply or a partner's message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.
+- **A client is core’s, worked out (a Client tag or Contacts’ own records); it ends outreach, not replies** (decision
+  91). Core's `personIsClient` (`crm/clients.ts`) is the one rule: a customer tagged **Client** in any capitals, or
+  with a won lead, a job underway or done, a visit they came to, a plan or a paid bill. Social Outreach reads it once
+  a query (`clientPeople`, `clientNames` and `isClient` in `ops/common.ts`), never keeps it: every profile on that
+  customer, on any network, and any kept under the same name on the same network. `inPlay` leaves clients out of
+  every pick on Today; a reply they're owed stays, with no demo link, and so does a request to confirm (`openToMe`).
+  The worker drafts no link or video for them and never turns their yes into a pitch, and `outreach.send.queue`
+  refuses outreach to them (`outreach_client`). Marking one is a tag in Contacts, so it needs `records.write` beside
+  `outreach.use` (`outreach_client_needs_contacts`) and goes through core's `record.set_tags`, never `record_tags`
+  directly; Not a client after all takes only that tag off, and what was skipped stays skipped. Two switches, one
+  place each: `CONTACTS_CLIENT_CAUSES` in `crm/record-words.ts` (the tag in Contacts) and `OUTREACH_CLIENT_CAUSES` in
+  `ops/common.ts` (Contacts' own reasons in Social Outreach). A new place that reaches people with outreach filters
+  with `inPlay`, or `isClient`.
+- **The name opens the person menu; their page is its first item and the card’s Open button stays** (decision 91).
+  The web and the phone draw it from `personMenuItems` (`person-menu.ts`), never a list of their own: their page,
+  their chat when it's known, the Pipeline's moves on its board, Contacts, Client, Demo booked, Don't pitch and Never
+  contact, as where they stand says (`outreach.profile.marks`, asked as the menu opens). The Open items work with no
+  signal; the rest wait for it and for where they stand. A new action on a person goes in `personMenuItems`, its
+  words in `OUTREACH_WORDS.person`.
 - **Newer news wins.** A list saved or an answer noted never undoes what was seen later (`seen_at`), and a deleted
   request stays deleted when a later list just doesn't show them. Confirm makes them a friend; Delete keeps the
   request as deleted. Saving a list adds nobody to Contacts.
@@ -2618,13 +2689,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   **Reconnect** takes only `good` ones, never anyone not pitched, and never someone written to either way in the last
   month or on the list already; it counts against the first messages, as Say hi does.
 - **A stage is worked out, never kept** (`ops/stages.ts`, `staged`): from the steps noted, friends, the latest chat,
-  replies seen, the checks, demos and the marks in `stages`, in this order: booked, not a fit, pitched, ready, talking,
-  friends, warming up, found. `stages` keeps only what can't be worked out, one row a person and profile: a mark
+  replies seen, the checks, demos and the marks in `stages`, in this order: client, booked, not a fit, pitched, ready,
+  talking, friends, warming up, found. A client (decision 91) is one in Contacts, or kept under a client's name on the
+  same network (`isClient`): no next step and no moves, and left out of All in play and its count, as Not a fit is. `stages` keeps only what can't be worked out, one row a person and profile: a mark
   (`ready` or `lost`, by the person or the AI, with when and why) and when the pitch went. The person's mark wins over
   the AI's; the AI's not a fit goes with its next read that isn't a no; **Back in play** clears the mark and the pitch.
-  Row security keeps each person to their own rows (`stages_own`). **Not a fit ends outreach** (`inPlay` in
-  `ops/common.ts`): Today's confirms, friend requests, likes, first messages, reconnects, pitches, follow-ups and
-  comments leave them out; a reply they're owed stays. A pitch shows until it goes (`pitched_at`: a pitch the extension
+  Row security keeps each person to their own rows (`stages_own`). **Not a fit ends outreach** (`openToMe` in
+  `ops/common.ts`, which `inPlay` builds on): Today's confirms, friend requests, likes, first messages, reconnects,
+  pitches, follow-ups and comments leave them out; a reply they're owed stays. A client is out of all of them but the
+  confirm too (`inPlay` is `openToMe` and not `isClient`). A pitch shows until it goes (`pitched_at`: a pitch the extension
   sent, `outreach.send.done`, or one copied on the web, which marks it), or the person writes to them after the chat's
   latest message or the mark.
 - **A group's check is the business's; an ask to join is the person's own** (decision 48). The About lines, rules and
