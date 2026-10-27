@@ -1940,14 +1940,15 @@ const manageCustomerPlan: SettingsConfirmTool = {
     const subscriptionId = String(args['subscriptionId']);
     const href = paths.plan(subscriptionId);
     if (act === 'pause' || act === 'resume') {
-      await command(db, ctx, `subscription.${act}`, { subscriptionId });
+      const name = act === 'pause' ? 'subscription.pause' : 'subscription.resume';
+      await command(db, ctx, name, { subscriptionId });
       return {
         outcome:
           act === 'pause'
             ? 'Paused. Nothing is charged until it starts again'
             : 'Billing again from the next cycle',
         href,
-        command: `subscription.${act}`,
+        command: name,
       };
     }
     if (act === 'cancel') {

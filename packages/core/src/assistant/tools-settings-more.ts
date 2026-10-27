@@ -4,11 +4,15 @@
  * partners are paid and each partner's share; and Settings → Safety's times and safety person. Each is the screen's
  * own command, run as the person, and each waits for their OK.
  *
- * Still left to the person: deleting anything for good (the AI never deletes, docs/deleting.md), deleting an
- * add-on's data (typed by hand), and what needs their own sign-in, a file from their computer or a card payment.
+ * Moving things to the Deleted bin too, for those who may delete (the owner, 2026-10-27): they wait there 30 days.
+ *
+ * Still left to the person: emptying the bin or deleting anything for good straight away (docs/deleting.md),
+ * deleting an add-on's data (typed by hand), and what needs their own sign-in, a file from their computer or a card
+ * payment.
  */
 import { z } from 'zod';
 import { PARTNER_TERMS_MOST } from '../partners/settings';
+import { BinKind } from '../schemas/bin';
 import { uuid } from '../schemas/common';
 import { define, dollars, type AssistantTool } from './tool-kit';
 
@@ -31,9 +35,26 @@ export const moreSettingsTools: readonly AssistantTool[] = [
     permission: 'addons.manage',
   }),
   define({
+    name: 'move_to_bin',
+    description:
+      'Delete through the Deleted bin, as Delete for good… does on the screens: customers with everything only about them, conversations, one booking, leads, companies or records of the business’s own kinds. They wait 30 days in Settings → Deleted bin, where restore_from_bin brings them back, and are gone after that. The card says what goes with them and what stays. Up to 100 at once, a booking one at a time. Ids from search_customers, get_customer, list_leads, list_inbox, find_conversations or find_records. Archiving (archive_or_restore) keeps everything instead: use this only when they ask to delete.',
+    input: z.object({
+      kind: BinKind.describe(
+        'person: customers; appointment: a booking; custom_record: a record of the business’s own kinds',
+      ),
+      ids: z.array(uuid).min(1).max(100),
+      tellCustomers: z
+        .boolean()
+        .default(true)
+        .describe('A booking still to come is cancelled first: tell its customers'),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.delete',
+  }),
+  define({
     name: 'restore_from_bin',
     description:
-      'Bring something back from the Deleted bin, as it was: a customer with what was theirs, a conversation, a lead, an appointment, a company or a record. Its id is in get_settings (area deleted_bin). The bin keeps things 30 days; the AI never deletes anything for good or empties the bin.',
+      'Bring something back from the Deleted bin, as it was: a customer with what was theirs, a conversation, a lead, an appointment, a company or a record. Its id is in get_settings (area deleted_bin). The bin keeps things 30 days; the AI never empties it or deletes anything in it for good.',
     input: z.object({ binItemId: uuid }),
     autonomy: 'confirm',
     permission: 'records.delete',

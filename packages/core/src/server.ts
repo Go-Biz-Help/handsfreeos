@@ -45,6 +45,8 @@ export * from './addons/modules';
 export * from './addons/ai';
 // Everything a person can see, the Assistant can see: each screen's query as a look-up (assistant/screen-reads).
 export * from './assistant/screen-reads';
+// Everything a person can do, the Assistant can do: each screen's command as a tool (assistant/screen-actions).
+export * from './assistant/screen-actions';
 export * from './addons/teammate';
 export * from './addons/roadmap-load';
 export { loadActiveAddons, loadOverrides } from './addons/load';

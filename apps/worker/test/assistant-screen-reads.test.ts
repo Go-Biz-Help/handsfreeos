@@ -6,6 +6,7 @@ import {
   allAddonAiTools,
   assistantTools,
   executeCommand,
+  hasStaffPermission,
   hasWorkspacePermission,
   NOT_FOR_THE_ASSISTANT,
   organizationCreate,
@@ -13,7 +14,6 @@ import {
   registry,
   SCREEN_READS,
   screenReadName,
-  STAFF_QUERY_PREFIXES,
   type HumanActor,
 } from '@hfos/core/server';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -108,12 +108,7 @@ describe('what the Assistant can see', () => {
     );
     const reads = new Set<string>(SCREEN_READS);
     const unread = [...screenQueries()].filter(
-      (q) =>
-        !reads.has(q) &&
-        !own.has(q) &&
-        !addonReads.has(q) &&
-        !(q in NOT_FOR_THE_ASSISTANT) &&
-        !STAFF_QUERY_PREFIXES.some((p) => q.startsWith(p)),
+      (q) => !reads.has(q) && !own.has(q) && !addonReads.has(q) && !(q in NOT_FOR_THE_ASSISTANT),
     );
     expect(unread).toEqual([]);
   });
@@ -146,6 +141,22 @@ describe('what the Assistant can see', () => {
     expect(member).not.toContain('registration.get_draft');
     expect(ownerReads).toContain('audit.list');
     expect(ownerReads).toContain('registration.get_draft');
+    // HandsFreeOS's own staff screens: only staff, by their staff role (the owner, 2026-10-27).
+    expect(ownerReads).not.toContain('support.ticket.list');
+    expect(ownerReads).not.toContain('platform.business.list');
+    const agent = screenReadToolsFor((p) => hasStaffPermission('agent', p)).map(
+      (t) => t.query.name,
+    );
+    expect(agent).toContain('support.ticket.list');
+    expect(agent).not.toContain('platform.rates');
+  });
+
+  it('keeps the business a staff screen looks at, and puts on the person’s own everywhere else', () => {
+    const glance = allScreenReadTools().find((t) => t.query.name === 'platform.business.glance')!;
+    expect(glance.scope).toEqual([]);
+    expect(Object.keys(glance.input.shape)).toContain('workspaceId');
+    const timeline = allScreenReadTools().find((t) => t.query.name === 'timeline.list')!;
+    expect(timeline.scope).toContain('workspaceId');
   });
 
   it('runs one as the person, in their business, whatever business the model names', async () => {
