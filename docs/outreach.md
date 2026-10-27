@@ -2169,6 +2169,44 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 
     No migration: the tag is core's, and the rest is worked out each time.
 
+92. **Finding people by topic on Instagram, LinkedIn and Alignable** (Chris, 27 Oct 2026: "instagram should also use
+    tags… linkedin could probably do a similar thing", "Alignable definitely has a search feature and also it should
+    use the groups as a resource especially if we are looking for business owners in a certain niche or location",
+    then his answers "1a 2a 3a 4a 5a 6a 7a 8a 9: check town and if online business check anywhere 10a 11b").
+    Extension 0.95.0, data version 8, migration `20261027013100`. Changes decisions 46 and 78, and LinkedIn's "The
+    post's writer is someone to connect with".
+    - **The AI writes each customer playbook's words, once** (1a): **Hashtags on Instagram**, **Words to search
+      LinkedIn’s posts with** and **Kinds of business to search for on Alignable**, from its niche, ideal client and
+      their problem, plus whether the business **works with clients online**. They show in the playbook to change; the
+      AI never writes over the person's own, and `wordsWritten` (server-only) remembers what it wrote, so a list the
+      person empties stays empty and that network looks at nothing for it. Until the AI has written, Instagram and
+      LinkedIn use the old made-up words and Alignable doesn't search. Partner playbooks get none, and partner searches
+      (decision 81) keep their words.
+    - **Where it looks:** Instagram 5 hashtags a day in turn, about 10 posts each (2a; places stay 4); LinkedIn 5
+      phrases a day in turn; Alignable 3 kinds of business a day in the person's own town, or anywhere when that
+      playbook works online (9), and the person's own groups, then groups it finds by niche and area (10a).
+    - **Who it finds** (`finds`, each person's own): writers of posts the AI calls good, who liked or reacted to them
+      and who commented (3a, read only from good posts), Alignable search results and group members. Never the person,
+      a friend or connection, a customer or client, Don't pitch or Never contact, or a place outside the business's
+      countries. What a commenter said goes once the AI reads it, or after 14 days.
+    - **Each one is checked by the AI from their own page before anything else** (4a): a check marked `via = 'found'`,
+      30 a day on Instagram and Alignable, and on LinkedIn up to 30 inside its settled 40 profile reads, halved on
+      training wheels or for a week after a warning (our reading of 7a). Only a good check puts them on Today on these
+      three networks; Facebook keeps its word match. Reconnect, the Friends tab and Check everyone again go by who the
+      person knows now, never by `via`.
+    - **The warm-up is a like on every network, and a poster's is the post it found** (5a, 8a). On LinkedIn a comment
+      no longer stands in for it. Anyone the old pick already warmed up still gets their request.
+    - **Comments on Instagram and Alignable** (6a, 10a) are drafted by the AI and go through `sends` (kind `comment`)
+      into Waiting for you, with OK, change, skip and Approve all on the web and the phone. They wait for an OK while
+      that network's training wheels are on, and under Sending (a) for the first 7 days and 25 OK'd comments on that
+      network (no limit halves for it), then go on their own. Answers to posts asking for exactly what the business
+      offers still wait for an OK every time (decision 79) and stay out of Approve all; every other comment follows 6a.
+      A skipped comment's post is skipped. LinkedIn's comments stay on their own.
+    - **Alignable joins up to 3 good groups a day** (10a), with Facebook's group pipeline made network-aware: its
+      switch starts on, joins only while the people found in groups run low, leaders are read first and never reached.
+    - **Only a 0.95.0 build gets the new Today** (the found people and comment sends); an older one keeps the old
+      search pick, so nothing is sent the wrong way.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
