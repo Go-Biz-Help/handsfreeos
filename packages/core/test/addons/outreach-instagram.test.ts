@@ -30,10 +30,12 @@ import {
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { hashtagOf, postLooks, TAG_LOOKS_PER_DAY } from '../../src/addons/outreach/posts';
 import {
+  fitsComment,
   fitsRequests,
   REQUESTS_TASK,
   REQUESTS_WHY,
   todayDraftPrompt,
+  todayDraftSystem,
   type TodayItem,
 } from '../../src/addons/outreach/today';
 import { checkedAs, computerOn, outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
@@ -97,8 +99,9 @@ describe('Instagram’s kit and words', () => {
         'instagram',
       ),
     ).toEqual(['warm_up', 'friend_request']);
+    // Comments go through Waiting for you, each waiting for an OK at first (decision 92).
     expect(sendingModesOn('instagram').everything).toBe(
-      'Everything on its own, messages too; you post each comment',
+      'Everything on its own, messages too. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by.',
     );
     expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     expect(ticksOn('instagram').warmUp[0]).toBe(
@@ -164,6 +167,41 @@ describe('Instagram’s kit and words', () => {
     expect(fitsRequests('Hi Sam, see bright.com')).toBe(false);
     expect(fitsRequests('Hi Sam.\n\nAre you open to it?')).toBe(false);
     expect(fitsRequests('x'.repeat(301))).toBe(false);
+  });
+
+  it('writes a comment that waits to be posted short, with no link, hashtag or pitch (decision 92)', () => {
+    const comment = (platform: Platform) =>
+      todayDraftPrompt({
+        kind: 'comment',
+        business: 'Bright Books',
+        name: 'sage.plumbing',
+        facts: [],
+        recent: [],
+        playbook: { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details },
+        post: { text: 'What do small crews use to keep track of calls?', group: null },
+        platform,
+      });
+    expect(comment('instagram')).toContain(
+      'They posted this on Instagram. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 30 words.',
+    );
+    expect(comment('alignable')).toContain(
+      'add something useful, with no pitch and no link. Under 50 words.',
+    );
+    // LinkedIn's comments go as the runner's own step, as before.
+    expect(comment('linkedin')).toContain('only then offer to help');
+    expect(todayDraftSystem('instagram')).toContain(
+      'A comment on Instagram is under 30 words, with no link, no web address, no hashtags and no pitch',
+    );
+    expect(todayDraftSystem('alignable')).toContain('A comment on Alignable is a helpful answer');
+    expect(todayDraftSystem('facebook')).not.toContain('A comment on');
+    expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);
+    expect(fitsComment('Love this #plumbing', 'instagram')).toBe(false);
+    expect(fitsComment('See bright.com for more', 'instagram')).toBe(false);
+    expect(fitsComment('word '.repeat(31), 'instagram')).toBe(false);
+    expect(fitsComment('word '.repeat(60), 'alignable')).toBe(true);
+    expect(fitsComment('Details at https://bright.com', 'alignable')).toBe(false);
+    // Elsewhere a draft is as the AI wrote it.
+    expect(fitsComment('Details at https://bright.com', 'linkedin')).toBe(true);
   });
 });
 

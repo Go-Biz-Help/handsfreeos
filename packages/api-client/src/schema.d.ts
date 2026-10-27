@@ -7667,7 +7667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them and messages to someone who needs them, which wait to be OK’d one at a time. The extension sends them. On training wheels, each counts toward coming off them.
+         * The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.
          * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_outreach_send_approve"];
@@ -7687,7 +7687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves.
+         * The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.done, outreach.need.noted.
          */
         post: operations["command_outreach_send_done"];
@@ -7707,7 +7707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits. A message already drafted for them comes back instead. A client in Contacts gets only replies.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
          */
         post: operations["command_outreach_send_queue"];
@@ -7727,7 +7727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today.
+         * The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today. A comment skipped sets its post aside for good.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.skipped. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_send_skip"];
@@ -18927,7 +18927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s messages the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.
+         * The person’s messages and comments the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_sends"];
@@ -41540,7 +41540,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -41549,6 +41549,8 @@ export interface operations {
                         playbookId: string;
                         text: string;
                     } | null;
+                    /** @default null */
+                    postId?: string | null;
                     /** Format: uuid */
                     profileId: string;
                     /** @default false */
@@ -41574,7 +41576,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -41584,6 +41586,9 @@ export interface operations {
                             playbookId: string;
                             text: string;
                         } | null;
+                        post: string | null;
+                        postId: string | null;
+                        postUrl: string | null;
                         /** Format: uuid */
                         profileId: string;
                         profileUrl: string | null;
@@ -73457,7 +73462,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -73467,6 +73472,9 @@ export interface operations {
                                 playbookId: string;
                                 text: string;
                             } | null;
+                            post: string | null;
+                            postId: string | null;
+                            postUrl: string | null;
                             /** Format: uuid */
                             profileId: string;
                             profileUrl: string | null;
@@ -73763,7 +73771,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment")[];
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -74027,7 +74035,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -74037,6 +74045,9 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                post: string | null;
+                                postId: string | null;
+                                postUrl: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
@@ -74065,7 +74076,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -74075,6 +74086,9 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                post: string | null;
+                                postId: string | null;
+                                postUrl: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;

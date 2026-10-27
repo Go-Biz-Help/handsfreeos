@@ -1,7 +1,8 @@
 /**
  * Waiting for you as the phone keeps it (decision 44, owner answer 19b): the person's messages waiting for their OK,
- * from their phone's own copy (`addon_phone_rows`, source `sends`; 20261027001800), so they read, and OK, change, skip
- * and Approve all work, with no signal. The rest of the list (steps it needs them for, friend requests to decide) is
+ * and comments (decision 92; the copy keeps no post, so a comment shows its words alone), from their phone's own copy
+ * (`addon_phone_rows`, source `sends`; 20261027001800), so they read, and OK, change, skip and Approve all work, with
+ * no signal. The rest of the list (steps it needs them for, friend requests to decide) is
  * the server's `outreach.waiting`, with signal.
  *
  * `waitingOfCopy` answers what `outreach.waiting` answers of the messages, on the fields the phone keeps:
@@ -9,7 +10,7 @@
  *
  * Browser-safe and pure.
  */
-import { MESSAGE_KINDS, type MessageKind } from '../automation';
+import { SEND_KINDS, type SendKind } from '../automation';
 import { cellMs, cellObject, cellText, rowKey, type SyncedPhoneRow } from '../../phone-rows';
 import { SENDS_MOST, type Send } from '../sends';
 import { oneByOne, type WaitingKinds } from '../waiting-words';
@@ -46,7 +47,10 @@ export const SOMEONE = 'Someone';
 
 const bool = (v: unknown) => v === true || v === 1 || v === 'true';
 
-/** One row of the copy as a message, or null when it isn't one of `me`'s waiting. */
+/**
+ * One row of the copy as a message or a comment, or null when it isn't one of `me`'s waiting. A build from before
+ * comments takes only messages here, so a comment's row is left out of its copy and nothing breaks.
+ */
 export function phoneSendOf(row: SyncedPhoneRow, me: string): PhoneSend | null {
   if (cellText(row.source) !== SENDS_SOURCE) return null;
   const d = cellObject(row.data);
@@ -54,11 +58,10 @@ export function phoneSendOf(row: SyncedPhoneRow, me: string): PhoneSend | null {
   const kind = cellText(d.kind);
   const created = cellMs(d.created_at);
   const sendId = rowKey(row.id);
-  if (!sendId || !kind || !MESSAGE_KINDS.includes(kind as MessageKind) || created === null)
-    return null;
+  if (!sendId || !kind || !SEND_KINDS.includes(kind as SendKind) || created === null) return null;
   return {
     sendId,
-    kind: kind as MessageKind,
+    kind: kind as SendKind,
     profileId: cellText(d.profile_id) ?? '',
     name: cellText(d.name) ?? SOMEONE,
     profileUrl: cellText(d.profile_url),

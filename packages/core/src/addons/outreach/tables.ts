@@ -28,12 +28,12 @@ import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type {
-  MessageKind,
   OtherPlatform,
   PostingMode,
   PushMode,
   ReplyMode,
   SendingMode,
+  SendKind,
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
@@ -753,8 +753,9 @@ export type NetworkProfilesKept = Partial<Record<OtherPlatform, NetworkProfileKe
 export type NetworkWheelsKept = Partial<Record<OtherPlatform, NetworkWheelKept>>;
 
 /**
- * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27): the words that go and the
- * AI's own, and where it stands. One open (waiting or OK'd) a person, profile and kind at a time.
+ * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27), or a comment on a good post
+ * (decision 92): the words that go and the AI's own, and where it stands. One open (waiting or OK'd) a person, profile
+ * and kind at a time.
  */
 export const sends = addonOutreach.table(
   'sends',
@@ -765,7 +766,7 @@ export const sends = addonOutreach.table(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     profileId: uuid('profile_id').notNull(),
-    kind: text('kind').notNull().$type<MessageKind>(),
+    kind: text('kind').notNull().$type<SendKind>(),
     chatId: uuid('chat_id'),
     threadKey: text('thread_key'),
     text: text('text').notNull(),

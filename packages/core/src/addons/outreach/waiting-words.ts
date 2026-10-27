@@ -6,8 +6,10 @@
  *   them a step it can't find, or waits for their password on Facebook. It pushed at once.
  * - **Replies handed over to you**: a reply the extension drafted that waits because it needs the person, with
  *   Replies (b) or (c) (./sends.ts, `handedOver`). Each waits for an OK of its own, never Approve all.
- * - **Messages to OK**: every other message waiting for the person's OK. Approve all OKs them, except one to someone
- *   who needs the person (`needsYou`), which waits for an OK of its own too (`oneByOne`).
+ * - **Messages to OK**: every other message waiting for the person's OK, and comments on good posts where a network's
+ *   comments wait at first (decision 92). Approve all OKs them, except one to someone who needs the person, or an
+ *   answer to an Alignable post asking for what the business offers (`needsYou`), which waits for an OK of its own
+ *   too (`oneByOne`).
  * - **Steps it needs you for**: a step the extension couldn't do there and then (a button or box it couldn't find, a
  *   different page, the network not taking it, a message that didn't go), handed to the person to do or let go. Each is
  *   marked with its network, in that network's words, and links to their page there (or the post, or the chat).
@@ -91,7 +93,10 @@ export const WAITING_REFRESH_MINUTES = 10;
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-/** A message that waits for an OK of its own: a reply handed over, or one to someone who needs the person. */
+/**
+ * A message that waits for an OK of its own: a reply handed over, or one to someone who needs the person, or a forum
+ * answer.
+ */
 export const oneByOne = (send: {
   readonly handedOver: boolean;
   readonly needsYou: string | null;
@@ -365,11 +370,12 @@ const sentence = (line: string) => {
 };
 
 /**
- * A push for one message or need, with "one for each": "Dana Reyes: a message waits for your OK". A need's says its
- * network when it's known: "Dana Reyes: the extension needs you on Alignable".
+ * A push for one message, comment or need, with "one for each": "Dana Reyes: a message waits for your OK", "A comment
+ * on Quinn Harper’s post waits for your OK". A need's says its network when it's known: "Dana Reyes: the extension
+ * needs you on Alignable".
  */
 export function eachPushWords(
-  kind: 'message' | 'need',
+  kind: 'message' | 'comment' | 'need',
   name: string,
   why: string | null = null,
   platform: Platform | null = null,
@@ -377,6 +383,11 @@ export function eachPushWords(
   if (kind === 'message')
     return {
       title: `${name}: a message waits for your OK`,
+      body: 'OK it, change it or skip it on Today.',
+    };
+  if (kind === 'comment')
+    return {
+      title: `A comment on ${name}’s post waits for your OK`,
       body: 'OK it, change it or skip it on Today.',
     };
   const said = why ? sentence(why) : '';
@@ -397,9 +408,24 @@ export function handOverPushWords(
   };
 }
 
-/** Approve all's button: "Approve all 5 messages". */
-export const approveAllWords = (count: number) =>
-  `Approve all ${count.toLocaleString('en-US')} ${count === 1 ? 'message' : 'messages'}`;
+/**
+ * Approve all's button: "Approve all 5 messages", or with comments among them (decision 92) "Approve all 5", since
+ * they go together.
+ */
+export const approveAllWords = (count: number, comments = false) =>
+  comments
+    ? `Approve all ${count.toLocaleString('en-US')}`
+    : `Approve all ${count.toLocaleString('en-US')} ${count === 1 ? 'message' : 'messages'}`;
+
+/** Messages to OK's heading: "Messages and comments to OK" while a comment waits among them (decision 92). */
+export const messagesTitle = (comments: boolean): string =>
+  comments ? 'Messages and comments to OK' : WAITING_KINDS.message;
+
+/**
+ * A comment waiting, as Waiting for you heads it, its post's first words above the comment: "Comment on Dana Reyes’s
+ * post".
+ */
+export const commentTitle = (name: string): string => `Comment on ${name}’s post`;
 
 /** Why a message waits for an OK of its own, under it: "Handed over: they sound upset". */
 export function oneByOneWords(send: {

@@ -8,8 +8,9 @@
  *   messages wait for your OK". It pushes only when a message or step began to wait (reached HandsFreeOS) since the
  *   last one, and keeps when it went (`waiting_pushes`), in the same transaction as the push. Replies handed over
  *   aren't in it: each pushed on its own.
- * - **One for each**: each such message or need pushes at once: "Dana Reyes: a message waits for your OK", and a
- *   need with its network: "Dana Reyes: the extension needs you on Alignable".
+ * - **One for each**: each such message or need pushes at once: "Dana Reyes: a message waits for your OK", a comment
+ *   on a good post (decision 92): "A comment on Quinn Harper’s post waits for your OK", and a need with its network:
+ *   "Dana Reyes: the extension needs you on Alignable". The bundle counts comments with the messages.
  *
  * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests never push: Facebook
  * tells people of those itself. Every push goes to the person alone, on their add-ons switch, and opens Waiting for
@@ -108,7 +109,7 @@ async function armBundle(
 
 /** What began to wait, for a push of its own. */
 interface Nudge {
-  readonly kind: 'message' | 'need';
+  readonly kind: 'message' | 'comment' | 'need';
   readonly profileId: string;
   readonly name: string;
   readonly personId: string | null;
@@ -137,14 +138,20 @@ async function nudge(ctx: AddonEventContext, userId: string, what: Nudge): Promi
 }
 
 /**
- * `outreach.send.queued`: a message that waits for the person's OK. A reply handed over isn't one: it pushes at once
- * by itself (./alerts.ts).
+ * `outreach.send.queued`: a message, or a comment (decision 92), that waits for the person's OK. A reply handed over
+ * isn't one: it pushes at once by itself (./alerts.ts).
  */
 export async function sendWaits(ctx: AddonEventContext): Promise<void> {
-  const p = (ctx.event.payload ?? {}) as { waits?: boolean; handOver?: boolean; userId?: string };
+  const p = (ctx.event.payload ?? {}) as {
+    waits?: boolean;
+    handOver?: boolean;
+    userId?: string;
+    kind?: string;
+  };
   if (!p.waits || p.handOver || !p.userId || !ctx.event.entityId) return;
   const userId = p.userId;
   const profileId = ctx.event.entityId;
+  const comment = p.kind === 'comment';
   const [still] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ name: string; person_id: string | null }>(
       tx,
@@ -152,13 +159,14 @@ export async function sendWaits(ctx: AddonEventContext): Promise<void> {
           join addon_outreach.profiles p on p.workspace_id = s.workspace_id and p.id = s.profile_id
           where s.workspace_id = ${ctx.scope.workspaceId} and s.user_id = ${userId}
             and s.profile_id = ${profileId} and s.state = 'waiting'
+            and ${comment ? sql`s.kind = 'comment'` : sql`s.kind <> 'comment'`}
           limit 1`,
     ),
   );
   // OK'd or skipped already: nothing waits.
   if (!still) return;
   await nudge(ctx, userId, {
-    kind: 'message',
+    kind: comment ? 'comment' : 'message',
     profileId,
     name: still.name,
     personId: still.person_id,

@@ -30,6 +30,7 @@ import {
   type Platform,
   type RunnerTick,
 } from './networks';
+import { COMMENT_HOLD_WORDS } from './sends';
 import { TODAY_KINDS, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
@@ -304,22 +305,26 @@ export const saveListOn = (platform: Platform): string =>
   MORE[platform].saveList ?? `Save my ${NETWORKS[platform].words.friends} list`;
 
 /**
- * What the extension may do on its own on a network, in its words (Sending, decision 26). Where its runner never
- * comments (Alignable's answers wait for an OK each time), comments stay the person's whatever they pick.
+ * What the extension may do on its own on a network, in its words (Sending, decision 26). Where comments go through
+ * `sends` and wait at first (the kit's `commentsWait`, decision 92), Sending says so (`COMMENT_HOLD_WORDS`), and that
+ * an answer to a post asking for what the business offers always waits where the network keeps those apart.
  */
 export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode, string>> {
   const kit = NETWORKS[platform];
   const requests = cap(kit.words.friendRequests);
-  return kit.runs.auto.includes('comment')
-    ? {
-        ...SENDING_MODES,
-        steps: `${requests}, likes and comments on their own; each message waits for one tap`,
-      }
-    : {
-        ...SENDING_MODES,
-        steps: `${requests} and likes on their own; each message waits for one tap, and you post each comment`,
-        everything: 'Everything on its own, messages too; you post each comment',
-      };
+  const steps = `${requests}, likes and comments on their own; each message waits for one tap`;
+  if (kit.commentsWait === 'never') return { ...SENDING_MODES, steps };
+  const waits = [
+    COMMENT_HOLD_WORDS,
+    ...(kit.forumAnswersPerDay !== null
+      ? ['An answer to a post asking for what you offer always waits for your OK.']
+      : []),
+  ].join(' ');
+  return {
+    ...SENDING_MODES,
+    steps: `${steps}. ${waits}`,
+    everything: `Everything on its own, messages too. ${waits}`,
+  };
 }
 
 /** Under what it does on its own on a network: its limits, its pace, and its warnings. */

@@ -244,7 +244,8 @@ async function neededOf(
       name: n.name,
       url: needUrlOf(n.platform, n.url, n.profile_url),
       why: n.why,
-      text: n.step === 'message' ? n.text : null,
+      // A message's words, or a comment's the extension couldn't post (decision 92): the person's to send.
+      text: n.step === 'message' || n.step === 'comment' ? n.text : null,
       threadKey: n.step === 'message' ? n.thread_key : null,
       seenAt: new Date(n.seen_at).toISOString(),
     },

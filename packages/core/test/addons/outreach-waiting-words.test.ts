@@ -13,7 +13,9 @@ import {
   bundleAt,
   bundleDue,
   bundlePushWords,
+  commentTitle,
   eachPushWords,
+  messagesTitle,
   messengerChatUrl,
   moreWords,
   needClearedWords,
@@ -315,5 +317,20 @@ describe('the words', () => {
     expect(oneByOneWords({ handedOver: false, needsYou: null })).toBeNull();
     expect(approveAllWords(1)).toBe('Approve all 1 message');
     expect(approveAllWords(5)).toBe('Approve all 5 messages');
+  });
+
+  it('say a comment waiting by its post, and take comments into Approve all (decision 92)', () => {
+    expect(eachPushWords('comment', 'Quinn Harper')).toEqual({
+      title: 'A comment on Quinn Harper’s post waits for your OK',
+      body: 'OK it, change it or skip it on Today.',
+    });
+    expect(commentTitle('Dana Reyes')).toBe('Comment on Dana Reyes’s post');
+    expect(messagesTitle(false)).toBe('Messages to OK');
+    expect(messagesTitle(true)).toBe('Messages and comments to OK');
+    expect(approveAllWords(5, true)).toBe('Approve all 5');
+    // An Alignable answer to a post asking for what the business offers says why it waits on its own.
+    expect(
+      oneByOneWords({ handedOver: false, needsYou: 'a forum answer always waits for your OK' }),
+    ).toBe('It waits for you on its own: a forum answer always waits for your OK.');
   });
 });

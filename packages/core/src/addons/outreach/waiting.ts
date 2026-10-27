@@ -48,7 +48,10 @@ export const WaitingNeed = z.object({
   url: z.string().nullable(),
   /** Why it couldn't, in the extension's words. */
   why: z.string(),
-  /** For a message that didn't go: its words, and the chat when it's known. */
+  /**
+   * For a message that didn't go: its words, and the chat when it's known. For a comment that didn't (decision 92):
+   * its words.
+   */
   text: z.string().nullable(),
   threadKey: z.string().nullable(),
   /** The last time it couldn't. */

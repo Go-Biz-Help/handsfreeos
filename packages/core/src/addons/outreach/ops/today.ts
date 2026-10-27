@@ -435,9 +435,16 @@ export const today = defineAddonQuery(outreachAddon, {
       }
 
     // A network that checks people found by topic (decision 92, the kit's `foundChecksPerDay`), for a computer whose
-    // build does (`FOUND_BY_TOPIC_SINCE`): its people are those found and checked good by the AI, below. An older build,
-    // or a network that weighs people by the words they show (Facebook's), keeps the pick before it.
-    const byTopic = kit.foundChecksPerDay !== null && (await findsByTopic(ctx, me));
+    // build does (`FOUND_BY_TOPIC_SINCE`): its people are those found and checked good by the AI, below. An older
+    // build, or a network that weighs people by the words they show (Facebook's), keeps the pick before it. The same
+    // build drafts comments to wait in `sends` where the network's comments wait at first (`commentsWait`); an older
+    // one would take an OK'd comment for a message, so it gets none.
+    const newBuild =
+      kit.foundChecksPerDay !== null || kit.commentsWait === 'hold'
+        ? await findsByTopic(ctx, me)
+        : false;
+    const byTopic = kit.foundChecksPerDay !== null && newBuild;
+    const commentSends = kit.commentsWait === 'hold' && newBuild;
 
     // People found by a search (the Instagram and Alignable plan's "people found by a search"): whoever wrote a post the
     // network's own search found, off any group, that the AI said was worth a comment. The comment, or a like, is their
@@ -451,7 +458,8 @@ export const today = defineAddonQuery(outreachAddon, {
     // new comes from it, and it lists no likes.
     let searchRequests = 0;
     let searchLikes = 0;
-    // Writers this pick warmed up, ready or not, for a build that finds people by topic: the found pick leaves them to it.
+    // Writers this pick warmed up, ready or not, for a build that finds people by topic: the found pick leaves them to
+    // it.
     const carried = new Set<string>();
     let carriedWaiting = 0;
     const searchLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
@@ -666,9 +674,9 @@ export const today = defineAddonQuery(outreachAddon, {
     }
 
     // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
-    // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's. Only on a
-    // network that weighs people by the words they show (Facebook's): elsewhere a group's member reaches the list only
-    // as someone found, after a good check (decision 92).
+    // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's. Only on
+    // a network that weighs people by the words they show (Facebook's): elsewhere a group's member reaches the list
+    // only as someone found, after a good check (decision 92).
     const requestsLeft = Math.max(
       0,
       leftToday(limits, 'friend_request') - warmRequests - searchRequests - foundRequests,
@@ -1273,7 +1281,9 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Comments: posts in the groups the AI checked as good, from the last week: those asking for what the business
     // offers first (decision 49), then the newest. Where the network caps its answers to those (Alignable's forum, 2 a
-    // day), only as many asking posts as are left of that today.
+    // day), only as many asking posts as are left of that today. Where its comments wait at first (Instagram's and
+    // Alignable's), a build that finds people by topic drafts each to wait in `sends`, its post's, one open a writer
+    // (decision 92; below).
     const commentsLeft = Math.max(0, leftToday(limits, 'comment') - answers.length);
     const answersCap = NETWORKS[input.platform].forumAnswersPerDay;
     let askingLeft = commentsLeft;
@@ -1402,8 +1412,15 @@ export const today = defineAddonQuery(outreachAddon, {
               where gp.group_id = g.id and not gp.runs_group)
           order by g.seen_at desc nulls last limit 10`,
     );
-    // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list.
+    // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list. A
+    // comment drafted is its post's, and a writer with one open isn't offered a second till it's sent or skipped.
     const drafted = await sendsToday(ctx, me, todayFrom);
+    const commentOpenElsewhere = (i: TodayItem) => {
+      const on = i.kind === 'comment' ? drafted.commentOn(i.profileId) : undefined;
+      return on !== undefined && on !== i.postId;
+    };
+    const sentOf = (i: TodayItem) =>
+      drafted.open(i.profileId, i.kind, i.kind === 'comment' ? i.postId : null);
     // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. And what
     // the AI read in an answer of theirs not answered yet, for a reply's why.
     const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
@@ -1435,9 +1452,13 @@ export const today = defineAddonQuery(outreachAddon, {
       ...items.filter((i) => i.asking),
       ...items.filter((i) => !i.asking).sort(byKind),
     ]
-      .filter((i) => !drafted.off(i.profileId, i.kind))
+      .filter(
+        (i) =>
+          !drafted.off(i.profileId, i.kind, i.kind === 'comment' ? i.postId : null) &&
+          !commentOpenElsewhere(i),
+      )
       .map((i) => {
-        const send = drafted.open(i.profileId, i.kind);
+        const send = sentOf(i);
         const k = i.profileId ? knownOf.get(i.profileId) : undefined;
         const answer = i.kind === 'reply' ? k?.answer : null;
         const why = answer ? [ANSWERS[answer], ...i.why] : i.why;
@@ -1478,9 +1499,11 @@ export const today = defineAddonQuery(outreachAddon, {
       hasPlaybook: playbooks.length > 0,
       warning,
       auto: ready ? autoKinds(settings, input.platform) : [],
-      messages: messageKinds(settings).filter(
-        (k) => ready || k === 'reply' || k === 'partner_reply',
-      ),
+      messages: [
+        ...messageKinds(settings),
+        // A comment on a good post goes through `sends` too where it waits at first, for a build that drafts it.
+        ...(commentSends && messageKinds(settings).length ? (['comment'] as const) : []),
+      ].filter((k) => ready || k === 'reply' || k === 'partner_reply'),
       sending: settings.sending,
       wheels,
       ready,

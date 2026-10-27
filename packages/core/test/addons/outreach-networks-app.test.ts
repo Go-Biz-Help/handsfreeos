@@ -103,14 +103,16 @@ describe('a network’s words on screen', () => {
     expect(autoKinds(doing, 'alignable')).toEqual(['warm_up', 'friend_request']);
     // Instagram's comments wait for an OK each time too, as public writing: its runner likes and follows.
     expect(autoKinds(doing, 'instagram')).toEqual(['warm_up', 'friend_request']);
+    // Their comments go through Waiting for you, each waiting for an OK at first, and Alignable's answers to posts
+    // asking for what the business offers always (decision 92).
     expect(sendingModesOn('instagram').steps).toBe(
-      'Follows and likes on their own; each message waits for one tap, and you post each comment',
+      'Follows, likes and comments on their own; each message waits for one tap. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by.',
     );
     expect(sendingModesOn('alignable').steps).toBe(
-      'Connection requests and likes on their own; each message waits for one tap, and you post each comment',
+      'Connection requests, likes and comments on their own; each message waits for one tap. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by. An answer to a post asking for what you offer always waits for your OK.',
     );
     expect(sendingModesOn('alignable').everything).toBe(
-      'Everything on its own, messages too; you post each comment',
+      'Everything on its own, messages too. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by. An answer to a post asking for what you offer always waits for your OK.',
     );
     expect(ticksOn('linkedin').confirmRequests[0]).toBe(
       'Accept invitations from people who fit a playbook',

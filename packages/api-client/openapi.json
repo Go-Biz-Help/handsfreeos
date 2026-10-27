@@ -87892,7 +87892,7 @@
     "/v1/commands/outreach.send.queue": {
       "post": {
         "operationId": "command_outreach_send_queue",
-        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
+        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
         "tags": [
           "commands"
         ],
@@ -87927,7 +87927,8 @@
                       "partner_ask",
                       "partner_follow_up",
                       "partner_details",
-                      "partner_reply"
+                      "partner_reply",
+                      "comment"
                     ]
                   },
                   "chatId": {
@@ -87998,6 +87999,19 @@
                   "simple": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "postId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -88036,7 +88050,8 @@
                         "partner_ask",
                         "partner_follow_up",
                         "partner_details",
-                        "partner_reply"
+                        "partner_reply",
+                        "comment"
                       ]
                     },
                     "profileId": {
@@ -88164,6 +88179,30 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "postId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "postUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "post": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -88181,7 +88220,10 @@
                     "handedOver",
                     "needsYou",
                     "createdAt",
-                    "recent"
+                    "recent",
+                    "postId",
+                    "postUrl",
+                    "post"
                   ],
                   "additionalProperties": false
                 }
@@ -88194,7 +88236,7 @@
     "/v1/commands/outreach.send.approve": {
       "post": {
         "operationId": "command_outreach_send_approve",
-        "summary": "The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them and messages to someone who needs them, which wait to be OK’d one at a time. The extension sends them. On training wheels, each counts toward coming off them.",
+        "summary": "The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.",
         "tags": [
           "commands"
         ],
@@ -88320,7 +88362,7 @@
     "/v1/commands/outreach.send.skip": {
       "post": {
         "operationId": "command_outreach_send_skip",
-        "summary": "The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today.",
+        "summary": "The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today. A comment skipped sets its post aside for good.",
         "tags": [
           "commands"
         ],
@@ -88379,7 +88421,7 @@
     "/v1/commands/outreach.send.done": {
       "post": {
         "operationId": "command_outreach_send_done",
-        "summary": "The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves.",
+        "summary": "The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.",
         "tags": [
           "commands"
         ],
@@ -195725,7 +195767,8 @@
                           "partner_ask",
                           "partner_follow_up",
                           "partner_details",
-                          "partner_reply"
+                          "partner_reply",
+                          "comment"
                         ]
                       }
                     },
@@ -197660,7 +197703,7 @@
     "/v1/queries/outreach.sends": {
       "post": {
         "operationId": "query_outreach_sends",
-        "summary": "The person’s messages the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.",
+        "summary": "The person’s messages and comments the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.",
         "tags": [
           "queries"
         ],
@@ -197716,7 +197759,8 @@
                               "partner_ask",
                               "partner_follow_up",
                               "partner_details",
-                              "partner_reply"
+                              "partner_reply",
+                              "comment"
                             ]
                           },
                           "profileId": {
@@ -197844,6 +197888,30 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "postId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "postUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "post": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -197861,7 +197929,10 @@
                           "handedOver",
                           "needsYou",
                           "createdAt",
-                          "recent"
+                          "recent",
+                          "postId",
+                          "postUrl",
+                          "post"
                         ],
                         "additionalProperties": false
                       }
@@ -199642,7 +199713,8 @@
                                       "partner_ask",
                                       "partner_follow_up",
                                       "partner_details",
-                                      "partner_reply"
+                                      "partner_reply",
+                                      "comment"
                                     ]
                                   },
                                   "profileId": {
@@ -199770,6 +199842,30 @@
                                       ],
                                       "additionalProperties": false
                                     }
+                                  },
+                                  "postId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "postUrl": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "post": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -199787,7 +199883,10 @@
                                   "handedOver",
                                   "needsYou",
                                   "createdAt",
-                                  "recent"
+                                  "recent",
+                                  "postId",
+                                  "postUrl",
+                                  "post"
                                 ],
                                 "additionalProperties": false
                               }
@@ -199834,7 +199933,8 @@
                                       "partner_ask",
                                       "partner_follow_up",
                                       "partner_details",
-                                      "partner_reply"
+                                      "partner_reply",
+                                      "comment"
                                     ]
                                   },
                                   "profileId": {
@@ -199962,6 +200062,30 @@
                                       ],
                                       "additionalProperties": false
                                     }
+                                  },
+                                  "postId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "postUrl": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "post": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -199979,7 +200103,10 @@
                                   "handedOver",
                                   "needsYou",
                                   "createdAt",
-                                  "recent"
+                                  "recent",
+                                  "postId",
+                                  "postUrl",
+                                  "post"
                                 ],
                                 "additionalProperties": false
                               }
