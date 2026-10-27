@@ -83,10 +83,10 @@ const stateOf = async (sendId: string) =>
 
 /** The business's tags named Client, any capitals, and the customers that carry each. */
 const clientTags = (ws: string) =>
-  rows<{ id: string; name: string; on: string[] }>(
+  rows<{ id: string; name: string; carried: string[] }>(
     admin(),
     sql`select tg.id, tg.name::text as name,
-          coalesce(array_agg(rt.record_id::text) filter (where rt.record_id is not null), '{}') as on
+          coalesce(array_agg(rt.record_id::text) filter (where rt.record_id is not null), '{}') as carried
         from app.tags tg left join app.record_tags rt on rt.tag_id = tg.id and rt.record_type = 'person'
         where tg.workspace_id = ${ws} and lower(tg.name::text) = 'client'
         group by tg.id, tg.name`,
@@ -161,7 +161,7 @@ describe('Mark as client', () => {
       sql`select first_name, last_name, source from app.people where id = ${marked.personId}`,
     );
     expect(person).toEqual({ first_name: 'Dana', last_name: 'Reyes', source: 'Facebook' });
-    expect(await clientTags(ws)).toEqual([{ id: made.tagId, name: 'client', on: [marked.personId] }]);
+    expect(await clientTags(ws)).toEqual([{ id: made.tagId, name: 'client', carried: [marked.personId] }]);
     // Dana kept by name is the same person: the member's first message to her waits no more.
     expect(await stateOf(sent.danaOpener!)).toBe('skipped');
     expect(await events(ws, 'outreach.send.skipped')).toBe(skippedBefore + 1);
@@ -182,11 +182,11 @@ describe('Mark as client', () => {
     expect(await stateOf(sent.averyReply!)).toBe('waiting');
     const again = await set(member, avery, true);
     expect(again).toMatchObject({ client: true, tagged: true, addedPerson: false, skipped: 0 });
-    const [tag] = await clientTags(ws);
-    expect(tag!.on.sort()).toEqual([averyPerson, ...(await clientTags(ws))[0]!.on].filter(
-      (id, i, all) => all.indexOf(id) === i,
-    ).sort());
-    expect(await clientTags(ws)).toHaveLength(1);
+    // Still the one tag, on Dana and Avery once each.
+    const tags = await clientTags(ws);
+    expect(tags).toHaveLength(1);
+    expect(tags[0]!.carried).toHaveLength(2);
+    expect(tags[0]!.carried).toContain(averyPerson);
   });
 
   it('refuses outreach to a client, and still lets a reply go', async () => {
