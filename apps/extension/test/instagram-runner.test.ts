@@ -807,6 +807,158 @@ describe('a message on Instagram', () => {
     }
   });
 
+  /**
+   * A chat over the page in the shape the owner's Check of 21 Oct 2026 outlined Instagram's: its header, then its list
+   * of messages, each run in a group with the picture of who wrote it beside the message, not in it, and its box
+   * nested beside the list.
+   */
+  const outlined = (header: string, runs: string, to: string) => `<div role="dialog"><div>
+      <div data-pagelet="IGDInboxHeaderOffMsys">${header}</div>
+      <div><div data-pagelet="IGDMessagesList"><div>${runs}</div></div>
+        <div data-pagelet="IGDComposerForCannes"><div>
+          <div role="textbox" contenteditable="true" aria-label="Message" data-to="${to}"></div>
+          <div role="button">Send</div></div></div></div></div></div>`;
+  /** A run of someone's messages, with their picture beside it, linking to them. */
+  const run = (username: string, text: string) => `<div role="group"><div><div>
+      <a role="link" aria-label="Open the profile page of ${username}" href="/${username}"><img alt="${username}"></a>
+      <div><div role="article"><div role="none"><div dir="auto">${text}</div></div></div></div></div></div></div>`;
+  /** A group chat: its header names the group and links to nobody, and only Dana's run has its picture loaded. */
+  const BOOK_CLUB = outlined(
+    '<div><h2 dir="auto"><span>Book club</span></h2><span dir="auto">Dana, Kim</span></div>',
+    `${run('dana.reyes', 'Who has the next book?')}<div role="group"><div><div><div role="article">
+      <div role="none"><div dir="auto">Me!</div></div></div></div></div></div>`,
+    'Book club',
+  );
+  /** Dana's own chat: its header and its list's start link to her, and her run's picture does. */
+  const DANAS = outlined(
+    `<a role="link" aria-label="Open the profile page of dana.reyes" href="/dana.reyes/">
+      <h2 dir="auto"><span>Dana Reyes</span></h2></a>`,
+    `<div><h2 dir="auto"><span>Dana Reyes</span></h2><a role="link" href="/dana.reyes/">View profile</a></div>
+      ${run('dana.reyes', 'Thanks for the quote')}`,
+    'Dana Reyes',
+  );
+
+  it('never types into a group chat with them left open over their account, though their picture in it links to them', async () => {
+    for (const opens of [false, true]) {
+      world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+      const sent: { to: string; text: string }[] = [];
+      let group: Element | null = null;
+      // Message opens nothing new, or her own chat beside the group's.
+      world.behave = (doc) => {
+        doc.body.insertAdjacentHTML('beforeend', BOOK_CLUB);
+        group = doc.querySelector('[data-to="Book club"]');
+        sendsOwn(doc, sent);
+        doc.querySelector('#message')!.addEventListener('click', () => {
+          if (!opens) return;
+          doc.body.insertAdjacentHTML('beforeend', DANAS);
+          sendsOwn(doc, sent);
+        });
+      };
+      expect(await sendFromAccount()).toEqual(
+        opens
+          ? { done: true, line: 'Sent Dana Reyes a message' }
+          : { done: false, line: 'Dana Reyes: couldn’t find the box to write in' },
+      );
+      expect(sent).toEqual(
+        opens ? [{ to: 'Dana Reyes', text: 'Glad to help, Dana.\n\nWant the details?' }] : [],
+      );
+      expect(group!.textContent).toBe('');
+    }
+  });
+
+  it('sends in their chat though its box stops saying what it’s for once something’s written in it', async () => {
+    // Over their account, and on their chat's own page: the box says "Message..." only while it's empty.
+    for (const where of ['over', 'page'] as const) {
+      world.pages = (url) =>
+        where === 'over'
+          ? url === DANA
+            ? { html: accountHtml() }
+            : null
+          : url === DANA_CHAT
+            ? { html: chatHtml() }
+            : null;
+      const sent: { to: string; text: string }[] = [];
+      world.behave = (doc) => {
+        const named = () => {
+          for (const box of doc.querySelectorAll('[role="textbox"][aria-label="Message"]')) {
+            box.removeAttribute('aria-label');
+            box.setAttribute('aria-placeholder', 'Message...');
+            box.setAttribute('data-to', 'Dana Reyes');
+          }
+          sendsOwn(doc, sent);
+          const typing = doc.execCommand;
+          doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+            const typed = typing.call(doc, command, ui, text);
+            for (const box of doc.querySelectorAll('[aria-placeholder]'))
+              if (box.textContent) box.removeAttribute('aria-placeholder');
+            return typed;
+          };
+        };
+        if (where === 'page') named();
+        else
+          doc.querySelector('#message')!.addEventListener('click', () => {
+            doc.body.insertAdjacentHTML('beforeend', DANAS);
+            named();
+          });
+      };
+      world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      try {
+        const going = doWork(
+          {
+            do: 'send',
+            item: approved(where === 'over' ? { kind: 'opener', threadKey: null } : {}),
+          },
+          ME.businessId,
+          false,
+        );
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(await going).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(sent).toEqual([
+        { to: 'Dana Reyes', text: 'Glad to help, Dana.\n\nWant the details?' },
+      ]);
+    }
+  });
+
+  it('checks the chat is still theirs just before pressing Send, which shows only a while after typing', async () => {
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    const sent: { to: string; text: string }[] = [];
+    let theirs: HTMLElement | null = null;
+    world.behave = (doc) => {
+      doc.querySelector('#message')!.addEventListener('click', () => {
+        doc.body.insertAdjacentHTML('beforeend', chatOver('Dana Reyes', '/dana.reyes/'));
+        theirs = doc.querySelector<HTMLElement>('[data-to="Dana Reyes"]');
+        const send = theirs!.parentElement!.querySelector('[role="button"]')!;
+        send.addEventListener('click', () => {
+          sent.push({ to: theirs!.getAttribute('data-to')!, text: theirs!.textContent ?? '' });
+          theirs!.textContent = '';
+        });
+        send.setAttribute('hidden', '');
+        doc.execCommand = (command: string, _u?: boolean, text?: string) => {
+          const box = doc.activeElement?.closest('[role="textbox"]');
+          if (box) box.textContent = command === 'insertText' ? (text ?? '') : '';
+          if (command !== 'insertText') return !!box;
+          // Send shows 1.5 seconds after; at 1.2 the chat is Riley's, its box and the words in it kept.
+          setTimeout(() => {
+            doc.querySelector('a[href="/dana.reyes/"]')!.setAttribute('href', '/riley.quinn/');
+            theirs!.setAttribute('data-to', 'Riley Quinn');
+          }, 1_200);
+          setTimeout(() => send.removeAttribute('hidden'), 1_500);
+          return !!box;
+        };
+      });
+    };
+    expect(await sendFromAccount()).toEqual({
+      done: false,
+      line: 'Dana Reyes: its typing didn’t stay in their chat, so it took it out and sent nothing',
+    });
+    expect(sent).toEqual([]);
+    expect(theirs!.textContent).toBe('');
+  });
+
   it('drafts one after looking their account up, and leaves it to wait for their OK', async () => {
     world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
     world.hfos['hfos-draft'] = () => ({

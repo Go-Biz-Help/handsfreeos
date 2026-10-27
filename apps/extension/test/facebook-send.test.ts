@@ -20,6 +20,8 @@ const SEND_DONE = '/v1/commands/outreach.send.done';
 const world = vi.hoisted(() => ({
   /** The page each address opens, and what its buttons do. */
   pages: (_url: string): Document | null => null,
+  /** The page in the tab: a press may take it elsewhere, as Message may to Messenger. */
+  doc: null as Document | null,
   opened: [] as string[],
   noted: [] as unknown[],
   posted: [] as { path: string; body: Record<string, unknown> }[],
@@ -61,24 +63,23 @@ vi.mock('../src/tab', async () => {
   const kit = KITS.facebook;
   return {
     WorkTab: class {
-      private doc: Document | null = null;
       get tabId() {
-        return this.doc ? 9 : null;
+        return world.doc ? 9 : null;
       }
       async adopt() {}
       async focus() {}
       async loaded() {}
       async close() {
-        this.doc = null;
+        world.doc = null;
       }
       async open(url: string) {
         world.opened.push(url);
-        this.doc = world.pages(url);
-        if (!this.doc) throw new Error(`No page for ${url}`);
+        world.doc = world.pages(url);
+        if (!world.doc) throw new Error(`No page for ${url}`);
         return 9;
       }
       async ask(message: { readonly type: string }) {
-        const doc = this.doc;
+        const doc = world.doc;
         if (!doc) return { ok: false, error: 'The Facebook tab was closed.' };
         const at = doc.location.href;
         if (message.type === 'hfos-read') return { ok: true, result: kit.readPage(doc, at) };
@@ -128,6 +129,7 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   store.clear();
+  world.doc = null;
   world.opened = [];
   world.noted = [];
   world.posted = [];
@@ -154,6 +156,9 @@ const approved = (more: Partial<TodayListItem> = {}): TodayListItem =>
 
 type Sent = { readonly to: string; readonly text: string };
 
+/** The step noted for the message sent. */
+const noted = () => (world.noted[0] as { step: Record<string, unknown> } | undefined)?.step;
+
 /** Typing goes into the box with the focus, as Chrome's does; each chat's button, or Enter, sends its own box's. */
 function sends(doc: Document, sent: Sent[]): void {
   doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
@@ -164,7 +169,8 @@ function sends(doc: Document, sent: Sent[]): void {
   for (const box of doc.querySelectorAll<HTMLElement>('[role="textbox"]:not([data-sends])')) {
     box.setAttribute('data-sends', '');
     const take = () => {
-      sent.push({ to: box.getAttribute('aria-label')!, text: box.textContent ?? '' });
+      const to = box.getAttribute('data-who') ?? box.getAttribute('aria-label')!;
+      sent.push({ to, text: box.textContent ?? '' });
       box.textContent = '';
     };
     box.addEventListener('keydown', (event) => {
@@ -177,8 +183,11 @@ function sends(doc: Document, sent: Sent[]): void {
   }
 }
 
-/** A small chat window with someone, as Facebook draws one over a page: the test page's, with Riley, made theirs. */
-function chatWindow(doc: Document, name: string, href: string): Element {
+/**
+ * A small chat window with someone, as Facebook draws one over a page: the test page's, with Riley, made theirs, its
+ * header linking to `href`, or to nobody.
+ */
+function chatWindow(doc: Document, name: string, href: string | null): Element {
   const window = load('chat-window-2026.html', `${FB}/friends/requests/`)
     .querySelector('[aria-label="Close chat"]')!
     .closest('[role="none"]')!;
@@ -186,19 +195,49 @@ function chatWindow(doc: Document, name: string, href: string): Element {
   chat.innerHTML = chat.innerHTML
     .replaceAll('Riley Quinn', name)
     .replaceAll('Riley', name.split(' ')[0]!)
-    .replaceAll('/riley.quinn.7/', href);
+    .replaceAll('/riley.quinn.7/', href ?? '');
+  if (!href) chat.querySelector('a[href=""]')!.remove();
   return chat;
 }
 
-/** Dana's profile, whose Message opens her chat window (or nothing), with Riley's left open over it (or not). */
-function danaProfile(sent: Sent[], o: { opens: boolean; rileyOpen: boolean }): Document {
-  const doc = load('profile-2026.html', DANA);
+/** Messenger's chat with Dana, which links to her by number, or the same with someone else's name on it. */
+function messenger(sent: Sent[], name = 'Dana Reyes'): Document {
+  const doc = load('chat-2026.html', CHAT);
+  if (name !== 'Dana Reyes')
+    doc.body.innerHTML = doc.body.innerHTML
+      .replaceAll('Dana Reyes', name)
+      .replaceAll('Dana', name.split(' ')[0]!);
+  sends(doc, sent);
+  return doc;
+}
+
+/**
+ * Dana's profile (at her username, unless `at` says otherwise), whose Message opens her chat window (or nothing, or
+ * takes the tab to her chat in Messenger), with Riley's left open over it (or not), and another Dana Reyes's, linking
+ * to nobody (or not).
+ */
+function danaProfile(
+  sent: Sent[],
+  o: {
+    opens: boolean | 'messenger';
+    rileyOpen: boolean;
+    namesakeOpen?: boolean;
+    at?: string;
+  },
+): Document {
+  const doc = load('profile-2026.html', o.at ?? DANA);
   const layer = doc.createElement('div');
   doc.body.append(layer);
   if (o.rileyOpen) layer.append(chatWindow(doc, 'Riley Quinn', '/riley.quinn.7/'));
+  if (o.namesakeOpen) {
+    const other = chatWindow(doc, 'Dana Reyes', null);
+    other.querySelector('[role="textbox"]')!.setAttribute('data-who', 'the other Dana Reyes');
+    layer.append(other);
+  }
   sends(doc, sent);
   doc.querySelector('[role="button"][aria-label="Message"]')!.addEventListener('click', () => {
-    if (!o.opens) return;
+    if (o.opens === 'messenger') world.doc = messenger(sent);
+    if (o.opens !== true) return;
     layer.append(chatWindow(doc, 'Dana Reyes', '/dana.reyes.12/'));
     sends(doc, sent);
   });
@@ -245,6 +284,8 @@ describe('sending a message on Facebook', () => {
     expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
     expect(world.opened).toEqual([CHAT, DANA]);
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    // Noted with the chat HandsFreeOS keeps, which showed her name, as her replies there are matched by it.
+    expect(noted()).toMatchObject({ thread: { id: THREAD_KEY } });
   });
 
   it('sends nothing into the last person’s chat window when theirs doesn’t open, and says so', async () => {
@@ -266,5 +307,129 @@ describe('sending a message on Facebook', () => {
       why: 'couldn’t find a chat open with them, so nothing was sent',
     });
     expect(world.noted).toEqual([]);
+  });
+
+  it('sends nothing into another Dana Reyes’s chat window left open, linking to nobody, when hers doesn’t open', async () => {
+    const sent: Sent[] = [];
+    world.pages = (url) =>
+      url === DANA
+        ? danaProfile(sent, { opens: false, rileyOpen: true, namesakeOpen: true })
+        : null;
+    const outcome = await send(approved({ kind: 'opener', threadKey: null }));
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: couldn’t find a chat open with them, so nothing was sent',
+    });
+    expect(sent).toEqual([]);
+    expect(world.posted.find((p) => p.path === SEND_DONE)?.body).toMatchObject({ sent: false });
+    expect(world.noted).toEqual([]);
+  });
+
+  it('sends in Messenger when their profile’s Message takes the tab there, by the key their chat shows', async () => {
+    // Kept by username; Messenger's chat links to her by number. An opener, and a reply in the chat kept.
+    for (const item of [
+      approved({ kind: 'opener', threadKey: null }),
+      approved({ kind: 'reply' }),
+    ]) {
+      const sent: Sent[] = [];
+      world.noted = [];
+      world.opened = [];
+      world.pages = (url) =>
+        url === CHAT
+          ? messenger(sent)
+          : url === DANA
+            ? danaProfile(sent, { opens: 'messenger', rileyOpen: true })
+            : null;
+      expect(await send(item)).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+      expect(world.opened).toEqual(item.threadKey ? [CHAT, DANA] : [DANA]);
+      expect(sent).toEqual([{ to: 'Message Dana Reyes', text: 'Glad to help, Dana.' }]);
+      expect(noted()).toMatchObject({
+        to: { profile: { id: THREAD_KEY, username: 'dana.reyes.12' } },
+        thread: { id: THREAD_KEY },
+      });
+    }
+  });
+
+  it('sends nothing when their profile’s Message takes the tab to a chat with someone else’s name', async () => {
+    const sent: Sent[] = [];
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = danaProfile(sent, { opens: false, rileyOpen: false });
+      doc
+        .querySelector('[role="button"][aria-label="Message"]')!
+        .addEventListener('click', () => (world.doc = messenger(sent, 'Sam Lee')));
+      return doc;
+    };
+    const outcome = await send(approved({ kind: 'opener', threadKey: null }));
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: couldn’t find a chat open with them, so nothing was sent',
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it('sends in the window their Message opened for someone kept by number, though it links to their username', async () => {
+    // Saved from a group by number, and Facebook leaves her profile at its number.
+    const KEPT = `${FB}/profile.php?id=100009000000077`;
+    const sent: Sent[] = [];
+    world.pages = (url) =>
+      url === KEPT ? danaProfile(sent, { opens: true, rileyOpen: true, at: KEPT }) : null;
+    const outcome = await send(approved({ kind: 'opener', threadKey: null, profileUrl: KEPT }));
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    // Not while another Dana Reyes's window, linking to nobody, was open before: her name proves nothing then.
+    const none: Sent[] = [];
+    world.pages = (url) =>
+      url === KEPT
+        ? danaProfile(none, { opens: true, rileyOpen: false, namesakeOpen: true, at: KEPT })
+        : null;
+    expect(await send(approved({ kind: 'opener', threadKey: null, profileUrl: KEPT }))).toEqual({
+      done: false,
+      line: 'Dana Reyes: couldn’t find a chat open with them, so nothing was sent',
+    });
+    expect(none).toEqual([]);
+  });
+
+  it('sends a reply through their profile when the chat kept shows another name, noting no chat for it', async () => {
+    // Saved as Dana Ruiz; she's Dana Reyes now. Her chat in Messenger links to her by number, not her username.
+    const sent: Sent[] = [];
+    world.pages = (url) =>
+      url === CHAT
+        ? messenger(sent)
+        : url === DANA
+          ? danaProfile(sent, { opens: true, rileyOpen: true })
+          : null;
+    const outcome = await send(approved({ kind: 'reply', name: 'Dana Ruiz' }));
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Ruiz a message' });
+    expect(world.opened).toEqual([CHAT, DANA]);
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    expect(noted()).toMatchObject({ thread: null });
+  });
+
+  it('says where its typing stayed when it couldn’t take it out of another chat’s box', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      page = danaProfile(sent, { opens: true, rileyOpen: true });
+      const doc = page;
+      const riley = doc.querySelector<HTMLElement>('[aria-label="Write to Riley Quinn"]')!;
+      riley.textContent = 'See you Tuesday';
+      // Once her window is open, the typing goes over the person's own writing in Riley's box too.
+      doc.querySelector('[role="button"][aria-label="Message"]')!.addEventListener('click', () => {
+        const type = doc.execCommand.bind(doc);
+        doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+          if (command === 'insertText') riley.textContent = text ?? '';
+          return type(command, ui, text);
+        };
+      });
+      return doc;
+    };
+    const outcome = await send(approved({ kind: 'opener', threadKey: null }));
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: its typing went into the chat box with Riley Quinn too and couldn’t be taken out, so delete it there before you send that chat; nothing was sent',
+    });
+    expect(sent).toEqual([]);
   });
 });

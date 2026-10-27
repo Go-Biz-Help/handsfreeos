@@ -22,7 +22,7 @@ import { isAfter } from '../facebook/dom';
 import { shown, visible } from '../facebook/fetch';
 import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
-import { CONTROLS, mainOf, placesOf, wordsOf } from './dom';
+import { CONTROLS, inPageBar, mainOf, placesOf, wordsOf } from './dom';
 import { peopleLinked } from './people';
 import {
   barOf,
@@ -355,22 +355,23 @@ function linksOutsideMessages(part: Element): Element[] {
 
 /**
  * Who the window over the page a box is in is with, as its header links to them: the people linked outside its
- * messages in the nearest box around it with the window's own Close, else in the nearest that links to anyone. Never
- * the main column or past it, nor a box with a second box to write in or a second Close: past those, the links are
- * the page's or another window's.
+ * messages in the nearest box around it with the window's own Close (its header may be a `header`: only the page's own
+ * top bar is left out). Nobody when there's no such box: a window whose Close it can't tell has nobody it's surely
+ * with, as the links further up may be another window's. Never the main column or past it, nor a box with a second
+ * box to write in or a second Close, as shown: past those, the links are the page's or another window's.
  */
 function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
   const main = mainOf(doc);
-  let nearest: ProfileRef[] = [];
   let up = box.parentElement;
   for (let steps = 0; up && steps < 20 && !up.contains(main); steps++, up = up.parentElement) {
-    const closes = [...up.querySelectorAll(CONTROLS)].filter((c) => says(c, CLOSE_CONVERSATION));
-    if (closes.length > 1 || up.querySelectorAll(WRITING).length > 1) break;
-    const people = peopleLinked(linksOutsideMessages(up), href).map((p) => p.profile);
-    if (closes.length === 1) return people;
-    if (!nearest.length) nearest = people;
+    const closes = [...up.querySelectorAll(CONTROLS)].filter(
+      (c) => shown(c) && says(c, CLOSE_CONVERSATION),
+    );
+    if (closes.length > 1 || [...up.querySelectorAll(WRITING)].filter(shown).length > 1) break;
+    if (closes.length === 1)
+      return peopleLinked(linksOutsideMessages(up), href, inPageBar).map((p) => p.profile);
   }
-  return nearest;
+  return [];
 }
 
 /**

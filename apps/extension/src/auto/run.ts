@@ -49,7 +49,6 @@ import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import {
   AUTO_PLANS,
-  MESSAGE_PATH,
   sameByKey,
   samePerson,
   withTheirName,
@@ -62,7 +61,7 @@ import { FRIENDSHIP_WORDS } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { reporter } from '../jobs/report';
-import { sameName } from '../networks/facebook/people';
+import { nameForms, sameName } from '../networks/facebook/people';
 import { FACEBOOK, profileFromUrl } from '../networks/facebook/urls';
 import type {
   AutoStatus,
@@ -650,7 +649,8 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
  * Opens the chat with them: theirs in Messenger when it's known, else their profile's Message. With the name Facebook
  * showed for them, on the chat or their profile, checked as theirs. To send in (`sending`), a chat in Messenger counts
  * only when it links to them by a key HandsFreeOS keeps too, by number or by username: by its name alone it could be
- * someone else's with the same name, so their profile's Message opens their chat instead.
+ * someone else's with the same name, so their profile's Message opens their chat instead, and the chat kept is noted
+ * with the message when it showed their name. One that links to someone else is someone else's.
  */
 async function openChat(
   item: TodayListItem,
@@ -665,6 +665,7 @@ async function openChat(
   | { readonly outcome: Outcome }
 > {
   const want = profileOf(item.profileUrl);
+  let kept: ThreadRef | null = null;
   if (item.threadKey) {
     await tab.open(`${FACEBOOK}/messages/t/${encodeURIComponent(item.threadKey)}/`);
     await setState({ tabId: tab.tabId });
@@ -673,21 +674,53 @@ async function openChat(
     if (stop) return { outcome: { stop } };
     const chat = page.chat;
     const keyed = sameByKey(chat?.profile ?? null, want);
-    const them = keyed ?? (chat?.name != null && sameName(chat.name, item.name));
+    const named = chat?.name != null && sameNames(chat.name, item.name);
     const profile = want ?? chat?.profile ?? null;
-    if (!chat || !them || !profile)
-      return { outcome: { done: false, line: `${item.name}: Messenger showed a different chat` } };
-    if (keyed || !sending) return { profile, thread: chat.thread, name: chat.name };
+    const different = {
+      outcome: { done: false, line: `${item.name}: Messenger showed a different chat` },
+    };
+    if (chat && profile && keyed) return { profile, thread: chat.thread, name: chat.name };
+    if (!sending) {
+      if (!chat || !(keyed ?? named) || !profile) return different;
+      return { profile, thread: chat.thread, name: chat.name };
+    }
+    if (keyed === false) return different;
+    if (chat && named) kept = chat.thread;
   }
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened;
-  if (!(await pressPath(MESSAGE_PATH)))
+  // The chat windows open before it are noted first: none of those is taken for theirs by a name (../networks/facebook/auto.ts).
+  const pressed = await tab.ask({ type: 'hfos-open-message', profile: opened.noted });
+  if (!pressed.ok)
     return {
       outcome: { done: false, line: `${item.name}: couldn’t find “Message” on their profile` },
     };
   await pause(SETTLE_MS);
-  return { profile: opened.noted, thread: null, name: opened.page.profile!.name };
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { outcome: { stop } };
+  const name = opened.page.profile!.name;
+  // Message may take the tab to their chat in Messenger, which links to them by number: the chat their own profile's
+  // Message opened, when it shows the name their profile does, so its key is theirs too.
+  const chat = page.chat;
+  const learned =
+    chat?.profile &&
+    name &&
+    chat.name &&
+    sameByKey(chat.profile, opened.noted) === null &&
+    sameNames(chat.name, name)
+      ? {
+          ...opened.noted,
+          id: opened.noted.id ?? chat.profile.id,
+          username: opened.noted.username ?? chat.profile.username,
+        }
+      : opened.noted;
+  return { profile: learned, thread: chat?.thread ?? kept, name };
 }
+
+/** Whether two names are the same person's as Facebook shows them: whole, or without a nickname. */
+const sameNames = (a: string, b: string) =>
+  nameForms(a).some((one) => nameForms(b).some((other) => sameName(one, other)));
 
 /** Says how a send went in HandsFreeOS. One the person skipped meanwhile went anyway: nothing more to say. */
 async function sendDone(sendId: string, businessId: string, sent: boolean, why: string | null) {
@@ -739,11 +772,13 @@ async function sendMessage(
       ? wrote.error
       : wrote.result === 'none'
         ? `couldn’t find a chat open with them${i === 0 ? ', so nothing was sent' : ''}`
-        : wrote.result === 'not_theirs'
-          ? `its typing didn’t stay in their chat, so it took it out${i === 0 ? ' and sent nothing' : ''}`
-          : wrote.result !== 'done'
-            ? 'Facebook didn’t take the message'
-            : null;
+        : wrote.result === 'not_theirs' && wrote.left
+          ? `its typing went into ${wrote.left.with ? `the chat box with ${wrote.left.with}` : 'another chat’s box'} too and couldn’t be taken out, so delete it there before you send that chat${i === 0 ? '; nothing was sent' : ''}`
+          : wrote.result === 'not_theirs'
+            ? `its typing didn’t stay in their chat, so it took it out${i === 0 ? ' and sent nothing' : ''}`
+            : wrote.result !== 'done'
+              ? 'Facebook didn’t take the message'
+              : null;
     if (why === null) continue;
     if (i === 0) return failed(`${item.name}: ${why}`);
     partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;

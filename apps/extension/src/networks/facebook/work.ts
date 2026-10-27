@@ -33,6 +33,7 @@ import type {
   GroupPostAsk,
   JoinAnswer,
   JoinAsk,
+  OpenMessageAsk,
   OwnEditorsAnswer,
   OwnEditorsAsk,
   OwnProfileAnswer,
@@ -45,7 +46,14 @@ import type {
 } from '../../messages';
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
-import { likeTheirPost, readTheirPosts, writeComment, writeMessage } from './auto';
+import {
+  likeTheirPost,
+  openMessage,
+  readTheirPosts,
+  writeComment,
+  writeMessage,
+  type ChatsBefore,
+} from './auto';
 import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
 import { readComments, readReactions, writeGroupPost } from './compose';
 import { fetchPage, stepOnPage } from './fetch';
@@ -118,11 +126,25 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
       };
     return {
       ok: true,
-      result: await writeMessage(document, location.href, ask.text, ask.profile, names),
+      ...(await writeMessage(document, location.href, ask.text, ask.profile, names, chatsBefore)),
     };
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
   return { ok: true, result: await writeComment(document, ask.text) };
+}
+
+/**
+ * The chats open on this page when the runner pressed their profile's Message here (./auto.ts): one of those is never
+ * taken for theirs by a name, only by a link to them.
+ */
+let chatsBefore: ChatsBefore | null = null;
+
+/** Their profile's Message, for the runner, once the chats open before it are noted: whether it could press it. */
+async function openMessageStep(): Promise<BrowseAnswer> {
+  if (classifyUrl(location.href).kind !== 'profile') return { ok: false };
+  const opened = await openMessage(document);
+  chatsBefore = opened.before;
+  return { ok: opened.pressed };
 }
 
 /** Asking to join the group the tab shows (./join.ts): Join group, then the AI's answers to its questions. */
@@ -288,6 +310,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-like-post',
   'hfos-comment',
   'hfos-message',
+  'hfos-open-message',
   'hfos-join',
   'hfos-join-answer',
   'hfos-group-post',
@@ -304,6 +327,7 @@ type WorkAsk =
   | FetchAsk
   | BrowseAsk
   | AutoAsk
+  | OpenMessageAsk
   | JoinAsk
   | GroupPostAsk
   | OwnProfileAsk
@@ -342,6 +366,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-comment':
     case 'hfos-message':
       return autoStep(known);
+    case 'hfos-open-message':
+      return openMessageStep();
     case 'hfos-open-chat':
     case 'hfos-scroll-chats':
     case 'hfos-scroll-feed':

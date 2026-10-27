@@ -15,12 +15,12 @@
 import { COMMENT_BOX, hasWriting, MESSAGE_BOX, REPLY_BOX, SEND, WRITING } from './actions';
 import { conversationWith, isConversation, readChat } from './chat';
 import { clean, inTopBar, isAfter, labelOf, textWithEmoji } from './dom';
-import { shown, type FetchStep } from './fetch';
+import { shown, stepOnPage, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
 import { COMMENT, LIKE, postBoxes, readPost } from './posts';
 import type { TidyPlan } from './tidy';
 import type { ProfilePage, ProfileRef } from './types';
-import { classifyUrl } from './urls';
+import { classifyUrl, FACEBOOK } from './urls';
 import { UI_WORDS } from './vocabulary';
 
 export type AutoJob = 'friend_request' | 'confirm';
@@ -148,7 +148,7 @@ export type AutoResult =
   | 'not_sent'
   /**
    * A message the extension didn't send itself: the typing didn't land in their chat's box only, or the box stopped
-   * being theirs before it went. What it typed is taken out again.
+   * being theirs before it went. What it typed is taken out again, or said where it couldn't be (`MessageWrote`).
    */
   | 'not_theirs';
 
@@ -314,41 +314,80 @@ export async function writeComment(doc: Document, text: string): Promise<AutoRes
     box = commentBox(doc);
   }
   if (!box) return 'none';
-  return typeAndSend(doc, box, text);
+  return (await typeAndSend(doc, box, text)).result;
 }
+
+/** What a box to write in is called: its label, else its placeholder. */
+const boxLabel = (box: Element) =>
+  clean(box.getAttribute('aria-label')) || clean(box.getAttribute('aria-placeholder'));
 
 /** Every box to write a message in on the page, in page order: Messenger's open chat, and each chat window's. */
 export function messageBoxes(doc: Document): HTMLElement[] {
-  const label = (box: Element) =>
-    clean(box.getAttribute('aria-label')) || clean(box.getAttribute('aria-placeholder'));
   return [...doc.querySelectorAll<HTMLElement>(WRITING)].filter(
-    (b) => shown(b) && !inTopBar(b) && MESSAGE_BOX.test(label(b)) && !COMMENT_BOX.test(label(b)),
+    (b) =>
+      shown(b) && !inTopBar(b) && MESSAGE_BOX.test(boxLabel(b)) && !COMMENT_BOX.test(boxLabel(b)),
   );
 }
 
 /** Close chat, on a small chat window's header. */
 const CLOSE_CHAT = /^close chat$/i;
+/** Who a box to write a message in says it writes to: "Write to Jane Doe" in a chat window, "Message Jane Doe". */
+const WRITES_TO = /^(?:write to|message)\s+(.+?)(?:…|\.\.\.)?$/i;
+/** How long their profile's Message is looked for. */
+const MESSAGE_WAIT_MS = 8_000;
+
+/** Whether a name is one of the names Facebook showed for them, whole or without a nickname. */
+function namedAs(name: string, names: readonly string[]): boolean {
+  const shownAs = nameForms(name);
+  return names.some((one) => nameForms(one).some((form) => shownAs.some((s) => sameName(s, form))));
+}
 
 /**
- * Whether a chat is with them. One that links to a profile is theirs only by a key both have, by number or by
- * username, as `sameByKey` goes: someone else may have their name, and a link by the other kind proves nothing. One
- * that links to nobody is theirs by one of the names Facebook showed for them, whole or without a nickname.
+ * Whether two names may be the same person's, for a check that turns a chat down: the same whole or without a
+ * nickname, or one the other's first name or names ("Dana" may be "Dana Reyes").
+ */
+function mayBeSame(a: string, b: string): boolean {
+  return nameForms(a).some((x) =>
+    nameForms(b).some((y) => {
+      const [one, other] = [x.toLowerCase(), y.toLowerCase()];
+      return one === other || one.startsWith(`${other} `) || other.startsWith(`${one} `);
+    }),
+  );
+}
+
+/**
+ * Whether a chat on its own page in Messenger is with them. One that links to a profile is theirs only by a key both
+ * have, by number or by username, as `sameByKey` goes: someone else may have their name, and a link by the other kind
+ * proves nothing. One that links to nobody is theirs by one of the names Facebook showed for them, whole or without a
+ * nickname, only where names may count (`byName`).
  */
 function chatIsThem(
   profile: ProfileRef | null,
   name: string | null,
   them: ProfileRef,
   names: readonly string[],
+  byName: boolean,
 ): boolean {
   if (profile) return sameByKey(profile, them) === true;
-  if (!name) return false;
-  const shownAs = nameForms(name);
-  return names.some((one) => nameForms(one).some((form) => shownAs.some((s) => sameName(s, form))));
+  return byName && name !== null && namedAs(name, names);
+}
+
+/**
+ * Whether a box's own label agrees with whose chat it seems to be in: one that names someone ("Write to Riley Quinn")
+ * names one of them, or who its chat's header shows. A box taken for under another window's header never does.
+ */
+function boxAgrees(box: Element, shownAs: readonly (string | null)[]): boolean {
+  const named = WRITES_TO.exec(boxLabel(box))?.[1];
+  return !named || shownAs.some((name) => name !== null && mayBeSame(named, name));
 }
 
 /** The Close chat buttons in a part of the page: one for each chat window in it. */
 const closesIn = (scope: Element) =>
   [...scope.querySelectorAll('[role="button"], button')].filter((b) => CLOSE_CHAT.test(labelOf(b)));
+
+/** A chat's messages, labelled as the conversation, in a part of the page. */
+const conversationsIn = (scope: Element) =>
+  [...scope.querySelectorAll('[aria-label]')].filter(isConversation);
 
 /**
  * The small chat window a box to write a message in is in, over a page that isn't a chat's own: the nearest box around
@@ -366,7 +405,7 @@ function chatWindowOf(
     if (
       closes.length > 1 ||
       up.querySelectorAll(WRITING).length > 1 ||
-      [...up.querySelectorAll('[aria-label]')].filter(isConversation).length > 1
+      conversationsIn(up).length > 1
     )
       return null;
     if (closes.length === 1) return { chatWindow: up, close: closes[0]! };
@@ -380,7 +419,7 @@ function chatWindowOf(
  * mutual friend or a Page, and what's typed are not.
  */
 function headerOf(chatWindow: Element, close: Element, box: Element): Element {
-  const messages = [...chatWindow.querySelectorAll('[aria-label]')].find(isConversation);
+  const messages = conversationsIn(chatWindow)[0];
   let header = close;
   for (
     let up = close.parentElement;
@@ -401,70 +440,173 @@ function headingIn(header: Element): string | null {
 }
 
 /**
- * Whether a small chat window is with them, by its header only: everyone the header links to is them, or, where it
- * links to nobody, the name its heading gives, else its messages' label ("Messages in conversation with Jane Doe"), is
- * theirs.
+ * The people some links in a chat window lead to, read from Facebook's own root: a link that leads nowhere ("#", or
+ * nothing) is never the profile the tab is on.
  */
-function windowIsThem(
-  chatWindow: Element,
-  header: Element,
-  base: string,
+const linkedIn = (links: Iterable<Element>) => peopleLinked(links, FACEBOOK);
+
+/**
+ * How a small chat window shows it's with them, by its header: `key` when everyone the header links to is them by a
+ * key HandsFreeOS keeps too, by number or by username. Else, only for a window that opened on their profile's
+ * Message (`fresh`), `name`: the header links to them by the other kind of key, or to nobody, with one of the names
+ * Facebook showed for them (on its links, else its heading, else its messages' label), and nothing else in the window
+ * outside its messages and its box links to someone else. Null when it shows neither, or its box's own label names
+ * someone else.
+ */
+function windowProof(
+  box: Element,
+  main: Element,
   them: ProfileRef,
   names: readonly string[],
-): boolean {
-  const linked = peopleLinked(header.querySelectorAll('a[href]'), base);
-  if (linked.length > 0)
-    return linked.every((person) => chatIsThem(person.profile, person.name, them, names));
-  const messages = [...chatWindow.querySelectorAll('[aria-label]')].find(isConversation);
-  const name = headingIn(header) ?? (messages ? conversationWith(messages) : null);
-  return chatIsThem(null, name, them, names);
+  fresh: boolean,
+): 'key' | 'name' | null {
+  const around = chatWindowOf(box, main);
+  if (!around) return null;
+  const { chatWindow, close } = around;
+  const header = headerOf(chatWindow, close, box);
+  const linked = linkedIn(header.querySelectorAll('a[href]'));
+  const heading = headingIn(header);
+  if (!boxAgrees(box, [...names, heading, ...linked.map((person) => person.name)])) return null;
+  const keyed = linked.map((person) => sameByKey(person.profile, them));
+  if (linked.length > 0 && keyed.every((same) => same === true)) return 'key';
+  if (!fresh || keyed.includes(false)) return null;
+  const messages = conversationsIn(chatWindow)[0] ?? null;
+  const shownAs =
+    linked.length > 0
+      ? linked.map((person) => person.name)
+      : [heading ?? (messages ? conversationWith(messages) : null)];
+  if (!shownAs.every((name) => name !== null && namedAs(name, names))) return null;
+  const elsewhere = linkedIn(
+    [...chatWindow.querySelectorAll('a[href]')].filter(
+      (link) => !messages?.contains(link) && !box.contains(link),
+    ),
+  );
+  return elsewhere.some((person) => sameByKey(person.profile, them) === false) ? null : 'name';
+}
+
+/**
+ * The chats open on a page just before the extension pressed their profile's Message (`openMessage`): the boxes to
+ * write in then, and every name their windows showed. Facebook keeps the windows of earlier chats open from page to
+ * page, and any of them may be someone else's with their name.
+ */
+export interface ChatsBefore {
+  readonly doc: Document;
+  readonly boxes: ReadonlySet<Element>;
+  readonly names: readonly string[];
+}
+
+/** The names a chat window shows: on its links, its headings, its messages' label and its box's label. */
+function namesIn(scope: Element): string[] {
+  const names = linkedIn(scope.querySelectorAll('a[href]')).flatMap((person) => person.name ?? []);
+  for (const link of scope.querySelectorAll('a, [role="link"]'))
+    names.push(clean(link.getAttribute('aria-label')));
+  for (const heading of scope.querySelectorAll('h1, h2, h3, [role="heading"]'))
+    names.push(clean(heading.textContent));
+  for (const messages of conversationsIn(scope)) names.push(conversationWith(messages) ?? '');
+  for (const box of scope.querySelectorAll(WRITING))
+    names.push(WRITES_TO.exec(boxLabel(box))?.[1] ?? '');
+  return names.filter((name) => isNameLike(name) && !UI_WORDS.has(name.toLowerCase()));
+}
+
+/** The widest box around a chat window's Close chat that holds nothing of another window's, nor the main column. */
+function windowAround(close: Element, main: Element): Element {
+  let chatWindow = close;
+  for (
+    let up = close.parentElement;
+    up &&
+    !up.contains(main) &&
+    closesIn(up).length === 1 &&
+    up.querySelectorAll(WRITING).length <= 1 &&
+    conversationsIn(up).length <= 1;
+    up = up.parentElement
+  )
+    chatWindow = up;
+  return chatWindow;
+}
+
+/** The chats open over the page now: noted just before their profile's Message is pressed. */
+export function chatsOpen(doc: Document): ChatsBefore {
+  const main = mainOf(doc);
+  const names = new Set<string>();
+  for (const close of closesIn(doc.body))
+    if (!main.contains(close))
+      for (const name of namesIn(windowAround(close, main))) names.add(name);
+  return { doc, boxes: new Set(doc.querySelectorAll(WRITING)), names: [...names] };
+}
+
+/**
+ * Presses Message on their profile, once the chats open before it are noted: whether it could, and those chats, for
+ * `writeMessage`. A window open before it is theirs only by a link to them by key, never by a name.
+ */
+export async function openMessage(
+  doc: Document,
+): Promise<{ readonly pressed: boolean; readonly before: ChatsBefore }> {
+  const before = chatsOpen(doc);
+  const { result } = await stepOnPage(doc, {
+    type: 'hfos-fetch-path',
+    steps: MESSAGE_PATH,
+    from: 0,
+    waitMs: MESSAGE_WAIT_MS,
+  });
+  return { pressed: result === 'done', before };
 }
 
 /**
  * The box to write a message to them in, and only theirs. On a chat's own page in Messenger, the chat's box in the
  * main column, when the chat shows it's with them. On any other page, the box of the one small chat window over it
- * that is with them: Facebook keeps the windows of earlier chats open from page to page, and a new one may draw its
- * box after them, or before. Null when there's none, or more than one: never another box.
+ * that links to them by key, else the one that shows it's theirs by name: Facebook keeps the windows of earlier chats
+ * open from page to page, and a new one may draw its box after them, or before. A chat counts by name only with the
+ * chats open before their profile's Message was pressed (`before`, on this page), only when it opened on it, and only
+ * when none open before showed their name. Null when there's none, or more than one: never another box.
  */
 export function messageBoxFor(
   doc: Document,
   href: string,
   them: ProfileRef,
   names: readonly string[],
+  before: ChatsBefore | null = null,
 ): HTMLElement | null {
   // Without the main column, there's no telling a chat's own page from a window over another.
   const main = doc.querySelector('[role="main"]');
   if (!main) return null;
+  const pressed = before?.doc === doc ? before : null;
+  const byName =
+    pressed !== null && !pressed.names.some((name) => names.some((one) => mayBeSame(name, one)));
+  const fresh = (box: Element) => byName && !pressed!.boxes.has(box);
   const address = classifyUrl(href);
   if (address.kind === 'chat') {
     const chat = readChat(doc, address, href);
-    if (!chatIsThem(chat.profile, chat.name, them, names)) return null;
     const own = messageBoxes(doc).filter((box) => main.contains(box));
-    return own.length === 1 ? own[0]! : null;
+    if (own.length !== 1 || !boxAgrees(own[0]!, [...names, chat.name])) return null;
+    return chatIsThem(chat.profile, chat.name, them, names, fresh(own[0]!)) ? own[0]! : null;
   }
-  const theirs = messageBoxes(doc).filter((box) => {
-    if (main.contains(box)) return false;
-    const around = chatWindowOf(box, main);
-    return (
-      around !== null &&
-      windowIsThem(
-        around.chatWindow,
-        headerOf(around.chatWindow, around.close, box),
-        href,
-        them,
-        names,
-      )
-    );
-  });
-  return theirs.length === 1 ? theirs[0]! : null;
+  const proofs = messageBoxes(doc)
+    .filter((box) => !main.contains(box))
+    .map((box) => ({ box, proof: windowProof(box, main, them, names, fresh(box)) }));
+  // A link to them by key outweighs a name.
+  const keyed = proofs.filter(({ proof }) => proof === 'key');
+  if (keyed.length > 0) return keyed.length === 1 ? keyed[0]!.box : null;
+  const named = proofs.filter(({ proof }) => proof === 'name');
+  return named.length === 1 ? named[0]!.box : null;
+}
+
+/** How a message went: with, when its typing went into another chat's box and stayed there, whose that is. */
+export interface MessageWrote {
+  readonly result: AutoResult;
+  /**
+   * Typing that couldn't be taken out of a box it went in: the name on that box ("Write to Riley Quinn" is Riley
+   * Quinn's), or null when it names nobody. The person's to take out.
+   */
+  readonly left?: { readonly with: string | null };
 }
 
 /**
  * Writes a message in their chat, and sends it (decisions 26 and 27): waits a few seconds for their chat's box, types
- * it there, presses the button that sends it (or Enter), and waits for the box to empty. A box with writing in it
- * already is left alone: the person may be writing there. Nothing is typed unless the focus is in their box, and
- * nothing is sent unless, once typed, it's still their chat's box and no other box took the writing; else what was
- * typed is taken out again, of every box it went in (`not_theirs`).
+ * it there, presses the button that sends it (or Enter), and waits for the box to empty. It waits the whole time for a
+ * chat that links to them by key, and takes one by name only after. A box with writing in it already is left alone:
+ * the person may be writing there. Nothing is typed unless the focus is in their box, and nothing is sent unless,
+ * once typed, it's still their chat's box and no other box took the writing; else what was typed is taken out again,
+ * of every box it went in (`not_theirs`), and where it can't be, that's said (`left`).
  */
 export async function writeMessage(
   doc: Document,
@@ -472,15 +614,19 @@ export async function writeMessage(
   text: string,
   them: ProfileRef,
   names: readonly string[],
-): Promise<AutoResult> {
+  before: ChatsBefore | null = null,
+): Promise<MessageWrote> {
   // Message on their profile may move the tab to Messenger meanwhile.
-  const theirs = () => messageBoxFor(doc, doc.location?.href ?? href, them, names);
-  let box = theirs();
+  const here = () => doc.location?.href ?? href;
+  const byKey = () => messageBoxFor(doc, here(), them, names);
+  const theirs = () => messageBoxFor(doc, here(), them, names, before);
+  let box = byKey();
   for (let wait = 0; !box && wait < 10; wait++) {
     await pause(500);
-    box = theirs();
+    box = byKey();
   }
-  if (!box) return 'none';
+  box ??= theirs();
+  if (!box) return { result: 'none' };
   return typeAndSend(doc, box, text, theirs);
 }
 
@@ -488,12 +634,63 @@ export async function writeMessage(
 const focusIn = (doc: Document, box: Element) =>
   doc.activeElement !== null && box.contains(doc.activeElement);
 
-/** Takes what was typed out of a box that was empty before, only with the focus in it. */
-function takeOut(doc: Document, box: HTMLElement): void {
+/** Takes what was typed out of a box that was empty before, only with the focus in it: whether it's empty again. */
+function takeOut(doc: Document, box: HTMLElement): boolean {
   box.focus();
-  if (!focusIn(doc, box)) return;
-  doc.getSelection()?.selectAllChildren(box);
+  if (focusIn(doc, box)) {
+    doc.getSelection()?.selectAllChildren(box);
+    doc.execCommand('delete', false);
+  }
+  return !hasWriting(box);
+}
+
+/** The part of a box's text from one place to another, as a range on the page. */
+function rangeIn(box: Element, from: number, to: number): Range | null {
+  const doc = box.ownerDocument;
+  const range = doc.createRange();
+  const walker = doc.createTreeWalker(box, 4 /* text */);
+  let at = 0;
+  let started = false;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const length = node.nodeValue?.length ?? 0;
+    if (!started && from <= at + length) {
+      range.setStart(node, from - at);
+      started = true;
+    }
+    if (started && to <= at + length) {
+      range.setEnd(node, to - at);
+      return range;
+    }
+    at += length;
+  }
+  return null;
+}
+
+/**
+ * Takes what was typed out of a box with the person's own writing in it, leaving theirs as it was: what was put in
+ * between what's the same at its start and at its end, only with the focus in it. Whether it's as it was again.
+ */
+function takeOutTyped(doc: Document, box: HTMLElement, was: string): boolean {
+  const now = box.textContent ?? '';
+  let start = 0;
+  while (start < was.length && start < now.length && now[start] === was[start]) start++;
+  let same = 0;
+  while (
+    same < was.length - start &&
+    same < now.length - start &&
+    now[now.length - 1 - same] === was[was.length - 1 - same]
+  )
+    same++;
+  // Anything of theirs changed, not only put beside: not the extension's to undo.
+  if (start + same !== was.length || now.length <= was.length) return now === was;
+  const range = rangeIn(box, start, now.length - same);
+  const selection = doc.getSelection();
+  box.focus();
+  if (!range || !selection || !focusIn(doc, box)) return false;
+  selection.removeAllRanges();
+  selection.addRange(range);
   doc.execCommand('delete', false);
+  return (box.textContent ?? '') === was;
 }
 
 /**
@@ -505,14 +702,19 @@ async function typeAndSend(
   box: HTMLElement,
   text: string,
   theirs?: () => HTMLElement | null,
-): Promise<AutoResult> {
-  if (hasWriting(box)) return 'not_sent';
-  // What each box says before typing, to see that no other one takes the writing.
-  const before = new Map([...doc.querySelectorAll(WRITING)].map((b) => [b, textWithEmoji(b)]));
+): Promise<MessageWrote> {
+  if (hasWriting(box)) return { result: 'not_sent' };
+  // What each box says before typing, to see that no other one takes the writing, and to leave the person's as it was.
+  const before = new Map(
+    [...doc.querySelectorAll(WRITING)].map((b) => [
+      b,
+      { said: textWithEmoji(b), text: b.textContent ?? '' },
+    ]),
+  );
   box.focus();
   box.click();
   await pause(300);
-  if (theirs && !focusIn(doc, box)) return 'not_theirs';
+  if (theirs && !focusIn(doc, box)) return { result: 'not_theirs' };
   doc.execCommand('insertText', false, text);
   await pause(800);
   if (theirs) {
@@ -521,16 +723,20 @@ async function typeAndSend(
         other !== box &&
         !other.contains(box) &&
         !box.contains(other) &&
-        textWithEmoji(other) !== (before.get(other) ?? ''),
+        textWithEmoji(other) !== (before.get(other)?.said ?? ''),
     );
     if (elsewhere.length > 0 || (hasWriting(box) && theirs() !== box)) {
-      // Any other box the writing went in is emptied again, as it was; one with the person's writing is left alone.
-      for (const other of elsewhere) if (before.get(other) === '') takeOut(doc, other);
-      if (hasWriting(box)) takeOut(doc, box);
-      return 'not_theirs';
+      // Taken out of every box it went in; one with the person's own writing keeps theirs. One it can't be is said.
+      let left: { readonly with: string | null } | undefined;
+      for (const other of [...elsewhere, ...(hasWriting(box) ? [box] : [])]) {
+        const was = before.get(other);
+        const out = was?.said ? takeOutTyped(doc, other, was.text) : takeOut(doc, other);
+        if (!out) left ??= { with: WRITES_TO.exec(boxLabel(other))?.[1] ?? null };
+      }
+      return { result: 'not_theirs', ...(left ? { left } : {}) };
     }
   }
-  if (!hasWriting(box)) return 'not_sent';
+  if (!hasWriting(box)) return { result: 'not_sent' };
   const send = sendButton(box);
   if (send) send.click();
   else
@@ -547,7 +753,7 @@ async function typeAndSend(
       );
   for (let wait = 0; wait < 20; wait++) {
     await pause(300);
-    if (!hasWriting(box)) return 'done';
+    if (!hasWriting(box)) return { result: 'done' };
   }
-  return 'not_sent';
+  return { result: 'not_sent' };
 }

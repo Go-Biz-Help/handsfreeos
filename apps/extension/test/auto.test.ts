@@ -23,6 +23,7 @@ import {
   likeTheirPost,
   readTheirPosts,
   MESSAGE_PATH,
+  openMessage,
   sameByKey,
   sameRef,
   withTheirName,
@@ -466,24 +467,34 @@ describe('writing a message', () => {
 
   type Typing = (command: string, ui?: boolean, text?: string) => boolean;
   type Sent = { readonly to: string; readonly text: string };
+  type Person = { readonly name: string; readonly href: string | null };
 
-  /** Chrome's typing on a test page: `insertText` writes in the box the focus is in, and Delete empties it. */
+  /**
+   * Chrome's typing on a test page: `insertText` writes in the box the focus is in, and Delete takes out what's
+   * selected there.
+   */
   function typing(doc: Document): Typing {
     const type: Typing = (command, _ui, text) => {
       const box = doc.activeElement?.closest('[role="textbox"]');
       if (!box) return false;
-      box.textContent = command === 'insertText' ? (text ?? '') : '';
+      const selection = doc.getSelection();
+      if (command === 'insertText') box.textContent = text ?? '';
+      else if (selection && !selection.isCollapsed) selection.deleteFromDocument();
+      else box.textContent = '';
       return true;
     };
     doc.execCommand = type;
     return type;
   }
 
-  /** Each chat's own sending, as Facebook's: its button, or Enter, sends what's in its own box, to who it's with. */
+  /**
+   * Each chat's own sending, as Facebook's: its button, or Enter, sends what's in its own box, to who it's with (as
+   * its label says, or a test's `data-who` where two say the same).
+   */
   function sending(root: ParentNode, sent: Sent[], send: 'button' | 'enter' = 'button'): void {
     for (const box of root.querySelectorAll<HTMLElement>('[role="textbox"]')) {
-      const to = box.getAttribute('aria-label')!;
       const take = () => {
+        const to = box.getAttribute('data-who') ?? box.getAttribute('aria-label')!;
         sent.push({ to, text: box.textContent ?? '' });
         box.textContent = '';
       };
@@ -512,9 +523,10 @@ describe('writing a message', () => {
   /**
    * Dana's profile with small chat windows over it, as Facebook keeps them open from page to page: each a copy of the
    * test page's window with Riley, with someone else, its header linking to `href` (or to nobody). `open` draws one
-   * more, after the others or before them.
+   * more, after the others or before them. `press` presses Message on her profile as the runner's tab does, noting
+   * the chats open before it, and it draws hers (or nothing).
    */
-  function profileWithChats(...people: readonly { name: string; href: string | null }[]) {
+  function profileWithChats(...people: readonly Person[]) {
     const doc = load('profile-2026.html', URL);
     const window = load('chat-window-2026.html', `${FB}/friends/requests/`)
       .querySelector('[aria-label="Close chat"]')!
@@ -523,7 +535,7 @@ describe('writing a message', () => {
     doc.body.append(layer);
     const type = typing(doc);
     const sent: Sent[] = [];
-    const open = (person: { name: string; href: string | null }, where = 'after') => {
+    const open = (person: Person, where = 'after') => {
       const chat = doc.importNode(window, true);
       chat.innerHTML = chat.innerHTML
         .replaceAll('Riley Quinn', person.name)
@@ -533,20 +545,47 @@ describe('writing a message', () => {
       if (where === 'before') layer.prepend(chat);
       else layer.append(chat);
       sending(chat, sent);
+      return chat;
     };
     for (const person of people) open(person);
     const boxOf = (name: string) =>
       doc.querySelector<HTMLElement>(`[role="textbox"][aria-label="Write to ${name}"]`)!;
-    return { doc, sent, boxOf, open, type };
+    const press = async (person?: Person, where = 'after') => {
+      doc
+        .querySelector('[role="button"][aria-label="Message"]')!
+        .addEventListener('click', () => person && open(person, where), { once: true });
+      const opened = await openMessage(doc);
+      expect(opened.pressed).toBe(true);
+      return opened.before;
+    };
+    return { doc, sent, boxOf, open, press, type };
   }
 
-  /** Writes it with Facebook's waits passed, and says what came of it. */
-  async function write(...args: Parameters<typeof writeMessage>) {
+  /** Writes it with Facebook's waits passed, and says how it went. */
+  async function written(...args: Parameters<typeof writeMessage>) {
     vi.useFakeTimers();
     const writing = writeMessage(...args);
     await vi.advanceTimersByTimeAsync(10_000);
     vi.useRealTimers();
     return writing;
+  }
+
+  /** Writes it with Facebook's waits passed, and says what came of it. */
+  const write = async (...args: Parameters<typeof writeMessage>) => (await written(...args)).result;
+
+  /** Writes it while `then` draws something a few seconds in, as Facebook may. */
+  async function writeWhile(
+    then: () => void,
+    after: number,
+    ...args: Parameters<typeof writeMessage>
+  ) {
+    vi.useFakeTimers();
+    const writing = writeMessage(...args);
+    await vi.advanceTimersByTimeAsync(after);
+    then();
+    await vi.advanceTimersByTimeAsync(10_000);
+    vi.useRealTimers();
+    return (await writing).result;
   }
 
   it('types into the open chat’s box in Messenger, and sends it with Enter', async () => {
@@ -570,7 +609,9 @@ describe('writing a message', () => {
     const doc = load('chat-2026.html', CHAT);
     doc.querySelector('[role="textbox"][aria-label="Message Dana Reyes"]')!.textContent =
       'half written';
-    expect(await writeMessage(doc, CHAT, 'Hi Dana', danaByNumber, ['Dana Reyes'])).toBe('not_sent');
+    expect((await writeMessage(doc, CHAT, 'Hi Dana', danaByNumber, ['Dana Reyes'])).result).toBe(
+      'not_sent',
+    );
     const profile = load('profile-2026.html', URL);
     expect(await write(profile, URL, 'Hi Dana', dana, ['Dana Reyes'])).toBe('none');
   });
@@ -603,17 +644,15 @@ describe('writing a message', () => {
 
   it('waits for their chat window to draw, never writing in the one open before it', async () => {
     const { doc, sent, open } = profileWithChats(rileyChat);
-    vi.useFakeTimers();
-    const writing = writeMessage(doc, URL, 'Hi Dana', dana, ['Dana Reyes']);
-    await vi.advanceTimersByTimeAsync(1_200);
-    open(danaChat, 'before');
-    await vi.advanceTimersByTimeAsync(10_000);
-    vi.useRealTimers();
-    expect(await writing).toBe('done');
+    expect(
+      await writeWhile(() => open(danaChat, 'before'), 1_200, doc, URL, 'Hi Dana', dana, [
+        'Dana Reyes',
+      ]),
+    ).toBe('done');
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
   });
 
-  it('knows their chat window by its link to their username or number, else by its heading or its label', async () => {
+  it('knows their chat window by its link to their username or number, else, once it opened on their Message, by its heading or its label', async () => {
     const both = { id: '100009000000077', username: 'dana.reyes.12', url: URL };
     // A name HandsFreeOS has that the window doesn't show: its link to them decides.
     for (const href of ['/dana.reyes.12/', '/profile.php?id=100009000000077']) {
@@ -622,12 +661,16 @@ describe('writing a message', () => {
       expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi' }]);
     }
     // No link in its header: its heading names them, else the label on its messages does, beside Riley's.
-    const unlinked = profileWithChats(rileyChat, { name: 'Dana Reyes', href: null });
-    expect(await write(unlinked.doc, URL, 'Hi', dana, ['Dana Reyes (Dee)'])).toBe('done');
+    const unlinked = profileWithChats(rileyChat);
+    const before = await unlinked.press({ name: 'Dana Reyes', href: null });
+    expect(await write(unlinked.doc, URL, 'Hi', dana, ['Dana Reyes (Dee)'], before)).toBe('done');
     windowOf(unlinked.boxOf('Dana Reyes'))
       .querySelector('[aria-label="Chat settings"] h2')!
       .remove();
-    expect(await write(unlinked.doc, URL, 'Hi again', dana, ['Dana Reyes'])).toBe('done');
+    expect(await write(unlinked.doc, URL, 'Hi again', dana, ['Dana Reyes'], before)).toBe('done');
+    expect(unlinked.sent.map((s) => s.text)).toEqual(['Hi', 'Hi again']);
+    // Without knowing it opened on their Message, a name proves nothing.
+    expect(await write(unlinked.doc, URL, 'Hi there', dana, ['Dana Reyes'])).toBe('none');
     expect(unlinked.sent.map((s) => s.text)).toEqual(['Hi', 'Hi again']);
   });
 
@@ -645,28 +688,190 @@ describe('writing a message', () => {
     expect(doc.querySelector('[aria-label="Message Dana Reyes"]')!.textContent?.trim()).toBe('');
   });
 
-  it('never takes a chat linking by the other kind of key for theirs, whatever its name', async () => {
+  it('never takes a chat open before their Message, linking by the other kind of key, for theirs, whatever its name', async () => {
     // The last person, another Dana Reyes, has no username: their window links by number. This Dana is kept by hers.
     const byNumber = profileWithChats({
       name: 'Dana Reyes',
       href: '/profile.php?id=100009000000044',
     });
-    expect(await write(byNumber.doc, URL, 'Hi Dana', dana, ['Dana Reyes'])).toBe('none');
+    const before = await byNumber.press();
+    expect(await write(byNumber.doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).toBe('none');
     expect(byNumber.sent).toEqual([]);
     expect(byNumber.boxOf('Dana Reyes').textContent?.trim()).toBe('');
-    // And the other way: this Dana is kept by number, the window links to a username.
+    // And the other way: this Dana is kept by number, the window open before links to a username.
     const byUsername = profileWithChats(danaChat);
     const numbered = {
       id: '100009000000055',
       username: null,
       url: `${FB}/profile.php?id=100009000000055`,
     };
-    expect(await write(byUsername.doc, URL, 'Hi Dana', numbered, ['Dana Reyes'])).toBe('none');
+    const opened = await byUsername.press();
+    expect(await write(byUsername.doc, URL, 'Hi Dana', numbered, ['Dana Reyes'], opened)).toBe(
+      'none',
+    );
     expect(byUsername.sent).toEqual([]);
     // Messenger's chat links by number: for someone kept by username only, its name proves nothing.
     const { doc, sent } = chatPage('chat-2026.html', CHAT, 'enter');
     expect(await write(doc, CHAT, 'Hi Dana', dana, ['Dana Reyes'])).toBe('none');
     expect(sent).toEqual([]);
+  });
+
+  it('writes in the window their Message opened, linking by the other kind of key, by the name on its link', async () => {
+    // Kept by number from a group, and Facebook left her profile at its number: her window links by username.
+    const numbered = {
+      id: '100009000000055',
+      username: null,
+      url: `${FB}/profile.php?id=100009000000055`,
+    };
+    const { doc, sent, boxOf, press } = profileWithChats(rileyChat);
+    const before = await press(danaChat);
+    expect(await write(doc, URL, 'Hi Dana', numbered, ['Dana Reyes'], before)).toBe('done');
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
+    expect(boxOf('Riley Quinn').textContent?.trim()).toBe('');
+    // Not when the name on it is someone else's.
+    const other = profileWithChats(rileyChat);
+    const opened = await other.press({ name: 'Dana Reyes', href: '/sam.lee.4/' });
+    other.doc.querySelector('a[href="/sam.lee.4/"]')!.setAttribute('aria-label', 'Sam Lee');
+    expect(await write(other.doc, URL, 'Hi Dana', numbered, ['Dana Reyes'], opened)).toBe('none');
+    expect(other.sent).toEqual([]);
+  });
+
+  /** Another Dana Reyes's chat window, as it may be left open: its header's link drawn without an address, etc. */
+  const NAMESAKES: readonly [string, (chat: Element) => void][] = [
+    [
+      'its header’s link drawn without an address',
+      (chat) => {
+        const link = chat.querySelector('a[href]')!;
+        const drawn = chat.ownerDocument.createElement('div');
+        for (const { name, value } of [...link.attributes])
+          if (name !== 'href') drawn.setAttribute(name, value);
+        drawn.append(...link.childNodes);
+        link.replaceWith(drawn);
+      },
+    ],
+    ['no link in its header', (chat) => chat.querySelector('a[href]')!.remove()],
+    [
+      'shown with a nickname, and no link',
+      (chat) => {
+        chat.querySelector('a[href]')!.remove();
+        chat.querySelector('[aria-label="Chat settings"] h2')!.textContent = 'Dana Reyes (Dee)';
+      },
+    ],
+    [
+      'its header’s parts straight in the window, linking to them',
+      (chat) => {
+        const header = chat.querySelector('[aria-label="Close chat"]')!.parentElement!
+          .parentElement!;
+        header.replaceWith(...header.children);
+      },
+    ],
+  ];
+
+  for (const [shape, made] of NAMESAKES)
+    for (const boxed of [false, true])
+      it(`never writes in another Dana Reyes’s window left open, ${shape}${boxed ? ', in more boxes' : ''}`, async () => {
+        const { doc, sent, open, press, boxOf } = profileWithChats(rileyChat);
+        const namesake = open({ name: 'Dana Reyes', href: '/dana.reyes.99/' });
+        namesake.querySelector('[role="textbox"]')!.setAttribute('data-who', 'the other Dana');
+        made(namesake);
+        if (boxed) boxEverything(doc);
+        // Her own window doesn't open: nothing is sent.
+        const before = await press();
+        expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).toBe('none');
+        expect(sent).toEqual([]);
+        expect(boxOf('Dana Reyes').textContent?.trim()).toBe('');
+        // Hers draws 3 seconds after: it goes there only.
+        expect(
+          await writeWhile(
+            () => open(danaChat),
+            3_000,
+            doc,
+            URL,
+            'Hi Dana',
+            dana,
+            ['Dana Reyes'],
+            before,
+          ),
+        ).toBe('done');
+        expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
+        expect(
+          [...doc.querySelectorAll('[aria-label="Write to Dana Reyes"]')].map((box) =>
+            box.textContent?.trim(),
+          ),
+        ).toEqual(['', '']);
+      });
+
+  it('waits the whole time for a window that links to them before taking one by name', async () => {
+    // Another Dana Reyes's window, linking to nobody, pops up as Message is pressed; hers draws 3 seconds after.
+    const { doc, sent, open, press } = profileWithChats(rileyChat);
+    const before = await press({ name: 'Dana Reyes', href: null });
+    doc
+      .querySelector('[aria-label="Write to Dana Reyes"]')!
+      .setAttribute('data-who', 'the other Dana');
+    expect(
+      await writeWhile(
+        () => open(danaChat),
+        3_000,
+        doc,
+        URL,
+        'Hi Dana',
+        dana,
+        ['Dana Reyes'],
+        before,
+      ),
+    ).toBe('done');
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
+  });
+
+  it('takes no window by name once one open before their Message showed their name', async () => {
+    // Another Dana Reyes's window is open, linking to nobody; hers opens on Message, linking to nobody too.
+    const { doc, sent, open, press } = profileWithChats();
+    open({ name: 'Dana Reyes', href: null });
+    const before = await press({ name: 'Dana Reyes', href: null });
+    expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).toBe('none');
+    expect(sent).toEqual([]);
+  });
+
+  it('never takes a window that opened on their Message by name when it links to someone else elsewhere in it', async () => {
+    // Another Dana Reyes's message comes in just then: her window's header parts sit straight in it, linking to her.
+    const { doc, sent, press } = profileWithChats(rileyChat);
+    const before = await press({ name: 'Dana Reyes', href: '/dana.reyes.99/' });
+    const header = doc
+      .querySelector('a[href="/dana.reyes.99/"]')!
+      .closest('[role="none"]')!
+      .querySelector('[aria-label="Close chat"]')!.parentElement!.parentElement!;
+    header.replaceWith(...header.children);
+    expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).toBe('none');
+    expect(sent).toEqual([]);
+  });
+
+  it('never takes a link that leads nowhere for the profile the tab is on', async () => {
+    for (const href of ['#', '']) {
+      const { doc, sent, open, boxOf } = profileWithChats();
+      const riley = open(rileyChat);
+      riley.querySelector('a[href]')!.setAttribute('href', href);
+      expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'])).toBe('none');
+      expect(sent).toEqual([]);
+      expect(boxOf('Riley Quinn').textContent?.trim()).toBe('');
+      // Hers draws 3 seconds after: it goes there only.
+      expect(
+        await writeWhile(() => open(danaChat), 3_000, doc, URL, 'Hi Dana', dana, ['Dana Reyes']),
+      ).toBe('done');
+      expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
+    }
+  });
+
+  it('never takes a box whose own label names someone else, whatever header it seems to sit under', async () => {
+    // Riley's window, without a Close chat of its own, beside Dana's, whose header has drawn but not yet its box.
+    const { doc, sent, open, boxOf } = profileWithChats();
+    const riley = open(rileyChat);
+    riley.querySelector('[aria-label="Close chat"]')!.remove();
+    const hers = open(danaChat);
+    hers.querySelector('[role="log"]')!.remove();
+    hers.querySelector('[role="region"]')!.remove();
+    expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'])).toBe('none');
+    expect(sent).toEqual([]);
+    expect(boxOf('Riley Quinn').textContent?.trim()).toBe('');
   });
 
   it('goes by a chat window’s own header, never a link in its body or beside it', async () => {
@@ -759,14 +964,39 @@ describe('writing a message', () => {
         boxOf('Riley Quinn').textContent = text ?? '';
         return both ? type(command, ui, text) : true;
       };
-      expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'])).toBe('not_theirs');
+      expect(await written(doc, URL, 'Hi Dana', dana, ['Dana Reyes'])).toEqual({
+        result: 'not_theirs',
+      });
       expect(sent).toEqual([]);
       for (const name of ['Riley Quinn', 'Dana Reyes'])
         expect(boxOf(name).textContent?.trim()).toBe('');
     }
   });
 
-  it('opens a chat from their profile’s Message', () => {
+  it('takes its writing out of a box with the person’s own in it, leaving theirs, and says where it couldn’t', async () => {
+    // Riley's box has the person's own half-written message; the typing goes in after it, or over it.
+    for (const over of [false, true]) {
+      const { doc, sent, boxOf, type } = profileWithChats(rileyChat, danaChat);
+      const riley = boxOf('Riley Quinn');
+      riley.textContent = 'See you Tuesday';
+      doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+        if (command !== 'insertText') return type(command, ui, text);
+        if (over) riley.textContent = text ?? '';
+        else riley.append(doc.createTextNode(` ${text}`));
+        return type(command, ui, text);
+      };
+      const wrote = await written(doc, URL, 'Hi Dana, here is my price list', dana, ['Dana Reyes']);
+      expect(sent).toEqual([]);
+      expect(boxOf('Dana Reyes').textContent?.trim()).toBe('');
+      if (over) expect(wrote).toEqual({ result: 'not_theirs', left: { with: 'Riley Quinn' } });
+      else {
+        expect(wrote).toEqual({ result: 'not_theirs' });
+        expect(riley.textContent).toBe('See you Tuesday');
+      }
+    }
+  });
+
+  it('opens a chat from their profile’s Message, noting the chats open before it', async () => {
     const doc = load('profile-2026.html', URL);
     let pressed = 0;
     doc
@@ -774,5 +1004,9 @@ describe('writing a message', () => {
       .addEventListener('click', () => pressed++);
     walk(doc, MESSAGE_PATH, []);
     expect(pressed).toBe(1);
+    const { press } = profileWithChats(rileyChat);
+    const before = await press();
+    expect(before.names).toContain('Riley Quinn');
+    expect(before.boxes.size).toBeGreaterThan(0);
   });
 });

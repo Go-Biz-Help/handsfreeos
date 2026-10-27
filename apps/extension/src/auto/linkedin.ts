@@ -458,8 +458,9 @@ const threadUrl = (key: string) => `${LINKEDIN}/messaging/thread/${encodeURIComp
 
 /**
  * Opens the conversation with them: theirs in messaging when it's known, else their profile's Message. To send in
- * (`sending`), a conversation in messaging counts only when it links to them the way HandsFreeOS keeps them: by its
- * name alone it could be someone else's with the same name, so their profile's Message opens theirs instead.
+ * (`sending`), a conversation in messaging counts only when it links to them the way HandsFreeOS keeps them, or the
+ * way their profile shows them (their member id, for someone kept by the name in their address): by its name alone it
+ * could be someone else's with the same name, so their profile's Message opens theirs instead.
  */
 async function openChat(
   item: TodayListItem,
@@ -470,13 +471,22 @@ async function openChat(
   | { readonly outcome: Outcome }
 > {
   const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
-  if (item.threadKey) {
-    await tab.open(threadUrl(item.threadKey));
+  const different = {
+    outcome: { done: false, line: `${item.name}: LinkedIn showed a different conversation` },
+  };
+  /** Their kept conversation, opened, and whom it links to. */
+  const openKept = async (key: string) => {
+    await tab.open(threadUrl(key));
     await setState({ tabId: tab.tabId });
     const page = await read();
     const stop = await warnedOn(page, businessId);
+    return { stop, chat: page.chat };
+  };
+  // A conversation kept, shown by name only: what its link says, to check against their profile's.
+  let byName: ProfileRef | null = null;
+  if (item.threadKey) {
+    const { stop, chat } = await openKept(item.threadKey);
     if (stop) return { outcome: { stop } };
-    const chat = page.chat;
     // By the link to them when both say the same kind of thing; else by the name the conversation shows.
     const keyed = !!(chat?.profile && want && comparable(chat.profile, want));
     const them =
@@ -484,14 +494,20 @@ async function openChat(
         ? sameMember(chat.profile, want)
         : chat?.name != null && chat.name.trim().toLowerCase() === item.name.trim().toLowerCase();
     const profile = want ?? chat?.profile ?? null;
-    if (!chat || !them || !profile)
-      return {
-        outcome: { done: false, line: `${item.name}: LinkedIn showed a different conversation` },
-      };
+    if (!chat || !them || !profile) return different;
     if (keyed || !sending) return { profile, thread: chat.thread };
+    byName = chat.profile;
   }
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened;
+  // Their profile shows them the way the kept conversation links to them: it's theirs, and it's sent in after all.
+  // One that links to someone else is a namesake's, so Message opens theirs.
+  if (item.threadKey && byName && sameMember(byName, opened.noted)) {
+    const { stop, chat } = await openKept(item.threadKey);
+    if (stop) return { outcome: { stop } };
+    if (!chat?.profile || !sameMember(chat.profile, opened.noted)) return different;
+    return { profile: opened.noted, thread: chat.thread };
+  }
   const pressed = await tab.ask({ type: 'hfos-open-message' });
   if (!pressed.ok)
     return {

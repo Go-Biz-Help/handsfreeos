@@ -52,11 +52,18 @@ export interface LinkedPerson {
   readonly inWords: boolean;
 }
 
-/** The people some links lead to, each once with every link to them, in page order. The top bar's are never. */
-export function peopleLinked(anchors: Iterable<Element>, base: string): LinkedPerson[] {
+/**
+ * The people some links lead to, each once with every link to them, in page order. The top bar's are never: `inBar`
+ * tells which those are (a window over the page asks for the narrower `inPageBar`, as its own header may be a header).
+ */
+export function peopleLinked(
+  anchors: Iterable<Element>,
+  base: string,
+  inBar: (element: Element) => boolean = inTopBar,
+): LinkedPerson[] {
   const found = new Map<string, { profile: ProfileRef; anchors: Element[] }>();
   for (const anchor of anchors) {
-    if (inTopBar(anchor)) continue;
+    if (inBar(anchor)) continue;
     const url = linkedinUrl(anchor.getAttribute('href') ?? '', base);
     const profile = url ? profileFromUrl(url) : null;
     if (!profile) continue;

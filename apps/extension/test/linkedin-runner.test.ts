@@ -459,13 +459,79 @@ describe('what it does on LinkedIn’s list', () => {
     });
   });
 
-  it('sends one through their profile’s Message when their conversation links to them in a way that can’t tell them from a namesake', async () => {
-    // Kept by the name in her profile's address; her conversation links to her by member id only.
+  /** Her conversation's own page as LinkedIn behaves: what's typed in its box goes when its Send is pressed. */
+  function chatSends(doc: Document, sent: string[]) {
+    const box = doc.querySelector('main [role="textbox"]')!;
+    doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+      if (doc.activeElement === box) box.textContent = text ?? '';
+      return true;
+    };
+    doc.querySelector('main button[type="submit"]')!.addEventListener('click', () => {
+      sent.push(box.textContent ?? '');
+      box.textContent = '';
+    });
+  }
+
+  it('sends in her kept conversation, kept by the name in her address, once her profile shows the member id it links to her by, with Message on it or not', async () => {
+    for (const message of [true, false]) {
+      world.opened.length = 0;
+      world.noted.length = 0;
+      // Her conversation links to her by member id only; her profile's Message and mutual connections show it.
+      world.pages = (url) =>
+        url === DANA ? { fixture: 'linkedin-profile.html' } : { fixture: 'linkedin-chat.html' };
+      const sent: string[] = [];
+      world.behave = (doc, url) => {
+        if (url === DANA) {
+          if (!message) doc.querySelector('[aria-label="Message Dana Reyes"]')!.remove();
+        } else chatSends(doc, sent);
+      };
+      world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+      const outcome = await doWork({ do: 'send', item: approvedSend() }, ME.businessId, false);
+      expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+      const thread = `${LI}/messaging/thread/${encodeURIComponent(THREAD_KEY)}/`;
+      expect(world.opened).toEqual([thread, DANA, thread]);
+      expect(sent).toEqual(['Glad to help, Dana.']);
+      expect(
+        (world.noted[0]?.note as { step: { thread: { id: string } | null } }).step.thread?.id,
+      ).toBe(THREAD_KEY);
+    }
+  });
+
+  it('sends nothing when her kept conversation, opened again after her profile, links to someone else', async () => {
     world.pages = (url) =>
       url === DANA ? { fixture: 'linkedin-profile.html' } : { fixture: 'linkedin-chat.html' };
     const sent: string[] = [];
+    let opens = 0;
     world.behave = (doc, url) => {
-      if (url !== DANA) return;
+      if (url === DANA) return;
+      // The second time, LinkedIn shows another Dana Reyes's conversation at that address.
+      if (++opens === 2)
+        for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+          link.setAttribute('href', `${LI}/in/ACoAAFakeOtherDana456`);
+      chatSends(doc, sent);
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork({ do: 'send', item: approvedSend() }, ME.businessId, false);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: LinkedIn showed a different conversation',
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it('sends one through their profile’s Message when their kept conversation, kept by name, links to a namesake', async () => {
+    // Kept by the name in her profile's address; the kept conversation links by member id to another Dana Reyes.
+    world.pages = (url) =>
+      url === DANA ? { fixture: 'linkedin-profile.html' } : { fixture: 'linkedin-chat.html' };
+    const sent: string[] = [];
+    const typedInChat: string[] = [];
+    world.behave = (doc, url) => {
+      if (url !== DANA) {
+        for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+          link.setAttribute('href', `${LI}/in/ACoAAFakeOtherDana456`);
+        chatSends(doc, typedInChat);
+        return;
+      }
       // Message opens her conversation in a window over her profile.
       const window = load('linkedin-chat-window.html', DANA).querySelector('aside')!;
       doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', (event) => {
@@ -491,6 +557,7 @@ describe('what it does on LinkedIn’s list', () => {
       DANA,
     ]);
     expect(sent).toEqual(['Glad to help, Dana.']);
+    expect(typedInChat).toEqual([]);
   });
 
   it('stops for the day on a LinkedIn warning, and notes it as LinkedIn’s', async () => {

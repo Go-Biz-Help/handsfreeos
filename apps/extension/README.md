@@ -861,8 +861,9 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   left for you); a comment in the post's own box with the AI's draft; and the messages, drafted after a look-up of
   their profile and their company's page, and sent once OK'd in LinkedIn messaging, in their conversation or the window
   their profile's **Message** opens, typing only into that conversation's box (`src/networks/linkedin/auto.ts`). From
-  0.94.1 a window over the page is theirs only when everyone its header links to outside its messages is them, a
-  conversation in messaging only when it links to them the way HandsFreeOS keeps them (else their profile's
+  0.94.1 a window over the page is theirs only when everyone its header, the part around its own **Close**, links to
+  outside its messages is them (a window whose Close it can't tell is nobody's), a conversation in messaging only
+  when it links to them the way HandsFreeOS keeps them or their profile shows them (else their profile's
   **Message** opens it), and it checks the box is still theirs just before sending.
   Invitations they sent you are left for you to accept, and old invitations are withdrawn only when you tick them
   (your ask).
@@ -1273,10 +1274,13 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   0.94.1 it types only into a chat that shows it's with them, never a window left open from the person before, and
   sends nothing when there's none (`messageBoxFor`): a chat that links to a profile counts only by a key HandsFreeOS
   keeps too, their number or their username, never by a name someone else may share; a small chat window goes by its
-  own header, the part around its **Close chat**, and one that links to nobody by the name Facebook showed for them.
-  Messenger's chat links by number, so for someone kept by username it opens their profile's **Message** instead.
+  own header, the part around its **Close chat**, and one that links to nobody by the name Facebook showed for them,
+  only when it opened as their **Message** was pressed and no chat open before showed a name that may be theirs.
+  Messenger's chat links by number, so for someone kept by username it opens their profile's **Message** instead,
+  and when that takes the tab to their chat in Messenger, it takes their number from it once it shows their name.
   Just before sending it checks again that the box is still theirs and no other box took the writing, and if not
-  takes the writing out of every box it went in and sends nothing (`not_theirs`). When
+  takes the writing out of every box it went in and sends nothing (`not_theirs`); writing it can't take out of a box
+  that held the person's own is named in its line, for them to delete. When
   the person sends a few short texts (their voice, on to start), each part between blank lines goes as its own text, a
   few seconds apart, as long as typing it takes (`messageParts`, `partPauseMs`); once one has gone the message counts
   as sent, and its line says if a later one didn't. A message it couldn't send is reported as not sent, with why, and

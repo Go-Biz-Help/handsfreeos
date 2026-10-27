@@ -160,10 +160,19 @@ const WRITING = 'textarea, input[type="text"], [role="textbox"], [contenteditabl
 const isConversation = (element: Element) =>
   CONVERSATION.test(element.getAttribute('aria-label')?.trim() ?? '');
 
-/** Whether a link sits in a chat's messages, within a part of the page. */
-function inMessages(link: Element, part: Element): boolean {
+/**
+ * Whether a link sits in a chat's messages, within a part of the page: in a message, the list labelled as them, or
+ * anything around messages short of the box to write in, as Instagram's list and each message's group are, whose
+ * pictures link to whoever wrote them (in a group chat, any of its people).
+ */
+function inMessages(link: Element, part: Element, box: Element): boolean {
   for (let up: Element | null = link; up && up !== part; up = up.parentElement)
-    if (up.matches(MESSAGES) || isConversation(up)) return true;
+    if (
+      up.matches(MESSAGES) ||
+      isConversation(up) ||
+      (!up.contains(box) && up.querySelector('[role="article"]'))
+    )
+      return true;
   return false;
 }
 
@@ -185,7 +194,7 @@ function withAround(box: Element, doc: Document, href: string): string | null {
     const part = up;
     const accounts = new Set(
       linksIn(part, href)
-        .filter(({ a }) => !inMessages(a, part))
+        .filter(({ a }) => !inMessages(a, part, box))
         .map(({ url }) => profileOf(url)?.username.toLowerCase())
         .filter((u): u is string => !!u && u !== own),
     );
@@ -216,6 +225,31 @@ export function chatBoxFor(doc: Document, href: string, them: ProfileRef): HTMLE
   return theirs.length === 1 ? theirs[0]! : null;
 }
 
+/**
+ * Whether a box found as theirs still is, by what's around it rather than its label, which Instagram may change once
+ * something is written: on their chat's own page, still in the chat with them and the only box there to write a
+ * message in; over the page, outside the main column, its chat still with them, and no other box's chat with them.
+ */
+function stillTheirs(doc: Document, href: string, them: ProfileRef, box: HTMLElement): boolean {
+  if (!box.isConnected || !visible(box)) return false;
+  const main = mainOf(doc);
+  const page = instagramUrl(href);
+  if (page && kindOf(page) === 'chat')
+    return (
+      isThem(chatOn(doc, href, ownOf(doc, href))?.with?.username, them) &&
+      main.contains(box) &&
+      boxesSaying(main, CHAT_BOX).every((other) => other === box)
+    );
+  return (
+    !main.contains(box) &&
+    isThem(withAround(box, doc, href), them) &&
+    boxesSaying(doc, CHAT_BOX).every(
+      (other) =>
+        other === box || main.contains(other) || !isThem(withAround(other, doc, href), them),
+    )
+  );
+}
+
 /** The box's own Send: the nearest part around it that holds one, never past one with another box to write in. */
 function sendFor(box: Element): HTMLElement | null {
   for (let up = box.parentElement, n = 0; up && n < 6; up = up.parentElement, n++) {
@@ -243,8 +277,8 @@ function takeOut(box: HTMLElement): void {
 
 /**
  * Writes a message to them in their chat and sends it, waiting a little for its box to show. Nothing is typed unless
- * the focus is in their box, and nothing is sent unless, once typed, it's still their chat's box; else what was typed
- * is taken out again (`not_theirs`).
+ * the focus is in their box, and nothing is sent unless, once typed and again just before Send is pressed, it's still
+ * their chat's box; else what was typed is taken out again (`not_theirs`).
  */
 export async function writeMessage(
   doc: Document,
@@ -253,8 +287,8 @@ export async function writeMessage(
   them: ProfileRef,
 ): Promise<AutoResult> {
   // A chat opened over the page moves the tab nowhere; one on its own page has its own address.
-  const theirs = () => chatBoxFor(doc, doc.location?.href ?? href, them);
-  const box = await waitFor(theirs, WENT_MS);
+  const here = () => doc.location?.href ?? href;
+  const box = await waitFor(() => chatBoxFor(doc, here(), them), WENT_MS);
   if (!box) return 'none';
   // Something written there already is the person's: left alone.
   if (writingIn(box)) return 'not_sent';
@@ -264,13 +298,20 @@ export async function writeMessage(
   if (!focusIn(box)) return 'not_theirs';
   doc.execCommand('insertText', false, text);
   await pause(800);
-  if (writingIn(box) && theirs() !== box) {
+  const theirs = () => stillTheirs(doc, here(), them, box);
+  if (writingIn(box) && !theirs()) {
     takeOut(box);
     return 'not_theirs';
   }
   if (!writingIn(box)) return 'not_sent';
+  // Instagram shows Send once something's written: it's checked again just before it's pressed.
   const send = await waitFor(() => sendFor(box), 2_000);
   if (!send) return 'none';
+  if (!writingIn(box)) return 'not_sent';
+  if (!theirs()) {
+    takeOut(box);
+    return 'not_theirs';
+  }
   send.click();
   return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
 }
