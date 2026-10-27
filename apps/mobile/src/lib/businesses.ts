@@ -61,6 +61,7 @@ export function loadMe(userId: string): Promise<Me> {
           role: w.role,
           timezone: w.timezone,
           permissions: w.permissions,
+          needsPlan: w.needsPlan,
         })),
         organizations: data.organizations.map((o) => ({ id: o.id, name: o.name, role: o.role })),
         fetchedAt: Date.now(),

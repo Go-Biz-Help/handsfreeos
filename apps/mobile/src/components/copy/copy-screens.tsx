@@ -18,7 +18,7 @@ import { phoneCopy } from '@/sync';
 import { useColors } from '@/theme';
 
 /** A whole screen that says one thing: an icon, a heading, what it means, and what can be done. */
-function StateScreen({
+export function StateScreen({
   icon,
   tone = 'accent',
   title,

@@ -14,6 +14,8 @@ export interface Business {
   readonly timezone: string;
   /** What they may do there (0106), as `account.me` said; a phone's older copy may not have it. */
   readonly permissions?: readonly string[];
+  /** It picks a founding spot and pays on the web before it opens (20261027012700); a phone's older copy may not say. */
+  readonly needsPlan?: boolean;
 }
 
 export interface KeepChoices {
