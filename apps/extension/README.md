@@ -35,7 +35,9 @@ puts your helpful post up on your own LinkedIn feed, once you OK it or on its ow
 engaged with it. Since 0.44.0 its panel no longer lists Needs you or its chats (decision 72): it says how many
 things need you, and you OK, change, skip and carry on in HandsFreeOS. Since 0.46.0 its LinkedIn readers and the
 steps it notes there are tuned from the owner's page outlines of 16 Oct 2026, his feed and his own profile in
-LinkedIn's newer layout (below, "What it reads" and "What it notes"); they still read the older one.
+LinkedIn's newer layout (below, "What it reads" and "What it notes"); they still read the older one. Since 0.95.0 it
+reads who reacted to and commented on the good posts its search found, and reads each one's profile for the AI's
+check before anything is done for them (below, "From 0.95.0").
 
 ## The networks
 
@@ -48,12 +50,12 @@ A tab's kit is found by its address (`kitOf`), so the tab reads and notes by its
 background takes a tab's notes only from a network it knows, as that network's. What differs from one network to the
 next is in its kit, never in an `if`.
 
-| Network   | Folder                    | From install? | What it does there                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| --------- | ------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| LinkedIn  | `src/networks/linkedin/`  | Yes           | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it                                                                                                                                                                                                                                                                                                                             |
-| Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.94.0) |
-| Alignable | `src/networks/alignable/` | Yes           | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz                                                                                                                                                                                                                                                                                       |
+| Network   | Folder                    | From install? | What it does there                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------- | ------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Facebook  | `src/networks/facebook/`  | Yes           | Everything below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| LinkedIn  | `src/networks/linkedin/`  | Yes           | Reads its pages, notes your steps and who wrote back, looks for its warnings, does what you ask, and works its list on its own once you let it, and finds people by topic: who reacted to and commented on good posts its search found, each checked by the AI first (0.95.0)                                                                                                                                                                                                                                                                                                                                                                  |
+| Instagram | `src/networks/instagram/` | Yes           | Reads its pages (0.80.0), notes your steps there, saves your followers and unfollows the ones you tick, checks them, reads your chats and looks people up (0.81.0), works its list on its own once you let it (0.82.0), and grows it from your area's hashtags and places and your notifications (0.83.0); its **Check Instagram** (0.58.0) tries each step up to its last press; it puts your bio in (0.62.0), and your username and name in its Accounts Center (0.94.0); from 0.95.0 it looks at your playbooks' own hashtags, reads who liked and commented on good posts, has each checked by the AI first, and posts the comments you OK |
+| Alignable | `src/networks/alignable/` | Yes           | Reads its pages, notes your steps, does what you ask, works its list on its own once you let it (0.77.0), and reads your chats (0.84.0); **Check Alignable** reads its pages at /biz; from 0.95.0 it searches for businesses like your clients, reads your groups and joins good ones, has everyone found checked by the AI first, and posts the comments you OK                                                                                                                                                                                                                                                                               |
 
 **A network that's off runs nothing, reads nothing and shows nothing** (`src/networks/on.ts`). Two things say a network
 is on, and both must:
@@ -194,6 +196,56 @@ decision 78, "His Checks of 21 Oct 2026"), each built from his outlines' structu
   the hashtag's posts for one tagged at a place instead.
 - **Your own account:** its name is the line under your username, beside the counts, never what you do; the "New"
   button among your highlights is no highlight.
+
+From 0.95.0 (the owner, 27 Oct 2026, docs/outreach.md decision 92) it finds people by topic on Instagram, LinkedIn
+and Alignable, once a day while it works on its own there, and has the AI check each one before anything is done for
+them:
+
+- **Instagram:** it looks at your customer playbooks' own hashtags (**Hashtags on Instagram**, the AI's to start), 5
+  a day in turn, about 10 posts each (places stay at 4), and saves each hashtag's posts with it
+  (`src/jobs/instagram/posts.ts`). Then **Who liked and commented** (`post_people`,
+  `src/jobs/instagram/post-people.ts`): up to 5 good posts a day, each on its own page. It presses View all comments
+  (or Load more comments) once and reads who commented, with what they said. Then it opens the post's Likes box by its
+  count, reads up to 2 screens of who liked it (about 30), and closes the box with its own Close. Never you, the
+  post's writer, or anyone you follow.
+- **LinkedIn:** its post search goes with your playbooks' own phrases (**Words to search LinkedIn’s posts with**), 5 a
+  day in turn, and each save carries its phrase (`src/jobs/linkedin/posts.ts`). Then **Who reacted and commented**
+  (`post_people`, `src/jobs/linkedin/post-people.ts`): up to 5 good posts a day, each on its own page. It reads who
+  commented, never the writer or you. Then it opens the box the reactions count opens, reads it as far as it first
+  shows (about 25, never scrolled) with each one's headline and degree, leaves out 1st-degree connections, and
+  closes it with its Dismiss. It never presses Load more comments.
+- **Alignable:** your own groups come first (`my_groups`), read from your groups page and saved as ones you're in.
+  After your town's posts comes **Search for businesses** (`search`, `src/jobs/alignable/customer-search.ts`): today's
+  3 kinds of business (**Kinds of business to search for on Alignable**), 3 screens each. A local search adds your
+  town's name and keeps only the businesses whose address is in your town; one for a playbook that works with clients
+  online uses the words alone and keeps every business. With no town known, it says to check your business page's
+  address. Then your groups (`src/jobs/alignable/groups.ts`): **Check groups** (up to 4 a day; when none wait, it
+  first searches Alignable's groups with today's group words), **Join groups** (up to 3 good ones a day, only while
+  your groups run low on people to reach, with the group's own Join; Alignable asks no questions first, so it never
+  waits on the AI), **Group members** (up to 3 groups a day, leaders first, and leaders are never reached) and **Posts
+  in your groups** (up to 5 of yours other than your town's).
+- **Checking the people found** (`found_checks`, `src/jobs/found-checks.ts`), last of each network's day. HandsFreeOS
+  says who's next (writers first, then commenters, likers, members and search results) and how many today has room
+  for: 30 on Instagram and Alignable, and up to 30 inside LinkedIn's 40 profiles read, half on training wheels or for a
+  week after a warning. It opens each one's page, checks it's theirs, reads it as that network's checks do, and sends
+  it for the AI's check, 15 to 30 seconds apart. Only a good check puts them on your list.
+- **Their warm-up is a like on every network.** A post's writer gets it on the post it found, on that post's own page,
+  and on their latest only when that post is gone or isn't one to like. Anyone else gets it on a recent post of
+  theirs, or the look alone when there's none.
+- **Comments on Instagram and Alignable** (`src/auto/comments.ts`): the AI drafts one for each good post, and it waits
+  in Needs you in HandsFreeOS. Once you OK it, or once the comment hold is past (a week of comments there and 25 you
+  OK'd), it opens the post and writes only in the post's own box (Instagram) or its reply form at the top
+  (Alignable), and posts it with that box's own Post or Send. A forum answer on Alignable waits for your OK every
+  time. One that couldn't go is handed to you with its words. LinkedIn's comments go on their own, as before.
+- **Check Instagram, Check LinkedIn and Check Alignable** look at the new pages too: a post's Likes box and its View
+  all comments; someone else's post in LinkedIn's newer layout, its Like and its reactions box (the `reactors` try);
+  and your Alignable groups, a search for groups, and a group you aren't in with its About, its members and its Join,
+  looked at and never pressed.
+- **Read from guessed markup:** Instagram's Likes box, LinkedIn's newer reactions box, every Alignable group page,
+  your groups and Alignable's search for groups are built from hand-written test pages with made-up people, till the
+  owner's next Checks. A page that shows nothing says so with its outline, and the day goes on.
+- HandsFreeOS gives the new list (the people found, and comments to post) only to a computer on 0.95.0 or later;
+  0.94.0 and older keep the list they had.
 
 From 0.94.0 (the owner, 26 Oct 2026, docs/outreach.md decision 89) **Put these in** also puts your Facebook name in
 itself, and your Instagram username and name, where 0.93.0 handed them to you (`src/jobs/profile.ts`,
@@ -415,6 +467,25 @@ the feed, post search, a post's own page, a group, messaging's list and an open 
 company's page and its About (`company.ts`, for a look-up), and LinkedIn's warnings. LinkedIn writes much of its text twice, once shown and once
 for screen readers (in its newer layout often the screen readers' copy first): the readers read what's shown. As you
 go, only its warnings are looked at for now.
+
+**Finding people by topic** (0.95.0, decision 92) adds a reader or two on each network, each read only when a job
+asks:
+
+- **LinkedIn** (`src/networks/linkedin/compose.ts`): someone else's post on its own page, in either layout; who
+  commented on it, never its writer (`readComments`, `readCommenters`); and the box its reactions count opens
+  (`readReactors`), each one's name, headline and degree, read with `readPeople`, never you. Its pages are
+  `test/fixtures/linkedin-post-2026-10.html` and `linkedin-reactions-2026-10.html`, written by hand.
+- **Instagram** (`src/networks/instagram/read.ts`): a post's Likes box (`/p/<code>/liked_by/`, or the box headed
+  Likes over the post: `likersBox`, `likersOn`), each account and whether you follow them, never you; what opens it
+  (`likesOpenerIn`: its "12 others" link, "1,234 likes", or the number by its Like, never a comment's likes); a
+  comment's own link; and View all comments, Load more comments or "4 more comments" (`moreCommentsIn`).
+- **Alignable** (`src/networks/alignable/read.ts`): groups on a search for groups and on your groups page
+  (`groupCards`); a group's own page, its name, members, whether you're in it, its Join and its About (`groupFacts`,
+  `groupStanding`); its members, each by their business, leaders marked (`memberRows`, `groupLeaders`); and the reply
+  form at the top of a post, where a comment goes.
+
+Instagram's Likes box, LinkedIn's newer reactions box and every Alignable group page are read from guessed markup till
+the owner's next Checks.
 
 **LinkedIn's newer layout** (0.46.0, tuned from the owner's page outlines of 16 Oct 2026; the pages rebuilt from
 them are `test/fixtures/linkedin-feed-2026-10.html` and `linkedin-own-profile-2026-10.html`) is plain `p`, `span`
@@ -851,12 +922,15 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   (never a company's page) with the headline under their name, and people search, two pages of it by its address, as
   LinkedIn limits a free account's people searches; and, last, today's helpful post for your feed asked for
   (`outreach.helpful.ask` with `platform: 'linkedin'`) and who commented on or reacted to those up in the last
-  fortnight read (each a warm lead on LinkedIn's Today, `outreach.helpful.engaged`).
+  fortnight read (each a warm lead on LinkedIn's Today, `outreach.helpful.engaged`). From 0.95.0 the post search goes
+  with your playbooks' own phrases, then come **Who reacted and commented** on good posts (`post_people`) and, last,
+  **Check the people found** (`found_checks`), its profiles read inside the day's 40 (above, "From 0.95.0").
 - **Today's helpful post,** when your LinkedIn posting choice is **On its own**: put up on your own feed once the AI
   has written it, as an OK'd one is (`src/jobs/linkedin/helpful.ts`).
 - **Your LinkedIn list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own:
   a look at their profile and a like on the first post of theirs nothing rules out (never one about grief, illness or
-  trouble; one liked already counts), a day before the invitation; an invitation to connect **without a note**
+  trouble; one liked already counts), a day before the invitation, and from 0.95.0, for someone found by topic, the
+  post it found them by; an invitation to connect **without a note**
   (Chris: Connect, or Connect under More, then **Send without a note**; a box that asks for more, like their email, is
   left for you); a comment in the post's own box with the AI's draft; and the messages, drafted after a look-up of
   their profile and their company's page, and sent once OK'd in LinkedIn messaging, in their conversation or the window
@@ -887,7 +961,11 @@ line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say
   business pages a day to start), from 0.84.0 your chats read for the AI with who wrote last noted (60 a day, as on
   Instagram), Find partners (Alignable's search for businesses, `/biz/search`, a few screens,
   each business kept by Alignable's id, then those found read for the AI's partner check:
-  `src/jobs/alignable/partner-search.ts`), and your town's posts and forum questions read for the AI.
+  `src/jobs/alignable/partner-search.ts`), and your town's posts and forum questions read for the AI. From 0.95.0
+  **Your groups** (`my_groups`) go first of all; after your town's posts come **Search for businesses** (`search`),
+  **Check groups**, **Join groups**, **Group members** and **Posts in your groups** (`group_checks`, `join`,
+  `members`, `group_posts`); then who engaged with you, and, last, **Check the businesses found** (`found_checks`),
+  all above in "From 0.95.0".
 - **Your Alignable list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own: a
   look at their business page and a like on a recent post of theirs when the page shows one (never one weeks old,
   never one about grief, illness or trouble), or the look alone when it doesn't; a connection request with their
@@ -898,9 +976,13 @@ line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say
   of your connections (a list of one, as Save my connections keeps them), so Today doesn't offer it again; and the
   messages, drafted after a look-up of their page and sent once OK'd in their
   conversation (`/biz/conversations?with_business_id=…`), typed only into its own box and sent with its own Send
-  (`src/networks/alignable/auto.ts`). Comments and forum answers wait for your OK each time, and you post them;
-  recommendations are only ever yours. Requests they sent you are left for you to accept. Old requests are yours to
-  withdraw too: no reader of the requests you've sent is built yet, so nothing works out which to withdraw.
+  (`src/networks/alignable/auto.ts`). From 0.95.0 a business found by topic gets its like on the post it was found by,
+  when it was, and a good post gets a comment (`src/auto/comments.ts`): the AI drafts it, it waits in Needs you till
+  you OK it or the comment hold is past, then it goes in the post's own reply form at the top, only while that's empty,
+  with that form's Send. A forum answer waits for your OK every time. Before 0.95.0 comments and forum answers were
+  yours to post. Recommendations are only ever yours. Requests they sent you are left for you to accept. Old requests
+  are yours to withdraw too: no reader of the requests you've sent is built yet, so nothing works out which to
+  withdraw.
 - **At Alignable's pace:** 2 to 6 minutes between steps, inside Alignable's limits, which HandsFreeOS keeps.
 - **An Alignable warning** stops it for the day, and only it. If Alignable asks you to sign in, it stops for now and
   tries again in a few minutes.
@@ -928,15 +1010,20 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
   it shows for creators (by the name each post's own link carries, else a few of those posts opened) and the accounts
   it shows for businesses (`src/jobs/instagram/partner-search.ts`), then those found read for the AI's partner check.
   From 0.83.0 its creators come from the hashtag of the words too (“local businesses” is #localbusinesses), and its
-  businesses, once a run, from the accounts Instagram suggests to you (`/explore/people/`).
-- **Your hashtags and places** (0.83.0, `src/jobs/instagram/posts.ts`), once a day. A playbook has no hashtags or
-  places of its own: HandsFreeOS makes the day's three from its area and its Words to search for groups, local ones
-  first (Austin and plumbing make #austinplumbing), the next three each day (`outreach.posts.words`). It opens each
-  hashtag's page and 4 of its posts in turn, at a person's pace, each read for who posted it, its caption, its likes
-  and its place; then the pages of up to 2 places in your area those posts were tagged at, read the same way. The posts
-  go to HandsFreeOS in no group (`outreach.posts.save`, found by a search), kept only when they say a playbook's words
-  or ask for help, for the AI to check. A good one's author goes on your list: a like of theirs, which it does, then a
-  follow a day after; the post's comment is yours to write.
+  businesses, once a run, from the accounts Instagram suggests to you (`/explore/people/`). From 0.95.0, after your
+  hashtags and who engaged with you, **Who liked and commented** on good posts (`post_people`) and, last, **Check the
+  people found** (`found_checks`), both above in "From 0.95.0".
+- **Your hashtags and places** (0.83.0, from 0.95.0 your playbooks' own; `src/jobs/instagram/posts.ts`), once a day.
+  From 0.95.0 a customer playbook has hashtags of its own (**Hashtags on Instagram**, the AI's to start, yours to
+  change), and HandsFreeOS gives the day's 5 in turn (`outreach.posts.words`). A playbook the AI hasn't written them
+  for yet has them made from its area and its Words to search for groups, local ones first (Austin and plumbing make
+  #austinplumbing). It opens each hashtag's page and about 10 of its posts in turn, at a person's pace, each read for
+  who posted it, its caption, its likes and its place; then the pages of up to 2 places in your area those posts were
+  tagged at, 4 posts each, read the same way. The posts go to HandsFreeOS in no group (`outreach.posts.save`, found by
+  a search): a hashtag's with its hashtag, kept whatever they say; a place's only when they say a playbook's words or
+  ask for help. The AI checks each. From 0.95.0 a good one's author is checked by the AI from their own account first
+  (`found_checks`), and only a good fit goes on your list: a like on that post, which it does, then a follow a day
+  after, and the post gets a comment the AI drafts (below).
 - **Who engaged with you** (0.83.0, `src/jobs/instagram/engaged.ts`), once a day: your notifications
   (`/notifications/`), who started following you and who liked or commented on your posts, sent as warm leads
   (`outreach.engaged.save`), never what anyone wrote. Whoever followed you is on your list to follow back at once,
@@ -949,8 +1036,11 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
   Follow, after which it reads their account again to see it says Following (or Requested, for a private account); and
   the messages, drafted after a look-up of their account and sent once OK'd in their chat, by its id when it's kept,
   else from their account's Message, typed only into that chat's own box (`src/networks/instagram/auto.ts`). The one
-  message to someone's Requests goes as one text, never split. Comments wait for your OK each time, and you post them;
-  unfollowing is only ever the ones you tick; follow requests from private accounts are yours to confirm.
+  message to someone's Requests goes as one text, never split. From 0.95.0 someone found by topic gets their like on
+  the post it found them by (on their latest only when that one's gone), and a good post gets a comment
+  (`src/auto/comments.ts`): the AI drafts it, it waits in Needs you till you OK it or the comment hold is past, then it
+  goes on the post's own page, in its own box, with that box's Post. Before 0.95.0 comments were yours to post.
+  Unfollowing is only ever the ones you tick; follow requests from private accounts are yours to confirm.
 - **At Instagram's pace:** 3 to 8 minutes between steps, slower than LinkedIn's, inside Instagram's low limits, which
   HandsFreeOS keeps.
 - **An Instagram warning** ("Action blocked", "Try again later") stops it for the day, and only it; HandsFreeOS halves
@@ -1128,7 +1218,10 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   automated. So on LinkedIn the extension notes only what the person presses, reads only as they go or when they ask
   from HandsFreeOS (at a person's pace, in a window of its own, stopping on any warning), and builds nothing to get
   around its limits or its checks. What it does on its own there stays the person's choice, off to start, at
-  LinkedIn's lower limits, and only on a day they started on LinkedIn.
+  LinkedIn's lower limits, and only on a day they started on LinkedIn. Finding people by topic (0.95.0, decision 92)
+  keeps to the same: its found checks are profiles read inside the day's 40, never more; a post's reactions box is
+  read as far as it first shows, never scrolled; Load more comments is never pressed; and the 15 invitations a day and
+  80 a week stay as they were.
 - **Pressing on LinkedIn only for what's asked.** LinkedIn's tab presses three things, each only on its own page:
   **Show more results** at the foot of a list that stopped loading (`scrollList`); on your own profile, **Edit intro**,
   then only the **Headline** field and that box's **Save** (`writeHeadline`); and on Sent invitations, **Withdraw** on
@@ -1142,7 +1235,10 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   writing in it. `test/linkedin-auto.test.ts` walks each, both ways. Your helpful post it types only into the box **Start a
   post** opens, while it's empty, and puts up with that box's own **Post**; who engaged it reads from your post and
   the box its reactions count opens, which it closes (`src/networks/linkedin/compose.ts`,
-  `test/linkedin-helpful.test.ts`). For your file, on Get a copy of your data alone
+  `test/linkedin-helpful.test.ts`). From 0.95.0, on a good post its search found, it presses only that post's
+  reactions count, reads the box it opens as far as it first shows, never scrolled, and closes it with its own
+  Dismiss; it never presses Load more comments; and someone found there gets their like on that post's own page, its
+  own Like as above (`test/linkedin-post-people.test.ts`). For your file, on Get a copy of your data alone
   (`dataPage`), it picks the data files, ticks only Connections, Invitations, Messages and Profile, and presses
   **Request archive** or **Download archive**; the password it leaves to you. `test/linkedin-file.test.ts` walks each,
   both ways.
@@ -1151,16 +1247,28 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   Alignable's id for it, only while it says Connect, and never while their page shows their own Remove Connection
   (`/biz/connections/<their id>`, saying so: 0.94.0); a message only in their conversation's own box
   (`full-view-write-message`, on the page whose address names their business by its id), never one with writing in
-  it, sent with its own Send (`messaging-send-external`). It never comments, answers or recommends there. Each is
-  found by Alignable's test ids, its links' addresses and its words, never class names. `test/alignable-runner.test.ts`
-  walks each, both ways.
+  it, sent with its own Send (`messaging-send-external`). From 0.95.0 (decision 92) two more: a group's Join only on
+  that group's own page (or its About or members page), its own and never one on another group's card, only while it
+  says Join; and a comment once you OK'd it or the comment hold is past, only on the discussion's own page whose post
+  is the one asked for, only in its own reply form at the top (`discussion-comment-reply-form`, never one under an
+  answer), only while that form's box is empty, sent with that form's own Send. A forum answer goes only once you OK'd
+  it. It never recommends there. Each is found by Alignable's test ids, its links' addresses and its words, never class
+  names. `test/alignable-runner.test.ts` and `test/alignable-readers.test.ts` walk each, both ways.
 - **Pressing on Instagram on its own, only on its own page** (`src/networks/instagram/auto.ts`). Like only on a post
   whose own link names them, on that post's own page, and only the post's own Like (in the bar with its Comment, never
   a comment's, which sits by its Reply), while it says Like; Follow (or Follow Back) and Message only under their name
   on their own account; a message only in the box of the chat with them (on its page, or over their account), never
-  one with writing in it, sent with the box's own Send. It never comments or unfollows there on its own. Each is found
-  by Instagram's own words, labels and link addresses, never class names. `test/instagram-runner.test.ts` walks each,
+  one with writing in it, sent with the box's own Send. From 0.95.0 (decision 92) a comment once you OK'd it or the
+  comment hold is past: only on the post asked for, on its own page, when its own link names them; only in the post's
+  own box, never one among its comments, only while it's empty; typed as a person types (`writeIn`), then sent with
+  that box's own Post. On a good post's page it also opens the Likes box by its count of likes and closes it with its
+  own Close (or Escape), and presses View all comments (or Load more comments) once. It never unfollows there on its
+  own. Each is found by Instagram's own words, labels and link addresses, never class names.
+  `test/instagram-runner.test.ts`, `test/instagram-comment.test.ts` and `test/instagram-readers.test.ts` walk each,
   both ways.
+- **A comment or a Join only where a site says it does one** (decision 92, `src/networks/looking/kit.ts`). The tab
+  answers `hfos-comment` and `hfos-join` only for a site whose kit declares them (`auto.comment`, `auto.join`):
+  Instagram's comment, and Alignable's comment and Join. Anywhere else it says the extension doesn't do that there.
 - **Each network on its own.** A warning or a stop on one network never affects another: each network's warnings are
   kept apart (`hfos.warned`), each network's asks and runner have their own line, window and turn, and each runner
   looks only at its own network's.
@@ -1333,11 +1441,11 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 | `src/panel/`, `public/`                     | The side panel: `account.ts` signing in, `status.ts` Next up and Done today, `networks.ts` Allow on LinkedIn and its warning, `needs.ts` how many things need you in HandsFreeOS                                                                                                                                                                                         |
 | `src/asks/run.ts`                           | What you ask of it from HandsFreeOS: taking each ask, doing it with its job, handing steps to you, and how it ended                                                                                                                                                                                                                                                      |
 | `src/hfos/asks.ts`                          | The asks' side of HandsFreeOS: take, progress, end (waiting with no connection), reply and stop                                                                                                                                                                                                                                                                          |
-| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks; LinkedIn's in `linkedin/`, Alignable's in `alignable/`, and Instagram's in `instagram/` (its hashtags and places in `posts.ts`, its notifications' warm leads in `engaged.ts`, who followed back in `follow-backs.ts`) |
+| `src/jobs/`                                 | The jobs that go page by page: the file and bringing it in, tidying, the look-up, friends, groups and members, Find posts, Read my chats, checks (also of those found: `found-checks.ts`); LinkedIn's in `linkedin/`, Alignable's in `alignable/`, Instagram's in `instagram/` (hashtags in `posts.ts`, warm leads in `engaged.ts`, `follow-backs.ts`, `post-people.ts`) |
 | `src/jobs/accounts-center.ts`               | Put these in's username and name on Accounts Center, for Facebook's job (`profile.ts`) and Instagram's (`looking.ts`): finding your profile, waiting while Meta asks you something, its refusals in words, and each hand-over                                                                                                                                            |
 | `src/offscreen.ts`, `public/offscreen.html` | The offscreen page that opens the zips in your downloads for Bring them in                                                                                                                                                                                                                                                                                               |
 | `src/hfos/looked.ts`                        | What the tab in front of you read as you went: warnings noted, chats and posts sent                                                                                                                                                                                                                                                                                      |
-| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), each network's runner (`run.ts`, `linkedin.ts`, `alignable.ts`, `instagram.ts`), the once-a-day jobs (`daily.ts`), lists first (`lists.ts`), and taking turns with asks (`turns.ts`)                                                                                                                                 |
+| `src/auto/`                                 | On its own: what it does next and when (`plan.ts`), each network's runner (`run.ts`, `linkedin.ts`, `alignable.ts`, `instagram.ts`), the once-a-day jobs (`daily.ts`), lists first (`lists.ts`), taking turns with asks (`turns.ts`), and comments through `sends` (`comments.ts`)                                                                                       |
 | `src/hfos/`                                 | HandsFreeOS: the sign-in and calls (background), the saves, the steps noted, Facebook's times, its zips in downloads                                                                                                                                                                                                                                                     |
 | `src/hfos/follow.ts`                        | Your settings from HandsFreeOS, and the live channel's news: loaded at sign-in and each step, and followed live                                                                                                                                                                                                                                                          |
 | `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                                                                                                                                                                     |
@@ -1355,3 +1463,9 @@ on its own there (0.41.0), getting and bringing in its file (0.42.0), and growin
 feed (0.43.0). Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
 of decisions 26 to 35); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
+
+Finding people by topic (0.95.0, decision 92) waits on the owner's next Check Instagram, Check LinkedIn and Check
+Alignable, to put right what's read from guessed markup: Instagram's Likes box, LinkedIn's newer reactions box, every
+Alignable group page, your Alignable groups and Alignable's search for groups. Then what decision 92 left for later:
+liking a commenter's comment, Alignable searches in nearby towns and its Groups tab, LinkedIn's comments waiting at
+first, reading further into a Likes or reactions box, and likers on Alignable.

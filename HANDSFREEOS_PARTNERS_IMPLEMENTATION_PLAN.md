@@ -641,7 +641,10 @@ request when opened, so no Check opens it: the first real request shows what it 
      search finds and forum questions; (d) Recommend (by hand) and forum answers as kinds, with their limits; (e) the
      switch to `working`, with Sending kept off until the runner (part 5). Built: (a), then (e), so Chris can try
      Alignable by hand while the rest comes; (b) needs no new field, as a playbook's words to search are its kinds of
-     business there and its area narrows the person's own town.
+     business there and its area narrows the person's own town. (From extension 0.95.0, decision 92 in
+     docs/outreach.md: (b) has fields of its own, a customer playbook's Kinds of business to search for on Alignable
+     and whether the business works with those clients online; and (c) adds Alignable's search for businesses like
+     the clients and its groups' members, each checked by the AI before it goes on Today.)
 4. **6d, Instagram,** the same way, once Alignable runs: its own Check first, then its parts, with Find partners on
    its search, hashtags and the accounts it suggests.
    - **Part 9, Check's new reads** (extension 0.79.0): Check Instagram also opens their followers, a hashtag
