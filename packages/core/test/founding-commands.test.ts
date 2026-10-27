@@ -16,6 +16,7 @@ import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
 import {
   foundingApprove,
+  foundingBuy,
   foundingCheckoutStatus,
   foundingClaim,
   foundingClaimPreview,
@@ -30,11 +31,13 @@ import {
   foundingSetRenewing,
   foundingSetStatus,
   foundingStartCheckout,
+  me,
   organizationCreate,
   platformBusinessList,
   platformFounding,
   platformFoundingBusiness,
   workspaceCreate,
+  workspaceGet,
 } from '../src/server';
 
 const api = () => testDbs().api.db;
@@ -67,6 +70,7 @@ async function refusal(fn: () => Promise<unknown>): Promise<HfosError> {
 const FREE = 'test_cmd_free';
 const PAID = 'test_cmd_paid';
 const YEARLY = 'test_cmd_yearly';
+const MONTHLY = 'test_cmd_monthly';
 
 let owner: TestUser;
 let member: TestUser;
@@ -92,10 +96,17 @@ beforeAll(async () => {
         on conflict (user_id) do update set role = 'admin', status = 'active'`,
   );
 });
-afterAll(closeTestDbs);
+// Off sale afterwards: an open paid offer makes every business made after it pick a plan first (20261027012700).
+afterAll(async () => {
+  await admin().execute(
+    sql`update platform.founding_offers set status = 'closed'
+        where id in (${PAID}, ${YEARLY}, ${MONTHLY}) and status = 'open'`,
+  );
+  await closeTestDbs();
+});
 
 beforeEach(async () => {
-  for (const offer of [FREE, PAID, YEARLY]) {
+  for (const offer of [FREE, PAID, YEARLY, MONTHLY]) {
     await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${offer}`);
     await admin().execute(
       sql`delete from platform.founding_applications where offer_id = ${offer}`,
@@ -744,6 +755,149 @@ describe('the $497 seat, paid by the year', () => {
       meta(),
     );
     expect(mine).toMatchObject({ priceCents: 0, paidThrough: null, renewing: false });
+  });
+});
+
+describe('a spot the business buys itself (20261027012700)', () => {
+  const system = (ws = wsId, org = orgId): SystemActor => ({
+    type: 'system',
+    workspaceId: ws,
+    organizationId: org,
+  });
+
+  beforeEach(async () => {
+    await admin().execute(
+      sql`insert into platform.founding_offers
+            (id, name, seat_cap, price_cents, status, billing, starting_credit_cents, show_counter)
+          values (${MONTHLY}, 'Founding Monthly', 5, 9700, 'open', 'monthly', 0, true)`,
+    );
+  });
+
+  const buy = (u: TestUser, offerId = MONTHLY, workspaceId = wsId) =>
+    run(foundingBuy, { workspaceId, offerId }, u);
+
+  const recordPaid = (checkoutId: string, cents: number, ws = wsId, org = orgId) =>
+    executeCommand(
+      worker(),
+      foundingRecordCheckoutPaid,
+      {
+        workspaceId: ws,
+        checkoutId,
+        sessionRef: `cs_test_${randomUUID()}`,
+        paymentRef: 'pi_first',
+        paidCents: cents,
+        customerRef: 'cus_first',
+        cardRef: 'pm_first',
+      },
+      system(ws, org),
+      meta(),
+    ).then((r) => r.output);
+
+  it('is only for somebody who manages the business’s money', async () => {
+    const e = await refusal(() => buy(member));
+    expect(e.status).toBe(403);
+  });
+
+  it('holds a spot and asks the worker for its page, once', async () => {
+    const first = await buy(owner);
+    expect(first).toMatchObject({ status: 'pending', url: null, created: true });
+    expect(await eventsOf('founding.checkout_requested', first.checkoutId)).toHaveLength(1);
+    const again = await buy(owner);
+    expect(again).toMatchObject({ checkoutId: first.checkoutId, created: false });
+    expect(await eventsOf('founding.checkout_requested', first.checkoutId)).toHaveLength(1);
+  });
+
+  it('says in plain words when every spot has gone', async () => {
+    await admin().execute(
+      sql`update platform.founding_offers set seat_cap = 0 where id = ${MONTHLY}`,
+    );
+    const e = await refusal(() => buy(owner));
+    expect(e.rule).toBe('founding_offer_full');
+    expect(e.status).toBe(409);
+    expect(e.message).toContain('$97 a month');
+  });
+
+  it('never sells a free spot', async () => {
+    const e = await refusal(() => buy(owner, FREE));
+    expect(e.rule).toBe('founding_offer_not_for_sale');
+  });
+
+  it('puts a monthly spot on the monthly plan, and moves it on a month at a time', async () => {
+    const started = await buy(owner);
+    expect((await recordPaid(started.checkoutId, 9700)).outcome).toBe('activated');
+    const mine = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(mine).toMatchObject({ plan: 'monthly', priceCents: 9700, renewing: true });
+    const status = await executeQuery(
+      api(),
+      foundingCheckoutStatus,
+      { checkoutId: started.checkoutId },
+      human(owner),
+      meta(),
+    );
+    expect(status).toMatchObject({ selfServe: true, seatActive: true, billing: 'monthly' });
+
+    const [grant] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from platform.founding_grants where offer_id = ${MONTHLY} and status = 'active'`,
+    );
+    const out = await executeCommand(
+      worker(),
+      foundingRecordRenewal,
+      {
+        workspaceId: wsId,
+        grantId: grant!.id,
+        forPaidThrough: mine.paidThrough!,
+        outcome: 'renewed',
+        paymentRef: 'pi_two',
+        paidCents: 9700,
+      },
+      system(),
+      meta(),
+    );
+    expect(out.output.outcome).toBe('recorded');
+    // A calendar month on, as Postgres counts one (the 31st of a month runs to the end of a shorter one).
+    const [next] = await rows<{ at: string }>(
+      admin(),
+      sql`select (${mine.paidThrough!}::timestamptz + interval '1 month') as at`,
+    );
+    const after = await executeQuery(
+      api(),
+      foundingMine,
+      { workspaceId: wsId },
+      human(owner),
+      meta(),
+    );
+    expect(after.paidThrough).toBe(new Date(next!.at).toISOString());
+  });
+
+  it('lets a business made while spots are on sale in once it has paid', async () => {
+    const made = await run(organizationCreate, { businessName: 'Pay First Plumbing' }, owner);
+    const needsPlan = async () => {
+      const mine = await executeQuery(api(), me, {}, human(owner), meta());
+      const got = await executeQuery(
+        api(),
+        workspaceGet,
+        { workspaceId: made.workspaceId },
+        human(owner),
+        meta(),
+      );
+      const listed = mine.workspaces.find((w) => w.id === made.workspaceId)?.needsPlan;
+      // account.me and workspace.get say the same thing.
+      expect(got.workspace.needsPlan).toBe(listed);
+      return listed;
+    };
+    expect(await needsPlan()).toBe(true);
+
+    const started = await buy(owner, MONTHLY, made.workspaceId);
+    expect(await needsPlan()).toBe(true);
+    await recordPaid(started.checkoutId, 9700, made.workspaceId, made.organizationId);
+    expect(await needsPlan()).toBe(false);
   });
 });
 

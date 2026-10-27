@@ -359,15 +359,15 @@ begin
        set status = 'failed', closed_at = now(), problem = 'They picked the other plan instead.'
      where c.grant_id = v_live.id and c.status in ('pending', 'open');
     update platform.founding_grants g set status = 'expired' where g.id = v_live.id;
-    v_live := null;
+  else
+    v_grant := v_live.id;
   end if;
 
-  if v_live.id is null then
+  if v_grant is null then
     insert into platform.founding_grants (offer_id, organization_id, status, expires_at, self_serve)
     values (p_offer, v_org, 'reserved', now() + interval '1 hour', true)
     returning id into v_grant;
   else
-    v_grant := v_live.id;
     update platform.founding_grants g
        set expires_at = greatest(g.expires_at, now() + interval '1 hour')
      where g.id = v_grant;

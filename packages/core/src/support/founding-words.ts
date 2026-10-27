@@ -476,13 +476,12 @@ export interface FoundingPickOffer {
 }
 
 /**
- * The spots a business can buy, cheapest first by what it pays now: open, with a price, and not replaced by a later
- * offer. A full one stays on the list, marked, so nobody wonders where it went.
+ * The spots a business can buy, in the order staff set (`founding.counts` reads them by `sort`, the order the website
+ * shows them in too): open, with a price, and not replaced by a later offer. A full one stays on the list, marked, so
+ * nobody wonders where it went.
  */
 export const foundingPickable = <O extends FoundingPickOffer>(offers: readonly O[]): O[] =>
-  offers
-    .filter((o) => o.status === 'open' && o.priceCents > 0 && !o.superseded)
-    .sort((a, b) => a.priceCents - b.priceCents);
+  offers.filter((o) => o.status === 'open' && o.priceCents > 0 && !o.superseded);
 
 /** Which one the page starts on: the one the website's button named, if it can be bought, else the first with room. */
 export const foundingPickFirst = (

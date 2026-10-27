@@ -13,12 +13,18 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
 import { closeAll, dbs, expectPgError, uniq } from './harness';
 
-afterAll(closeAll);
-
 const admin = dbs.admin.db;
 const FREE = 'test_chain_free';
 const PAID = 'test_chain_paid';
 const PLAN = 'test_chain_plan';
+
+// Off sale afterwards: an open paid offer makes every business made after it pick a plan first (20261027012700).
+afterAll(async () => {
+  await admin.execute(
+    sql`update platform.founding_offers set status = 'closed' where id in (${PAID}, ${PLAN}) and status = 'open'`,
+  );
+  await closeAll();
+});
 
 const statusOf = async (id: string): Promise<string> => {
   const [row] = await rows<{ status: string }>(
@@ -217,13 +223,15 @@ describe('the line can be crossed without a new seat', () => {
   });
 });
 
-describe('the monthly plan is not a founding offer', () => {
-  it('has no seat anybody can take', async () => {
+describe('the monthly plan', () => {
+  // Founding spots too since 20261027012700: a thousand at $97 a month, first come, first served.
+  it('has spots, up to its cap, like any other founding offer', async () => {
     await admin.execute(
-      sql`update platform.founding_offers set status = 'open' where id = ${PLAN}`,
+      sql`update platform.founding_offers set status = 'open', seat_cap = 1 where id = ${PLAN}`,
     );
+    await takeSeat(PLAN);
     const e = await expectPgError(() => takeSeat(PLAN));
-    expect(e.detail).toBe('founding_offer_not_seats');
+    expect(e.detail).toBe('founding_offer_full');
   });
 
   it('takes no applications', async () => {

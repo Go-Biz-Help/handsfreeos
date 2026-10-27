@@ -29,7 +29,7 @@ export function PickPlan({
   workspaceId: string;
   /** The business's name, as they typed it a moment ago. */
   business: string;
-  /** The spots on sale (`foundingPickable`), cheapest first. */
+  /** The spots on sale (`foundingPickable`), in the order staff set. */
   offers: readonly FoundingPickOffer[];
   /** The one picked to start with: the website's choice, or the first with room. */
   first: string;
