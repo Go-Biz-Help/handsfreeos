@@ -25,6 +25,7 @@ import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
 import type { WithdrawResult } from './networks/linkedin/withdraw';
+import type { PostPerson, ReactorsRead } from './networks/linkedin/compose';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
@@ -139,6 +140,23 @@ export type GroupPostAnswer =
 export type FeedPostAsk = { readonly type: 'hfos-feed-post'; readonly text: string };
 export type FeedPostAnswer =
   | { readonly ok: true; readonly result: PostResult; readonly url: string | null }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On a good post's own page on LinkedIn (decision 92, src/networks/linkedin/compose.ts): who commented and who reacted,
+ * never the person, its writer (`writer`, besides the one the page names) or a 1st-degree connection; the reactions box
+ * opened, read as far as it first shows, and closed with its Dismiss.
+ */
+export type PostPeopleAsk = {
+  readonly type: 'hfos-post-people';
+  readonly writer: ProfileRef | null;
+};
+export type PostPeopleAnswer =
+  | {
+      readonly ok: true;
+      readonly commenters: readonly PostPerson[];
+      readonly reactors: ReactorsRead;
+    }
   | { readonly ok: false; readonly error: string };
 
 /**

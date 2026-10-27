@@ -2,10 +2,11 @@
  * The presses LinkedIn's runner makes on its own (src/auto/linkedin.ts; HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md,
  * "LinkedIn, part by part", 5), once the person lets it, each only on the page it's for, in the tab (./work.ts):
  *
- * - **Like** the post of theirs the runner picked, on their activity: only a post they wrote, only its own Like (never
- *   a comment's), and only when none of the person's reactions is on it already. In LinkedIn's newer layout (the
- *   owner's outlines of 16 Oct 2026) that's the post bar's reaction button, found by where it is (./posts.ts,
- *   `barOf`), and it's liked once the button shows a reaction given (`reactionChange`).
+ * - **Like** the post of theirs the runner picked, on their activity, or (decision 92) the post of theirs a search
+ *   found, on that post's own page: only a post they wrote, only its own Like (never a comment's), and only when none
+ *   of the person's reactions is on it already. In LinkedIn's newer layout (the owner's outlines of 16 Oct 2026)
+ *   that's the post bar's reaction button, found by where it is (./posts.ts, `barOf`), and it's liked once the button
+ *   shows a reaction given (`reactionChange`).
  * - **Connect** on their profile, without a note (Chris: LinkedIn invitations go with no note): Connect in the top
  *   card, or under More when Follow comes first; then the box's **Send without a note**. It never types a note, and a
  *   box that asks for anything (their email, a note it insists on) is left for the person.
@@ -86,13 +87,18 @@ export function inNested(element: Element, post: Element): boolean {
 
 // ------------------------------------------------------------------------------------------------ likes
 
-/** The posts on the page that they wrote, as far as the page has drawn, the latest first. */
+/**
+ * The posts on the page that they wrote, as far as the page has drawn, the latest first. On a post's own page (decision
+ * 92: the post a search found, liked there) the post it's about is at the page's own address when it has no link to
+ * itself, as LinkedIn's newer layout draws few.
+ */
 export function theirPosts(
   doc: Document,
   href: string,
   profile: ProfileRef,
 ): { readonly box: Element; readonly post: TheirPost }[] {
-  return postBoxes(mainOf(doc)).flatMap((box) => {
+  const page = classifyUrl(href);
+  return postBoxes(mainOf(doc)).flatMap((box, i) => {
     const read = readPost(box, href);
     if (!read?.author?.profile || read.company || !sameMember(read.author.profile, profile))
       return [];
@@ -100,7 +106,7 @@ export function theirPosts(
       {
         box,
         post: {
-          url: read.url,
+          url: read.url ?? (page.kind === 'post' && i === 0 ? page.post : null),
           when: read.when,
           text: read.text,
           pictures: [],

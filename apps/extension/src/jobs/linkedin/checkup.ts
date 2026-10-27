@@ -3,8 +3,10 @@
  * It opens the person's main LinkedIn pages one at a time and reads each as the other jobs do (their profile, their
  * feed, their connections, a people search, a posts search, their messages and one connection's profile), and on the
  * way tries each of the extension's steps up to its last press (src/networks/linkedin/tries.ts): putting the headline
- * in, posting, commenting, connecting, messaging, liking, withdrawing and the data file. Nothing is ever saved,
- * posted, sent, liked, connected or withdrawn. Each page and each step is noted in HandsFreeOS with what it found
+ * in, posting, commenting, connecting, messaging, liking, withdrawing and the data file; and on someone else's post on
+ * its own page (decision 92), liking it there and the box of who reacted, opened from its reactions count and closed
+ * again. Nothing is ever saved, posted, sent, liked, connected or withdrawn. Each page and each step is noted in
+ * HandsFreeOS with what it found
  * (../report.ts), the outline kept when a step doesn't work, so everything that doesn't is found in one go; the end's
  * line names the steps that don't, and those it found nothing to try on. Its window stays in front while it works,
  * as Chrome draws nothing in a window hidden behind another, and then the person's own comes back. It stops on any
@@ -68,19 +70,23 @@ async function checkup(job: Job): Promise<JobEnd> {
     await c.tryHere('connect');
   } else await c.nothingFor('connect', 'nobody you’re not connected with in the search');
 
-  // A posts search; then a person's post from your feed or the search, on its own page, to try commenting on (LinkedIn's
-  // newer feed links few of its posts: with none, one of a connection's own, below).
+  // A posts search; then a person's post from your feed or the search, on its own page, to try commenting on, liking
+  // there and who reacted (LinkedIn's newer feed links few of its posts: with none, one of a connection's own, below).
   if (stopped()) return stopped()!;
   const posts = await c.open(postSearchUrl(SEARCH_WORDS), 'the posts search');
   if (isEnd(posts)) return posts;
   await c.note('the posts search', posts.posts?.length ?? 0);
   const theirPost =
-    [...(feed.posts ?? []), ...(posts.posts ?? [])].find((p) => p.url && !p.company)?.url ?? null;
-  const commentOn = async (url: string): Promise<JobEnd | null> => {
+    [...(feed.posts ?? []), ...(posts.posts ?? [])].find((p) => p.url && !p.company) ?? null;
+  const commentOn = async (their: Post): Promise<JobEnd | null> => {
     if (stopped()) return stopped();
-    const post = await c.open(url, 'a post');
+    const post = await c.open(their.url!, 'a post');
     if (isEnd(post)) return post;
     await c.tryHere('comment');
+    // Decision 92: the post a search found is liked on its own page, and its people read from the box of who reacted.
+    const writer = post.posts?.[0]?.author?.profile ?? their.author?.profile ?? null;
+    if (writer) await c.tryHere('like', writer);
+    await c.tryHere('reactors');
     return null;
   };
   if (theirPost) {
@@ -117,23 +123,24 @@ async function checkup(job: Job): Promise<JobEnd> {
     const own = (p: Post) => (p.author?.profile ? sameMember(p.author.profile, connection) : false);
     const ofTheirs = theirPost
       ? null
-      : ((
-          activity.posts?.find((p) => p.url && own(p)) ??
-          activity.posts?.find((p) => p.url && !p.company)
-        )?.url ?? null);
+      : (activity.posts?.find((p) => p.url && own(p)) ??
+        activity.posts?.find((p) => p.url && !p.company) ??
+        null);
     if (ofTheirs) {
       const ended = await commentOn(ofTheirs);
       if (ended) return ended;
     }
   } else {
     await c.nothingFor('message', 'no connection to try it with');
-    await c.nothingFor('like', 'no connection whose posts to try it on');
+    // Liking was tried on the person's post above, when there was one.
+    if (!c.has('like')) await c.nothingFor('like', 'no connection whose posts to try it on');
   }
-  if (!c.has('comment'))
-    await c.nothingFor(
-      'comment',
-      'no person’s post with its own page, on your feed, the search or a connection’s activity',
-    );
+  for (const step of ['comment', 'reactors'] as const)
+    if (!c.has(step))
+      await c.nothingFor(
+        step,
+        'no person’s post with its own page, on your feed, the search or a connection’s activity',
+      );
 
   // Invitations you sent, and Get a copy of your data.
   if (stopped()) return stopped()!;
