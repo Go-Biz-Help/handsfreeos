@@ -70,12 +70,25 @@ const linksOn = (page: InstagramPage): string[] => [
 ];
 
 /**
- * One page of posts, a hashtag's or a place's: its posts' links, a screen at a time until enough aren't opened yet, a
- * few of those opened in turn and read, and what was worth a look sent for the AI to check. A page with no posts, or a
- * post whose author it couldn't read, is noted in HandsFreeOS with the page's outline (decision 74), once a look. A warning, or a
- * page asking them to sign in, ends it.
+ * One page of posts, a hashtag's or a place's, with its window in front, then theirs put back until the next page:
+ * Instagram draws a grid only on screen, and Chrome draws nothing in a window hidden behind another (the owner's look
+ * of 26 Oct 2026 read no posts at all). Its posts' links, a screen at a time until enough aren't opened yet, a few of
+ * those opened in turn and read, and what was worth a look sent for the AI to check. A page with no posts, or a post
+ * whose author it couldn't read, is noted in HandsFreeOS with the page's outline (decision 74), once a look. A
+ * warning, or a page asking them to sign in, ends it.
  */
-async function lookAt(
+function lookAt(
+  job: Job,
+  url: string,
+  progress: string,
+  opened: Set<string>,
+  noted: Set<string>,
+): Promise<Looked | JobEnd> {
+  const look = () => lookedAt(job, url, progress, opened, noted);
+  return job.tab.inFront ? job.tab.inFront(look) : look();
+}
+
+async function lookedAt(
   job: Job,
   url: string,
   progress: string,
@@ -121,11 +134,7 @@ async function lookAt(
   return { checking, read: posts.length, posts };
 }
 
-/**
- * The day's look at their hashtags, then the places in the area their posts were tagged at. Its window is in front
- * while it looks, then theirs is put back: Instagram draws a grid only on screen, and Chrome draws nothing in a window
- * hidden behind another (the owner's look of 26 Oct 2026 read no posts at all).
- */
+/** The day's look at their hashtags, then the places in the area their posts were tagged at, a page at a time. */
 export async function lookAtTagsAndPlaces(job: Job, looks: PostLooks): Promise<JobEnd> {
   if (!looks.tags.length)
     return {
@@ -133,10 +142,6 @@ export async function lookAtTagsAndPlaces(job: Job, looks: PostLooks): Promise<J
       warned: false,
       failed: true,
     };
-  return job.tab.inFront ? job.tab.inFront(() => looked(job, looks)) : looked(job, looks);
-}
-
-async function looked(job: Job, looks: PostLooks): Promise<JobEnd> {
   const opened = new Set<string>();
   const noted = new Set<string>();
   const places = new Map<string, string>();

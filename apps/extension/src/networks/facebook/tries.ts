@@ -692,7 +692,8 @@ export function tryConfirm(doc: Document, href: string): StepTry {
 
 /** Cancelling, on the profile of someone they sent a request to: Cancel request found, never pressed. */
 export function tryCancel(doc: Document, href: string): StepTry {
-  const standing = friendshipOn(doc, href);
+  const profile = profileOn(doc, href);
+  const standing = profile.friendship;
   if (standing !== 'request_sent' && standing !== 'unknown')
     return untried(
       'cancel',
@@ -702,7 +703,7 @@ export function tryCancel(doc: Document, href: string): StepTry {
           ? 'your friend request to them isn’t waiting any more'
           : STANDING[standing],
     );
-  const cancel = findStep(doc, TIDY_PLANS.cancel_request.path[0]!);
+  const cancel = findStep(doc, withTheirName(TIDY_PLANS.cancel_request.path, [profile.name])[0]!);
   return went(
     'cancel',
     { cancel: Boolean(cancel), standingKnown: standing !== 'unknown' },

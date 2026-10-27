@@ -1084,7 +1084,7 @@ describe('Instagram’s growing (part 15)', () => {
     expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
   });
 
-  it('looks with its window in front, and notes a page with no posts and a post it couldn’t read, once each', async () => {
+  it('looks at each page with its window in front, and notes a page with no posts and a post it couldn’t read, once each', async () => {
     world.pages = (url) =>
       ({
         [`${IG}/explore/tags/austinplumbing/`]: {
@@ -1113,7 +1113,8 @@ describe('Instagram’s growing (part 15)', () => {
       report,
       tab: Object.assign(base.tab, { inFront }),
     });
-    expect(inFront).toHaveBeenCalledTimes(1);
+    // Once a hashtag: theirs comes back between pages.
+    expect(inFront).toHaveBeenCalledTimes(3);
     expect(report.mock.calls.map(([note]) => note?.job)).toEqual(['posts.post', 'posts.page']);
     expect(report).toHaveBeenCalledWith(
       expect.objectContaining({ note: 'No posts on the page.', outline: true }),

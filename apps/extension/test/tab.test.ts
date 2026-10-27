@@ -67,18 +67,27 @@ describe('where the extension’s tab may go', () => {
 });
 
 describe('a window of its own, in front while a page is read', () => {
-  const stub = (focused: number[]) =>
+  /** Chrome with the person's window (1) in front, and the extension's (9) behind it once it's open. */
+  const stub = (focused: number[], made: { focused: boolean }[] = []) => {
+    let front = 1;
     vi.stubGlobal('chrome', {
       tabs: {
         get: async (id: number) => ({ id, windowId: 9, status: 'complete' }),
         update: async (id: number) => ({ id, windowId: 9 }),
       },
       windows: {
-        getLastFocused: async () => ({ id: 1 }),
-        update: async (id: number, { focused: front }: { focused: boolean }) =>
-          void (front && focused.push(id)),
+        getLastFocused: async () => ({ id: front, focused: true }),
+        update: async (id: number, { focused: on }: { focused: boolean }) =>
+          void (on && (focused.push(id), (front = id))),
+        create: async (asked: { focused: boolean }) => {
+          made.push(asked);
+          if (asked.focused) front = 9;
+          return { tabs: [{ id: 4 }] };
+        },
       },
     });
+    return { goTo: (id: number) => void (front = id) };
+  };
 
   it('comes to the front for the read, then puts the person’s window back', async () => {
     const focused: number[] = [];
@@ -88,6 +97,37 @@ describe('a window of its own, in front while a page is read', () => {
     expect(await tab.inFront(async () => (focused.push(-1), 'read'))).toBe('read');
     // Its own window (9), the read, then theirs (1) in front again.
     expect(focused).toEqual([9, -1, 1]);
+  });
+
+  it('opens its window in front when it isn’t open yet, then puts the person’s back', async () => {
+    const focused: number[] = [];
+    const made: { focused: boolean }[] = [];
+    stub(focused, made);
+    const tab = new WorkTab('window');
+    const reading = tab.inFront(async () => {
+      await tab.open('https://www.facebook.com/friends/requests');
+      return 'read';
+    });
+    await vi.runAllTimersAsync();
+    await expect(reading).resolves.toBe('read');
+    expect(made).toEqual([expect.objectContaining({ focused: true })]);
+    expect(focused).toEqual([1]);
+    // Outside, a window it opens stays behind the person's.
+    const later = new WorkTab('window');
+    const opening = later.open('https://www.facebook.com/friends/requests');
+    await vi.runAllTimersAsync();
+    await opening;
+    expect(made[1]).toMatchObject({ focused: false });
+  });
+
+  it('leaves the person in a window they went on to while it read', async () => {
+    const focused: number[] = [];
+    const chrome = stub(focused);
+    const tab = new WorkTab('window');
+    await tab.adopt(4);
+    await tab.inFront(async () => chrome.goTo(2));
+    // Its own window (9) only: window 1 never jumps over window 2.
+    expect(focused).toEqual([9]);
   });
 
   it('leaves a tab in the person’s own window as it is', async () => {

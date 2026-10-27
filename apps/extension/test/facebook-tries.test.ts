@@ -481,6 +481,25 @@ describe('trying the steps on someone’s profile', () => {
     });
   });
 
+  it('finds Add friend and Cancel request when their labels have the person’s name after them', () => {
+    const doc = load('profile-2026.html', DANA);
+    const button = standing(doc);
+    const label = (words: string) => {
+      button.setAttribute('aria-label', `${words} Dana Reyes`);
+      [...button.querySelectorAll('span')].at(-1)!.textContent = words;
+    };
+    label('Add Friend');
+    expect(tryRequest(doc, DANA)).toMatchObject({
+      works: true,
+      found: { addFriend: true, standingKnown: true },
+    });
+    label('Cancel request');
+    expect(tryCancel(doc, DANA)).toMatchObject({
+      works: true,
+      found: { cancel: true, standingKnown: true },
+    });
+  });
+
   it('opens Friends’ menu, finds Unfriend, never presses it, and closes the menu again', async () => {
     vi.useFakeTimers();
     const doc = load('profile-2026.html', DANA);

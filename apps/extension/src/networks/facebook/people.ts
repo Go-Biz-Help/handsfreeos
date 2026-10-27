@@ -41,6 +41,13 @@ export function bestName(names: readonly string[]): string | null {
 /** Whether two names are the same, however they're spaced or capitalized. */
 export const sameName = (a: string, b: string) => clean(a).toLowerCase() === clean(b).toLowerCase();
 
+/** A name as it shows, and without the nickname in brackets after it: "Jane Doe (Janie)" is "Jane Doe" too. */
+export function nameForms(name: string): string[] {
+  const whole = clean(name);
+  const bare = clean(whole.replace(/\s*\([^()]*\)$/, ''));
+  return [...new Set([whole, bare].filter(Boolean))];
+}
+
 /** Someone a part of the page links to: their profile, their name, and whether a link to them shows it in words. */
 export interface LinkedPerson {
   readonly profile: ProfileRef;

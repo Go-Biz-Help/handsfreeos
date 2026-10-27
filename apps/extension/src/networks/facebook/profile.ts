@@ -21,7 +21,7 @@ import {
   tabsIn,
   textLines,
 } from './dom';
-import { bestName, isNameLike } from './people';
+import { bestName, isNameLike, nameForms, sameName } from './people';
 import { readPosts } from './posts';
 import type { Named, PageAddress, Post, ProfilePage } from './types';
 import { facebookUrl, profileFromUrl, profileKey } from './urls';
@@ -51,15 +51,12 @@ const NOT_INTRO = /\bmutual\b|^followed by\b/i;
 const NOT_TOP_TEXT = 'h1, h2, h3, [role="heading"], [role="button"], button, [role="tablist"]';
 
 /**
- * Whether a name after a button's words is this person's: one of the two names holds the other ("Jane Doe" and "Jane
- * Doe (Janie)"). Any name will do while the profile's own isn't known.
+ * Whether a name after a button's words is this person's: their name whole, or without its nickname ("Jane Doe" on
+ * "Jane Doe (Janie)"'s profile), the same names the press looks for (./auto.ts's `withTheirName`). Never a name that
+ * only holds theirs or is held in it ("Dana Reyes Jr.", "Ana"). Any name will do while the profile's own isn't known.
  */
-const theirs = (named: string, name: string | null): boolean => {
-  if (name === null) return true;
-  const a = clean(named).toLowerCase();
-  const b = clean(name).toLowerCase();
-  return a.includes(b) || b.includes(a);
-};
+const theirs = (named: string, name: string | null): boolean =>
+  name === null || nameForms(name).some((form) => sameName(form, named));
 
 function friendshipIn(
   labels: readonly string[],

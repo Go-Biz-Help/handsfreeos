@@ -248,12 +248,14 @@ extension's page-layout reports?":
 - **Facebook: Add friend is pressed again** (the owner's problem reports of 26 Oct 2026). Facebook now labels a
   profile's Add friend for screen readers with the person's name after it ("Add Friend Jane Doe"), so every friend
   request on its own was passed over as "couldn’t find Add friend". The profile reader takes Add friend and Cancel
-  request with the person's own name after them, never another's (People you may know), and the runner and **Check
-  Facebook** press Add friend by its words or by its words and their name (`withTheirName` in
-  `src/networks/facebook/auto.ts`).
+  request with the person's own name after them, whole or without its nickname ("Jane Doe" for "Jane Doe (Janie)"),
+  never another's (People you may know, a relative's "Jane Doe Jr.", a name inside theirs). The runner, Tidy my
+  friends and **Check Facebook** press Add friend and Cancel request by their words and the person's name first, then
+  their words alone (`withTheirName` in `src/networks/facebook/auto.ts`).
 - **Instagram: Your hashtags and places reads posts again** (the owner's day of 26 Oct 2026, whose look at 3
-  hashtags read none). It looks with its window in front, then puts the person's back, as Save my followers does, since
-  Instagram draws a grid only on screen; it scrolls a hashtag's or place's grid up to 2 screens for posts not opened
+  hashtags read none). It looks at each hashtag's or place's page with its window in front, opening it in front when it
+  isn't open yet, then puts the person's back until the next page, unless they've gone on to another window since,
+  since Instagram draws a grid only on screen (`inFront` in `src/tab.ts`); it scrolls a hashtag's or place's grid up to 2 screens for posts not opened
   yet; and a page with no posts, or a post whose author it couldn't read, is noted in HandsFreeOS with its outline
   (`posts.page`, `posts.post`), once a look (`src/jobs/instagram/posts.ts`).
 - **A problem report stays within the 40 things core keeps** (`PROBLEM_FOUND_MOST`), where an Alignable business's
