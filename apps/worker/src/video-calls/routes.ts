@@ -217,12 +217,13 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
           rows<{
             state: 'open' | 'live' | 'ended';
             on: boolean;
+            ai_notes: boolean;
             business: string;
             settings: unknown;
             host: string | null;
           }>(
             tx,
-            sql`select c.state, w.video_calls as on, coalesce(nullif(bs.name, ''), w.name) as business,
+            sql`select c.state, w.video_calls as on, c.ai_notes, coalesce(nullif(bs.name, ''), w.name) as business,
                   w.settings, coalesce(nullif(u.full_name, ''), split_part(u.email::text, '@', 1)) as host
                 from app.video_calls c
                 join app.workspaces w on w.id = c.workspace_id
@@ -239,6 +240,8 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
           host: hostFirstName(c.host),
           // Calls turned off for the business, or not set up here: the page says so instead of a Join button.
           ready: c.on && !!deps.videoCalls,
+          // The AI takes notes from the call: the page says so before they ask to join (the owner's 9a).
+          aiNotes: c.ai_notes,
         };
       },
     );

@@ -21,6 +21,7 @@ import {
   bookableDurations,
   computeSlots,
   DEPOSIT_HOLD_MINUTES,
+  effectiveVideo,
   executeCommand,
   findBookingByClientId,
   formatPhone,
@@ -496,6 +497,13 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
   const { config } = calendar;
   const ws = calendar.workspaceId;
   const memberIds = config.team.members.map((m) => m.userId);
+  // A HandsFreeOS video call is made only while the business has calls on, and then its AI takes notes.
+  const [{ on: videoCalls } = { on: false }] = await rows<{ on: boolean }>(
+    tx,
+    sql`select video_calls as on from app.workspaces where id = ${ws}`,
+  );
+  const heard = (video: Parameters<typeof effectiveVideo>[0], meetingUrl: string | null) =>
+    effectiveVideo(video, meetingUrl, videoCalls) === 'handsfree';
   const serviceList = [];
   if (config.services.mode !== 'none' && config.services.items.length) {
     const ids = config.services.items.map((i) => i.serviceId);
@@ -519,8 +527,11 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
           ? ['zoom', 'google_meet'].includes(own.video ?? online.video) &&
             (own.record ?? online.record)
           : undefined;
+      const ownHeard =
+        online && own?.video !== undefined ? heard(own.video, online.meetingUrl) : undefined;
       serviceList.push({
         ...(ownRecorded === undefined ? {} : { recorded: ownRecorded }),
+        ...(ownHeard === undefined ? {} : { aiNotes: ownHeard }),
         id: s.id,
         name: s.name,
         description: more?.description ?? null,
@@ -561,6 +572,8 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
       // Said before booking: the call is recorded and transcribed (Zoom with Record and transcribe on).
       recorded:
         o.kind === 'virtual' && (o.video === 'zoom' || o.video === 'google_meet') && o.record,
+      // Said before booking: a HandsFreeOS video call, whose AI takes notes (the owner's 9a).
+      aiNotes: o.kind === 'virtual' && heard(o.video, o.meetingUrl),
     })),
     customerChoosesLocation: config.locations.customerChooses,
     intake: config.intake.questions,

@@ -72,6 +72,8 @@ export interface PublicService {
   readonly durations: readonly number[];
   /** Set when the service has its own video choice: whether its online calls are recorded. */
   readonly recorded?: boolean;
+  /** Set when the service has its own video choice: whether its online calls are HandsFreeOS calls the AI hears. */
+  readonly aiNotes?: boolean;
 }
 
 export interface BookingInfo {
@@ -86,6 +88,8 @@ export interface BookingInfo {
     readonly address: string | null;
     /** The call is recorded and transcribed; the page says so before booking. */
     readonly recorded?: boolean;
+    /** A HandsFreeOS video call, whose AI takes notes; the page says so before booking. */
+    readonly aiNotes?: boolean;
   }[];
   readonly customerChoosesLocation: boolean;
   readonly intake: readonly IntakeQuestion[];
@@ -535,6 +539,8 @@ export type JoinAnswer =
       /** The name on their booking, filled in for them. */
       readonly name: string;
       readonly look: NonNullable<PublicBusiness['look']>;
+      /** The AI takes notes from the call: the page says so before they join. */
+      readonly aiNotes: boolean;
     };
 
 /**
@@ -576,6 +582,8 @@ export interface PublicCall {
   readonly host: string | null;
   /** Calls are on for the business and set up here; otherwise the page says so instead of a Join button. */
   readonly ready: boolean;
+  /** The AI takes notes from the call: the page says so before they ask to join. */
+  readonly aiNotes: boolean;
 }
 
 export const getPublicCall = (callId: string) =>

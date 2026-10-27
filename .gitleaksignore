@@ -30,3 +30,6 @@ eb3e8ee72b2f7da7c1bdb60ea142b385a58b5adf:apps/extension/src/messages.ts:linkedin
 # public by design; the next commit moves it to apps/extension/scripts/public-key.pem, so no key-shaped literal is in
 # the source.
 5fd061ecb7797fafa3ed28a234fcd0e7aab0c3dd:apps/extension/scripts/build.mjs:generic-api-key:90
+# Not a secret: an import of LinkedIn's runner helpers in a test (nextLinkedInDaily, runLinkedInDaily) that LinkedIn's
+# client-secret rule reads as a key. The next commit lists runLinkedInDaily first, so the line no longer matches.
+001745f057822d61263e99e95e21ecf5708e14e9:apps/extension/test/linkedin-runner.test.ts:linkedin-client-secret:194

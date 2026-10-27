@@ -8097,6 +8097,30 @@ us").
 
 9. Before the first real business uses it, move the LiveKit project to the Ship plan under **Billing**.
 
+### The AI's listener: the `media` machine
+
+The AI hears calls from its own machine in the worker's app: the `media` process in `apps/worker/fly.toml`, with the
+worker's secrets. It needs LiveKit's three values and `DEEPGRAM_API_KEY`, which the worker already has for phone
+calls. Nothing else is set up for it.
+
+- **It comes with the first deploy that has it.** `fly deploy` makes one machine for each new process group, so the
+  deploy after part 2 merges makes it. Check with `fly status --app handsfreeos-worker`. You should see a machine
+  in the `media` group beside the `app` ones. Its log says `the AI’s listener for video calls started`:
+
+  ```bash
+  fly logs --app handsfreeos-worker --no-tail | grep -i listener
+  ```
+
+  A line saying the AI can't hear video calls here names what's missing (LiveKit or Deepgram).
+
+- **Turn it off for a while** (no AI notes, captions or transcripts from any call) with
+  `fly scale count media=0 --app handsfreeos-worker`, and back on with `media=1`. Calls themselves keep working.
+- **What it costs:** the machine is about $5 a month. Deepgram bills only the sound sent, which is each person
+  only while they talk. Businesses pay for it on their balance as `speech.live.minute`.
+- **If a call shows AI notes on but no captions come,** look for `couldn’t join a video call to hear it` or
+  `couldn’t open a video call’s speech stream` in its log. The first is LiveKit (keys or URL). The second is
+  Deepgram (key or balance).
+
 ### Running LiveKit on your own computer
 
 Without LiveKit the worker uses its stand-in (`VIDEO_PROVIDER=fake`, the default outside production): calls work
@@ -8128,6 +8152,9 @@ in Docker. Its dev keys, `devkey` and `secret`, aren't secrets.
    ```bash
    pnpm --filter @hfos/web exec playwright test e2e/video-call.spec.ts
    ```
+
+4. To hear calls too, start the listener in another terminal with `pnpm --filter @hfos/worker media`. With the
+   stand-in speech service (the default on a laptop) everyone is heard as "Hello, can you hear me?".
 
 To go back to the stand-in, take the four lines out and stop the server with `docker stop livekit`.
 

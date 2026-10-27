@@ -14,6 +14,7 @@ import {
   localDateOf,
   smsConsentWords,
   startOfLocalDay,
+  VIDEO_CALL_WORDS,
 } from '@hfos/core';
 import {
   CalendarSearch,
@@ -576,6 +577,11 @@ export function BookingFlow({
     locationKind === 'virtual' && service?.recorded !== undefined
       ? service.recorded
       : info.locations.find((l) => l.kind === locationKind)?.recorded === true;
+  // A HandsFreeOS video call: the page says the AI takes notes before they book (the owner's 9a).
+  const aiNotes =
+    locationKind === 'virtual' && service?.aiNotes !== undefined
+      ? service.aiNotes
+      : info.locations.find((l) => l.kind === locationKind)?.aiNotes === true;
 
   // When: business-local dates, within the calendar's window.
   const today = localDateOf(Date.now(), tz);
@@ -1187,6 +1193,10 @@ export function BookingFlow({
               {recorded ? (
                 <span className="text-[13px] text-text-2" data-testid="booking-recorded">
                   This call is recorded and transcribed.
+                </span>
+              ) : aiNotes ? (
+                <span className="text-[13px] text-text-2" data-testid="booking-ai-notes">
+                  {VIDEO_CALL_WORDS.bookingNotice}
                 </span>
               ) : null}
               {back ? (

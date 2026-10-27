@@ -7,8 +7,13 @@
 # TWILIO_PRIMARY_PROFILE_SID (local-number registration), WORKER_ENCRYPTION_KEYS_PREVIOUS, WORKER_HTTP_PORT (4100), WORKER_POLL_MS, WORKER_BATCH_SIZE, LOG_LEVEL.
 # The Assistant, workflow AI steps and the knowledge base: ANTHROPIC_API_KEY, ASSISTANT_MODEL.
 # Push notifications to the phone app: EXPO_ACCESS_TOKEN (without it, push is off).
+# The same image runs the media process (`node dist/media.js`, fly.toml), the AI's listener for video calls.
+#
+# Debian rather than Alpine: LiveKit's media library for Node (@livekit/rtc-node, the listener's) is built only
+# for Debian's C library (glibc). Building on Debian too installs each native package's glibc build (sharp's,
+# LiveKit's).
 
-FROM node:22-alpine AS base
+FROM node:22-bookworm-slim AS base
 RUN npm install -g pnpm@12.3.4
 WORKDIR /repo
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json .pnpmfile.mjs ./
@@ -30,16 +35,20 @@ RUN pnpm --filter @hfos/worker build
 # A self-contained copy of the app with only its production dependencies.
 RUN pnpm --filter @hfos/worker deploy --prod /out
 
-FROM node:22-alpine AS runtime
+FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
 # Videos texted to a business become MP4s that play in the inbox (src/telephony/video.ts). Without ffmpeg they are
-# kept as they came, which most browsers and phones only offer to download.
-RUN apk add --no-cache ffmpeg
+# kept as they came, which most browsers and phones only offer to download. ca-certificates for LiveKit's media
+# library, whose own connections check the system's certificates rather than Node's.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out/package.json ./
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 USER node
 EXPOSE 4100
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s CMD wget -qO- http://127.0.0.1:4100/healthz || exit 1
+# The worker's; Fly checks /healthz itself (fly.toml), and the media process serves nothing.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s CMD node -e "fetch('http://127.0.0.1:4100/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 CMD ["node", "dist/main.js"]

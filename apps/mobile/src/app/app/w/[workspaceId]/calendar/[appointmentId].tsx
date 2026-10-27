@@ -268,9 +268,14 @@ export default function Appointment() {
           <MeetingLink meeting={meeting} />
         </Section>
       ) : null}
-      {meeting?.record ? (
+      {meeting?.record || meeting?.video === 'handsfree' ? (
         <Section label="The call">
-          <CallRecord workspaceId={business.id} appointmentId={appointmentId} online={online} />
+          <CallRecord
+            workspaceId={business.id}
+            appointmentId={appointmentId}
+            online={online}
+            ours={meeting.video === 'handsfree'}
+          />
         </Section>
       ) : null}
 

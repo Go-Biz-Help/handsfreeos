@@ -9,17 +9,25 @@
  * - **Reactions and chat aren't kept.** Reactions travel on their own data topic, one emoji at a time; chat is
  *   LiveKit's, and goes with the call.
  * - **A raised hand** is an attribute of the person in the room, so someone who comes in later sees it too.
+ * - **The AI's notes** (part 2): "AI notes on" shows while the AI's unseen listener hears the call (the room's
+ *   metadata says so). The team's pill also turns them off or on for this call. CC shows the listener's captions,
+ *   which come only from it: anyone else's message on that topic is ignored.
  * - **How it ends** is LiveKit's word on why the room let them go: they left, the team took them out, the call was
  *   ended for everyone, or they joined again somewhere else. A dropped connection rejoins on its own first.
  * - **The stand-in** (`fake:` tickets, on laptops and in tests without LiveKit) has no video to carry, so the screen
  *   says so; the team's panel still works, from the API.
  */
 import {
+  LISTENER_IDENTITY,
   VIDEO_CALL_ATTRIBUTES,
+  VIDEO_CALL_CAPTIONS_TOPIC,
   VIDEO_CALL_REACTIONS,
   VIDEO_CALL_REACTIONS_TOPIC,
   VIDEO_CALL_WORDS,
+  captionOf,
   isPersonIdentity,
+  roomAiOn,
+  type VideoCallCaption,
 } from '@hfos/core';
 import {
   RoomAudioRenderer,
@@ -31,6 +39,7 @@ import {
   useParticipantAttribute,
   useParticipants,
   useRoomContext,
+  useRoomInfo,
   useSequentialRoomConnectDisconnect,
   useStartAudio,
 } from '@livekit/components-react';
@@ -46,6 +55,10 @@ import {
   type Participant,
 } from 'livekit-client';
 import {
+  Captions,
+  CaptionsOff,
+  ChevronDown,
+  FileText,
   Hand,
   MessageSquare,
   Mic,
@@ -86,7 +99,7 @@ import { canBlur, setBlur } from './blur';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
 import { mediaProblem } from './pre-join';
-import { actOn, endForEveryone, useVideoCall } from './team-call';
+import { actOn, endForEveryone, setAiNotes, useVideoCall } from './team-call';
 import type { CallEnd, CallHeading, DeviceChoices, TeamSide } from './types';
 
 /** The stand-in's tickets (apps/worker/src/video-calls/fake.ts): nothing to connect to. */
@@ -265,6 +278,13 @@ function CallScreen({
   const { got, reload } = useVideoCall(team?.workspaceId ?? '', team?.callId ?? '', !!team);
   const [ending, setEnding] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  // The AI hearing the call: the listener says so in the room; the team also knows the call's own setting.
+  const aiHeard = roomAiOn(useRoomInfo().metadata);
+  const aiNotes = team && got?.call ? got.call.aiNotes : aiHeard;
+  const [cc, setCc] = useState(false);
+  const captions = useCaptions(cc);
+  const [confirmAiOff, setConfirmAiOff] = useState(false);
+  const [turningAi, setTurningAi] = useState(false);
 
   useEffect(() => {
     void canBlur().then(setBlurs);
@@ -359,6 +379,21 @@ function CallScreen({
     }
   };
 
+  const turnAi = async (on: boolean) => {
+    if (!team || turningAi) return;
+    setTurningAi(true);
+    try {
+      await setAiNotes({ workspaceId: team.workspaceId, callId: team.callId, on });
+      setConfirmAiOff(false);
+      reload();
+      toast(on ? VIDEO_CALL_WORDS.aiTurnedOn : VIDEO_CALL_WORDS.aiTurnedOff);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setTurningAi(false);
+    }
+  };
+
   const look = brandLook(color);
   const title = team && got?.appointment ? got.appointment.title : heading.title;
   const detail =
@@ -380,6 +415,43 @@ function CallScreen({
             </span>
             {detail ? <span className="truncate text-[12px] text-text-3">{detail}</span> : null}
           </span>
+          {team && got?.call ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(aiPillClass(aiNotes), 'hover:brightness-110')}
+                  data-testid="call-ai-notes"
+                >
+                  <FileText size={13} aria-hidden />
+                  {aiNotes ? VIDEO_CALL_WORDS.aiOn : 'AI notes off'}
+                  <ChevronDown size={13} aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" data-theme="dark">
+                {aiNotes ? (
+                  <DropdownMenuItem
+                    onSelect={() => setConfirmAiOff(true)}
+                    data-testid="call-ai-notes-off"
+                  >
+                    {VIDEO_CALL_WORDS.aiTurnOff}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onSelect={() => void turnAi(true)}
+                    data-testid="call-ai-notes-on"
+                  >
+                    {VIDEO_CALL_WORDS.aiTurnOn}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : aiNotes ? (
+            <span className={aiPillClass(true)} data-testid="call-ai-notes">
+              <FileText size={13} aria-hidden />
+              {VIDEO_CALL_WORDS.aiOn}
+            </span>
+          ) : null}
           {team ? null : (
             <span className="flex flex-none items-center gap-1 text-[11.5px] text-text-3">
               <BrandMark size={12} />
@@ -410,6 +482,7 @@ function CallScreen({
               />
             )}
             <Reactions floating={floating} />
+            {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel
@@ -503,6 +576,14 @@ function CallScreen({
             <Hand size={19} />
           </Control>
           <Control
+            label={cc ? VIDEO_CALL_WORDS.captionsOff : VIDEO_CALL_WORDS.captionsOn}
+            active={cc}
+            onClick={() => setCc(!cc)}
+            testId="call-captions-button"
+          >
+            {cc ? <Captions size={19} /> : <CaptionsOff size={19} />}
+          </Control>
+          <Control
             label="People"
             active={panel === 'people'}
             badge={team ? asking : people.length}
@@ -580,6 +661,98 @@ function CallScreen({
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={confirmAiOff} onOpenChange={setConfirmAiOff}>
+        <DialogContent
+          title={`${VIDEO_CALL_WORDS.aiTurnOff}?`}
+          description={VIDEO_CALL_WORDS.aiOffConfirm}
+        >
+          <div className="mt-5 flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button variant="secondary">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="danger"
+              loading={turningAi}
+              onClick={() => void turnAi(false)}
+              data-testid="call-ai-notes-off-confirm"
+            >
+              Turn off AI notes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const aiPillClass = (on: boolean) =>
+  cn(
+    'inline-flex flex-none items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium',
+    on ? 'bg-accent-soft text-accent-text' : 'bg-[#2c3139] text-text-3',
+  );
+
+/** A caption on screen: when it last changed, so finished ones can go after a moment. */
+type ShownCaption = VideoCallCaption & { readonly at: number };
+
+/** How long a finished caption stays, and one still being heard that stopped changing. */
+const CAPTION_STAYS_MS = 6_000;
+const CAPTION_STALE_MS = 10_000;
+
+/**
+ * The listener's captions, while CC is on: the newest few, each replaced as its words firm up. The listener is
+ * unseen, so its messages come from nobody in the room; one from someone in the room isn't a caption.
+ */
+function useCaptions(on: boolean): readonly ShownCaption[] {
+  const [lines, setLines] = useState<ShownCaption[]>([]);
+  const want = useRef(on);
+  want.current = on;
+  useDataChannel(VIDEO_CALL_CAPTIONS_TOPIC, (msg) => {
+    if (!want.current || (msg.from && msg.from.identity !== LISTENER_IDENTITY)) return;
+    const c = captionOf(msg.payload);
+    if (!c) return;
+    setLines((now) => [...now.filter((x) => x.id !== c.id), { ...c, at: Date.now() }].slice(-3));
+  });
+  useEffect(() => {
+    if (!on) {
+      setLines([]);
+      return;
+    }
+    const t = setInterval(() => {
+      const now = Date.now();
+      setLines((list) => {
+        const keep = list.filter(
+          (x) => now - x.at < (x.final ? CAPTION_STAYS_MS : CAPTION_STALE_MS),
+        );
+        return keep.length === list.length ? list : keep;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [on]);
+  return lines;
+}
+
+function CaptionLines({ lines, aiOn }: { lines: readonly ShownCaption[]; aiOn: boolean }) {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex flex-col items-center gap-1 px-4"
+      aria-live="polite"
+      data-testid="call-captions"
+    >
+      {lines.length ? (
+        lines.map((l) => (
+          <p
+            key={l.id}
+            className="max-w-[720px] rounded-md bg-black/75 px-3 py-1.5 text-[15px] leading-snug text-white"
+          >
+            <span className="font-medium text-white/70">{l.name}: </span>
+            {l.text}
+          </p>
+        ))
+      ) : aiOn ? null : (
+        <p className="max-w-[520px] rounded-md bg-black/75 px-3 py-1.5 text-center text-[13px] text-white/85">
+          {VIDEO_CALL_WORDS.captionsNeedAi}
+        </p>
+      )}
     </div>
   );
 }

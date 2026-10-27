@@ -25,6 +25,15 @@ kill_signal = "SIGTERM"
 # The worker closes its listener, then finishes the pass it is in.
 kill_timeout = "30s"
 
+# Two kinds of machine from the one image and the same secrets:
+# - `app`, the worker: the HTTP server providers call, and the outbox, webhook and job loops.
+# - `media`, the AI's listener for HandsFreeOS video calls (src/media.ts, docs/video-calls.md). It joins each call
+#   unseen and sends what people say to Deepgram. One machine; it takes no HTTP requests. Its first deploy makes
+#   the machine (`fly deploy` starts one for each new group). Off for a while: `fly scale count media=0`.
+[processes]
+  app = "node dist/main.js"
+  media = "node dist/media.js"
+
 [env]
   NODE_ENV = "production"
   WORKER_HTTP_PORT = "4100"
@@ -59,6 +68,7 @@ kill_timeout = "30s"
   LOG_LEVEL = "info"
 
 [http_service]
+  processes = ["app"]
   internal_port = 4100
   force_https = true
   # Webhooks must never reach a sleeping machine, and the loops must keep running between requests.
@@ -74,5 +84,12 @@ kill_timeout = "30s"
     timeout = "5s"
 
 [[vm]]
+  processes = ["app"]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Sound from each call, decoded and sent on: one shared CPU hears a few calls at once (video-calls/listener.ts).
+[[vm]]
+  processes = ["media"]
   size = "shared-cpu-1x"
   memory = "512mb"

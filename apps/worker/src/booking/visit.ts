@@ -203,6 +203,7 @@ export async function loadBooking(
         ? ((await joinUrlFor(tx, s.bookingLinks, row.a.id)) ?? location.meetingUrl ?? null)
         : (location.meetingUrl ?? null),
     recorded: location.record === true,
+    aiNotes: location.kind === 'virtual' && location.video === 'handsfree',
     staff: staff.firstNames,
   };
   const manageUrl = await manageUrlFor(tx, s.bookingLinks, row.a.id);

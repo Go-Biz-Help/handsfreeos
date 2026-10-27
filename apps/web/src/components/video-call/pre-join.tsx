@@ -17,7 +17,7 @@ import {
   type LocalAudioTrack,
   type LocalVideoTrack,
 } from 'livekit-client';
-import { Copy, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-react';
+import { Copy, FileText, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -111,6 +111,7 @@ export function PreJoin({
   name: initialName,
   nameFixed,
   joinLabel,
+  notice,
   busy,
   error,
   onJoin,
@@ -122,6 +123,8 @@ export function PreJoin({
   nameFixed?: boolean;
   /** Join, or Ask to join for someone who has to be let in. */
   joinLabel: string;
+  /** That the AI takes notes from the call, said before they join: joining is agreeing (the owner's 9a). */
+  notice?: string | null;
   busy: boolean;
   error: string | null;
   onJoin: (name: string, choices: DeviceChoices) => void;
@@ -293,6 +296,16 @@ export function PreJoin({
             {copied ? 'Copied' : 'Copy the link'}
           </Button>
         </div>
+      ) : null}
+
+      {notice ? (
+        <p
+          className="flex items-start gap-2 rounded-control bg-card-2 px-3 py-2.5 text-[13px] text-text-2"
+          data-testid="prejoin-ai-notice"
+        >
+          <FileText size={15} className="mt-0.5 flex-none text-text-3" aria-hidden />
+          {notice}
+        </p>
       ) : null}
 
       <form

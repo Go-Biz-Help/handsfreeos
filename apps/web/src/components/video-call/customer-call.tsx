@@ -142,6 +142,7 @@ export function CustomerCall({ token, answer }: { token: string; answer: CallAns
           }
           name={answer.name}
           joinLabel={VIDEO_CALL_WORDS.join}
+          notice={answer.aiNotes ? VIDEO_CALL_WORDS.aiNotice(answer.business) : null}
           busy={busy}
           error={error}
           onJoin={(name, choices) => {

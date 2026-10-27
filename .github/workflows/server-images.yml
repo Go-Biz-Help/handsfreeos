@@ -68,7 +68,8 @@ jobs:
           docker run --rm --entrypoint sh hfos-${{ matrix.app }}:check -c 'du -sh /app/node_modules'
           docker image ls hfos-${{ matrix.app }}:check --format 'Image size: {{.Size}}'
 
-      # The worker makes businesses' logos with sharp (src/look/logo.ts), whose native part must be Alpine's.
+      # The worker makes businesses' logos with sharp (src/look/logo.ts), whose native part must match the image's
+      # C library (Debian's).
       - name: The worker's image can make a logo
         if: matrix.app == 'worker'
         run: |
@@ -76,3 +77,14 @@ jobs:
             import sharp from 'sharp';
             await sharp({ create: { width: 4, height: 4, channels: 4, background: '#2d69d8' } }).png().toBuffer();
             console.log('sharp', sharp.versions.sharp, 'works');"
+
+      # The media process hears video calls with LiveKit's media library (src/video-calls/listener-room.ts), which is
+      # native code built for glibc only: this is the proof the image can load it.
+      - name: The worker's image can load LiveKit's media library
+        if: matrix.app == 'worker'
+        run: |
+          docker run --rm --workdir /app --entrypoint node hfos-worker:check --input-type=module -e "
+            const rtc = await import('@livekit/rtc-node');
+            new rtc.AudioResampler(48000, 16000, 1);
+            await rtc.dispose();
+            console.log('LiveKit media library works');"
