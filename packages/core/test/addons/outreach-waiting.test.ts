@@ -716,3 +716,53 @@ describe('friend requests to decide', () => {
     expect(got.count).toBe(0);
   });
 });
+
+describe('a friend request accepted', () => {
+  it('clears the need to send it once their friends list has them, but one noted after that look', async () => {
+    const ws = await business('Outreach Accepted Co', false);
+    const opal = (
+      await runAs(owner, ws, 'outreach.friend.set', {
+        profile: fb('opal.reed.3'),
+        name: 'Opal Reed',
+        keep: false,
+      })
+    ).profileId as string;
+    const need = (u: TestUser) =>
+      runAs(u, ws, 'outreach.need.note', {
+        step: 'friend_request',
+        profileId: opal,
+        name: 'Opal Reed',
+        url: null,
+        why: 'couldn’t find “Add friend”',
+      });
+    const needs = async (u: TestUser) =>
+      ((await runAs(u, ws, 'outreach.waiting', {})).items as Item[]).flatMap((i) =>
+        i.need ? [`${i.need.step}: ${i.need.name}`] : [],
+      );
+    const friends = (u: TestUser, at?: Date) =>
+      runAs(
+        u,
+        ws,
+        'outreach.friends.save',
+        { list: 'friends', people: [{ profile: fb('opal.reed.3'), name: 'Opal Reed' }] },
+        at,
+      );
+    await need(owner);
+    await need(member);
+    // Their sent requests, or a look at the friends list from before the need, leave it.
+    await runAs(owner, ws, 'outreach.friends.save', {
+      list: 'sent',
+      people: [{ profile: fb('opal.reed.3'), name: 'Opal Reed' }],
+    });
+    await friends(owner, ago(60 * MIN));
+    expect(await needs(owner)).toEqual(['friend_request: Opal Reed']);
+    const cleared = await events(ws, 'outreach.need.cleared');
+    await friends(owner);
+    expect(await needs(owner)).toEqual([]);
+    expect(await events(ws, 'outreach.need.cleared')).toBe(cleared + 1);
+    // The member's own need is theirs, till their list has Opal.
+    expect(await needs(member)).toEqual(['friend_request: Opal Reed']);
+    await friends(member);
+    expect(await needs(member)).toEqual([]);
+  });
+});
