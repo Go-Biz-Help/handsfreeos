@@ -4,8 +4,8 @@
  * a business with calls on), joins those it isn't in, and leaves those it shouldn't be in any more.
  *
  * - **One listener a call.** LiveKit lets one participant have an identity, and every listener's is the same, so
- *   a second listener joining takes the first one's place. A listener checks the room before joining, and one
- *   that was replaced leaves the call to the other for a while.
+ *   a second listener joining takes the first one's place. A listener checks the room before joining, leaves a
+ *   call another listener has to it for a while, and so does one that was replaced.
  * - **Only with people there.** It joins a room with someone in it, and leaves once it has been alone a few
  *   seconds, so an empty room closes and the stretch of the call ends.
  * - **AI notes off** (the team's, for one call) drops the call from the list: the listener leaves, and the room
@@ -33,11 +33,16 @@ export interface ListenerDeps {
 
 /** The calls one listener hears at once, at most: more wait for a pass with room. */
 export const LISTENER_MAX_CALLS = 40;
-/** Calls joined in one pass, at most, so a burst of calls starting doesn't all connect in the same second. */
-const JOINS_A_PASS = 5;
-/** A call another listener took is left to it this long; one whose join failed is tried again after this. */
+/**
+ * Calls looked at (and joined) in one pass, at most, newest first: a burst of calls starting doesn't all connect in
+ * the same second, and a call LiveKit never said had closed isn't asked about every pass.
+ */
+const CHECKS_A_PASS = 10;
+/** A call another listener has is left to it this long; one whose join failed is tried again after this. */
 const REPLACED_WAIT_MS = 60_000;
 const FAILED_WAIT_MS = 10_000;
+/** A call with nobody in its room yet (everyone dropped for a moment) is looked at again after this. */
+const EMPTY_WAIT_MS = 5_000;
 
 interface Heard {
   readonly scope: TenantScope;
@@ -76,8 +81,9 @@ export function createListener(deps: ListenerDeps): Listener {
   async function join(callId: string, scope: TenantScope): Promise<void> {
     const room = videoCallRoom(callId);
     const there = await deps.video.whoIsIn(room);
-    // Nobody to hear yet, or another listener is hearing it.
-    if (!there.people || there.listener) return;
+    // Another listener is hearing it, or there's nobody to hear yet.
+    if (there.listener) return void notBefore.set(callId, now() + REPLACED_WAIT_MS);
+    if (!there.people) return void notBefore.set(callId, now() + EMPTY_WAIT_MS);
     // Set once the room is joined; nothing is heard before then.
     let inRoom: ListenerRoom | null = null;
     const hearing = new CallHearing(callId, {
@@ -157,7 +163,7 @@ export function createListener(deps: ListenerDeps): Listener {
       const toJoin = [...wanted.values()]
         .filter((c) => !heard.has(c.video_call_id) && !joining.has(c.video_call_id))
         .filter((c) => !notBefore.has(c.video_call_id))
-        .slice(0, Math.max(0, Math.min(JOINS_A_PASS, LISTENER_MAX_CALLS - heard.size)));
+        .slice(0, Math.max(0, Math.min(CHECKS_A_PASS, LISTENER_MAX_CALLS - heard.size)));
       await Promise.all(
         toJoin.map(async (c) => {
           joining.add(c.video_call_id);

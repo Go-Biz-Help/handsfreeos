@@ -72,6 +72,8 @@ export interface PublicService {
   readonly durations: readonly number[];
   /** Set when the service has its own video choice: whether its online calls are recorded. */
   readonly recorded?: boolean;
+  /** Set when the service has its own video choice: whether its online calls are HandsFreeOS calls the AI hears. */
+  readonly aiNotes?: boolean;
 }
 
 export interface BookingInfo {
@@ -86,6 +88,8 @@ export interface BookingInfo {
     readonly address: string | null;
     /** The call is recorded and transcribed; the page says so before booking. */
     readonly recorded?: boolean;
+    /** A HandsFreeOS video call, whose AI takes notes; the page says so before booking. */
+    readonly aiNotes?: boolean;
   }[];
   readonly customerChoosesLocation: boolean;
   readonly intake: readonly IntakeQuestion[];

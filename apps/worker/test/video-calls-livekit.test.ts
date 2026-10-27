@@ -3,6 +3,7 @@
  * for it, the tickets it signs, and the webhooks it believes.
  */
 import { createHash, randomBytes } from 'node:crypto';
+import { LISTENER_IDENTITY } from '@hfos/core';
 import { AccessToken, TokenVerifier } from 'livekit-server-sdk';
 import { describe, expect, it } from 'vitest';
 import { readEnv } from '../src/env';
@@ -119,6 +120,25 @@ describe('LiveKit', () => {
     expect(claims.exp! - claims.nbf!).toBeLessThanOrEqual(15 * 60);
     expect(claims.roomConfig).toMatchObject({ departureTimeout: 120, maxParticipants: 12 });
     await expect(new TokenVerifier(KEY, 'x'.repeat(43)).verify(t.token)).rejects.toThrow();
+  });
+
+  it('lets the AI’s listener in unseen, hearing everyone and sending only captions', async () => {
+    const t = await lk.listenerTicket(ROOM);
+    const claims = await new TokenVerifier(KEY, SECRET).verify(t.token);
+    expect(claims).toMatchObject({
+      sub: LISTENER_IDENTITY,
+      kind: 'agent',
+      video: {
+        roomJoin: true,
+        room: ROOM,
+        hidden: true,
+        canSubscribe: true,
+        canPublish: false,
+        canPublishData: true,
+      },
+    });
+    expect(claims.video?.roomAdmin).toBeFalsy();
+    expect(claims.video?.canUpdateOwnMetadata).toBeFalsy();
   });
 
   it('believes a webhook only when it’s signed with our key and its body is as signed', async () => {

@@ -91,14 +91,15 @@ grant update (ai_notes) on app.video_calls to authenticated;
 
 -- ---------- the calls the listener hears ----------
 -- Live, with their AI notes on, in a business that has calls on: the listener asks every few seconds, across
--- businesses, so it can join a call as it starts and leave one whose notes were turned off.
+-- businesses, so it can join a call as it starts and leave one whose notes were turned off. Newest first, so a call
+-- that just started is looked at before one LiveKit never said had closed.
 create or replace function private.video_calls_to_hear()
 returns table (video_call_id uuid, workspace_id uuid, organization_id uuid)
 language sql stable security definer set search_path = '' as $$
   select c.id, c.workspace_id, w.organization_id
   from app.video_calls c join app.workspaces w on w.id = c.workspace_id
   where c.state = 'live' and c.ai_notes and w.video_calls and w.deletion_requested_at is null
-  order by c.updated_at
+  order by c.updated_at desc
   limit 500
 $$;
 

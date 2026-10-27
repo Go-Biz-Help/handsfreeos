@@ -37,6 +37,13 @@ export function readFakeTicket(token: string): TicketRequest | null {
   }
 }
 
+/** The room the stand-in's ticket for the AI's listener is into (tests). */
+export function readFakeListenerTicket(token: string): string | null {
+  const [kind, body] = token.split('.');
+  if (kind !== 'fake-livekit-listener' || !body) return null;
+  return Buffer.from(body, 'base64url').toString('utf8');
+}
+
 /** A webhook from the stand-in, as tests post it: LiveKit's JSON and the stand-in's key. */
 export function fakeVideoWebhook(e: LiveKitEvent): {
   body: string;

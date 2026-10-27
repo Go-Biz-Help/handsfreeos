@@ -272,7 +272,7 @@ export const VIDEO_CALL_WORDS = {
   captionsNeedAi: 'Captions come from the AI’s notes, which are off for this call.',
   /** The appointment's transcript of a HandsFreeOS call. */
   transcriptFrom: 'From the video call',
-  transcriptSoon: 'The transcript shows here a minute after the call ends.',
+  transcriptSoon: 'With AI notes on, the transcript shows here a minute after the call ends.',
 } as const;
 
 /** The push to the team when a customer waits for them, or someone asks to be let in. */

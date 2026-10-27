@@ -12,17 +12,28 @@
  *   - taking out, muting and ending reach LiveKit, and when the room closes everyone's minutes go on the balance once;
  *   - anyone else on the call's link asks to be let in, sees the business's name and never the appointment's, and only
  *     their own page hears how it went;
- *   - with calls off for the business, or LiveKit not set up, nothing opens.
+ *   - with calls off for the business, or LiveKit not set up, nothing opens;
+ *   - the customer is told the AI takes notes: on the booking page, in their messages and before they join;
+ *   - the AI's listener joins only a room with people in it, hears each person, keeps who said what, puts only the
+ *     sound it sent on the balance, and leaves once it's alone; when the call ends, what it heard becomes the
+ *     appointment's transcript once, and After the call starts from it;
+ *   - the team turning AI notes off forgets what was heard, and the listener leaves.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
   calendarAvailability,
+  captionOf,
+  executeCommand,
   pushDeviceRegister,
+  VIDEO_CALL_WORDS,
   videoCallAdmit,
   videoCallEnd,
+  videoCallHeard,
+  videoCallKeepWords,
   videoCallMute,
   videoCallRemove,
   videoCallRoom,
+  videoCallSetAi,
   videoCallTurnAway,
   videoCallUsageKey,
   LISTENER_IDENTITY,
@@ -30,12 +41,18 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, signInTestUser, testDbs } from '@hfos/db/testing';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import pino from 'pino';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { passThroughBotCheck } from '../src/booking/bot-check';
+import { whereLine } from '../src/booking/messages';
 import { loadBooking } from '../src/booking/visit';
 import { buildHttpServer } from '../src/http/server';
 import { queueMeetingSync } from '../src/meetings/sync';
-import { fakeVideoWebhook, readFakeTicket } from '../src/video-calls/fake';
+import { systemActor, workerMeta } from '../src/services';
+import { fakeVideoWebhook, readFakeListenerTicket, readFakeTicket } from '../src/video-calls/fake';
+import { ALONE_MS, GATE, type JoinRoom, type ListenerRoomEvents } from '../src/video-calls/hearing';
+import { createListener } from '../src/video-calls/listener';
+import { createFakeSpeech, FAKE_HEARD } from '../src/voice-agent/fake-speech';
 import {
   admin,
   at,
@@ -45,16 +62,20 @@ import {
   customer,
   drain,
   errorOf,
+  get,
   HOUR,
   iso,
+  jobRow,
   makeCalendar,
   makeWorld,
   MIN,
   query,
   run,
+  runDue,
   type World,
 } from './booking-world';
 import { testTokenVerifier } from './finish-sign-in';
+import { microphone, SAID } from './sound';
 
 const PHONE_BROWSER = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15';
 const ROOM = { max: 10_000, timeWindow: MIN };
@@ -631,6 +652,301 @@ describe('anyone else on the call’s link', () => {
     // Turned away, they never come in on a ticket: LiveKit letting them in is undone.
     await cameIn(b.room, dee.personId);
     expect(w.s.videoCalls.removed).toContainEqual({ room: b.room, identity: dee.personId });
+  });
+});
+
+/** A room the AI's listener is in, through the stand-in for LiveKit's media library. */
+interface HeardRoom {
+  readonly room: string;
+  readonly events: ListenerRoomEvents;
+  /** What it sent everyone (captions). */
+  readonly said: { topic: string; payload: Uint8Array }[];
+  people: number;
+  left: boolean;
+}
+
+/** The AI's listener, as the media process runs it, on a clock the test moves. */
+function listening() {
+  let clock = Date.now();
+  const rooms: HeardRoom[] = [];
+  const join: JoinRoom = async (ticket, events) => {
+    const r: HeardRoom = {
+      room: readFakeListenerTicket(ticket.token)!,
+      events,
+      said: [],
+      people: 2,
+      left: false,
+    };
+    rooms.push(r);
+    return {
+      people: () => (r.left ? 0 : r.people),
+      say: async (topic, payload) => {
+        r.said.push({ topic, payload });
+      },
+      leave: async () => {
+        r.left = true;
+      },
+    };
+  };
+  const listener = createListener({
+    db: w.s.db,
+    log: pino({ level: 'silent' }),
+    speech: createFakeSpeech(),
+    video: w.s.videoCalls,
+    join,
+    now: () => clock,
+  });
+  const inRoom = (room: string) => rooms.find((r) => r.room === room && !r.left);
+  return {
+    listener,
+    now: () => clock,
+    advance: (ms: number) => {
+      clock += ms;
+    },
+    /** Its passes until it's in the room: other calls, still live from earlier tests, can come first. */
+    async joined(room: string): Promise<HeardRoom> {
+      for (let i = 0; i < 20 && !inRoom(room); i++) await listener.pass();
+      const r = inRoom(room);
+      if (!r) throw new Error(`the listener never joined ${room}`);
+      return r;
+    },
+  };
+}
+
+const linesOf = (callId: string) =>
+  rows<{
+    person_row_id: string;
+    side: string;
+    name: string;
+    body: string;
+    language: string | null;
+  }>(
+    admin(),
+    sql`select person_row_id, side, name, body, language from app.video_call_lines
+        where video_call_id = ${callId} order by said_at, line_key`,
+  );
+
+const transcriptsOf = (appointmentId: string) =>
+  rows<{ id: string; provider: string; external_id: string; body: string }>(
+    admin(),
+    sql`select id, provider, external_id, body from app.appointment_transcripts
+        where appointment_id = ${appointmentId}`,
+  );
+
+/** The team and a customer in the call, as LiveKit tells it. */
+async function inCall(first: string) {
+  const b = await booked(first, await soonest());
+  const roomSid = `RM_${randomUUID().slice(0, 12)}`;
+  const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string; name: string };
+  await cameIn(b.room, team.personId, { roomSid });
+  const them = (await enter(b.link, { name: `${first} Customer` })).json() as {
+    personId: string;
+  };
+  await cameIn(b.room, them.personId, { roomSid });
+  return { ...b, roomSid, team, customerId: them.personId };
+}
+
+const asSystem = () =>
+  systemActor({ workspaceId: w.workspaceId, organizationId: w.organizationId });
+
+describe('the AI hearing the call', () => {
+  it('tells the customer it takes notes: on the booking page, in their messages and before they join', async () => {
+    const page = await get(w, `/public/book/${w.site}/${calendar.slug}`);
+    expect(page.statusCode, page.body).toBe(200);
+    expect((page.json() as { booking: { locations: unknown[] } }).booking.locations).toEqual([
+      expect.objectContaining({ kind: 'virtual', aiNotes: true, recorded: false }),
+    ]);
+
+    const b = await booked('Nia', at(1, '11:00'));
+    const seen = await asWorker(
+      w.s.db,
+      { workspaceId: w.workspaceId, organizationId: w.organizationId },
+      (tx) => loadBooking(tx, w.s, b.attendeeId, { forCustomer: true }),
+    );
+    expect(seen!.visit.aiNotes).toBe(true);
+    expect(whereLine(seen!.visit)).toBe(`Online: ${b.link} (${VIDEO_CALL_WORDS.emailNotice})`);
+  });
+
+  it('hears each person, keeps who said what, and makes it the appointment’s transcript once the call ends', async () => {
+    const c = await inCall('Lu');
+    expect((await openLink(c.link)).json()).toMatchObject({ state: 'call', aiNotes: true });
+    const t = listening();
+    try {
+      // LiveKit hasn't said anyone's in yet: it waits, and looks again a few seconds on.
+      await t.listener.pass();
+      expect(t.listener.calls.has(c.callId)).toBe(false);
+      w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });
+      t.advance(6_000);
+      const room = await t.joined(c.room);
+      expect(w.s.videoCalls.aiMarks.get(c.room)).toBe(true);
+
+      room.events.onVoice({
+        identity: c.customerId,
+        name: 'Lu Customer',
+        frames: microphone([...SAID, ...SAID]),
+      });
+      await vi.waitFor(() => expect(room.said).toHaveLength(2));
+      t.advance(5_000);
+      room.events.onVoice({
+        identity: c.team.personId,
+        name: c.team.name,
+        frames: microphone(SAID),
+      });
+      await vi.waitFor(() => expect(room.said).toHaveLength(3));
+      expect(room.said.map((s) => captionOf(s.payload))).toEqual([
+        expect.objectContaining({ who: c.customerId, text: FAKE_HEARD, final: true }),
+        expect.objectContaining({ who: c.customerId, text: FAKE_HEARD, final: true }),
+        expect.objectContaining({ who: c.team.personId, name: c.team.name, text: FAKE_HEARD }),
+      ]);
+
+      t.advance(3_000);
+      await t.listener.tick();
+      const lu = {
+        person_row_id: c.customerId,
+        side: 'customer',
+        name: 'Lu Customer',
+        body: FAKE_HEARD,
+        language: 'en',
+      };
+      expect(await linesOf(c.callId)).toEqual([
+        lu,
+        lu,
+        { ...lu, person_row_id: c.team.personId, side: 'team', name: c.team.name },
+      ]);
+
+      // Everyone goes: alone a while, the listener leaves, and only the sound it sent goes on the balance.
+      room.people = 0;
+      await t.listener.tick();
+      t.advance(ALONE_MS);
+      await t.listener.tick();
+      expect(room.left).toBe(true);
+      expect(t.listener.calls.size).toBe(0);
+      const uses = await rows<{ quantity: string; source: string }>(
+        admin(),
+        sql`select quantity::text, source from app.speech_usage
+            where workspace_id = ${w.workspaceId} and rate_key = 'speech.live.minute'
+              and ref = ${`video:${c.callId}`}`,
+      );
+      expect(uses).toHaveLength(1);
+      expect(uses[0]!.source).toBe('call');
+      const seconds = Number(uses[0]!.quantity) * 60;
+      expect(seconds).toBeGreaterThan((3 * (1000 + GATE.hangMs)) / 1000);
+      expect(seconds).toBeLessThanOrEqual((3 * (1000 + GATE.beforeMs + GATE.hangMs)) / 1000 + 0.01);
+
+      // The room closes. Its last lines can still be on their way, so the transcript waits a moment.
+      const endedAt = t.now() + MIN;
+      const closed = await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt });
+      expect(closed.statusCode).toBe(200);
+      await drain(w);
+      expect(await transcriptsOf(c.appointmentId)).toEqual([]);
+      await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
+      const [kept, ...more] = await transcriptsOf(c.appointmentId);
+      expect(more).toEqual([]);
+      expect(kept).toMatchObject({
+        provider: 'handsfree',
+        external_id: `video:${c.roomSid}`,
+        body: `Lu Customer: ${FAKE_HEARD} ${FAKE_HEARD}\n${c.team.name}: ${FAKE_HEARD}`,
+      });
+      expect(await linesOf(c.callId)).toEqual([]);
+      // After the call starts from it, as it does from Zoom's.
+      expect(await jobRow(`appointment.call_review:${kept!.id}`)).toBeDefined();
+
+      // Once: the same stretch again keeps nothing more.
+      const again = await executeCommand(
+        w.s.db,
+        videoCallKeepWords,
+        {
+          workspaceId: w.workspaceId,
+          callId: c.callId,
+          until: iso(endedAt),
+          stretch: c.roomSid,
+        },
+        asSystem(),
+        workerMeta(),
+      );
+      expect(again.output).toEqual({ transcriptId: null, lines: 0 });
+      expect(await transcriptsOf(c.appointmentId)).toHaveLength(1);
+    } finally {
+      await t.listener.stop();
+    }
+  });
+
+  it('forgets what it heard and leaves once the team turns AI notes off for the call', async () => {
+    const c = await inCall('Mo');
+    w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });
+    const t = listening();
+    try {
+      const room = await t.joined(c.room);
+      room.events.onVoice({
+        identity: c.customerId,
+        name: 'Mo Customer',
+        frames: microphone(SAID),
+      });
+      await vi.waitFor(() => expect(room.said).toHaveLength(1));
+      t.advance(3_000);
+      await t.listener.tick();
+      expect(await linesOf(c.callId)).toHaveLength(1);
+
+      const off = { workspaceId: w.workspaceId, callId: c.callId, on: false };
+      expect(await run(w, videoCallSetAi, off)).toEqual({ changed: true, aiNotes: false });
+      expect(await run(w, videoCallSetAi, off)).toEqual({ changed: false, aiNotes: false });
+      expect(await linesOf(c.callId)).toEqual([]);
+      await drain(w);
+      expect(w.s.videoCalls.aiMarks.get(c.room)).toBe(false);
+
+      // Its next pass leaves, and lines that were on their way are dropped.
+      await t.listener.pass();
+      expect(room.left).toBe(true);
+      expect(t.listener.calls.has(c.callId)).toBe(false);
+      const late = await executeCommand(
+        w.s.db,
+        videoCallHeard,
+        {
+          workspaceId: w.workspaceId,
+          callId: c.callId,
+          lines: [
+            { key: 'late:0', personId: c.customerId, text: FAKE_HEARD, saidAt: iso(Date.now()) },
+          ],
+        },
+        asSystem(),
+        workerMeta(),
+      );
+      expect(late.output).toEqual({ kept: 0 });
+      expect(await linesOf(c.callId)).toEqual([]);
+
+      // Everyone's pages say so.
+      expect((await openLink(c.link)).json()).toMatchObject({ state: 'call', aiNotes: false });
+      expect((await publicCall(c.callId)).json()).toMatchObject({ aiNotes: false });
+
+      // On again, it hears from then on.
+      expect(await run(w, videoCallSetAi, { ...off, on: true })).toEqual({
+        changed: true,
+        aiNotes: true,
+      });
+      const back = await t.joined(c.room);
+      expect(back).not.toBe(room);
+      expect(w.s.videoCalls.aiMarks.get(c.room)).toBe(true);
+    } finally {
+      await t.listener.stop();
+    }
+  });
+
+  it('leaves a call another listener is hearing to it', async () => {
+    const c = await inCall('Pat');
+    w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: true });
+    const t = listening();
+    try {
+      for (let i = 0; i < 5; i++) await t.listener.pass();
+      expect(t.listener.calls.has(c.callId)).toBe(false);
+      // That one went (a deploy): a minute on, this one takes over.
+      w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });
+      await t.listener.pass();
+      expect(t.listener.calls.has(c.callId)).toBe(false);
+      t.advance(MIN);
+      await t.joined(c.room);
+    } finally {
+      await t.listener.stop();
+    }
   });
 });
 

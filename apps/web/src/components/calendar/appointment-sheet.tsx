@@ -6,6 +6,7 @@ import {
   formatDuration,
   localInstant,
   moneyLabel,
+  VIDEO_CALL_WORDS,
   type CalendarConfig,
 } from '@hfos/core';
 import {
@@ -251,7 +252,7 @@ export function AppointmentSheet({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<'sms' | 'email' | null>(null);
   const [transcripts, setTranscripts] = useState<
-    { id: string; createdAt: string; body: string }[] | null
+    { id: string; provider: string; createdAt: string; body: string }[] | null
   >(null);
 
   const load = useCallback(async () => {
@@ -271,10 +272,12 @@ export function AppointmentSheet({
     void load();
   }, [load, version]);
 
-  // A recorded call's transcript, once Zoom has sent it.
+  // A recorded call's transcript, once Zoom has sent it; a HandsFreeOS video call's, once the AI heard it.
   const isRecorded = appt?.location.record === true;
+  const isOurCall = appt?.location.video === 'handsfree';
+  const hasWords = isRecorded || isOurCall;
   useEffect(() => {
-    if (!isRecorded) return;
+    if (!hasWords) return;
     let cancelled = false;
     apiBrowser()
       .POST('/v1/queries/appointment.transcripts', { body: { workspaceId, appointmentId } })
@@ -283,7 +286,7 @@ export function AppointmentSheet({
     return () => {
       cancelled = true;
     };
-  }, [workspaceId, appointmentId, isRecorded, version]);
+  }, [workspaceId, appointmentId, hasWords, version]);
 
   const calendarId = appt?.calendar.id;
   useEffect(() => {
@@ -949,20 +952,22 @@ export function AppointmentSheet({
                 </Section>
               ) : null}
 
-              {isRecorded && transcripts?.length ? (
+              {hasWords && transcripts?.length ? (
                 <Section label="After the call">
                   <CallReview workspaceId={workspaceId} appointmentId={appt.id} version={version} />
                 </Section>
               ) : null}
 
-              {isRecorded ? (
+              {/* A HandsFreeOS call has one once the AI heard it: its AI notes may have been off. */}
+              {isRecorded || (isOurCall && transcripts?.length) ? (
                 <Section label="Transcript">
                   {transcripts?.length ? (
                     transcripts.map((t) => (
                       <details key={t.id} className="pt-1.5" data-testid="appointment-transcript">
                         <summary className="cursor-pointer text-[13px] font-medium">
-                          From the {appt.location.video === 'google_meet' ? 'Google Meet' : 'Zoom'}{' '}
-                          call
+                          {t.provider === 'handsfree'
+                            ? VIDEO_CALL_WORDS.transcriptFrom
+                            : `From the ${t.provider === 'google_meet' ? 'Google Meet' : 'Zoom'} call`}
                         </summary>
                         <p className="mt-1.5 max-h-72 overflow-y-auto whitespace-pre-wrap text-[13px] text-text-2">
                           {t.body}
