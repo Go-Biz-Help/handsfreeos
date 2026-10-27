@@ -1,11 +1,14 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
-import { OUTREACH_WORDS as W, playbookSectionTitle } from '@hfos/core/addons/outreach/words';
+import {
+  findWordsHint,
+  OUTREACH_WORDS as W,
+  playbookSectionTitle,
+} from '@hfos/core/addons/outreach/words';
 import {
   ANSWER_NEXT_KEYS,
   answerNextLabel,
-  FIND_WORDS_PER_DAY,
   hasWordsOn,
   nextQuestionId,
   followUpGapsFor,
@@ -685,11 +688,7 @@ function SectionEditor({
             onChange={(lines) => set({ [section]: lines })}
             testID="playbook-lines"
           />
-          <Note>
-            {d.wordsWritten?.includes(platform)
-              ? W.findWords.written(FIND_WORDS_PER_DAY[platform])
-              : W.findWords.notYet}
-          </Note>
+          <Note testID="playbook-words-hint">{findWordsHint(d, platform)}</Note>
           {section === 'hashtags' ? <Note>{W.findWords.hashtagHint}</Note> : null}
         </>
       );

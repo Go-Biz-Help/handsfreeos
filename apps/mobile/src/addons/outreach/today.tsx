@@ -1,12 +1,6 @@
 import { wheelsWords, type WheelsListOutput } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import {
-  chatUrlOn,
-  helpfulOn,
-  openChatWords,
-  openPageWords,
-  todayKindsOn,
-} from '@hfos/core/addons/outreach/network-words';
+import { helpfulOn, todayKindsOn, todayOpenOf } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_WORDS as PW } from '@hfos/core/addons/outreach/partners';
 import {
@@ -412,12 +406,11 @@ function ItemCard({
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
 }) {
-  const chat = chatUrlOn(platform, item.threadKey);
-  const onPost = item.kind === 'comment' || item.kind === 'warm_lead';
+  // Where Open goes, and its words, as the web's: the post, their chat, else their page.
+  const openAt = todayOpenOf(item, platform);
   // A comment drafted to wait (decision 92): it goes under the post; skipping it puts the post aside.
   const comment = item.kind === 'comment' && item.send !== null;
   const alone = comment && item.send?.state === 'waiting' ? oneByOneWords(item.send) : null;
-  const page = onPost ? (item.postUrl ?? item.profileUrl) : (chat ?? item.profileUrl);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="today-item">
       <View className="flex-row flex-wrap items-center gap-2">
@@ -512,9 +505,15 @@ function ItemCard({
             {W.notForMe}
           </Button>
         ) : null}
-        {page ? (
-          <Button size="md" variant="ghost" icon={ExternalLink} onPress={() => openOutside(page)}>
-            {chat && !onPost ? openChatWords(platform) : openPageWords(platform)}
+        {openAt ? (
+          <Button
+            size="md"
+            variant="ghost"
+            icon={ExternalLink}
+            onPress={() => openOutside(openAt.url)}
+            testID="today-open"
+          >
+            {openAt.words}
           </Button>
         ) : null}
       </View>

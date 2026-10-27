@@ -36,7 +36,6 @@
  * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
  * asking for what the business offers.
  */
-import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
@@ -58,14 +57,12 @@ import {
 } from '@hfos/core/addons/outreach/waiting-words';
 import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks';
 import {
-  chatUrlOn,
   dailyWordsOn,
   findPostsWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
-  openChatWords,
-  openPageWords,
   todayKindsOn,
+  todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
 import {
   NETWORKS,
@@ -141,21 +138,6 @@ const KIND_BADGE = {
   partner_ask: 'ok',
   partner_warm_up: 'gray',
 } as const;
-
-/**
- * Where to open someone on the list: the post to comment on, their chat for a message in one (on its network's
- * messaging), else their profile.
- */
-function openUrl(item: TodayItem, platform: Platform): string | null {
-  if (item.postUrl) return item.postUrl;
-  return chatUrlOn(platform, item.threadKey) ?? item.profileUrl;
-}
-
-/** What `openUrl` opens, in words: the post, their chat, or their page. */
-function openUrlWords(item: TodayItem, platform: Platform): string {
-  if (item.postUrl) return TOUCHED_POSTS_WORDS.openPost;
-  return chatUrlOn(platform, item.threadKey) ? openChatWords(platform) : openPageWords(platform);
-}
 
 export function TodayView({
   workspaceId,
@@ -604,16 +586,17 @@ function TodayRow({
   /** Someone on the Partners list: never offered a demo or Don't pitch, which are a customer's. */
   partner?: boolean;
 }) {
-  const url = openUrl(item, platform);
+  // Where Open goes, and its words, as the phone's: the post, their chat, else their page.
+  const openAt = todayOpenOf(item, platform);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
     <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
           {partner ? (
-            url ? (
+            openAt ? (
               <a
-                href={url}
+                href={openAt.url}
                 target="_blank"
                 rel="noreferrer"
                 className="font-medium text-accent-text hover:underline"
@@ -639,13 +622,13 @@ function TodayRow({
                 }}
                 className={cn('font-medium', item.profileId && 'text-accent-text')}
               />
-              {url ? (
+              {openAt ? (
                 <a
-                  href={url}
+                  href={openAt.url}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={openUrlWords(item, platform)}
-                  title={openUrlWords(item, platform)}
+                  aria-label={openAt.words}
+                  title={openAt.words}
                   className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-[4px] text-text-3 hover:bg-card-2 hover:text-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                   data-testid="today-open"
                 >
