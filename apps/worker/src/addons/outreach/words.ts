@@ -8,8 +8,10 @@
  *
  * - A playbook saved, a network turned on and the day started (a safety net) queue one write per business.
  * - Only for the networks somebody in the business works: one nobody works waits till someone turns it on.
- * - One ask per playbook that needs words, a few playbooks a run. At the day's AI limit the rest wait 6 hours; with
- *   the AI not set up nothing is written till the next save or day, and the old words are looked with meanwhile.
+ * - One ask per playbook that needs words, a few playbooks a run, the rest straight after while a run writes some: an
+ *   answer it can't use is passed over, and waits for the next save or day. At the day's AI limit the rest wait 6
+ *   hours; with the AI not set up nothing is written till the next save or day, and the old words are looked with
+ *   meanwhile.
  * - The words it keeps tell nobody to write again: `outreach.playbook.words` never says the playbook was saved.
  */
 import { liveMainOffer } from './assist';
@@ -43,6 +45,11 @@ import type { AddonEventContext, AddonJobContext } from '../types';
 export const WRITE_WORDS_JOB = 'outreach.write_words';
 /** How many playbooks one run writes for: the rest come straight after. */
 export const WRITE_WORDS_BATCH = 5;
+/**
+ * How many asks one run makes at most: an answer it can't use is passed over for the next playbook, so the ones after
+ * it are reached, without asking again and again.
+ */
+export const WRITE_WORDS_ASKS_MOST = 2 * WRITE_WORDS_BATCH;
 const HOUR = 3_600_000;
 
 /** A playbook saved, a network turned on, or the day started: the playbooks with no words yet get them now. */
@@ -126,7 +133,11 @@ export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
   const business = found.business?.name ?? 'the business';
   const offer = (await liveMainOffer(ctx))?.offer ?? null;
 
-  for (const p of due.slice(0, WRITE_WORDS_BATCH)) {
+  let wrote = 0;
+  let asked = 0;
+  for (const p of due) {
+    if (wrote >= WRITE_WORDS_BATCH || asked >= WRITE_WORDS_ASKS_MOST) break;
+    asked++;
     let words: FindWords;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
@@ -173,13 +184,14 @@ export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
       continue;
     }
     try {
-      await executeCommand(
+      const { output } = await executeCommand(
         ctx.db,
         playbookWords,
         { workspaceId: ws, playbookId: p.id, ...words },
         ctx.actor,
         ctx.meta,
       );
+      if (output.written.length) wrote++;
     } catch (e) {
       // Made a partner playbook, or gone, since it was read: nothing to write.
       if (
@@ -190,5 +202,7 @@ export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
       throw e;
     }
   }
-  if (due.length > WRITE_WORDS_BATCH) return { rescheduleAt: new Date(ctx.now) };
+  // More to write, and this run wrote some: the rest come straight after. A run that wrote none leaves them to the
+  // next save or day, so answers it can't use are never asked for again and again.
+  if (asked < due.length && wrote > 0) return { rescheduleAt: new Date(ctx.now) };
 }

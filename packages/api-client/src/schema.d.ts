@@ -73970,6 +73970,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                         count: number;
                         hours: {
                             days: number[];

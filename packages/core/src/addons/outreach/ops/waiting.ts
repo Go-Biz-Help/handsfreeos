@@ -14,7 +14,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { FitPlaybook } from '../fit';
 import { outreachAddon } from '../manifest';
-import type { Platform } from '../networks';
+import { NETWORKS, PLATFORM_KEYS, type Platform } from '../networks';
 import { friends, needs, posts, profiles, sends } from '../tables';
 import {
   NEED_SHOWN_DAYS,
@@ -43,7 +43,7 @@ import { automationOf } from './automation';
 import { contactable, inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed } from './needs';
-import { listed, mine } from './sends';
+import { commentHoldOf, listed, mine } from './sends';
 import { notNever, requestFit, type RequestGot } from './today';
 
 const DAY = 86_400_000;
@@ -278,6 +278,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
     ]);
     const counted = kinds.get(me)!;
     const items: WaitingItem[] = [];
+    const commentHolds: Platform[] = [];
     if (input.items) {
       const [waitingSends, needed, asked] = await Promise.all([
         listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'))),
@@ -290,6 +291,15 @@ export const waiting = defineAddonQuery(outreachAddon, {
         items.push({ kind: 'reply', at: send.createdAt, send });
       for (const send of waitingSends.filter((s) => !s.handedOver))
         items.push({ kind: 'message', at: send.createdAt, send });
+      // While a comment waits, each network whose comments wait under the comments-only hold now, for its note
+      // (decision 92's 13): the screens match each comment to its own network.
+      if (waitingSends.some((s) => s.kind === 'comment'))
+        for (const platform of PLATFORM_KEYS)
+          if (
+            NETWORKS[platform].commentsWait === 'hold' &&
+            (await commentHoldOf(ctx, me, platform))
+          )
+            commentHolds.push(platform);
       for (const { at, need } of needed) items.push({ kind: 'need', at, need });
       for (const request of (requests.get(me) ?? []).slice(0, WAITING_SHOWN_MOST))
         items.push({ kind: 'request', at: request.since, request });
@@ -299,6 +309,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
       kinds: counted,
       items,
       wheels: auto.wheels,
+      commentHolds,
       pushes: auto.settings.pushes,
       hours: auto.settings.hours,
       timezone,

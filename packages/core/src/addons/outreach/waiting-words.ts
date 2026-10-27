@@ -443,6 +443,41 @@ export const forumAnswer = (send: {
   readonly needsYou: string | null;
 }): boolean => send.kind === 'comment' && send.needsYou !== null;
 
+/**
+ * Whether Approve all takes a comment among the messages waiting (decision 92): one that doesn't wait for an OK of its
+ * own (`oneByOne`, so never a forum answer). Its button and what it says after are "messages and comments" only then.
+ * Today, Waiting for you and the phone all ask it.
+ */
+export const approveAllTakesComments = (
+  sends: readonly {
+    readonly kind: string;
+    readonly handedOver: boolean;
+    readonly needsYou: string | null;
+  }[],
+): boolean => sends.some((send) => send.kind === 'comment' && !oneByOne(send));
+
+/**
+ * Whether Messages to OK says what the comments-only hold is (decision 92's 13): while a comment Approve all takes
+ * waits on a network whose hold HandsFreeOS says is on (`outreach.waiting`'s `commentHolds`). Each comment's own
+ * network decides, never the training wheels Waiting for you shows; from a server before it said, never.
+ */
+export function commentHoldShown(
+  sends: readonly {
+    readonly kind: string;
+    readonly handedOver: boolean;
+    readonly needsYou: string | null;
+    readonly profileUrl: string | null;
+  }[],
+  holds: readonly Platform[] | undefined,
+): boolean {
+  if (!holds?.length) return false;
+  return sends.some((send) => {
+    if (send.kind !== 'comment' || oneByOne(send) || !send.profileUrl) return false;
+    const on = networkOfLink(send.profileUrl);
+    return on !== null && holds.includes(on);
+  });
+}
+
 /** Beside Approve all while forum answers wait among the messages: why it leaves them (decision 92). */
 export const forumAnswersLeftWords = (count: number): string =>
   `Approve all leaves ${

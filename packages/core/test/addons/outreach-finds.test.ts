@@ -18,7 +18,7 @@ import {
 import { FIND_LIKES_BEHIND_DAYS, findsWaitingMost } from '../../src/addons/outreach/finds';
 import { NETWORKS } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
+import { computerOn, outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const crm = PLAYBOOK_TEMPLATES.crm_demos.details;
@@ -187,6 +187,8 @@ describe('people found by topic', () => {
   beforeAll(async () => {
     owner = await createTestUser('outf-owner', { fullName: 'Pat Owner' });
     ws = await outreachBusiness(owner, 'Outreach Finds Co');
+    // A good post's writer is found only for a computer that checks people found (decision 92's 18).
+    await computerOn(owner, ws, '0.95.0');
     riley = await teammate('Riley Member');
     playbookId = (
       await runAs(owner, ws, 'outreach.playbook.save', {
@@ -435,6 +437,142 @@ describe('people found by topic', () => {
     });
     await runAs(owner, ws, 'outreach.check.look', { profileId: quinn, lines: ['Owner'] });
     expect(await via()).toBe('known');
+  });
+
+  it('keeps what a commenter said with when, and nothing once their check has answered', async () => {
+    const id = await postId(missed.url);
+    const saidOf = async (username: string) =>
+      (
+        await rows<{ said: string | null; said_at: Date | string | null }>(
+          admin(),
+          sql`select f.said, f.said_at from addon_outreach.finds f
+              join addon_outreach.profiles p on p.id = f.profile_id
+              where f.workspace_id = ${ws} and f.user_id = ${owner.id} and p.username = ${username}`,
+        )
+      )[0]!;
+    // Ellis's check said good: found commenting again, what they said isn't kept, as nothing would read it.
+    expect(
+      await save({
+        how: 'commented',
+        postId: id,
+        people: [
+          {
+            profile: li('ellis-ford-3'),
+            name: 'Ellis Ford',
+            said: 'Still no answer on Saturdays.',
+          },
+        ],
+      }),
+    ).toEqual({ added: 0, skipped: 0 });
+    expect(await saidOf('ellis-ford-3')).toEqual({ said: null, said_at: null });
+    // Someone new: kept with when, and found again liking it, the words keep their own time.
+    await save({
+      how: 'commented',
+      postId: id,
+      people: [
+        { profile: li('jamie-cole-6'), name: 'Jamie Cole', said: 'We lose a job a week to this.' },
+      ],
+    });
+    const first = await saidOf('jamie-cole-6');
+    expect(first.said).toBe('We lose a job a week to this.');
+    expect(first.said_at).not.toBeNull();
+    await save({
+      how: 'liked',
+      postId: id,
+      people: [{ profile: li('jamie-cole-6'), name: 'Jamie Cole' }],
+    });
+    expect(await saidOf('jamie-cole-6')).toEqual(first);
+  });
+
+  it('never keeps the person’s own business, as the check of their own profile read it', async () => {
+    const kim = await teammate('Kim Self');
+    // Get ready's check of their own Alignable profile read it at their business's address.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.setup (workspace_id, user_id, network_profiles)
+          values (${ws}, ${kim.id}, ${JSON.stringify({
+            alignable: {
+              check: {
+                seen: {
+                  url: 'https://www.alignable.com/austin-tx/self-roofing?user=7',
+                  name: 'Kim Self',
+                  username: null,
+                  line: null,
+                  links: [],
+                },
+              },
+            },
+          })}::jsonb)
+          on conflict (workspace_id, user_id) do update set network_profiles = excluded.network_profiles`,
+    );
+    expect(
+      await save(
+        {
+          platform: 'alignable',
+          how: 'searched',
+          words: 'roofing contractor',
+          people: [
+            { profile: al('self-roofing'), name: 'Kim Self' },
+            { profile: al('birch-builders'), name: 'Jo Birch' },
+          ],
+        },
+        kim,
+      ),
+    ).toEqual({ added: 1, skipped: 1 });
+    expect((await kept(kim)).map((f) => f.name)).toEqual(['Jo Birch']);
+  });
+
+  it('finds no writer of a good post for a computer that doesn’t check people found', async () => {
+    const lee = await teammate('Lee Older');
+    await computerOn(lee, ws, '0.94.0');
+    const older = post(
+      7,
+      'blair-quinn-7',
+      'Blair Quinn',
+      'Missed calls cost us a job again.',
+      2,
+      4,
+    );
+    await runAs(lee, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      group: null,
+      found: 'search',
+      words: 'missed calls',
+      posts: [older],
+    });
+    await runAsSystem(ws, 'outreach.post.check', {
+      postId: await postId(older.url, lee),
+      check: { good: true, strong: false, why: 'Asking about missed calls' },
+    });
+    // Blair stays the old search pick's: nothing found waits for a check this build never makes.
+    expect(await kept(lee)).toEqual([]);
+  });
+
+  it('holds LinkedIn’s profiles read for found people only on a computer that checks them', async () => {
+    /** How many people `u` knows the day's checks have room for, with 35 found waiting and 40 connections to check. */
+    const room = async (name: string, version: string) => {
+      const u = await teammate(name);
+      await computerOn(u, ws, version);
+      await madeUp(u, 'linkedin', 1, 35);
+      await runAs(u, ws, 'outreach.friends.save', {
+        platform: 'linkedin',
+        list: 'friends',
+        people: Array.from({ length: 40 }, (_, i) => ({
+          profile: li(`conn-${u.id.slice(0, 6)}-${i}`),
+          name: `Made Up Connection ${i}`,
+          mutualFriends: null,
+        })),
+      });
+      const next = (await runAs(u, ws, 'outreach.checks.next', {
+        platform: 'linkedin',
+        most: 40,
+      })) as { people: unknown[] };
+      return next.people.length;
+    };
+    // 0.94.0 never checks people found: all 40 go to the people they know.
+    expect(await room('Toni Older', '0.94.0')).toBe(40);
+    // 0.95.0 checks people found first: 30 held for those waiting, 10 left.
+    expect(await room('Ari Newer', '0.95.0')).toBe(10);
   });
 
   it('checks 30 a day inside LinkedIn’s 40 profiles read, and 15 after a warning', async () => {

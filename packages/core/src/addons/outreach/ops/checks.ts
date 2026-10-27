@@ -8,7 +8,7 @@
  * says whether it was of someone known or found (`via`), for the day's counts; the readers about people the person
  * knows decide by who they know now (`knownCheck`), so someone found who becomes a friend shows there at once.
  */
-import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { rows, type Tx } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
@@ -45,6 +45,7 @@ import { outreachAddon } from '../manifest';
 import { partnerReadsPerDay } from '../partners';
 import { checks, finds, profiles } from '../tables';
 import { automationOf } from './automation';
+import { findsByTopic } from './live';
 import {
   countryFateSql,
   countryRuleOf,
@@ -88,13 +89,31 @@ export const foundNotKnown = (me: string) => sql`(exists (select 1 from addon_ou
     where fd.profile_id = p.id and fd.user_id = ${me}) and not ${knowsThem(me)})`;
 
 /**
- * Someone found by topic who's still someone to reach (decision 92): not the person, a friend or anyone asked either
- * way, in Contacts or a client, left alone (Don't pitch, Never contact, a partner, not a fit) or running a group. `p` is
- * the profile.
+ * The person's own profile on its network (decision 92: never someone to find, check, comment on or reach), as the
+ * check of their own profile in Get ready read it: its address or username (`setup.network_profiles`, Facebook's
+ * `profile_check`). Until they've had it checked, the extension's readers leave them out on the page. `p` is the
+ * profile.
+ */
+export const myOwnProfile = (me: string, p = 'p') => {
+  const at = sql.raw(p);
+  const address = (url: SQL) => sql`rtrim(lower(split_part(${url}, '?', 1)), '/')`;
+  return sql`exists (select 1 from addon_outreach.setup s
+    cross join lateral (select (case when ${at}.platform = 'facebook' then s.profile_check
+      else s.network_profiles -> ${at}.platform -> 'check' end) -> 'seen' as seen) o
+    where s.workspace_id = ${at}.workspace_id and s.user_id = ${me} and jsonb_typeof(o.seen) = 'object'
+      and (lower(o.seen ->> 'username') = lower(${at}.username)
+        or ${address(sql`o.seen ->> 'url'`)} = ${address(sql`${at}.url`)}))`;
+};
+
+/**
+ * Someone found by topic who's still someone to reach (decision 92): not the person (`myOwnProfile`), a friend or
+ * anyone asked either way, in Contacts or a client, left alone (Don't pitch, Never contact, a partner, not a fit) or
+ * running a group. `p` is the profile.
  */
 export const stillToReach = (
   me: string,
 ) => sql`(p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+  and not ${myOwnProfile(me)}
   and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and not ${runsAGroup('p')}
   and not exists (select 1 from addon_outreach.friends fr where fr.profile_id = p.id and fr.user_id = ${me}
     and fr.state in ('friends', 'request_sent', 'request_received'))
@@ -186,8 +205,8 @@ export interface DayReads {
  * - **Found** people (decision 92): the network's own a day (`foundChecksPerDay`), halved on training wheels there too
  *   and for a week after a warning, never below 1, beside the profiles read. Where they share them instead
  *   (`foundShareReads`, LinkedIn's settled 40), found people go first: up to their day's, inside the profiles read, the
- *   found checks still to come today hold their part (as many as wait), and the checks and partner reads take what's
- *   left. The network's limit never grows.
+ *   found checks still to come today hold their part (as many as wait, and only while the person's computer finds
+ *   people by topic), and the checks and partner reads take what's left. The network's limit never grows.
  */
 export async function perDayFor(
   ctx: Ctx,
@@ -211,7 +230,8 @@ export async function perDayFor(
     const perDay = shared ? Math.min(most, reads) : most;
     const room = Math.max(0, perDay - read.found);
     found = { today: read.found, perDay, room: shared ? Math.min(room, left) : room };
-    if (shared && found.room)
+    // Held only for a computer that checks them (0.95.0 and later): an older build never does, so its reads stay whole.
+    if (shared && found.room && (await findsByTopic(ctx, me)))
       held = Math.min(found.room, await findsWaiting(ctx, me, platform, now));
   }
   const free = left - held;
@@ -546,7 +566,7 @@ export const checkSave = defineAddonCommand(outreachAddon, {
     // What they said under a good post, if they were found commenting on one (decision 92), goes once it's read too.
     await ctx.tx
       .update(finds)
-      .set({ said: null, updatedAt: at })
+      .set({ said: null, saidAt: null, updatedAt: at })
       .where(
         and(
           eq(finds.workspaceId, ws),

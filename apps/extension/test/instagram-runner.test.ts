@@ -1295,6 +1295,41 @@ describe('Instagram’s growing (part 15)', () => {
     });
   });
 
+  it('never sends the person’s own post under a hashtag they use (decision 92)', async () => {
+    world.pages = (url) =>
+      ({
+        [`${IG}/explore/tags/austinplumbing/`]: {
+          html: `${MENU}<main><header><h1>#austinplumbing</h1></header>${grid(['C7aaaaaaa', 'C7eeeeeee'])}</main>`,
+        },
+        [`${IG}/p/C7aaaaaaa/`]: {
+          html: foundPostHtml(
+            'quinn.plumbing',
+            'Busy week of plumbing in Austin. Can anyone recommend a CRM?',
+            null,
+          ),
+        },
+        // Their own, by the account the menu's Profile links to.
+        [`${IG}/p/C7eeeeeee/`]: {
+          html: foundPostHtml('me.owner', 'Three water heaters fitted in Austin today', null),
+        },
+      })[url] ?? null;
+    world.hfos['hfos-post-words'] = () => ({
+      words: ['plumbing'],
+      tags: ['austinplumbing'],
+      places: [],
+    });
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      groupId: null,
+      posts: [],
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    await runInstagramDaily('posts', job());
+    const saves = world.asked
+      .filter((a) => a.type === 'hfos-save-posts')
+      .map((a) => (a.input as { posts: { name: string }[] }).posts.map((p) => p.name));
+    expect(saves).toEqual([['quinn.plumbing']]);
+  });
+
   it('opens about 10 posts a hashtag, for the day’s 5, and saves each hashtag’s on their own with its hashtag', async () => {
     const tags = ['tilework', 'austinremodel', 'bathroomideas', 'roundrockhomes', 'showerdesign'];
     // Each hashtag's grid shows 12 posts at once, none tagged at a place.

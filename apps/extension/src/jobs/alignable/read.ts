@@ -5,7 +5,7 @@
  * any Alignable warning, and nothing to get around Alignable's limits or checks.
  */
 import type { AlignableFound } from '../../networks/alignable/read';
-import { townOf } from '../../networks/alignable/site';
+import { businessOf, townOf } from '../../networks/alignable/site';
 import type { LookingRead } from '../../networks/looking/site';
 import { pause, paced, warnedOn, type Job, type JobEnd, type JobTab } from '../job';
 import { readOn } from '../looking';
@@ -109,20 +109,45 @@ export async function gather<T>(
   return { page, items: [...items.values()], whole };
 }
 
+/** The person's own on Alignable, as their own profile opens at it: their town ("austin-tx") and their business. */
+export interface Mine {
+  readonly town: string | null;
+  /** Their business ("austin-tx/acme-plumbing", `businessOf`): never one to find, nor whose posts to check. */
+  readonly business: string | null;
+}
+
 /**
- * The person's own town on Alignable (decision 92's "town"): the one their business page's address names, as their
- * own profile opens at it ("austin-tx"). Null when it names none; the job's end on a warning, or a page asking them to
- * sign in.
+ * The person's own town and business on Alignable (decision 92's "town"): the ones their business page's address
+ * names, as their own profile opens at it, else the menu's link to it. Each null when it names none; the job's end on
+ * a warning, or a page asking them to sign in.
  */
-export async function myTown(job: Job): Promise<string | null | JobEnd> {
+export async function mine(job: Job): Promise<Mine | JobEnd> {
   job.progress('Opening your profile to see your town…');
   await job.tab.open(MINE);
-  const mine = await readAlignableIn(job.tab);
-  const warned = await warnedOn(job, mine);
+  const page = await readAlignableIn(job.tab);
+  const warned = await warnedOn(job, page);
   if (warned) return warned;
-  if (mine.signedOut) return signedOutEnd();
-  return townOf(mine.url) ?? townOf(mine.own ?? '');
+  if (page.signedOut) return signedOutEnd();
+  return {
+    town: townOf(page.url) ?? townOf(page.own ?? ''),
+    business: businessOf(page.url) ?? businessOf(page.own ?? ''),
+  };
 }
+
+/** The person's own town on Alignable (`mine`): null when it names none, or the job's end. */
+export async function myTown(job: Job): Promise<string | null | JobEnd> {
+  const got = await mine(job);
+  return ended(got) ? got : got.town;
+}
+
+/**
+ * Whether someone on a list isn't the person themself (decision 92: the readers leave them out), by their profile's
+ * business. With no business of theirs known, everyone is someone else.
+ */
+export const notMine =
+  (business: string | null) =>
+  (profile: { readonly url: string } | null | undefined): boolean =>
+    business === null || !profile || businessOf(profile.url) !== business;
 
 /** What a town in an address is called: "austin-tx" is "Austin TX" in a search's words. */
 export function townWords(town: string): string {

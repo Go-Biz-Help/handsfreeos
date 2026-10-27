@@ -145,11 +145,14 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
             and ((state <> 'open' and cleared_at < ${cleared}::timestamptz)
               or (state = 'open' and seen_at < ${offList}::timestamptz))`,
     );
-    // What a stranger wrote under a post goes once their check reads it, and after 2 weeks if none did (decision 92).
+    // What a stranger wrote under a post goes once their check reads it, and 2 weeks after it was kept if none did
+    // (decision 92): by when it was kept, so being found again never keeps it longer.
     await rows(
       tx,
-      sql`update addon_outreach.finds set said = null, updated_at = ${new Date(ctx.now).toISOString()}::timestamptz
-          where workspace_id = ${ctx.scope.workspaceId} and said is not null and found_at < ${stale}::timestamptz`,
+      sql`update addon_outreach.finds
+          set said = null, said_at = null, updated_at = ${new Date(ctx.now).toISOString()}::timestamptz
+          where workspace_id = ${ctx.scope.workspaceId} and said is not null
+            and coalesce(said_at, found_at) < ${stale}::timestamptz`,
     );
     await rows(
       tx,

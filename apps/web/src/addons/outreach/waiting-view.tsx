@@ -36,8 +36,10 @@ import { networkOfLink } from '@hfos/core/addons/outreach/networks';
 import { COMMENT_HOLD_WORDS } from '@hfos/core/addons/outreach/sends';
 import {
   approveAllCount,
+  approveAllTakesComments,
   approveAllWords,
   COMMENT_TITLE_AROUND,
+  commentHoldShown,
   forumAnswer,
   forumAnswersLeftWords,
   messagesTitle,
@@ -47,7 +49,6 @@ import {
   needTitleAround,
   needWhyWords,
   NEED_CLEARS,
-  oneByOne,
   WAITING_KIND_KEYS,
   WAITING_KINDS,
   waitingWords,
@@ -154,8 +155,8 @@ function Group({
   const sends = items.flatMap((item) => (item.kind === 'message' ? [item.send] : []));
   const comments = sends.filter((send) => send.kind === 'comment');
   const answers = comments.filter(forumAnswer).length;
-  // A comment that waits with no wheels on and no OK of its own waits under the comments' hold.
-  const held = !waiting.wheels.on && comments.some((send) => !oneByOne(send));
+  // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
+  const held = commentHoldShown(comments, waiting.commentHolds);
   return (
     <Card className="p-0" data-testid={`waiting-${kind}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
@@ -164,7 +165,11 @@ function Group({
           <span className="text-text-3">· {count.toLocaleString()}</span>
         </h3>
         {kind === 'message' ? (
-          <ApproveAll workspaceId={workspaceId} waiting={waiting} comments={comments.length > 0} />
+          <ApproveAll
+            workspaceId={workspaceId}
+            waiting={waiting}
+            comments={approveAllTakesComments(comments)}
+          />
         ) : null}
       </div>
       {kind === 'message' && waiting.wheels.on ? (
@@ -247,7 +252,7 @@ function ApproveAll({
 }: {
   workspaceId: string;
   waiting: Waiting;
-  /** Comments wait among the messages (decision 92): they go together. */
+  /** Comments it takes wait among the messages (decision 92): they go together. */
   comments: boolean;
 }) {
   const { busy, act } = useAct();

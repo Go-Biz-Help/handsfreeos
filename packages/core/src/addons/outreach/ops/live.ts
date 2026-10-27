@@ -50,6 +50,7 @@ import { WARNING_SLOWER_DAYS, type DailyStep } from '../limits';
 import { outreachAddon } from '../manifest';
 import { isLooking, networkLimitsNow } from '../networks';
 import type { Platform } from '../playbooks';
+import { foundByTopicOn } from '../profile-parts';
 import { notReadyWords } from '../readiness';
 import { computers, days, liveSteps } from '../tables';
 import { todayLimits } from '../today';
@@ -107,6 +108,15 @@ export async function myComputers(ctx: Ctx, me: string): Promise<Computer[]> {
     .select()
     .from(computers)
     .where(and(eq(computers.workspaceId, ctx.scope.workspaceId!), eq(computers.userId, me)));
+}
+
+/**
+ * Whether the person's working computer runs a build that finds people by topic (decision 92, `foundByTopicOn`):
+ * looked up on the server, as an ask is, so the web, the phone and the morning push see the list it works from, and an
+ * older build is never given finds it can't check. No computer, or one that didn't say its build, is taken as older.
+ */
+export async function findsByTopic(ctx: Ctx, me: string): Promise<boolean> {
+  return foundByTopicOn(workingOf(await myComputers(ctx, me))?.version);
 }
 
 const shown = (c: Computer, working: Computer | null): ComputerShown => ({

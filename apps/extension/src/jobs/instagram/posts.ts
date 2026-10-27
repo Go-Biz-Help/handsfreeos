@@ -26,6 +26,7 @@ import { instagramPostsSave } from '../../hfos/saves';
 import type { InstagramPost } from '../../networks/instagram/read';
 import { counted } from '../../words';
 import { pause, paced, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { accountIn } from './checks';
 import {
   ended,
   gather,
@@ -144,7 +145,13 @@ async function lookedAt(
     if (!read.found.post?.author)
       await note('post', 'Couldn’t read who posted it.', { post: read.found.post ? 1 : 0 });
   }
-  const built = instagramPostsSave(posts, job.businessId, words);
+  // Never the person's own posts, under a hashtag they use: theirs aren't to comment on, nor them someone to find.
+  const own = accountIn(got.page.own)?.username.toLowerCase();
+  const built = instagramPostsSave(
+    posts.filter((p) => !own || p.author?.username.toLowerCase() !== own),
+    job.businessId,
+    words,
+  );
   const checking = built.ok
     ? valueOf(await job.hfos({ type: 'hfos-save-posts', input: built.input })).checking
     : 0;

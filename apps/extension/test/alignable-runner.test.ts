@@ -921,18 +921,25 @@ const inputsOf = (type: string) =>
 const peopleIn = (ask: Record<string, unknown>) =>
   (ask['input'] as { people: unknown[] }).people.length;
 
+/** Their own business, as a search or a group's members show it: never someone to find. */
+const OWN_ROW = `<div><a href="/austin-tx/acme-roofing?user=7&result_id=4141"><img alt="Casey Owner" /></a>
+    <div><div><div><a title="Casey Owner" href="/austin-tx/acme-roofing?user=7&result_id=4141">Casey Owner</a></div>
+      <div><div><a title="Acme Roofing" href="/austin-tx/acme-roofing?user=7&result_id=4141">Acme Roofing</a>
+        <span>Roofing Contractor</span></div><div>Austin, TX</div></div></div></div></div>`;
+
 describe('the search for businesses like their clients on Alignable', () => {
   beforeEach(() => {
     world.hfos['hfos-finds-save'] = (ask) => ({ added: peopleIn(ask) });
   });
 
   it('keeps only their town’s businesses on a local search, and every one on a search that works online', async () => {
+    // Their own business shows in both: never kept.
     world.pages = (url) =>
       url === MINE
         ? myProfile()
         : url === `${AL}/biz/search?q=real%20estate%20agent%20Austin%20TX` ||
             url === `${AL}/biz/search?q=home%20inspector`
-          ? { html: searchHtml }
+          ? { html: searchHtml.replace('<ul>', `<ul>${OWN_ROW}`) }
           : null;
     world.hfos['hfos-finds-searches'] = () => ({
       searches: [
@@ -1096,7 +1103,8 @@ describe('Alignable’s groups', () => {
             html: `<main><h1>My Groups</h1>
               <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span><button>Leave</button></div>
               <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><span>86 members</span><button>Joined</button></div>
-              <div><a href="/groups/home-pros-network">Home Pros Network</a><button>Join</button></div></main>`,
+              <div><a href="/groups/home-pros-network">Home Pros Network</a><button>Join</button></div>
+              <div><a href="/groups/maple-street-makers">Maple Street Makers</a><span>40 members</span></div></main>`,
           }
         : null;
     world.hfos['hfos-save-groups'] = (ask) => ({
@@ -1111,6 +1119,30 @@ describe('Alignable’s groups', () => {
         groups: [
           { group: { url: `${AL}/groups/austin-tx` }, members: 2310, joined: true },
           { group: { url: `${AL}/groups/riverbend-roofers` }, members: 86, joined: true },
+        ],
+      },
+    ]);
+    expect(end).toEqual({ line: 'Saved 2 groups of yours on Alignable.', warned: false });
+  });
+
+  it('takes every card of their own groups page as theirs when none offers a Join', async () => {
+    world.pages = (url) =>
+      url === `${AL}/biz/groups`
+        ? {
+            html: `<main><h1>My Groups</h1>
+              <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span></div>
+              <div><a href="/groups/maple-street-makers">Maple Street Makers</a><span>40 members</span></div></main>`,
+          }
+        : null;
+    world.hfos['hfos-save-groups'] = (ask) => ({
+      saved: (ask['input'] as { groups: unknown[] }).groups.length,
+    });
+    const end = await runAlignableDaily('my_groups', dailyJob());
+    expect(inputsOf('hfos-save-groups')).toMatchObject([
+      {
+        groups: [
+          { group: { url: `${AL}/groups/austin-tx` }, joined: true },
+          { group: { url: `${AL}/groups/maple-street-makers` }, joined: true },
         ],
       },
     ]);
@@ -1237,20 +1269,25 @@ describe('Alignable’s groups', () => {
         : { groups: [] };
     world.hfos['hfos-save-group'] = (ask) => ({ people: peopleIn(ask) });
     world.hfos['hfos-finds-save'] = (ask) => ({ added: peopleIn(ask) });
+    // Their own business is a member too: never saved, as a member or as found.
     world.pages = (url) =>
-      url === `${GROUPS[0]!.url}/members`
-        ? {
-            html: `<main><h1>Home Pros Network</h1><span>1,204 members</span>
+      url === MINE
+        ? myProfile()
+        : url === `${GROUPS[0]!.url}/members`
+          ? {
+              html: `<main><h1>Home Pros Network</h1><span>1,204 members</span>
               <h2>Group Leaders</h2>
               <div><a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a><a href="/denver-co/stone-gutters">Stone Gutters</a></div>
               <h2>Members (1,204)</h2>
               <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
                 <span>Painter in Boise</span></div>
+              <div><a href="/austin-tx/acme-roofing/casey-owner">Casey Owner</a><a href="/austin-tx/acme-roofing">Acme Roofing</a>
+                <span>Roofer in Austin</span></div>
               <div><a href="/biz/businesses/5150?user=3">Morgan Vale</a><span>Vale Bookkeeping</span></div></main>`,
-          }
-        : null;
+            }
+          : null;
     const end = await runAlignableDaily('members', dailyJob());
-    expect(world.opened).toEqual([`${GROUPS[0]!.url}/members`]);
+    expect(world.opened).toEqual([MINE, `${GROUPS[0]!.url}/members`]);
     const [saved] = inputsOf('hfos-save-group');
     expect(saved).toMatchObject({
       platform: 'alignable',
@@ -1294,8 +1331,19 @@ describe('Alignable’s groups', () => {
     world.hfos['hfos-save-posts'] = (ask) => ({
       checking: (ask['input'] as { posts: unknown[] }).posts.length,
     });
+    // A post of their own in the group: never sent.
+    const own = post({
+      id: 94,
+      by: '/austin-tx/acme-roofing',
+      name: 'Casey Owner',
+      words: 'We’re booking roof checks before the storms.',
+    });
     world.pages = (url) =>
-      url === MINE ? myProfile() : url === GROUPS[0]!.url ? { html: groupHtml('joined') } : null;
+      url === MINE
+        ? myProfile()
+        : url === GROUPS[0]!.url
+          ? { html: groupHtml('joined').replace('<aside>', `<section>${own}</section><aside>`) }
+          : null;
     const end = await runAlignableDaily('group_posts', dailyJob());
     // Never their town's group: its posts are Find posts in your town's.
     expect(world.opened).toEqual([MINE, GROUPS[0]!.url]);
@@ -1309,7 +1357,7 @@ describe('Alignable’s groups', () => {
       },
     ]);
     expect(end).toEqual({
-      line: 'Read 1 post in 1 Alignable group: 1 post sent for the AI to check. The good ones go on your list for today.',
+      line: 'Read 2 posts in 1 Alignable group: 1 post sent for the AI to check. The good ones go on your list for today.',
       warned: false,
     });
   });

@@ -1244,7 +1244,9 @@ export const finds = addonOutreach.table(
     groupId: uuid('group_id'),
     words: text('words'),
     place: text('place'),
+    /** What a commenter said, and when it was kept: emptied once the AI's check reads it, or 14 days after. */
     said: text('said'),
+    saidAt: ts('said_at'),
     foundAt: ts('found_at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

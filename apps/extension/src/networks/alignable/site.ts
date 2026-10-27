@@ -192,6 +192,18 @@ export function townOf(href: string): string | null {
   return TOWN.test(first) ? first.toLowerCase() : null;
 }
 
+/**
+ * The business an address is, or a person on it: "austin-tx/acme-plumbing" for /austin-tx/acme-plumbing and
+ * /austin-tx/acme-plumbing/dana-reyes, whatever their case. Null for any other address. So the person's own business,
+ * as their profile opens at it, is told from anyone else's on a list (decision 92: the readers leave them out).
+ */
+export function businessOf(href: string): string | null {
+  const url = alignableUrl(href);
+  const [first = '', second = ''] = url ? partsOf(url) : [];
+  if (!TOWN.test(first) || !SLUG.test(second) || TOWN_PAGES.has(second.toLowerCase())) return null;
+  return `${first}/${second}`.toLowerCase();
+}
+
 function profileOf(url: URL): { username: string; url: string } | null {
   const [first = '', second = '', third] = partsOf(url);
   // A business in its town, and a person on it: /<town-st>/<business>/ and /<town-st>/<business>/<person>.

@@ -14,7 +14,8 @@
  *   searches, checks the best few and asks again, as Facebook's does.
  * - **Group members** (`members`): up to 3 groups they're in a day, the fewest people saved first, their town's
  *   included: each group's members page, its leaders first, saved to the group (leaders as running it: never reached,
- *   they stay partner leads), and everyone else sent as found, with the group, for the AI's found check.
+ *   they stay partner leads), and everyone else sent as found, with the group, for the AI's found check. Never the
+ *   person's own business, which their own profile names.
  * - **Posts in your groups** (`group_posts`): the feeds of up to 5 groups they're in other than their town's (whose
  *   posts are Find posts in your town's, ./posts.ts), a few screens each, each post saved with its group for the AI's
  *   post check.
@@ -53,8 +54,10 @@ import {
   ended,
   gather,
   GROUP_SEARCHES,
+  mine,
   MY_GROUPS,
   myTown,
+  notMine,
   PAGE_PACE_MS,
   readAlignableIn,
   signedOutEnd,
@@ -97,8 +100,15 @@ function cardOf(group: Pick<WorkGroup, 'url' | 'name' | 'members'>): AlignableGr
 
 // ------------------------------------------------------------------------------------------------ your groups
 
-/** The groups a page lists that the person is in: every card but one showing its own Join, or asked and waiting. */
-const theirGroups = (page: AlignablePage) => page.found.groups.filter((g) => g.joined !== false);
+/**
+ * The groups a page lists that the person is in. Their own groups page offers no Join, so each card there is theirs,
+ * whether it says Joined or nothing. A page whose cards offer a Join (or are asked and waiting) lists others' groups
+ * too, a guessed address that fell through to Alignable's groups, so only the cards that say Joined are kept there.
+ */
+const theirGroups = (page: AlignablePage) => {
+  const groups = page.found.groups;
+  return groups.some((g) => g.joined === false) ? groups.filter((g) => g.joined === true) : groups;
+};
 
 /** Reads the person's own groups: their page for them, as far as it shows, at their addresses in turn. */
 async function openMyGroups(job: Job): Promise<GroupCard[] | JobEnd> {
@@ -160,9 +170,9 @@ export async function findGroups(
 ): Promise<number | JobEnd> {
   let town: string | null = null;
   if (!anywhere) {
-    const mine = await myTown(job);
-    if (mine !== null && typeof mine === 'object') return mine;
-    town = mine;
+    const theirs = await myTown(job);
+    if (theirs !== null && typeof theirs === 'object') return theirs;
+    town = theirs;
   }
   const search = town ? `${words} ${townWords(town)}` : words;
   for (const [i, url] of GROUP_SEARCHES.entries()) {
@@ -473,6 +483,10 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     .sort((a, b) => a.people - b.people)
     .slice(0, MEMBER_GROUPS);
   if (!groups.length) return NO_GROUPS;
+  // The person's own business is in their groups too: never saved, as a member or a leader.
+  const own = await mine(job);
+  if (ended(own)) return own;
+  const someoneElse = notMine(own.business);
   let saved = 0;
   let added = 0;
   let looked = 0;
@@ -496,8 +510,9 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     if (ended(got)) return got;
     looked++;
     const shown = got.page.found.group;
-    const leaders = got.items.filter((m) => m.leader);
-    const others = got.items.filter((m) => !m.leader);
+    const theirs = got.items.filter((m) => someoneElse(m.profile));
+    const leaders = theirs.filter((m) => m.leader);
+    const others = theirs.filter((m) => !m.leader);
     if (!got.items.length) {
       await job.report?.({ note: 'Alignable showed no members of a group.', outline: true });
       continue;
@@ -550,8 +565,10 @@ export async function readMembers(job: Job): Promise<JobEnd> {
  * posts Find posts in your town reads), a few screens each, each post saved with its group for the AI's post check.
  */
 export async function readGroupPosts(job: Job): Promise<JobEnd> {
-  const town = await myTown(job);
-  if (town !== null && typeof town === 'object') return town;
+  const own = await mine(job);
+  if (ended(own)) return own;
+  const town = own.town;
+  const someoneElse = notMine(own.business);
   const groups = (await groupsToWorkOn(job, POST_GROUPS + 1))
     .filter((g) => cardOf(g) !== null && cardOf(g)!.id.toLowerCase() !== town)
     .slice(0, POST_GROUPS);
@@ -581,7 +598,12 @@ export async function readGroupPosts(job: Job): Promise<JobEnd> {
       await job.report?.({ note: 'Alignable showed no posts in a group.', outline: true });
       continue;
     }
-    const built = alignablePostsSave(got.items, job.businessId, card);
+    // The person's own posts in the group are never theirs to comment on, nor them someone to find.
+    const built = alignablePostsSave(
+      got.items.filter((t) => someoneElse(t.author?.profile)),
+      job.businessId,
+      card,
+    );
     if (!built.ok) continue;
     checking += valueOf(await job.hfos({ type: 'hfos-save-posts', input: built.input })).checking;
   }

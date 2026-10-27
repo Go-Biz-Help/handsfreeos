@@ -750,6 +750,8 @@ describe('comments through Waiting for you (decision 92)', () => {
       waiting.items.find((i: { send?: { sendId: string } }) => i.send?.sendId === queued.sendId)
         .kind,
     ).toBe('message');
+    // It says Instagram's comments wait under the hold, for the hold's note there.
+    expect(waiting.commentHolds).toContain('instagram');
     expect((await runAs(owner, ws, 'outreach.send.approve', {})).approved).toEqual([queued.sendId]);
     // The extension posts it and notes the comment: the post is done, and the writer's next one comes.
     await runAs(owner, ws, 'outreach.touch.save', {
@@ -839,6 +841,10 @@ describe('comments through Waiting for you (decision 92)', () => {
     expect((await queue(await profileOf('wren.ash.cleaning'), wren, 'Nice work!')).state).toBe(
       'waiting',
     );
+    // It waits for the training wheels, not the hold: Waiting for you says Instagram's hold is past, Alignable's on.
+    const { commentHolds } = await runAs(owner, ws, 'outreach.waiting', {});
+    expect(commentHolds).not.toContain('instagram');
+    expect(commentHolds).toContain('alignable');
     await sending('steps');
   });
 

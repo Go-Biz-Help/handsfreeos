@@ -8,11 +8,13 @@ import { networkOfWaiting } from '../../src/addons/outreach/network-words';
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import {
   approveAllCount,
+  approveAllTakesComments,
   approveAllWords,
   badgeText,
   bundleAt,
   bundleDue,
   bundlePushWords,
+  commentHoldShown,
   commentTitle,
   eachPushWords,
   forumAnswer,
@@ -344,5 +346,31 @@ describe('the words', () => {
       'Approve all leaves the forum answer: an answer to a post asking for what you offer always waits for an OK of its own.',
     );
     expect(forumAnswersLeftWords(2)).toMatch(/^Approve all leaves the 2 forum answers: /);
+  });
+
+  it('say comments go with Approve all, and the comments’ hold, only for comments it takes (decision 92)', () => {
+    const message = { kind: 'message', handedOver: false, needsYou: null, profileUrl: null };
+    const comment = {
+      kind: 'comment',
+      handedOver: false,
+      needsYou: null,
+      profileUrl: 'https://www.instagram.com/avery.cole.bakes/',
+    };
+    const answer = {
+      kind: 'comment',
+      handedOver: false,
+      needsYou: 'a forum answer always waits for your OK',
+      profileUrl: 'https://www.alignable.com/austin-tx/pike-roofing',
+    };
+    expect(approveAllTakesComments([message, comment])).toBe(true);
+    // A forum answer waits for an OK of its own: Approve all says messages alone.
+    expect(approveAllTakesComments([message, answer])).toBe(false);
+    // The hold's note goes by each comment's own network, never by a forum answer.
+    expect(commentHoldShown([comment], ['instagram'])).toBe(true);
+    expect(commentHoldShown([comment], ['alignable'])).toBe(false);
+    expect(commentHoldShown([answer], ['alignable'])).toBe(false);
+    expect(commentHoldShown([message], ['instagram', 'alignable'])).toBe(false);
+    // From a server before it said which: never.
+    expect(commentHoldShown([comment], undefined)).toBe(false);
   });
 });

@@ -53,7 +53,7 @@ import { dayNumber, inTurn, POST_FRESH_DAYS } from '../posts';
 import { posts, profiles } from '../tables';
 import { keepGroup } from './activity';
 import { limitsFor } from './automation';
-import { findsWaiting, findToCheck, perDayFor, stillToReach } from './checks';
+import { findsWaiting, findToCheck, myOwnProfile, perDayFor, stillToReach } from './checks';
 import {
   countryFateSql,
   countryLetsSql,
@@ -65,6 +65,7 @@ import {
   type Ctx,
 } from './common';
 import { playbooksInUse } from './friends';
+import { findsByTopic } from './live';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
@@ -95,7 +96,9 @@ interface FindRow {
  * anyone asked either way, in Contacts or a client, left alone (Don't pitch, Never contact, a partner, not a fit),
  * running a group, or skipped by the country setting by where they are. Found again, `found_at` moves on, and how they
  * were found (with its post, group, words and place) changes only to a way as strong or stronger; what a commenter
- * said is the latest. Someone new is kept only while `mayAdd`: the finds waiting for a check are under the cap.
+ * said is the latest, kept with when (`said_at`, which the daily sweep goes by, so being found again never keeps it
+ * longer). Once the AI's check of them has answered, nothing reads it any more, so it isn't kept at all. Someone new is
+ * kept only while `mayAdd`: the finds waiting for a check are under the cap.
  */
 export async function keepFind(
   ctx: CommandContext,
@@ -104,31 +107,39 @@ export async function keepFind(
   mayAdd: boolean,
 ): Promise<FindKept> {
   const ws = ctx.scope.workspaceId!;
-  const [seen] = await rows<{ out: boolean; had: boolean }>(
+  const [seen] = await rows<{ out: boolean; had: boolean; answered: boolean }>(
     ctx.tx,
     sql`select (not ${stillToReach(find.me)} or ${countryFateSql(rule, 'p')} = 'skip') as out,
           exists (select 1 from addon_outreach.finds f
-            where f.workspace_id = p.workspace_id and f.user_id = ${find.me} and f.profile_id = p.id) as had
+            where f.workspace_id = p.workspace_id and f.user_id = ${find.me} and f.profile_id = p.id) as had,
+          exists (select 1 from addon_outreach.checks ch
+            where ch.profile_id = p.id and ch.user_id = ${find.me}
+              and ch.verdict in ('good', 'maybe', 'not')) as answered
         from addon_outreach.profiles p where p.workspace_id = ${ws} and p.id = ${find.profileId}`,
   );
   if (!seen || seen.out || (!seen.had && !mayAdd)) return 'left';
   const at = find.at.toISOString();
+  const said = seen.answered ? null : find.said;
   // As strong as the way kept, or stronger: it takes the post, group, words and place it came with.
   const stronger = sql`array_position(${HOW_ORDER}::text[], excluded.how)
     <= array_position(${HOW_ORDER}::text[], finds.how)`;
   const [kept] = await rows<{ added: boolean }>(
     ctx.tx,
     sql`insert into addon_outreach.finds
-          (workspace_id, user_id, profile_id, platform, how, post_id, group_id, words, place, said, found_at)
+          (workspace_id, user_id, profile_id, platform, how, post_id, group_id, words, place, said, said_at,
+            found_at)
         values (${ws}, ${find.me}, ${find.profileId}, ${find.platform}, ${find.how}, ${find.postId},
-          ${find.groupId}, ${find.words}, ${find.place}, ${find.said}, ${at}::timestamptz)
+          ${find.groupId}, ${find.words}, ${find.place}, ${said},
+          ${said === null ? null : at}::timestamptz, ${at}::timestamptz)
         on conflict (workspace_id, user_id, profile_id) do update set
           how = case when ${stronger} then excluded.how else finds.how end,
           post_id = case when ${stronger} then excluded.post_id else finds.post_id end,
           group_id = case when ${stronger} then excluded.group_id else finds.group_id end,
           words = case when ${stronger} then excluded.words else finds.words end,
           place = case when ${stronger} then excluded.place else finds.place end,
-          said = coalesce(excluded.said, finds.said),
+          said = case when ${seen.answered}::boolean then null else coalesce(excluded.said, finds.said) end,
+          said_at = case when ${seen.answered}::boolean then null
+            when excluded.said is not null then excluded.said_at else finds.said_at end,
           found_at = greatest(finds.found_at, excluded.found_at),
           updated_at = excluded.found_at
         returning (xmax = 0) as added`,
@@ -140,7 +151,8 @@ export async function keepFind(
  * The writer of a post the AI just called good, found on a network that checks people found (decision 92): kept as
  * the post's own find (`posted`, with its hashtag or phrase and its group), with the same leave-outs as anyone found.
  * The best of the finds, so the cap on finds waiting never holds a writer back. Null on a network that weighs people
- * by the words they show (Facebook's).
+ * by the words they show (Facebook's), and for someone whose computer runs an older build (`findsByTopic`): it never
+ * checks them, so they stay the old search pick's, as decision 92's 18 keeps it.
  */
 export async function findWriter(
   ctx: CommandContext,
@@ -149,6 +161,7 @@ export async function findWriter(
 ): Promise<FindKept | null> {
   const [author] = await ctx.tx.select().from(profiles).where(eq(profiles.id, post.profileId));
   if (!author || NETWORKS[author.platform].foundChecksPerDay === null) return null;
+  if (!(await findsByTopic(ctx, post.userId))) return null;
   if (skipWordIn(await playbooksInUse(ctx, author.platform), author.intro)) return 'left';
   return keepFind(
     ctx,
@@ -339,7 +352,7 @@ export const postsPeopleNext = defineAddonQuery(outreachAddon, {
           join addon_outreach.profiles a on a.id = po.profile_id
           where po.workspace_id = ${ws} and po.user_id = ${me} and a.platform = ${input.platform}
             and po.check_state = 'good' and po.people_read_at is null and po.skipped_at is null
-            and po.seen_at >= ${ago(now, POST_FRESH_DAYS)}::timestamptz
+            and po.seen_at >= ${ago(now, POST_FRESH_DAYS)}::timestamptz and not ${myOwnProfile(me, 'a')}
             -- A post that shows no comments and no likes has nobody to read; one whose counts weren't read may.
             and (coalesce(po.comments, 1) > 0 or coalesce(po.reactions, 1) > 0)
           order by po.strong desc, coalesce(po.comments, 0) + coalesce(po.reactions, 0) desc,

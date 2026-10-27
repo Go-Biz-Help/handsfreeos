@@ -50,6 +50,7 @@ import {
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
 import {
+  approveAllTakesComments,
   approveAllWords,
   forumAnswer,
   forumAnswersLeftWords,
@@ -216,7 +217,7 @@ export function TodayView({
   // forum answer (decision 92).
   const waitingSends = items.filter((i) => i.send?.state === 'waiting');
   const approvable = waitingSends.filter((i) => !oneByOne(i.send!)).length;
-  const comments = waitingSends.some((i) => i.kind === 'comment' && !oneByOne(i.send!));
+  const comments = approveAllTakesComments(waitingSends.map((i) => ({ ...i.send!, kind: i.kind })));
   const answers = waitingSends.filter((i) => forumAnswer({ ...i.send!, kind: i.kind })).length;
   const approving = useAct();
   const approveAll = () =>

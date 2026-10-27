@@ -2,8 +2,8 @@
  * Social Outreach in the worker: the people a person knows on Facebook, read off their pages, are checked by the AI
  * (the stand-in model here) for whether they fit a playbook (decision 46), a batch at a time; what their pages said is
  * let go once it has. At the day's AI limit the rest wait, unread. Someone found by topic (decision 92) is asked about
- * with how they were found and no chat; what they said under a post goes after 2 weeks if no check read it, and the
- * country guesser leaves them to their check.
+ * with how they were found and no chat; what they said under a post goes 2 weeks after it was kept if no check read
+ * it, and the country guesser leaves them to their check unless a post of theirs is kept.
  */
 import { randomUUID } from 'node:crypto';
 import type { AiProvider } from '@hfos/ai';
@@ -250,12 +250,18 @@ describe('checking people found by topic (decision 92)', () => {
             ${`{${((find['intro'] as string[] | undefined) ?? []).map((l) => `"${l}"`).join(',')}}`}::text[])
           returning id`,
     );
+    const said = (find['said'] as string | undefined) ?? null;
+    const daysAgo = (find['daysAgo'] as number | undefined) ?? 0;
+    // What they said was kept when they were found, unless it says otherwise.
+    const saidAgo = (find['saidDaysAgo'] as number | undefined) ?? daysAgo;
     await rows(
       admin(),
-      sql`insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, words, said, found_at)
+      sql`insert into addon_outreach.finds
+            (workspace_id, user_id, profile_id, platform, how, words, said, said_at, found_at)
           values (${ws}, ${owner.id}, ${made!.id}, 'linkedin', ${find['how'] as string},
-            ${(find['words'] as string | undefined) ?? null}, ${(find['said'] as string | undefined) ?? null},
-            now() - ${`${(find['daysAgo'] as number | undefined) ?? 0} days`}::interval)`,
+            ${(find['words'] as string | undefined) ?? null}, ${said},
+            case when ${said}::text is null then null else now() - ${`${saidAgo} days`}::interval end,
+            now() - ${`${daysAgo} days`}::interval)`,
     );
     return made!.id;
   }
@@ -320,6 +326,13 @@ describe('checking people found by topic (decision 92)', () => {
       said: 'New words',
       daysAgo: 2,
     });
+    // Found again lately, but what they said was kept 15 days ago: being found again never keeps it longer.
+    await foundOn(ws, 'made-up-6', 'Made Up Person 6', {
+      how: 'commented',
+      said: 'Words kept long ago',
+      daysAgo: 2,
+      saidDaysAgo: 15,
+    });
     await drain(s, ws);
     await rows(
       admin(),
@@ -330,6 +343,7 @@ describe('checking people found by topic (decision 92)', () => {
     expect(await saidOf(ws)).toEqual([
       { name: 'Made Up Person 1', said: null },
       { name: 'Made Up Person 2', said: 'New words' },
+      { name: 'Made Up Person 6', said: null },
     ]);
   });
 
@@ -346,6 +360,19 @@ describe('checking people found by topic (decision 92)', () => {
       how: 'liked',
       intro: ['Lives in Denver, Colorado'],
     });
+    // A good post's writer, found by it: their post is theirs to go on, so they're worked out here as before.
+    const writer = await foundOn(ws, 'made-up-6', 'Made Up Person 6', {
+      how: 'posted',
+      intro: ['Lives in Austin, Texas'],
+    });
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.posts
+            (workspace_id, user_id, profile_id, url, body, found, check_state, seen_at)
+          values (${ws}, ${owner.id}, ${writer},
+            'https://www.linkedin.com/feed/update/urn:li:activity:7400000000000000006/',
+            'Missed calls again this week. What do other crews use?', 'search', 'good', now())`,
+    );
     // Someone kept another way, with the same kind of line: worked out here.
     await rows(
       admin(),
@@ -384,6 +411,7 @@ describe('checking people found by topic (decision 92)', () => {
       { name: 'Made Up Person 3', country: null },
       { name: 'Made Up Person 4', country: 'US' },
       { name: 'Made Up Person 5', country: 'US' },
+      { name: 'Made Up Person 6', country: 'US' },
     ]);
   });
 });

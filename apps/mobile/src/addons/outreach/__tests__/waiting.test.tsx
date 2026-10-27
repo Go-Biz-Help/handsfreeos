@@ -2,6 +2,7 @@ import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { MESSAGE_MOST } from '@hfos/core/addons/outreach/limits';
 import { COMMENT_HOLD_WORDS, COMMENT_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
 import { waitingOfCopy } from '@hfos/core/addons/outreach/views/waiting';
+import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 import { Linking } from 'react-native';
@@ -232,6 +233,7 @@ describe('Waiting for you on the phone', () => {
         phone={phone}
         server={{
           ...SERVER,
+          commentHolds: ['instagram'],
           posts: new Map([[id(2), { post: 'Fresh sourdough out of the oven…', postUrl }]]),
         }}
         serverError={null}
@@ -273,10 +275,80 @@ describe('Waiting for you on the phone', () => {
       expect.objectContaining({ sendId: id(2), kind: 'comment' }),
     );
     await fireEvent.press(within(avery!).getByTestId('waiting-change'));
-    expect(
-      within(screen.getByTestId('waiting-change-sheet')).getByText('Comment on Avery Cole’s post'),
-    ).toBeTruthy();
+    const sheet = screen.getByTestId('waiting-change-sheet');
+    expect(within(sheet).getByText('Comment on Avery Cole’s post')).toBeTruthy();
+    // A comment is posted, not sent: its OK says so as the web's does.
+    expect(within(sheet).getByText(W.ok)).toBeTruthy();
+    expect(within(sheet).queryByText(W.okChanged)).toBeNull();
     opened.mockRestore();
+  });
+
+  it('leaves comments out of Approve all’s words and the hold’s note when only a forum answer waits among them', async () => {
+    const phone = waitingOfCopy(
+      [
+        sendRow(1, { name: 'Dana Reyes' }),
+        sendRow(2, { name: 'Jamie Lane' }),
+        sendRow(3, {
+          kind: 'comment',
+          name: 'Pike Roofing',
+          profile_url: 'https://www.alignable.com/austin-tx/pike-roofing',
+          needs_you: COMMENT_NEEDS_YOU.answer,
+        }),
+      ],
+      ME,
+    );
+    await render(
+      <WaitingBody
+        phone={phone}
+        server={{ ...SERVER, commentHolds: ['instagram', 'alignable'] }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        {...handlers()}
+      />,
+    );
+    // Approve all takes the two messages alone, and says messages.
+    expect(screen.getByText('Approve all 2 messages')).toBeTruthy();
+    // The forum answer doesn't wait under the hold: it waits for an OK of its own.
+    expect(screen.queryByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeNull();
+  });
+
+  it('says the comments’ hold by each comment’s own network, whatever the training wheels shown', async () => {
+    const phone = waitingOfCopy(
+      [
+        sendRow(2, {
+          kind: 'comment',
+          name: 'Avery Cole',
+          profile_url: 'https://www.instagram.com/avery.cole.bakes/',
+        }),
+      ],
+      ME,
+    );
+    const shown = async (server: WaitingFromServer) => {
+      await render(
+        <WaitingBody
+          phone={phone}
+          server={server}
+          serverError={null}
+          online
+          timeZone={TZ}
+          now={NOW}
+          {...handlers()}
+        />,
+      );
+      return screen.queryByText(new RegExp(COMMENT_HOLD_WORDS)) !== null;
+    };
+    // Facebook's wheels on, Instagram's hold on: the Instagram comment waits under its hold, and the note says so.
+    expect(
+      await shown({
+        ...SERVER,
+        wheels: { on: true, from: null, ok: 0, daysLeft: 3, edits: 0 },
+        commentHolds: ['instagram'],
+      }),
+    ).toBe(true);
+    // Instagram's hold past, Alignable's on: nothing of the hold for the Instagram comment.
+    expect(await shown({ ...SERVER, commentHolds: ['alignable'] })).toBe(false);
   });
 
   it('shows a comment with no signal, without its post', async () => {

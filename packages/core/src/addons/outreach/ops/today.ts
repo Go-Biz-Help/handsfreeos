@@ -54,7 +54,6 @@ import {
   LEADERS_WAIT_DAYS,
   type FindHow,
 } from '../finds';
-import { foundByTopicOn } from '../profile-parts';
 import { RECONNECT_QUIET_DAYS } from '../checks';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
@@ -75,8 +74,8 @@ import {
   recentOf,
   type Ctx,
 } from './common';
-import { knownCheck, stillToReach } from './checks';
-import { myComputers, workingOf } from './live';
+import { knownCheck, myOwnProfile, stillToReach } from './checks';
+import { findsByTopic } from './live';
 import { playbooksInUse } from './friends';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
@@ -454,8 +453,8 @@ export const today = defineAddonQuery(outreachAddon, {
     // too, for the runner to do: enough for tomorrow's follows, as the groups' people's are.
     //
     // For a build that finds people by topic, this pick only carries on with writers it warmed up already (a like or a
-    // comment noted, their request not sent: decision 92's 11), so nobody half-way through a warm-up is dropped; nobody
-    // new comes from it, and it lists no likes.
+    // comment noted before they were found, their request not sent: decision 92's 11), so nobody half-way through a
+    // warm-up is dropped; nobody new comes from it, and it lists no likes.
     let searchRequests = 0;
     let searchLikes = 0;
     // Writers this pick warmed up, ready or not, for a build that finds people by topic: the found pick leaves them to
@@ -483,7 +482,15 @@ export const today = defineAddonQuery(outreachAddon, {
               p.warm_up_missed_at,
               (select max(t.at) from addon_outreach.touches t
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind in ('like', 'comment')
-                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as warmed_at
+                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
+                  ${
+                    // For a build that finds people by topic, only a warm-up from before they were found counts: a
+                    // comment on a good post of theirs since (LinkedIn's on its own, or one OK'd) is no AI check.
+                    byTopic
+                      ? sql`and not exists (select 1 from addon_outreach.finds fd
+                          where fd.profile_id = p.id and fd.user_id = ${me} and fd.created_at <= t.at)`
+                      : sql``
+                  }) as warmed_at
             from addon_outreach.posts po
             join addon_outreach.profiles p on p.id = po.profile_id
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
@@ -491,6 +498,7 @@ export const today = defineAddonQuery(outreachAddon, {
               and po.seen_at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
               and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+              and not ${myOwnProfile(me)}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.friends f
@@ -725,6 +733,7 @@ export const today = defineAddonQuery(outreachAddon, {
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
               and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+              and not ${myOwnProfile(me)}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.friends f
@@ -1323,7 +1332,8 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
             where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
               and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
-              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and p.friendship <> 'self' and not ${myOwnProfile(me)}
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t
@@ -1515,15 +1525,6 @@ export const today = defineAddonQuery(outreachAddon, {
 /** A post as Today shows it: cut short at `TODAY_POST_MOST`. */
 const shownPost = (body: string): string =>
   body.length > TODAY_POST_MOST ? `${body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…` : body;
-
-/**
- * Whether the person's working computer runs a build that finds people by topic (decision 92, `foundByTopicOn`):
- * looked up on the server, as an ask is, so the web, the phone and the morning push see the list it works from. No
- * computer, or one that didn't say its build, is taken as older.
- */
-export async function findsByTopic(ctx: Ctx, me: string): Promise<boolean> {
-  return foundByTopicOn(workingOf(await myComputers(ctx, me))?.version);
-}
 
 /** Someone found by topic whose AI check was good (decision 92), as Today weighs them. */
 type FoundGood = {

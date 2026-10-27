@@ -200383,6 +200383,18 @@
                       ],
                       "additionalProperties": false
                     },
+                    "commentHolds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "facebook",
+                          "linkedin",
+                          "instagram",
+                          "alignable"
+                        ]
+                      }
+                    },
                     "pushes": {
                       "type": "string",
                       "enum": [
@@ -200430,6 +200442,7 @@
                     "kinds",
                     "items",
                     "wheels",
+                    "commentHolds",
                     "pushes",
                     "hours",
                     "timezone"

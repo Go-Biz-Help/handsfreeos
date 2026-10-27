@@ -24,7 +24,9 @@ import {
 } from '@hfos/core/addons/outreach/views/waiting';
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
 import {
+  approveAllTakesComments,
   approveAllWords,
+  commentHoldShown,
   commentTitle,
   forumAnswer,
   forumAnswersLeftWords,
@@ -35,7 +37,6 @@ import {
   needPageOf,
   needTitle,
   needWhyWords,
-  oneByOne,
   oneByOneWords,
   WAITING_KINDS,
   waitingWords,
@@ -103,6 +104,8 @@ export interface WaitingFromServer {
   readonly requests: readonly Request[];
   readonly kinds: Pick<WaitingOutput['kinds'], 'ask' | 'need' | 'request'>;
   readonly wheels: WaitingOutput['wheels'];
+  /** The networks whose comments wait under the comments-only hold now (decision 92's 13), for the hold's note. */
+  readonly commentHolds?: WaitingOutput['commentHolds'];
   readonly pushes: WaitingOutput['pushes'];
   /** Each message's chat so far, by its id: with signal only, since the phone's copy doesn't keep chats. */
   readonly recent: ReadonlyMap<string, readonly RecentMessage[]>;
@@ -138,6 +141,7 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
     requests: answer.items.flatMap((i) => (i.kind === 'request' ? [i.request] : [])),
     kinds: { ask: answer.kinds.ask, need: answer.kinds.need, request: answer.kinds.request },
     wheels: answer.wheels,
+    commentHolds: answer.commentHolds,
     pushes: answer.pushes,
   };
 }
@@ -276,8 +280,8 @@ export function WaitingBody({
   // Comments wait among the messages (decision 92): the heading says so, and Approve all leaves forum answers.
   const comments = phone.messages.filter((s) => s.kind === 'comment');
   const answers = comments.filter(forumAnswer).length;
-  // A comment that waits with no wheels on and no OK of its own waits under the comments' hold.
-  const held = server && !server.wheels.on && comments.some((s) => !oneByOne(s));
+  // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
+  const held = server ? commentHoldShown(comments, server.commentHolds) : false;
   const count =
     phone.kinds.reply.count +
     phone.kinds.message.count +
@@ -375,7 +379,7 @@ export function WaitingBody({
                 onPress={() => onOkAll(all)}
                 testID="waiting-approve-all"
               >
-                {approveAllWords(all.length, comments.length > 0)}
+                {approveAllWords(all.length, approveAllTakesComments(comments))}
               </Button>
             ) : null
           }
@@ -676,7 +680,7 @@ function ChangeSheet({
           </Text>
         ) : null}
         <Button disabled={!trimmed} onPress={ok} testID="waiting-change-ok">
-          {W.okChanged}
+          {send?.kind === 'comment' ? W.ok : W.okChanged}
         </Button>
       </View>
     </Sheet>

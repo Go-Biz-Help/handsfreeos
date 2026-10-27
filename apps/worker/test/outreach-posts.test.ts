@@ -8,7 +8,11 @@ import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { outreachBusiness, runAs } from '../../../packages/core/test/addons/outreach-fixture';
+import {
+  computerOn,
+  outreachBusiness,
+  runAs,
+} from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
 import { CHECK_POSTS_JOB } from '../src/addons/outreach/posts';
 import { scriptedAi } from '../src/ai/scripted';
@@ -145,6 +149,8 @@ describe('finding good posts’ writers (decision 92)', () => {
   it('finds a good LinkedIn post’s writer, and not a Facebook group post’s', async () => {
     const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await outreachBusiness(owner, 'Outreach Post Writers Co');
+    // Only a computer that checks people found has them found (decision 92's 18).
+    await computerOn(owner, ws, '0.95.0');
     const crm = PLAYBOOK_TEMPLATES.crm_demos;
     await runAs(owner, ws, 'outreach.playbook.save', {
       name: crm.name,

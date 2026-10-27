@@ -5,10 +5,10 @@
  * the day from the customer playbooks' **Kinds of business to search for on Alignable**, each with whether its playbook
  * works with clients online (`outreach.finds.searches`). A local one searches with the person's own town's name added
  * ("roofing contractor Austin TX") and keeps only the businesses whose address is in that town; one that works online
- * searches with the words alone and keeps every business it shows. Each reads 3 screens of Alignable's search, and
- * what it kept goes to HandsFreeOS as found (`searched`, with the words and the town), for the AI's found check
- * (../found-checks.ts): only a good check puts a business on Today. Nothing is pressed but a list's own Show more, and
- * it stops on any Alignable warning.
+ * searches with the words alone and keeps every business it shows. Never the person's own business, which their own
+ * profile names. Each reads 3 screens of Alignable's search, and what it kept goes to HandsFreeOS as found (`searched`,
+ * with the words and the town), for the AI's found check (../found-checks.ts): only a good check puts a business on
+ * Today. Nothing is pressed but a list's own Show more, and it stops on any Alignable warning.
  */
 import { findsSave, type FoundPerson } from '../../hfos/saves';
 import type { Business } from '../../networks/alignable/read';
@@ -20,7 +20,8 @@ import {
   businessSearchUrl,
   ended,
   gather,
-  myTown,
+  mine,
+  notMine,
   PAGE_PACE_MS,
   townPlace,
   townWords,
@@ -57,13 +58,11 @@ export async function searchForCustomers(job: Job): Promise<JobEnd> {
       line: 'Nothing to search for today: your customer playbooks have no kinds of business for Alignable yet, or the businesses found already wait for their check.',
       warned: false,
     };
-  // A local search needs the person's own town; one that works online doesn't.
-  let town: string | null = null;
-  if (searches.some((search) => !search.anywhere)) {
-    const mine = await myTown(job);
-    if (mine !== null && typeof mine === 'object') return mine;
-    town = mine;
-  }
+  // A local search needs the person's own town; and every search leaves out their own business.
+  const own = await mine(job);
+  if (ended(own)) return own;
+  const town = own.town;
+  const someoneElse = notMine(own.business);
   let searched = 0;
   let shown = 0;
   let added = 0;
@@ -87,10 +86,10 @@ export async function searchForCustomers(job: Job): Promise<JobEnd> {
     );
     if (ended(got)) return got;
     searched++;
-    // A local search keeps only the businesses whose address is in the person's own town.
-    const kept = search.anywhere
-      ? got.items
-      : got.items.filter((b) => townOf(b.profile.url) === town);
+    // A local search keeps only the businesses whose address is in the person's own town; never theirs.
+    const kept = got.items.filter(
+      (b) => someoneElse(b.profile) && (search.anywhere || townOf(b.profile.url) === town),
+    );
     shown += kept.length;
     if (!kept.length) {
       await job.report?.({

@@ -296,7 +296,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   - **Who it finds.** For up to 5 good posts a day on Instagram and LinkedIn (`outreach.posts.people_next`), the
     extension reads who commented, and who liked or reacted. Those people, a good post's writer, Alignable's search
     results and its groups' members are each the person's own find (`addon_outreach.finds`, `outreach.finds.save`),
-    never in Contacts.
+    never in Contacts. Never the person themself: each reader drops their own posts and their own business by the
+    account the page shows, and HandsFreeOS leaves out the profile Get ready's check of their own page read
+    (`myOwnProfile` in `ops/checks.ts`) from the finds, Today's picks and the checks.
   - **Each is checked by the AI from their own page.** The extension reads each one's page for the AI's found check
     (`outreach.finds.next`, a check marked `via = 'found'`). That's 30 a day on Instagram and Alignable, and up to 30
     inside LinkedIn's 40 profiles read, halved on training wheels or for a week after a warning. Nobody new is checked
@@ -2639,7 +2641,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   always when it's an answer to a post asking for what the business offers (`needsYou`, decision 79); otherwise it
   goes on its own with any Sending but Off. An OK'd comment counts toward its hold, never toward training wheels.
   Skipped, or not posted, its post is set aside (`posts.skipped_at`) so it's never drafted again, and only that post
-  leaves the list, never the person. A writer has one comment open at a time.
+  leaves the list, never the person. A writer has one comment open at a time. While a comment waits,
+  `outreach.waiting` says which networks' holds are on (`commentHolds`), and the web and the phone show the hold's
+  note by each comment's own network (`commentHoldShown`), never by the training wheels it shows, which are
+  Facebook's.
 - **Waiting for you is worked out each time** (`outreach.waiting`), from `sends`, `needs`, the person's asks that
   need them at their computer (a step handed over or a password to type, `asksNeedingYou`) and their friend
   requests. The Live tab, the team view, the tab's label, the icon and the pushes all count it the same way
@@ -2658,7 +2663,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   phone's Approve all (`partial`) passes over those.
 - **Approve all leaves what needs the person** (`oneByOne`): a reply handed over (`handedOver`), a message to
   someone who needs them and a forum answer on Alignable (`needsYou`, decision 92) each wait for an OK of their own, on
-  Today and in Waiting for you, which says why beside the button. Approve all takes the other comments waiting.
+  Today and in Waiting for you, which says why beside the button. Approve all takes the other comments waiting, and
+  says "messages and comments" only when it takes one (`approveAllTakesComments`).
   Today's button counts only what it OKs; the web's Waiting for you says the same number (`approveAllCount`). The
   server holds to it, whatever the client: `outreach.send.approve` with none named, or with
   `partial` (the phone's Approve all, any build), passes over them, and one named among others is refused
@@ -2829,7 +2835,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   people known (Reconnect, the Friends tab's good fits, Check everyone again, `checksSummary`) go by `knownToMe` when
   they read, never by `via`, so a found person who accepts shows there at once. The day's found checks count by
   `via`, and the Pipeline counts a found check only when it's good. What a commenter said (`finds.said`) goes when
-  their check is saved, or with the daily prune once the find is 14 days old.
+  their check is saved, or with the daily prune 14 days after it was kept (`said_at`, so being found again never keeps
+  it longer); it isn't kept at all for someone whose check has answered already.
 - **A stage is worked out, never kept** (`ops/stages.ts`, `staged`): from the steps noted, friends, the latest chat,
   replies seen, the checks, demos and the marks in `stages`, in this order: client, booked, not a fit, pitched, ready,
   talking, friends, warming up, found. A client (decision 91) is one in Contacts, or kept under a client's name on the

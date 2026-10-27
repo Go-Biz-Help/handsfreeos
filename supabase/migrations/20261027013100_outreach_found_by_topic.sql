@@ -9,10 +9,10 @@
 --        an Alignable search showed (`searched`) and a group's member
 --        (`member`). With it, the post or group it came from, the words it
 --        was found with, the place a search showed, and what a commenter
---        said, until the AI's check reads it (or 14 days have gone). Never in
---        `engagements` and never in Contacts: each is a profile with no
---        customer, as a post's writer is. Each person's own, like their
---        partner leads.
+--        said, until the AI's check reads it (or 14 days have gone since it
+--        was kept). Never in `engagements` and never in Contacts: each is a
+--        profile with no customer, as a post's writer is. Each person's own,
+--        like their partner leads.
 --
 --        A check says whether it was of someone the person knows or someone
 --        found (`checks.via`), so the day's found checks are counted on
@@ -39,8 +39,9 @@ create table addon_outreach.finds (
   -- The hashtag, phrase or kind of business it was found with, and the place a search showed.
   words text check (words is null or length(words) between 1 and 160),
   place text check (place is null or length(place) between 1 and 100),
-  -- What a commenter said: emptied once the AI's check reads it, or after 14 days.
+  -- What a commenter said, and when it was kept: emptied once the AI's check reads it, or 14 days after it was kept.
   said text check (said is null or length(said) between 1 and 300),
+  said_at timestamptz,
   found_at timestamptz not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

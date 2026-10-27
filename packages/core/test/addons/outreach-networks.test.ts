@@ -1079,6 +1079,59 @@ describe('people found by topic on LinkedIn', () => {
     expect((await listOf(sky)).filter((i) => names.includes(i.name))).toEqual([]);
   });
 
+  it('never invites a writer found and commented on since, without a good check of them', async () => {
+    const jo = await teammate('Jo Lane');
+    await computerOn(jo, ws, '0.95.0');
+    const TAYLOR_POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000780/';
+    const MORGAN_POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000781/';
+    await runAs(jo, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      found: 'search',
+      words: 'missed calls',
+      posts: [
+        {
+          url: TAYLOR_POST,
+          author: person('taylor-reed-roofing'),
+          name: 'Taylor Reed',
+          text: 'I’m the owner of a small roofing business and we keep missing calls. Can anyone recommend a simple CRM?',
+        },
+        {
+          url: MORGAN_POST,
+          author: person('morgan-ash-hvac'),
+          name: 'Morgan Ash',
+          text: 'I’m the owner of a small HVAC business and we keep missing calls. Can anyone recommend a simple CRM?',
+        },
+      ],
+    });
+    for (const url of [TAYLOR_POST, MORGAN_POST]) {
+      const postId = await postIdOf(jo, url);
+      await rows(
+        admin(),
+        sql`update addon_outreach.posts set check_state = 'waiting' where id = ${postId}`,
+      );
+      await runAsSystem(ws, 'outreach.post.check', {
+        postId,
+        check: { good: true, strong: false, why: 'Asking for a simple CRM' },
+      });
+    }
+    // Found two days ago, and LinkedIn commented on both posts on its own yesterday.
+    await rows(
+      admin(),
+      sql`update addon_outreach.finds set created_at = now() - interval '2 days'
+          where workspace_id = ${ws} and user_id = ${jo.id}`,
+    );
+    await touched(jo, 'taylor-reed-roofing', 'comment', 21, TAYLOR_POST);
+    await touched(jo, 'morgan-ash-hvac', 'comment', 21, MORGAN_POST);
+    // The AI said Taylor might fit; Morgan's check hasn't come.
+    await checked(jo, 'taylor-reed-roofing', 'maybe', 'Might run a roofing crew');
+    // A comment since they were found is no warm-up the old pick gave: only a good check lists them.
+    expect(
+      (await listOf(jo, 'linkedin'))
+        .filter((i) => ['Taylor Reed', 'Morgan Ash'].includes(i.name) && i.kind !== 'comment')
+        .map((i) => [i.name, i.kind]),
+    ).toEqual([]);
+  });
+
   it('still invites a writer the old search pick warmed up, and a computer before 0.95.0 keeps that pick', async () => {
     const kim = await teammate('Kim Vale');
     await computerOn(kim, ws, '0.95.0');

@@ -100,6 +100,12 @@ export const WaitingOutput = z.object({
   items: z.array(WaitingItem),
   /** Their training wheels, for Approve all's words. */
   wheels: WheelsState,
+  /**
+   * The networks whose comments wait for an OK under the comments-only hold now (decision 92's 13), while a comment
+   * waits: what says whether the hold's note shows (`commentHoldShown`), by each comment's own network. Empty when
+   * only the counts were asked for.
+   */
+  commentHolds: z.array(z.enum(PLATFORM_KEYS)),
   /** How their phone hears of it, their working hours and the business's time zone: the pushes and pop-ups follow them. */
   pushes: z.enum(PUSH_MODE_KEYS),
   hours: WorkingHours,

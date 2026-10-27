@@ -19,7 +19,7 @@ import {
   runAsSystem,
 } from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
-import { WRITE_WORDS_JOB } from '../src/addons/outreach/words';
+import { WRITE_WORDS_BATCH, WRITE_WORDS_JOB } from '../src/addons/outreach/words';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
@@ -74,6 +74,19 @@ function counting(inner: AiProvider = scriptedAi()) {
     },
   };
   return { provider, asks: () => asks };
+}
+
+/** The stand-in model, whose words for a playbook about "unusable" come back as no answer it can use. */
+function unusable(inner: AiProvider = scriptedAi()): AiProvider {
+  return {
+    ...inner,
+    stream: async (request, options) => {
+      const turn = await inner.stream(request, options);
+      return JSON.stringify(request.messages).includes('Unusable')
+        ? { ...turn, text: 'No words today.' }
+        : turn;
+    },
+  };
 }
 
 /** The owner works these networks, besides Facebook. */
@@ -267,6 +280,41 @@ describe('the AI’s words for finding people by topic', () => {
       worksOnline: false,
       wordsWritten: ['linkedin'],
     });
+  });
+
+  it('passes over an answer it can’t use for the playbooks after it, and never asks again and again', async () => {
+    const ai = counting(unusable());
+    const s = testServices({ ai: { provider: ai.provider } });
+    const ws = await everywhere('Outreach Unusable Words Co');
+    // More than a run's playbooks whose answers can't be used, saved first, then two that can.
+    for (let i = 1; i <= WRITE_WORDS_BATCH; i++)
+      await runAs(owner, ws, 'outreach.playbook.save', {
+        name: `Unusable roofers ${i}`,
+        details: roofers({ niche: `Unusable roofers ${i}` }),
+      });
+    const after = [
+      await runAs(owner, ws, 'outreach.playbook.save', {
+        name: 'Austin roofers',
+        details: roofers(),
+      }),
+      await runAs(owner, ws, 'outreach.playbook.save', {
+        name: 'Round Rock roofers',
+        details: roofers({ niche: 'Roofers in Round Rock', area: 'Round Rock, TX' }),
+      }),
+    ];
+    await drain(s, ws);
+    // Each asked once: the ones after are reached, and the ones it couldn't use wait for the next save or day.
+    expect(ai.asks()).toBe(WRITE_WORDS_BATCH + 2);
+    for (const p of after)
+      expect(await detailsOf(p.id)).toMatchObject({
+        wordsWritten: ['instagram', 'linkedin', 'alignable'],
+      });
+    const [waiting] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = ${WRITE_WORDS_JOB} and status = 'pending'`,
+    );
+    expect(waiting!.n).toBe(0);
   });
 
   it('leaves the rest waiting at the day’s AI limit', async () => {
