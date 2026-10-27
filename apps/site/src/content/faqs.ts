@@ -44,16 +44,16 @@ export const homeFaqs: readonly Faq[] = [
 /** The "What people ask about the price" block on the pricing page. */
 export const pricingFaqs: readonly Faq[] = [
   {
-    q: 'What does "start free" mean?',
-    a: 'You can make an account, bring your customers in and look around without paying. You start the plan when you want a business number and the AI answering for you — that is the point where it costs us real money on your behalf.',
+    q: 'How do I get a founding spot?',
+    a: 'Sign up, make your business, and pick a spot: $497 a year or $97 a month. You pay on Stripe’s secure page, and your spot is held for an hour while you do. It is first come, first served, and the counts on this page are read live from our database, so when it says none are left, none are.',
   },
   {
     q: 'Is there a contract?',
-    a: 'No. Month to month, cancel whenever. Your customers, conversations and files export on your way out.',
+    a: 'No. A monthly spot renews each month and a yearly one each year, until you stop it, which you can do any time in Settings. Your customers, conversations and files export on your way out.',
   },
   {
     q: 'Why only one plan?',
-    a: 'Because three plans meant three conversations before anybody could buy: which one am I, what am I missing, will I have to move later. A business with four people and one with twenty need the same software. So there is one price, everything is in it, and there is no per-person charge — you are paying for the work it does, not for how many people log in to it.',
+    a: 'Because three plans meant three conversations before anybody could buy: which one am I, what am I missing, will I have to move later. A business with four people and one with twenty need the same software. So there is one plan, everything is in it, and there is no per-person charge — you are paying for the work it does, not for how many people log in to it.',
   },
   {
     q: 'Do you take a cut of what I get paid?',
@@ -61,19 +61,19 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'Why is there usage on top?',
-    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account, and they are the same on every offer, founding seats included.',
+    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account, and they are the same on both founding spots.',
   },
   {
-    q: 'What does a founding seat actually cover?',
-    a: 'The software, including the features we add to it later, with no monthly bill: free for as long as HandsFreeOS exists on a founding partner seat, and $497 a year on a founding customer seat, renewed each year until you stop it. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $30–$60 a month on that.',
+    q: 'What does a founding spot cover?',
+    a: 'The software, including the features we add to it later: $497 a year on a yearly spot, or $97 a month on a monthly one, renewed until you stop it. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $30–$60 a month on that.',
   },
   {
-    q: 'What happens when the founding seats run out?',
-    a: 'The next offer opens by itself the moment the last seat goes: the twenty-five free seats give way to a hundred seats at $497 a year, and partway through those HandsFreeOS goes on sale month to month at $97. The counter is read live from our database, so when it says none are left, none are. Apply anyway and you go on the waitlist — seats do come back, and the waitlist is where we look first.',
+    q: 'What happens when the founding spots run out?',
+    a: 'Each kind has its own count, so when the yearly spots are gone the monthly ones may still have room. When neither has any left, email us and we will tell you when more open.',
   },
   {
-    q: 'Could you take a founding seat back?',
-    a: 'Only for a real reason — an account that was never used, or somebody abusing it — and never without telling you first. If it happens you get two weeks\u2019 notice, nothing changes during those two weeks, and everything you have is yours to export or to carry on with on the monthly plan.',
+    q: 'Could you take a founding spot back?',
+    a: 'Only for a real reason — an account that was never used, or somebody abusing it — and never without telling you first. If it happens you get two weeks\u2019 notice, nothing changes during those two weeks, and everything you have is yours to export.',
   },
   {
     q: 'Can you move me off the CRM I use now?',
@@ -81,6 +81,6 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'What if I have two businesses?',
-    a: 'Each one gets its own workspace with its own number, calendar and books, and each is its own $97 a month. A founding seat covers one of them.',
+    a: 'Each one gets its own workspace with its own number, calendar and books, and each needs a founding spot of its own.',
   },
 ];

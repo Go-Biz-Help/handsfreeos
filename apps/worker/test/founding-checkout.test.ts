@@ -11,6 +11,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   executeCommand,
+  foundingBuy,
   foundingPayRenewal,
   foundingSetRenewing,
   foundingStartCheckout,
@@ -22,7 +23,8 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
-import { planFoundingRenewals } from '../src/founding/checkout';
+import { foundingRenewalFailedEmail, foundingRenewedEmail } from '../src/emails/templates';
+import { planFoundingRenewals, SELF_SERVE_PAGE_MINUTES } from '../src/founding/checkout';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs, type JobContext } from '../src/jobs';
@@ -186,6 +188,7 @@ describe('Stripe Checkout, in our own account', () => {
 // ---------- the whole loop, on the stand-in ----------
 
 const PAID = 'test_worker_paid';
+const MONTHLY = 'test_worker_monthly';
 const actor = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -308,6 +311,11 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
+  // Off sale afterwards: an open paid offer makes every business made after it pick a plan first (20261027012700).
+  await admin().execute(
+    sql`update platform.founding_offers set status = 'closed'
+        where id in (${PAID}, ${MONTHLY}) and status = 'open'`,
+  );
   await app?.close();
   await closeTestDbs();
 });
@@ -623,5 +631,125 @@ describe('a seat paid by the year', () => {
     );
     expect(g!.status).toBe('revoked');
     expect((await planNow()).status).toBe('canceled');
+  });
+});
+
+// ---------- a spot the business buys itself, paid by the month (20261027012700) ----------
+
+describe('a spot bought from the plan page, paid by the month', () => {
+  beforeEach(async () => {
+    await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${MONTHLY}`);
+    await admin().execute(sql`delete from platform.founding_grants where offer_id = ${MONTHLY}`);
+    await admin().execute(sql`delete from platform.founding_offers where id = ${MONTHLY}`);
+    await admin().execute(
+      sql`insert into platform.founding_offers
+            (id, name, seat_cap, price_cents, status, billing, starting_credit_cents, show_counter)
+          values (${MONTHLY}, 'Founding Monthly', 1000, 9700, 'open', 'monthly', 0, true)`,
+    );
+  });
+
+  const planNow = async () => {
+    const [p] = await rows<{
+      plan: string;
+      status: string;
+      price_cents: number;
+      current_period_end: string | null;
+      stripe_card_id: string | null;
+      renewal_count: number;
+    }>(
+      admin(),
+      sql`select plan::text as plan, status::text as status, price_cents,
+            current_period_end::text as current_period_end, stripe_card_id, renewal_count
+          from app.workspace_plans where workspace_id = ${workspaceId}`,
+    );
+    return p!;
+  };
+
+  it('makes a short page that keeps the card, and charges it again a month later', async () => {
+    const { output } = await executeCommand(
+      api(),
+      foundingBuy,
+      { workspaceId, offerId: MONTHLY },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    const page = s.payments.fake.checkouts().find((p) => p.checkoutId === output.checkoutId)!;
+    expect(page).toMatchObject({ amountCents: 9_700, saveCard: true });
+    expect(page.productName).toContain('the first month');
+    // The spot is held for an hour, so the page closes well inside it.
+    const minutes = (new Date(page.expiresAt).getTime() - Date.now()) / 60_000;
+    expect(minutes).toBeGreaterThan(SELF_SERVE_PAGE_MINUTES - 2);
+    expect(minutes).toBeLessThanOrEqual(SELF_SERVE_PAGE_MINUTES);
+
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    const bought = await planNow();
+    expect(bought).toMatchObject({
+      plan: 'monthly',
+      status: 'active',
+      price_cents: 9_700,
+      renewal_count: 0,
+    });
+    expect(bought.stripe_card_id).toBe(page.cardRef);
+    const days = (new Date(bought.current_period_end!).getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(27);
+    expect(days).toBeLessThan(32);
+
+    // A month later, the hourly sweep charges the card it kept, once.
+    await admin().execute(
+      sql`update app.workspace_plans set current_period_end = now() - interval '1 minute'
+          where workspace_id = ${workspaceId}`,
+    );
+    const before = s.payments.fake.platformCharges().length;
+    const sweep = async () => {
+      await planFoundingRenewals({
+        ...s,
+        job: { payload: {} },
+        scope: {},
+        attempt: 1,
+        now: Date.now(),
+      } as unknown as JobContext);
+      await drain();
+    };
+    await sweep();
+    await sweep();
+    expect(
+      s.payments.fake
+        .platformCharges()
+        .slice(before)
+        .map((c) => [c.amountCents, c.status, c.description]),
+    ).toEqual([[9_700, 'succeeded', expect.stringContaining('another month')]]);
+    const renewed = await planNow();
+    expect(renewed.renewal_count).toBe(1);
+    const ahead = (new Date(renewed.current_period_end!).getTime() - Date.now()) / 86_400_000;
+    expect(ahead).toBeGreaterThan(27);
+    expect(ahead).toBeLessThan(32);
+  });
+});
+
+describe('the renewal emails', () => {
+  it('say a month for a monthly spot and a year for a yearly one', () => {
+    const renewed = (period: 'month' | 'year') =>
+      foundingRenewedEmail({
+        business: 'Checkout HVAC',
+        offer: 'Founding Monthly',
+        paid: '$97',
+        until: 'Dec 27, 2026',
+        link: 'https://app.test/settings',
+        period,
+      });
+    expect(renewed('month').text).toContain('another month of HandsFreeOS');
+    expect(renewed('year').text).toContain('another year of HandsFreeOS');
+    const refused = foundingRenewalFailedEmail({
+      business: 'Checkout HVAC',
+      offer: 'Founding Monthly',
+      amount: '$97',
+      reason: 'Your card was declined.',
+      link: 'https://app.test/settings',
+      period: 'month',
+    });
+    expect(refused.text).toContain('the monthly $97');
+    expect(refused.text).toContain('charged next month');
   });
 });

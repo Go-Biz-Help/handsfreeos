@@ -4,11 +4,17 @@ This is the marketing site, not the product. The product is `apps/web` at `app.h
 They are deployed as **two separate Vercel projects** so a copy change never rebuilds the app.
 
 - **No database and no API of its own.** What it reads from outside is small and server-side: the founding
-  counters (`WORKER_PUBLIC_URL`), the chat button (`NEXT_PUBLIC_CHAT_WIDGET_KEY`) and the blog
+  spot counters (`WORKER_PUBLIC_URL`), the chat button (`NEXT_PUBLIC_CHAT_WIDGET_KEY`) and the blog
   (`OPINLY_API_KEY`, `OPINLY_WEBHOOK_SIGNING_SECRET`; see "The blog" below). Every page still renders
   without them. If a page needs a secret or a fetch beyond those, stop and reconsider: that probably
   belongs in `apps/web`.
 - **Company facts, addresses and prices live in `src/content/site.ts`**, not in the pages.
+- **HandsFreeOS is sold as founding spots, first come, first served** (2026-10-27): $497 a year or $97 a
+  month, each with its own live count. Nobody applies. Every sign-up button goes to the app's sign-up, which
+  goes straight on to picking a spot and paying; a spot's own button adds `?plan=yearly` or `?plan=monthly`
+  so that spot is picked to start with. Which spots are on sale and how many are left come from the database
+  (`src/lib/founding.ts`), never from this repo. `/founding`, the old application page, redirects to
+  `/pricing`.
 - **The design tokens are copied from `apps/web/src/app/globals.css`** so the site and the app look
   like one product. If the accent colour changes there, change it here.
 - **Three pages exist because somebody reviews them**, and their wording is not decoration:
@@ -78,10 +84,8 @@ JSON, not HTML. Everything that talks to Opinly is in `src/lib/opinly/`:
   our own pages lose Opinly's default `nofollow`, colour marks are dropped so text reads in dark mode, and
   unsafe link schemes are removed.
 - **Analytics**: the pixel (`components/opinly.tsx`) loads on every page of the live site only, like Matomo;
-  browser calls go through `lib/opinly/pixel.ts`. The founding form identifies the visitor and sends a
-  `generate_lead` from the browser and from `api/founding/apply` (same `externalEventId`, an id the form makes per send, so
-  they merge). The worker sends `sign_up`, `begin_checkout` and `purchase` (`apps/worker/src/opinly.ts` and
-  `founding/checkout.ts`).
+  browser calls go through `lib/opinly/pixel.ts`. The worker sends `sign_up`, `begin_checkout` and `purchase`
+  (`apps/worker/src/opinly.ts` and `founding/checkout.ts`).
   `components/signup-link-visitor.tsx` adds the pixel's visitor id to every link to the app's sign-up as
   `?oa=`; the sign-up form keeps it on the account, and the worker sends it with those events, so they land on
   the exact visit. `/privacy` says all of this; change one and change the other.

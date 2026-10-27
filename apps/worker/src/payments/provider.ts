@@ -459,8 +459,13 @@ export interface CheckoutInput {
    * up to `amountCents`; left out, the page is one line named `productName`.
    */
   readonly lines?: readonly CheckoutLine[];
-  /** Keep the card on the customer for charging later without them there (a yearly renewal). */
+  /** Keep the card on the customer for charging later without them there (a monthly or yearly renewal). */
   readonly saveCard?: boolean;
+  /**
+   * When the page stops taking payment (ISO), for a page that must close sooner than the provider's default day: a
+   * founding spot a business is buying for itself is only held for an hour (20261027012700).
+   */
+  readonly expiresAt?: string;
 }
 
 export interface CheckoutLine {

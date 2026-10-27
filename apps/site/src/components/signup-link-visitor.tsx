@@ -9,7 +9,8 @@
  * sign-up and any purchase with it, so they are credited to the article or campaign that brought the person here.
  *
  * Done at that moment rather than when the page draws, because the pixel loads after the page and may not have
- * an id yet; and done once for every link, so a new "Start free" button needs nothing of its own.
+ * an id yet; and done once for every link, so a new "Sign up" button needs nothing of its own. A link
+ * that already says which spot to pick (`?plan=`) keeps it.
  */
 import { useEffect } from 'react';
 import { urls } from '@/content/site';

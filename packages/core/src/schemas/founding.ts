@@ -36,7 +36,8 @@ export const offerStatus = z.enum(['draft', 'open', 'closed']);
 export const checkoutStatus = z.enum(['pending', 'open', 'paid', 'expired', 'failed']);
 /**
  * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year, renewed on its own
- * (20261027009500). `monthly` is the plan: no seats, no applications (0092).
+ * (20261027009500). `monthly` is a founding spot paid each month, renewed on its own (20261027012700; until then it
+ * was the plan, with no seats).
  */
 export const offerBilling = z.enum(['once', 'yearly', 'monthly']);
 export const planKind = z.enum(['founding_free', 'founding_lifetime', 'monthly']);
@@ -187,6 +188,15 @@ export const FoundingStartCheckoutInput = z.strictObject({
   workspaceId: uuid,
 });
 
+/**
+ * A business buying its own founding spot from the plan page (20261027012700): first come, first served. Picking the
+ * other offer before paying gives the first hold back.
+ */
+export const FoundingBuyInput = z.strictObject({
+  workspaceId: uuid,
+  offerId,
+});
+
 export const FoundingStartCheckoutOutput = z.strictObject({
   checkoutId: uuid,
   status: checkoutStatus,
@@ -214,8 +224,13 @@ export const FoundingCheckoutStatusOutput = z.strictObject({
   renewal: z.boolean(),
   /** How the seat is paid: `yearly` renews on its own. */
   billing: offerBilling,
-  /** The end of the year paid for, on a seat paid by the year. Null otherwise. */
+  /** The end of the month or year paid for, on a spot that renews. Null otherwise. */
   paidThrough: z.iso.datetime().nullable(),
+  /**
+   * The business bought this spot itself from the plan page (20261027012700), so the page sends it on to set up, or
+   * back to pick a plan. False on a claim link's seat and on a renewal.
+   */
+  selfServe: z.boolean(),
 });
 
 /** The worker made Stripe's page. */
@@ -356,11 +371,11 @@ export const FoundingCountsOutput = z.strictObject({
       claimed: z.int(),
       remaining: z.int(),
       billing: offerBilling,
-      /** Whether its numbers are for printing. Off for the monthly plan, whose seat count means nothing. */
+      /** Whether its numbers are for printing. */
       showCounter: z.boolean(),
       /**
        * A later founding offer has opened after this one, so it is no longer what is on sale — a seat freed in
-       * it goes to somebody on the waitlist, not back on the website. The monthly plan never supersedes.
+       * it is handed out from /admin, not put back on the website. The monthly spots never supersede.
        */
       superseded: z.boolean(),
     }),
@@ -432,6 +447,8 @@ export const FoundingQueueOutput = z.strictObject({
       renewing: z.boolean(),
       /** The last renewal the card refused, until it is paid with another card. Null when nothing is owed. */
       renewalProblem: z.string().nullable(),
+      /** Picked by the business on the plan page (`founding.buy`), not approved or given by staff. */
+      selfServe: z.boolean(),
     }),
   ),
 });
@@ -485,6 +502,8 @@ export const FoundingBusinessOutput = z.strictObject({
       paidThrough: z.iso.datetime().nullable(),
       renewing: z.boolean(),
       renewalProblem: z.string().nullable(),
+      /** Picked by the business on the plan page (`founding.buy`), not approved or given by staff. */
+      selfServe: z.boolean(),
     })
     .nullable(),
   /** Every founding offer, so the page can say which can be given today and why the others can't. */

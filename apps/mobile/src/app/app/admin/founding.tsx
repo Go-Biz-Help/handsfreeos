@@ -398,10 +398,7 @@ function OfferCard({
 }) {
   const [cap, setCap] = React.useState(String(offer.seatCap));
   const [problem, setProblem] = React.useState<string | null>(null);
-  const { monthly, pct, opens, opened, replaced, paid, yearly, action } = foundingOfferCard(
-    offer,
-    offers,
-  );
+  const { pct, opens, opened, replaced, paid, renews, action } = foundingOfferCard(offer, offers);
 
   const save = () => {
     const n = Number(cap.trim());
@@ -420,22 +417,15 @@ function OfferCard({
         <Text className="text-[13px] text-text-3">{foundingOfferPriceLine(offer)}</Text>
       </View>
 
-      {monthly ? (
-        // No seats and no cap: this card is the switch for whether the website sells the plan.
-        <Text className="text-[13.5px] text-text-2">{FOUNDING_WORDS.monthlyNote}</Text>
-      ) : (
-        <>
-          <Text className="text-2xl font-semibold tabular-nums">
-            {offer.remaining}
-            <Text className="text-base font-normal text-text-3">
-              {FOUNDING_WORDS.ofLeft(offer.seatCap)}
-            </Text>
-          </Text>
-          <View className="h-2 w-full overflow-hidden rounded-full bg-card-2">
-            <View className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-          </View>
-        </>
-      )}
+      <Text className="text-2xl font-semibold tabular-nums">
+        {offer.remaining}
+        <Text className="text-base font-normal text-text-3">
+          {FOUNDING_WORDS.ofLeft(offer.seatCap)}
+        </Text>
+      </Text>
+      <View className="h-2 w-full overflow-hidden rounded-full bg-card-2">
+        <View className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+      </View>
 
       {opens ? (
         <Text className="text-[13.5px] leading-[19px] text-text-2">{opens}</Text>
@@ -448,43 +438,35 @@ function OfferCard({
       {paid ? (
         <Text className="text-[13.5px] leading-[19px] text-text-3">{FOUNDING_WORDS.paidNote}</Text>
       ) : null}
-      {yearly ? (
-        <Text className="text-[13.5px] leading-[19px] text-text-3">
-          {FOUNDING_WORDS.yearlyNote}
-        </Text>
-      ) : null}
+      {renews ? <Text className="text-[13.5px] leading-[19px] text-text-3">{renews}</Text> : null}
 
       <View className="flex-row flex-wrap items-end gap-2 pt-1">
-        {monthly ? null : (
-          <>
-            <View className="w-24 gap-1.5">
-              <Label>{FOUNDING_WORDS.seats}</Label>
-              <Input
-                value={cap}
-                onChangeText={(text) => {
-                  setCap(text);
-                  setProblem(null);
-                }}
-                keyboardType="number-pad"
-                inputMode="numeric"
-                invalid={problem !== null}
-                accessibilityLabel={FOUNDING_WORDS.seats}
-                className="h-11"
-                testID={`founding-cap-${offer.offerId}`}
-              />
-            </View>
-            <Button
-              size="md"
-              variant="secondary"
-              loading={busy === `cap:${offer.offerId}`}
-              disabled={cap === String(offer.seatCap)}
-              onPress={save}
-              testID={`founding-cap-save-${offer.offerId}`}
-            >
-              {FOUNDING_WORDS.save}
-            </Button>
-          </>
-        )}
+        <View className="w-24 gap-1.5">
+          <Label>{FOUNDING_WORDS.seats}</Label>
+          <Input
+            value={cap}
+            onChangeText={(text) => {
+              setCap(text);
+              setProblem(null);
+            }}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            invalid={problem !== null}
+            accessibilityLabel={FOUNDING_WORDS.seats}
+            className="h-11"
+            testID={`founding-cap-${offer.offerId}`}
+          />
+        </View>
+        <Button
+          size="md"
+          variant="secondary"
+          loading={busy === `cap:${offer.offerId}`}
+          disabled={cap === String(offer.seatCap)}
+          onPress={save}
+          testID={`founding-cap-save-${offer.offerId}`}
+        >
+          {FOUNDING_WORDS.save}
+        </Button>
         <Button
           size="md"
           variant="secondary"
@@ -496,11 +478,9 @@ function OfferCard({
         </Button>
       </View>
       {problem ? <FieldError>{problem}</FieldError> : null}
-      {monthly ? null : (
-        <Text className="text-[12.5px] leading-[17px] text-text-3">
-          {FOUNDING_WORDS.capHint(offer.claimed)}
-        </Text>
-      )}
+      <Text className="text-[12.5px] leading-[17px] text-text-3">
+        {FOUNDING_WORDS.capHint(offer.claimed)}
+      </Text>
     </Card>
   );
 }

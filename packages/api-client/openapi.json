@@ -42338,10 +42338,93 @@
         }
       }
     },
+    "/v1/commands/founding.buy": {
+      "post": {
+        "operationId": "command_founding_buy",
+        "summary": "Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer before paying gives the first hold back.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires money.manage. Emits founding.checkout_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "offerId": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 40,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "offerId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkoutId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "open",
+                        "paid",
+                        "expired",
+                        "failed"
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "created": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "checkoutId",
+                    "status",
+                    "url",
+                    "created"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/founding.set_renewing": {
       "post": {
         "operationId": "command_founding_set_renewing",
-        "summary": "Stop this business’s founding seat renewing each year, or start it again while the year is still paid for. Stopped, the seat stays until the year paid for is over, then goes back.",
+        "summary": "Stop this business’s founding seat renewing each month or year, or start it again while that is still paid for. Stopped, the seat stays until the month or year paid for is over, then goes back.",
         "tags": [
           "commands"
         ],
@@ -42409,7 +42492,7 @@
     "/v1/commands/founding.pay_renewal": {
       "post": {
         "operationId": "command_founding_pay_renewal",
-        "summary": "Pay the founding seat’s yearly renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.",
+        "summary": "Pay the founding seat’s renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.",
         "tags": [
           "commands"
         ],
@@ -107614,7 +107697,7 @@
     "/v1/queries/founding.counts": {
       "post": {
         "operationId": "query_founding_counts",
-        "summary": "How many seats each public offer has left. The only founding read that reaches somebody signed out, and it carries nothing but numbers.",
+        "summary": "How many spots each public offer has left, and what it costs. The only founding read that reaches somebody signed out, and it carries nothing but numbers.",
         "tags": [
           "queries"
         ],
@@ -108180,6 +108263,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "selfServe": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -108199,7 +108285,8 @@
                           "checkoutProblem",
                           "paidThrough",
                           "renewing",
-                          "renewalProblem"
+                          "renewalProblem",
+                          "selfServe"
                         ],
                         "additionalProperties": false
                       }
@@ -108544,6 +108631,9 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "selfServe": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -108563,7 +108653,8 @@
                             "checkoutProblem",
                             "paidThrough",
                             "renewing",
-                            "renewalProblem"
+                            "renewalProblem",
+                            "selfServe"
                           ],
                           "additionalProperties": false
                         },
@@ -108935,6 +109026,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "selfServe": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -108949,7 +109043,8 @@
                     "problem",
                     "renewal",
                     "billing",
-                    "paidThrough"
+                    "paidThrough",
+                    "selfServe"
                   ],
                   "additionalProperties": false
                 }
@@ -109114,6 +109209,9 @@
                           },
                           "gettingStarted": {
                             "type": "boolean"
+                          },
+                          "needsPlan": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -109127,7 +109225,8 @@
                           "role",
                           "permissions",
                           "addons",
-                          "gettingStarted"
+                          "gettingStarted",
+                          "needsPlan"
                         ],
                         "additionalProperties": false
                       }
@@ -109904,6 +110003,9 @@
                         "gettingStarted": {
                           "type": "boolean"
                         },
+                        "needsPlan": {
+                          "type": "boolean"
+                        },
                         "settings": {
                           "type": "object",
                           "propertyNames": {
@@ -109938,6 +110040,7 @@
                         "permissions",
                         "addons",
                         "gettingStarted",
+                        "needsPlan",
                         "settings",
                         "inboxPerPerson",
                         "createdAt",
