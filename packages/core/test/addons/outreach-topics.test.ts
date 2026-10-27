@@ -1,9 +1,14 @@
 /**
  * The AI's words for finding people by topic (src/addons/outreach/topics.ts, decision 92): which lists it writes for
- * a playbook, what it's asked, and what of its answer is kept. Pure: no database.
+ * a playbook, what the screens say under each list of it, what it's asked, and what of its answer is kept. Pure: no
+ * database.
  */
 import { describe, expect, it } from 'vitest';
-import { blankPlaybook, type PlaybookDetails } from '../../src/addons/outreach/playbooks';
+import {
+  blankPlaybook,
+  WORDS_PLATFORM_KEYS,
+  type PlaybookDetails,
+} from '../../src/addons/outreach/playbooks';
 import {
   checkedFindWords,
   cleanFindWords,
@@ -11,6 +16,7 @@ import {
   findWordsPrompt,
   wordsDue,
 } from '../../src/addons/outreach/topics';
+import { findWordsHint, OUTREACH_WORDS as W } from '../../src/addons/outreach/words';
 
 const playbook = (over: Partial<PlaybookDetails> = {}): PlaybookDetails => ({
   ...blankPlaybook(),
@@ -50,6 +56,30 @@ describe('the lists the AI writes', () => {
     expect(wordsDue(playbook(), ['linkedin'])).toEqual({ networks: ['linkedin'], askOnline: true });
     // Nobody works any of the three: nothing to write, and nothing to ask.
     expect(wordsDue(playbook(), [])).toEqual({ networks: [], askOnline: false });
+  });
+
+  it('are said under each list as they are, on the web and the phone', () => {
+    // Empty and not written: the AI fills it while it stays empty.
+    expect(findWordsHint(playbook(), 'instagram')).toBe(
+      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+    );
+    // The person's own words: the AI never adds to them, so the hint never says it writes them.
+    const own = playbook({ hashtags: ['roofleak'] });
+    expect(findWordsHint(own, 'instagram')).toBe(
+      'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
+    );
+    // What the AI wrote, and a list it wrote that the person emptied.
+    const written = playbook({ postSearches: ['missed calls'], wordsWritten: ['linkedin'] });
+    expect(findWordsHint(written, 'linkedin')).toBe(W.findWords.written(5));
+    expect(findWordsHint({ ...written, postSearches: [] }, 'linkedin')).toBe(
+      'LinkedIn won’t search posts for this playbook.',
+    );
+    // The hint says the AI writes a list exactly when it would.
+    for (const details of [playbook(), own, written, { ...written, postSearches: [] }])
+      for (const p of WORDS_PLATFORM_KEYS)
+        expect(findWordsHint(details, p) === W.findWords.notYet).toBe(
+          wordsDue(details).networks.includes(p),
+        );
   });
 });
 

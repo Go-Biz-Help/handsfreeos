@@ -16,6 +16,7 @@ import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import * as React from 'react';
+import { Linking } from 'react-native';
 
 import { SAVE_PAUSE_MS } from '../autosave';
 import { LiveStrip } from '../hub';
@@ -281,26 +282,27 @@ const item: TodayItem = {
   demoBooked: false,
 };
 
+const todayOf = (items: TodayItem[]): TodayOutput => ({
+  limits: LIVE.limits,
+  items,
+  partners: [],
+  readAdmins: [],
+  hasPlaybook: true,
+  warning: null,
+  auto: [],
+  messages: [],
+  sending: 'off',
+  wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+  ready: true,
+  week: null,
+});
+
 describe('A network’s list for today', () => {
   it('says LinkedIn’s steps in its words, and opens the profile there', async () => {
-    const today: TodayOutput = {
-      limits: LIVE.limits,
-      items: [item],
-      partners: [],
-      readAdmins: [],
-      hasPlaybook: true,
-      warning: null,
-      auto: [],
-      messages: [],
-      sending: 'off',
-      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
-      ready: true,
-      week: null,
-    };
     await render(
       <TodayBody
         platform="linkedin"
-        today={today}
+        today={todayOf([item])}
         error={null}
         wheels={null}
         onRetry={jest.fn()}
@@ -313,6 +315,48 @@ describe('A network’s list for today', () => {
     const part = screen.getByTestId('today-friend_request');
     expect(within(part).getByText('Send an invitation to connect · 1')).toBeTruthy();
     expect(within(part).getByText('Open on LinkedIn')).toBeTruthy();
+  });
+
+  it('opens the post a found person’s like goes on, as the web does, and a message in their chat', async () => {
+    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const post = 'https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000001/';
+    const warmUp: TodayItem = {
+      ...item,
+      kind: 'warm_up',
+      postUrl: post,
+      post: 'Missed three calls on a roof today.',
+      why: ['Wrote a post about missed calls'],
+    };
+    const opener: TodayItem = {
+      ...item,
+      kind: 'opener',
+      name: 'Rory Vance',
+      profileId: id(41),
+      profileUrl: 'https://www.linkedin.com/in/rory-vance/',
+      threadKey: '2-abc=',
+    };
+    await render(
+      <TodayBody
+        platform="linkedin"
+        today={todayOf([warmUp, opener])}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const like = within(screen.getByTestId('today-warm_up')).getByTestId('today-open');
+    expect(like).toHaveTextContent('Open the post');
+    await fireEvent.press(like);
+    expect(opened).toHaveBeenLastCalledWith(post);
+    const message = within(screen.getByTestId('today-opener')).getByTestId('today-open');
+    expect(message).toHaveTextContent('Open in LinkedIn messaging');
+    await fireEvent.press(message);
+    expect(opened).toHaveBeenLastCalledWith('https://www.linkedin.com/messaging/thread/2-abc%3D/');
+    opened.mockRestore();
   });
 });
 

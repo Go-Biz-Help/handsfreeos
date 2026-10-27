@@ -258,6 +258,8 @@ describe('Today on the phone', () => {
         'I’d post this comment. Change it if you like; your changes teach the AI.',
       ),
     ).toBeTruthy();
+    // Open goes to the post the comment goes under, as on the web.
+    expect(within(sam!).getByTestId('today-open')).toHaveTextContent('Open the post');
     // Skipping a comment puts its post aside, so there's no Not for me beside it.
     expect(within(sam!).queryByTestId('today-not-for-me')).toBeNull();
     expect(within(sam!).queryByTestId('today-send-alone')).toBeNull();
@@ -1066,6 +1068,38 @@ describe('A playbook on the phone', () => {
       'signs',
     );
     expect(await screen.findByText('Keep it under 300 characters.')).toBeTruthy();
+  });
+
+  it('says under a network’s words whether the AI writes them, as the web does', async () => {
+    const body = (playbook: Playbook) => (
+      <PlaybookBody
+        playbook={playbook}
+        error={null}
+        manages
+        online
+        onRetry={jest.fn()}
+        onSave={jest.fn()}
+        onArchive={jest.fn()}
+      />
+    );
+    await render(body(PLAYBOOK));
+    await fireEvent.press(screen.getByTestId('playbook-edit-hashtags'));
+    expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
+      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+    );
+    // Words typed in are the person's own: the AI never adds to them.
+    await fireEvent.changeText(screen.getByTestId('playbook-lines'), 'roofleak');
+    expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
+      'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
+    );
+    // A list the AI wrote and the person emptied looks at nothing.
+    await render(
+      body({ ...PLAYBOOK, details: { ...PLAYBOOK.details, wordsWritten: ['instagram'] } }),
+    );
+    await fireEvent.press(screen.getByTestId('playbook-edit-hashtags'));
+    expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
+      'Instagram won’t look at hashtags for this playbook.',
+    );
   });
 
   it('is read-only for everyone else', async () => {

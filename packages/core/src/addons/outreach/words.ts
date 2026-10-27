@@ -14,7 +14,14 @@ import { DONT_PITCH_TAG } from './limits';
 import { READ_CHATS_WORDS } from './asks';
 import type { ChatView } from './chat-read';
 import type { GroupView } from './groups';
-import { forPartners, type PlaybookDetails, type WordsPlatform } from './playbooks';
+import {
+  FIND_WORDS_PARTS,
+  FIND_WORDS_PER_DAY,
+  forPartners,
+  type FindWordsPart,
+  type PlaybookDetails,
+  type WordsPlatform,
+} from './playbooks';
 
 /** An empty list's title and what fills it. */
 interface Empty {
@@ -594,13 +601,15 @@ export const OUTREACH_WORDS = {
   },
   /**
    * Each network's own words on a customers' playbook (decision 92): written by the AI once, from who it's for and
-   * their problem, and the person's to change. An emptied list means that network looks at nothing for it.
+   * their problem, while the list is empty, and the person's to change. An emptied list means that network looks at
+   * nothing for it. Which one shows under a list is `findWordsHint`'s.
    */
   findWords: {
     written: (perDay: number) =>
       `The AI wrote these from who it’s for and their problem. Change any; it looks at ${perDay} a day, in turn.`,
     notYet:
-      'The AI writes these once, from who it’s for and their problem. Add your own meanwhile.',
+      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+    own: 'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
     none: {
       instagram: 'Instagram won’t look at hashtags for this playbook.',
       linkedin: 'LinkedIn won’t search posts for this playbook.',
@@ -755,6 +764,24 @@ export function playbookSectionTitle(
   return section === 'groupWords' && forPartners(details)
     ? OUTREACH_WORDS.partnerGroupWords
     : OUTREACH_WORDS.playbookSections[section];
+}
+
+/**
+ * What a network's own words on a customers' playbook say under them (decision 92), on the web and the phone, as
+ * `wordsDue` decides what the AI writes: what it wrote; a list it wrote and the person emptied, which looks at nothing;
+ * an empty list it hasn't written, which it fills while it stays empty; or the person's own words, which it never adds
+ * to. `wordsWritten` is the server's, as saved.
+ */
+export function findWordsHint(
+  details: Partial<Pick<PlaybookDetails, FindWordsPart | 'wordsWritten'>>,
+  platform: WordsPlatform,
+): string {
+  const has = (details[FIND_WORDS_PARTS[platform]] ?? []).length > 0;
+  if (details.wordsWritten?.includes(platform))
+    return has
+      ? OUTREACH_WORDS.findWords.written(FIND_WORDS_PER_DAY[platform])
+      : OUTREACH_WORDS.findWords.none[platform];
+  return has ? OUTREACH_WORDS.findWords.own : OUTREACH_WORDS.findWords.notYet;
 }
 
 /** A customer Add to Contacts offers first, from `outreach.lookup`'s `sameName`. */

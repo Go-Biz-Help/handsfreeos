@@ -10,6 +10,7 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
+import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import {
   SENDING_MODES,
@@ -31,7 +32,7 @@ import {
   type RunnerTick,
 } from './networks';
 import { COMMENT_HOLD_WORDS } from './sends';
-import { TODAY_KINDS, type TodayKind } from './today';
+import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
 
@@ -433,6 +434,21 @@ export const openChatWords = (platform: Platform): string =>
 
 /** "Open on Facebook", "Open on LinkedIn". */
 export const openPageWords = (platform: Platform): string => `Open on ${PLATFORMS[platform]}`;
+
+/**
+ * Where Open goes for someone on Today's list, and its words, on the web and the phone: the post it's about (a comment,
+ * a warm lead, or the post a found person's like goes on), else their chat on the network's messaging, else their
+ * page. Null with none of them.
+ */
+export function todayOpenOf(
+  item: Pick<TodayItem, 'postUrl' | 'threadKey' | 'profileUrl'>,
+  platform: Platform,
+): { readonly url: string; readonly words: string } | null {
+  if (item.postUrl) return { url: item.postUrl, words: TOUCHED_POSTS_WORDS.openPost };
+  const chat = chatUrlOn(platform, item.threadKey);
+  if (chat) return { url: chat, words: openChatWords(platform) };
+  return item.profileUrl ? { url: item.profileUrl, words: openPageWords(platform) } : null;
+}
 
 /** "40% of first messages": a network's share of them, beside Results by network. */
 export function shareWords(part: number, whole: number): string {

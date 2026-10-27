@@ -26,7 +26,6 @@ import {
   answerNextLabel,
   blankPlaybook,
   FIND_WORDS_PARTS,
-  FIND_WORDS_PER_DAY,
   forPartners,
   hasWordsOn,
   nextQuestionId,
@@ -61,7 +60,11 @@ import {
   type VideoPart,
   type VideoScript,
 } from '@hfos/core/addons/outreach/video';
-import { OUTREACH_WORDS as W, playbookSectionTitle } from '@hfos/core/addons/outreach/words';
+import {
+  findWordsHint,
+  OUTREACH_WORDS as W,
+  playbookSectionTitle,
+} from '@hfos/core/addons/outreach/words';
 import {
   ArrowDown,
   ArrowLeft,
@@ -1097,7 +1100,6 @@ export function PlaybookBuilder({
           {WORDS_PLATFORM_KEYS.filter((p) => hasWordsOn(draft, p)).map((p) => {
             const part = FIND_WORDS_PARTS[p];
             const tags = part === 'hashtags';
-            const emptied = !draft[part].length && written.includes(p);
             return (
               <div key={p} className="space-y-3" data-testid={`playbook-words-${p}`}>
                 <div>
@@ -1106,11 +1108,7 @@ export function PlaybookBuilder({
                     {...typed(part)}
                     label={playbookSectionTitle(part, draft)}
                     hint={[
-                      emptied
-                        ? W.findWords.none[p]
-                        : written.includes(p)
-                          ? W.findWords.written(FIND_WORDS_PER_DAY[p])
-                          : W.findWords.notYet,
+                      findWordsHint({ [part]: draft[part], wordsWritten: written }, p),
                       ...(tags ? [W.findWords.hashtagHint] : []),
                     ].join(' ')}
                     items={draft[part]}
