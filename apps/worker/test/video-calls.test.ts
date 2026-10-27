@@ -93,7 +93,8 @@ beforeAll(async () => {
     sql`update app.workspaces set video_calls = true where id = ${w.workspaceId}`,
   );
   calendar = await makeCalendar(w, 'Video consult', {
-    durations: { minutes: [10], step: 10 },
+    // Five-minute calls, so the next hour holds enough of them for every test that needs one now.
+    durations: { minutes: [5], step: 5 },
     locations: { options: [{ kind: 'virtual', video: 'handsfree' }] },
   });
   ownerToken = await signInTestUser(w.owner);
@@ -757,7 +758,7 @@ describe('the AI hearing the call', () => {
       expect.objectContaining({ kind: 'virtual', aiNotes: true, recorded: false }),
     ]);
 
-    const b = await booked('Nia', at(1, '11:00'));
+    const b = await booked('Nia', at(1, '13:30'));
     const seen = await asWorker(
       w.s.db,
       { workspaceId: w.workspaceId, organizationId: w.organizationId },
