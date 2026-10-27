@@ -9,6 +9,8 @@
  *   misses in noise. `vad_events` says when a sound starts, which may be them talking; interim results bring
  *   their first words soon after, and those stop the teammate mid-sentence (session.ts).
  * - A call with nobody talking sends a keep-alive, or Deepgram closes the stream after ten seconds.
+ * - A HandsFreeOS video call's sound (`audio: 'wide'`) is 16 kHz 16-bit rather than the phone's 8 kHz μ-law, so
+ *   it's heard better; it's one stream per person, sent only while they talk (video-calls/hearing.ts).
  *
  * Speaking: one request per sentence, answered with the audio as it's made (μ-law at 8 kHz, no container), so
  * the first words play before the last ones exist. On a call, `openVoice` keeps one streaming connection open
@@ -33,6 +35,8 @@ import {
   type ListenOptions,
   type SpeakOptions,
   type SpeechServices,
+  WIDE_BYTES_A_SECOND,
+  WIDE_SAMPLE_RATE,
 } from './speech';
 
 const LISTEN_URL = 'wss://api.deepgram.com/v1/listen';
@@ -58,12 +62,13 @@ interface DeepgramResult {
   };
 }
 
-export function listenParams(): URLSearchParams {
+/** How a stream is heard: a phone call's 8 kHz μ-law, or a video call's 16 kHz 16-bit sound. */
+export function listenParams(audio: ListenOptions['audio'] = 'phone'): URLSearchParams {
   return new URLSearchParams({
     model: 'nova-3',
     language: 'multi',
-    encoding: 'mulaw',
-    sample_rate: '8000',
+    encoding: audio === 'wide' ? 'linear16' : 'mulaw',
+    sample_rate: audio === 'wide' ? String(WIDE_SAMPLE_RATE) : '8000',
     channels: '1',
     interim_results: 'true',
     punctuate: 'true',
@@ -138,10 +143,13 @@ export function createDeepgramSpeech(deps: {
     name: 'deepgram',
 
     listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening> {
-      if ((options?.listener ?? deps.listener) === 'flux')
+      const audio = options?.audio ?? 'phone';
+      // Flux is set up for the phone's sound; a video call's is always Nova-3's.
+      if (audio === 'phone' && (options?.listener ?? deps.listener) === 'flux')
         return listenWithFlux({ apiKey: deps.apiKey, handlers, log: deps.log });
+      const bytesASecond = audio === 'wide' ? WIDE_BYTES_A_SECOND : MULAW_BYTES_A_SECOND;
       return new Promise((resolve, reject) => {
-        const ws = new WebSocket(`${LISTEN_URL}?${listenParams().toString()}`, {
+        const ws = new WebSocket(`${LISTEN_URL}?${listenParams(audio).toString()}`, {
           headers: { authorization: `Token ${deps.apiKey}` },
         });
         let open = false;
@@ -191,7 +199,7 @@ export function createDeepgramSpeech(deps: {
           }
           if (m.type === 'SpeechStarted') return handlers.onSpeechStarted();
           if (m.type === 'UtteranceEnd') return handlers.onUtteranceEnd();
-          const words = heardOf(m, heard / MULAW_BYTES_A_SECOND);
+          const words = heardOf(m, heard / bytesASecond);
           if (words) handlers.onWords(words);
         });
         ws.on('error', (e) => {

@@ -16,6 +16,12 @@ export interface FakeVideo extends VideoCallProvider {
   readonly removed: { room: string; identity: string }[];
   readonly muted: { room: string; identity: string }[];
   readonly closed: string[];
+  /** The rooms the listener was given a ticket into, in order. */
+  readonly listenerTickets: string[];
+  /** Who tests say is in each room (`whoIsIn`): nobody, until they say. */
+  readonly inRooms: Map<string, { people: number; listener: boolean }>;
+  /** What each room was last told about the AI (`markAi`). */
+  readonly aiMarks: Map<string, boolean>;
 }
 
 const enc = (s: string) => Buffer.from(s).toString('base64url');
@@ -47,12 +53,18 @@ export function createFakeVideo(): FakeVideo {
   const removed: { room: string; identity: string }[] = [];
   const muted: { room: string; identity: string }[] = [];
   const closed: string[] = [];
+  const listenerTickets: string[] = [];
+  const inRooms = new Map<string, { people: number; listener: boolean }>();
+  const aiMarks = new Map<string, boolean>();
   return {
     name: 'fake',
     tickets,
     removed,
     muted,
     closed,
+    listenerTickets,
+    inRooms,
+    aiMarks,
     async ticket(t) {
       tickets.push(t);
       return { url: 'fake:', token: `fake-livekit.${enc(JSON.stringify(t))}` };
@@ -75,6 +87,16 @@ export function createFakeVideo(): FakeVideo {
     },
     async close(room) {
       closed.push(room);
+    },
+    async listenerTicket(room) {
+      listenerTickets.push(room);
+      return { url: 'fake:', token: `fake-livekit-listener.${enc(room)}` };
+    },
+    async whoIsIn(room) {
+      return inRooms.get(room) ?? { people: 0, listener: false };
+    },
+    async markAi(room, on) {
+      aiMarks.set(room, on);
     },
   };
 }

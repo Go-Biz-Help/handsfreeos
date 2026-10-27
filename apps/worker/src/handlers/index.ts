@@ -46,6 +46,7 @@ import {
 } from './appointment-messages';
 import { onJobStatusChanged } from '../booking/job-texts';
 import {
+  onVideoCallAiChanged,
   onVideoCallEnded,
   onVideoCallEndedByHost,
   onVideoCallMuteRequested,
@@ -274,11 +275,13 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'meeting_connection.settings_check_requested': onMeetingSettingsCheckRequested,
       'appointment.transcript_ready': onTranscriptReady,
       // HandsFreeOS video calls (video-calls/): LiveKit takes out, mutes and closes what the team asked it to, and
-      // each stretch's minutes go on the balance. Who's waiting is a push (push/moments.ts).
+      // each stretch's minutes go on the balance and its words become the transcript. Who's waiting is a push
+      // (push/moments.ts). AI notes turned off stop the room saying they're on.
       'video_call.person_removed': onVideoCallPersonRemoved,
       'video_call.mute_requested': onVideoCallMuteRequested,
       'video_call.ended_by_host': onVideoCallEndedByHost,
       'video_call.ended': onVideoCallEnded,
+      'video_call.ai_changed': onVideoCallAiChanged,
       // What customers said in public: a person asks, and the queue does it.
       'review_connection.connected': onReviewSyncWanted,
       'review_connection.sync_requested': onReviewSyncWanted,

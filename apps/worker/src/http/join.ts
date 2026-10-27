@@ -73,6 +73,8 @@ export type JoinAnswer =
       /** The name on their booking, filled in for them. */
       readonly name: string;
       readonly look: PublicLook;
+      /** The AI takes notes from the call: the page says so before they join (the owner's 9a). */
+      readonly aiNotes: boolean;
     };
 
 const isVideoCall = (location: unknown): boolean => {
@@ -123,11 +125,14 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
                 from app.workspaces w left join app.booking_sites bs on bs.workspace_id = w.id
                 where w.id = ${scope.workspaceId}`,
           );
-          const [who] = await rows<{ name: string; live: boolean }>(
+          const [who] = await rows<{ name: string; live: boolean; ai: boolean }>(
             tx,
             sql`select trim(concat_ws(' ', p.first_name, p.last_name)) as name,
                   exists (select 1 from app.video_calls c
-                          where c.appointment_id = ${row.p.id} and c.state = 'live') as live
+                          where c.appointment_id = ${row.p.id} and c.state = 'live') as live,
+                  -- A call is made with its AI notes on; one the team turned them off for says so.
+                  coalesce((select c.ai_notes from app.video_calls c
+                            where c.appointment_id = ${row.p.id} limit 1), true) as ai
                 from app.people p where p.id = ${row.a.personId}`,
           );
           return {
@@ -138,6 +143,7 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
             videoCalls: w?.video_calls === true,
             name: who?.name ?? '',
             live: who?.live === true,
+            aiNotes: who?.ai !== false,
           };
         });
         if (!seat) throw notFound();
@@ -159,7 +165,13 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
             Date.now(),
           );
           if (opens !== 'open') return { state: opens, ...said };
-          return { state: 'call', ...said, name: seat.name, look: seat.look };
+          return {
+            state: 'call',
+            ...said,
+            name: seat.name,
+            look: seat.look,
+            aiNotes: seat.aiNotes,
+          };
         }
         const url = meetingAddress(seat.p.location);
         if (!url) return { state: 'no_link', ...said };

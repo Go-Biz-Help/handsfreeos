@@ -174,6 +174,7 @@ export function LinkCall({
           name={me.current.name}
           nameFixed={!asGuest}
           joinLabel={asGuest ? 'Ask to join' : VIDEO_CALL_WORDS.join}
+          notice={call?.aiNotes ? VIDEO_CALL_WORDS.aiNotice(call.business) : null}
           busy={busy}
           error={error}
           onJoin={(name, choices) => {

@@ -14657,6 +14657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.set_ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn the AI’s notes on or off for one HandsFreeOS video call. Turning them off forgets what the AI heard of the call so far.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.ai_changed.
+         */
+        post: operations["command_video_call_set_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.turn_away": {
         parameters: {
             query?: never;
@@ -55680,6 +55700,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_ai: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    on: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        aiNotes: boolean;
                         changed: boolean;
                     };
                 };

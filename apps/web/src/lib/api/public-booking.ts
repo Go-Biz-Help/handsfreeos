@@ -535,6 +535,8 @@ export type JoinAnswer =
       /** The name on their booking, filled in for them. */
       readonly name: string;
       readonly look: NonNullable<PublicBusiness['look']>;
+      /** The AI takes notes from the call: the page says so before they join. */
+      readonly aiNotes: boolean;
     };
 
 /**
@@ -576,6 +578,8 @@ export interface PublicCall {
   readonly host: string | null;
   /** Calls are on for the business and set up here; otherwise the page says so instead of a Join button. */
   readonly ready: boolean;
+  /** The AI takes notes from the call: the page says so before they ask to join. */
+  readonly aiNotes: boolean;
 }
 
 export const getPublicCall = (callId: string) =>

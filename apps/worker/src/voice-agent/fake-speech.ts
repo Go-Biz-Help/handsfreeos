@@ -64,21 +64,23 @@ const isAudio = (frame: Buffer): boolean =>
   frame.toString('utf8').includes('\uFFFD') ||
   frame.some((b) => b === 0x7f || (b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0d));
 
-/** How loud a frame of μ-law audio is, as a 16-bit sample's root mean square. */
-function loudness(frame: Buffer): number {
+/** How loud a frame of μ-law audio (or 16-bit `wide` sound) is, as a 16-bit sample's root mean square. */
+function loudness(frame: Buffer, wide: boolean): number {
   let sum = 0;
-  for (const byte of frame) {
-    const s = linearOf(byte);
+  const samples = wide ? Math.floor(frame.length / 2) : frame.length;
+  for (let i = 0; i < samples; i++) {
+    const s = wide ? frame.readInt16LE(i * 2) : linearOf(frame[i]!);
     sum += s * s;
   }
-  return Math.sqrt(sum / Math.max(1, frame.length));
+  return Math.sqrt(sum / Math.max(1, samples));
 }
 
 /**
  * Hears real audio the only way the stand-in can: talking (loud for a moment) is them starting to talk, and the
- * pause after it is the end of their turn, heard as FAKE_HEARD. Time is the audio's own, 8,000 samples a second.
+ * pause after it is the end of their turn, heard as FAKE_HEARD. Time is the audio's own, 8,000 samples a second
+ * (16,000 two-byte samples for `wide` sound).
  */
-function fakeEar(handlers: ListenHandlers) {
+function fakeEar(handlers: ListenHandlers, wide = false) {
   /** Louder than this is talking (about -36 dBFS). */
   const LOUD = 500;
   const TALKING_MS = 180;
@@ -88,8 +90,8 @@ function fakeEar(handlers: ListenHandlers) {
   let lastLoud = 0;
   let talking = false;
   return (frame: Buffer) => {
-    at += (frame.length / 8000) * 1000;
-    if (loudness(frame) >= LOUD) {
+    at += (frame.length / (wide ? 32_000 : 8000)) * 1000;
+    if (loudness(frame, wide) >= LOUD) {
       if (loudSince === null || at - lastLoud > 300) loudSince = at;
       lastLoud = at;
       if (!talking && at - loudSince >= TALKING_MS) {
@@ -148,7 +150,7 @@ export function createFakeSpeech(): SpeechServices & {
     async listen(handlers: ListenHandlers, options?: ListenOptions): Promise<Listening> {
       listeners.push(options?.listener ?? null);
       let closed = false;
-      const ear = fakeEar(handlers);
+      const ear = fakeEar(handlers, options?.audio === 'wide');
       return {
         send(audio) {
           if (closed) return;

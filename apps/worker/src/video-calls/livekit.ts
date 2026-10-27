@@ -5,8 +5,11 @@
  * take someone out, mute them, or close a room.
  */
 import {
+  isPersonIdentity,
+  LISTENER_IDENTITY,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_MAX_PEOPLE,
+  VIDEO_CALL_ROOM_AI,
   VIDEO_CALL_TICKET_SECONDS,
 } from '@hfos/core';
 import {
@@ -153,6 +156,51 @@ export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
         await rooms.deleteRoom(room);
       } catch (e) {
         if (!notThere(e)) throw failed(e, 'close a call');
+      }
+    },
+
+    async listenerTicket(room) {
+      const at = new AccessToken(config.apiKey, config.apiSecret, {
+        identity: LISTENER_IDENTITY,
+        name: 'HandsFreeOS AI notes',
+        ttl: VIDEO_CALL_TICKET_SECONDS,
+      });
+      // Hidden, so nobody's screen shows it; it leaves on its own once nobody else is there (hearing.ts).
+      at.kind = 'agent';
+      at.addGrant({
+        roomJoin: true,
+        room,
+        hidden: true,
+        agent: true,
+        canSubscribe: true,
+        canPublish: false,
+        // Captions.
+        canPublishData: true,
+      });
+      return { url: config.url, token: await at.toJwt() };
+    },
+
+    async whoIsIn(room) {
+      try {
+        const list = await rooms.listParticipants(room);
+        return {
+          people: list.filter((p) => isPersonIdentity(p.identity)).length,
+          listener: list.some((p) => p.identity === LISTENER_IDENTITY),
+        };
+      } catch (e) {
+        if (notThere(e)) return { people: 0, listener: false };
+        throw failed(e, 'say who’s in a call');
+      }
+    },
+
+    async markAi(room, on) {
+      try {
+        await rooms.updateRoomMetadata(
+          room,
+          JSON.stringify(on ? { [VIDEO_CALL_ROOM_AI]: 'on' } : {}),
+        );
+      } catch (e) {
+        if (!notThere(e)) throw failed(e, 'say whether the AI hears a call');
       }
     },
   };

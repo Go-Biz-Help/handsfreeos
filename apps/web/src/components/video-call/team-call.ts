@@ -76,3 +76,12 @@ export async function actOn(
 export async function endForEveryone(body: { workspaceId: string; callId: string }): Promise<void> {
   unwrap(await apiBrowser().POST('/v1/commands/video_call.end', { body }));
 }
+
+/** AI notes off or on for this call: off, the AI stops listening and forgets what it heard of the call so far. */
+export async function setAiNotes(body: {
+  workspaceId: string;
+  callId: string;
+  on: boolean;
+}): Promise<void> {
+  unwrap(await apiBrowser().POST('/v1/commands/video_call.set_ai', { body }));
+}
