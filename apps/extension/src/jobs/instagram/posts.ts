@@ -1,21 +1,24 @@
 /**
  * **Look at your hashtags and places** on Instagram, once a day while it works on its own (part 15; the Instagram and
  * Alignable plan's "Where the people are", 3: "Local hashtags and places from the playbook (#austinplumbing, a
- * neighborhood). The posts and the accounts that post them"). A playbook has no hashtags or places of its own:
- * HandsFreeOS makes the day's few from its area and its words for groups, local ones first, and gives the area's places
+ * neighborhood). The posts and the accounts that post them"; decision 92). HandsFreeOS gives the day's 5 hashtags, in
+ * turn: each playbook's own (Hashtags on Instagram, which the AI writes from who it's for and their problem, and the
+ * person changes), else ones made from its area and its words for groups; and the area's places
  * (`outreach.posts.words`, core's `postLooks`).
  *
  * - **Each hashtag:** its page (/explore/tags/<tag>/, which Instagram now sends to its search for it, read the same),
- *   and a few of its posts opened in turn at a person's pace, each read for who posted it, its caption, its likes and
- *   its place.
+ *   scrolled a screen at a time till about 10 posts it hasn't opened show, and those opened in turn at a person's pace,
+ *   each read for who posted it, its caption, its likes and its place.
  * - **Places:** a post tagged at a place in the area leads to that place's page (/explore/locations/<id>/<name>/),
- *   read the same way, a couple a day. A place's page has an id of Instagram's that no name gives, so only a post
- *   leads to one.
+ *   read the same way, 4 posts each, a couple a day. A place's page has an id of Instagram's that no name gives, so
+ *   only a post leads to one.
  *
- * The posts go to HandsFreeOS in no group, as a network's search finds are, kept only when they say a playbook's words
- * or ask for help, and the AI checks each. A good one's author goes on Today's list: a like of theirs, which the runner
- * does, then a follow a day after; the post's comment stays the person's to write. Nothing is pressed or written on
- * Instagram. It stops on any Instagram warning.
+ * Each page's posts go to HandsFreeOS as a save of their own, in no group, as a network's search finds are: a
+ * hashtag's with the hashtag (`words`), so a post under a playbook's own is worth the AI's check whatever its caption
+ * says; a place's kept only when they say a playbook's words or ask for help. The AI checks each (good to comment on,
+ * or strong), and a good one's writer is found (decision 92): checked from their own account (`found_checks`), and a
+ * good fit goes on Today, its like on that post, then a follow a day after, and the post a comment the AI drafts.
+ * Nothing is pressed or written on Instagram here. It stops on any Instagram warning.
  */
 import { says } from '@hfos/core/addons/outreach/fit';
 import { PLACE_LOOKS_PER_DAY } from '@hfos/core/addons/outreach/posts';
@@ -38,13 +41,19 @@ import {
  * /explore/search/keyword/?q=#smallbusiness), whose grid of posts is read as the hashtag's.
  */
 export const tagUrl = (tag: string) => `${INSTAGRAM}/explore/tags/${encodeURIComponent(tag)}/`;
-/** Posts it opens on each hashtag's or place's page, one at a time. */
-export const POSTS_OPENED_EACH = 4;
+/** What a page of posts is: a hashtag's, or a place's. */
+type Looking = 'tag' | 'place';
+/**
+ * Posts it opens on each hashtag's or place's page, one at a time: about 10 a hashtag (decision 92), and 4 a place, as
+ * before.
+ */
+export const POSTS_OPENED_EACH: Readonly<Record<Looking, number>> = { tag: 10, place: 4 };
 /**
  * The most screens of a hashtag's or place's grid it scrolls past for posts not opened yet: Instagram draws the grid a
- * few rows at a time as it's scrolled, and the owner's look of 26 Oct 2026 read none on its first screen.
+ * few rows at a time as it's scrolled, and the owner's look of 26 Oct 2026 read none on its first screen. A hashtag's
+ * 10 posts take a few more than a place's 4.
  */
-const GRID_SCROLLS = 2;
+const GRID_SCROLLS: Readonly<Record<Looking, number>> = { tag: 4, place: 2 };
 /** Between one page of posts and the next: a person going on to another hashtag. */
 const LOOK_PACE_MS = [20_000, 40_000] as const;
 
@@ -69,32 +78,40 @@ const linksOn = (page: InstagramPage): string[] => [
   ]),
 ];
 
+/** One page of posts to look at: its address, what it is, and the hashtag its posts are saved with (a place: none). */
+interface PageOfPosts {
+  readonly url: string;
+  readonly looking: Looking;
+  readonly words: string | null;
+}
+
 /**
  * One page of posts, a hashtag's or a place's, with its window in front, then theirs put back until the next page:
  * Instagram draws a grid only on screen, and Chrome draws nothing in a window hidden behind another (the owner's look
- * of 26 Oct 2026 read no posts at all). Its posts' links, a screen at a time until enough aren't opened yet, a few of
- * those opened in turn and read, and what was worth a look sent for the AI to check. A page with no posts, or a post
- * whose author it couldn't read, is noted in HandsFreeOS with the page's outline (decision 74), once a look. A
- * warning, or a page asking them to sign in, ends it.
+ * of 26 Oct 2026 read no posts at all). Its posts' links, a screen at a time until enough aren't opened yet, those
+ * opened in turn and read, and sent as a save of their own for the AI to check, a hashtag's with its hashtag. A page
+ * with no posts, or a post whose author it couldn't read, is noted in HandsFreeOS with the page's outline (decision
+ * 74), once a look. A warning, or a page asking them to sign in, ends it.
  */
 function lookAt(
   job: Job,
-  url: string,
+  page: PageOfPosts,
   progress: string,
   opened: Set<string>,
   noted: Set<string>,
 ): Promise<Looked | JobEnd> {
-  const look = () => lookedAt(job, url, progress, opened, noted);
+  const look = () => lookedAt(job, page, progress, opened, noted);
   return job.tab.inFront ? job.tab.inFront(look) : look();
 }
 
 async function lookedAt(
   job: Job,
-  url: string,
+  { url, looking, words }: PageOfPosts,
   progress: string,
   opened: Set<string>,
   noted: Set<string>,
 ): Promise<Looked | JobEnd> {
+  const most = POSTS_OPENED_EACH[looking];
   await job.tab.open(url);
   const note = async (kind: string, words: string, found: Record<string, number>) => {
     if (noted.has(kind)) return;
@@ -103,17 +120,17 @@ async function lookedAt(
   };
   const got = await gather(
     job,
-    GRID_SCROLLS,
+    GRID_SCROLLS[looking],
     linksOn,
     (link) => link,
     () => progress,
-    (links) => links.filter((link) => !opened.has(link)).length >= POSTS_OPENED_EACH,
+    (links) => links.filter((link) => !opened.has(link)).length >= most,
   );
   if (ended(got)) return got;
   const links = got.items.filter((link) => !opened.has(link));
   if (!got.items.length) await note('page', 'No posts on the page.', { links: 0 });
   const posts: InstagramPost[] = [];
-  for (const link of links.slice(0, POSTS_OPENED_EACH)) {
+  for (const link of links.slice(0, most)) {
     if (job.stopped()) break;
     await pause(paced(SCROLL_PACE_MS));
     opened.add(link);
@@ -127,7 +144,7 @@ async function lookedAt(
     if (!read.found.post?.author)
       await note('post', 'Couldn’t read who posted it.', { post: read.found.post ? 1 : 0 });
   }
-  const built = instagramPostsSave(posts, job.businessId);
+  const built = instagramPostsSave(posts, job.businessId, words);
   const checking = built.ok
     ? valueOf(await job.hfos({ type: 'hfos-save-posts', input: built.input })).checking
     : 0;
@@ -138,7 +155,7 @@ async function lookedAt(
 export async function lookAtTagsAndPlaces(job: Job, looks: PostLooks): Promise<JobEnd> {
   if (!looks.tags.length)
     return {
-      line: 'None of your playbooks for Instagram has an area or words to make hashtags from. On the Playbooks tab, add your area (“Austin and Round Rock”) or some Words to search for groups, and it looks tomorrow.',
+      line: 'None of your playbooks for Instagram has hashtags to look at, or an area or words to make them from. On the Playbooks tab, add some Hashtags on Instagram, or add your area (“Austin and Round Rock”) or some Words to search for groups, and it looks tomorrow.',
       warned: false,
       failed: true,
     };
@@ -163,7 +180,9 @@ export async function lookAtTagsAndPlaces(job: Job, looks: PostLooks): Promise<J
     if (tags) await pause(paced(LOOK_PACE_MS));
     const progress = `Looking at #${tag} on Instagram… ${counted(checking, 'post')} sent to check so far.`;
     job.progress(progress);
-    const end = await went(await lookAt(job, tagUrl(tag), progress, opened, noted));
+    const end = await went(
+      await lookAt(job, { url: tagUrl(tag), looking: 'tag', words: tag }, progress, opened, noted),
+    );
     if (end) return end;
     tags++;
   }
@@ -172,7 +191,9 @@ export async function lookAtTagsAndPlaces(job: Job, looks: PostLooks): Promise<J
     await pause(paced(LOOK_PACE_MS));
     const progress = `Looking at posts at ${name || 'a place in your area'} on Instagram… ${counted(checking, 'post')} sent to check so far.`;
     job.progress(progress);
-    const end = await went(await lookAt(job, url, progress, opened, noted));
+    const end = await went(
+      await lookAt(job, { url, looking: 'place', words: null }, progress, opened, noted),
+    );
     if (end) return end;
     placesLooked++;
   }
@@ -180,7 +201,7 @@ export async function lookAtTagsAndPlaces(job: Job, looks: PostLooks): Promise<J
     ? `${counted(tags, 'hashtag')} and ${counted(placesLooked, 'place')} in your area`
     : counted(tags, 'hashtag');
   return {
-    line: `${job.stopped() ? 'Stopped. ' : ''}Looked at ${where} on Instagram and read ${counted(read, 'post')}: ${counted(checking, 'post')} sent for the AI to check. Who posted the good ones goes on your list for today: a like first, then a follow.`,
+    line: `${job.stopped() ? 'Stopped. ' : ''}Looked at ${where} on Instagram and read ${counted(read, 'post')}: ${counted(checking, 'post')} sent for the AI to check. Who posted the good ones is checked next, and a good fit goes on your list: a like on their post first, then a follow.`,
     warned: false,
   };
 }

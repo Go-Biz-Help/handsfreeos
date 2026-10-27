@@ -167,6 +167,13 @@ export interface LookingSite {
       href: string,
       name: string | null,
     ) => boolean | Promise<boolean>;
+    /**
+     * A good post's people (Instagram's, decision 92): its Likes box opened over it, its View all comments pressed
+     * once, and the box over the page closed again.
+     */
+    readonly openLikers?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    readonly moreComments?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    readonly closeDialog?: (doc: Document, href: string) => boolean | Promise<boolean>;
   };
   /**
    * The chats on the page whose last message is theirs (decision 22), for HandsFreeOS to hear who wrote back, as the
