@@ -480,9 +480,7 @@ function CallScreen({
                 {VIDEO_CALL_WORDS.joining}
               </div>
             ) : (
-              <CallStage
-                alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers}
-              />
+              <CallStage alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers} />
             )}
             <Reactions floating={floating} />
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}

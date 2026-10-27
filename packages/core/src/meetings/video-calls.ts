@@ -277,8 +277,7 @@ export const VIDEO_CALL_WORDS = {
   aloneTeam: 'You’re the only one here so far.',
   aloneOthers: 'Waiting for the others to join.',
   /** Why someone isn't in the call any more, past what `left`, `removed` and `ended` say. */
-  endedTeam:
-    'Everyone has left. Starting it again lets customers back in on their own link.',
+  endedTeam: 'Everyone has left. Starting it again lets customers back in on their own link.',
   elsewhereTitle: 'You’re in this call somewhere else',
   elsewhere: 'You joined from another tab or device, so this one stepped out.',
   lostTitle: 'Your connection to the call dropped',
