@@ -6,12 +6,14 @@
  * Dismiss; never the person, the post's writer or a 1st-degree connection, and nothing else pressed ("Load more
  * comments" never). And the job, with LinkedIn and HandsFreeOS stood in for: today's good posts opened one at a time,
  * their people sent as found with the post they're the people of, a post with nobody (or one LinkedIn no longer shows)
- * still counted as read, and a LinkedIn warning stopping the day, even one shown while the box was open; then the
- * people found, each checked by the AI from their own profile (`found_checks`).
+ * still counted as read, a LinkedIn warning stopping the day, even one shown while the box was open, and a box of who
+ * reacted that didn't open or read nobody noted with the page's outline, once a run; then the people found, each
+ * checked by the AI from their own profile (`found_checks`).
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
+import type { ReportNote } from '../src/jobs/report';
 import {
   postPeopleOn,
   readComments,
@@ -86,11 +88,18 @@ const EACH = LAYOUTS.flatMap((layout) =>
   SHAPES.map(([shape, boxed]) => [layout.layout, shape, layout, boxed] as const),
 );
 
+/** How the post's page differs from its fixture: no reactions count, or a box of who reacted whose rows name nobody. */
+interface PageAs {
+  readonly closes?: boolean;
+  readonly count?: false;
+  readonly nobody?: true;
+}
+
 /**
  * The post's page as LinkedIn behaves: its reactions count opens the box of who reacted over it, and the box's
  * Dismiss closes it (unless `closes` is false). What's pressed is kept, by its label or its words.
  */
-function postPage(layout: Layout, boxed: boolean, more: { closes?: boolean } = {}) {
+function postPage(layout: Layout, boxed: boolean, more: PageAs = {}) {
   const doc = load(layout.fixture, layout.url);
   if (boxed) boxEverything(doc);
   const pressed: string[] = [];
@@ -110,12 +119,17 @@ function postPage(layout: Layout, boxed: boolean, more: { closes?: boolean } = {
     const from = load(layout.box, layout.url);
     if (boxed) boxEverything(from);
     const outlet = doc.importNode(from.getElementById('modal-outlet')!, true);
+    // Its rows' links with no name in them: LinkedIn's box drawn some other way.
+    if (more.nobody)
+      for (const a of outlet.querySelectorAll('a[href*="/in/"]'))
+        a.replaceChildren(doc.createElement('figure'));
     doc.body.append(outlet);
     if (more.closes !== false)
       outlet
         .querySelector('[aria-label="Dismiss"]')!
         .addEventListener('click', () => outlet.remove());
   });
+  if (more.count === false) layout.count(doc)!.remove();
   return { doc, pressed };
 }
 
@@ -238,6 +252,14 @@ describe('a good post’s people, when the page isn’t as hoped', () => {
     expect(read.people.map((p) => p.name)).toEqual(['Bianca Holt', 'Marcus Webb']);
   });
 
+  it('reads nobody from a box whose rows name nobody, and keeps its outline from while it was open', async () => {
+    const { doc } = postPage(newer, false, { nobody: true });
+    const read = await readReactors(doc, NEWER, { skip: [PRIYA] });
+    expect(read).toMatchObject({ count: true, opened: true, rows: 0, people: [], closed: true });
+    expect(read.outline).toMatch(/role="dialog"/);
+    expect(doc.querySelector('[role="dialog"]')).toBeNull();
+  });
+
   it('reads nobody, and opens nothing, when the post shows no reactions count', async () => {
     const { doc, pressed } = postPage(newer, false);
     newer.count(doc)!.remove();
@@ -268,7 +290,9 @@ const good = (n: number, url: string, name: string, profileUrl: string) => ({
 const GONE = `${LI}/feed/update/urn:li:activity:7380000000000000999/`;
 
 /** LinkedIn's tab: each address opens a made-up page, and the tab answers the job's asks on it as it would. */
-function fakeTab(pages: Record<string, { layout: Layout } | { fixture: string; at?: string }>) {
+function fakeTab(
+  pages: Record<string, ({ layout: Layout } & PageAs) | { fixture: string; at?: string }>,
+) {
   let doc: Document | null = null;
   let at = '';
   const opened: string[] = [];
@@ -279,7 +303,7 @@ function fakeTab(pages: Record<string, { layout: Layout } | { fixture: string; a
       const page = pages[url];
       if (!page) throw new Error(`Not expected: ${url}`);
       if ('layout' in page) {
-        doc = postPage(page.layout, false).doc;
+        doc = postPage(page.layout, false, page).doc;
         at = page.layout.url;
       } else {
         at = page.at ?? url;
@@ -333,7 +357,7 @@ function fakeHfos(
   return { hfos, sent };
 }
 
-function jobWith(tab: JobTab, hfos: Hfos, warned: unknown[] = []): Job {
+function jobWith(tab: JobTab, hfos: Hfos, warned: unknown[] = [], notes?: ReportNote[]): Job {
   return {
     tab,
     hfos,
@@ -341,6 +365,7 @@ function jobWith(tab: JobTab, hfos: Hfos, warned: unknown[] = []): Job {
     stopped: () => false,
     progress: () => undefined,
     warn: async (warnings: unknown) => void warned.push(warnings),
+    ...(notes ? { report: async (note: ReportNote = {}) => void notes.push(note) } : {}),
   };
 }
 
@@ -521,6 +546,121 @@ describe('reading today’s good posts’ people on LinkedIn', () => {
     const end = await readPostPeople(job);
     expect(end.warned).toBe(true);
     expect(saves(sent)).toEqual([]);
+  });
+});
+
+describe('noting what a good post’s page didn’t show on LinkedIn (decision 74)', () => {
+  it('notes once a run, with the page’s outline, a reactions count that opened no box, and goes on', async () => {
+    const { tab } = fakeTab({ [OLDER]: { layout: LAYOUTS[0] }, [NEWER]: { layout: LAYOUTS[1] } });
+    // LinkedIn's box drawn some other way: neither post's count opens one the reader knows.
+    const ask = tab.ask.bind(tab);
+    tab.ask = (async (message: { type: string }) => {
+      const answer = await ask(message as never);
+      return message.type === 'hfos-post-people'
+        ? {
+            ...answer,
+            reactors: { count: true, opened: false, rows: 0, people: [], closed: true },
+          }
+        : answer;
+    }) as never;
+    const { hfos, sent } = fakeHfos({
+      posts: [good(1, NEWER, 'Priya Dalton', PRIYA.url), good(2, OLDER, 'Dana Reyes', DANA.url)],
+    });
+    const notes: ReportNote[] = [];
+    const end = await readPostPeople(jobWith(tab, hfos, [], notes));
+    expect(notes).toEqual([
+      {
+        job: 'post_people.reactors',
+        note: 'The post’s reactions count opened no box of who reacted.',
+        found: { count: true, box: false },
+        outline: true,
+      },
+    ]);
+    // Each post's commenters still go, and both count as read.
+    expect(saves(sent).map((s) => [s.how, s.postId])).toEqual([
+      ['commented', POST_ID(1)],
+      ['commented', POST_ID(2)],
+    ]);
+    expect(end.line).toBe(
+      'Done. Read who reacted to and commented on 2 good posts: 3 new people for the AI to check.',
+    );
+  });
+
+  it('notes a box that read nobody with its own outline, taken while it was open', async () => {
+    const { tab, page } = fakeTab({ [NEWER]: { layout: LAYOUTS[1], nobody: true } });
+    const { hfos, sent } = fakeHfos({ posts: [good(1, NEWER, 'Priya Dalton', PRIYA.url)] });
+    const notes: ReportNote[] = [];
+    await readPostPeople(jobWith(tab, hfos, [], notes));
+    expect(notes).toEqual([
+      {
+        job: 'post_people.reactors',
+        note: 'Nobody read in the box of who reacted.',
+        found: { count: true, box: true, rows: 0 },
+        outline: true,
+        outlineText: expect.stringMatching(/role="dialog"/),
+      },
+    ]);
+    // Closed again by its Dismiss, and its commenters sent.
+    expect(page().querySelector('[role="dialog"]')).toBeNull();
+    expect(saves(sent).map((s) => s.how)).toEqual(['commented']);
+  });
+
+  it('notes a post with no reactions count only when HandsFreeOS saw reactions on it', async () => {
+    const run = async (reactions: number) => {
+      const { tab } = fakeTab({ [NEWER]: { layout: LAYOUTS[1], count: false } });
+      const { hfos } = fakeHfos({
+        posts: [{ ...good(1, NEWER, 'Priya Dalton', PRIYA.url), reactions }],
+      });
+      const notes: ReportNote[] = [];
+      await readPostPeople(jobWith(tab, hfos, [], notes));
+      return notes;
+    };
+    expect(await run(0)).toEqual([]);
+    expect(await run(55)).toEqual([
+      {
+        job: 'post_people.count',
+        note: 'No reactions count on the post to open who reacted.',
+        found: { count: false },
+        outline: true,
+      },
+    ]);
+  });
+
+  it('notes a post’s own page with no post it could read, and goes on to the next', async () => {
+    const ODD = `${LI}/feed/update/urn:li:activity:7380000000000000555/`;
+    const { tab, asked } = fakeTab({
+      // Its own address, drawn some other way: no post the reader knows.
+      [ODD]: { fixture: 'linkedin-profile.html' },
+      [NEWER]: { layout: LAYOUTS[1] },
+    });
+    const { hfos } = fakeHfos({
+      posts: [
+        good(1, ODD, 'Noel Brandt', `${LI}/in/noel-brandt-7/`),
+        good(2, NEWER, 'Priya Dalton', PRIYA.url),
+      ],
+    });
+    const notes: ReportNote[] = [];
+    const end = await readPostPeople(jobWith(tab, hfos, [], notes));
+    expect(notes).toEqual([
+      {
+        job: 'post_people.post',
+        note: 'Couldn’t read the post.',
+        found: { post: 0 },
+        outline: true,
+      },
+    ]);
+    expect(asked.filter((a) => a === 'hfos-post-people')).toHaveLength(1);
+    expect(end.line).toMatch(/LinkedIn didn’t show 1 post\.$/);
+  });
+
+  it('notes nothing when each post’s people are read', async () => {
+    const { tab } = fakeTab({ [OLDER]: { layout: LAYOUTS[0] }, [NEWER]: { layout: LAYOUTS[1] } });
+    const { hfos } = fakeHfos({
+      posts: [good(1, NEWER, 'Priya Dalton', PRIYA.url), good(2, OLDER, 'Dana Reyes', DANA.url)],
+    });
+    const notes: ReportNote[] = [];
+    await readPostPeople(jobWith(tab, hfos, [], notes));
+    expect(notes).toEqual([]);
   });
 });
 

@@ -12,6 +12,7 @@ import {
   groupCards,
   groupFacts,
   groupLeaders,
+  groupStanding,
   memberRows,
   readAlignable,
 } from '../src/networks/alignable/read';
@@ -817,6 +818,7 @@ describe('groups, as Alignable lists them (decision 92)', () => {
         name: 'Home Pros Network',
         members: 1204,
         joined: false,
+        asked: false,
         detail: 'For people who fix and build homes',
       },
       {
@@ -825,6 +827,7 @@ describe('groups, as Alignable lists them (decision 92)', () => {
         name: 'Maple Valley Trades',
         members: 1200,
         joined: false,
+        asked: true,
         detail: 'Maple Valley, WA',
       },
       {
@@ -833,6 +836,7 @@ describe('groups, as Alignable lists them (decision 92)', () => {
         name: 'Riverbend Roofers',
         members: 86,
         joined: true,
+        asked: false,
         detail: null,
       },
     ]);
@@ -881,6 +885,35 @@ describe('groups, as Alignable lists them (decision 92)', () => {
     });
     // The groups it suggests are only suggestions on a group's own page.
     expect(groupCards(doc, doc.location.href)).toEqual([]);
+  });
+
+  it('never takes a Connect asked in a post or a person’s row for the group’s own: it still has its Join', () => {
+    // Its header with a leader's link, a post whose writer was asked to connect (and links to this group: "Posted in"),
+    // and a member asked to connect with, on the side.
+    const doc = page(
+      `${AL}/groups/home-pros-network`,
+      `<main><div><h1>Home Pros Network</h1><span>Led by <a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a></span>
+          <span>1,204 members</span><button>Join</button></div>
+        <section><div>
+          <div><a href="/boise-id/pine-painting/jamie-pine?user=5"><span>Jamie Pine</span><span>at</span><span>Pine Painting</span></a>
+            <div><span>Posted in</span><a href="/groups/home-pros-network/fall-gutters"><span>4h</span></a></div>
+            <button>Request Sent</button></div>
+          <div><div title="Fall gutters">Who else is busy with gutters this fall?</div></div>
+          <div><a href="/biz/discussions/93">Comment</a><a href="/biz/likes"><div>Like</div></a>
+            <a href="/biz/connection_requests/quick?business_id=42&discussion_id=93&type=mgc"><div>Pending</div></a></div>
+        </div></section>
+        <aside><h3>Members</h3>
+          <div><a href="/salem-or/vale-bookkeeping/morgan-vale">Morgan Vale</a><button>Requested</button></div></aside>
+      </main>`,
+    );
+    expect(groupFacts(doc, doc.location.href)).toMatchObject({
+      id: 'home-pros-network',
+      name: 'Home Pros Network',
+      joined: false,
+      asked: false,
+      join: true,
+    });
+    expect(groupStanding(doc, doc.location.href)?.join?.textContent).toBe('Join');
   });
 
   it('reads a group you’re in, and one you asked to join, on its About page', () => {

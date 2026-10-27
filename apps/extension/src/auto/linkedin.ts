@@ -781,6 +781,19 @@ export function linkedInWorkLeft(
 export const nextLinkedInDaily = (state: Pick<AutoState, 'daily'>): LinkedInDaily | null =>
   LINKEDIN_DAILY.find((job) => state.daily?.[job] === undefined) ?? null;
 
+/** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
+const reporting = (job: Job, kind: LinkedInDaily): Job => ({
+  ...job,
+  report:
+    job.report ??
+    reporter(job.tab, job.hfos, {
+      businessId: job.businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: kind,
+    }),
+});
+
 /** Does one of LinkedIn's once-a-day jobs. */
 export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -814,7 +827,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
     case 'helpful':
       return linkedInHelpfulDaily(job);
     case 'post_people':
-      return readPostPeople(job);
+      // A post it couldn't read, or whose box of who reacted didn't open or read nobody, is noted with its outline.
+      return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
   }

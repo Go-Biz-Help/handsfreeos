@@ -1149,6 +1149,34 @@ describe('Alignable’s groups', () => {
     expect(end).toEqual({ line: 'Saved 2 groups of yours on Alignable.', warned: false });
   });
 
+  it('keeps the plain cards of their own groups page beside one asked and waiting, leaving that one out', async () => {
+    // A group it asked to join, whose leaders haven't said yet: the page still offers no Join.
+    world.pages = (url) =>
+      url === `${AL}/biz/groups`
+        ? {
+            html: `<main><h1>My Groups</h1>
+              <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span></div>
+              <div><a href="/groups/maple-street-makers">Maple Street Makers</a><span>40 members</span></div>
+              <div><a href="/groups/home-pros-network">Home Pros Network</a><span>1,204 members</span>
+                <button>Cancel Request</button></div></main>`,
+          }
+        : null;
+    world.hfos['hfos-save-groups'] = (ask) => ({
+      saved: (ask['input'] as { groups: unknown[] }).groups.length,
+    });
+    const end = await runAlignableDaily('my_groups', dailyJob());
+    expect(world.opened).toEqual([`${AL}/biz/groups`]);
+    expect(inputsOf('hfos-save-groups')).toMatchObject([
+      {
+        groups: [
+          { group: { url: `${AL}/groups/austin-tx` }, joined: true },
+          { group: { url: `${AL}/groups/maple-street-makers` }, joined: true },
+        ],
+      },
+    ]);
+    expect(end).toEqual({ line: 'Saved 2 groups of yours on Alignable.', warned: false });
+  });
+
   it('finds groups with today’s words in their town when none wait, then sends each for the AI’s check', async () => {
     let asked = 0;
     world.hfos['hfos-groups-to-check'] = () =>
