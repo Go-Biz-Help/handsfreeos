@@ -251,6 +251,11 @@ extension's page-layout reports?":
   request with the person's own name after them, never another's (People you may know), and the runner and **Check
   Facebook** press Add friend by its words or by its words and their name (`withTheirName` in
   `src/networks/facebook/auto.ts`).
+- **Instagram: Your hashtags and places reads posts again** (the owner's day of 26 Oct 2026, whose look at 3
+  hashtags read none). It looks with its window in front, then puts the person's back, as Save my followers does, since
+  Instagram draws a grid only on screen; it scrolls a hashtag's or place's grid up to 2 screens for posts not opened
+  yet; and a page with no posts, or a post whose author it couldn't read, is noted in HandsFreeOS with its outline
+  (`posts.page`, `posts.post`), once a look (`src/jobs/instagram/posts.ts`).
 - **A problem report stays within the 40 things core keeps** (`PROBLEM_FOUND_MOST`), where an Alignable business's
   page with posts and answers on it found 41 to 43 and was refused: past it, the lists with none are named in one,
   then each list's parts are folded into those some of its rows lacked, then lists' counts go, always the same way,
