@@ -251,10 +251,14 @@ export interface CustomerContactRow {
 /**
  * The customer a picked contact already is: someone with one of its numbers or emails, main or other, as the server's
  * duplicate check matches them. Archived customers are left out of `rows` by the caller, as the server leaves them out.
+ * A contact typed in on the phone (New appointment's New contact) is looked for the same way.
  */
 export function alreadyACustomer(
   rows: readonly CustomerContactRow[],
-  person: PersonFromContact,
+  person: Pick<
+    PersonFromContact,
+    'firstName' | 'lastName' | 'phone' | 'email' | 'otherPhones' | 'otherEmails'
+  >,
 ): { readonly id: string; readonly name: string } | null {
   const phones = new Set(
     [person.phone, ...person.otherPhones.map((p) => p.phone)].filter((p): p is string => !!p),

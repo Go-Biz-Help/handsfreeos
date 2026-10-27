@@ -1,14 +1,20 @@
 import {
   addDays,
+  checkNewContact,
+  contactFromSearch,
   fmtDateShort,
   fmtLength,
+  holds,
   localDateOf,
   localInstant,
   minutesPastMidnight,
+  NEW_CONTACT_WORDS as NC,
   reminderScheduleWords,
+  SEARCH_MIN_CHARS,
   tellNote,
   timeOptionsWith,
   type CalendarConfig,
+  type ContactStart,
 } from '@hfos/core';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -22,7 +28,7 @@ import {
   type CalendarChoice,
   type CustomerChoice,
 } from '@/calendar/use-calendar';
-import { Check } from '@/components/icons';
+import { Check, UserPlus } from '@/components/icons';
 import { useBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -31,6 +37,7 @@ import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { addCustomer } from '@/customers/add-customer';
 import { useNetwork } from '@/lib/network';
 import { matchesSearch } from '@/sync/compute';
 import { cn } from '@/lib/utils';
@@ -43,6 +50,10 @@ import { cn } from '@/lib/utils';
  * reaches a customer, so it is fresh-for-30-minutes: with no signal it waits on the phone, goes by itself when signal
  * returns, and asks "Still send?" only if it sat longer than that. The line at the bottom says exactly that, so nobody
  * is surprised — and until HandsFreeOS answers, the day shows the time as "Not booked yet".
+ *
+ * Someone not yet a customer is added here too: a search that finds nobody offers "Add “Dana Smith” as a new
+ * contact", and a small form takes their name, number and email in this sheet (an iPhone shows one sheet at a time).
+ * Adding works with no signal like everything else here, and the time asked for waits for them to be added first.
  */
 export function NewAppointmentSheet({
   open,
@@ -64,7 +75,7 @@ export function NewAppointmentSheet({
   person: CustomerChoice | null;
   onAsked?: () => void;
 }) {
-  const { business } = useBusiness();
+  const { business, viewing } = useBusiness();
   const { online } = useNetwork();
   const calendars = useCalendars();
   const members = useCalendarMembers();
@@ -72,7 +83,14 @@ export function NewAppointmentSheet({
   const customers = useCustomers();
   const [chosen, setChosen] = React.useState<CustomerChoice | null>(null);
   const [typed, setTyped] = React.useState('');
+  /** The New contact form, open, with what's in its boxes. */
+  const [contact, setContact] = React.useState<ContactStart | null>(null);
+  /** The customer added in this sheet, and the change adding them, which asking for the time waits for. */
+  const [added, setAdded] = React.useState<{ personId: string; changeId: string } | null>(null);
   const forWhom = person ?? chosen;
+  const found = matching(customers, typed);
+  const mayAdd = !viewing && holds(business, 'records.write');
+  const nobody = mayAdd && typed.trim().length >= SEARCH_MIN_CHARS && !found.length;
 
   const [calendarId, setCalendarId] = React.useState<string | null>(null);
   const [serviceId, setServiceId] = React.useState<string | null>(null);
@@ -99,9 +117,18 @@ export function NewAppointmentSheet({
       setTitle('');
       setChosen(null);
       setTyped('');
+      setContact(null);
+      setAdded(null);
       setBusy(false);
     }
   }, [open, date, timeZone]);
+
+  /** Who the visit is for, from the list or just added: the search and the form are done with. */
+  const choose = (customer: CustomerChoice) => {
+    setChosen(customer);
+    setTyped('');
+    setContact(null);
+  };
 
   const ask = async () => {
     if (!calendar) return;
@@ -120,6 +147,7 @@ export function NewAppointmentSheet({
         address: forWhom?.address ?? null,
         leadId: null,
         notify,
+        dependsOn: added && added.personId === forWhom?.id ? [added.changeId] : [],
       });
       toast.show(
         online ? 'Asked for this time.' : 'Kept on this phone. It goes when you have signal.',
@@ -161,6 +189,21 @@ export function NewAppointmentSheet({
             >
               Choose someone else
             </Button>
+          ) : contact ? (
+            <NewContactForm
+              value={contact}
+              onChange={setContact}
+              onCancel={() => setContact(null)}
+              onAdded={(customer, changeId) => {
+                choose(customer);
+                setAdded({ personId: customer.id, changeId });
+              }}
+              onChooseExisting={(id, name) =>
+                choose(
+                  customers.find((c) => c.id === id) ?? { id, name, address: null, searchText: '' },
+                )
+              }
+            />
           ) : (
             <>
               <Input
@@ -172,14 +215,31 @@ export function NewAppointmentSheet({
                 testID="new-appointment-customer-search"
               />
               <Chips
-                options={matching(customers, typed).map((c) => ({ value: c.id, label: c.name }))}
+                options={found.map((c) => ({ value: c.id, label: c.name }))}
                 value=""
                 onChange={(id) => {
-                  setChosen(customers.find((c) => c.id === id) ?? null);
-                  setTyped('');
+                  const customer = customers.find((c) => c.id === id);
+                  if (customer) choose(customer);
                 }}
                 testID="new-appointment-customer"
               />
+              {nobody ? (
+                <View className="mt-2 gap-2" testID="new-appointment-nobody">
+                  <Text className="text-[13px] text-text-2">{NC.nobody(typed.trim())}</Text>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    icon={UserPlus}
+                    className="max-w-full self-start"
+                    onPress={() => setContact(contactFromSearch(typed))}
+                    testID="new-appointment-add-contact"
+                  >
+                    <Text numberOfLines={1} className="shrink">
+                      {NC.add(typed.trim())}
+                    </Text>
+                  </Button>
+                </View>
+              ) : null}
             </>
           )}
         </Field>
@@ -285,6 +345,147 @@ export function NewAppointmentSheet({
         </Button>
       </View>
     </Sheet>
+  );
+}
+
+/**
+ * New contact, inside the sheet: a name (all it needs), and the number and email that let them hear about the visit.
+ * Checked as the server will check it before anything is kept, so what goes with no signal isn't refused later. When
+ * the number or email is already a customer's, it offers them instead, or adds this one anyway.
+ */
+function NewContactForm({
+  value,
+  onChange,
+  onCancel,
+  onAdded,
+  onChooseExisting,
+}: {
+  value: ContactStart;
+  onChange: (next: ContactStart) => void;
+  onCancel: () => void;
+  onAdded: (customer: CustomerChoice, changeId: string) => void;
+  onChooseExisting: (id: string, name: string) => void;
+}) {
+  const { business } = useBusiness();
+  const [problem, setProblem] = React.useState<{ field: string; message: string } | null>(null);
+  const [already, setAlready] = React.useState<{ id: string; name: string } | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const edit = (key: keyof ContactStart) => (text: string) => {
+    onChange({ ...value, [key]: text });
+    setProblem(null);
+    setAlready(null);
+  };
+
+  const add = async (anyway = false) => {
+    const check = checkNewContact(value);
+    if (!check.ok) return setProblem({ field: check.field, message: check.message });
+    setBusy(true);
+    try {
+      const result = await addCustomer(
+        business.id,
+        { ...check.person, otherPhones: [], otherEmails: [], otherAddresses: [] },
+        check.name,
+        { anyway },
+      );
+      if (result.kind === 'already') return setAlready({ id: result.id, name: result.name });
+      toast.show(NC.added(result.name));
+      onAdded({ id: result.id, name: result.name, address: null, searchText: '' }, result.changeId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'That didn’t work.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View className="gap-2 rounded-menu bg-card-2 p-3" testID="new-contact">
+      <Text className="text-[15px] font-semibold">{NC.title}</Text>
+      <Input
+        value={value.name}
+        onChangeText={edit('name')}
+        placeholder={NC.namePlaceholder}
+        accessibilityLabel={NC.name}
+        autoCapitalize="words"
+        autoCorrect={false}
+        textContentType="name"
+        invalid={problem?.field === 'name'}
+        testID="new-contact-name"
+      />
+      <Input
+        value={value.phone}
+        onChangeText={edit('phone')}
+        placeholder={NC.phonePlaceholder}
+        accessibilityLabel={NC.phone}
+        keyboardType="phone-pad"
+        textContentType="telephoneNumber"
+        invalid={problem?.field === 'phone'}
+        testID="new-contact-phone"
+      />
+      <Input
+        value={value.email}
+        onChangeText={edit('email')}
+        placeholder={NC.emailPlaceholder}
+        accessibilityLabel={NC.email}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="emailAddress"
+        invalid={problem?.field === 'email'}
+        testID="new-contact-email"
+      />
+      {problem ? (
+        <Text className="text-[13px] text-danger-text" testID="new-contact-problem">
+          {problem.message}
+        </Text>
+      ) : (
+        <Text className="text-xs text-text-3">{NC.hint}</Text>
+      )}
+      {already ? (
+        <View className="gap-2" testID="new-contact-already">
+          <Text className="text-[13px] text-text-2">
+            {NC.already(already.name, {
+              phone: !!value.phone.trim(),
+              email: !!value.email.trim(),
+            })}
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="md"
+              onPress={() => onChooseExisting(already.id, already.name)}
+              testID="new-contact-choose"
+            >
+              {NC.choose(already.name)}
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              loading={busy}
+              onPress={() => void add(true)}
+              testID="new-contact-anyway"
+            >
+              {NC.addAnyway}
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-row gap-2">
+          <Button
+            size="md"
+            icon={UserPlus}
+            loading={busy}
+            onPress={() => void add()}
+            testID="new-contact-save"
+          >
+            {NC.save}
+          </Button>
+          <Button variant="ghost" size="md" onPress={onCancel} testID="new-contact-cancel">
+            {NC.cancel}
+          </Button>
+        </View>
+      )}
+    </View>
   );
 }
 
