@@ -7027,7 +7027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What a Facebook group’s About page, rules and latest posts said as the person’s computer read them, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.
+         * What a group’s About page, rules and latest posts said as the person’s computer read them, on Facebook or Alignable, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.group.looked.
          */
         post: operations["command_outreach_group_look"];
@@ -7047,7 +7047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a Facebook group the person has open and the people on its People tab (or one of its See all pages), with the lines under each name. Admins and moderators are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
+         * Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.group.saved.
          */
         post: operations["command_outreach_group_save"];
@@ -7067,7 +7067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save the groups on a Facebook page the person has open (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.
+         * Save the groups on a page the person has open on Facebook or Alignable (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.groups.saved.
          */
         post: operations["command_outreach_groups_save"];
@@ -7187,7 +7187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How the person’s computer’s ask to join a Facebook group went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.
+         * How the person’s computer’s ask to join a group on Facebook or Alignable went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.
          * @description Risk level 1. Requires outreach.use. Emits outreach.join.noted.
          */
         post: operations["command_outreach_join_note"];
@@ -18447,7 +18447,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.
+         * The business’s groups on a network (Facebook’s when none is named) the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups"];
@@ -18467,7 +18467,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which of the business’s Facebook groups the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately.
+         * Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
@@ -18527,7 +18527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which Facebook groups the person’s computer asks to join next (decision 31): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for. With how many people the groups have left to reach, and words to search for more groups with.
+         * Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
@@ -71481,6 +71481,11 @@ export interface operations {
                 "application/json": {
                     /** @default 8 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -71631,6 +71636,11 @@ export interface operations {
                     groupIds?: string[];
                     /** @default 3 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -71644,6 +71654,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default false */
+                        anywhere: boolean;
                         groups: {
                             /** Format: uuid */
                             groupId: string;

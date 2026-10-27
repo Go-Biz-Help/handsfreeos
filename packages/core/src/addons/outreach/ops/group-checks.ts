@@ -3,6 +3,11 @@
  * computer checks next, what their About pages, rules and posts said, the AI's read of them, how many people the
  * groups have left to reach, which groups to ask to join, and how each ask went. The groups and the AI's read of them
  * are the business's; the asks to join are each person's own.
+ *
+ * Each network's groups are their own (decision 92: Alignable's go through the same pipeline as Facebook's): the
+ * groups checked and joined, the playbooks that run there, its warning, the day's joins, its Join switch and its
+ * people left to reach. What differs is in its kit (`joinsPerDay`, `foundChecksPerDay`); an older build that names no
+ * network gets Facebook's.
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -10,6 +15,8 @@ import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { businessLimitsOn } from '../automation';
+import type { CheckVerdict } from '../checks';
 import { bestFit, type FitPlaybook } from '../fit';
 import {
   GROUP_CHECK_AGAIN_DAYS,
@@ -18,9 +25,9 @@ import {
   GroupCheckSaveOutput,
   GroupLookInput,
   GroupLookOutput,
+  groupsByCheck,
   GroupsToCheckInput,
   GroupsToCheckOutput,
-  JOINS_PER_DAY,
   JoinNoteInput,
   JoinNoteOutput,
   JoinsNextInput,
@@ -30,9 +37,11 @@ import {
   type ProspectsLeft,
 } from '../group-checks';
 import { bestGroupFit, checkedGroupFit, type GroupFit, type GroupFitPlaybook } from '../groups';
-import { dailyLimitsNow, limitNow } from '../limits';
+import { limitNow } from '../limits';
 import { outreachAddon } from '../manifest';
+import { networkLimitsNow, NETWORKS, type Platform } from '../networks';
 import type { PlaybookDetails } from '../playbooks';
+import { dayNumber, inTurn } from '../posts';
 import { groups, joins, myGroups } from '../tables';
 import { automationOf, rulesOf } from './automation';
 import { countryLetsSql, countryRuleOf, inPlay, inWorkspace, pitchable, type Ctx } from './common';
@@ -80,16 +89,23 @@ export function groupFitOf(playbooks: readonly Playbook[], g: CheckedGroupRow): 
 }
 
 /**
- * People in the business's groups who fit a playbook and haven't been reached by the person, by group: Today's
- * friend requests' own, so a group whose admins aren't read yet, and anyone who runs a group, never counts.
+ * People in the business's groups on a network who haven't been reached by the person, by group, never anyone who
+ * runs a group:
+ *
+ * - **Facebook's** fit a playbook as Today's friend requests weigh them, in a group whose admins have been read.
+ * - **On a network that checks people found** (`groupsByCheck`, Alignable's, decision 92) only people found in groups
+ *   count: members of a good group not checked yet, and members whose found check was good. Its search results and
+ *   town posters don't, so a full queue of them never stops a join.
  */
 export async function peopleLeft(
   ctx: Ctx,
   me: string,
   playbooks: readonly Playbook[],
+  platform: Platform = 'facebook',
 ): Promise<Map<string, number>> {
   const left = new Map<string, number>();
   if (!playbooks.length) return left;
+  const byCheck = groupsByCheck(platform);
   // Anyone the business's country setting skips isn't left to reach (decision 61).
   const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
   const found = await rows<
@@ -99,17 +115,25 @@ export async function peopleLeft(
       lines: string[];
       intro: string[];
       mutual_friends: number | null;
+      verdict: CheckVerdict | null;
     }
   >(
     ctx.tx,
     sql`select distinct on (p.id) p.id, gp.group_id, gp.lines, p.intro, p.mutual_friends,
           g.name, g.detail, g.members, g.privacy, g.check_state, g.check_why, g.check_playbook_id,
           null::text as check_playbook,
-          (select m.joined from addon_outreach.my_groups m where m.group_id = g.id and m.user_id = ${me}) as joined
+          (select m.joined from addon_outreach.my_groups m where m.group_id = g.id and m.user_id = ${me}) as joined,
+          ${
+            byCheck
+              ? sql`(select c.verdict from addon_outreach.checks c
+                  where c.profile_id = p.id and c.user_id = ${me})`
+              : sql`null::text`
+          } as verdict
         from addon_outreach.group_people gp
-        join addon_outreach.groups g on g.id = gp.group_id
+        join addon_outreach.groups g on g.id = gp.group_id and g.platform = ${platform}
         join addon_outreach.profiles p on p.id = gp.profile_id
-        where gp.workspace_id = ${ctx.scope.workspaceId!} and g.admins_read_at is not null
+        where gp.workspace_id = ${ctx.scope.workspaceId!}
+          and ${byCheck ? sql`true` : sql`g.admins_read_at is not null`}
           and not gp.runs_group and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
           and ${lets}
           and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
@@ -123,24 +147,52 @@ export async function peopleLeft(
         limit ${LEFT_MOST}`,
   );
   for (const p of found) {
-    if (groupFitOf(playbooks, p).verdict === 'skip') continue;
-    const fit = bestFit(playbooks, {
-      lines: [...p.lines, ...p.intro],
-      mutualFriends: p.mutual_friends,
-      groupName: p.name,
-    });
-    if (fit.level === 'skip' || fit.level === 'unknown') continue;
+    if (byCheck ? !leftByCheck(playbooks, p) : !leftByWords(playbooks, p)) continue;
     left.set(p.group_id, (left.get(p.group_id) ?? 0) + 1);
   }
   return left;
 }
 
-/** How many people the groups have left to reach, against a day's friend requests. */
+type LeftRow = CheckedGroupRow & {
+  readonly lines: string[];
+  readonly intro: string[];
+  readonly mutual_friends: number | null;
+  readonly verdict: CheckVerdict | null;
+};
+
+/** Facebook's: found in a group that fits, and fitting a playbook by the words they show. */
+function leftByWords(playbooks: readonly Playbook[], p: LeftRow): boolean {
+  if (groupFitOf(playbooks, p).verdict === 'skip') return false;
+  const fit = bestFit(playbooks, {
+    lines: [...p.lines, ...p.intro],
+    mutualFriends: p.mutual_friends,
+    groupName: p.name,
+  });
+  return fit.level !== 'skip' && fit.level !== 'unknown';
+}
+
+/**
+ * By the AI's check of each (decision 92): a good one counts wherever they were found in a group; one not checked yet
+ * (or that couldn't be) counts only in a group to work; a maybe or a no never does, as only a good check reaches them.
+ */
+function leftByCheck(playbooks: readonly Playbook[], p: LeftRow): boolean {
+  if (p.verdict === 'good') return true;
+  if (p.verdict === 'maybe' || p.verdict === 'not') return false;
+  return groupFitOf(playbooks, p).verdict === 'work';
+}
+
+/** How many people a network's groups have left to reach, against a day's friend requests there. */
 export async function prospectsOf(
   ctx: Ctx,
   left: ReadonlyMap<string, number>,
+  platform: Platform = 'facebook',
 ): Promise<ProspectsLeft> {
-  const perDay = dailyLimitsNow(false, (await rulesOf(ctx)).dailyLimits).friend_request;
+  const rules = await rulesOf(ctx);
+  const perDay = networkLimitsNow(
+    platform,
+    false,
+    businessLimitsOn(rules, platform),
+  ).friend_request;
   return prospectsLeft(
     [...left.values()].reduce((a, b) => a + b, 0),
     perDay,
@@ -149,10 +201,31 @@ export async function prospectsOf(
 
 const ago = (now: number, days: number) => new Date(now - days * DAY).toISOString();
 
+/**
+ * The words to search a network for groups with, each once: the playbooks' words for groups, with whether that word's
+ * playbook works with clients online (decision 92), so the search goes anywhere rather than the person's town. Only
+ * where groups go by the AI's check of the people in them (`groupsByCheck`, Alignable's); Facebook's searches stay as
+ * they were.
+ */
+export function groupSearchWords(
+  playbooks: readonly { readonly details: Pick<PlaybookDetails, 'groupWords' | 'worksOnline'> }[],
+  platform: Platform,
+): { words: string; anywhere: boolean }[] {
+  const seen = new Set<string>();
+  return playbooks.flatMap((p) =>
+    p.details.groupWords.flatMap((w) => {
+      const words = w.replace(/[“”"]/g, '').trim();
+      if (!words || seen.has(words)) return [];
+      seen.add(words);
+      return [{ words, anywhere: groupsByCheck(platform) && p.details.worksOnline === true }];
+    }),
+  );
+}
+
 export const groupsToCheck = defineAddonQuery(outreachAddon, {
   name: 'outreach.groups.to_check',
   description:
-    'Which of the business’s Facebook groups the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately.',
+    'Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.',
   input: GroupsToCheckInput,
   output: GroupsToCheckOutput,
   permission: 'outreach.use',
@@ -170,7 +243,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
             g.check_playbook_id, null::text as check_playbook, m.joined
           from addon_outreach.groups g
           left join addon_outreach.my_groups m on m.group_id = g.id and m.user_id = ${me}
-          where g.workspace_id = ${ctx.scope.workspaceId!}
+          where g.workspace_id = ${ctx.scope.workspaceId!} and g.platform = ${input.platform}
             and (g.check_state is null
               or (g.check_state in ('good', 'maybe', 'not')
                 and g.checked_at < ${ago(now, GROUP_CHECK_AGAIN_DAYS)}::timestamptz)
@@ -178,7 +251,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
                 and g.about_at < ${ago(now, GROUP_CHECK_RETRY_DAYS)}::timestamptz))
           order by g.seen_at desc nulls last limit 500`,
     );
-    const playbooks = await playbooksInUse(ctx, 'facebook');
+    const playbooks = await playbooksInUse(ctx, input.platform);
     const ranked = found
       .map((g) => ({ g, fit: bestGroupFit(playbooks, { ...g, joined: g.joined }) }))
       // The person's own groups first; then groups found that fit by name, never one its name skips.
@@ -194,7 +267,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
       : await rows<{ n: number }>(
           ctx.tx,
           sql`select count(*)::int as n from addon_outreach.groups
-              where workspace_id = ${ctx.scope.workspaceId!}`,
+              where workspace_id = ${ctx.scope.workspaceId!} and platform = ${input.platform}`,
         );
     return {
       groups: ranked.slice(0, input.most).map(({ g }) => ({
@@ -211,7 +284,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
 export const groupLook = defineAddonCommand(outreachAddon, {
   name: 'outreach.group.look',
   description:
-    'What a Facebook group’s About page, rules and latest posts said as the person’s computer read them, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.',
+    'What a group’s About page, rules and latest posts said as the person’s computer read them, on Facebook or Alignable, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.',
   risk: 1,
   input: GroupLookInput,
   output: GroupLookOutput,
@@ -225,6 +298,13 @@ export const groupLook = defineAddonCommand(outreachAddon, {
     const nothing = !input.about.length && !input.rules.length && !input.posts.length;
     const state: GroupCheckState = nothing ? 'failed' : 'waiting';
     const [group] = await ctx.tx
+      .select({ id: groups.id, platform: groups.platform })
+      .from(groups)
+      .where(and(eq(groups.workspaceId, ws), eq(groups.id, input.groupId)))
+      .for('update');
+    if (!group)
+      throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
+    await ctx.tx
       .update(groups)
       .set({
         ...(input.about.length ? { about: input.about } : {}),
@@ -233,13 +313,15 @@ export const groupLook = defineAddonCommand(outreachAddon, {
         checkLines: input.posts,
         checkState: state,
         ...(nothing
-          ? { checkWhy: ['Facebook didn’t show what it’s about'], checkWho: null, checkedAt: at }
+          ? {
+              // Its own network's name: "Alignable didn’t show what it’s about".
+              checkWhy: [`${NETWORKS[group.platform].name} didn’t show what it’s about`],
+              checkWho: null,
+              checkedAt: at,
+            }
           : {}),
       })
-      .where(and(eq(groups.workspaceId, ws), eq(groups.id, input.groupId)))
-      .returning({ id: groups.id });
-    if (!group)
-      throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
+      .where(eq(groups.id, group.id));
     if (input.joined !== null)
       await ctx.tx
         .insert(myGroups)
@@ -268,7 +350,7 @@ export const groupLook = defineAddonCommand(outreachAddon, {
 export const groupCheck = defineAddonCommand(outreachAddon, {
   name: 'outreach.group.check',
   description:
-    'Worker: what the AI made of a Facebook group: the business’s people are there, some are, or they aren’t, which playbook, why and who posts there; or that it couldn’t read it. The posts it read are let go.',
+    'Worker: what the AI made of a group on Facebook or Alignable: the business’s people are there, some are, or they aren’t, which playbook, why and who posts there; or that it couldn’t read it. The posts it read are let go.',
   risk: 0,
   input: GroupCheckSaveInput,
   output: GroupCheckSaveOutput,
@@ -316,7 +398,7 @@ export const groupCheck = defineAddonCommand(outreachAddon, {
 export const joinsNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.joins.next',
   description:
-    'Which Facebook groups the person’s computer asks to join next (decision 31): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for. With how many people the groups have left to reach, and words to search for more groups with.',
+    'Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.',
   input: JoinsNextInput,
   output: JoinsNextOutput,
   permission: 'outreach.use',
@@ -328,27 +410,29 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
+    const platform = input.platform;
     const now = Date.now();
     const todayStart = await startOfToday(ctx, now);
-    // Groups are joined on Facebook: only its warning halves the joins.
-    const warning = await warningOf(ctx, me, 'facebook', todayStart, now);
-    const perDay = limitNow(JOINS_PER_DAY, slowsNow(warning, now));
+    // Groups are joined on their own network: only its warning halves the joins there, and a network with no joins in
+    // its kit has none.
+    const warning = await warningOf(ctx, me, platform, todayStart, now);
+    const most = NETWORKS[platform].joinsPerDay;
+    const perDay = most ? limitNow(most, slowsNow(warning, now)) : 0;
     const [done] = await rows<{ n: number }>(
       ctx.tx,
-      sql`select count(*)::int as n from addon_outreach.joins
-          where workspace_id = ${ws} and user_id = ${me}
-            and asked_at >= ${todayStart.toISOString()}::timestamptz`,
+      sql`select count(*)::int as n from addon_outreach.joins j
+          join addon_outreach.groups g on g.id = j.group_id and g.platform = ${platform}
+          where j.workspace_id = ${ws} and j.user_id = ${me}
+            and j.asked_at >= ${todayStart.toISOString()}::timestamptz`,
     );
     const today = done?.n ?? 0;
-    const playbooks = await playbooksInUse(ctx, 'facebook');
-    const prospects = await prospectsOf(ctx, await peopleLeft(ctx, me, playbooks));
-    const words = [
-      ...new Set(
-        playbooks.flatMap((p) =>
-          p.details.groupWords.map((w) => w.replace(/[“”"]/g, '').trim()).filter(Boolean),
-        ),
-      ),
-    ];
+    const playbooks = await playbooksInUse(ctx, platform);
+    const prospects = await prospectsOf(
+      ctx,
+      await peopleLeft(ctx, me, playbooks, platform),
+      platform,
+    );
+    const words = groupSearchWords(playbooks, platform);
     const room = Math.max(0, Math.min(input.most, perDay - today));
     const found = room
       ? await rows<CheckedGroupRow & { id: string; url: string }>(
@@ -356,7 +440,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
           sql`select g.id, g.name, g.url, g.detail, g.members, g.privacy, g.check_state, g.check_why,
                 g.check_playbook_id, null::text as check_playbook, false as joined
               from addon_outreach.groups g
-              where g.workspace_id = ${ws}
+              where g.workspace_id = ${ws} and g.platform = ${platform}
                 and ${input.groupIds ? sql`g.id = any (${`{${input.groupIds.join(',')}}`}::uuid[])` : sql`true`}
                 and not exists (select 1 from addon_outreach.my_groups m
                   where m.group_id = g.id and m.user_id = ${me} and m.joined)
@@ -377,13 +461,17 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
           b.fit.score - a.fit.score ||
           (b.g.members ?? 0) - (a.g.members ?? 0),
       );
+    // A different word each day, in turn.
+    const [word] = inTurn(words, 1, dayNumber(now));
     return {
       groups: ranked.slice(0, room).map(({ g }) => ({ groupId: g.id, name: g.name, url: g.url })),
       today,
       perDay,
       prospects,
-      words: words.length ? words[Math.floor(now / DAY) % words.length]! : null,
-      onItsOwn: (await automationOf(ctx, me, now)).settings.joinGroups,
+      words: word?.words ?? null,
+      anywhere: word?.anywhere ?? false,
+      // The person's Join switch on that network (Facebook's is the settings' own).
+      onItsOwn: (await automationOf(ctx, me, now, platform)).choices.joinGroups,
     };
   },
 });
@@ -391,7 +479,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
 export const joinNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.join.note',
   description:
-    'How the person’s computer’s ask to join a Facebook group went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.',
+    'How the person’s computer’s ask to join a group on Facebook or Alignable went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.',
   risk: 1,
   input: JoinNoteInput,
   output: JoinNoteOutput,

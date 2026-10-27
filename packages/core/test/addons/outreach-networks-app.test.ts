@@ -81,8 +81,13 @@ describe('a network’s words on screen', () => {
     // Settings show only the switches a network's runner reads; one still looked at has none yet.
     expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS);
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
-    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does.
-    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect']);
+    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does, and joins good
+    // groups when people found in its groups run low (decision 92).
+    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect', 'joinGroups']);
+    expect(ticksOn('alignable').joinGroups).toEqual([
+      'Join good groups when my groups run low',
+      'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
+    ]);
     // Instagram's (part 14) the same: it confirms no follow requests, joins no groups and has no hourly look.
     expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.

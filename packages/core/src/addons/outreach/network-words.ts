@@ -257,9 +257,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Once a day, first: check connection requests, and read my messages and my town’s posts',
         'These fill the list it works from. It checks your connections for good fits, and looks for partners, too.',
       ],
+      // Shown since decision 92: Alignable's groups go through the same pipeline as Facebook's.
       joinGroups: [
         'Join good groups when my groups run low',
-        'Alignable’s groups are its local communities.',
+        'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
       ],
       watchPosts: [
         'Look for new questions asking for what I offer, every hour or two',

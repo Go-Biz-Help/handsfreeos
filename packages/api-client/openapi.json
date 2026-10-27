@@ -85126,7 +85126,7 @@
     "/v1/commands/outreach.groups.save": {
       "post": {
         "operationId": "command_outreach_groups_save",
-        "summary": "Save the groups on a Facebook page the person has open (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.",
+        "summary": "Save the groups on a page the person has open on Facebook or Alignable (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.",
         "tags": [
           "commands"
         ],
@@ -85300,7 +85300,7 @@
     "/v1/commands/outreach.group.save": {
       "post": {
         "operationId": "command_outreach_group_save",
-        "summary": "Save a Facebook group the person has open and the people on its People tab (or one of its See all pages), with the lines under each name. Admins and moderators are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.",
+        "summary": "Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.",
         "tags": [
           "commands"
         ],
@@ -100297,7 +100297,7 @@
     "/v1/commands/outreach.group.look": {
       "post": {
         "operationId": "command_outreach_group_look",
-        "summary": "What a Facebook group’s About page, rules and latest posts said as the person’s computer read them, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.",
+        "summary": "What a group’s About page, rules and latest posts said as the person’s computer read them, on Facebook or Alignable, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.",
         "tags": [
           "commands"
         ],
@@ -100404,7 +100404,7 @@
     "/v1/commands/outreach.join.note": {
       "post": {
         "operationId": "command_outreach_join_note",
-        "summary": "How the person’s computer’s ask to join a Facebook group went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.",
+        "summary": "How the person’s computer’s ask to join a group on Facebook or Alignable went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.",
         "tags": [
           "commands"
         ],
@@ -194272,7 +194272,7 @@
     "/v1/queries/outreach.groups": {
       "post": {
         "operationId": "query_outreach_groups",
-        "summary": "The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.",
+        "summary": "The business’s groups on a network (Facebook’s when none is named) the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.",
         "tags": [
           "queries"
         ],
@@ -205397,7 +205397,7 @@
     "/v1/queries/outreach.groups.to_check": {
       "post": {
         "operationId": "query_outreach_groups_to_check",
-        "summary": "Which of the business’s Facebook groups the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately.",
+        "summary": "Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.",
         "tags": [
           "queries"
         ],
@@ -205413,6 +205413,16 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
                   },
                   "most": {
                     "default": 8,
@@ -205493,7 +205503,7 @@
     "/v1/queries/outreach.joins.next": {
       "post": {
         "operationId": "query_outreach_joins_next",
-        "summary": "Which Facebook groups the person’s computer asks to join next (decision 31): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for. With how many people the groups have left to reach, and words to search for more groups with.",
+        "summary": "Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.",
         "tags": [
           "queries"
         ],
@@ -205509,6 +205519,16 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
                   },
                   "most": {
                     "default": 3,
@@ -205616,6 +205636,10 @@
                         "null"
                       ]
                     },
+                    "anywhere": {
+                      "default": false,
+                      "type": "boolean"
+                    },
                     "onItsOwn": {
                       "type": "boolean"
                     }
@@ -205626,6 +205650,7 @@
                     "perDay",
                     "prospects",
                     "words",
+                    "anywhere",
                     "onItsOwn"
                   ],
                   "additionalProperties": false
