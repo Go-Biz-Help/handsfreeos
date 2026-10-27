@@ -1,18 +1,49 @@
 'use client';
 /**
- * Someone kept in Social Outreach as a profile, wherever the app shows them (docs/outreach.md, decision 43): on Today,
- * the Friends tab, the Chats tab and Waiting for you. Its menu has **Add to Contacts**, **Demo booked**, **Don't
- * pitch**, which the extension's panel had for any profile, and **Never contact**, which goes further: no reply
- * either, and their friend requests are never confirmed. Adding to Contacts looks for customers with the same name
- * first (./same-name.tsx), so the person says "It's them" rather than making a second; with none it adds them at once
- * (`outreach.profile.contact`, Facebook as the source).
+ * The person menu on someone's name (docs/outreach.md, decisions 43 and 91): wherever the web shows someone kept in
+ * Social Outreach (Waiting for you, Today, the Pipeline, Friends and Chats), their name is a button that opens it. Its
+ * items, their order, what shows and what can be pressed come from core (`personMenuItems`), the same as on the phone:
+ *
+ * - **Open on {Network}**, their page there, first, and **Open in {messages}** where their chat is known: links out,
+ *   in a new tab;
+ * - the Pipeline's moves, on its rows;
+ * - **In Contacts**, or **Add to Contacts**, which looks for customers with the same name first (./same-name.tsx), so
+ *   the person says "It's them" rather than making a second;
+ * - **Mark as client** (`outreach.client.set`), through the same "Is this one of these?" when they aren't in
+ *   Contacts, or **Not a client after all**, or why Contacts counts them a client;
+ * - **Demo booked**, or **Not a demo after all**;
+ * - **Don't pitch** and **Never contact**, or taking them off, or who put them on: left out where the row has its own
+ *   switches (Friends, Chats).
+ *
+ * Opening it asks where they stand now (`outreach.profile.marks`); its toggles wait for the answer. Add to Contacts and
+ * Client need Add and edit customers (`records.write`), so they're left out for whoever can't.
  */
+import type { Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  personMenuItems,
+  type PersonMenuItem,
+  type PersonMenuKey,
+  type ProfileMarksOutput,
+} from '@hfos/core/addons/outreach/person-menu';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
-import { Ban, CalendarCheck, MoreHorizontal, UserPlus, UserRound, UserX } from 'lucide-react';
+import {
+  BadgeCheck,
+  Ban,
+  CalendarCheck,
+  ChevronDown,
+  ExternalLink,
+  Loader2,
+  MessageCircle,
+  UserPlus,
+  UserRound,
+  UserX,
+  WifiOff,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { Fragment, useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { useCan } from '@/components/shell/workspace-shell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,23 +52,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { apiBrowser, unwrap } from '@/lib/api/client';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 import { SameNameDialog, sameNamesFor, type SameName } from './same-name';
 import { useAct } from './use-act';
 
 const P = OUTREACH_WORDS.person;
 
-/** Who the menu is for. A list that doesn't say leaves `personId` or `demoBooked` out. */
+/** Who the menu is for, as the row knows them. A list that doesn't know a field leaves it out. */
 export interface MenuPerson {
+  /** Kept as a profile: with none, the name is plain words and there's no menu. */
   readonly profileId: string | null;
   readonly name: string;
+  /** The network they're on: the Open items' words. */
+  readonly platform: Platform;
+  /** Their page there: Open on {Network}. Left out or null where the row has none; the marks bring it. */
+  readonly url?: string | null;
+  /** Their chat, where the row knows it: Open in {messages}. */
+  readonly threadKey?: string | null;
   /** The customer they're saved to; left out where the list doesn't know. */
   readonly personId?: string | null;
   /** They booked a demo (`outreach.demo.mark`); left out where the list doesn't know. */
   readonly demoBooked?: boolean;
 }
 
-/** A move to another stage, on the People tab: Ready to pitch, Pitched, Not a fit, Back in play. */
+/** A move to another stage, on the Pipeline: Ready to pitch, Pitched, Not a fit, Back in play. */
 export interface MenuMove {
   readonly key: string;
   readonly label: string;
@@ -45,28 +84,142 @@ export interface MenuMove {
   readonly danger?: boolean;
 }
 
-export function PersonMenu({
+const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
+  'open-page': ExternalLink,
+  'open-chat': MessageCircle,
+  'in-contacts': UserRound,
+  'add-contact': UserPlus,
+  'mark-client': BadgeCheck,
+  'not-client': BadgeCheck,
+  'client-line': BadgeCheck,
+  demo: CalendarCheck,
+  'not-demo': CalendarCheck,
+  'dont-pitch': Ban,
+  'not-dont-pitch': Ban,
+  'dont-pitch-line': Ban,
+  'never-contact': UserX,
+  'not-never-contact': UserX,
+  'never-contact-line': UserX,
+};
+
+/** The browser's word on signal: true on the server and until it says otherwise. */
+const onSignalChange = (changed: () => void) => {
+  window.addEventListener('online', changed);
+  window.addEventListener('offline', changed);
+  return () => {
+    window.removeEventListener('online', changed);
+    window.removeEventListener('offline', changed);
+  };
+};
+const useOnline = (): boolean =>
+  useSyncExternalStore(
+    onSignalChange,
+    () => navigator.onLine,
+    () => true,
+  );
+
+/**
+ * Someone's name, as a button that opens their person menu. With no profile kept it's the name alone. `className`
+ * keeps the row's own look for the name; `truncate` cuts a long one short on a narrow card.
+ */
+export function PersonName({
   workspaceId,
   who,
-  dontPitch = true,
-  neverContact = true,
   moves = [],
+  ownSwitches = false,
   disabled = false,
+  className,
+  truncate = false,
 }: {
   workspaceId: string;
   who: MenuPerson;
-  /** Offer Don't pitch: left off where the row has its own switch for it. */
-  dontPitch?: boolean;
-  /** Offer Never contact: left off where the row has its own switch for it. */
-  neverContact?: boolean;
-  /** Stages to move them to, first in the menu (the board's cards and the pipeline's rows). */
+  /** Stages to move them to, on the Pipeline's rows and board cards. */
   moves?: readonly MenuMove[];
+  /** The row has its own Don't pitch and Never contact switches: the menu leaves them out. */
+  ownSwitches?: boolean;
+  /** Something on the row is running: the menu's actions wait (its Open items don't). */
   disabled?: boolean;
+  className?: string;
+  truncate?: boolean;
 }) {
-  const { busy, act } = useAct();
-  const [same, setSame] = useState<readonly SameName[] | null>(null);
-  const profileId = who.profileId;
-  if (!profileId) return null;
+  if (!who.profileId)
+    return <span className={cn(truncate && 'min-w-0 truncate', className)}>{who.name}</span>;
+  return (
+    <NameMenu
+      workspaceId={workspaceId}
+      profileId={who.profileId}
+      who={who}
+      moves={moves}
+      ownSwitches={ownSwitches}
+      disabled={disabled}
+      className={className}
+      truncate={truncate}
+    />
+  );
+}
+
+/** What "Is this one of these?" leads to: Add to Contacts, or Mark as client. */
+type SameFor = 'contact' | 'client';
+
+function NameMenu({
+  workspaceId,
+  profileId,
+  who,
+  moves,
+  ownSwitches,
+  disabled,
+  className,
+  truncate,
+}: {
+  workspaceId: string;
+  profileId: string;
+  who: MenuPerson;
+  moves: readonly MenuMove[];
+  ownSwitches: boolean;
+  disabled: boolean;
+  className: string | undefined;
+  truncate: boolean;
+}) {
+  const contactsWrite = useCan('records.write');
+  const online = useOnline();
+  const [marks, setMarks] = useState<ProfileMarksOutput | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [same, setSame] = useState<{ people: readonly SameName[]; for: SameFor } | null>(null);
+  // Only the latest ask's answer is shown: the menu opened again, or an action, asks afresh.
+  const asked = useRef(0);
+  const load = useCallback(async () => {
+    const ask = ++asked.current;
+    setFailed(null);
+    try {
+      const got = unwrap(
+        await apiBrowser().POST('/v1/queries/outreach.profile.marks', {
+          body: { workspaceId, profileId },
+        }),
+      );
+      if (ask === asked.current) setMarks(got);
+    } catch (e) {
+      if (ask === asked.current) setFailed(errorMessage(e));
+    }
+  }, [workspaceId, profileId]);
+  const reload = useCallback(() => void load(), [load]);
+  const { busy, act } = useAct(reload);
+  const name = who.name;
+
+  const items = personMenuItems({
+    row: {
+      url: who.url ?? null,
+      platform: who.platform,
+      threadKey: who.threadKey ?? null,
+      personId: who.personId,
+      demoBooked: who.demoBooked,
+    },
+    marks,
+    moves: moves.map((m) => ({ key: m.key, label: m.label, danger: m.danger })),
+    contactsWrite,
+    online,
+    ownSwitches,
+  });
+
   const contact = (personId: string | null) =>
     act(
       'contact',
@@ -79,22 +232,61 @@ export function PersonMenu({
         setSame(null);
         return saved;
       },
-      personId ? P.tied(who.name) : P.added(who.name),
+      personId ? P.tied(name) : P.added(name),
     );
-  // Customers with the same name, not saved with a Facebook profile yet: the person says whether it's them.
+  // Customers with the same name, not saved with a profile on a network yet: the person says whether it's them.
+  const sameFirst = async (then: SameFor): Promise<boolean> => {
+    const people = await sameNamesFor(workspaceId, name, { withoutProfile: true });
+    if (!people.length) return false;
+    setSame({ people, for: then });
+    return true;
+  };
   const addToContacts = () =>
     void act('contact', async () => {
-      const people = await sameNamesFor(workspaceId, who.name, { withoutProfile: true });
-      if (people.length) {
-        setSame(people);
-        return;
-      }
+      if (await sameFirst('contact')) return;
       const saved = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.profile.contact', {
           body: { workspaceId, profileId, personId: null },
         }),
       );
-      toast.success(saved.addedPerson ? P.added(who.name) : P.already(who.name));
+      toast.success(saved.addedPerson ? P.added(name) : P.already(name));
+    });
+  const client = (personId: string | null) =>
+    act(
+      'client',
+      async () => {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.client.set', {
+            body: { workspaceId, profileId, client: true, personId },
+          }),
+        );
+        setSame(null);
+        return out;
+      },
+      P.clientDone(name),
+    );
+  // Marking someone not in Contacts adds them there first: "Is this one of these?" when Contacts has their name.
+  const markClient = () =>
+    void act('client', async () => {
+      if (!marks?.personId && (await sameFirst('client'))) return;
+      unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.client.set', {
+          body: { workspaceId, profileId, client: true, personId: null },
+        }),
+      );
+      toast.success(P.clientDone(name));
+    });
+  // Only the Client tag comes off: when Contacts still counts them a client, it says why and where to change it.
+  const notClient = () =>
+    void act('client', async () => {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.client.set', {
+          body: { workspaceId, profileId, client: false },
+        }),
+      );
+      if (!out.client) toast.success(P.clientOff(name));
+      else
+        toast.info(out.because ? P.clientStill(name, out.because) : P.clientNoOutreach(name, null));
     });
   const demo = (booked: boolean) =>
     void act(
@@ -105,104 +297,168 @@ export function PersonMenu({
             body: { workspaceId, profileId, booked },
           }),
         ),
-      booked ? P.demoMarked(who.name) : P.demoUnmarked,
+      booked ? P.demoMarked(name) : P.demoUnmarked,
     );
-  const noPitch = () =>
+  const list = (change: { dontPitch: boolean } | { neverContact: boolean }, done: string) =>
     void act(
-      'dont-pitch',
+      'list',
       async () =>
         unwrap(
           await apiBrowser().POST('/v1/commands/outreach.friend.set', {
-            body: { workspaceId, profileId, dontPitch: true },
+            body: { workspaceId, profileId, ...change },
           }),
         ),
-      P.dontPitchDone(who.name),
+      done,
     );
-  const noContact = () =>
-    void act(
-      'never-contact',
-      async () =>
-        unwrap(
-          await apiBrowser().POST('/v1/commands/outreach.friend.set', {
-            body: { workspaceId, profileId, neverContact: true },
-          }),
-        ),
-      P.neverContactDone(who.name),
+
+  const run: Partial<Record<PersonMenuKey, () => void>> = {
+    'add-contact': addToContacts,
+    'mark-client': markClient,
+    'not-client': notClient,
+    demo: () => demo(true),
+    'not-demo': () => demo(false),
+    'dont-pitch': () => list({ dontPitch: true }, P.dontPitchDone(name)),
+    'not-dont-pitch': () => list({ dontPitch: false }, P.dontPitchOff(name)),
+    'never-contact': () => list({ neverContact: true }, P.neverContactDone(name)),
+    'not-never-contact': () => list({ neverContact: false }, P.neverContactOff(name)),
+  };
+  const select = (item: PersonMenuItem) =>
+    item.move !== undefined
+      ? moves.find((m) => m.key === item.move)?.onSelect()
+      : run[item.key]?.();
+  const personId = (marks ? marks.personId : who.personId) ?? null;
+
+  const draw = (item: PersonMenuItem) => {
+    const Icon = ICONS[item.key];
+    const icon = Icon ? <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} aria-hidden /> : null;
+    if (item.kind === 'open')
+      return (
+        <DropdownMenuItem key={item.key} asChild>
+          <a href={item.url} target="_blank" rel="noreferrer" data-testid={item.testId}>
+            {icon}
+            {item.label}
+          </a>
+        </DropdownMenuItem>
+      );
+    if (item.kind === 'line')
+      return item.key === 'move-to' ? (
+        <DropdownMenuLabel key={item.key} data-testid={item.testId}>
+          {item.label}
+        </DropdownMenuLabel>
+      ) : (
+        <DropdownMenuLabel
+          key={item.key}
+          className="flex max-w-[300px] items-start gap-2.5 text-[13px] font-normal text-text-2"
+          data-testid={item.testId}
+        >
+          {icon ? <span className="mt-px">{icon}</span> : null}
+          {item.label}
+        </DropdownMenuLabel>
+      );
+    const off = !item.enabled || busy !== null || disabled;
+    if (item.key === 'in-contacts' && personId && !off)
+      return (
+        <DropdownMenuItem key={item.key} asChild>
+          <Link
+            href={`/app/w/${workspaceId}/customers/people/${personId}`}
+            data-testid={item.testId}
+          >
+            {icon}
+            {item.label}
+          </Link>
+        </DropdownMenuItem>
+      );
+    return (
+      <DropdownMenuItem
+        key={item.key}
+        danger={item.danger}
+        disabled={off}
+        onSelect={() => select(item)}
+        data-testid={item.testId}
+      >
+        {icon}
+        {item.label}
+      </DropdownMenuItem>
     );
+  };
+
+  // Their page and chat; the Pipeline's moves; then Contacts, Client, Demo booked and the lists.
+  const groups = [
+    items.filter((i) => i.kind === 'open'),
+    items.filter((i) => i.key === 'move-to' || i.move !== undefined),
+    items.filter((i) => i.kind !== 'open' && i.key !== 'move-to' && i.move === undefined),
+  ].filter((g) => g.length);
+  const status = !online
+    ? { testId: 'person-needs-signal', words: P.needsSignal, Icon: WifiOff, spin: false }
+    : failed
+      ? { testId: 'person-marks-failed', words: failed, Icon: null, spin: false }
+      : !marks
+        ? { testId: 'person-loading', words: P.loading, Icon: Loader2, spin: true }
+        : null;
+
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (!open) return;
+          // Where they stand now, each time it opens: someone else may have changed it.
+          setMarks(null);
+          if (online) void load();
+        }}
+      >
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={P.menu(who.name)}
-            className="h-7 w-7"
-            loading={busy !== null}
-            disabled={disabled}
+          <button
+            type="button"
+            title={P.nameHint}
+            aria-busy={busy !== null || undefined}
+            className={cn(
+              'inline-flex min-h-6 max-w-full items-center gap-1 rounded-[4px] text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
+              className,
+            )}
             data-testid="person-menu"
           >
-            <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
+            <span className={cn(truncate && 'min-w-0 truncate')}>{name}</span>
+            {busy !== null ? (
+              <Loader2 className="h-3 w-3 flex-none animate-spin" aria-hidden />
+            ) : (
+              <ChevronDown className="h-3 w-3 flex-none opacity-70" strokeWidth={2} aria-hidden />
+            )}
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          {moves.length ? (
+        <DropdownMenuContent className="max-w-[320px]" data-testid="person-menu-items">
+          {groups.map((group, i) => (
+            <Fragment key={group[0]!.key}>
+              {i ? <DropdownMenuSeparator /> : null}
+              {group.map(draw)}
+            </Fragment>
+          ))}
+          {status ? (
             <>
-              <DropdownMenuLabel>{P.moveTo}</DropdownMenuLabel>
-              {moves.map((m) => (
-                <DropdownMenuItem
-                  key={m.key}
-                  danger={m.danger}
-                  onSelect={m.onSelect}
-                  data-testid={`pipeline-mark-${m.key}`}
-                >
-                  {m.label}
-                </DropdownMenuItem>
-              ))}
               <DropdownMenuSeparator />
-            </>
-          ) : null}
-          {who.personId ? (
-            <DropdownMenuItem asChild>
-              <Link
-                href={`/app/w/${workspaceId}/customers/people/${who.personId}`}
-                data-testid="person-in-contacts"
+              <DropdownMenuLabel
+                className="flex items-start gap-2 font-normal"
+                data-testid={status.testId}
               >
-                <UserRound className="h-4 w-4" strokeWidth={1.5} />
-                {P.inContacts}
-              </Link>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onSelect={addToContacts} data-testid="person-add-contact">
-              <UserPlus className="h-4 w-4" strokeWidth={1.5} />
-              {P.addToContacts}
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem onSelect={() => demo(!who.demoBooked)} data-testid="person-demo-mark">
-            <CalendarCheck className="h-4 w-4" strokeWidth={1.5} />
-            {who.demoBooked ? P.notDemo : P.demoBooked}
-          </DropdownMenuItem>
-          {dontPitch ? (
-            <DropdownMenuItem danger onSelect={noPitch} data-testid="person-dont-pitch">
-              <Ban className="h-4 w-4" strokeWidth={1.5} />
-              {P.dontPitch}
-            </DropdownMenuItem>
-          ) : null}
-          {neverContact ? (
-            <DropdownMenuItem danger onSelect={noContact} data-testid="person-never-contact">
-              <UserX className="h-4 w-4" strokeWidth={1.5} />
-              {P.neverContact}
-            </DropdownMenuItem>
+                {status.Icon ? (
+                  <status.Icon
+                    className={cn('mt-px h-3.5 w-3.5 flex-none', status.spin && 'animate-spin')}
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                ) : null}
+                <span role="status">{status.words}</span>
+              </DropdownMenuLabel>
+            </>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {same ? (
         <SameNameDialog
-          name={who.name}
-          people={same}
+          name={name}
+          people={same.people}
           busy={busy !== null}
-          onPick={(personId) => void contact(personId)}
-          onNew={() => void contact(null)}
+          onPick={(personId) => void (same.for === 'client' ? client(personId) : contact(personId))}
+          onNew={() => void (same.for === 'client' ? client(null) : contact(null))}
           onClose={() => setSame(null)}
         />
       ) : null}

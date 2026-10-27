@@ -1,5 +1,6 @@
 import type { LiveOutput, LiveTeamOutput } from '@hfos/core/addons/outreach/live';
 import type { HelpfulListOutput } from '@hfos/core/addons/outreach/helpful';
+import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
@@ -15,6 +16,8 @@ import { LiveStrip } from '../hub';
 import { LiveBody, pressShown, startRefusedOf } from '../live';
 import { OutreachMoreRow } from '../more';
 import { isSetUp, WebOnlyBody } from '../page';
+import { PersonMenuScope } from '../person-menu';
+import { PipelineBody } from '../pipeline';
 import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
 import { TodayBody } from '../today';
 import { id, TZ, WS } from './mocks';
@@ -22,8 +25,8 @@ import { id, TZ, WS } from './mocks';
 /**
  * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
  * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
- * asking for what the business offers first, and a playbook changed a part at a time on what's there now. Settings
- * have their own file (./settings.test.tsx).
+ * asking for what the business offers first, each name opening the person menu, the Pipeline's Client stage, and a
+ * playbook changed a part at a time on what's there now. Settings have their own file (./settings.test.tsx).
  */
 
 jest.mock('expo-router', () => ({
@@ -336,6 +339,130 @@ describe('Today on the phone', () => {
     expect(within(part).queryByText(/group/i)).toBeNull();
     await fireEvent.press(screen.getByTestId('today-helpful-posted'));
     expect(actions.posted).toHaveBeenCalledWith(id(70));
+  });
+});
+
+const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput => ({
+  limits: LIVE.limits,
+  items,
+  partners,
+  readAdmins: [],
+  hasPlaybook: true,
+  warning: null,
+  auto: [],
+  messages: [],
+  sending: 'off',
+  wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+  ready: true,
+  week: null,
+});
+
+const stagePerson = (
+  n: number,
+  name: string,
+  stage: StagesOutput['people'][number]['stage'],
+): StagesOutput['people'][number] => ({
+  profileId: id(80 + n),
+  personId: stage === 'client' ? id(90 + n) : null,
+  name,
+  url: `https://www.facebook.com/made.up.${n}`,
+  platform: 'facebook',
+  stage,
+  why: stage === 'client' ? ['A client in Contacts: they’re tagged Client'] : [],
+  nextStep: null,
+  lastAt: null,
+  threadKey: null,
+  marked: false,
+  demoBooked: false,
+  check: null,
+});
+
+describe('Names open the person menu', () => {
+  // With no signal, so the menu asks HandsFreeOS nothing: its Open items work all the same.
+  const scoped = (children: React.ReactNode) => (
+    <PersonMenuScope workspaceId={WS} online={false} writesContacts onChanged={jest.fn()}>
+      {children}
+    </PersonMenuScope>
+  );
+
+  it('makes each name on Today a button that opens it, with no “…” beside it; a partner’s stays words', async () => {
+    const partner = { ...post(3, 'Sam Partner', false), kind: 'opener' as const, partnerId: id(99) };
+    await render(
+      scoped(
+        <TodayBody
+          today={todayOf([post(1, 'Lee Park', true), post(2, 'Kim Ng', false)], [partner])}
+          error={null}
+          wheels={null}
+          onRetry={jest.fn()}
+          onOk={jest.fn()}
+          onSkip={jest.fn()}
+          onNotForMe={jest.fn()}
+          onEndWheels={jest.fn()}
+        />,
+      ),
+    );
+    expect(screen.queryByText('…')).toBeNull();
+    expect(screen.queryByLabelText('More for Lee Park')).toBeNull();
+    const names = screen.getAllByTestId('person-menu');
+    expect(names.map((n) => n.props.accessibilityLabel)).toEqual(['Lee Park', 'Kim Ng']);
+    expect(within(screen.getByTestId('today-partners')).getByText('Sam Partner')).toBeTruthy();
+    await fireEvent.press(names[0]!);
+    expect(screen.getByTestId('person-menu-sheet')).toBeTruthy();
+    expect(screen.getByTestId('person-open-page')).toHaveTextContent('Open on Facebook');
+  });
+
+  it('shows the Pipeline’s Client chip and badge, with no moves for a client, and the name opens the menu', async () => {
+    const onView = jest.fn();
+    const pipeline: StagesOutput = {
+      counts: {
+        all: 1,
+        found: 0,
+        warming: 1,
+        friends: 0,
+        talking: 0,
+        ready: 0,
+        pitched: 0,
+        booked: 0,
+        client: 1,
+        lost: 0,
+      },
+      people: [stagePerson(1, 'Rowan Client', 'client'), stagePerson(2, 'Avery Warm', 'warming')],
+      page: 1,
+      pages: 1,
+      total: 2,
+    };
+    const body = (view: 'all' | 'client') =>
+      scoped(
+        <PipelineBody
+          view={view}
+          onView={onView}
+          search=""
+          onSearch={jest.fn()}
+          pipeline={pipeline}
+          error={null}
+          onRetry={jest.fn()}
+          onMore={jest.fn()}
+          onMark={jest.fn()}
+        />,
+      );
+    const { rerender } = await render(body('all'));
+    expect(screen.getByTestId('pipeline-show-client')).toHaveTextContent('Client 1');
+    await fireEvent.press(screen.getByTestId('pipeline-show-client'));
+    expect(onView).toHaveBeenCalledWith('client');
+    const [client, warm] = screen.getAllByTestId('pipeline-person');
+    expect(within(client!).getByTestId('pipeline-stage')).toHaveTextContent('Client');
+    // Good news, in the success colour, as on the web.
+    expect(within(client!).getByTestId('pipeline-stage').props.className).toContain(
+      'bg-success-soft',
+    );
+    expect(within(client!).getByText('A client in Contacts: they’re tagged Client')).toBeTruthy();
+    expect(within(client!).queryByTestId(/^pipeline-mark-/)).toBeNull();
+    expect(within(warm!).getAllByTestId(/^pipeline-mark-/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('…')).toBeNull();
+    await fireEvent.press(within(client!).getByTestId('person-menu'));
+    expect(screen.getByTestId('person-menu-sheet')).toBeTruthy();
+    await rerender(body('client'));
+    expect(screen.getByText(/^A client gets no outreach/)).toBeTruthy();
   });
 });
 

@@ -402,14 +402,21 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
     'true',
   );
 
-  // Anyone kept as a profile has the person menu, here as on Today: Add to Contacts, and Demo booked.
+  // Anyone kept as a profile has the person menu on their name, here as on Today: Add to Contacts, and Demo booked.
+  // Don't pitch and Never contact are the row's own switches, so the menu leaves them out.
   const parker = people.filter({ hasText: 'Parker Reed' });
+  const parkerPage = await parker.getByTestId('network-name').getAttribute('href');
+  expect(parkerPage).toContain('100007000000012');
   await parker.getByTestId('person-menu').click();
+  await expect(page.getByTestId('person-open-page')).toHaveAttribute('href', parkerPage!);
+  await expect(page.getByTestId('person-dont-pitch')).toHaveCount(0);
   await page.getByTestId('person-add-contact').click();
   await expect(page.getByText('Parker Reed is in Contacts now.')).toBeVisible();
-  await expect(parker.getByRole('link', { name: 'Parker Reed' })).toBeVisible();
   await parker.getByTestId('person-menu').click();
-  await expect(page.getByTestId('person-in-contacts')).toBeVisible();
+  await expect(page.getByTestId('person-in-contacts')).toHaveAttribute(
+    'href',
+    new RegExp(`/app/w/${workspaceId}/customers/people/[0-9a-f-]{36}$`),
+  );
   await page.getByTestId('person-demo-mark').click();
   await expect(page.getByText('Marked: Parker Reed booked a demo.')).toBeVisible();
 

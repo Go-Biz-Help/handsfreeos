@@ -8,13 +8,15 @@ import { change } from '@/changes';
 
 import { okAll, okSend, SEND_CHANGED_SQL, SEND_STATE_SQL, skipSend } from '../actions';
 import { pendingSendIds } from '../copy';
+import { PersonMenuScope } from '../person-menu';
 import { WaitingBody, type WaitingFromServer } from '../waiting';
 import { id, ME, sendRow, TZ } from './mocks';
 
 /**
  * Waiting for you on the phone (decision 44): the person's messages come from the phone's own copy, so they read and
  * OK, change, skip and Approve all with no signal, each queued with what the screen shows written into the copy at
- * once. The steps and friend requests come from HandsFreeOS, and with no signal the screen says so.
+ * once. The steps and friend requests come from HandsFreeOS, and with no signal the screen says so. Each card's name
+ * opens the person menu (decision 91), and each card keeps its own Open button.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
@@ -225,7 +227,7 @@ describe('Waiting for you on the phone', () => {
     expect(h.onSettings).toHaveBeenCalled();
   });
 
-  it('marks each step with its own network, in its words, the name a link to their page there', async () => {
+  it('marks each step with its own network, in its words, the name opening their menu, their page first', async () => {
     const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     const page = 'https://www.alignable.com/springfield-il/lane-landscaping-co';
     const lane = {
@@ -238,29 +240,41 @@ describe('Waiting for you on the phone', () => {
       why: 'couldn’t find Connect on their page',
     };
     await render(
-      <WaitingBody
-        phone={waitingOfCopy([], ME)}
-        server={{
-          ...SERVER,
-          needs: [lane],
-          kinds: { ...SERVER.kinds, need: { count: 1, newestAt: lane.seenAt } },
-        }}
-        serverError={null}
-        online
-        timeZone={TZ}
-        now={NOW}
-        {...handlers()}
-      />,
+      // With no signal, so the menu asks nothing: its Open items work all the same.
+      <PersonMenuScope workspaceId={id(9)} online={false} writesContacts onChanged={jest.fn()}>
+        <WaitingBody
+          phone={waitingOfCopy([], ME)}
+          server={{
+            ...SERVER,
+            needs: [lane],
+            kinds: { ...SERVER.kinds, need: { count: 1, newestAt: lane.seenAt } },
+          }}
+          serverError={null}
+          online
+          timeZone={TZ}
+          now={NOW}
+          {...handlers()}
+        />
+      </PersonMenuScope>,
     );
     const step = within(screen.getByTestId('waiting-need-item'));
     // Alignable's words and name, never Facebook's.
-    expect(step.getByText('Send Lane Landscaping Co a connection request yourself')).toBeTruthy();
+    expect(step.getByTestId('waiting-need-title')).toHaveTextContent(
+      'Send Lane Landscaping Co a connection request yourself',
+    );
     expect(step.getByTestId('network-name').props.children).toBe('Alignable');
     expect(step.queryByText(/friend request/)).toBeNull();
-    await fireEvent.press(step.getByTestId('waiting-need-link'));
-    expect(opened).toHaveBeenLastCalledWith(page);
-    expect(step.getByText('Open on Alignable')).toBeTruthy();
+    // The card's own Open button stays.
+    expect(step.getByTestId('waiting-need-open')).toHaveTextContent('Open on Alignable');
     await fireEvent.press(step.getByTestId('waiting-need-open'));
+    expect(opened).toHaveBeenLastCalledWith(page);
+    // The name is a button that opens their menu, their page on Alignable first.
+    const name = step.getByTestId('person-menu');
+    expect(name.props.accessibilityLabel).toBe('Lane Landscaping Co');
+    await fireEvent.press(name);
+    const menu = within(screen.getByTestId('person-menu-sheet'));
+    expect(menu.getAllByRole('button')[0]).toHaveTextContent('Open on Alignable');
+    await fireEvent.press(menu.getByTestId('person-open-page'));
     expect(opened).toHaveBeenLastCalledWith(page);
     opened.mockRestore();
   });
@@ -281,8 +295,46 @@ describe('Waiting for you on the phone', () => {
     const step = within(screen.getByTestId('waiting-need-item'));
     expect(step.getByText('Send Riley Member a friend request yourself')).toBeTruthy();
     expect(step.getByTestId('network-name').props.children).toBe('Facebook');
-    expect(step.queryByTestId('waiting-need-link')).toBeNull();
     expect(step.queryByTestId('waiting-need-open')).toBeNull();
+  });
+
+  it('makes each card’s name a button that opens the person menu, keeping each card’s Open button', async () => {
+    const phone = waitingOfCopy(
+      [sendRow(1, { name: 'Dana Reyes' }), sendRow(2, { name: 'Quinn Harper', profile_id: null })],
+      ME,
+    );
+    await render(
+      <PersonMenuScope workspaceId={id(9)} online={false} writesContacts onChanged={jest.fn()}>
+        <WaitingBody
+          phone={phone}
+          server={SERVER}
+          serverError={null}
+          online
+          timeZone={TZ}
+          now={NOW}
+          {...handlers()}
+        />
+      </PersonMenuScope>,
+    );
+    const [dana, quinn] = screen.getAllByTestId('waiting-send');
+    const send = within(dana!);
+    expect(send.getByTestId('person-menu').props.accessibilityRole).toBe('button');
+    expect(send.getByTestId('person-menu').props.accessibilityLabel).toBe('Dana Reyes');
+    expect(send.getByTestId('waiting-open')).toBeTruthy();
+    // A message whose profile the phone's copy doesn't know: the name is words alone.
+    expect(within(quinn!).queryByTestId('person-menu')).toBeNull();
+    expect(within(quinn!).getByText('Quinn Harper')).toBeTruthy();
+    const need = within(screen.getByTestId('waiting-need-item'));
+    expect(need.getByTestId('person-menu').props.accessibilityLabel).toBe('Riley Member');
+    expect(need.getByTestId('waiting-need-open')).toBeTruthy();
+    const request = within(screen.getByTestId('waiting-request-item'));
+    expect(request.getByTestId('person-menu').props.accessibilityLabel).toBe('Morgan Owner');
+    expect(request.getByTestId('waiting-request-open')).toBeTruthy();
+    // Pressed with no signal: their page and chat work, and the rest say they need signal.
+    await fireEvent.press(send.getByTestId('person-menu'));
+    expect(screen.getByTestId('person-menu-sheet')).toBeTruthy();
+    expect(screen.getByTestId('person-open-page')).toHaveTextContent('Open on Facebook');
+    expect(screen.getByTestId('person-needs-signal')).toBeTruthy();
   });
 
   it('lists first what the person asked their computer that needs them there, with Carry on, Skip and Stop', async () => {

@@ -750,7 +750,7 @@ describe('a friend request accepted', () => {
     await need(owner);
     await need(member);
     // A look at the friends list from before the need leaves it.
-    await friends(owner, ago(60 * MIN));
+    await friends(owner, ago(MIN));
     expect(await needs(owner)).toEqual(['friend_request: Opal Reed']);
     const cleared = await events(ws, 'outreach.need.cleared');
     await friends(owner);

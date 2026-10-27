@@ -2,12 +2,14 @@
 /**
  * The People tab's Pipeline (docs/outreach.md, decisions 47 and 59): everyone the person reached on Facebook, by where
  * they stand, worked out from what HandsFreeOS knows (packages/core/src/addons/outreach/stages.ts): found, warming up,
- * friends, talking, ready to pitch, pitched, booked, or not a fit. "All in play" is a board, a column for each stage
- * the person acts on, side by side; found and warming up are the extension's own work, so they're counted above it.
- * One stage, or a name searched for, is a list with its count. The person marks someone ready to pitch (Today then
- * offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply) or back in play when they know
- * better (`outreach.stage.mark`), from the person's menu. Which stage, a name searched for and the page are in the
- * address (./address.ts). Every network's people, each row naming its network, or one network's (`?net=`).
+ * friends, talking, ready to pitch, pitched, booked, a client (decision 91), or not a fit. "All in play" is a board, a
+ * column for each stage the person acts on, side by side; found and warming up are the extension's own work, so
+ * they're counted above it, with links to the clients and Not a fit. One stage, or a name searched for, is a list with
+ * its count. The person marks someone ready to pitch (Today then offers Pitch), pitched, not a fit (nothing on Today
+ * reaches them again but a reply) or back in play when they know better (`outreach.stage.mark`), from the person menu
+ * on their name (./person-menu.tsx), which also has Mark as client; the icon beside the name opens their chat or page.
+ * Which stage, a name searched for and the page are in the address (./address.ts). Every network's people, each row
+ * naming its network, or one network's (`?net=`).
  */
 import {
   marksFor,
@@ -22,9 +24,10 @@ import {
   type StageMark,
   type StageView,
 } from '@hfos/core/addons/outreach/stages';
-import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
+import { chatUrlOn, openChatWords, openPageWords } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useTransition } from 'react';
@@ -39,7 +42,7 @@ import { outreachHref } from './address';
 import { BOARD_STAGES, type Board } from './board';
 import { Pager, SearchBox } from './friends-view';
 import { NetworkFilterControl, NetworkName } from './network-ui';
-import { PersonMenu } from './person-menu';
+import { PersonName, type MenuMove, type MenuPerson } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Pipeline, PipelinePerson } from './types';
 import { useAct } from './use-act';
@@ -63,6 +66,45 @@ const researchCheck = (p: PipelinePerson) =>
 
 /** How many people a column shows before "See all". */
 const COLUMN_MOST = 8;
+
+/** Who a row's person menu is for: their page, their chat, and what the list knows of Contacts and demos. */
+const menuPerson = (p: PipelinePerson): MenuPerson => ({
+  profileId: p.profileId,
+  name: p.name,
+  platform: p.platform,
+  url: p.url,
+  threadKey: p.threadKey,
+  personId: p.personId,
+  demoBooked: p.demoBooked,
+});
+
+/** The stages someone can be moved to from their menu: none for a client or someone booked. */
+const movesFor = (p: PipelinePerson, onMark: (m: StageMark) => void): MenuMove[] =>
+  marksFor(p.stage).map((m) => ({
+    key: m,
+    label: STAGE_MARKS[m],
+    onSelect: () => onMark(m),
+    danger: m === 'lost',
+  }));
+
+/** Beside the name, which opens the person menu: their chat on its network, else their page. */
+function OpenIcon({ person: p }: { person: PipelinePerson }) {
+  const chat = chatUrlOn(p.platform, p.threadKey);
+  const words = chat ? openChatWords(p.platform) : openPageWords(p.platform);
+  return (
+    <a
+      href={chat ?? p.url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={words}
+      title={words}
+      className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-[4px] text-text-3 hover:bg-card-3 hover:text-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+      data-testid="pipeline-open"
+    >
+      <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+    </a>
+  );
+}
 
 export function PipelineView({
   workspaceId,
@@ -166,8 +208,12 @@ export function PipelineView({
                   : null}
               </span>
             </div>
-            <p className="px-5 pt-1 text-[12.5px] text-text-3">
-              {show === 'lost' ? STAGE_WORDS.lostNote : STAGE_WORDS.about}
+            <p className="px-5 pt-1 text-[12.5px] text-text-3" data-testid="pipeline-note">
+              {show === 'lost'
+                ? STAGE_WORDS.lostNote
+                : show === 'client'
+                  ? STAGE_WORDS.clientNote
+                  : STAGE_WORDS.about}
             </p>
             <ul className="mt-2">
               {pipeline.people.map((p) => (
@@ -178,14 +224,16 @@ export function PipelineView({
                 >
                   <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                     <div className="min-w-0 text-[13.5px]">
-                      <a
-                        href={chatUrlOn(p.platform, p.threadKey) ?? p.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-accent-text hover:underline"
-                      >
-                        {p.name}
-                      </a>{' '}
+                      <span className="inline-flex max-w-full items-center gap-1 align-top">
+                        <PersonName
+                          workspaceId={workspaceId}
+                          who={menuPerson(p)}
+                          moves={movesFor(p, (m) => void mark(p, m))}
+                          disabled={busy !== null}
+                          className="font-medium text-accent-text"
+                        />
+                        <OpenIcon person={p} />
+                      </span>{' '}
                       <NetworkName platform={p.platform} />
                       {p.why.length ? (
                         <div className="text-[12.5px] text-text-3" data-testid="pipeline-why">
@@ -197,16 +245,6 @@ export function PipelineView({
                       <Badge variant={STAGE_TONE[p.stage]} data-testid="pipeline-stage">
                         {STAGES[p.stage]}
                       </Badge>
-                      <PersonMenu
-                        workspaceId={workspaceId}
-                        who={p}
-                        moves={marksFor(p.stage).map((m) => ({
-                          key: m,
-                          label: STAGE_MARKS[m],
-                          onSelect: () => void mark(p, m),
-                          danger: m === 'lost',
-                        }))}
-                      />
                     </span>
                   </div>
                   <ResearchSlot
@@ -251,7 +289,8 @@ export function PipelineView({
 
 /**
  * Everyone in play, a column for each stage the person acts on: the first few of each, who to act on first, with
- * "See all" opening that stage's list. Found and warming up are counted above, with Not a fit's link.
+ * "See all" opening that stage's list. Found and warming up are counted above, with the links to the clients (left out
+ * of the board, as they get no outreach) and to Not a fit.
  */
 function BoardView({
   workspaceId,
@@ -275,6 +314,16 @@ function BoardView({
       <p className="text-[13px] text-text-2" data-testid="pipeline-before">
         {STAGES.found} {counts.found.toLocaleString()} · {STAGES.warming}{' '}
         {counts.warming.toLocaleString()} · the extension works on these itself.{' '}
+        {counts.client ? (
+          <Link
+            href={outreachHref(workspaceId, { view: 'pipeline', stages: 'client', net })}
+            className="font-medium text-accent-text hover:underline"
+            data-testid="pipeline-clients"
+          >
+            {STAGE_WORDS.clients} {counts.client.toLocaleString()}
+          </Link>
+        ) : null}
+        {counts.client && counts.lost ? ' · ' : null}
         {counts.lost ? (
           <Link
             href={outreachHref(workspaceId, { view: 'pipeline', stages: 'lost', net })}
@@ -354,26 +403,16 @@ function BoardCard({
       data-testid="pipeline-person"
     >
       <div className="flex items-start justify-between gap-2">
-        <a
-          href={chatUrlOn(p.platform, p.threadKey) ?? p.url}
-          target="_blank"
-          rel="noreferrer"
-          className="min-w-0 truncate text-[14px] font-medium hover:underline"
-        >
-          {p.name}
-        </a>
-        <span className="-mr-1 -mt-0.5 flex-none">
-          <PersonMenu
-            workspaceId={workspaceId}
-            who={p}
-            disabled={busy}
-            moves={marksFor(p.stage).map((m) => ({
-              key: m,
-              label: STAGE_MARKS[m],
-              onSelect: () => onMark(p, m),
-              danger: m === 'lost',
-            }))}
-          />
+        <PersonName
+          workspaceId={workspaceId}
+          who={menuPerson(p)}
+          moves={movesFor(p, (m) => onMark(p, m))}
+          disabled={busy}
+          className="min-w-0 text-[14px] font-medium"
+          truncate
+        />
+        <span className="-mr-1 flex-none">
+          <OpenIcon person={p} />
         </span>
       </div>
       {p.why[0] ? (

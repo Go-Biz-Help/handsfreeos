@@ -9,10 +9,13 @@
  * - **Replies handed over to you**: replies that need the person, each with why, to change, send or skip;
  * - **Messages to OK**: **Approve all** OKs them, except one to someone who needs the person, which waits on its own;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
- *   or **Let it go**; the person's name links to their page on that network (or the post, or the chat), and a
- *   message that didn't go has its words to copy;
+ *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
+ *   didn't go has its words to copy;
  * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
  *   **Leave it**.
+ *
+ * Each person's name opens their person menu (./person-menu.tsx, decision 91): their page first, then Contacts, Mark
+ * as client, Demo booked, Don't pitch and Never contact. Each card keeps its own Open.
  *
  * It follows changes live: a message drafted or sent, a step noted on any computer, a request answered. One list for
  * every network, each item marked with its network by name (`networkOfWaiting`), its links on that network.
@@ -54,7 +57,7 @@ import { AskLine } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
 import { NetworkName } from './network-ui';
-import { PersonMenu } from './person-menu';
+import { PersonName } from './person-menu';
 import { Drafted } from './drafted';
 import type { Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
@@ -236,25 +239,37 @@ function ApproveAll({ workspaceId, waiting }: { workspaceId: string; waiting: Wa
 function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
   const send = item.send;
   const platform = networkOfWaiting(item);
-  const open = chatUrlOn(platform, send.threadKey) ?? send.profileUrl;
+  const chat = chatUrlOn(platform, send.threadKey);
+  const open = chat ?? send.profileUrl;
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
+        {/* The name opens the person menu (decision 91): their page first, Contacts, Client, Don't pitch and more. */}
+        <PersonName
+          workspaceId={workspaceId}
+          who={{
+            profileId: send.profileId,
+            name: send.name,
+            platform,
+            url: send.profileUrl,
+            threadKey: send.threadKey,
+          }}
+          className="text-[14px] font-medium"
+        />
+        <NetworkName platform={platform} />
+        {item.kind === 'reply' ? <Badge variant="pending">{W.handedOver}</Badge> : null}
         {open ? (
           <a
             href={open}
             target="_blank"
             rel="noreferrer"
-            className="text-[14px] font-medium hover:underline"
+            className={buttonClassName({ variant: 'ghost', size: 'sm', className: 'h-7' })}
+            data-testid="waiting-send-open"
           >
-            {send.name}
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {chat ? openChatWords(platform) : openPageWords(platform)}
           </a>
-        ) : (
-          <span className="text-[14px] font-medium">{send.name}</span>
-        )}
-        <NetworkName platform={platform} />
-        {item.kind === 'reply' ? <Badge variant="pending">{W.handedOver}</Badge> : null}
-        <PersonMenu workspaceId={workspaceId} who={send} />
+        ) : null}
       </div>
       <ChatSoFar recent={send.recent} />
       <Drafted workspaceId={workspaceId} name={send.name} send={send} />
@@ -305,23 +320,20 @@ function NeedRow({
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[14px] font-medium" data-testid="waiting-need">
           {before}
-          {page ? (
-            <a
-              href={page}
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent-text underline-offset-2 hover:underline"
-              data-testid="waiting-need-link"
-            >
-              {need.name}
-            </a>
-          ) : (
-            need.name
-          )}
+          {/* Their page is the menu's first item; the step's own link is Open, below. */}
+          <PersonName
+            workspaceId={workspaceId}
+            who={{
+              profileId: need.profileId,
+              name: need.name,
+              platform,
+              threadKey: need.threadKey,
+            }}
+            className="text-accent-text"
+          />
           {after}
         </p>
         <NetworkName platform={platform} />
-        <PersonMenu workspaceId={workspaceId} who={need} />
       </div>
       <p className="mt-1 text-[12.5px] text-text-2">
         {needWhyWords(need.why)}
@@ -349,6 +361,7 @@ function NeedRow({
             target="_blank"
             rel="noreferrer"
             className={buttonClassName({ variant: 'ghost', size: 'sm' })}
+            data-testid="waiting-need-open"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
             {messenger ? openChatWords(platform) : openPageWords(platform)}
@@ -393,20 +406,22 @@ function RequestRow({
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <a
-          href={request.url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[14px] font-medium hover:underline"
-          data-testid="waiting-request"
-        >
-          {request.name}
-        </a>
+        <span data-testid="waiting-request">
+          <PersonName
+            workspaceId={workspaceId}
+            who={{
+              profileId: request.profileId,
+              name: request.name,
+              platform,
+              url: request.url,
+            }}
+            className="text-[14px] font-medium"
+          />
+        </span>
         <NetworkName platform={platform} />
         <span className="text-[12.5px] text-text-3">
           {W.asked(when(request.since, timeZone), request.mutualFriends)}
         </span>
-        <PersonMenu workspaceId={workspaceId} who={request} />
       </div>
       {request.why.length ? (
         <p className="mt-1 text-[12.5px] text-text-2">{request.why.join(' · ')}</p>
