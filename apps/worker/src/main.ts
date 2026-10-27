@@ -3,49 +3,23 @@ import { TELEPHONY_BUCKET } from '@hfos/core';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
-import { createAuthAdmin } from './account/auth-admin';
-import { ADDON_WORKER_MODULES } from './addons/modules';
-import { claudeWithBackup, createAi, createAiSwitch } from './ai/provider';
+import { claudeWithBackup } from './ai/provider';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
 import { createBotCheck } from './booking/bot-check';
-import { createBookingLinks } from './booking/links';
-import { createSealer } from './crypto';
-import { createEmail } from './email/index';
 import { processDeliveries } from './deliveries';
 import { loadEnv, readEnv, supabaseKeyLooksRight } from './env';
 import { handlers } from './handlers/index';
-import { createCalendars } from './calendar/index';
-import { createReviews } from './reviews/index';
-import { createMeta } from './social/index';
-import { createMailboxes } from './mailbox/index';
-import { createUnsubscribeLinks } from './email/unsubscribe';
-import { createMoneyLinks } from './money/links';
-import { createPortalLinks } from './portal/links';
 import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
-import { createPayments, PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
-import { createPush } from './push/index';
-import { createVideoCalls } from './video-calls/index';
-import { createSafeFetch } from './http/safe-fetch';
+import { PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
-import { createSmtpMailer } from './mailer';
 import { errorMessage, processOnce } from './outbox';
 import { processors } from './processors/index';
 import { ensureRecurringJobs, jobs } from './scheduled';
-import { createSupabaseStore, unconfiguredStore } from './storage';
+import { createEngineServices } from './services-env';
 import { ensurePlatformOwners } from './support/owners';
-import { createTelephony } from './telephony/index';
-import { createSiteHost } from './hosting';
-import { createDriveTimer } from './geo/driving';
-import { createModelPicker, createSpeech, createVoiceAi } from './voice-agent/index';
-import { createGeocoder } from './geo/geocoder';
-import { createOpinly } from './opinly';
-import { createTranscriber } from './telephony/transcriber';
-import { createFfmpegConverter } from './telephony/video';
-import { createWorkflowAi } from './workflows/ai-runner';
-import type { EngineServices } from './workflows/types';
 
 loadEnv();
 const env = readEnv();
@@ -59,104 +33,9 @@ const log = pino(
 const handle = createDb(env.databaseUrl, { max: 8, applicationName: 'hfos-worker' });
 // Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
-const mailer = createSmtpMailer(env.smtpUrl, env.mailFrom);
-// Which AI answers: Claude, or OpenAI while Claude is in trouble (ai/switch.ts). Null without OPENAI_API_KEY.
-const aiSwitch = createAiSwitch(env, { db: handle.db, log, mailer });
-// Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
-const ai = createAi(
-  env,
-  aiSwitch,
-  ADDON_WORKER_MODULES.flatMap((m) => m.scriptedTeammate ?? []),
-);
-const telephony = createTelephony(env, log);
-// The usage wallet (M16). `off` until somebody turns it on: a repo that starts charging the day it deploys
-// would be a nasty surprise, and every step of the rollout is a decision.
-const wallet = { db: handle.db, log, mode: env.walletMode };
-const services: EngineServices = {
-  db: handle.db,
-  mailer,
-  store:
-    env.supabaseUrl && env.supabaseSecretKey
-      ? createSupabaseStore(env.supabaseUrl, env.supabaseSecretKey)
-      : unconfiguredStore,
-  log,
-  webUrl: env.webUrl,
-  publicUrl: env.publicUrl,
-  storageUrl: env.supabaseUrl,
-  telephony,
-  transcriber: createTranscriber(env, log, telephony),
-  video: createFfmpegConverter({ log }),
-  geocoder: createGeocoder(env, log),
-  driving: createDriveTimer(env, log),
-  speech: createSpeech(env, log),
-  voiceAi: createVoiceAi(env, aiSwitch),
-  aiFor: createModelPicker(env, aiSwitch),
-  siteHost: createSiteHost(env),
-  // With Supabase's admin key it can also read the website visitor a person signed up as (opinly.ts).
-  opinly: createOpinly(
-    env.opinlyApiKey,
-    env.supabaseUrl && env.supabaseSecretKey
-      ? { url: env.supabaseUrl, secretKey: env.supabaseSecretKey }
-      : null,
-  ),
-  wallet,
-  sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
-  addonConnect: { fake: env.addonConnectors === 'fake', platformKeys: env.addonPlatformKeys },
-  reminderOverrideMs: env.reminderOverrideMs,
-  registrationPollMs: env.registrationPollMs,
-  portPollMs: env.portPollMs,
-  numberImportPollMs: env.numberImportPollMs,
-  email: createEmail(env, log),
-  mailboxes: createMailboxes(env),
-  calendars: createCalendars(env),
-  reviews: createReviews(env),
-  social: createMeta(env),
-  payments: createPayments(env),
-  bookingLinks: createBookingLinks({
-    webUrl: env.webUrl,
-    key: env.encryptionKey,
-    previousKeys: env.encryptionKeysPrevious,
-  }),
-  moneyLinks: createMoneyLinks({
-    webUrl: env.webUrl,
-    key: env.encryptionKey,
-    previousKeys: env.encryptionKeysPrevious,
-  }),
-  portalLinks: createPortalLinks({
-    webUrl: env.webUrl,
-    key: env.encryptionKey,
-    previousKeys: env.encryptionKeysPrevious,
-  }),
-  unsubscribeLinks: createUnsubscribeLinks({
-    webUrl: env.webUrl,
-    publicUrl: env.publicUrl,
-    key: env.encryptionKey,
-    previousKeys: env.encryptionKeysPrevious,
-  }),
-  // Local test sites (FETCH_TEST_ORIGINS, for Playwright's website scan) only with the fake carrier, never in production.
-  fetchUrl: createSafeFetch({
-    testOrigins: !env.production && env.telephonyProvider === 'fake' ? env.fetchTestOrigins : [],
-  }),
-  ai,
-  aiSwitch,
-  // Push notifications to the phone app: Expo's service, or the stand-in locally (push/index.ts).
-  push: createPush(env),
-  // HandsFreeOS video calls: LiveKit, the stand-in locally, or null before LiveKit is set up (video-calls/).
-  videoCalls: createVideoCalls(env),
-  // Deleting an account ends its sessions and blocks sign-in with the worker's own secret key (account/).
-  ...(env.supabaseUrl && env.supabaseSecretKey
-    ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
-    : {}),
-  // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
-  workflowAi: createWorkflowAi({ db: handle.db, ai, log, wallet }),
-  // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.
-  support: {
-    mailDomain: env.supportMailDomain,
-    addresses: env.supportAddresses,
-    fromName: env.supportFromName,
-    ownerEmails: env.platformOwnerEmails,
-  },
-};
+const services = createEngineServices(env, log, handle.db);
+const { ai, wallet } = services;
+const aiSwitch = services.aiSwitch ?? null;
 /**
  * Reading the CRM a business is leaving (M11). `fake` is the stand-in agency the specs migrate from, so an end
  * to end migration can be proved with no account anywhere; production refuses it.

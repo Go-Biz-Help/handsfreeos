@@ -113,6 +113,8 @@ export interface CallRoomProps {
   readonly color?: string | null;
   /** The team's side; null for a customer or a guest. */
   readonly team?: TeamSide | null;
+  /** For the team: what add-ons show beside the video (the Sales Coach's cards, ./call-coach.tsx). */
+  readonly coach?: ReactNode;
   readonly onEnd: (why: CallEnd) => void;
 }
 
@@ -145,7 +147,7 @@ function cameraOf(room: Room): LocalVideoTrack | undefined {
     LocalVideoTrack | undefined;
 }
 
-function LiveRoom({ ticket, choices, heading, color, team, onEnd }: CallRoomProps) {
+function LiveRoom({ ticket, choices, heading, color, team, coach, onEnd }: CallRoomProps) {
   const [room] = useState(
     () =>
       new Room({
@@ -231,6 +233,7 @@ function LiveRoom({ ticket, choices, heading, color, team, onEnd }: CallRoomProp
         heading={heading}
         color={color}
         team={team ?? null}
+        coach={team ? coach : null}
         blur={blur}
         onBlur={(on) => void toggleBlur(on)}
         onLeave={() => void room.disconnect()}
@@ -251,6 +254,7 @@ function CallScreen({
   heading,
   color,
   team,
+  coach,
   blur,
   onBlur,
   onLeave,
@@ -258,6 +262,7 @@ function CallScreen({
   heading: CallHeading;
   color?: string | null | undefined;
   team: TeamSide | null;
+  coach: ReactNode;
   blur: boolean;
   onBlur: (on: boolean) => void;
   onLeave: () => void;
@@ -493,6 +498,14 @@ function CallScreen({
             />
           ) : panel === 'people' ? (
             <PeoplePanel team={team} got={got} reload={reload} onClose={() => setPanel(null)} />
+          ) : coach ? (
+            // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
+            <div
+              className="absolute inset-x-2 top-2 z-10 max-h-[45%] overflow-y-auto empty:hidden md:static md:max-h-none md:w-[340px] md:flex-none"
+              data-testid="call-coach"
+            >
+              {coach}
+            </div>
           ) : null}
         </div>
         <StartAudioPrompt />

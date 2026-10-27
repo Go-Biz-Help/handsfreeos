@@ -328,6 +328,7 @@ describe('registry', () => {
       'video_call.set_ai',
       'video_call.heard',
       'video_call.keep_words',
+      'video_call.coach',
       'call_suggestion.record',
       'call_suggestion.decide',
       'attendee.record_reminder',

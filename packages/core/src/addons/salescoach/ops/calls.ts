@@ -58,7 +58,7 @@ const CallSummary = z.object({
   /** The written conversation it writes up, and its channel; null for a call. */
   conversationId: uuid.nullable(),
   channel: z.enum(['sms', 'email', 'chat', 'portal', 'messenger', 'instagram']).nullable(),
-  /** Core's live meeting, for a Zoom meeting the coach heard (round three); null otherwise. */
+  /** Core’s live meeting, for a Zoom meeting (round three) or a HandsFreeOS video call the coach heard; null otherwise. */
   liveMeetingId: uuid.nullable(),
   state: z.enum(COACHED_STATES),
   rep: z.object({ id: uuid, name: z.string() }).nullable(),
@@ -140,14 +140,14 @@ async function loadCoached(tx: Tx, workspaceId: string, coachedCallId: string): 
 export const callBegin = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.call.begin',
   description:
-    'Worker: someone who is coached answered a call or started a Zoom meeting, and the coach is listening. Starts the coached call with the usual playbook, or finds the one already started.',
+    'Worker: someone who is coached answered a call or is in a Zoom meeting or a HandsFreeOS video call, and the coach is listening. Starts the coached call with the usual playbook, or finds the one already started.',
   risk: 0,
   input: z
     .object({
       workspaceId: uuid,
       /** Core's phone call, or… */
       callId: uuid.nullable(),
-      /** …core's live Zoom meeting (round three). */
+      /** …core’s live meeting: a Zoom meeting (round three) or a HandsFreeOS video call. */
       liveMeetingId: uuid.nullable().default(null),
       userId: uuid,
       personId: uuid.nullable(),
@@ -283,6 +283,11 @@ export const callEnd = defineAddonCommand(salescoachAddon, {
     workspaceId: uuid,
     coachedCallId: uuid,
     lines: z.array(CallLine).max(KEPT_LINES),
+    /**
+     * The people on it turned the AI off for it (a HandsFreeOS video call's AI notes): it's stopped, as when the rep
+     * stops the coach, and nothing of it is kept or written up, its cards (which quote the customer) included.
+     */
+    forgotten: z.boolean().default(false),
   }),
   output: z.object({ state: z.enum(['writing', 'failed', 'done', 'stopped']) }),
   permission: 'salescoach.use',
@@ -293,6 +298,26 @@ export const callEnd = defineAddonCommand(salescoachAddon, {
     const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
     // Already ended (a retry): it stays as it was.
     if (c.state !== 'live') return { state: c.state };
+    if (input.forgotten) {
+      await ctx.tx.delete(cards).where(eq(cards.coachedCallId, c.id));
+      await ctx.tx
+        .update(coachedCalls)
+        .set({
+          state: 'stopped',
+          lines: [],
+          endedAt: changeMoment(ctx.meta),
+          failure:
+            'The AI’s notes were turned off on this video call, so nothing from it was kept.',
+        })
+        .where(eq(coachedCalls.id, c.id));
+      await ctx.emit({
+        type: 'salescoach.call.ended',
+        entityType: 'salescoach_call',
+        entityId: c.id,
+        payload: { callId: c.callId, userId: c.userId, heard: false },
+      });
+      return { state: 'stopped' as const };
+    }
     const heard = input.lines.some((l) => l.text.trim());
     const state = heard ? ('writing' as const) : ('failed' as const);
     // A Zoom meeting Zoom started on its own was claimed without a customer; the app may have named them since.
@@ -358,7 +383,7 @@ async function landWriteUp(
       notes: {
         call: 'Promised on a coached call.',
         conversation: 'Promised in a coached conversation.',
-        meeting: 'Promised on a coached Zoom call.',
+        meeting: 'Promised on a coached video call.',
       }[kind],
       dueAt: p.due ? `${p.due}T12:00:00.000Z` : null,
       allDay: true,

@@ -403,6 +403,7 @@ describe('the route map', () => {
       businessId: null,
     });
     expect(routeFor('/admin/something-new')).toMatchObject({ kind: 'web' });
+    expect(routeFor('/admin/assistant')).toMatchObject({ href: '/app/admin/assistant' });
     // The web's desk is at /admin, whichever address the link used.
     expect(routeFor('/app/admin/something-new?x=1')).toEqual({
       kind: 'web',

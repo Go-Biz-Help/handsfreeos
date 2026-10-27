@@ -166,13 +166,15 @@ export function connectOnPage(doc: Document, href: string, profile: ProfileRef):
 
 /**
  * The box to write to them in: only on their conversation's own page (its address names their business by Alignable's
- * id, and its header, when it links to a business, links to theirs), and only that conversation's own box.
+ * id, and its header, once drawn, links to theirs: by that id when its link has one, else by its address in its
+ * town), and only that conversation's own box.
  */
 export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const url = urlOf(href, href);
   if (!them.id || url?.searchParams.get('with_business_id') !== them.id) return null;
-  const chat = chatOpen(doc, href);
-  if (chat?.profile?.id && chat.profile.id !== them.id) return null;
+  if (!doc.querySelector(PART('channel-header-loaded'))) return null;
+  const linked = chatOpen(doc, href)?.profile;
+  if (!linked || !(linked.id ? linked.id === them.id : sameBusiness(linked, them))) return null;
   const writes = [...doc.querySelectorAll(PART('full-view-write-message'))];
   if (writes.length !== 1) return null;
   return [...writes[0]!.querySelectorAll<HTMLElement>(WRITING)].find(visible) ?? null;
@@ -188,7 +190,26 @@ function sendFor(box: Element, doc: Document): HTMLElement | null {
   return all.length === 1 ? all[0]! : null;
 }
 
-/** Writes a message to them in their conversation and sends it, waiting a little for its box to show. */
+/** Whether the focus is in a box: on it, or on something inside it. */
+const focusIn = (box: Element) => {
+  const focused = box.ownerDocument.activeElement;
+  return focused !== null && box.contains(focused);
+};
+
+/** Takes what was typed out of a box that was empty before, only with the focus in it. */
+function takeOut(box: HTMLElement): void {
+  box.focus();
+  if (!focusIn(box)) return;
+  if (box instanceof box.ownerDocument.defaultView!.HTMLTextAreaElement) box.select();
+  else box.ownerDocument.getSelection()?.selectAllChildren(box);
+  box.ownerDocument.execCommand('delete', false);
+}
+
+/**
+ * Writes a message to them in their conversation and sends it, waiting a little for its box to show. Nothing is typed
+ * unless the focus is in their box, and nothing is sent unless, just before Send is pressed, it's still their
+ * conversation's box; else what was typed is taken out again (`not_theirs`).
+ */
 export async function writeMessage(
   doc: Document,
   href: string,
@@ -202,11 +223,17 @@ export async function writeMessage(
   box.focus();
   box.click();
   await pause(300);
+  if (!focusIn(box)) return 'not_theirs';
   box.ownerDocument.execCommand('insertText', false, text);
   await pause(800);
   if (!writingIn(box)) return 'not_sent';
   const send = sendFor(box, doc);
   if (!send) return 'none';
+  // The conversation open may have changed as it was typed: by its address, or what its header links to.
+  if (messageBoxFor(doc, doc.location?.href ?? href, them) !== box) {
+    takeOut(box);
+    return 'not_theirs';
+  }
   send.click();
   return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
 }

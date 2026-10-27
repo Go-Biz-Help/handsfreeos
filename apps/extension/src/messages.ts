@@ -19,7 +19,7 @@ import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
 import type { Asking } from './networks/accounts-center/pages';
 import type { UsernameWrote } from './networks/accounts-center/username';
-import type { AutoResult, TheirPost } from './networks/facebook/auto';
+import type { AutoResult, MessageWrote, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
@@ -69,8 +69,8 @@ export type BrowseAnswer = { readonly ok: boolean };
 
 /**
  * What the background's runner asks a tab it works in on its own (src/networks/facebook/auto.ts): on someone's profile, like
- * their latest posts to pick one, then like it; on a post, write a comment and send it; in a chat, write a message and send it. Add friend,
- * Confirm and their profile's Message go as a `FetchAsk`.
+ * their latest posts to pick one, then like it; on a post, write a comment and send it; in a chat, write a message and send it. Add friend
+ * and Confirm go as a `FetchAsk`, and their profile's Message as an `OpenMessageAsk`.
  */
 export type AutoAsk =
   | { readonly type: 'hfos-their-posts'; readonly profile: ProfileRef; readonly most: number }
@@ -82,10 +82,17 @@ export type AutoAsk =
     }
   | { readonly type: 'hfos-comment'; readonly text: string }
   /**
-   * On LinkedIn and Alignable, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts,
-   * src/networks/alignable/auto.ts).
+   * `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts, src/networks/alignable/auto.ts,
+   * src/networks/instagram/auto.ts). On Facebook (src/networks/facebook/auto.ts) `names` does too, for a chat that
+   * names them without a link to their profile: the name Facebook showed for them, on the chat or the profile the
+   * runner checked. Facebook types nothing for an ask without `profile`.
    */
-  | { readonly type: 'hfos-message'; readonly text: string; readonly profile?: ProfileRef };
+  | {
+      readonly type: 'hfos-message';
+      readonly text: string;
+      readonly profile?: ProfileRef;
+      readonly names?: readonly string[];
+    };
 
 /**
  * LinkedIn's runner's own steps besides those (src/networks/linkedin/auto.ts): Connect on their profile without a
@@ -94,7 +101,10 @@ export type AutoAsk =
  * page it is, and only its own Connect, carrying Alignable's id for it, is pressed.
  */
 export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
-/** On Instagram (src/networks/instagram/auto.ts), `profile` says whose account's Message it is. */
+/**
+ * On Instagram (src/networks/instagram/auto.ts), `profile` says whose account's Message it is. On Facebook
+ * (src/networks/facebook/auto.ts), the chats open before it are noted first: none of those is taken for theirs by name.
+ */
 export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly profile?: ProfileRef };
 
 /**
@@ -321,7 +331,13 @@ export type UnfollowAnswer =
   | { readonly ok: false; readonly error: string };
 
 export type AutoAnswer =
-  | { readonly ok: true; readonly result: AutoResult; readonly postUrl?: string | null }
+  | {
+      readonly ok: true;
+      readonly result: AutoResult;
+      readonly postUrl?: string | null;
+      /** A message's typing it couldn't take out of another chat's box, with the name on that box (Facebook's). */
+      readonly left?: MessageWrote['left'];
+    }
   | { readonly ok: false; readonly error: string };
 
 /** The posts of theirs read on their profile, for the AI to pick one to like. */

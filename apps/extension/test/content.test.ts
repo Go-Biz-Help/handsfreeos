@@ -235,6 +235,23 @@ describe('a tab’s script, by its network', () => {
     });
   });
 
+  it('on Facebook, types a message only for an ask that says whose chat it goes in', async () => {
+    const page = await tab(
+      'chat-2026.html',
+      'https://www.facebook.com/messages/t/100009000000002/',
+      null,
+    );
+    // Their name alone isn't enough: someone else may have it.
+    for (const whose of [{}, { names: ['Dana Reyes'] }])
+      expect(await page.ask({ type: 'hfos-message', text: 'Hi Dana', ...whose })).toEqual({
+        ok: false,
+        error: 'The extension wasn’t told who the message is for, so nothing was sent.',
+      });
+    expect(document.querySelector('[aria-label="Message Dana Reyes"]')!.textContent?.trim()).toBe(
+      '',
+    );
+  });
+
   it('on Facebook, puts the person’s links and username in only on the pages where they’re changed', async () => {
     // Someone else's profile: not theirs, not where links go, and not Accounts Center.
     const profile = await tab('profile.html', 'https://www.facebook.com/jane.doe.5', null);

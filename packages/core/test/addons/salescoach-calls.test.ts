@@ -438,6 +438,40 @@ describe('a coached call', () => {
     ).toEqual([]);
   });
 
+  it('forgets a call whose AI notes were turned off: no lines, no cards, no write-up', async () => {
+    const callId = await aCall(rep);
+    const begun = await worker('salescoach.call.begin', { callId, userId: rep.id, personId });
+    await worker('salescoach.card.add', {
+      coachedCallId: begun.coachedCallId,
+      step: 's2',
+      card: {
+        kind: 'objection',
+        title: 'Price worry',
+        say: 'The visit fee goes toward the repair.',
+        heard: 'That sounds expensive',
+        objectionId: 'o1',
+      },
+    });
+    expect(
+      await worker('salescoach.call.end', {
+        coachedCallId: begun.coachedCallId,
+        lines: [],
+        forgotten: true,
+      }),
+    ).toEqual({ state: 'stopped' });
+    const [row] = await rows<{ state: string; lines: unknown[]; failure: string | null }>(
+      admin(),
+      sql`select state, lines, failure from addon_salescoach.calls where id = ${begun.coachedCallId}`,
+    );
+    expect(row).toMatchObject({ state: 'stopped', lines: [] });
+    expect(row!.failure).toMatch(/notes were turned off/);
+    const cards = await rows(
+      admin(),
+      sql`select id from addon_salescoach.cards where coached_call_id = ${begun.coachedCallId}`,
+    );
+    expect(cards).toEqual([]);
+  });
+
   it('stops while the add-on is off', async () => {
     await rows(
       admin(),

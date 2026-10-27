@@ -4,6 +4,9 @@
  * (fly.toml), with the same secrets, because it needs LiveKit's and Deepgram's keys and nothing else does here. On
  * a laptop: `pnpm --filter @hfos/worker media`, with LiveKit set up in apps/worker/.env.
  *
+ * It has the worker's services too (services-env.ts), for the add-ons that hear a call (video-calls/coach.ts): the
+ * Sales Coach thinks, bills and pushes here as it does on a phone call.
+ *
  * Without LiveKit, or without Deepgram, there's nothing to hear calls with: it says so and waits, so Fly doesn't
  * restart it over and over.
  */
@@ -11,6 +14,7 @@ import { createDb } from '@hfos/db/client';
 import pino from 'pino';
 import { loadEnv, readEnv } from './env';
 import { errorMessage } from './outbox';
+import { createEngineServices } from './services-env';
 import { createVideoCalls } from './video-calls/index';
 import { createListener } from './video-calls/listener';
 import { createSpeech } from './voice-agent/index';
@@ -46,9 +50,16 @@ if (video?.name !== 'livekit' || !speech) {
 } else {
   // LiveKit's native library loads only here, once there's a call to hear with it.
   const { joinLiveKitRoom } = await import('./video-calls/listener-room');
-  // A pass and a second's keeping each hold a connection only per step.
-  const handle = createDb(env.databaseUrl, { max: 3, applicationName: 'hfos-media' });
-  const listener = createListener({ db: handle.db, log, speech, video, join: joinLiveKitRoom });
+  // A pass, a second's keeping and the coach's steps each hold a connection only per step.
+  const handle = createDb(env.databaseUrl, { max: 5, applicationName: 'hfos-media' });
+  const listener = createListener({
+    db: handle.db,
+    log,
+    speech,
+    video,
+    join: joinLiveKitRoom,
+    coach: createEngineServices(env, log, handle.db),
+  });
   let running = true;
 
   const every = (ms: number, what: string, fn: () => Promise<void>) =>

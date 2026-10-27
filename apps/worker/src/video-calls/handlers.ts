@@ -1,8 +1,8 @@
 /**
  * What the team does in a HandsFreeOS video call, carried out by LiveKit (docs/video-calls.md): someone taken out
  * leaves the room, a mute mutes their microphone, and End for everyone closes the room. And when a stretch of the
- * call is over, everyone's minutes go on the business's balance, and what the AI heard becomes the appointment's
- * transcript. Each runs from its event, so a retry is safe: taking out someone already gone, muting someone already
+ * call is over, everyone's minutes go on the business's balance, the coach's notes on it are finished, and what the AI
+ * heard becomes the appointment's transcript. Each runs from its event, so a retry is safe: taking out someone already gone, muting someone already
  * muted or closing a closed room changes nothing, and the charge and the transcript are once per stretch.
  */
 import { executeCommand, videoCallKeepWords, videoCallRoom } from '@hfos/core/server';
@@ -13,6 +13,7 @@ import { chargeVideoCall } from '../money/usage-capture';
 import { errorMessage } from '../outbox';
 import { payloadOf, str } from '../push/moment';
 import { systemActor, tenantOf, workerMeta } from '../services';
+import { finishCoaching } from './coach';
 import { VideoCallError, type VideoCallProvider } from './provider';
 
 /** Asks LiveKit; tried again later when it didn't answer, and let go once it refused. */
@@ -95,7 +96,10 @@ export const onVideoCallEnded: EventHandler = async (ctx) => {
   });
 };
 
-/** What the AI heard in a stretch of a call, made the appointment's transcript (core's `video_call.keep_words`). */
+/**
+ * What the AI heard in a stretch of a call, made the appointment's transcript (core's `video_call.keep_words`). The
+ * coaching still live in the stretch is finished first, from the same lines (coach.ts).
+ */
 export const videoCallKeepWordsJob: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const p = ctx.job.payload;
@@ -103,6 +107,7 @@ export const videoCallKeepWordsJob: JobHandler = async (ctx) => {
   const until = str(p['until']);
   const stretch = str(p['stretch']);
   if (!callId || !until || !stretch) return;
+  await finishCoaching(ctx, scope, { callId, stretch, until });
   const { output } = await executeCommand(
     ctx.db,
     videoCallKeepWords,
