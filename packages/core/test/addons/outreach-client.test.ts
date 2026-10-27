@@ -496,12 +496,12 @@ describe('a client on Today and in the Pipeline', () => {
   it('offers a client no pitch, though they said yes or were marked Ready before, and keeps the reply they’re owed', async () => {
     const quinn = await profileOf('quinn.harper.4');
     const jo = await profileOf('jo.banks.2');
-    // Quinn said yes to the first message (no playbook has a video, so the link is next), and Jo was marked Ready.
+    // Quinn said yes after the video (the fixture gives each playbook one), so the link is next; Jo was marked Ready.
     await rows(
       admin(),
       sql`insert into addon_outreach.follow_ups
             (workspace_id, user_id, profile_id, step, step_at, last_at, answer, answered_at)
-          values (${ws}, ${owner.id}, ${quinn}, 'first', now() - interval '3 days', now() - interval '3 days',
+          values (${ws}, ${owner.id}, ${quinn}, 'video', now() - interval '3 days', now() - interval '3 days',
             'yes', now() - interval '2 days')`,
     );
     await runAs(owner, ws, 'outreach.stage.mark', { profileId: jo, mark: 'ready' });
