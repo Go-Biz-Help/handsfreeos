@@ -34,6 +34,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | The AI Sales Coach add-on                    | `docs/salescoach.md`, then `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`                                       |
 | The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |
 | Partners: finding them, commissions, payouts | `HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md`, then decision 81 in `docs/outreach.md`                             |
+| Affiliates: people who sell HandsFreeOS      | `HANDSFREEOS_AFFILIATES_IMPLEMENTATION_PLAN.md`, then `apps/site/AGENTS.md` for the website's `?ref=` links       |
 | The browser extension                        | `apps/extension/README.md`                                                                                        |
 | Messenger and Instagram, and ad attribution  | `docs/meta-messaging.md`; Meta's setup is "Facebook and Instagram messages: Meta" in `docs/operations.md`         |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |

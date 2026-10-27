@@ -8,3 +8,30 @@
 export function opinlyVisitor(value: unknown): string | undefined {
   return typeof value === 'string' && /^[A-Za-z0-9-]{8,128}$/.test(value) ? value : undefined;
 }
+
+/**
+ * The affiliate link they came by (20261027014000): the website adds the code and when it was clicked to its sign-up
+ * links as `?ref=` and `?ref_at=`, and an affiliate may share the sign-up page with `?ref=` themselves. A new account
+ * keeps them as `affiliate_ref` and `affiliate_ref_at`, whether made with an email or with Google, and its first
+ * business is credited to that affiliate as it's made (`private.affiliate_note_signup`). A link shared straight to
+ * this page counts from when it's opened.
+ */
+export interface AffiliateTrail {
+  readonly ref: string;
+  readonly refAt: string;
+}
+
+export function affiliateTrail(ref: unknown, at: unknown): AffiliateTrail | undefined {
+  const code = typeof ref === 'string' ? ref.trim().toLowerCase() : '';
+  if (!/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/.test(code)) return undefined;
+  const when = typeof at === 'string' ? new Date(at) : null;
+  const refAt =
+    when && !Number.isNaN(when.getTime()) && when.getTime() <= Date.now() + 60_000
+      ? when.toISOString()
+      : new Date().toISOString();
+  return { ref: code, refAt };
+}
+
+/** What a new account keeps of the trail, in its sign-up details. */
+export const affiliateTrailData = (trail: AffiliateTrail | undefined): Record<string, string> =>
+  trail ? { affiliate_ref: trail.ref, affiliate_ref_at: trail.refAt } : {};

@@ -88,6 +88,8 @@ export * from './main-offer/assist';
 export * from './main-offer/words';
 // Partners (HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md, stage 2): their settings and how they earn.
 export * from './partners/index';
+// HandsFreeOS's own affiliate program (20261027014000): its words and links.
+export * from './affiliates/index';
 export * from './writing';
 export * from './ai-team/index';
 // Funnels: the steps the AI teammate takes each person through.

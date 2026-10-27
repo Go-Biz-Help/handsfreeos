@@ -5,6 +5,7 @@ import {
   Blocks,
   Bug,
   Building,
+  Handshake,
   HeartPulse,
   Inbox,
   Lightbulb,
@@ -26,6 +27,7 @@ export const DESK_ICONS: Readonly<Record<DeskSectionKey, LucideIcon>> = {
   problems: Bug,
   rates: Tag,
   founding: Ticket,
+  affiliates: Handshake,
   replies: MessageSquareQuote,
   staff: Users,
 };

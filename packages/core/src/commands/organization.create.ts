@@ -13,7 +13,7 @@ export const organizationCreate = defineCommand({
   output: OrganizationCreateOutput,
   permission: null,
   scope: () => ({ kind: 'none' }),
-  emits: ['organization.created', 'workspace.created'],
+  emits: ['organization.created', 'workspace.created', 'platform.affiliate_business_credited'],
   async handler(ctx, input) {
     const orgName = input.organizationName ?? input.businessName;
     const suffix = randomUUID().slice(0, 6);
@@ -53,6 +53,24 @@ export const organizationCreate = defineCommand({
         industry: input.industry,
       },
     });
+    // Made through an affiliate's link: credited to them now, as it's made, or never (20261027014000). With no code
+    // here, the function uses the link the account was made through. It answers null for a code that isn't an
+    // approved affiliate's, or is the person's own, and never refuses.
+    const how = input.affiliate?.how ?? 'link';
+    const [credited] = await rows<{ affiliate_id: string | null }>(
+      ctx.tx,
+      sql`select private.affiliate_note_signup(${row.org_id}, ${input.affiliate?.code ?? null},
+            ${how}, ${input.affiliate?.clickedAt ?? null}) as affiliate_id`,
+    );
+    if (credited?.affiliate_id)
+      await ctx.emit({
+        type: 'platform.affiliate_business_credited',
+        entityType: 'organization',
+        entityId: row.org_id,
+        organizationId: row.org_id,
+        workspaceId: row.ws_id,
+        payload: { affiliateId: credited.affiliate_id, how },
+      });
     return { organizationId: row.org_id, workspaceId: row.ws_id };
   },
 });

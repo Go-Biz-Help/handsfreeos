@@ -477,6 +477,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/affiliate.apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply to be a HandsFreeOS affiliate: sell HandsFreeOS with your own link and earn a share of what each business you send pays for its plan in its first 12 months. While you wait, you can change what you said.
+         * @description Risk level 1. Emits platform.affiliate_applied.
+         */
+        post: operations["command_affiliate_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve an affiliate application, which turns their link on and emails them, or turn it down, which emails them too.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_approved, platform.affiliate_turned_down.
+         */
+        post: operations["command_affiliate_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit a business to an affiliate by hand, move it to another one, or take it off the one it’s credited to.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_business_set.
+         */
+        post: operations["command_affiliate_set_business"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the code an affiliate’s link carries. Their old link stops working, so tell them first.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_changed.
+         */
+        post: operations["command_affiliate_set_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give one affiliate their own share of each plan payment, or put them back on everyone’s. It counts for payments from now on.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_rate_changed.
+         */
+        post: operations["command_affiliate_set_rate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause an affiliate (their link stops crediting new businesses and they stop earning on new payments), bring a paused one back, or end the partnership for good.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_status_changed.
+         */
+        post: operations["command_affiliate_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliates.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the share every affiliate earns of each plan payment, unless they have their own. It counts for payments from now on.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_settings_saved.
+         */
+        post: operations["command_affiliates_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_provider.set_mode": {
         parameters: {
             query?: never;
@@ -6428,7 +6568,7 @@ export interface paths {
         put?: never;
         /**
          * Create your organization and its first workspace. You become Owner of both.
-         * @description Risk level 1. Emits organization.created, workspace.created.
+         * @description Risk level 1. Emits organization.created, workspace.created, platform.affiliate_business_credited.
          */
         post: operations["command_organization_create"];
         delete?: never;
@@ -15777,6 +15917,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/affiliate.mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, and your link’s clicks.
+         * @description Any signed-in user.
+         */
+        post: operations["query_affiliate_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_setup_template.list": {
         parameters: {
             query?: never;
@@ -19277,6 +19437,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.affiliate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and their link’s clicks a day.
+         * @description Requires platform.affiliates.manage.
+         */
+        post: operations["query_platform_affiliate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.affiliate_of_business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which affiliate a business is credited to, for its page under Admin → Businesses, with the approved affiliates it could be credited to instead.
+         * @description Requires platform.affiliates.manage.
+         */
+        post: operations["query_platform_affiliate_of_business"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.affiliates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks and the businesses they sent.
+         * @description Requires platform.affiliates.manage.
+         */
+        post: operations["query_platform_affiliates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.ai_provider.get": {
         parameters: {
             query?: never;
@@ -22612,6 +22832,320 @@ export interface operations {
                         addonId: string;
                         voted: boolean;
                         votes: number;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    /** @default  */
+                    links?: string;
+                    livesInUs: boolean;
+                    name: string;
+                    /** @default  */
+                    pitch?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        affiliateId: string;
+                        created: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    /** @enum {string} */
+                    decision: "approve" | "turn_down";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    affiliateId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            clickedAt: string | null;
+                            code: string;
+                            /** @enum {string} */
+                            how: "link" | "code" | "by_hand";
+                            name: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                        } | null;
+                        /** Format: uuid */
+                        organizationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_rate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    rateBp: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    /** @enum {string} */
+                    status: "approved" | "paused" | "ended";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliates_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rateBp: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rateBp: number;
                     };
                 };
             };
@@ -36712,6 +37246,16 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    affiliate?: {
+                        /** @default null */
+                        clickedAt?: string | null;
+                        code: string;
+                        /**
+                         * @default link
+                         * @enum {string}
+                         */
+                        how?: "link" | "code";
+                    };
                     businessName: string;
                     /**
                      * @default home_services
@@ -58539,6 +59083,49 @@ export interface operations {
             };
         };
     };
+    query_affiliate_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            applyAgainFrom: string | null;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            links: string;
+                            name: string;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                        } | null;
+                        defaultRateBp: number;
+                    };
+                };
+            };
+        };
+    };
     query_ai_setup_template_list: {
         parameters: {
             query?: never;
@@ -75116,6 +75703,197 @@ export interface operations {
                             taxable: boolean;
                             visitEveryMonths: number | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_platform_affiliate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                        businesses: {
+                            clickedAt: string | null;
+                            /** @enum {string} */
+                            how: "link" | "code" | "by_hand";
+                            markedByName: string | null;
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                            workspaceId: string | null;
+                        }[];
+                        clicks: {
+                            clicks: number;
+                            /** Format: date */
+                            day: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_platform_affiliate_of_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            clickedAt: string | null;
+                            code: string;
+                            /** @enum {string} */
+                            how: "link" | "code" | "by_hand";
+                            name: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                        } | null;
+                        choices: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            code: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        organizationId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_affiliates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 200 */
+                    limit?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliates: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        applications: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        settings: {
+                            rateBp: number;
+                        };
                     };
                 };
             };

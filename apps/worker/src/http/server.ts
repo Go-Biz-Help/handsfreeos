@@ -57,6 +57,7 @@ import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
 import { registerJoinRoutes } from './join';
 import { registerFoundingRoutes } from './founding';
+import { registerAffiliateRoutes } from './affiliates';
 import { registerLegalRoutes } from './legal';
 import { registerPolicyUpdateRoutes } from './policy-update';
 import { registerFunnelRoutes } from '../funnels/draft';
@@ -328,6 +329,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // Teammate funnels: the AI's draft from a description (funnels/draft.ts).
   await registerFunnelRoutes(app, deps);
   await registerFoundingRoutes(app, deps);
+  // A click on an affiliate's link, counted from the website (20261027014000).
+  await registerAffiliateRoutes(app, deps);
   // A form on the business's own website, and services sending leads over (M14 slice B).
   await registerIntakeRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);

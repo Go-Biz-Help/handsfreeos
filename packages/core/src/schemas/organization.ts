@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AffiliateSignup } from './affiliates';
 import { displayName, industry, timezone, uuid } from './common';
 
 export const OrganizationCreateInput = z.object({
@@ -7,6 +8,11 @@ export const OrganizationCreateInput = z.object({
   organizationName: displayName.optional(),
   timezone: timezone.default('America/Chicago'),
   industry: industry.default('home_services'),
+  /**
+   * The affiliate whose link brought the person here (20261027014000): the website keeps the code for 90 days and
+   * the sign-up page passes it along. A code that isn't an approved affiliate's, or is the person's own, is ignored.
+   */
+  affiliate: AffiliateSignup.optional(),
 });
 export type OrganizationCreateInput = z.input<typeof OrganizationCreateInput>;
 

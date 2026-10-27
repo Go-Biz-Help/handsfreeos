@@ -16,6 +16,7 @@
  */
 import 'server-only';
 import { foundingSpots, type FoundingSpotContent } from '@/content/site';
+import { workerUrl } from './worker-url';
 
 export interface FoundingCount {
   readonly offerId: string;
@@ -36,10 +37,6 @@ export interface FoundingCount {
   /** A later founding offer has opened after this one: it is no longer what is on sale. */
   readonly superseded: boolean;
 }
-
-/** Where the worker answers. The same address the providers call; never the fly.dev one. */
-export const workerUrl = (): string =>
-  process.env.WORKER_PUBLIC_URL?.replace(/\/$/, '') ?? 'https://hooks.handsfreeos.com';
 
 type RawCount = Record<string, unknown>;
 

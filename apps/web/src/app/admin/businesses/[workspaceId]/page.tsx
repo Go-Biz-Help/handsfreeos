@@ -12,6 +12,7 @@ import {
 } from '@hfos/core';
 import Link from 'next/link';
 import { AddonTestingBlock } from '@/components/admin/addon-testing-block';
+import { AffiliateBusinessBlock } from '@/components/admin/affiliate-business-block';
 import {
   ActivitySection,
   FLAG_ACTION_CLASS,
@@ -61,6 +62,12 @@ export default async function BusinessPage({
   const founding = me.staff?.permissions.includes('platform.founding.manage')
     ? await api
         .POST('/v1/queries/platform.founding.business', { body: { workspaceId } })
+        .then(unwrapPage)
+    : null;
+  // The same for who sold it: only staff who run the affiliate program see the block.
+  const affiliate = me.staff?.permissions.includes('platform.affiliates.manage')
+    ? await api
+        .POST('/v1/queries/platform.affiliate_of_business', { body: { workspaceId } })
         .then(unwrapPage)
     : null;
   const b = detail.business;
@@ -153,6 +160,8 @@ export default async function BusinessPage({
       {founding ? (
         <FoundingSeatBlock workspaceId={workspaceId} businessName={b.name} founding={founding} />
       ) : null}
+
+      {affiliate ? <AffiliateBusinessBlock workspaceId={workspaceId} credit={affiliate} /> : null}
 
       <WalletBlock
         workspaceId={workspaceId}
