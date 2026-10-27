@@ -422,10 +422,32 @@ export const messagesTitle = (comments: boolean): string =>
   comments ? 'Messages and comments to OK' : WAITING_KINDS.message;
 
 /**
+ * A comment waiting's heading either side of the person's name, so a screen can put the name, the person menu's
+ * button (decision 91), between the two parts.
+ */
+export const COMMENT_TITLE_AROUND = ['Comment on ', '’s post'] as const;
+
+/**
  * A comment waiting, as Waiting for you heads it, its post's first words above the comment: "Comment on Dana Reyes’s
  * post".
  */
-export const commentTitle = (name: string): string => `Comment on ${name}’s post`;
+export const commentTitle = (name: string): string =>
+  `${COMMENT_TITLE_AROUND[0]}${name}${COMMENT_TITLE_AROUND[1]}`;
+
+/**
+ * Whether a send waiting is an answer to an Alignable post asking for what the business offers (decision 79): a
+ * comment that waits for an OK of its own (`needsYou`, set for nothing else on a comment), which Approve all leaves.
+ */
+export const forumAnswer = (send: {
+  readonly kind: string;
+  readonly needsYou: string | null;
+}): boolean => send.kind === 'comment' && send.needsYou !== null;
+
+/** Beside Approve all while forum answers wait among the messages: why it leaves them (decision 92). */
+export const forumAnswersLeftWords = (count: number): string =>
+  `Approve all leaves ${
+    count === 1 ? 'the forum answer' : `the ${count.toLocaleString('en-US')} forum answers`
+  }: an answer to a post asking for what you offer always waits for an OK of its own.`;
 
 /** Why a message waits for an OK of its own, under it: "Handed over: they sound upset". */
 export function oneByOneWords(send: {

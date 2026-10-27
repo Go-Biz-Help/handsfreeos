@@ -27,6 +27,7 @@ import {
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
+import { oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -55,6 +56,11 @@ import { PersonName } from './person-menu';
  * The list is one network's (`outreach.today`'s `platform`), in its words: "Send an invitation to connect" on
  * LinkedIn, its chats opening in LinkedIn messaging; Today's tab shows the one picked on its strip (./hub.tsx).
  * Partners from the Partners list (decision 81) have a part of their own after it, each message with an OK of its own.
+ *
+ * On Instagram, LinkedIn and Alignable (decision 92) the people found by topic say why under their name, and a writer's
+ * like shows the post it goes on. On Instagram and Alignable a comment on a good post is drafted to wait like a message,
+ * with OK and Skip (Change and Approve all are Needs you's, above it on Today's tab); skipped, its post is put aside,
+ * so a comment that waits has no Not for me of its own. A forum answer says it waits for an OK of its own.
  */
 
 const failed = (e: unknown) => toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -103,6 +109,11 @@ export function useTodayProps(
     toast.show(said);
     today.reload();
   };
+  // A comment on a good post (decision 92) says it goes under the post, and that a skip puts the post aside.
+  const commentOf = (sendId: string) =>
+    [...(today.data?.items ?? []), ...(today.data?.partners ?? [])].some(
+      (i) => i.kind === 'comment' && i.send?.sendId === sendId,
+    );
   return {
     platform,
     today: today.data,
@@ -140,7 +151,9 @@ export function useTodayProps(
     onOk: async (sendId) => {
       try {
         await okSend(ws, sendId);
-        after(ctx.online ? W.okd : W.okdQueued);
+        after(
+          !ctx.online ? W.okdQueued : commentOf(sendId) ? W.okdComment(PLATFORMS[platform]) : W.okd,
+        );
       } catch (e) {
         failed(e);
       }
@@ -148,7 +161,7 @@ export function useTodayProps(
     onSkip: async (sendId) => {
       try {
         await skipSend(ws, sendId);
-        after(ctx.online ? W.skipped : W.skippedQueued);
+        after(!ctx.online ? W.skippedQueued : commentOf(sendId) ? W.commentSkipped : W.skipped);
       } catch (e) {
         failed(e);
       }
@@ -401,6 +414,9 @@ function ItemCard({
 }) {
   const chat = chatUrlOn(platform, item.threadKey);
   const onPost = item.kind === 'comment' || item.kind === 'warm_lead';
+  // A comment drafted to wait (decision 92): it goes under the post; skipping it puts the post aside.
+  const comment = item.kind === 'comment' && item.send !== null;
+  const alone = comment && item.send?.state === 'waiting' ? oneByOneWords(item.send) : null;
   const page = onPost ? (item.postUrl ?? item.profileUrl) : (chat ?? item.profileUrl);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="today-item">
@@ -445,7 +461,16 @@ function ItemCard({
       ) : null}
       {item.send ? (
         <View className="gap-2" testID="today-send">
-          <Note>{item.send.state === 'waiting' ? W.sentWaiting : W.sentOkd}</Note>
+          <Note>
+            {item.send.state === 'waiting'
+              ? comment
+                ? W.commentWaiting
+                : W.sentWaiting
+              : comment
+                ? W.commentOkd
+                : W.sentOkd}
+          </Note>
+          {alone ? <Note testID="today-send-alone">{alone}</Note> : null}
           <Text
             selectable
             className="rounded-control bg-card-2 px-3 py-2 text-[14.5px] leading-[21px]"
@@ -476,7 +501,7 @@ function ItemCard({
             </Button>
           </>
         ) : null}
-        {item.kind === 'comment' && item.postId ? (
+        {item.kind === 'comment' && item.postId && !comment ? (
           <Button
             size="md"
             variant="ghost"

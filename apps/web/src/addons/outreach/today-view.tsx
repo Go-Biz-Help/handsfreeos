@@ -29,6 +29,12 @@
  *
  * Partners from the Partners list (decision 81) have a part of their own below it: a like first, the ask, follow-ups,
  * the details after a yes, and replies, each message with an OK of its own. Copying one moves them along the list.
+ *
+ * On Instagram, LinkedIn and Alignable (decision 92) the people found by topic say why under their name, from how they
+ * were found ("Commented on a post under #austinroofing") and what the AI saw on their own page; a writer's like goes on
+ * the post that found them, shown under it. A comment on a good post on Instagram and Alignable is drafted to wait
+ * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
+ * asking for what the business offers.
  */
 import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
@@ -43,7 +49,12 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
-import { approveAllWords, oneByOne } from '@hfos/core/addons/outreach/waiting-words';
+import {
+  approveAllWords,
+  forumAnswer,
+  forumAnswersLeftWords,
+  oneByOne,
+} from '@hfos/core/addons/outreach/waiting-words';
 import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks';
 import {
   chatUrlOn,
@@ -201,8 +212,12 @@ export function TodayView({
   const partners = today.partners.filter(
     (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
   );
-  // Approve all leaves those that wait for an OK of their own: a reply handed over, or one to someone who needs them.
-  const approvable = items.filter((i) => i.send?.state === 'waiting' && !oneByOne(i.send)).length;
+  // Approve all leaves those that wait for an OK of their own: a reply handed over, one to someone who needs them, or a
+  // forum answer (decision 92).
+  const waitingSends = items.filter((i) => i.send?.state === 'waiting');
+  const approvable = waitingSends.filter((i) => !oneByOne(i.send!)).length;
+  const comments = waitingSends.some((i) => i.kind === 'comment' && !oneByOne(i.send!));
+  const answers = waitingSends.filter((i) => forumAnswer({ ...i.send!, kind: i.kind })).length;
   const approving = useAct();
   const approveAll = () =>
     approving.act('all', async () => {
@@ -210,7 +225,7 @@ export function TodayView({
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
       );
-      toast.success(W.okdAll(out.approved.length));
+      toast.success(W.okdAll(out.approved.length, comments));
     });
   return (
     <div data-testid="outreach-today">
@@ -273,10 +288,15 @@ export function TodayView({
                     data-testid="today-approve-all"
                   >
                     <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    {approveAllWords(approvable)}
+                    {approveAllWords(approvable, comments)}
                   </Button>
                 ) : null}
               </div>
+              {approvable > 1 && answers ? (
+                <p className="-mt-1 text-[12.5px] text-text-2" data-testid="today-answers-left">
+                  {forumAnswersLeftWords(answers)}
+                </p>
+              ) : null}
               {ready ? null : (
                 <p className="-mt-1 text-[13px] text-text-2">{READY_WORDS.repliesStill}</p>
               )}
@@ -666,7 +686,12 @@ function TodayRow({
       ) : null}
       <ChatSoFar recent={item.recent} />
       {item.send ? (
-        <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
+        <Drafted
+          workspaceId={workspaceId}
+          name={item.name}
+          send={item.send}
+          comment={item.kind === 'comment' ? platform : null}
+        />
       ) : draftKind ? (
         <Drafts
           workspaceId={workspaceId}

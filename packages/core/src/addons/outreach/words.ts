@@ -117,9 +117,22 @@ export const OUTREACH_WORDS = {
   changeHelp: 'Change it if you like; your changes teach the AI.',
   okChanged: 'OK and send',
   okd: 'OK’d. The extension sends it in Messenger, at a person’s pace.',
-  okdAll: (n: number) =>
-    `OK’d ${things(n, 'message', 'messages')}. The extension sends them in Messenger, at a person’s pace.`,
+  /** Approve all's: with comments among them (decision 92), the messages go and the comments are posted. */
+  okdAll: (n: number, comments = false) =>
+    comments
+      ? `OK’d ${things(n, 'message or comment', 'messages and comments')}. The extension sends and posts them, at a person’s pace.`
+      : `OK’d ${things(n, 'message', 'messages')}. The extension sends them in Messenger, at a person’s pace.`,
   skipped: 'Skipped. They’re off your list for today.',
+  /**
+   * A comment on a good post waiting for the person's OK (decision 92): it goes under the post, on the network it's
+   * on, once OK'd; skipped, the post is put aside so it's never offered again.
+   */
+  yourComment: 'Your comment',
+  commentWaiting: 'I’d post this comment. Change it if you like; your changes teach the AI.',
+  commentOkd: 'OK’d: the extension posts it soon.',
+  okdComment: (network: string) =>
+    `OK’d. The extension posts it under the post on ${network}, at a person’s pace.`,
+  commentSkipped: 'Skipped. That post is off your list, and gets no comment.',
   /** A press with no signal: it waits on the phone. */
   okdQueued:
     'OK’d. It goes to HandsFreeOS when you’re back online. If that takes over 30 minutes, the phone asks you first.',
@@ -594,6 +607,9 @@ export const OUTREACH_WORDS = {
       alignable: 'Alignable won’t search for businesses for this playbook.',
     } satisfies Record<WordsPlatform, string>,
     hashtagHint: 'Like austinroofing. Each is cleaned as people tag it: no #, no spaces.',
+    /** A line typed that makes no hashtag: too short, too long, or no letter in it. */
+    hashtagBad: (line: string) =>
+      `“${line}” isn’t a hashtag anyone tags. Write one as people tag it, like austinroofing.`,
   },
   /** Whether the business works with a playbook's clients online (decision 92): where Alignable searches. */
   worksOnline: {
