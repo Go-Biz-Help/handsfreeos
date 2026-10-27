@@ -290,6 +290,7 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'number_port.begin_upload': 'a file from the person’s own computer or phone',
   'number_port.attach_document': 'a file from the person’s own computer or phone',
   'outreach.download.save': 'the person’s Facebook download file, read by their own browser',
+  'realestate.lockbox.save': 'a lockbox’s code never goes through the AI (Real Estate’s rule)',
   'organization.create': 'a new business is set up on its own pages, where it pays',
   'platform.view_as.start':
     'looking at a business as support changes this screen, which only the person starts',
@@ -348,11 +349,6 @@ export const ASSISTANT_NOT_YET: readonly NotYet[] = [
       'onboarding_setup.finish',
     ],
     why: 'They save a whole wizard’s answers at once. The Assistant sets each part up with its own tools; walking the wizard needs one of its own.',
-  },
-  {
-    page: 'Real Estate',
-    actions: ['realestate.lockbox.save'],
-    why: 'An add-on action without an ai line yet.',
   },
 ];
 
