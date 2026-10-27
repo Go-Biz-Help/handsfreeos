@@ -29,6 +29,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The Assistant: Anthropic](#the-assistant-anthropic)
 - [The backup AI: OpenAI](#the-backup-ai-openai)
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
+- [Video calls: LiveKit](#video-calls-livekit)
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
 - [Who can do what: roles and permissions](#who-can-do-what-roles-and-permissions)
@@ -1569,6 +1570,10 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `OPENAI_API_KEY`                      | Only for a backup while Claude is down                                                                                                       | The worker starts, and its `worker started` line shows `"aiBackup":"none"`. Every AI feature uses Claude alone, as before, and fails while Claude is down.                                                                                                                                                                                                                                      | OpenAI's dashboard, the `HandsFreeOS` project's **API keys** (starts with `sk-proj-`). See "The backup AI: OpenAI". Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `DEEPGRAM_API_KEY`                    | Recommended, for the words of calls and voicemails                                                                                           | Without it the worker falls back to Twilio Conversational Intelligence, which costs about eight times as much per minute. Recordings still play; only the words are affected.                                                                                                                                                                                                                   | The Deepgram console, **API Keys**. Give it to `handsfreeos-worker` with `fly secrets import`, never `fly secrets set`. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `TRANSCRIBER`                         | No                                                                                                                                           | Picks who turns a recording into words: `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `twilio` (Conversational Intelligence), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                                  | Leave unset unless you are deliberately moving off Deepgram. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `LIVEKIT_URL`                         | Only for HandsFreeOS video calls                                                                                                             | The worker starts with calls off, and its log says `HandsFreeOS video calls are off until they are`. A call's page says video calls aren't on for the business. Everything else works.                                                                                                                                                                                                          | The project's `wss://` address in LiveKit Cloud ("Video calls: LiveKit"). Give all three with `fly secrets import`. Worker only: the API refuses to start with any `LIVEKIT_` value.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `LIVEKIT_API_KEY`                     | With `LIVEKIT_URL`                                                                                                                           | Same as above. One or two of the three stops the worker starting, with a line saying they go together.                                                                                                                                                                                                                                                                                          | LiveKit Cloud, **Settings** → **Keys**. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `LIVEKIT_API_SECRET`                  | With `LIVEKIT_URL`                                                                                                                           | Same as above. A wrong one means nobody connects to a call, and LiveKit's webhooks are refused (`rejected an unsigned or mis-signed LiveKit webhook`).                                                                                                                                                                                                                                          | Shown once, when the key is made. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `VIDEO_PROVIDER`                      | No                                                                                                                                           | Picks who carries video calls: `livekit` (the default once the three are set), `none` (the default without them), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                                                         | Leave unset. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `GOOGLE_MAPS_SERVER_KEY`              | For service areas by distance or drawn on a map, and On my way's arrival time                                                                | The worker starts, and only ZIP-code service areas work: the teammate and the booking page can't place a street address. On my way texts a rough arrival time instead of Google's driving time.                                                                                                                                                                                                 | Google Cloud, **APIs & Services** → **Credentials**: an API key restricted to the **Geocoding API** and the **Routes API** (no referrer restriction; it is used from the worker). Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `GEOCODER`                            | No                                                                                                                                           | Who finds where an address is: `google` (the default once `GOOGLE_MAPS_SERVER_KEY` is set), `off` (the default without one), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                                              | Leave unset. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `VOICE_AGENT`                         | No                                                                                                                                           | Who listens and speaks when the AI teammate answers a call live (M18 step 5): `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `off` (the default without one: every call rings the team and goes to voicemail, as before), or `fake` for development. Production refuses `fake`.                                                                                                       | Leave unset: the same Deepgram key as transcripts. Worker only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -8033,6 +8038,98 @@ The `run-due` address exists only while the worker uses the fake carrier (`TELEP
 The other seeded calendars show the other shapes: **Dale’s calendar** books Dale alone, **Install walkthrough** needs Dale and Marco free at the same time, and **Homeowner HVAC class** lists three sessions, one of them full with three people waiting and a **Join the waitlist** button.
 
 The seed also connected Dale's stand-in Google calendar and read in three busy times, which show as **Busy** in **Calendar**. The stand-in lives in the memory of the process that made it, so the running worker's first check of Dale's calendar, within about five minutes, clears them. To see busy times again, add one as in "Trying the calendar locally" and click **Sync now** as Dale.
+
+## Video calls: LiveKit
+
+HandsFreeOS video calls (`docs/video-calls.md`) run on LiveKit Cloud. Only the worker holds LiveKit's three values,
+and the API refuses to start with any of them. Until they're set the worker starts with calls off: its log says
+`HandsFreeOS video calls are off until they are`, and a call's page says video calls aren't on for the business.
+
+Prices, checked 27 Oct 2026: LiveKit's free Build plan covers building and testing (5,000 person-minutes a month).
+The Ship plan, $50 a month, is for real businesses and covers about 150 hours of two-person HD calls. Businesses pay
+for their calls on their usage balance, at 1.5×, as the `video.minute` line ("Usage balances: what businesses pay
+us").
+
+### Set up LiveKit (once)
+
+1. Go to [cloud.livekit.io](https://cloud.livekit.io) and sign up. The free plan is fine to start.
+2. Make a project called `HandsFreeOS`.
+3. In the project, open **Settings** → **Keys** and click **Add new key**. Describe it as `handsfreeos-worker` and
+   click **Generate**. Ignore any key already there called Autogenerated.
+4. Copy three values into your password manager: the **API key** and the **API secret** it shows (the secret is
+   shown only once), and the project's URL, which starts with `wss://` and is at the top of the dashboard or under
+   **Settings** → **Project**.
+5. Give the worker the three values. Run this, then paste the three lines below with your values and no quotes, then
+   press Return and Control-D. The worker restarts.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+   ```
+   LIVEKIT_URL=wss://handsfreeos-abc123.livekit.cloud
+   LIVEKIT_API_KEY=<the API key>
+   LIVEKIT_API_SECRET=<the API secret>
+   ```
+
+6. Check the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker --no-tail
+   ```
+
+   You should see `worker started` with `"video":"livekit"`. A line saying the three go together means one is
+   missing or pasted wrong; paste all three again.
+
+7. Point LiveKit's webhook at the worker, so it hears who comes and goes. In the project, open **Settings** →
+   **Webhooks** and click **Create new webhook**. Set **Name** to `HandsFreeOS worker` and **URL** to
+   `https://hooks.handsfreeos.com/webhooks/livekit`, pick the `handsfreeos-worker` key from step 3 as the **Signing
+   API key**, and click **Create**.
+8. Try it on a test business. In **Admin** → **Businesses**, open the business and set **HandsFreeOS video calls**
+   to **On**. In that business, open **Settings** → **Calendars**, a calendar, then **Locations**, and set the
+   Online place to **HandsFreeOS video call**. Book a time on its booking page with your own email, open **Join**
+   on the appointment, and open the link in your confirmation email on your phone.
+
+   You should see each other. After you both leave, the appointment lists who joined and for how long. If the
+   customer's page keeps saying someone will be right with you after you joined, the webhook in step 7 isn't
+   reaching the worker: check its URL and key, and look for `rejected an unsigned or mis-signed LiveKit webhook` in
+   the worker's log.
+
+9. Before the first real business uses it, move the LiveKit project to the Ship plan under **Billing**.
+
+### Running LiveKit on your own computer
+
+Without LiveKit the worker uses its stand-in (`VIDEO_PROVIDER=fake`, the default outside production): calls work
+through getting in, but the call screen shows a stand-in instead of video. To see real video, run LiveKit's server
+in Docker. Its dev keys, `devkey` and `secret`, aren't secrets.
+
+1. Start it. On a Mac with Docker Desktop:
+
+   ```bash
+   docker run --rm -d --name livekit -p 7880:7880 -p 7881:7881 -p 7882:7882/udp \
+     livekit/livekit-server:v1.13.10 --dev --bind 0.0.0.0 --node-ip 127.0.0.1 \
+     --config-body "$(printf 'webhook:\n  api_key: devkey\n  urls:\n    - http://host.docker.internal:4100/webhooks/livekit\n')"
+   ```
+
+   On Linux, as CI does ("Start a local LiveKit server" in `.github/workflows/ci.yml`), use `--network host` and
+   `--bind 127.0.0.1` instead of the `-p` ports, and `http://127.0.0.1:4100/webhooks/livekit` as the webhook.
+
+2. Add these four lines to `apps/worker/.env`, then restart `pnpm dev`. `pnpm env:local` keeps them.
+
+   ```
+   VIDEO_PROVIDER=livekit
+   LIVEKIT_URL=ws://127.0.0.1:7880
+   LIVEKIT_API_KEY=devkey
+   LIVEKIT_API_SECRET=secret
+   ```
+
+3. The browser test runs only while the worker is on LiveKit:
+
+   ```bash
+   pnpm --filter @hfos/web exec playwright test e2e/video-call.spec.ts
+   ```
+
+To go back to the stand-in, take the four lines out and stop the server with `docker stop livekit`.
 
 ## Workflows, the knowledge base and agency templates
 

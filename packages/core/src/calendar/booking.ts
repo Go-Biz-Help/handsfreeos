@@ -29,6 +29,7 @@ import {
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import type { CommandContext } from '../kernel/types';
+import { effectiveVideo } from '../meetings/video-calls';
 import type { AppointmentLocation, AppointmentWarning, SlotOut } from '../schemas/calendar';
 import { zip5, type CatalogService } from './catalogs';
 import type { CalendarConfig, LocationKind } from './config';
@@ -576,13 +577,15 @@ export interface BookingResult {
 
 /**
  * Where an appointment happens: what the caller sent, else the calendar's option for that kind. Online, the
- * service's own video link and recording choice win over the place's.
+ * service's own video link and recording choice win over the place's. A HandsFreeOS video call is made only while
+ * the business has video calls on, and then also for a place with no link of its own (`effectiveVideo`).
  */
 export function locationFor(
   config: CalendarConfig,
   kind: LocationKind | null,
   given?: Partial<AppointmentLocation>,
   serviceId?: string | null,
+  videoCalls = false,
 ): AppointmentLocation {
   const k = given?.kind !== undefined ? given.kind : kind;
   const place = k ? config.locations.options.find((o) => o.kind === k) : undefined;
@@ -591,9 +594,10 @@ export function locationFor(
     : undefined;
   const option = place && {
     ...place,
-    video: own?.video ?? place.video,
+    video: effectiveVideo(own?.video ?? place.video, place.meetingUrl, videoCalls),
     record: own?.record ?? place.record,
   };
+  const made = given?.video ?? (option?.video && option.video !== 'none' ? option.video : null);
   return {
     kind: k ?? null,
     address: given?.address ?? option?.address ?? null,
@@ -602,7 +606,9 @@ export function locationFor(
     // A link made per appointment, unless the caller gave one.
     video:
       k === 'virtual' && !given?.meetingUrl
-        ? (given?.video ?? (option?.video && option.video !== 'none' ? option.video : null))
+        ? made === 'handsfree' && !videoCalls
+          ? null
+          : made
         : null,
     meetingId: null,
     meetingFor: null,
@@ -907,6 +913,7 @@ async function commit(
     loaded.locationKind,
     req.location,
     loaded.service?.id,
+    calendar.videoCalls === true,
   );
   const createdBy = userIdOf(ctx.actor);
   const needs = [...loaded.terms.requiredResources].sort((a, b) =>

@@ -71,6 +71,9 @@ export const USAGE_KEYS = [
   'speech.voice.kchar',
   /** Sales Coach listening in a Zoom meeting, per minute: Zoom's own live transcript (its Developer Pack credits). */
   'speech.meeting.minute',
+  // ---------- HandsFreeOS video calls (LiveKit) ----------
+  /** One person for a minute in a HandsFreeOS video call: everyone on it counts, the AI's listener never does. */
+  'video.minute',
   /**
    * A model with no line of its own. Deliberately dear: a new model has to be priced on purpose, and a card
    * that silently bills an unknown one at nothing is how a month of AI goes out free.
@@ -130,6 +133,7 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'speech.recording.minute': 'minute',
   'speech.voice.kchar': 'kchar',
   'speech.meeting.minute': 'minute',
+  'video.minute': 'minute',
   'ai.unknown.mtok': 'mtok',
   'a2p.brand.registration': 'fee',
   'a2p.brand.vetting': 'fee',
@@ -480,6 +484,15 @@ export const SEED_RATES: readonly {
     roundUpTo: 'none',
     notes:
       'Zoom Realtime Media Streams with the transcript, about 0.02 Developer Pack credits ($0.02) a minute. Charged 3¢, billed in running totals.',
+  },
+  {
+    key: 'video.minute',
+    costMicros: 2_000,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes:
+      'One person for a minute in a HandsFreeOS video call: LiveKit Cloud’s participant minute ($0.0005) and about 11 MB of HD video ($0.12 a GB), about $0.002. Charged 0.3¢, once per call.',
   },
   {
     key: 'ai.unknown.mtok',

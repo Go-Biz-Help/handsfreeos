@@ -4,8 +4,9 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 
 /**
  * What every screen in a business may ask about it on the client (FE-3): which business, what this person may do
- * there, and which add-ons run there (0108). The workspace layout reads it once per request (`getWorkspaceShell`)
- * and hands it down, so a panel or a button asks here instead of fetching `workspace.get` again.
+ * there, which add-ons run there (0108), and whether it has HandsFreeOS video calls. The workspace layout reads it
+ * once per request (`getWorkspaceShell`) and hands it down, so a panel or a button asks here instead of fetching
+ * `workspace.get` again.
  */
 export interface WorkspaceShell {
   readonly workspaceId: string;
@@ -13,12 +14,15 @@ export interface WorkspaceShell {
   readonly addons: readonly string[];
   /** What this person may do here, add-ons' permissions included while those add-ons run. */
   readonly permissions: readonly string[];
+  /** HandsFreeOS video calls are on here (docs/video-calls.md), so the Online place offers them. */
+  readonly videoCalls: boolean;
 }
 
 const WorkspaceShellContext = createContext<WorkspaceShell>({
   workspaceId: '',
   addons: [],
   permissions: [],
+  videoCalls: false,
 });
 
 /**
@@ -30,12 +34,14 @@ export function WorkspaceShellProvider({
   workspaceId,
   addons,
   permissions,
+  // Left out where no screen offers them: the setup pages.
+  videoCalls = false,
   children,
-}: WorkspaceShell & { children: ReactNode }) {
+}: Omit<WorkspaceShell, 'videoCalls'> & { videoCalls?: boolean; children: ReactNode }) {
   useLiveRefresh(['addon']);
   const value = useMemo(
-    () => ({ workspaceId, addons, permissions }),
-    [workspaceId, addons, permissions],
+    () => ({ workspaceId, addons, permissions, videoCalls }),
+    [workspaceId, addons, permissions, videoCalls],
   );
   return <WorkspaceShellContext.Provider value={value}>{children}</WorkspaceShellContext.Provider>;
 }

@@ -24,6 +24,7 @@ import {
   smsUsageKey,
   speechUsageKey,
   topUpUsageKey,
+  videoCallUsageKey,
 } from '../src/money/usage-keys';
 
 describe('a text', () => {
@@ -96,6 +97,12 @@ describe('the rest', () => {
       speechUsageKey('b1', 'speech.voice.kchar'),
     );
     expect(() => speechUsageKey('', 'speech.voice.kchar')).toThrow();
+  });
+
+  it('names a stretch of a video call by LiveKit’s room, so the closing webhook sent twice counts once', () => {
+    expect(videoCallUsageKey('RM_abc123')).toBe('video:RM_abc123');
+    expect(videoCallUsageKey('RM_abc123')).not.toBe(videoCallUsageKey('RM_def456'));
+    expect(() => videoCallUsageKey('')).toThrow();
   });
 
   it('names a top-up by the recharge row, which exists before the card is ever charged', () => {

@@ -216,6 +216,19 @@ jobs:
       - name: Write local env files
         run: pnpm env:local
 
+      # The video call spec's media server (docs/video-calls.md): LiveKit in its dev mode on this machine, telling the
+      # worker who comes and goes the way LiveKit Cloud does in production. Its dev keys aren't secrets. No other spec
+      # uses it, and the video call spec is skipped wherever the worker isn't on LiveKit.
+      - name: Start a local LiveKit server
+        run: |
+          docker run -d --name livekit --network host livekit/livekit-server:v1.13.10 \
+            --dev --bind 127.0.0.1 --node-ip 127.0.0.1 \
+            --config-body "$(printf 'webhook:\n  api_key: devkey\n  urls:\n    - http://127.0.0.1:4100/webhooks/livekit\n')"
+          printf '%s\n' VIDEO_PROVIDER=livekit LIVEKIT_URL=ws://127.0.0.1:7880 LIVEKIT_API_KEY=devkey \
+            LIVEKIT_API_SECRET=secret >> apps/worker/.env
+          for _ in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:7880/ && exit 0; sleep 1; done
+          docker logs livekit; exit 1
+
       # The browser tests serve this production build.
       - name: Build the web app
         run: pnpm --filter @hfos/web build
@@ -227,7 +240,7 @@ jobs:
             echo "A Supabase secret key is in the web assets"; exit 1
           fi
           # Provider secrets live in the worker only; their names or values must never reach the browser.
-          if grep -rqE "GOCSPX-[A-Za-z0-9_-]{20,}|TWILIO_AUTH_TOKEN|POSTMARK_[A-Z_]*TOKEN|WORKER_ENCRYPTION_KEY|OAUTH_CLIENT_SECRET" apps/web/.next/static; then
+          if grep -rqE "GOCSPX-[A-Za-z0-9_-]{20,}|TWILIO_AUTH_TOKEN|POSTMARK_[A-Z_]*TOKEN|WORKER_ENCRYPTION_KEY|OAUTH_CLIENT_SECRET|LIVEKIT_API_SECRET" apps/web/.next/static; then
             echo "A provider secret or its name is in the web assets"; exit 1
           fi
 
@@ -236,6 +249,10 @@ jobs:
 
       - name: Browser tests (${{ matrix.shard }} of 4)
         run: pnpm exec turbo run test:e2e -- --shard=${{ matrix.shard }}/4
+
+      - name: LiveKit's log
+        if: failure()
+        run: docker logs livekit 2>&1 | tail -n 200
 
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -76,7 +76,12 @@ export interface AppointmentRecord {
   readonly source: string;
   readonly starts_at: Date;
   readonly ends_at: Date;
-  readonly location: { kind?: string; address?: string | null; meetingUrl?: string | null } | null;
+  readonly location: {
+    kind?: string;
+    address?: string | null;
+    meetingUrl?: string | null;
+    video?: string | null;
+  } | null;
   readonly calendar: string | null;
   readonly service: string | null;
   readonly staff_names: string | null;
@@ -253,7 +258,13 @@ export class RunData {
         if (!ap) return undefined;
         if (key === 'starts_at') return ap.starts_at.toISOString();
         if (key === 'ends_at') return ap.ends_at.toISOString();
-        if (key === 'location') return ap.location?.address || ap.location?.meetingUrl || undefined;
+        // A HandsFreeOS call's own address is the team's way in; the customer's is {{appointment.join_url}}.
+        if (key === 'location')
+          return (
+            ap.location?.address ||
+            (ap.location?.video === 'handsfree' ? 'Online video call' : ap.location?.meetingUrl) ||
+            undefined
+          );
         return (ap as unknown as Record<string, unknown>)[key] ?? undefined;
       case 'conversation':
         if (!c) return undefined;
@@ -463,7 +474,8 @@ export class RunData {
                 join app.appointments a on a.id = aa.appointment_id
               where aa.appointment_id = ${this.refs.appointmentId} and aa.person_id = ${this.refs.personId}
                 and aa.workspace_id = ${ws} and aa.status <> 'cancelled'
-                and a.location->>'kind' = 'virtual' and coalesce(a.location->>'meetingUrl', '') <> ''
+                and a.location->>'kind' = 'virtual'
+                and (coalesce(a.location->>'meetingUrl', '') <> '' or a.location->>'video' = 'handsfree')
               order by aa.created_at limit 1`,
         );
         return seat ? await joinUrlFor(tx, links, seat.id) : null;

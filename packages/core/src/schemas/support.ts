@@ -339,6 +339,8 @@ export const BusinessGetOutput = z.object({
   phoneListener: PhoneListenerValue.nullable(),
   /** HandsFreeOS's own business (M19), which may use handsfreeos.com for its email. */
   isPlatform: z.boolean(),
+  /** HandsFreeOS video calls are on for it (docs/video-calls.md). */
+  videoCalls: z.boolean(),
   /** Add-ons still being built that staff handed this business to try (Real Estate, step 2). */
   addonGrants: z.array(
     z.object({
@@ -556,6 +558,17 @@ export const PhoneListenerSetOutput = z.object({
   workspaceId: uuid,
   was: PhoneListenerValue.nullable(),
   listener: PhoneListenerValue.nullable(),
+  /** False when it was already that, so a double-click is visibly a no-op. */
+  changed: z.boolean(),
+});
+
+/** Turning HandsFreeOS video calls on for one business (docs/video-calls.md), test businesses first. */
+export const VideoCallsSetInput = z.object({ workspaceId: uuid, on: z.boolean() });
+
+export const VideoCallsSetOutput = z.object({
+  workspaceId: uuid,
+  was: z.boolean(),
+  on: z.boolean(),
   /** False when it was already that, so a double-click is visibly a no-op. */
   changed: z.boolean(),
 });

@@ -70,6 +70,14 @@ export const speechUsageKey = (batchId: string, rateKey: string): string =>
   `speech:${need(batchId, 'speech batch id')}:${need(rateKey, 'rate key')}`;
 
 /**
+ * One stretch of a HandsFreeOS video call: LiveKit's id for the room from its first person in to its closing. A
+ * call started again later is a new room with a new id, so it's charged as its own stretch, and a webhook sent
+ * twice counts once.
+ */
+export const videoCallUsageKey = (roomSid: string): string =>
+  `video:${need(roomSid, 'LiveKit room sid')}`;
+
+/**
  * A business's brand registered for texting on local numbers, by the brand's own sid. Sending a turned-down
  * brand again keeps its sid, so it lands on this row and isn't charged twice (Twilio doesn't charge it twice).
  */

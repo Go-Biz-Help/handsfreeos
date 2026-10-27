@@ -154,6 +154,10 @@ describe('readEnv', () => {
       'EXPO_TOKEN',
       // HandsFreeOS's own accounts at the services add-ons connect to (Repliers).
       'ADDON_PLATFORM_KEYS',
+      // LiveKit, which carries HandsFreeOS video calls: the worker signs every ticket.
+      'LIVEKIT_API_KEY',
+      'LIVEKIT_API_SECRET',
+      'LIVEKIT_URL',
     ])
       expect(() => readEnv({ ...base, [name]: 'x' })).toThrow(/privileged/);
     // Claude Code's own names in a developer's shell, names that merely end in OAUTH, and the phone app's public

@@ -13,6 +13,8 @@ export * from './bell';
 export * from './meetings/settings';
 export * from './meetings/review';
 export * from './meetings/google';
+// HandsFreeOS video calls: the rules and words the worker, the web and the phone share.
+export * from './meetings/video-calls';
 export * from './schemas/index';
 export { slugify } from './slug';
 export const CORE_VERSION = '0.1.0';

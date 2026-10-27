@@ -66,6 +66,7 @@ import { scheduleSet, timeOffAdd, timeOffRemove } from './calendar-hours';
 import { calendarConnectionCommands } from './calendar-connection';
 import { meetingConnectionCommands } from './meeting-connection';
 import { liveMeetingCommands } from './live-meeting';
+import { videoCallCommands } from './video-call';
 import { callSuggestionCommands } from './call-suggestion';
 import { companyArchive } from './company.archive';
 import {
@@ -448,6 +449,7 @@ import { phoneModelCommands } from './phone-model';
 import { phoneListenerCommands } from './phone-listener';
 import { problemReportCommands } from './problem-report';
 import { ownBusinessCommands } from './own-business';
+import { videoCallsSwitchCommands } from './video-calls-switch';
 import { mailFolderCommands } from './mail-folder';
 import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
@@ -910,6 +912,8 @@ export const commands: readonly CommandDef[] = [
   ...calendarConnectionCommands,
   ...meetingConnectionCommands,
   ...liveMeetingCommands,
+  // HandsFreeOS video calls (docs/video-calls.md).
+  ...videoCallCommands,
   ...callSuggestionCommands,
   attendeeRecordReminder,
   waitlistPromote,
@@ -1096,6 +1100,8 @@ export const commands: readonly CommandDef[] = [
   ...phoneListenerCommands,
   // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
   ...ownBusinessCommands,
+  // HandsFreeOS video calls for one business, test businesses first (docs/video-calls.md).
+  ...videoCallsSwitchCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
   ...aiProviderCommands,
   // What our own tools saw when something didn't go, and staff marking it handled (20261027008100).
@@ -1206,6 +1212,7 @@ export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-onlin
 export * from './calendar-connection';
 export * from './meeting-connection';
 export * from './live-meeting';
+export * from './video-call';
 export * from './call-suggestion';
 export * from './number-import';
 export * from './twilio-connection';
@@ -1282,6 +1289,7 @@ export * from './phone-model';
 export * from './phone-listener';
 export * from './problem-report';
 export * from './own-business';
+export * from './video-calls-switch';
 export * from './mail-folder';
 export * from './ai-provider';
 export * from './job';

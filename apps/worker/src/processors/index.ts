@@ -14,6 +14,7 @@ import { onInboundText, onTextStatus } from './twilio-messaging';
 import { META_DELIVERY_KIND, META_LEADGEN_KIND } from '../social/events';
 import { onMetaLeadgen } from '../social/leads';
 import { onMetaMessaging } from '../social/receive';
+import { LIVEKIT_KIND, onLiveKitReport } from '../video-calls/reports';
 import {
   onCallStatus,
   onInboundCall,
@@ -38,6 +39,8 @@ export const processors: ProcessorMap = {
   [`meta:${META_DELIVERY_KIND}`]: onMetaMessaging,
   // A lead somebody sent on a Page's lead ad, read with the Page's token and filed (social/leads.ts).
   [`meta:${META_LEADGEN_KIND}`]: onMetaLeadgen,
+  // LiveKit: who came into a HandsFreeOS video call and left it, and its room closing (video-calls/reports.ts).
+  [`livekit:${LIVEKIT_KIND}`]: onLiveKitReport,
   'postmark:email.inbound': onInboundEmail,
   'postmark:email.event': onEmailEvent,
   // Mail to support@handsfreeos.com, filed as a ticket instead of into anybody's business (M13).

@@ -4,6 +4,7 @@ import { publicEnv } from '../env';
 import { supabaseBrowser } from '../supabase/client';
 import { ApiError } from './errors';
 import { mintCorrelationId } from './own-requests';
+import type { VideoTicket } from './public-booking';
 
 /**
  * Calls the worker's own HTTP routes (number search now; voice tokens and mailbox sign-in later) with the
@@ -352,4 +353,27 @@ export interface OwnAccountListing {
  */
 export function listOwnNumbers(workspaceId: string): Promise<OwnAccountListing> {
   return workerPost('/v1/telephony/own-numbers', { workspaceId });
+}
+
+/** The team's Join on a HandsFreeOS video call (docs/video-calls.md): straight in, on a ticket the worker signed. */
+export interface TeamJoin {
+  readonly workspaceId: string;
+  readonly call: {
+    readonly id: string;
+    readonly state: 'open' | 'live' | 'ended';
+    readonly appointmentId: string | null;
+    readonly hostUserId: string | null;
+  };
+  /** Their identity in the room. */
+  readonly personId: string;
+  readonly name: string;
+  readonly ticket: VideoTicket;
+}
+
+/**
+ * Joining as someone from the team. A call they can't see (another business's, or an appointment that isn't theirs
+ * to see) is refused, and the page asks to be let in instead, like anyone else on the link.
+ */
+export function joinVideoCall(callId: string): Promise<TeamJoin> {
+  return workerPost('/v1/video-calls/join', { callId });
 }

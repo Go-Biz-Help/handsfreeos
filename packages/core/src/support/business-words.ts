@@ -307,6 +307,14 @@ export const DESK_PHONE_LISTENER_WORDS = {
   default: 'Default',
 } as const;
 
+export const DESK_VIDEO_CALLS_WORDS = {
+  title: 'HandsFreeOS video calls',
+  explain:
+    'Their Online places can make HandsFreeOS video calls: nothing to connect, customers join from their own link. Turn it on for test businesses first. It counts from the next appointment booked.',
+  on: 'On',
+  off: 'Off',
+} as const;
+
 export const DESK_OWN_BUSINESS_WORDS = {
   title: 'HandsFreeOS’s own business',
   explain:

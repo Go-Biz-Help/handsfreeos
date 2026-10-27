@@ -30,6 +30,7 @@ import { ViewAsButton } from '@/components/admin/view-as';
 import { OwnBusinessBlock } from '@/components/admin/own-business-block';
 import { PartnerPayoutsBlock } from '@/components/admin/partner-payouts-block';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
+import { VideoCallsBlock } from '@/components/admin/video-calls-block';
 import { WalletBlock } from '@/components/admin/wallet-block';
 import { STATUS_WORD, whenWords } from '@/components/admin/ticket-bits';
 import { Badge } from '@/components/ui/badge';
@@ -172,6 +173,12 @@ export default async function BusinessPage({
         phoneModel={detail.phoneModel}
         phoneListener={detail.phoneListener}
         canChange={me.staff?.permissions.includes('platform.ai.manage') ?? false}
+      />
+
+      <VideoCallsBlock
+        workspaceId={workspaceId}
+        videoCalls={detail.videoCalls}
+        canChange={me.staff?.permissions.includes('platform.addons.manage') ?? false}
       />
 
       {me.staff?.permissions.includes('platform.view_as') ? (

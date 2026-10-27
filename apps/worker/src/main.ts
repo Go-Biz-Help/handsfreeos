@@ -26,6 +26,7 @@ import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
 import { createPayments, PAYMENT_NAME, WEBHOOK_SECRET_SETTING } from './payments/index';
 import { createPush } from './push/index';
+import { createVideoCalls } from './video-calls/index';
 import { createSafeFetch } from './http/safe-fetch';
 import { buildHttpServer } from './http/server';
 import { processJobs } from './jobs';
@@ -140,6 +141,8 @@ const services: EngineServices = {
   aiSwitch,
   // Push notifications to the phone app: Expo's service, or the stand-in locally (push/index.ts).
   push: createPush(env),
+  // HandsFreeOS video calls: LiveKit, the stand-in locally, or null before LiveKit is set up (video-calls/).
+  videoCalls: createVideoCalls(env),
   // Deleting an account ends its sessions and blocks sign-in with the worker's own secret key (account/).
   ...(env.supabaseUrl && env.supabaseSecretKey
     ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
@@ -263,6 +266,7 @@ log.info(
     addonConnectors: env.addonConnectors,
     addonPlatformKeys: Object.keys(env.addonPlatformKeys),
     push: env.pushProvider,
+    video: env.videoProvider,
     assistant: env.assistantProvider,
     aiBackup: aiSwitch ? 'openai' : 'none',
     handlers: Object.keys(handlers),
@@ -298,6 +302,10 @@ else {
 }
 if (env.pushProvider === 'none')
   log.warn('EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is');
+if (env.videoProvider === 'none')
+  log.warn(
+    'LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET are not set: HandsFreeOS video calls are off until they are',
+  );
 // A payment app without its webhook secret refuses every event it is sent, and after days of refusals the
 // provider turns the endpoint off, as Stripe did on 2026-10-08 with nothing here saying why.
 for (const name of ['stripe', 'square'] as const) {

@@ -57,6 +57,7 @@ import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
 import { ReassignDialog } from './reassign-dialog';
 import { JobBlock } from './job-block';
+import { VideoCallBlock } from './video-call-block';
 import { invoiceThisVisit, useVisitMoney, VisitMoneyBlock } from './visit-money';
 
 const Section = ({
@@ -531,6 +532,9 @@ export function AppointmentSheet({
           ? 'Host'
           : 'Assigned';
   const address = appt?.location.address ?? null;
+  // A HandsFreeOS call's link is the team's way in, shown as Join under Video call rather than as a place.
+  const meetingLink =
+    appt?.location.video === 'handsfree' ? null : (appt?.location.meetingUrl ?? null);
   /** On a calendar that needs no staff: no people to show or change, only the equipment. */
   const staffless =
     !!appt && appt.staff.length === 0 && (!config || config.team.assignment === 'none');
@@ -918,6 +922,12 @@ export function AppointmentSheet({
                 </Section>
               ) : null}
 
+              {appt.location.video === 'handsfree' ? (
+                <Section label="Video call">
+                  <VideoCallBlock workspaceId={workspaceId} appt={appt} version={version} />
+                </Section>
+              ) : null}
+
               {appt.location.video === 'zoom' &&
               !appt.location.meetingUrl &&
               appt.status === 'scheduled' ? (
@@ -969,7 +979,7 @@ export function AppointmentSheet({
                 </Section>
               ) : null}
 
-              {address || appt.location.meetingUrl || appt.location.kind === 'phone' ? (
+              {address || meetingLink || appt.location.kind === 'phone' ? (
                 <Section label="Where">
                   <div className="flex items-start gap-2.5 pt-1.5">
                     <MapPin
@@ -977,7 +987,7 @@ export function AppointmentSheet({
                       strokeWidth={1.5}
                     />
                     <span className="min-w-0 flex-1 break-words text-[13px]">
-                      {address ?? appt.location.meetingUrl ?? 'Phone call'}
+                      {address ?? meetingLink ?? 'Phone call'}
                     </span>
                     {address ? (
                       <a

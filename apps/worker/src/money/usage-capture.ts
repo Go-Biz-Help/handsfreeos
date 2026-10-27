@@ -13,7 +13,13 @@
  * to us, so it is billed on. A call that rang somebody's own cell is two legs, so it is two charges. Getting
  * this wrong is not a rounding error — it is the difference between a 1.5× margin and a loss.
  */
-import { callLegUsageKey, callUsageKey, mmsUsageKey, smsUsageKey } from '@hfos/core/server';
+import {
+  callLegUsageKey,
+  callUsageKey,
+  mmsUsageKey,
+  smsUsageKey,
+  videoCallUsageKey,
+} from '@hfos/core/server';
 import {
   aiRateKeys,
   roundedSeconds,
@@ -225,6 +231,39 @@ export async function chargeAi(
     entityId: input.entityId ?? null,
     ...(input.model ? { meta: { model: input.model } } : {}),
     ...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
+  });
+}
+
+export interface VideoCallUsage {
+  /** LiveKit's id for the room as it ran this stretch of the call: one charge per stretch. */
+  readonly roomSid: string;
+  /** Everyone's seconds in the call this stretch, added up. The AI's listener never counts. */
+  readonly personSeconds: number;
+  /** How many people the call has had, for the statement. */
+  readonly people: number;
+  readonly title: string;
+  readonly callId: string;
+  readonly occurredAt?: Date;
+}
+
+/**
+ * One stretch of a HandsFreeOS video call, once its room closes: every person's minutes together, to the second.
+ * LiveKit bills a participant minute per person, so two people for ten minutes is twenty.
+ */
+export async function chargeVideoCall(
+  deps: WalletDeps,
+  scope: TenantScope,
+  usage: VideoCallUsage,
+): Promise<Charged> {
+  const minutes = Math.max(0, Number.isFinite(usage.personSeconds) ? usage.personSeconds : 0) / 60;
+  if (minutes <= 0) return NOT_CHARGED;
+  return chargeUsage(deps, scope, {
+    parts: [{ key: 'video.minute', quantity: Math.round(minutes * 10_000) / 10_000 }],
+    idempotencyKey: videoCallUsageKey(usage.roomSid),
+    subject: `Video call: ${usage.title}`,
+    providerRef: usage.roomSid,
+    meta: { videoCallId: usage.callId, people: usage.people, seconds: usage.personSeconds },
+    ...(usage.occurredAt ? { occurredAt: usage.occurredAt } : {}),
   });
 }
 

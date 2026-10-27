@@ -281,6 +281,8 @@ async function main(): Promise<void> {
     ai: { provider: null },
     // The seed registers no phones, so nothing is pushed; the stand-in keeps it that way.
     push: fakePushServices(),
+    // The seed holds no calls, so LiveKit is never asked anything.
+    videoCalls: null,
     workerId: `seed:${hostname()}:${process.pid}`,
     batchSize: 50,
     reservedOnly: true,

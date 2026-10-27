@@ -1,0 +1,686 @@
+/**
+ * HandsFreeOS video calls (docs/video-calls.md) through the worker's own routes, jobs and LiveKit's webhooks, on the
+ * real database, with LiveKit's stand-in.
+ *
+ * What's worth holding:
+ *   - an appointment booked for one gets its call, the team's address for it goes on its place, and the customer's
+ *     messages carry their own Join link instead;
+ *   - the team joins with a ticket for that room alone; nobody signed out or from another business gets one;
+ *   - a customer's link opens the call an hour ahead and until it's over; they wait until someone from the team is
+ *     in, then go straight in, and the team's phones hear once per wait;
+ *   - LiveKit is believed only when it signed; someone taken out who comes back on an old ticket is taken out again;
+ *   - taking out, muting and ending reach LiveKit, and when the room closes everyone's minutes go on the balance once;
+ *   - anyone else on the call's link asks to be let in, sees the business's name and never the appointment's, and only
+ *     their own page hears how it went;
+ *   - with calls off for the business, or LiveKit not set up, nothing opens.
+ */
+import { randomBytes, randomUUID } from 'node:crypto';
+import {
+  calendarAvailability,
+  pushDeviceRegister,
+  videoCallAdmit,
+  videoCallEnd,
+  videoCallMute,
+  videoCallRemove,
+  videoCallRoom,
+  videoCallTurnAway,
+  videoCallUsageKey,
+  LISTENER_IDENTITY,
+} from '@hfos/core/server';
+import { asWorker, rows, sql } from '@hfos/db/client';
+import { closeTestDbs, createTestUser, signInTestUser, testDbs } from '@hfos/db/testing';
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { passThroughBotCheck } from '../src/booking/bot-check';
+import { loadBooking } from '../src/booking/visit';
+import { buildHttpServer } from '../src/http/server';
+import { queueMeetingSync } from '../src/meetings/sync';
+import { fakeVideoWebhook, readFakeTicket } from '../src/video-calls/fake';
+import {
+  admin,
+  at,
+  attendeeByToken,
+  bookOnline,
+  BUSINESS,
+  customer,
+  drain,
+  errorOf,
+  HOUR,
+  iso,
+  makeCalendar,
+  makeWorld,
+  MIN,
+  query,
+  run,
+  type World,
+} from './booking-world';
+import { testTokenVerifier } from './finish-sign-in';
+
+const PHONE_BROWSER = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15';
+const ROOM = { max: 10_000, timeWindow: MIN };
+
+let w: World;
+let calendar: { id: string; slug: string };
+let ownerToken: string;
+let ownerPhone: string;
+
+beforeAll(async () => {
+  w = await makeWorld('vcalls');
+  // Support's switch (the /admin page's, tested in core).
+  await rows(
+    admin(),
+    sql`update app.workspaces set video_calls = true where id = ${w.workspaceId}`,
+  );
+  calendar = await makeCalendar(w, 'Video consult', {
+    durations: { minutes: [10], step: 10 },
+    locations: { options: [{ kind: 'virtual', video: 'handsfree' }] },
+  });
+  ownerToken = await signInTestUser(w.owner);
+  ownerPhone = `ExponentPushToken[vcalls-${randomUUID().slice(0, 12)}]`;
+  await run(w, pushDeviceRegister, {
+    platform: 'ios',
+    token: ownerPhone,
+    appVersion: '1.0.0',
+    deviceName: 'ios',
+  });
+}, 120_000);
+afterAll(async () => {
+  await w.app.close();
+  await closeTestDbs();
+});
+
+/** The calendar's soonest open time, a minute or more from now. */
+async function soonest(): Promise<number> {
+  const out = await query(w, calendarAvailability, {
+    workspaceId: w.workspaceId,
+    calendarId: calendar.id,
+    from: iso(Date.now() + MIN),
+    to: iso(Date.now() + HOUR),
+  });
+  const slot = out.slots[0];
+  if (!slot) throw new Error('no open time in the next hour');
+  return Date.parse(slot.startsAt);
+}
+
+/** The Join link a customer's own messages carry. */
+async function joinLinkOf(attendeeId: string): Promise<string> {
+  const b = await asWorker(
+    w.s.db,
+    { workspaceId: w.workspaceId, organizationId: w.organizationId },
+    (tx) => loadBooking(tx, w.s, attendeeId, { forCustomer: true }),
+  );
+  return b!.visit.meetingUrl!;
+}
+
+/** Booked on the public page, and the worker caught up: its call made and its address on the place. */
+async function booked(first: string, startsAt: number) {
+  const b = await bookOnline(w, calendar.slug, startsAt, customer(first));
+  const seat = await attendeeByToken(b.manageToken);
+  await drain(w);
+  const [c] = await rows<{ id: string }>(
+    admin(),
+    sql`select id from app.video_calls where appointment_id = ${seat.appointment_id}`,
+  );
+  if (!c) throw new Error('the booking got no video call');
+  return {
+    attendeeId: seat.id,
+    appointmentId: seat.appointment_id,
+    callId: c.id,
+    room: videoCallRoom(c.id),
+    link: await joinLinkOf(seat.id),
+  };
+}
+
+const placeOf = async (appointmentId: string) =>
+  (
+    await rows<{ location: Record<string, unknown> }>(
+      admin(),
+      sql`select location from app.appointments where id = ${appointmentId}`,
+    )
+  )[0]!.location;
+
+const callRow = async (callId: string) =>
+  (
+    await rows<{ state: string; room_sid: string | null; host_user_id: string | null }>(
+      admin(),
+      sql`select state, room_sid, host_user_id from app.video_calls where id = ${callId}`,
+    )
+  )[0]!;
+
+/** Someone from the team presses Join on the appointment. */
+const teamJoin = (token: string | null, callId: string, app: FastifyInstance = w.app) =>
+  app.inject({
+    method: 'POST',
+    url: '/v1/video-calls/join',
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    payload: JSON.stringify({ callId }),
+  });
+
+const tokenOf = (link: string) => link.split('/j/')[1]!;
+
+/** The customer's page opening their Join link. */
+const openLink = (link: string, app: FastifyInstance = w.app) =>
+  app.inject({
+    method: 'POST',
+    url: `/public/join/${tokenOf(link)}`,
+    headers: { 'content-type': 'application/json', 'user-agent': PHONE_BROWSER },
+    payload: '{}',
+  });
+
+/** The customer pressing Join on that page (and the page asking again while they wait). */
+const enter = (link: string, body: Record<string, unknown>) =>
+  w.app.inject({
+    method: 'POST',
+    url: `/public/join/${tokenOf(link)}/enter`,
+    headers: { 'content-type': 'application/json', 'user-agent': PHONE_BROWSER },
+    payload: JSON.stringify(body),
+  });
+
+const publicCall = (callId: string, app: FastifyInstance = w.app) =>
+  app.inject({ method: 'GET', url: `/public/calls/${callId}` });
+
+const knock = (callId: string, body: Record<string, unknown>) =>
+  w.app.inject({
+    method: 'POST',
+    url: `/public/calls/${callId}/knock`,
+    headers: { 'content-type': 'application/json' },
+    payload: JSON.stringify(body),
+  });
+
+const knockStatus = (callId: string, personId: string, key: string) =>
+  w.app.inject({
+    method: 'POST',
+    url: `/public/calls/${callId}/knock/${personId}`,
+    headers: { 'content-type': 'application/json' },
+    payload: JSON.stringify({ key }),
+  });
+
+/** The random key a waiting page keeps to itself. */
+const pageKey = () => randomBytes(32).toString('base64url');
+
+/** LiveKit's webhook, as the stand-in signs it. */
+function hook(
+  event: string,
+  room: string,
+  opts: { identity?: string; participantSid?: string; roomSid?: string; at?: number } = {},
+  app: FastifyInstance = w.app,
+  id = `EV_${randomUUID()}`,
+) {
+  const e = fakeVideoWebhook({
+    event,
+    id,
+    createdAt: BigInt(Math.floor((opts.at ?? Date.now()) / 1000)),
+    room: { sid: opts.roomSid ?? 'RM_default', name: room },
+    ...(opts.identity
+      ? {
+          participant: {
+            sid: opts.participantSid ?? `PA_${randomUUID().slice(0, 8)}`,
+            identity: opts.identity,
+          },
+        }
+      : {}),
+  });
+  return app.inject({
+    method: 'POST',
+    url: '/webhooks/livekit',
+    headers: { 'content-type': 'application/webhook+json', authorization: e.authorization },
+    payload: e.body,
+  });
+}
+
+/** LiveKit says someone came into the room, and the worker acts on it. */
+async function cameIn(
+  room: string,
+  identity: string,
+  opts: { participantSid?: string; roomSid?: string; at?: number } = {},
+) {
+  const res = await hook('participant_joined', room, { identity, ...opts });
+  expect(res.statusCode, res.body).toBe(200);
+  await drain(w);
+}
+
+const stored = async (room: string) =>
+  (
+    await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.webhook_deliveries
+          where provider = 'livekit' and account_ref = ${room}`,
+    )
+  )[0]!.n;
+
+const ticketOf = (res: LightMyRequestResponse) =>
+  readFakeTicket((res.json() as { ticket: { token: string } }).ticket.token);
+
+const pushesAbout = (callId: string) =>
+  w.s.push.fake.sent.filter(
+    (p) => p.message.to === ownerPhone && p.message.collapseId === `video-call-${callId}`,
+  );
+
+const joinedAt = async (attendeeId: string) =>
+  (
+    await rows<{ joined_at: Date | null }>(
+      admin(),
+      sql`select joined_at from app.appointment_attendees where id = ${attendeeId}`,
+    )
+  )[0]!.joined_at;
+
+describe('an appointment booked for a video call', () => {
+  it('gets its call, with the team’s address on its place and the customer’s own Join link in their messages', async () => {
+    const b = await booked('Ana', at(1, '10:00'));
+    expect(await placeOf(b.appointmentId)).toMatchObject({
+      kind: 'virtual',
+      video: 'handsfree',
+      meetingUrl: `${w.s.webUrl}/call/${b.callId}`,
+      meetingId: b.callId,
+    });
+    expect(await callRow(b.callId)).toMatchObject({ state: 'open', host_user_id: w.owner.id });
+    expect(b.link).toMatch(/\/j\/[0-9A-Za-z]{18}$/);
+    const staff = await asWorker(
+      w.s.db,
+      { workspaceId: w.workspaceId, organizationId: w.organizationId },
+      (tx) => loadBooking(tx, w.s, b.attendeeId),
+    );
+    expect(staff!.visit.meetingUrl).toBe(`${w.s.webUrl}/call/${b.callId}`);
+
+    // The job again (a move, a reassignment): the same call, the same address.
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    await asWorker(w.s.db, scope, (tx) => queueMeetingSync(tx, scope, b.appointmentId));
+    await drain(w);
+    const calls = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.video_calls where appointment_id = ${b.appointmentId}`,
+    );
+    expect(calls).toEqual([{ id: b.callId }]);
+    expect(await placeOf(b.appointmentId)).toMatchObject({ meetingId: b.callId });
+  });
+});
+
+describe('the team', () => {
+  it('joins with a ticket for the call’s room alone, and nobody signed out or from elsewhere gets one', async () => {
+    const b = await booked('Bea', at(1, '11:00'));
+    expect((await teamJoin(null, b.callId)).statusCode).toBe(401);
+    const stranger = await createTestUser('vcalls-stranger');
+    const elsewhere = await teamJoin(await signInTestUser(stranger), b.callId);
+    expect(elsewhere.statusCode).toBe(404);
+    expect((await teamJoin(ownerToken, randomUUID())).statusCode).toBe(404);
+
+    const res = await teamJoin(ownerToken, b.callId);
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json() as { workspaceId: string; personId: string; name: string };
+    expect(body).toMatchObject({
+      workspaceId: w.workspaceId,
+      call: { id: b.callId, state: 'open', appointmentId: b.appointmentId },
+      name: 'Dale Owner',
+      ticket: { url: 'fake:' },
+    });
+    expect(ticketOf(res)).toEqual({
+      room: b.room,
+      identity: body.personId,
+      name: 'Dale Owner',
+      kind: 'team',
+    });
+    expect(res.headers['cache-control']).toBe('no-store');
+    // Pressed again (a second tab): the same person in the room, not a second one.
+    expect((await teamJoin(ownerToken, b.callId)).json()).toMatchObject({
+      personId: body.personId,
+    });
+  });
+});
+
+describe('a customer on their own Join link', () => {
+  it('opens the call from an hour ahead until it’s over, and says when outside that', async () => {
+    const later = await booked('Cal', at(1, '12:00'));
+    expect((await openLink(later.link)).json()).toMatchObject({
+      state: 'early',
+      title: 'Video consult',
+      business: BUSINESS,
+    });
+    const tooSoon = await enter(later.link, { name: 'Cal Customer' });
+    expect(tooSoon.statusCode).toBe(409);
+    expect(errorOf(tooSoon).rule).toBe('video_call_early');
+
+    const soon = await booked('Dee', await soonest());
+    const opened = await openLink(soon.link);
+    expect(opened.statusCode, opened.body).toBe(200);
+    expect(opened.json()).toMatchObject({
+      state: 'call',
+      title: 'Video consult',
+      business: BUSINESS,
+      name: 'Dee Customer',
+      look: expect.any(Object),
+    });
+    // Opening the page isn't joining: that's counted once they're really in the call.
+    expect(await joinedAt(soon.attendeeId)).toBeNull();
+
+    // It ran a few hours ago.
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '3 hours',
+            ends_at = now() - interval '2 hours 50 minutes'
+          where id = ${later.appointmentId}`,
+    );
+    expect((await openLink(later.link)).json()).toMatchObject({ state: 'over' });
+    const over = await enter(later.link, { name: 'Cal Customer' });
+    expect(over.statusCode).toBe(409);
+    expect(errorOf(over).rule).toBe('video_call_over');
+  });
+
+  it('waits until someone from the team is in, then goes straight in, and the team hears once per wait', async () => {
+    const b = await booked('Eli', await soonest());
+    const first = await enter(b.link, { name: 'Eli Customer' });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json()).toMatchObject({
+      status: 'waiting',
+      callId: b.callId,
+      name: 'Eli Customer',
+      host: 'Dale',
+      ticket: null,
+    });
+    await drain(w);
+    expect(pushesAbout(b.callId)).toEqual([
+      expect.objectContaining({
+        message: expect.objectContaining({ title: 'Eli Customer is waiting in the video call' }),
+      }),
+    ]);
+    // The page asks again while they wait: no new wait, nobody told again.
+    expect((await enter(b.link, { name: 'Eli Customer' })).json()).toMatchObject({
+      status: 'waiting',
+    });
+    await drain(w);
+    expect(pushesAbout(b.callId)).toHaveLength(1);
+
+    const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string };
+    // Let in by the team isn't in the room yet: still waiting.
+    expect((await enter(b.link, { name: 'Eli Customer' })).json()).toMatchObject({
+      status: 'waiting',
+    });
+    await cameIn(b.room, team.personId, { roomSid: 'RM_eli' });
+    expect(await callRow(b.callId)).toMatchObject({ state: 'live', room_sid: 'RM_eli' });
+
+    const inNow = await enter(b.link, { name: 'Eli Customer' });
+    expect(inNow.json()).toMatchObject({ status: 'in', ticket: { url: 'fake:' } });
+    const said = inNow.json() as { personId: string };
+    expect(ticketOf(inNow)).toEqual({
+      room: b.room,
+      identity: said.personId,
+      name: 'Eli Customer',
+      kind: 'customer',
+    });
+    expect(await joinedAt(b.attendeeId)).toBeNull();
+    await cameIn(b.room, said.personId, { roomSid: 'RM_eli' });
+    // Really in the call: that's joining, for attendance and workflows.
+    expect(await joinedAt(b.attendeeId)).not.toBeNull();
+  });
+});
+
+describe('LiveKit’s word', () => {
+  it('is believed only when signed, and keeps nothing about other rooms or the AI’s listener', async () => {
+    const b = await booked('Fay', at(1, '13:00'));
+    const unsigned = await w.app.inject({
+      method: 'POST',
+      url: '/webhooks/livekit',
+      headers: { 'content-type': 'application/webhook+json' },
+      payload: JSON.stringify({ event: 'room_finished', id: 'EV_x', room: { name: b.room } }),
+    });
+    expect(unsigned.statusCode).toBe(401);
+    const report = fakeVideoWebhook({ event: 'room_finished', id: 'EV_y', room: { name: b.room } });
+    const forged = await w.app.inject({
+      method: 'POST',
+      url: '/webhooks/livekit',
+      headers: { 'content-type': 'application/webhook+json', authorization: 'not-the-key' },
+      payload: report.body,
+    });
+    expect(forged.statusCode).toBe(401);
+
+    // Nothing to keep: a room starting, the AI's listener, a room that isn't a call, a call that isn't there.
+    const otherRoom = 'someone-elses-room';
+    const goneCall = videoCallRoom(randomUUID());
+    for (const told of [
+      await hook('room_started', b.room),
+      await hook('participant_joined', b.room, { identity: LISTENER_IDENTITY }),
+      await hook('participant_joined', otherRoom, { identity: randomUUID() }),
+      await hook('participant_joined', goneCall, { identity: randomUUID() }),
+    ])
+      expect(told.statusCode).toBe(200);
+    for (const room of [b.room, otherRoom, goneCall]) expect(await stored(room)).toBe(0);
+
+    // Told twice (LiveKit retries): kept once.
+    const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string };
+    const id = `EV_${randomUUID()}`;
+    for (let i = 0; i < 2; i++)
+      expect(
+        (
+          await hook(
+            'participant_joined',
+            b.room,
+            { identity: team.personId, roomSid: 'RM_fay' },
+            w.app,
+            id,
+          )
+        ).statusCode,
+      ).toBe(200);
+    expect(await stored(b.room)).toBe(1);
+    await drain(w);
+    expect(await callRow(b.callId)).toMatchObject({ state: 'live' });
+  });
+
+  it('takes someone out who comes back on an old ticket, and they come back only by asking', async () => {
+    const b = await booked('Gus', await soonest());
+    const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string };
+    await cameIn(b.room, team.personId, { roomSid: 'RM_gus' });
+    const gus = (await enter(b.link, { name: 'Gus Customer' })).json() as {
+      status: string;
+      personId: string;
+    };
+    expect(gus.status).toBe('in');
+    await cameIn(b.room, gus.personId, { roomSid: 'RM_gus', participantSid: 'PA_gus_1' });
+
+    await run(w, videoCallRemove, {
+      workspaceId: w.workspaceId,
+      callId: b.callId,
+      personId: gus.personId,
+    });
+    await drain(w);
+    const takenOut = () => w.s.videoCalls.removed.filter((r) => r.identity === gus.personId);
+    expect(takenOut()).toEqual([{ room: b.room, identity: gus.personId }]);
+    const left = await hook('participant_left', b.room, {
+      identity: gus.personId,
+      participantSid: 'PA_gus_1',
+      roomSid: 'RM_gus',
+    });
+    expect(left.statusCode).toBe(200);
+    await drain(w);
+
+    // Their page reconnects with the ticket it still has: straight back out.
+    await cameIn(b.room, gus.personId, { roomSid: 'RM_gus', participantSid: 'PA_gus_2' });
+    expect(takenOut()).toHaveLength(2);
+
+    // Join again only says they were taken out; asking to come back is a request the team answers.
+    expect((await enter(b.link, { name: 'Gus Customer' })).json()).toMatchObject({
+      status: 'removed',
+      ticket: null,
+    });
+    const key = pageKey();
+    const asked = await enter(b.link, { name: 'Gus Customer', ask: true, key });
+    expect(asked.json()).toMatchObject({ status: 'knocking', ticket: null });
+    const knockId = (asked.json() as { personId: string }).personId;
+    expect(knockId).not.toBe(gus.personId);
+    await drain(w);
+    expect(pushesAbout(b.callId).at(-1)?.message.title).toBe(
+      'Gus Customer is asking to join the video call',
+    );
+    expect((await knockStatus(b.callId, knockId, key)).json()).toMatchObject({
+      status: 'waiting',
+    });
+  });
+
+  it('mutes and ends for everyone, and the room closing puts everyone’s minutes on the balance once', async () => {
+    const b = await booked('Hal', await soonest());
+    const roomSid = `RM_${randomUUID().slice(0, 12)}`;
+    const t0 = Date.now() - 10 * MIN;
+    const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string };
+    await cameIn(b.room, team.personId, { roomSid, at: t0 });
+    const hal = (await enter(b.link, { name: 'Hal Customer' })).json() as { personId: string };
+    await cameIn(b.room, hal.personId, { roomSid, at: t0 + 60_000 });
+
+    await run(w, videoCallMute, {
+      workspaceId: w.workspaceId,
+      callId: b.callId,
+      personId: hal.personId,
+    });
+    await drain(w);
+    expect(w.s.videoCalls.muted).toContainEqual({ room: b.room, identity: hal.personId });
+
+    await run(w, videoCallEnd, { workspaceId: w.workspaceId, callId: b.callId });
+    await drain(w);
+    expect(w.s.videoCalls.closed).toContain(b.room);
+
+    // LiveKit closes the room five minutes in: Dale's five minutes and Hal's four.
+    const closedAt = t0 + 5 * MIN;
+    const id = `EV_${randomUUID()}`;
+    expect(
+      (await hook('room_finished', b.room, { roomSid, at: closedAt }, w.app, id)).statusCode,
+    ).toBe(200);
+    await drain(w);
+    const charges = () =>
+      rows<{ quantity: string; idempotency_key: string; subject: string; amount_cents: string }>(
+        admin(),
+        sql`select quantity::text, idempotency_key, subject, amount_cents::text from app.usage_ledger
+            where workspace_id = ${w.workspaceId} and rate_key = 'video.minute' and provider_ref = ${roomSid}`,
+      );
+    const [charge, ...more] = await charges();
+    expect(more).toEqual([]);
+    expect(Number(charge!.quantity)).toBe(9);
+    expect(charge).toMatchObject({
+      idempotency_key: videoCallUsageKey(roomSid),
+      subject: expect.stringContaining('Video call: '),
+    });
+    expect(Number(charge!.amount_cents)).toBeLessThan(0);
+    expect(await callRow(b.callId)).toMatchObject({ state: 'ended', room_sid: null });
+
+    // Told again, under the same id or another: still once.
+    await hook('room_finished', b.room, { roomSid, at: closedAt }, w.app, id);
+    await hook('room_finished', b.room, { roomSid, at: closedAt + 1000 });
+    await drain(w);
+    expect(await charges()).toHaveLength(1);
+  });
+});
+
+describe('anyone else on the call’s link', () => {
+  it('asks to be let in, sees the business and not the appointment, and only their page hears back', async () => {
+    const b = await booked('Ivy', at(1, '14:00'));
+    const page = await publicCall(b.callId);
+    expect(page.statusCode, page.body).toBe(200);
+    expect(page.json()).toMatchObject({
+      business: BUSINESS,
+      state: 'open',
+      host: 'Dale',
+      ready: true,
+    });
+    expect(page.body).not.toContain('Video consult');
+    expect(page.body).not.toContain('Ivy');
+    expect((await publicCall('not-a-call')).statusCode).toBe(404);
+    expect((await publicCall(randomUUID())).statusCode).toBe(404);
+
+    const blank = await knock(b.callId, { name: '  ', key: pageKey() });
+    expect(blank.statusCode).toBe(400);
+    const camKey = pageKey();
+    const cam = await knock(b.callId, { name: 'Cam Guest', key: camKey });
+    expect(cam.statusCode, cam.body).toBe(200);
+    expect(cam.json()).toMatchObject({ status: 'waiting', host: 'Dale' });
+    const camId = (cam.json() as { personId: string }).personId;
+    await drain(w);
+    expect(pushesAbout(b.callId).at(-1)?.message.title).toBe(
+      'Cam Guest is asking to join the video call',
+    );
+
+    // Only the page that asked holds the key.
+    expect((await knockStatus(b.callId, camId, pageKey())).statusCode).toBe(404);
+    expect((await knockStatus(b.callId, camId, camKey)).json()).toMatchObject({
+      status: 'waiting',
+      name: 'Cam Guest',
+      ticket: null,
+    });
+
+    await run(w, videoCallAdmit, { workspaceId: w.workspaceId, callId: b.callId, personId: camId });
+    const letIn = await knockStatus(b.callId, camId, camKey);
+    expect(letIn.json()).toMatchObject({ status: 'in', ticket: { url: 'fake:' } });
+    expect(ticketOf(letIn)).toEqual({
+      room: b.room,
+      identity: camId,
+      name: 'Cam Guest',
+      kind: 'guest',
+    });
+
+    const deeKey = pageKey();
+    const dee = (await knock(b.callId, { name: 'Dee Guest', key: deeKey })).json() as {
+      personId: string;
+    };
+    await run(w, videoCallTurnAway, {
+      workspaceId: w.workspaceId,
+      callId: b.callId,
+      personId: dee.personId,
+    });
+    expect((await knockStatus(b.callId, dee.personId, deeKey)).json()).toMatchObject({
+      status: 'turned_away',
+      ticket: null,
+    });
+    // Turned away, they never come in on a ticket: LiveKit letting them in is undone.
+    await cameIn(b.room, dee.personId);
+    expect(w.s.videoCalls.removed).toContainEqual({ room: b.room, identity: dee.personId });
+  });
+});
+
+describe('with nothing to hold the call', () => {
+  it('opens nothing while the business has calls off', async () => {
+    const b = await booked('Jo', await soonest());
+    await rows(
+      admin(),
+      sql`update app.workspaces set video_calls = false where id = ${w.workspaceId}`,
+    );
+    try {
+      expect((await openLink(b.link)).json()).toMatchObject({ state: 'no_link' });
+      const team = await teamJoin(ownerToken, b.callId);
+      expect(team.statusCode).toBe(409);
+      expect(errorOf(team).rule).toBe('video_calls_off');
+      const refused = await enter(b.link, { name: 'Jo Customer' });
+      expect(refused.statusCode).toBe(409);
+      expect(errorOf(refused).rule).toBe('video_calls_off');
+      expect((await publicCall(b.callId)).json()).toMatchObject({ ready: false });
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set video_calls = true where id = ${w.workspaceId}`,
+      );
+    }
+  });
+
+  it('says calls aren’t ready, and believes no webhook, before LiveKit is set up', async () => {
+    const b = await booked('Kim', at(1, '15:00'));
+    const bare = await buildHttpServer({
+      ...w.s,
+      videoCalls: null,
+      httpDb: testDbs().worker.db,
+      verifyToken: testTokenVerifier(),
+      webOrigins: ['http://localhost:3000'],
+      booking: {
+        botCheck: passThroughBotCheck,
+        limits: { read: ROOM, book: ROOM, manageRead: ROOM, manageWrite: ROOM },
+      },
+    });
+    try {
+      const team = await teamJoin(ownerToken, b.callId, bare);
+      expect(team.statusCode).toBe(503);
+      expect(errorOf(team).rule).toBe('video_calls_unavailable');
+      expect((await openLink(b.link, bare)).json()).toMatchObject({ state: 'no_link' });
+      expect((await publicCall(b.callId, bare)).json()).toMatchObject({ ready: false });
+      const told = await hook('room_finished', b.room, {}, bare);
+      expect(told.statusCode).toBe(401);
+    } finally {
+      await bare.close();
+    }
+  });
+});

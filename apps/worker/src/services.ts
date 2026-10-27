@@ -28,6 +28,7 @@ import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
 import type { Transcriber } from './telephony/transcriber';
 import type { VideoConverter } from './telephony/video';
+import type { VideoCallProvider } from './video-calls/provider';
 import type { SpeechServices } from './voice-agent/speech';
 
 /** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
@@ -135,6 +136,11 @@ export interface WorkerServices {
   readonly aiSwitch?: AiSwitchboard | null;
   /** Push notifications to the phone app: Expo's service, or the stand-in locally and in tests (push/index.ts). */
   readonly push: PushServices;
+  /**
+   * HandsFreeOS video calls (video-calls/): LiveKit, or the stand-in locally and in tests. **Null before LiveKit is
+   * set up** (production without its keys): Join says calls aren't ready, and nothing is asked of it.
+   */
+  readonly videoCalls: VideoCallProvider | null;
   /**
    * Supabase Auth with the worker's secret key: deleting an account ends its sessions and blocks sign-in
    * (account/auth-admin.ts). Missing without SUPABASE_URL and SUPABASE_SECRET_KEY; that job then waits and retries.

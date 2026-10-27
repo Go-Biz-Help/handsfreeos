@@ -34,6 +34,7 @@ import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
 import { createFakeVideoConverter } from '../src/telephony/video';
+import { createFakeVideo, type FakeVideo } from '../src/video-calls/fake';
 
 /** Signatures are computed against this base; tests call the server with inject(), never a real port. */
 export const TEST_PUBLIC_URL = 'https://hooks.worker.test';
@@ -48,6 +49,7 @@ export type TestServices = WorkerServices & {
   readonly calendars: CalendarServices & { readonly fake: FakeCalendars };
   readonly payments: PaymentServices & { readonly fake: FakePayments };
   readonly push: PushServices & { readonly fake: FakePush };
+  readonly videoCalls: FakeVideo;
 };
 
 /**
@@ -160,6 +162,8 @@ export function testServices(
     ai: opts.ai ?? { provider: null },
     // The push stand-in: what it was handed is `push.fake.sent`.
     push: fakePushServices(),
+    // LiveKit's stand-in: who it was asked to let in, take out, mute, and which rooms it closed.
+    videoCalls: createFakeVideo(),
   };
 }
 

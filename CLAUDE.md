@@ -40,6 +40,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |
 | Screen designs                               | `design/m1` to `design/m10`, `design/realestate` and `design/search`; the brand mark is in `design/brand`         |
 | Hosting, providers, going live, and trouble  | `docs/operations.md`, over 11,000 lines, so jump to a section from its Contents                                   |
+| HandsFreeOS video calls                      | `docs/video-calls.md`; setting up LiveKit is "Video calls: LiveKit" in `docs/operations.md`                       |
 | Connecting Google and Outlook calendars      | `docs/calendar-setup.md`                                                                                          |
 
 ## How the system works

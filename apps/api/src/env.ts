@@ -53,8 +53,11 @@ export interface ApiEnv {
 //
 // Meta (20261025000200): FACEBOOK_APP_SECRET is caught by SECRET, and META_WEBHOOK_VERIFY_TOKEN is what Meta's
 // webhook setup checks the worker with, so it's the worker's alone too.
+//
+// LiveKit (docs/video-calls.md) by prefix: the worker alone signs the tickets people join a video call with, and
+// hears LiveKit's webhooks.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^ADDON_PLATFORM_KEYS$|^TWILIO_|^POSTMARK_|^META_WEBHOOK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^ADDON_PLATFORM_KEYS$|^TWILIO_|^POSTMARK_|^META_WEBHOOK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)|^LIVEKIT_/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

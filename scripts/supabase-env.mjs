@@ -66,6 +66,8 @@ const assistantLines = keep([
 // A Deepgram key someone pasted in stays too, the same way: without it the worker falls back to the fake
 // transcriber, and a rerun would quietly stop a local voicemail ever having words.
 const transcriberLines = keep(['DEEPGRAM_API_KEY', 'TRANSCRIBER']);
+// A local LiveKit server for video calls (docs/video-calls.md), the same way; without one the worker uses its stand-in.
+const videoLines = keep(['VIDEO_PROVIDER', 'LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET']);
 // A real Stripe or Square app someone pasted in stays across runs, the way the Assistant's key does — and
 // PAYMENTS_PROVIDER is left out when one is there, so the worker picks the real providers on its own.
 const paymentLines = keep([
@@ -135,6 +137,7 @@ write('apps/worker/.env', [
     : ['PAYMENTS_PROVIDER=fake', 'PAYMENTS_FAKE_SETTLE_MS=3000']),
   ...assistantLines,
   ...transcriberLines,
+  ...videoLines,
 ]);
 write('apps/web/.env.local', [
   'NEXT_PUBLIC_API_URL=http://127.0.0.1:4000',

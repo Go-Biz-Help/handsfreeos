@@ -80,8 +80,11 @@ export type AssignmentMode = z.infer<typeof AssignmentMode>;
 
 export const LocationKind = z.enum(['customer_address', 'business', 'virtual', 'phone']);
 export type LocationKind = z.infer<typeof LocationKind>;
-/** For an online place: a link people type in ('none'), or one made for each appointment. */
-export const VideoProvider = z.enum(['none', 'google_meet', 'zoom']);
+/**
+ * For an online place: a link people type in ('none'), or one made for each appointment: a Google Meet, a Zoom
+ * meeting, or a HandsFreeOS video call (`handsfree`, docs/video-calls.md), which needs nothing connected.
+ */
+export const VideoProvider = z.enum(['none', 'google_meet', 'zoom', 'handsfree']);
 export type VideoProvider = z.infer<typeof VideoProvider>;
 
 export const IntakeKind = z.enum([
@@ -124,7 +127,7 @@ export const ServiceOverrides = z.object({
   maxPartySize: z.int().min(1).max(500).optional(),
   /** Only these people do this service here. */
   userIds: z.array(id).max(50).optional(),
-  /** Online only: this service's video link instead of the Online place's (none, Google Meet or Zoom). */
+  /** Online only: this service's video link instead of the Online place's (none, Google Meet, Zoom or ours). */
   video: VideoProvider.optional(),
   /** Online only: whether this service's calls are recorded, instead of the Online place's choice. */
   record: z.boolean().optional(),
@@ -168,8 +171,9 @@ const Location = z.object({
   address: z.string().trim().max(300).nullable().default(null),
   meetingUrl: z.url().max(500).nullable().default(null),
   /**
-   * Online only: make a link for each appointment, a Google Meet one in the host's Google Calendar or a Zoom
-   * meeting in the host's Zoom account.
+   * Online only: make a link for each appointment, a Google Meet one in the host's Google Calendar, a Zoom
+   * meeting in the host's Zoom account, or a HandsFreeOS video call. While the business has video calls on, a place
+   * with no link of its own makes a HandsFreeOS call too (`effectiveVideo`).
    */
   video: VideoProvider.default('none'),
   /**
