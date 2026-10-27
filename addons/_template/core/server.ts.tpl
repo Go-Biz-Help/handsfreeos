@@ -29,4 +29,7 @@ export const __CONST__Server: AddonServerModule = {
   manifest: __CONST__,
   commands: [],
   queries: [overview],
+  // A person's operations the Assistant never runs, with why (most declare `ai` instead): see "The AI sees only what
+  // it may use" in docs/addon-architecture.md.
+  notForTheAssistant: {},
 };

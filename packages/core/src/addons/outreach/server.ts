@@ -37,6 +37,9 @@ import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
 import { waitingCommands, waitingQueries } from './ops/waiting';
 
+/** Why the Assistant never runs what the extension sends in. */
+const EXTENSION = 'What the browser extension read, saw or did, as the person’s own browser.';
+
 export const outreachAddonServer: AddonServerModule = {
   manifest: outreachAddon,
   commands: [
@@ -101,4 +104,46 @@ export const outreachAddonServer: AddonServerModule = {
     ...personMenuQueries,
     ...findQueries,
   ],
+  // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
+  notForTheAssistant: {
+    'outreach.lookup': EXTENSION,
+    'outreach.follow_backs.next': EXTENSION,
+    'outreach.helpful.next': EXTENSION,
+    'outreach.profile.save': EXTENSION,
+    'outreach.chat.save': EXTENSION,
+    'outreach.touch.save': EXTENSION,
+    'outreach.friend.note': EXTENSION,
+    'outreach.friends.save': EXTENSION,
+    'outreach.download.save': EXTENSION,
+    'outreach.chats.collect': EXTENSION,
+    'outreach.groups.save': EXTENSION,
+    'outreach.group.save': EXTENSION,
+    'outreach.friend.end': EXTENSION,
+    'outreach.warning.note': EXTENSION,
+    'outreach.posts.save': EXTENSION,
+    'outreach.replies.note': EXTENSION,
+    'outreach.warm_up.missed': EXTENSION,
+    'outreach.send.queue': EXTENSION,
+    'outreach.send.done': EXTENSION,
+    'outreach.live.beat': EXTENSION,
+    'outreach.lists.saved': EXTENSION,
+    'outreach.need.note': EXTENSION,
+    'outreach.ask.take': EXTENSION,
+    'outreach.ask.progress': EXTENSION,
+    'outreach.ask.end': EXTENSION,
+    'outreach.profile.usernames_save': EXTENSION,
+    'outreach.check.look': EXTENSION,
+    'outreach.group.look': EXTENSION,
+    'outreach.join.note': EXTENSION,
+    'outreach.helpful.engaged': EXTENSION,
+    'outreach.engaged.save': EXTENSION,
+    'outreach.partner.leads': EXTENSION,
+    'outreach.partner.look': EXTENSION,
+    'outreach.posts.people_next': EXTENSION,
+    'outreach.finds.save': EXTENSION,
+    'outreach.finds.next': EXTENSION,
+    'outreach.finds.searches': EXTENSION,
+    'outreach.opener.use':
+      'The screens noting which opener a copied first message was drafted with.',
+  },
 };

@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addonAiIssues,
+  addonAssistantIssues,
   addonModuleIssues,
   allAddonAiTools,
   commands,
@@ -65,13 +66,12 @@ describe('Real Estate Agent', () => {
     // Only people's operations can be tools: a client's portal, the public pages and HandsFreeOS's own work never are.
     const people = ops.filter((op) => (op.actors ?? ['human']).includes('human'));
     expect(ops.filter((op) => !people.includes(op) && tools.has(op.name))).toEqual([]);
-    expect(people.filter((op) => !tools.has(op.name) && !NOT_THE_ASSISTANTS.has(op.name))).toEqual(
-      [],
-    );
-    expect(people.filter((op) => tools.has(op.name) && NOT_THE_ASSISTANTS.has(op.name))).toEqual(
-      [],
-    );
-    expect([...NOT_THE_ASSISTANTS].filter((n) => !ops.some((op) => op.name === n))).toEqual([]);
+    // The rest are on the module's own list, with why: an open-house visitor's sign-in, and a lockbox's code.
+    expect(addonAssistantIssues([realestateAddonServer])).toEqual([]);
+    expect(Object.keys(realestateAddonServer.notForTheAssistant ?? {}).sort()).toEqual([
+      'realestate.lockbox.save',
+      'realestate.open_house.sign_in',
+    ]);
     // It looks things up on its own and changes things only with a person's OK: the changes that run on their own are
     // the agent's own notes, drafts and records, nothing a client or the public sees and nothing on a deal's state.
     expect(
@@ -125,17 +125,3 @@ describe('Real Estate Agent', () => {
     ]);
   });
 });
-
-/**
- * People's operations the Assistant never runs. Everything else is a tool: exceptions, waives, ending or archiving a
- * deal, the final commission, the team and the duty list too, each with a person's OK (the owner's decision,
- * 2026-10-26, docs/realestate.md).
- */
-const NOT_THE_ASSISTANTS = new Set([
-  // Search everything's own part, which core runs.
-  'realestate.search',
-  // A visitor signing in at an open house on the host's phone: theirs, not the agent's.
-  'realestate.open_house.sign_in',
-  // A lockbox's code never goes through the AI.
-  'realestate.lockbox.save',
-]);

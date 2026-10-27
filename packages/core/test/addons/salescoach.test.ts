@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addonAiIssues,
+  addonAssistantIssues,
   addonModuleIssues,
   allAddonAiTools,
   commands,
@@ -57,6 +58,7 @@ describe('AI Sales Coach', () => {
     expect(people.filter((op) => !tools.has(op.name)).map((op) => op.name)).toEqual([
       'salescoach.call.delete',
     ]);
+    expect(addonAssistantIssues([salescoachAddonServer])).toEqual([]);
     expect(ops.filter((op) => !people.includes(op) && tools.has(op.name))).toEqual([]);
     // Putting a card away is the only change it makes on its own: the rest change a playbook or stop a call.
     expect(

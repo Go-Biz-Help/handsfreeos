@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addonAiIssues,
+  addonAssistantIssues,
   addonModuleIssues,
   allAddonAiTools,
   commands,
@@ -69,14 +70,12 @@ describe('Social Outreach', () => {
   });
 
   it('gives the Assistant everything a person does on its screens, and nothing the extension or worker sends in', () => {
-    const ops = [...(outreachAddonServer.queries ?? []), ...(outreachAddonServer.commands ?? [])];
     const tools = new Map(allAddonAiTools([outreachAddonServer]).map((t) => [t.op.name, t]));
-    // A new operation is the Assistant's unless it's listed as one it never runs.
-    expect(ops.filter((op) => !tools.has(op.name) && !NOT_THE_ASSISTANTS.has(op.name))).toEqual([]);
-    expect(ops.filter((op) => tools.has(op.name) && NOT_THE_ASSISTANTS.has(op.name))).toEqual([]);
-    expect([...NOT_THE_ASSISTANTS].filter((name) => !ops.some((op) => op.name === name))).toEqual(
-      [],
-    );
+    // A new operation a person runs is the Assistant's unless the module lists it as one it never runs, with why:
+    // what the extension reads off a network and sends in (only a person's own browser can see Facebook), and a note
+    // of a draft being copied. The worker's own work is never a person's, so never a tool.
+    expect(addonAssistantIssues([outreachAddonServer])).toEqual([]);
+    expect(Object.keys(outreachAddonServer.notForTheAssistant ?? {})).toContain('outreach.lookup');
     // What reaches people, changes settings, adds a customer or can't be taken back waits for the person's OK.
     expect(
       [...tools.values()]
@@ -111,74 +110,6 @@ describe('Social Outreach', () => {
     );
   });
 });
-
-/**
- * Operations the Assistant never runs: what the browser extension reads off a network and sends in (only a person's
- * own browser can see Facebook), what the extension asks for its own run, a note of a draft being copied, and the
- * worker's own work. Everything else is the Assistant's (each operation's `ai`).
- */
-const NOT_THE_ASSISTANTS = new Set([
-  // The extension: what it read, saw or did.
-  'outreach.lookup',
-  'outreach.follow_backs.next',
-  'outreach.helpful.next',
-  'outreach.profile.save',
-  'outreach.chat.save',
-  'outreach.touch.save',
-  'outreach.friend.note',
-  'outreach.friends.save',
-  'outreach.download.save',
-  'outreach.chats.collect',
-  'outreach.groups.save',
-  'outreach.group.save',
-  'outreach.friend.end',
-  'outreach.warning.note',
-  'outreach.posts.save',
-  'outreach.replies.note',
-  'outreach.warm_up.missed',
-  'outreach.send.queue',
-  'outreach.send.done',
-  'outreach.live.beat',
-  'outreach.lists.saved',
-  'outreach.need.note',
-  'outreach.ask.take',
-  'outreach.ask.progress',
-  'outreach.ask.end',
-  'outreach.profile.usernames_save',
-  'outreach.check.look',
-  'outreach.group.look',
-  'outreach.join.note',
-  'outreach.helpful.engaged',
-  'outreach.engaged.save',
-  'outreach.partner.leads',
-  'outreach.partner.look',
-  'outreach.posts.people_next',
-  'outreach.finds.save',
-  'outreach.finds.next',
-  'outreach.finds.searches',
-  // The screens note which opener a copied first message was drafted with.
-  'outreach.opener.use',
-  // The worker.
-  'outreach.review.week',
-  'outreach.day_report',
-  'outreach.chat.read',
-  'outreach.post.check',
-  'outreach.demo.note',
-  'outreach.profile.check_save',
-  'outreach.profile.more_save',
-  'outreach.messages.samples_save',
-  'outreach.messages.rewrite_save',
-  'outreach.answer.note',
-  'outreach.check.save',
-  'outreach.group.check',
-  'outreach.helpful.draft',
-  'outreach.countries.save',
-  'outreach.review.save',
-  'outreach.partner.save',
-  'outreach.partner.answer',
-  'outreach.partner.call',
-  'outreach.playbook.words',
-]);
 
 describe('playbooks', () => {
   it('starts every template and a blank one as a playbook its editor can save', () => {
