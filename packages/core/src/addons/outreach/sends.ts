@@ -16,6 +16,12 @@
  * While training wheels are on, each one OK'd counts toward the 25, and whether it was changed first counts toward
  * the last 10 (./automation.ts).
  *
+ * **A comment** on a good post goes this way too on a network whose comments wait at first (Instagram's and
+ * Alignable's, the kit's `commentsWait: 'hold'`, decision 92), for a build of the extension that finds people by topic.
+ * It waits under training wheels, and under its own hold (`commentHoldOn`) till the network has had comments for a week
+ * and the person has OK'd 25; then it goes on its own with any Sending but Off. An answer to an Alignable post asking
+ * for exactly what the business offers always waits for an OK of its own (decision 79).
+ *
  * Browser-safe: the extension and the web read it.
  */
 import { z } from 'zod';
@@ -26,7 +32,13 @@ import {
   optOutPhrase,
   sensitiveTopic,
 } from '../../ai-team/guardrails';
-import { MESSAGE_KINDS, WheelsState, type ReplyMode, type SendingMode } from './automation';
+import {
+  SEND_KINDS,
+  WheelsState,
+  type ReplyMode,
+  type SendingMode,
+  type SendKind,
+} from './automation';
 import { MESSAGE_MOST } from './limits';
 import { DraftOpener } from './openers';
 import { gapWords } from './voice';
@@ -102,7 +114,7 @@ export const RECENT_WORDS = {
 
 export const Send = z.object({
   sendId: z.uuid(),
-  kind: z.enum(MESSAGE_KINDS),
+  kind: z.enum(SEND_KINDS),
   profileId: z.uuid(),
   /** Who it's to, and their profile's link. */
   name: z.string(),
@@ -120,21 +132,44 @@ export const Send = z.object({
   createdAt: z.iso.datetime(),
   /** The chat's latest messages, oldest first, when there is one: where it's going. */
   recent: z.array(RecentMessage).max(RECENT_SHOWN),
+  /**
+   * For a comment (decision 92): its post, the post's link and its first words (`postStartOf`), shown above the
+   * comment. Null for a message.
+   */
+  postId: z.uuid().nullable(),
+  postUrl: z.string().nullable(),
+  post: z.string().nullable(),
 });
 export type Send = z.output<typeof Send>;
 
-/** The extension drafted a message for someone on today's list: it waits, or goes as it is. */
-export const SendQueueInput = z.object({
-  workspaceId: z.uuid(),
-  profileId: z.uuid(),
-  kind: z.enum(MESSAGE_KINDS),
-  chatId: z.uuid().nullable().default(null),
-  threadKey: z.string().max(128).nullable().default(null),
-  text: words,
-  opener: DraftOpener.nullable().default(null),
-  /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */
-  simple: z.boolean().default(false),
-});
+/** How much of a comment's post shows above it in Waiting for you. */
+export const SEND_POST_MOST = 200;
+
+/** A post's first words, as a comment waiting shows them: cut short at `SEND_POST_MOST`. */
+export const postStartOf = (body: string): string => {
+  const t = body.trim();
+  return t.length > SEND_POST_MOST ? `${t.slice(0, SEND_POST_MOST - 1).trimEnd()}…` : t;
+};
+
+/** The extension drafted a message, or a comment, for someone on today's list: it waits, or goes as it is. */
+export const SendQueueInput = z
+  .object({
+    workspaceId: z.uuid(),
+    profileId: z.uuid(),
+    kind: z.enum(SEND_KINDS),
+    chatId: z.uuid().nullable().default(null),
+    threadKey: z.string().max(128).nullable().default(null),
+    text: words,
+    opener: DraftOpener.nullable().default(null),
+    /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */
+    simple: z.boolean().default(false),
+    /** For a comment (decision 92), and only for one: the good post on Today it goes under. */
+    postId: z.uuid().nullable().default(null),
+  })
+  .refine((i) => (i.kind === 'comment') === (i.postId !== null), {
+    error: 'Send the post a comment goes under, and a post only with a comment.',
+    path: ['postId'],
+  });
 export type SendQueueInput = z.input<typeof SendQueueInput>;
 export const SendQueueOutput = Send;
 
@@ -204,17 +239,53 @@ export function goesAsItIs(o: {
   readonly sending: SendingMode;
   readonly replies: ReplyMode;
   readonly wheels: boolean;
-  readonly kind: (typeof MESSAGE_KINDS)[number];
+  readonly kind: SendKind;
   readonly simple: boolean;
-  /** From `replyNeedsYou`. */
+  /** From `replyNeedsYou`, or why a comment waits for an OK of its own. */
   readonly needsYou: string | null;
+  /** For a comment: whether its network's comment hold is on (`commentHoldOn`). */
+  readonly held?: boolean;
 }): boolean {
   // A partner's messages wait for the person's OK, whatever Sending says (decision 81).
   if (o.wheels || o.sending === 'off' || o.kind.startsWith('partner_')) return false;
+  // A comment goes on its own with any Sending but Off, once its hold is off, unless it needs the person (decision 92).
+  if (o.kind === 'comment') return !o.held && !o.needsYou;
   if (o.kind !== 'reply') return o.sending === 'everything';
   if (o.needsYou) return false;
   return o.replies === 'everything' || (o.replies === 'simple' && o.simple);
 }
+
+/**
+ * The comments-only hold (decision 92's 13; the owner's card of 27 Oct 2026, "Comments only"): on a network whose
+ * comments go through `sends`, each comment waits for the person's OK until the network has had comments for
+ * `COMMENT_HOLD.days` and they've OK'd `COMMENT_HOLD.okd` of them, worked out from their own sends there (the first
+ * comment's, and those they OK'd). Nothing else halves for it, and training wheels stand as they are. Kept to this one
+ * function, so another choice of the owner's changes it alone.
+ */
+export const COMMENT_HOLD = { days: 7, okd: 25 } as const;
+
+export function commentHoldOn(o: {
+  /** When the network's first comment of theirs was drafted: null before any. */
+  readonly firstAt: number | null;
+  /** How many of their comments there they OK'd themselves. */
+  readonly okd: number;
+  readonly now: number;
+}): boolean {
+  return (
+    o.firstAt === null ||
+    o.now - o.firstAt < COMMENT_HOLD.days * 86_400_000 ||
+    o.okd < COMMENT_HOLD.okd
+  );
+}
+
+/** Under Sending on a network whose comments wait at first: what the hold is. */
+export const COMMENT_HOLD_WORDS = `Each comment waits for your OK until you’ve OK’d ${COMMENT_HOLD.okd} and a week has gone by.`;
+
+/** Why a comment waits for an OK of its own, whatever the hold says (`needsYou`). */
+export const COMMENT_NEEDS_YOU = {
+  /** An answer to an Alignable post asking for exactly what the business offers (decision 79). */
+  answer: 'a forum answer always waits for your OK',
+} as const;
 
 /**
  * Whether a reply that waits is handed over with a push: with Replies (b) or (c), off training wheels, the person
@@ -224,7 +295,7 @@ export const handedOver = (o: {
   readonly sending: SendingMode;
   readonly replies: ReplyMode;
   readonly wheels: boolean;
-  readonly kind: (typeof MESSAGE_KINDS)[number];
+  readonly kind: SendKind;
   readonly goes: boolean;
 }) => o.kind === 'reply' && !o.goes && !o.wheels && o.sending !== 'off' && o.replies !== 'draft';
 

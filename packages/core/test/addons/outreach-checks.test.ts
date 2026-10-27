@@ -423,4 +423,67 @@ describe('checking friends and chats', () => {
     expect(theirs.counts.fits).toBe(0);
     expect(theirs.people).toEqual([]);
   });
+
+  it('takes someone found by topic as known once they’re a friend, without a look again (decision 92)', async () => {
+    // Found on Facebook, whose Today this reads: each network's Today lists only its own people.
+    const quinn = (
+      await rows<{ id: string }>(
+        admin(),
+        sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+            values (${ws}, 'facebook', 'quinn.harper.3', 'https://www.facebook.com/quinn.harper.3',
+              'Quinn Harper')
+            returning id`,
+      )
+    )[0]!.id;
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, words, found_at)
+          values (${ws}, ${owner.id}, ${quinn}, 'facebook', 'commented', 'missed calls', now())`,
+    );
+    const via = async () =>
+      (
+        await rows<{ via: string }>(
+          admin(),
+          sql`select via from addon_outreach.checks where profile_id = ${quinn} and user_id = ${owner.id}`,
+        )
+      )[0]!.via;
+    const reconnecting = async () =>
+      ((await runAs(owner, ws, 'outreach.today', {})).items as { kind: string; name: string }[])
+        .filter((i) => i.kind === 'reconnect')
+        .map((i) => i.name);
+    const fits = async () =>
+      (
+        (await runAs(owner, ws, 'outreach.friends', { view: 'fits' })).people as { name: string }[]
+      ).map((p) => p.name);
+    const before = await runAs(owner, ws, 'outreach.friends', { view: 'fits' });
+
+    // The server says how the look came: someone found and not known yet.
+    const looked = await look(quinn, ['Owner at Harper Roofing']);
+    expect(await via()).toBe('found');
+    const { looked_at } = await kept(looked.checkId);
+    await save(looked.checkId, new Date(looked_at).toISOString(), {
+      fit: 'good',
+      playbookId,
+      why: ['Owns a roofing company'],
+      about: 'Owns Harper Roofing',
+      nextStep: null,
+    });
+    // A good fit found by topic isn't someone to reconnect with, nor one of their friends' fits.
+    expect(await reconnecting()).not.toContain('Quinn Harper');
+    expect(await fits()).not.toContain('Quinn Harper');
+    const found = await runAs(owner, ws, 'outreach.friends', { view: 'fits' });
+    expect(found.checks.good).toBe(before.checks.good);
+
+    // A connection now: the same check counts at once.
+    await runAs(owner, ws, 'outreach.friends.save', {
+      platform: 'facebook',
+      list: 'friends',
+      people: [person('quinn.harper.3', 'Quinn Harper')],
+    });
+    expect(await reconnecting()).toContain('Quinn Harper');
+    expect(await fits()).toContain('Quinn Harper');
+    // Read again, the look is of someone known.
+    await look(quinn, ['Owner at Harper Roofing']);
+    expect(await via()).toBe('known');
+  });
 });

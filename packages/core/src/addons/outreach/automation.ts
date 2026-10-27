@@ -416,6 +416,13 @@ export const MESSAGE_KINDS = [
 ] as const satisfies readonly TodayKind[];
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
+/**
+ * What goes through `sends` (./sends.ts): the messages, and a comment on a good post on a network whose comments wait
+ * for the person at first (the kit's `commentsWait: 'hold'`, decision 92). `MESSAGE_KINDS` keeps meaning messages.
+ */
+export const SEND_KINDS = [...MESSAGE_KINDS, 'comment'] as const satisfies readonly TodayKind[];
+export type SendKind = (typeof SEND_KINDS)[number];
+
 /** The messages the extension drafts for the person: none while it's off, or on a network they don't work. */
 export const messageKinds = (settings: Pick<DoesChoices, 'sending' | 'on'>): MessageKind[] =>
   settings.sending === 'off' || settings.on === false ? [] : [...MESSAGE_KINDS];

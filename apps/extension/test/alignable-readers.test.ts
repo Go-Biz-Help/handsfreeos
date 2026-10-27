@@ -7,7 +7,15 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { ProblemFound } from '@hfos/core/problem-report';
-import { readAlignable } from '../src/networks/alignable/read';
+import { commentOn } from '../src/networks/alignable/auto';
+import {
+  groupCards,
+  groupFacts,
+  groupLeaders,
+  groupStanding,
+  memberRows,
+  readAlignable,
+} from '../src/networks/alignable/read';
 import { readReplies } from '../src/networks/alignable/replies';
 import { ALIGNABLE } from '../src/networks/alignable/site';
 import { outlineLooking, readLooking } from '../src/networks/looking/read';
@@ -768,5 +776,362 @@ describe('the box Alignable asks for an emailed code in', () => {
     expect(readAlignable(editor, editor.location.href).codeBox).toBe(false);
     const two = dialog('Enter the code we emailed you.', '<input /><input />');
     expect(readAlignable(two, two.location.href).codeBox).toBe(false);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------ groups (decision 92)
+
+/** A group's page of its people: its leaders under their own heading, then its members, one by Alignable's id. */
+const membersPage = () =>
+  page(
+    `${AL}/groups/home-pros-network/members`,
+    `<header><nav><a href="/salem-or/park-florist/lee-park">Lee Park</a></nav></header>
+    <main><h1>Home Pros Network</h1><span>1,204 members</span>
+      <h2>Group Leaders</h2>
+      <div><a href="/denver-co/stone-gutters/riley-stone"><img alt="Riley Stone" /></a>
+        <div><a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a><a href="/denver-co/stone-gutters">Stone Gutters</a></div></div>
+      <h2>Members (1,204)</h2>
+      <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
+        <span>Painter in Boise</span><button>Connect</button></div>
+      <div><a href="/biz/businesses/5150?user=3">Morgan Vale</a><span>Vale Bookkeeping</span><span>Boise, ID</span></div>
+    </main>`,
+  );
+
+describe('groups, as Alignable lists them (decision 92)', () => {
+  it('reads a search for groups: each by its address, its name, members, the line under it and where you stand', () => {
+    const doc = page(
+      `${AL}/groups/search?q=home%20services`,
+      `<main><nav><a href="/groups/austin-tx">Austin Business Owners</a></nav><h1>Groups</h1>
+        <div><div><a href="/groups/home-pros-network"><img alt="" /></a></div>
+          <div><a href="/groups/home-pros-network">Home Pros Network</a><span>For people who fix and build homes</span>
+            <span>1,204 members</span><button>Join</button></div></div>
+        <div><a href="/groups/maple-valley-trades?ref=search">Maple Valley Trades</a><span>Maple Valley, WA</span>
+          <span>1.2K Members</span><a href="/groups/maple-valley-trades">View</a><button>Requested</button></div>
+        <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><span>86 members</span><button>Joined</button></div>
+        <div><a href="/groups/search?q=home%20services&page=2">Next</a></div>
+      </main>`,
+    );
+    expect(groupCards(doc, doc.location.href)).toEqual([
+      {
+        id: 'home-pros-network',
+        url: `${AL}/groups/home-pros-network`,
+        name: 'Home Pros Network',
+        members: 1204,
+        joined: false,
+        asked: false,
+        detail: 'For people who fix and build homes',
+      },
+      {
+        id: 'maple-valley-trades',
+        url: `${AL}/groups/maple-valley-trades`,
+        name: 'Maple Valley Trades',
+        members: 1200,
+        joined: false,
+        asked: true,
+        detail: 'Maple Valley, WA',
+      },
+      {
+        id: 'riverbend-roofers',
+        url: `${AL}/groups/riverbend-roofers`,
+        name: 'Riverbend Roofers',
+        members: 86,
+        joined: true,
+        asked: false,
+        detail: null,
+      },
+    ]);
+    // A search's page is no group's own.
+    expect(groupFacts(doc, doc.location.href)).toBeNull();
+  });
+
+  it('reads the person’s own groups, never a menu’s link or a group named in an answer', () => {
+    const doc = page(
+      `${AL}/biz/groups`,
+      `<main><h1>My Groups</h1><nav><a href="/groups/maple-valley-trades">Maple Valley Trades</a></nav>
+        <ul><li><a href="/groups/austin-tx"><h3>Austin Business Owners</h3></a><span>2,310 members</span>
+            <a href="/groups/austin-tx/leave">Leave</a></li>
+          <li><a href="/groups/riverbend-roofers">Riverbend Roofers</a><small>Roofers along the river</small>
+            <button>Joined</button></li></ul>
+        <div data-testid="discussion-comment"><a href="/groups/home-pros-network">Home Pros Network</a></div>
+      </main>`,
+    );
+    const read = readAlignable(doc, doc.location.href);
+    expect(read.groups.map((g) => [g.id, g.name, g.members, g.joined, g.detail])).toEqual([
+      ['austin-tx', 'Austin Business Owners', 2310, true, null],
+      ['riverbend-roofers', 'Riverbend Roofers', null, true, 'Roofers along the river'],
+    ]);
+    expect(read).not.toHaveProperty('group');
+  });
+
+  it('reads a group’s own page with its Join: its name, members and About, never a suggested group’s button', () => {
+    const doc = page(
+      `${AL}/groups/home-pros-network`,
+      `<main><h1>Home Pros Network</h1><div><span>1,204 members</span><button>Join</button></div>
+        <section><h2>About</h2><p>For people who fix and build homes.</p><p>Share leads and tips.</p></section>
+        <aside><h3>Groups you may like</h3>
+          <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><button>Joined</button></div></aside></main>`,
+    );
+    expect(groupFacts(doc, doc.location.href)).toEqual({
+      id: 'home-pros-network',
+      url: `${AL}/groups/home-pros-network`,
+      name: 'Home Pros Network',
+      members: 1204,
+      joined: false,
+      detail: null,
+      asked: false,
+      join: true,
+      about: ['For people who fix and build homes.', 'Share leads and tips.'],
+      leaders: false,
+    });
+    // The groups it suggests are only suggestions on a group's own page.
+    expect(groupCards(doc, doc.location.href)).toEqual([]);
+  });
+
+  it('never takes a Connect asked in a post or a person’s row for the group’s own: it still has its Join', () => {
+    // Its header with a leader's link, a post whose writer was asked to connect (and links to this group: "Posted in"),
+    // and a member asked to connect with, on the side.
+    const doc = page(
+      `${AL}/groups/home-pros-network`,
+      `<main><div><h1>Home Pros Network</h1><span>Led by <a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a></span>
+          <span>1,204 members</span><button>Join</button></div>
+        <section><div>
+          <div><a href="/boise-id/pine-painting/jamie-pine?user=5"><span>Jamie Pine</span><span>at</span><span>Pine Painting</span></a>
+            <div><span>Posted in</span><a href="/groups/home-pros-network/fall-gutters"><span>4h</span></a></div>
+            <button>Request Sent</button></div>
+          <div><div title="Fall gutters">Who else is busy with gutters this fall?</div></div>
+          <div><a href="/biz/discussions/93">Comment</a><a href="/biz/likes"><div>Like</div></a>
+            <a href="/biz/connection_requests/quick?business_id=42&discussion_id=93&type=mgc"><div>Pending</div></a></div>
+        </div></section>
+        <aside><h3>Members</h3>
+          <div><a href="/salem-or/vale-bookkeeping/morgan-vale">Morgan Vale</a><button>Requested</button></div></aside>
+      </main>`,
+    );
+    expect(groupFacts(doc, doc.location.href)).toMatchObject({
+      id: 'home-pros-network',
+      name: 'Home Pros Network',
+      joined: false,
+      asked: false,
+      join: true,
+    });
+    expect(groupStanding(doc, doc.location.href)?.join?.textContent).toBe('Join');
+  });
+
+  it('still reads a group’s own Join and Joined beside a leader’s Message link or members’ pictures', () => {
+    // Its name in a part of its own, and its controls beside links to people.
+    const join = page(
+      `${AL}/groups/home-pros-network`,
+      `<main><div><h1>Home Pros Network</h1><span>1,204 members</span></div>
+        <div><a href="/biz/messages/new?business_id=42">Message leader</a><button>Join</button></div>
+        <div><a href="/salem-or/vale-bookkeeping/morgan-vale"><img alt="Morgan Vale"></a></div></main>`,
+    );
+    expect(groupFacts(join, join.location.href)).toMatchObject({
+      joined: false,
+      asked: false,
+      join: true,
+    });
+    const joined = page(
+      `${AL}/groups/riverbend-roofers`,
+      `<main><div><h1>Riverbend Roofers</h1></div>
+        <div><a href="/salem-or/vale-bookkeeping/morgan-vale"><img alt="Morgan Vale"></a>
+          <a href="/biz/discussions/new">Start a discussion</a><button>Joined</button></div></main>`,
+    );
+    expect(groupFacts(joined, joined.location.href)).toMatchObject({
+      joined: true,
+      asked: false,
+      join: false,
+    });
+  });
+
+  it('reads a group you’re in, and one you asked to join, on its About page', () => {
+    const joined = page(
+      `${AL}/groups/riverbend-roofers/about`,
+      `<main><h1>Riverbend Roofers</h1><button>Joined</button>
+        <div>About this group</div><div>Roofers along the river.</div></main>`,
+    );
+    expect(groupFacts(joined, joined.location.href)).toMatchObject({
+      id: 'riverbend-roofers',
+      joined: true,
+      asked: false,
+      join: false,
+      about: ['Roofers along the river.'],
+    });
+    const asked = page(
+      `${AL}/groups/maple-valley-trades/about`,
+      `<main><h1>Maple Valley Trades</h1><button>Cancel Request</button><p>Trades in Maple Valley.</p></main>`,
+    );
+    expect(groupFacts(asked, asked.location.href)).toMatchObject({
+      joined: false,
+      asked: true,
+      join: false,
+      about: ['Trades in Maple Valley.'],
+    });
+  });
+
+  it('reads a group’s members, each by their business, its leaders marked, never the menu', () => {
+    const doc = membersPage();
+    expect(memberRows(doc, doc.location.href)).toEqual([
+      {
+        name: 'Riley Stone',
+        profile: {
+          id: null,
+          username: 'denver-co-stone-gutters',
+          url: `${AL}/denver-co/stone-gutters`,
+        },
+        business: 'Stone Gutters',
+        lines: [],
+        leader: true,
+      },
+      {
+        name: 'Jamie Pine',
+        profile: {
+          id: null,
+          username: 'boise-id-pine-painting',
+          url: `${AL}/boise-id/pine-painting`,
+        },
+        business: 'Pine Painting',
+        lines: ['Painter in Boise'],
+        leader: false,
+      },
+      {
+        name: 'Morgan Vale',
+        profile: { id: '5150', username: null, url: `${AL}/biz/businesses/5150` },
+        business: null,
+        lines: ['Vale Bookkeeping', 'Boise, ID'],
+        leader: false,
+      },
+    ]);
+    expect(groupLeaders(doc, doc.location.href)).toMatchObject({
+      shown: true,
+      leaders: [{ name: 'Riley Stone' }],
+    });
+    expect(groupFacts(doc, doc.location.href)).toMatchObject({ members: 1204, leaders: true });
+  });
+
+  it('marks a leader by the word beside them, and says when a page showed none', () => {
+    const marked = page(
+      `${AL}/groups/home-pros-network/members`,
+      `<main><div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><span>Organizer</span></div>
+        <div><a href="/biz/businesses/5150">Morgan Vale</a></div></main>`,
+    );
+    expect(
+      groupLeaders(marked, marked.location.href).leaders.map((m) => [m.name, m.lines]),
+    ).toEqual([['Jamie Pine', []]]);
+    const none = page(
+      `${AL}/groups/home-pros-network/members`,
+      `<main><div><a href="/biz/businesses/5150">Morgan Vale</a></div></main>`,
+    );
+    expect(groupLeaders(none, none.location.href)).toEqual({ shown: false, leaders: [] });
+    // Only a page of a group's people has its members.
+    const own = page(
+      `${AL}/groups/home-pros-network`,
+      '<main><a href="/biz/businesses/5150">Morgan Vale</a></main>',
+    );
+    expect(memberRows(own, own.location.href)).toEqual([]);
+  });
+
+  it('says how many of each it read in a report, never a name or a group’s words', () => {
+    const doc = membersPage();
+    const found = pageFound(readLooking(doc, doc.location.href, ALIGNABLE));
+    expect(found).toMatchObject({ members: 3, groups: 0 });
+    expect(JSON.stringify(found)).not.toMatch(/Riley|Stone|Jamie|Pine|Morgan|Vale|Home Pros/);
+  });
+
+  it('keeps where a search looked in an outline’s addresses, never what it looked for', () => {
+    const doc = page(
+      `${AL}/biz/search?q=roofing`,
+      `<main><a href="/biz/search?q=roofing%20contractor&location=Austin&doc_type=group">Next</a></main>`,
+    );
+    const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
+    expect(outline).toContain('location=Austin');
+    expect(outline).toContain('doc_type=group');
+    expect(outline).not.toMatch(/roofing|contractor/);
+  });
+
+  it('keeps a group page’s own words in an outline, never a name, a business or the group’s', () => {
+    const doc = membersPage();
+    const outline = outlineLooking(doc, doc.location.href, ALIGNABLE);
+    expect(outline).toContain('Connect');
+    expect(outline).not.toMatch(
+      /Riley|Stone|Jamie|Pine|Painter|Boise|Morgan|Vale|Home Pros|home-pros|5150|denver|gutters/i,
+    );
+  });
+});
+
+/**
+ * A discussion's own page: their post, its own reply form at the top, and an answer with a reply form of its own under
+ * it. A Send empties the box it's in, as Alignable's does once a comment went.
+ */
+const discussion = (top = true) => {
+  const doc = page(
+    `${AL}/groups/home-pros-network/gutter-season`,
+    `<main><section>
+      <div><div><a href="/denver-co/stone-gutters?user=8"><span>Riley Stone</span><span>at</span><span>Stone Gutters</span></a>
+          <span>2h</span></div>
+        <p>Who else is busy with gutters this fall?</p>
+        <div><a href="/biz/discussions/93">Comment</a><button>Like</button></div></div>
+      ${top ? '<form data-testid="discussion-comment-reply-form" id="top"><textarea placeholder="Write a comment"></textarea><button>Send</button></form>' : ''}
+      <div data-testid="discussion-comment"><a href="/boise-id/pine-painting?user=4">Jamie Pine</a><span>1h</span>
+        <div data-testid="discussion-comment-body">Busy here too.</div><button>Reply</button>
+        <form data-testid="discussion-comment-reply-form" id="under"><textarea placeholder="Write a reply"></textarea>
+          <button>Send</button></form></div>
+    </section></main>`,
+  );
+  const sent: string[] = [];
+  for (const form of doc.querySelectorAll('form'))
+    form.querySelector('button')!.addEventListener('click', () => {
+      const box = form.querySelector('textarea')!;
+      sent.push(`${form.id}: ${box.value}`);
+      box.value = '';
+    });
+  return { doc, sent };
+};
+
+describe('a comment on a good post (decision 92)', () => {
+  const RILEY = {
+    id: null,
+    username: 'denver-co-stone-gutters',
+    url: `${AL}/denver-co/stone-gutters`,
+  };
+  const on = { profile: RILEY, postUrl: `${AL}/biz/discussions/93` };
+
+  it('goes only in the post’s own reply form at the top, never the one under an answer', async () => {
+    const { doc, sent } = discussion();
+    expect(await commentOn(doc, doc.location.href, 'Same here, a busy season.', on)).toBe('done');
+    expect(sent).toEqual(['top: Same here, a busy season.']);
+    expect(doc.querySelector<HTMLTextAreaElement>('#under textarea')!.value).toBe('');
+  });
+
+  it('writes nothing with only a reply box under an answer, on another post, or on another business’s', async () => {
+    const onlyUnder = discussion(false);
+    expect(await commentOn(onlyUnder.doc, onlyUnder.doc.location.href, 'Hi', on)).toBe('none');
+    const other = discussion();
+    expect(
+      await commentOn(other.doc, other.doc.location.href, 'Hi', {
+        ...on,
+        postUrl: `${AL}/biz/discussions/94`,
+      }),
+    ).toBe('none');
+    expect(
+      await commentOn(other.doc, other.doc.location.href, 'Hi', {
+        ...on,
+        profile: {
+          id: null,
+          username: 'boise-id-pine-painting',
+          url: `${AL}/boise-id/pine-painting`,
+        },
+      }),
+    ).toBe('none');
+    for (const { doc, sent } of [onlyUnder, other]) {
+      expect(sent).toEqual([]);
+      for (const box of doc.querySelectorAll('textarea')) expect(box.value).toBe('');
+    }
+  });
+
+  it('leaves what the person wrote in its box alone', async () => {
+    const { doc, sent } = discussion();
+    doc.querySelector<HTMLTextAreaElement>('#top textarea')!.value = 'My own words';
+    expect(await commentOn(doc, doc.location.href, 'Hi', on)).toBe('not_sent');
+    expect(sent).toEqual([]);
+    expect(doc.querySelector<HTMLTextAreaElement>('#top textarea')!.value).toBe('My own words');
   });
 });

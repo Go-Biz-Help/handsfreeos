@@ -19,10 +19,13 @@ import { saveGroups } from './groups';
 import { checkGroups } from './groups-check';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 
-/** Between groups, a person's pace; and how many groups found by a search are checked before joining. */
-const PACE_MS = [20_000, 40_000] as const;
+/**
+ * Between groups, a person's pace; and how many groups found by a search are checked before joining. Alignable's
+ * groups (./alignable/, decision 92) go at the same pace, and check as many.
+ */
+export const JOIN_PACE_MS = [20_000, 40_000] as const;
 const SETTLE_MS = 2_000;
-const FOUND_CHECKED = 3;
+export const FOUND_CHECKED = 3;
 
 /** How one ask went, with the AI's answers to the group's questions. */
 interface Went {
@@ -161,7 +164,7 @@ export async function joinGroups(
     );
     if (went.state === 'failed' && went.why) why.push(`${group.name ?? 'A group'}: ${went.why}`);
     done[went.state]++;
-    if (i < got.groups.length - 1 && !job.stopped()) await pause(paced(PACE_MS));
+    if (i < got.groups.length - 1 && !job.stopped()) await pause(paced(JOIN_PACE_MS));
   }
   const parts = [
     done.joined ? `Joined ${counted(done.joined, 'group')}.` : null,

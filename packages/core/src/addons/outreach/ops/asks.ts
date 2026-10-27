@@ -62,7 +62,7 @@ import {
 import { isOffline, networkOffWords } from '../live';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
-import { postSearchWords } from '../posts';
+import { dayNumber, postSearchWords } from '../posts';
 import { ProfileSaveOutput } from '../saves';
 import { askCodes, asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
@@ -162,7 +162,8 @@ async function taskOf(
           task: {
             kind: 'posts',
             groups: null,
-            words: postSearchWords(await playbooksInUse(ctx, platform), platform),
+            // The playbooks' own phrases, the day's in turn (decision 92).
+            words: postSearchWords(await playbooksInUse(ctx, platform), platform, dayNumber()),
           },
           target,
           about: askAbout(ask),
@@ -475,8 +476,8 @@ export const askMake = defineAddonCommand(outreachAddon, {
     // Research counts toward the day's checks (decision 46a): with none left, it ends at once, and they go first in
     // tomorrow's checks (`outreach.checks.next` finds this ask).
     if (task.kind === 'research') {
-      const { today, perDay } = await perDayFor(ctx, me, now, platform);
-      if (today >= perDay) {
+      const { checks: day } = await perDayFor(ctx, me, now, platform);
+      if (!day.room) {
         const [row] = await ctx.tx
           .insert(asks)
           .values({
@@ -491,7 +492,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
             askedAt: at,
             startedAt: at,
             state: 'done',
-            line: RESEARCH_WORDS.tomorrow(task.name, perDay),
+            line: RESEARCH_WORDS.tomorrow(task.name, day.perDay),
             result: {
               drafts: [],
               kind: null,

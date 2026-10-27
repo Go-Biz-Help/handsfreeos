@@ -4,31 +4,34 @@
  * opens the person's own profile to learn their town, then their town's group (/groups/<town-st>, the owner's Check,
  * 0.66.0), reads a few screens of its posts and forum questions slowly, and sends the ones by businesses to
  * HandsFreeOS, in no group, where the AI checks each: a good one goes on Today's list with an answer or comment to
- * draft, and its author to connect with once warmed up. Nothing is pressed or written on Alignable. It stops on any
- * Alignable warning.
+ * draft, and its author to connect with once warmed up; never the person's own. Nothing is pressed or written on
+ * Alignable. It stops on any Alignable warning.
  */
 import { alignablePostsSave } from '../../hfos/saves';
-import { townOf } from '../../networks/alignable/site';
 import { counted } from '../../words';
 import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
-import { ALIGNABLE, readAlignableIn, SCROLL_PACE_MS, signedOutEnd, SIGNED_IN } from './read';
+import {
+  ALIGNABLE,
+  ended,
+  mine,
+  notMine,
+  readAlignableIn,
+  SCROLL_PACE_MS,
+  signedOutEnd,
+  SIGNED_IN,
+} from './read';
 
 /** Screens of the town's posts it reads. */
 export const TOWN_SCREENS = 4;
-/** Their own profile, at their business's address: its town is the first part. */
-const MINE = `${ALIGNABLE}/biz/businesses/my_profile`;
 /** For the town's posts to be drawn after its page: the owner's Check (0.67.0) read it while they were loading. */
-const DRAWN_MS = 3_000;
+export const DRAWN_MS = 3_000;
 
 /** Reads their town's posts, a few screens, and sends what it finds for the AI to check. */
 export async function findPostsInTown(job: Job): Promise<JobEnd> {
-  job.progress('Opening your profile to see your town…');
-  await job.tab.open(MINE);
-  const mine = await readAlignableIn(job.tab);
-  const warned = await warnedOn(job, mine);
-  if (warned) return warned;
-  if (mine.signedOut) return signedOutEnd();
-  const town = townOf(mine.url) ?? townOf(mine.own ?? '');
+  const own = await mine(job);
+  if (ended(own)) return own;
+  const town = own.town;
+  const someoneElse = notMine(own.business);
   if (!town)
     return {
       line: `Alignable didn’t show your town on your profile. Add your business’s town on Alignable, then ask again. ${SIGNED_IN}`,
@@ -45,7 +48,11 @@ export async function findPostsInTown(job: Job): Promise<JobEnd> {
     const warnedHere = await warnedOn(job, page);
     if (warnedHere) return warnedHere;
     if (page.signedOut) return signedOutEnd();
-    const built = alignablePostsSave(page.found.threads, job.businessId);
+    // Never the person's own posts: theirs aren't to comment on, nor them someone to find.
+    const built = alignablePostsSave(
+      page.found.threads.filter((t) => someoneElse(t.author?.profile)),
+      job.businessId,
+    );
     if (built.ok) {
       const posts = built.input.posts.filter((post) => !sent.has(post.url));
       if (posts.length) {

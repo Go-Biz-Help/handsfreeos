@@ -1,6 +1,8 @@
 /**
  * Social Outreach's playbooks (docs/outreach.md): everyone using the add-on reads them, and owners and admins
- * (`outreach.manage`) write them. A playbook is archived rather than deleted, and can come back.
+ * (`outreach.manage`) write them. A playbook is archived rather than deleted, and can come back. The AI writes each
+ * network's own words on a customers' playbook once (`outreach.playbook.words`, decision 92), never over the
+ * person's.
  */
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -12,7 +14,10 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import {
   blankPlaybook,
+  FIND_WORDS_PARTS,
+  forPartners,
   Playbook as PlaybookOut,
+  PlaybookDetails as PlaybookDetailsSchema,
   followUpGapsFor,
   paceOf,
   PLAYBOOK_KEPT_KEYS,
@@ -23,8 +28,12 @@ import {
   renumberQuestions,
   type PlaybookDetails,
   upgradePlaybookDetails,
+  WORDS_PLATFORM_KEYS,
+  type WordsPlatform,
 } from '../playbooks';
+import { hashtagOf } from '../posts';
 import { playbooks } from '../tables';
+import { cleanFindWords, PlaybookWordsInput, PlaybookWordsOutput, wordsDue } from '../topics';
 import { inWorkspace, type Ctx } from './common';
 
 const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookOut> => ({
@@ -50,9 +59,17 @@ async function loadPlaybook(ctx: Ctx, playbookId: string) {
   return p;
 }
 
+/** The networks whose words the AI has written, as saved (data version 8): the server's alone to change. */
+export function wordsWrittenOf(stored: unknown): WordsPlatform[] {
+  const was = (upgradePlaybookDetails(stored) ?? {}) as Record<string, unknown>;
+  const written = Array.isArray(was['wordsWritten']) ? (was['wordsWritten'] as unknown[]) : [];
+  return WORDS_PLATFORM_KEYS.filter((p) => written.includes(p));
+}
+
 /**
- * The parts data versions 3 and 4 added, as a save leaves them: one it leaves out keeps what's saved (or starts
- * empty), so a phone built before them never wipes them. The pace's follow-ups too.
+ * The parts data versions 3 to 8 added, as a save leaves them: one it leaves out keeps what's saved (or starts
+ * empty), so a phone built before them never wipes them. The pace's follow-ups too. Which networks' words the AI has
+ * written is never the save's to say: it keeps what's saved (`outreach.playbook.words` changes it).
  */
 function keptParts(details: PlaybookDetails, stored: unknown): PlaybookDetails {
   const was = (upgradePlaybookDetails(stored) ?? {}) as Record<string, unknown>;
@@ -71,7 +88,32 @@ function keptParts(details: PlaybookDetails, stored: unknown): PlaybookDetails {
         ? wasPace.followUpGaps
         : followUpGapsFor(followUps)),
   };
-  return { ...details, ...kept, pace: { ...pace, followUpGaps: [...pace.followUpGaps] } };
+  return {
+    ...details,
+    ...kept,
+    wordsWritten: wordsWrittenOf(stored),
+    pace: { ...pace, followUpGaps: [...pace.followUpGaps] },
+  };
+}
+
+/**
+ * A playbook's hashtags as people tag them (data version 8), each once: "#Austin Plumbing!" is austinplumbing. One
+ * that makes no hashtag is refused, saying which.
+ */
+function cleanHashtags(details: PlaybookDetails): PlaybookDetails {
+  if (!details.hashtags) return details;
+  const tags: string[] = [];
+  for (const line of details.hashtags) {
+    const tag = hashtagOf(line);
+    if (!tag)
+      throw HfosError.rule(
+        'outreach_playbook_hashtag',
+        422,
+        `“${line}” isn’t a hashtag anyone tags. Write a hashtag as people tag it, like austinroofing, under Hashtags on Instagram.`,
+      );
+    if (!tags.includes(tag)) tags.push(tag);
+  }
+  return { ...details, hashtags: tags };
 }
 
 /** Two playbooks in use never share a name. */
@@ -133,8 +175,11 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
   async handler(ctx, input) {
     const me = userIdOf(ctx.actor);
     const at = changeMoment(ctx.meta);
-    // Its questions keep short names however often they come and go.
-    const details = { ...input.details, questions: renumberQuestions(input.details.questions) };
+    // Its questions keep short names however often they come and go, and its hashtags are as people tag them.
+    const details = cleanHashtags({
+      ...input.details,
+      questions: renumberQuestions(input.details.questions),
+    });
     const saved = await namedOnce(input.name, async () => {
       if (input.playbookId) {
         const was = await loadPlaybook(ctx, input.playbookId);
@@ -215,5 +260,77 @@ export const playbookArchive = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const playbookCommands = [playbookSave, playbookArchive] as const;
+export const playbookWords = defineAddonCommand(outreachAddon, {
+  name: 'outreach.playbook.words',
+  description:
+    'Worker: the AI’s words for each network a customers’ playbook runs on: hashtags to look at on Instagram, phrases to search LinkedIn’s posts with, and kinds of business to search for on Alignable, with whether the business works with these clients online. A list is filled only while it’s empty and the AI hasn’t written it before, so the person’s own words, and a list they emptied, stay as they are; works online only while nobody has said.',
+  risk: 0,
+  input: PlaybookWordsInput,
+  output: PlaybookWordsOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  // Never `outreach.playbook.saved`: that is what asks for the words, so the AI's writing can't ask again.
+  emits: ['outreach.playbook.words_written'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [was] = await ctx.tx
+      .select()
+      .from(playbooks)
+      .where(and(eq(playbooks.id, input.playbookId), eq(playbooks.workspaceId, ws)))
+      .for('update');
+    if (!was)
+      throw HfosError.notFound(
+        'That playbook isn’t there anymore. Refresh the page to see the ones there are.',
+      );
+    const read = PlaybookDetailsSchema.safeParse(upgradePlaybookDetails(was.details));
+    // One that doesn't read as a playbook now is left for the person to save again.
+    if (!read.success) return { written: [], worksOnline: null };
+    const d = read.data;
+    if (forPartners(d))
+      throw HfosError.rule(
+        'outreach_playbook_partner_words',
+        409,
+        `“${was.name}” is a partner playbook, so it has no hashtags, post searches or kinds of business of its own: its partner searches go with its words for groups.`,
+      );
+    const unchanged = { written: [], worksOnline: d.worksOnline ?? null };
+    if (was.archivedAt) return unchanged;
+    // Only a list still empty that the AI hasn't written, on a network the playbook runs on.
+    const written: WordsPlatform[] = [];
+    const lists: Partial<Record<(typeof FIND_WORDS_PARTS)[WordsPlatform], string[]>> = {};
+    for (const platform of wordsDue(d).networks) {
+      const part = FIND_WORDS_PARTS[platform];
+      const lines = cleanFindWords(platform, input[part] ?? []);
+      if (!lines.length) continue;
+      lists[part] = lines;
+      written.push(platform);
+    }
+    const online =
+      (d.worksOnline ?? null) === null && input.worksOnline !== undefined
+        ? input.worksOnline
+        : null;
+    if (!written.length && online === null) return unchanged;
+    const details: PlaybookDetails = {
+      ...d,
+      ...lists,
+      worksOnline: online ?? d.worksOnline ?? null,
+      wordsWritten: WORDS_PLATFORM_KEYS.filter(
+        (p) => (d.wordsWritten ?? []).includes(p) || written.includes(p),
+      ),
+    };
+    await ctx.tx
+      .update(playbooks)
+      .set({ details, updatedAt: changeMoment(ctx.meta) })
+      .where(eq(playbooks.id, was.id));
+    await ctx.emit({
+      type: 'outreach.playbook.words_written',
+      entityType: 'outreach_playbook',
+      entityId: was.id,
+      payload: { name: was.name, written, worksOnline: online },
+    });
+    return { written, worksOnline: details.worksOnline ?? null };
+  },
+});
+
+export const playbookCommands = [playbookSave, playbookArchive, playbookWords] as const;
 export const playbookQueries = [playbookList] as const;

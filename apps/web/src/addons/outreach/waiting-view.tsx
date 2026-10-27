@@ -8,6 +8,10 @@
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
  * - **Replies handed over to you**: replies that need the person, each with why, to change, send or skip;
  * - **Messages to OK**: **Approve all** OKs them, except one to someone who needs the person, which waits on its own;
+ *   with comments on good posts among them (decision 92, Instagram's and Alignable's), **Messages and comments to OK**,
+ *   each comment headed "Comment on Dana Reyes’s post" with the post's first words above it. Approve all takes them
+ *   too, never an answer to a post asking for what the business offers, and says why. While comments wait for the
+ *   person under their own hold, it says how long that lasts;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
  *   didn't go has its words to copy;
@@ -20,6 +24,7 @@
  * It follows changes live: a message drafted or sent, a step noted on any computer, a request answered. One list for
  * every network, each item marked with its network by name (`networkOfWaiting`), its links on that network.
  */
+import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import {
   chatUrlOn,
@@ -28,9 +33,16 @@ import {
   openPageWords,
 } from '@hfos/core/addons/outreach/network-words';
 import { networkOfLink } from '@hfos/core/addons/outreach/networks';
+import { COMMENT_HOLD_WORDS } from '@hfos/core/addons/outreach/sends';
 import {
   approveAllCount,
+  approveAllTakesComments,
   approveAllWords,
+  COMMENT_TITLE_AROUND,
+  commentHoldShown,
+  forumAnswer,
+  forumAnswersLeftWords,
+  messagesTitle,
   moreWords,
   needClearedWords,
   needPageOf,
@@ -138,17 +150,41 @@ function Group({
   const items = waiting.items.filter((item) => item.kind === kind);
   const count = waiting.kinds[kind].count;
   if (!count) return null;
+  // Comments on good posts wait among the messages (decision 92): the heading says so, and Approve all leaves forum
+  // answers, saying why.
+  const sends = items.flatMap((item) => (item.kind === 'message' ? [item.send] : []));
+  const comments = sends.filter((send) => send.kind === 'comment');
+  const answers = comments.filter(forumAnswer).length;
+  // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
+  const held = commentHoldShown(comments, waiting.commentHolds);
   return (
     <Card className="p-0" data-testid={`waiting-${kind}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
-        <h3 className="text-[15px] font-semibold">
-          {WAITING_KINDS[kind]} <span className="text-text-3">· {count.toLocaleString()}</span>
+        <h3 className="text-[15px] font-semibold" data-testid={`waiting-${kind}-title`}>
+          {kind === 'message' ? messagesTitle(comments.length > 0) : WAITING_KINDS[kind]}{' '}
+          <span className="text-text-3">· {count.toLocaleString()}</span>
         </h3>
-        {kind === 'message' ? <ApproveAll workspaceId={workspaceId} waiting={waiting} /> : null}
+        {kind === 'message' ? (
+          <ApproveAll
+            workspaceId={workspaceId}
+            waiting={waiting}
+            comments={approveAllTakesComments(comments)}
+          />
+        ) : null}
       </div>
       {kind === 'message' && waiting.wheels.on ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-wheels">
           {wheelsWords(waiting.wheels)}
+        </p>
+      ) : null}
+      {kind === 'message' && held ? (
+        <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-comment-hold">
+          {COMMENT_HOLD_WORDS}
+        </p>
+      ) : null}
+      {kind === 'message' && answers && approveAllCount(waiting.items, count) >= 2 ? (
+        <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-answers-left">
+          {forumAnswersLeftWords(answers)}
         </p>
       ) : null}
       {kind === 'reply' ? (
@@ -208,8 +244,17 @@ function Group({
   );
 }
 
-/** OKs every message waiting but those that wait on their own. */
-function ApproveAll({ workspaceId, waiting }: { workspaceId: string; waiting: Waiting }) {
+/** OKs every message, and comment, waiting but those that wait on their own. */
+function ApproveAll({
+  workspaceId,
+  waiting,
+  comments,
+}: {
+  workspaceId: string;
+  waiting: Waiting;
+  /** Comments it takes wait among the messages (decision 92): they go together. */
+  comments: boolean;
+}) {
   const { busy, act } = useAct();
   // More may wait than are listed: the count, less those listed that wait on their own.
   const all = approveAllCount(waiting.items, waiting.kinds.message.count);
@@ -226,13 +271,13 @@ function ApproveAll({ workspaceId, waiting }: { workspaceId: string; waiting: Wa
               body: { workspaceId },
             }),
           );
-          toast.success(W.okdAll(out.approved.length));
+          toast.success(W.okdAll(out.approved.length, comments));
         })
       }
       data-testid="waiting-approve-all"
     >
       <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-      {approveAllWords(all)}
+      {approveAllWords(all, comments)}
     </Button>
   );
 }
@@ -240,6 +285,7 @@ function ApproveAll({ workspaceId, waiting }: { workspaceId: string; waiting: Wa
 function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
   const send = item.send;
   const platform = networkOfWaiting(item);
+  if (send.kind === 'comment') return <CommentRow workspaceId={workspaceId} item={item} />;
   const chat = chatUrlOn(platform, send.threadKey);
   const open = chat ?? send.profileUrl;
   return (
@@ -285,6 +331,54 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
           />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A comment on a good post waiting for the person's OK (decision 92): "Comment on Dana Reyes’s post", the post's first
+ * words, then the comment with OK, Change and Skip. Open goes to the post.
+ */
+function CommentRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
+  const send = item.send;
+  const platform = networkOfWaiting(item);
+  const open = send.postUrl ?? send.profileUrl;
+  return (
+    <div data-testid="waiting-comment">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[14px] font-medium" data-testid="waiting-comment-title">
+          {COMMENT_TITLE_AROUND[0]}
+          {/* The name opens the person menu (decision 91): their page first, Contacts, Client, Don't pitch and more. */}
+          <PersonName
+            workspaceId={workspaceId}
+            who={{ profileId: send.profileId, name: send.name, platform, url: send.profileUrl }}
+            className="text-accent-text"
+          />
+          {COMMENT_TITLE_AROUND[1]}
+        </p>
+        <NetworkName platform={platform} />
+        {open ? (
+          <a
+            href={open}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClassName({ variant: 'ghost', size: 'sm', className: 'h-7' })}
+            data-testid="waiting-send-open"
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {send.postUrl ? TOUCHED_POSTS_WORDS.openPost : openPageWords(platform)}
+          </a>
+        ) : null}
+      </div>
+      {send.post ? (
+        <blockquote
+          className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-text-2"
+          data-testid="waiting-comment-post"
+        >
+          {send.post}
+        </blockquote>
+      ) : null}
+      <Drafted workspaceId={workspaceId} name={send.name} send={send} comment={platform} />
     </div>
   );
 }

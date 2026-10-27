@@ -27,6 +27,7 @@ import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
 import { byResults } from '../results';
 import { groupPeople, groups, myGroups } from '../tables';
+import { choicesFor } from '../automation';
 import { automationOf } from './automation';
 import { EVER, keepGroup, reachedPeople, resultsByGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
@@ -73,7 +74,7 @@ async function keepFacts(
 export const groupsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.groups.save',
   description:
-    'Save the groups on a Facebook page the person has open (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.',
+    'Save the groups on a page the person has open on Facebook or Alignable (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.',
   risk: 1,
   input: GroupsSaveInput,
   output: GroupsSaveOutput,
@@ -99,7 +100,7 @@ export const groupsSave = defineAddonCommand(outreachAddon, {
 export const groupSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.group.save',
   description:
-    'Save a Facebook group the person has open and the people on its People tab (or one of its See all pages), with the lines under each name. Admins and moderators are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.',
+    'Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.',
   risk: 1,
   input: GroupSaveInput,
   output: GroupSaveOutput,
@@ -169,7 +170,7 @@ const GROUPS_MOST = 2000;
 export const groupsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.groups',
   description:
-    'The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.',
+    'The business’s groups on a network (Facebook’s when none is named) the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.',
   input: GroupsInput,
   output: GroupsOutput,
   permission: 'outreach.use',
@@ -220,11 +221,11 @@ export const groupsList = defineAddonQuery(outreachAddon, {
           order by g.seen_at desc nulls last, g.created_at desc
           limit ${GROUPS_MOST}`,
     );
-    const playbooks = await playbooksInUse(ctx, 'facebook');
+    const playbooks = await playbooksInUse(ctx, input.platform);
     const results = resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }));
     // The AI's read of a group goes over what its name says (decision 48).
     const fitted = listed.map((g) => ({ g, fit: groupFitOf(playbooks, g) }));
-    const left = await peopleLeft(ctx, me, playbooks);
+    const left = await peopleLeft(ctx, me, playbooks, input.platform);
     const counts = Object.fromEntries(
       GROUP_VERDICT_KEYS.map((v) => [v, fitted.filter((f) => f.fit.verdict === v).length]),
     ) as Record<GroupVerdict, number>;
@@ -278,8 +279,9 @@ export const groupsList = defineAddonQuery(outreachAddon, {
             ? { state: g.join_state, at: new Date(g.join_at).toISOString() }
             : null,
       })),
-      prospects: await prospectsOf(ctx, left),
-      joinsOnItsOwn: (await automationOf(ctx, me)).settings.joinGroups,
+      prospects: await prospectsOf(ctx, left, input.platform),
+      // The person's Join switch on the network shown (Facebook's is the settings' own).
+      joinsOnItsOwn: choicesFor((await automationOf(ctx, me)).settings, input.platform).joinGroups,
       page,
       pages,
       total,

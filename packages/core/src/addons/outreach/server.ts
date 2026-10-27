@@ -13,6 +13,7 @@ import { chatCommands, chatQueries } from './ops/chats';
 import { checkCommands, checkQueries } from './ops/checks';
 import { countryCommands, countryQueries } from './ops/countries';
 import { demoCommands } from './ops/demos';
+import { findCommands, findQueries } from './ops/finds';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
@@ -71,6 +72,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...trackingCommands,
     ...partnerCommands,
     ...personMenuCommands,
+    ...findCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -100,6 +102,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...trackingQueries,
     ...partnerQueries,
     ...personMenuQueries,
+    ...findQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {
@@ -136,6 +139,10 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.engaged.save': EXTENSION,
     'outreach.partner.leads': EXTENSION,
     'outreach.partner.look': EXTENSION,
+    'outreach.posts.people_next': EXTENSION,
+    'outreach.finds.save': EXTENSION,
+    'outreach.finds.next': EXTENSION,
+    'outreach.finds.searches': EXTENSION,
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

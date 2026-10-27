@@ -13,6 +13,10 @@
  *   likes ("1,234 likes", "Liked by … and 12 others", or from the owner's Check of 21 Oct 2026 the number after its
  *   Like in its bar), its comments (who and what: each has its own link, /p/<code>/c/<id>/, on its time, and a Reply)
  *   and its place (/explore/locations/<id>/<name>/). From the owner's Check (0.62.0).
+ * - **A post's Likes box** (decision 92, from 0.95.0): who liked it, in the box headed Likes that its count of likes
+ *   opens over the post (/p/<code>/liked_by/ in the address while it's open), each row as the followers' box's are,
+ *   with whether the person follows them by its own button. Never the person. Drawn from Instagram's usual markup till
+ *   the owner's next Check outlines it.
  * - **A hashtag's and a place's page:** their posts' links; a hashtag's on the search Instagram sends it to now
  *   (/explore/search/keyword/?q=#<tag>).
  * - **Notifications:** who followed the person, liked or commented on their posts (the kind and who; never what a
@@ -143,9 +147,18 @@ export interface Follower extends Account {
   readonly followBack: boolean | null;
 }
 
-/** A comment under a post: who wrote it, and what. */
+/** A comment under a post: who wrote it (their account and its own address, `url`), and what. */
 export interface Comment extends Account {
   readonly text: string;
+}
+
+/**
+ * Someone in a post's Likes box (decision 92): their account, the name under it, and whether the person follows them,
+ * by the row's own button (Following or Requested, or Follow and Follow Back); null when the row has none.
+ */
+export interface Liker extends Account {
+  readonly name: string | null;
+  readonly following: InstagramProfile['following'];
 }
 
 /** A post's own page. */
@@ -225,6 +238,8 @@ export type InstagramFound = {
   readonly profile: InstagramProfile | null;
   readonly followers: readonly Follower[];
   readonly post: InstagramPost | null;
+  /** Who liked the post, in its Likes box over it (decision 92): never the person. */
+  readonly likers: readonly Liker[];
   readonly tag: PostsPage | null;
   readonly place: PostsPage | null;
   readonly engaged: readonly Engaged[];
@@ -246,6 +261,7 @@ export const NOTHING_FOUND: InstagramFound = {
   profile: null,
   followers: [],
   post: null,
+  likers: [],
   tag: null,
   place: null,
   engaged: [],
@@ -272,6 +288,9 @@ export const accountLinked = (a: Element, base: string): Account | null => {
   const url = instagramUrl(a.getAttribute('href') ?? '', base);
   return url ? profileOf(url) : null;
 };
+
+/** A post's Likes box, in its address while it's open over the post. */
+const LIKED_BY = /\/liked_by\/?$/i;
 
 /** Text with its lines kept apart by a space, as a person reads it. */
 function textOf(element: Element | null | undefined): string {
@@ -492,6 +511,41 @@ function followersOn(doc: Document, base: string): Follower[] {
     });
 }
 
+// ------------------------------------------------------------------------------------------------ a post's likes
+
+/** The heading over a post's Likes box: Instagram's own word. */
+const LIKES_HEADING = /^likes$/i;
+
+/**
+ * A post's Likes box over its page (decision 92): the box headed Likes, on the post's own page or at
+ * /p/<code>/liked_by/, where Instagram puts it in the address while it's open; at that address, the box over the page
+ * when no heading says so. Never a list on the page itself: the post's own writer and commenters are there.
+ */
+export function likersBox(doc: Document, base: string): Element | null {
+  const page = instagramUrl(base);
+  const kind = page ? kindOf(page) : null;
+  if (kind !== 'post' && kind !== 'likers') return null;
+  const boxes = [...doc.querySelectorAll('[role="dialog"]')];
+  const headed = boxes.find((box) =>
+    [...box.querySelectorAll('h1, h2, h3, [role="heading"]')].some((h) =>
+      LIKES_HEADING.test(clean(h.textContent)),
+    ),
+  );
+  return headed ?? (kind === 'likers' ? (boxes[0] ?? null) : null);
+}
+
+/**
+ * Who liked a post, in its Likes box (decision 92): each account once, by its rows as the followers' box's are, with
+ * whether the person follows them by the row's own button. Never the person (`own`).
+ */
+export function likersOn(doc: Document, base: string, own = ownOf(doc, base)): Liker[] {
+  const box = likersBox(doc, base);
+  if (!box) return [];
+  return rowsIn(box, base)
+    .filter(({ account }) => account.username.toLowerCase() !== own?.toLowerCase())
+    .map(({ row, account, name }) => ({ ...account, name, following: followingIn(row) }));
+}
+
 // ------------------------------------------------------------------------------------------------ a post
 
 /** The post's own part of the page: around its box to comment in, or its Like and Comment, else the main part. */
@@ -570,22 +624,47 @@ function captionIn(root: Element, author: Account | null): string | null {
   return heading ? textOf(heading) || null : null;
 }
 
-/** Its likes: "1,234 likes", the number on its Liked by link, "Liked by … and 12 others", or the number beside Like. */
-function likesIn(root: Element, base: string, comments: readonly Element[]): number | null {
-  // A comment's own likes ("3 likes") sit in the comment, by its Reply: never the post's.
-  const inComment = (el: Element) => {
+/** "1,234 likes": a post's count of likes in words, or a comment's by its Reply. */
+const LIKES_SAID = /^([\d,.]+\s*[km]?)\s+likes?$/i;
+
+/** Whether a part of a post is in one of its comments: a comment's own likes ("3 likes") sit there, by its Reply. */
+function inACommentOf(root: Element, comments: readonly Element[]): (el: Element) => boolean {
+  return (el) => {
     if (comments.some((comment) => comment.contains(el))) return true;
     for (let up = el.parentElement, n = 0; up && up !== root && n < 4; up = up.parentElement, n++)
       if (says(up, REPLY)) return true;
     return false;
   };
+}
+
+/**
+ * The control in a post's bar after its own Like that's its count of likes ("36.5K"), when its likes show: the bar's
+ * Comment comes after the count (the owner's Check, 21 Oct 2026: Like, "36.5K", Comment, "1.1K", Share), and straight
+ * after the Like when its likes are hidden.
+ */
+function barCountOf(root: Element): Element | null {
+  const controls = controlsIn(root);
+  for (const [i, { name }] of controls.entries()) {
+    if (!/^like$/i.test(name)) continue;
+    const after = controls.slice(i + 1);
+    const count = after.findIndex(({ name: n }) => countOf(n) === null);
+    if (count < 0 || !/^comment$/i.test(after[count]!.name)) continue;
+    return count > 0 ? after[0]!.c : null;
+  }
+  return null;
+}
+
+/** Its likes: "1,234 likes", the number on its Liked by link, "Liked by … and 12 others", or the number beside Like. */
+function likesIn(root: Element, base: string, comments: readonly Element[]): number | null {
+  // A comment's own likes ("3 likes") sit in the comment, by its Reply: never the post's.
+  const inComment = inACommentOf(root, comments);
   for (const { el, text } of leafLines(root)) {
     if (inComment(el)) continue;
-    const m = /^([\d,.]+\s*[km]?)\s+likes?$/i.exec(text);
+    const m = LIKES_SAID.exec(text);
     if (m) return countOf(m[1]);
   }
   for (const { a, url } of linksIn(root, base)) {
-    if (!/\/liked_by\/?$/i.test(url.pathname)) continue;
+    if (!LIKED_BY.test(url.pathname)) continue;
     const words = clean(a.textContent);
     const n = countOf(words.replace(/\s*(likes?|others?)$/i, ''));
     if (n !== null) {
@@ -597,17 +676,55 @@ function likesIn(root: Element, base: string, comments: readonly Element[]): num
   }
   // The number beside the post's own Like, in its bar: the control after the Like is its count, and the one after that
   // the bar's Comment, where a comment's Like has its Reply or the next comment after it. In page order, however many
-  // boxes Instagram wraps around each (the owner's Check, 21 Oct 2026: Like, "36.5K", Comment, "1.1K", Share). With
-  // the likes hidden, the Comment comes straight after the Like.
-  const controls = controlsIn(root);
-  for (const [i, { name }] of controls.entries()) {
-    if (!/^like$/i.test(name)) continue;
-    const after = controls.slice(i + 1);
-    const count = after.findIndex(({ name: n }) => countOf(n) === null);
-    if (count < 0 || !/^comment$/i.test(after[count]!.name)) continue;
-    return count > 0 ? countOf(after[0]!.name) : null;
-  }
-  return null;
+  // boxes Instagram wraps around each. With the likes hidden, the Comment comes straight after the Like.
+  const count = barCountOf(root);
+  return count ? countOf(nameOf(count)) : null;
+}
+
+/** The nearest part a person presses around a piece of a post: a control, else the piece itself. */
+const pressed = (el: Element): HTMLElement | null => {
+  const at = el.closest('a[href], button, [role="button"], [role="link"]') ?? el;
+  return at instanceof at.ownerDocument.defaultView!.HTMLElement ? at : null;
+};
+
+/**
+ * What opens a post's Likes box when pressed, as a person opens it (decision 92): its "12 others" or "1,234 likes"
+ * link, which Instagram points at the post's own /p/<code>/liked_by/ (a comment's would be under its own link,
+ * /p/<code>/c/<id>/); else its "1,234 likes" in words; else the number beside its own Like in its bar. Never a
+ * comment's own likes, by its Reply. Null when its likes show none of these.
+ */
+export function likesOpenerIn(root: Element, base: string): HTMLElement | null {
+  const inComment = inACommentOf(root, commentsIn(root, base).parts);
+  const link = linksIn(root, base).find(
+    ({ a, url }) => kindOf(url) === 'likers' && clean(a.textContent),
+  );
+  if (link) return pressed(link.a);
+  const said = leafLines(root).find(({ el, text }) => LIKES_SAID.test(text) && !inComment(el));
+  if (said) return pressed(said.el);
+  const count = barCountOf(root);
+  return count ? pressed(count) : null;
+}
+
+/**
+ * What shows more of a post's comments: "View all 12 comments", "Load more comments", or "4 more comments" under the
+ * newer layout's comments (the owner's Check of 21 Oct 2026, its number in a part of its own). Never "View replies".
+ */
+const MORE_COMMENTS =
+  /^(view all( [\d,.]+\s*[km]?)? comments|load more comments|view more comments|[\d,.]+\s*[km]? more comments)$/i;
+
+/**
+ * A post's own View all comments (or Load more comments), pressed once to read more of who commented (decision 92):
+ * a control saying so, else the smallest part whose words say so, where Instagram draws them as a line to press. Null
+ * with none.
+ */
+export function moreCommentsIn(root: Element): HTMLElement | null {
+  const control = controlsIn(root).find(({ name }) => MORE_COMMENTS.test(name));
+  if (control) return pressed(control.c);
+  const saying = (el: Element) => MORE_COMMENTS.test(clean(el.textContent));
+  const said = [...root.querySelectorAll('span, div')].find(
+    (el) => saying(el) && ![...el.querySelectorAll('span, div')].some(saying),
+  );
+  return said ? pressed(said) : null;
 }
 
 function postOn(doc: Document, base: string): InstagramPost | null {
@@ -1030,6 +1147,7 @@ export function readInstagram(doc: Document, href: string): InstagramFound {
     profile: profile && profile.username.toLowerCase() !== own?.toLowerCase() ? profile : null,
     followers: followersOn(doc, href),
     post,
+    likers: likersOn(doc, href, own),
     tag: tagOn(doc, href),
     place: placeOn(doc, href),
     engaged: engagedOn(doc, href).filter((e) => e.username.toLowerCase() !== own?.toLowerCase()),

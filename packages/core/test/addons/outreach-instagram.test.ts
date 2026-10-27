@@ -30,13 +30,15 @@ import {
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { hashtagOf, postLooks, TAG_LOOKS_PER_DAY } from '../../src/addons/outreach/posts';
 import {
+  fitsComment,
   fitsRequests,
   REQUESTS_TASK,
   REQUESTS_WHY,
   todayDraftPrompt,
+  todayDraftSystem,
   type TodayItem,
 } from '../../src/addons/outreach/today';
-import { outreachBusiness, runAs } from './outreach-fixture';
+import { checkedAs, computerOn, outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const IG = 'https://www.instagram.com';
@@ -97,8 +99,9 @@ describe('Instagram’s kit and words', () => {
         'instagram',
       ),
     ).toEqual(['warm_up', 'friend_request']);
+    // Comments go through Waiting for you, each waiting for an OK at first (decision 92).
     expect(sendingModesOn('instagram').everything).toBe(
-      'Everything on its own, messages too; you post each comment',
+      'Everything on its own, messages too. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by.',
     );
     expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     expect(ticksOn('instagram').warmUp[0]).toBe(
@@ -164,6 +167,41 @@ describe('Instagram’s kit and words', () => {
     expect(fitsRequests('Hi Sam, see bright.com')).toBe(false);
     expect(fitsRequests('Hi Sam.\n\nAre you open to it?')).toBe(false);
     expect(fitsRequests('x'.repeat(301))).toBe(false);
+  });
+
+  it('writes a comment that waits to be posted short, with no link, hashtag or pitch (decision 92)', () => {
+    const comment = (platform: Platform) =>
+      todayDraftPrompt({
+        kind: 'comment',
+        business: 'Bright Books',
+        name: 'sage.plumbing',
+        facts: [],
+        recent: [],
+        playbook: { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details },
+        post: { text: 'What do small crews use to keep track of calls?', group: null },
+        platform,
+      });
+    expect(comment('instagram')).toContain(
+      'They posted this on Instagram. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 30 words.',
+    );
+    expect(comment('alignable')).toContain(
+      'add something useful, with no pitch and no link. Under 50 words.',
+    );
+    // LinkedIn's comments go as the runner's own step, as before.
+    expect(comment('linkedin')).toContain('only then offer to help');
+    expect(todayDraftSystem('instagram')).toContain(
+      'A comment on Instagram is under 30 words, with no link, no web address, no hashtags and no pitch',
+    );
+    expect(todayDraftSystem('alignable')).toContain('A comment on Alignable is a helpful answer');
+    expect(todayDraftSystem('facebook')).not.toContain('A comment on');
+    expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);
+    expect(fitsComment('Love this #plumbing', 'instagram')).toBe(false);
+    expect(fitsComment('See bright.com for more', 'instagram')).toBe(false);
+    expect(fitsComment('word '.repeat(31), 'instagram')).toBe(false);
+    expect(fitsComment('word '.repeat(60), 'alignable')).toBe(true);
+    expect(fitsComment('Details at https://bright.com', 'alignable')).toBe(false);
+    // Elsewhere a draft is as the AI wrote it.
+    expect(fitsComment('Details at https://bright.com', 'linkedin')).toBe(true);
   });
 });
 
@@ -355,25 +393,92 @@ describe('Instagram’s hashtags and places (part 15)', () => {
     signs: readonly string[] = [],
     platforms: readonly Platform[] = ['instagram'],
   ) => ({ details: { area, groupWords: [...groupWords], signs: [...signs], platforms } });
+  /** A playbook with hashtags of its own (data version 8), and the networks the AI has written for. */
+  const tagged = (
+    area: string,
+    hashtags: readonly string[],
+    wordsWritten: readonly ('instagram' | 'linkedin' | 'alignable')[] = ['instagram'],
+  ) => ({
+    details: {
+      ...playbook(area, ['roofing']).details,
+      hashtags: [...hashtags],
+      wordsWritten: [...wordsWritten],
+    },
+  });
 
-  it('makes local hashtags from the area and the words for groups, a few a day in turn', () => {
+  it('makes local hashtags from the area and the words for groups, 5 a day in turn', () => {
     const looks = (day: number) =>
       postLooks(
-        [playbook('Austin and Round Rock, TX', ['plumbing', 'drain cleaning'])],
+        [playbook('Austin and Round Rock, TX', ['plumbing', 'drain cleaning', 'water heaters'])],
         'instagram',
         day,
       );
     expect(looks(0)).toEqual({
-      tags: ['austinplumbing', 'austindraincleaning', 'roundrockplumbing'],
+      tags: [
+        'austinplumbing',
+        'austindraincleaning',
+        'austinwaterheaters',
+        'roundrockplumbing',
+        'roundrockdraincleaning',
+      ],
       places: ['Austin', 'Round Rock'],
     });
     // The next day goes on round them.
     expect(looks(1).tags).toEqual([
-      'roundrockdraincleaning',
+      'roundrockwaterheaters',
       'austinplumbing',
       'austindraincleaning',
+      'austinwaterheaters',
+      'roundrockplumbing',
     ]);
-    expect(TAG_LOOKS_PER_DAY).toBe(3);
+    expect(TAG_LOOKS_PER_DAY).toBe(5);
+  });
+
+  it('looks at the playbooks’ own hashtags first, 5 a day in turn (decision 92)', () => {
+    const own = tagged('Austin', [
+      'austinroofing',
+      'roofrepair',
+      'atxhomeowners',
+      'stormdamage',
+      'newroof',
+      'roofleak',
+      'homerepairtips',
+    ]);
+    expect(postLooks([own], 'instagram', 0)).toEqual({
+      tags: ['austinroofing', 'roofrepair', 'atxhomeowners', 'stormdamage', 'newroof'],
+      places: ['Austin'],
+    });
+    expect(postLooks([own], 'instagram', 1).tags).toEqual([
+      'roofleak',
+      'homerepairtips',
+      'austinroofing',
+      'roofrepair',
+      'atxhomeowners',
+    ]);
+    // A playbook the AI hasn't written for yet adds its made-up ones after them.
+    expect(
+      postLooks(
+        [tagged('Austin', ['austinroofing']), playbook('Denver', ['plumbing'])],
+        'instagram',
+        0,
+      ),
+    ).toEqual({ tags: ['austinroofing', 'denverplumbing'], places: ['Austin', 'Denver'] });
+    // Hashtags the person wrote before the AI did are the playbook's own all the same.
+    expect(postLooks([tagged('Austin', ['roofrepair'], [])], 'instagram', 0).tags).toEqual([
+      'roofrepair',
+    ]);
+  });
+
+  it('makes them up only while the AI hasn’t written Instagram’s, and an emptied list gives none', () => {
+    // Emptied by the person once the AI wrote them: that playbook looks at nothing on Instagram, not even its places.
+    expect(postLooks([tagged('Austin', [])], 'instagram', 0)).toEqual({ tags: [], places: [] });
+    expect(
+      postLooks([tagged('Austin', []), playbook('Denver', ['plumbing'])], 'instagram', 0),
+    ).toEqual({ tags: ['denverplumbing'], places: ['Denver'] });
+    // Written for LinkedIn alone: Instagram still makes its own up.
+    expect(postLooks([tagged('Austin', [], ['linkedin'])], 'instagram', 0).tags).toEqual([
+      'austinroofing',
+    ]);
   });
 
   it('keeps words that name the area as they are, and the signs’ quoted words when there are no words for groups', () => {
@@ -474,7 +579,7 @@ describe('Instagram’s growing on Today (part 15)', () => {
     ]);
   });
 
-  it('likes a post of each author a hashtag’s look found, then follows them a day after', async () => {
+  it('likes a post of each author a hashtag’s look found, then follows them a day after, for a computer before 0.95.0', async () => {
     const saved = await runAs(owner, ws, 'outreach.posts.save', {
       platform: 'instagram',
       found: 'search',
@@ -513,6 +618,140 @@ describe('Instagram’s growing on Today (part 15)', () => {
       'Wrote a post your search on Instagram found',
     ]);
     expect((await quinn()).map(([kind]) => kind)).not.toContain('warm_up');
+  });
+});
+
+/**
+ * Instagram's people found by topic (decision 92): for a computer on 0.95.0 or later, a good post's writer and who
+ * commented on it reach Today only after the AI's check of them from their own page. The writer's like goes on the
+ * post the hashtag's look found; a commenter gets one of their own liked; the follow comes a day after.
+ */
+describe('Instagram’s people found by topic (decision 92)', () => {
+  let owner: TestUser;
+  let ws: string;
+  let playbookId: string;
+
+  beforeAll(async () => {
+    owner = await createTestUser('outig-found', { fullName: 'Morgan Owner' });
+    ws = await outreachBusiness(owner, 'Outreach Instagram Found Co');
+    const details = PLAYBOOK_TEMPLATES.crm_demos.details;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'CRM demos',
+      template: 'crm_demos',
+      details: {
+        ...details,
+        platforms: ['instagram'],
+        area: 'Austin, TX',
+        hashtags: ['austinplumbing'],
+      },
+    });
+    const [playbook] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws} and name = 'CRM demos'`,
+    );
+    playbookId = playbook!.id;
+    await computerOn(owner, ws, '0.95.0');
+  }, 60_000);
+
+  afterAll(closeTestDbs);
+
+  const POST = `${IG}/p/DQfound0001/`;
+  const account = (username: string) => ({ id: null, username, url: `${IG}/${username}/` });
+  const profileOf = async (username: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.profiles
+            where workspace_id = ${ws} and platform = 'instagram' and username = ${username}`,
+      )
+    )[0]!.id;
+  const listed = async () =>
+    ((await runAs(owner, ws, 'outreach.today', { platform: 'instagram' })).items as TodayItem[])
+      .filter((i) => i.kind === 'warm_up' || i.kind === 'friend_request')
+      .map((i) => ({ name: i.name, kind: i.kind, why: i.why, postUrl: i.postUrl, post: i.post }));
+
+  it('likes the writer’s found post and a post of a commenter’s own once the AI checked them good, then follows', async () => {
+    await runAs(owner, ws, 'outreach.posts.save', {
+      platform: 'instagram',
+      found: 'search',
+      words: 'austinplumbing',
+      posts: [
+        {
+          url: POST,
+          author: account('sage.plumbing'),
+          name: 'sage.plumbing',
+          text: 'Three of us run a plumbing crew around Austin and the calls get lost. What do other small crews use to keep track?',
+        },
+      ],
+    });
+    const [post] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.posts where workspace_id = ${ws} and url = ${POST}`,
+    );
+    // The AI said the post was worth a comment: its writer is found.
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'waiting' where id = ${post!.id}`,
+    );
+    await runAsSystem(ws, 'outreach.post.check', {
+      postId: post!.id,
+      check: { good: true, strong: false, why: 'Asking how to keep track of calls' },
+    });
+    await runAs(owner, ws, 'outreach.finds.save', {
+      platform: 'instagram',
+      how: 'commented',
+      postId: post!.id,
+      people: [{ profile: account('tate.drains'), name: 'tate.drains' }],
+    });
+    // Nobody before the AI's check of them.
+    expect(await listed()).toEqual([]);
+
+    await checkedAs(owner, ws, await profileOf('sage.plumbing'), {
+      fit: 'good',
+      why: ['Runs a three-person plumbing crew'],
+      playbookId,
+    });
+    await checkedAs(owner, ws, await profileOf('tate.drains'), {
+      fit: 'good',
+      why: ['Owns a drain cleaning business in Austin'],
+      playbookId,
+    });
+    expect(await listed()).toEqual([
+      {
+        name: 'sage.plumbing',
+        kind: 'warm_up',
+        why: [
+          'Wrote a post under #austinplumbing',
+          'Runs a three-person plumbing crew',
+          'Like the post it found: their follow comes a day after',
+        ],
+        postUrl: POST,
+        post: expect.stringMatching(/^Three of us run a plumbing crew/),
+      },
+      {
+        name: 'tate.drains',
+        kind: 'warm_up',
+        why: [
+          'Commented on a post under #austinplumbing',
+          'Owns a drain cleaning business in Austin',
+          'Their follow comes a day after',
+        ],
+        postUrl: null,
+        post: null,
+      },
+    ]);
+
+    // The writer's like was yesterday: the follow comes.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
+          values (${ws}, ${await profileOf('sage.plumbing')}, ${owner.id}, 'like', now() - interval '21 hours')`,
+    );
+    // Today lists likes before requests (TODAY_KINDS).
+    expect((await listed()).map((i) => [i.name, i.kind, i.why.at(-1)])).toEqual([
+      ['tate.drains', 'warm_up', 'Their follow comes a day after'],
+      ['sage.plumbing', 'friend_request', 'You liked the post it found'],
+    ]);
   });
 });
 

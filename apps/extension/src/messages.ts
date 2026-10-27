@@ -25,6 +25,7 @@ import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
 import type { WithdrawResult } from './networks/linkedin/withdraw';
+import type { PostPerson, ReactorsRead } from './networks/linkedin/compose';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
@@ -63,7 +64,14 @@ export type BrowseAsk =
   /** A list of groups, or a search for them: scroll the page for more (src/jobs/groups.ts). */
   | { readonly type: 'hfos-scroll-page' }
   /** A list that opens on a few (Alignable's My Network, on its picks): its tab of them all (src/jobs/alignable). */
-  | { readonly type: 'hfos-show-all' };
+  | { readonly type: 'hfos-show-all' }
+  /**
+   * A good post's people on Instagram (decision 92, src/networks/instagram/browse.ts): its Likes box opened by its
+   * count of likes, its View all comments pressed once, and the box over the page closed again.
+   */
+  | { readonly type: 'hfos-open-likers' }
+  | { readonly type: 'hfos-more-comments' }
+  | { readonly type: 'hfos-close-dialog' };
 
 export type BrowseAnswer = { readonly ok: boolean };
 
@@ -80,7 +88,16 @@ export type AutoAsk =
       readonly index: number;
       readonly url: string | null;
     }
-  | { readonly type: 'hfos-comment'; readonly text: string }
+  /**
+   * On Instagram and Alignable (decision 92, ./networks/looking/kit.ts), `profile` and `postUrl` say whose post it is
+   * and which: the comment goes only on that post's own page, in its own box. Facebook and LinkedIn go by the page.
+   */
+  | {
+      readonly type: 'hfos-comment';
+      readonly text: string;
+      readonly profile?: ProfileRef;
+      readonly postUrl?: string | null;
+    }
   /**
    * `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts, src/networks/alignable/auto.ts,
    * src/networks/instagram/auto.ts). On Facebook (src/networks/facebook/auto.ts) `names` does too, for a chat that
@@ -109,7 +126,8 @@ export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly prof
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what
- * Facebook asks first; then answer its questions with the AI's answers and submit them.
+ * Facebook asks first; then answer its questions with the AI's answers and submit them. On Alignable (decision 92,
+ * src/networks/looking/kit.ts) its group's own Join, on a site that declares it; it asks no questions there.
  */
 export type JoinAsk =
   | { readonly type: 'hfos-join' }
@@ -139,6 +157,23 @@ export type GroupPostAnswer =
 export type FeedPostAsk = { readonly type: 'hfos-feed-post'; readonly text: string };
 export type FeedPostAnswer =
   | { readonly ok: true; readonly result: PostResult; readonly url: string | null }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On a good post's own page on LinkedIn (decision 92, src/networks/linkedin/compose.ts): who commented and who reacted,
+ * never the person, its writer (`writer`, besides the one the page names) or a 1st-degree connection; the reactions box
+ * opened, read as far as it first shows, and closed with its Dismiss.
+ */
+export type PostPeopleAsk = {
+  readonly type: 'hfos-post-people';
+  readonly writer: ProfileRef | null;
+};
+export type PostPeopleAnswer =
+  | {
+      readonly ok: true;
+      readonly commenters: readonly PostPerson[];
+      readonly reactors: ReactorsRead;
+    }
   | { readonly ok: false; readonly error: string };
 
 /**

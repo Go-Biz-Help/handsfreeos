@@ -3,8 +3,10 @@
  * the people are", 3): its groups are quiet, so it searches LinkedIn's posts with the playbooks' own words
  * (HandsFreeOS picks them: the quoted words in their signs, then their words for groups), the latest first, a few
  * screens of each, slowly, and sends the posts by people (never a company's page) to HandsFreeOS, in no group, where
- * the AI checks each one; the good ones go on Today's list with comment drafts. Nothing is pressed or written on
- * LinkedIn. It stops on any LinkedIn warning.
+ * the AI checks each one; the good ones go on Today's list with comment drafts. From 0.95.0 the words are the playbooks'
+ * own phrases the AI wrote (decision 92), 5 a day in turn, and each save carries the phrase it searched with, so a post
+ * found with one is worth the AI's check whatever its words say; who reacted to and commented on the good ones is read
+ * after (./post-people.ts). Nothing is pressed or written on LinkedIn. It stops on any LinkedIn warning.
  */
 import { linkedInPostsSave } from '../../hfos/saves';
 import type { LinkedInRead } from '../../networks';
@@ -17,11 +19,11 @@ export const SEARCH_SCREENS = 3;
 /** Between searches: a person typing the next. */
 const SEARCH_PACE_MS = [15_000, 30_000] as const;
 
-/** Sends a screen's posts not sent before for the AI to check: how many went to it. */
-function postSender(job: Job): (page: LinkedInRead) => Promise<number> {
+/** Sends a screen's posts not sent before for the AI to check, with the phrase that found them: how many went to it. */
+function postSender(job: Job): (page: LinkedInRead, words: string) => Promise<number> {
   const sent = new Set<string>();
-  return async (page) => {
-    const built = linkedInPostsSave(page, job.businessId, 'search');
+  return async (page, words) => {
+    const built = linkedInPostsSave(page, job.businessId, 'search', words);
     if (!built.ok) return 0;
     const posts = built.input.posts.filter((post) => !sent.has(post.url));
     if (!posts.length) return 0;
@@ -36,7 +38,7 @@ function postSender(job: Job): (page: LinkedInRead) => Promise<number> {
 export async function findPostsBySearch(job: Job, words: readonly string[]): Promise<JobEnd> {
   if (!words.length)
     return {
-      line: 'None of your playbooks has words to search LinkedIn’s posts with. On the Playbooks tab, add some under Words to search for groups, or put a sign in quotes under Signs they fit, then ask again.',
+      line: 'None of your playbooks has words to search LinkedIn’s posts with. On the Playbooks tab, add some under Words to search LinkedIn’s posts with, then ask again.',
       warned: false,
       failed: true,
     };
@@ -53,7 +55,7 @@ export async function findPostsBySearch(job: Job, words: readonly string[]): Pro
       const page = await readLinkedIn(job.tab);
       const warned = await warnedOn(job, page);
       if (warned) return warned;
-      checking += await send(page);
+      checking += await send(page, said);
       job.progress(
         `Reading posts about “${said}”… ${counted(checking, 'post')} sent to check so far.`,
       );

@@ -1,0 +1,145 @@
+<!doctype html>
+<!--
+  An approximation of the box LinkedIn opens over someone else's post in its newer layout when you press its
+  reactions count ("55 reactions", test/fixtures/linkedin-post-2026-10.html), written by hand: not a saved LinkedIn
+  page, and nobody real. A dialog headed Reactions with a tab for each kind, and the first rows it shows (LinkedIn adds
+  more only as it's scrolled): each a link to the person around their picture, their name, how far they are ("• 2nd")
+  and their headline, and a Connect, Follow or Message beside it. Bianca Holt (2nd), Marcus Webb (3rd+), Sam Lee
+  (1st), you, and the post's writer. Dismiss closes it. In `#modal-outlet`, so a test can put it over a page.
+-->
+<html lang="en">
+  <head>
+    <title>Feed | LinkedIn</title>
+  </head>
+  <body>
+    <div id="modal-outlet">
+      <div role="dialog" aria-labelledby="reactions-title-2026">
+        <div>
+          <h2 id="reactions-title-2026">Reactions</h2>
+          <button type="button" aria-label="Dismiss"><svg aria-hidden="true"></svg></button>
+        </div>
+        <div role="tablist">
+          <button type="button" role="tab" aria-selected="true"><span>All 55</span></button>
+          <button type="button" role="tab" aria-selected="false"><span>Like 41</span></button>
+          <button type="button" role="tab" aria-selected="false"><span>Support 14</span></button>
+        </div>
+        <div>
+          <div>
+            <a href="/in/bianca-holt-dental/">
+              <figure>
+                <img alt="View Bianca Holt’s profile" />
+              </figure>
+              <div>
+                <p>
+                  <span>
+                    <span>Bianca Holt 2nd</span>
+                    <span aria-hidden="true">
+                      Bianca Holt
+                      <span>• 2nd</span>
+                    </span>
+                  </span>
+                </p>
+                <p>
+                  <span>Office manager at Holt Family Dental | Round Rock</span>
+                </p>
+              </div>
+            </a>
+            <button type="button" aria-label="Invite Bianca Holt to connect">
+              <span>Connect</span>
+            </button>
+          </div>
+          <div>
+            <a href="/in/marcus-webb-facilities/">
+              <figure>
+                <img alt="View Marcus Webb’s profile" />
+              </figure>
+              <div>
+                <p>
+                  <span>
+                    <span>Marcus Webb 3rd+</span>
+                    <span aria-hidden="true">
+                      Marcus Webb
+                      <span>• 3rd+</span>
+                    </span>
+                  </span>
+                </p>
+                <p>
+                  <span>Facilities director at Riverbend Schools</span>
+                </p>
+              </div>
+            </a>
+            <button type="button" aria-label="Follow Marcus Webb">
+              <span>Follow</span>
+            </button>
+          </div>
+          <div>
+            <a href="/in/sam-lee-77/">
+              <figure>
+                <img alt="View Sam Lee’s profile" />
+              </figure>
+              <div>
+                <p>
+                  <span>
+                    <span>Sam Lee 1st</span>
+                    <span aria-hidden="true">
+                      Sam Lee
+                      <span>• 1st</span>
+                    </span>
+                  </span>
+                </p>
+                <p>
+                  <span>Owner at Lee Heating &amp; Air</span>
+                </p>
+              </div>
+            </a>
+            <button type="button" aria-label="Send a message to Sam Lee">
+              <span>Message</span>
+            </button>
+          </div>
+          <div>
+            <a href="/in/chris-gee-12/">
+              <figure>
+                <img alt="View Chris Gee’s profile" />
+              </figure>
+              <div>
+                <p>
+                  <span>Chris Gee</span>
+                </p>
+                <p>
+                  <span>Owner, Gee Plumbing</span>
+                </p>
+              </div>
+            </a>
+          </div>
+          <div>
+            <a href="/in/priya-dalton-hvac/">
+              <figure>
+                <img alt="View Priya Dalton’s profile" />
+              </figure>
+              <div>
+                <p>
+                  <span>
+                    <span>Priya Dalton 3rd+</span>
+                    <span aria-hidden="true">
+                      Priya Dalton
+                      <span>• 3rd+</span>
+                    </span>
+                  </span>
+                </p>
+                <p>
+                  <span
+                    >Owner at Dalton Comfort Heating &amp; Cooling | Keeping Hill Country homes
+                    comfortable</span
+                  >
+                </p>
+              </div>
+            </a>
+            <button type="button" aria-label="Follow Priya Dalton">
+              <span>Follow</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

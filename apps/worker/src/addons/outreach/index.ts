@@ -51,6 +51,7 @@ import {
   reviewJob,
 } from './tracking';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
+import { WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
 /**
  * What the extension sends also arms the morning push and the weekly report, for a business that had the add-on on
@@ -107,7 +108,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // 2: a playbook's questions have answers, and it has a pace. 3: a niche, its problem and proof, and something
     // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
     // link. 5: the video's script. 6: the kinds of partner a partner playbook looks for. 7: a playbook runs on its own
-    // networks, a customers' one saved before on Facebook and LinkedIn, as it ran. Reading upgrades an older one too
+    // networks, a customers' one saved before on Facebook and LinkedIn, as it ran. 8: each network's own words, works
+    // online, and the networks whose words the AI wrote, empty. Reading upgrades an older one too
     // (outreach.playbook.list), so these only tidy what a reinstall brings back.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
@@ -115,6 +117,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     5: upgradePlaybooks,
     6: upgradePlaybooks,
     7: upgradePlaybooks,
+    8: upgradePlaybooks,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
@@ -152,9 +155,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.ask.ended': askSettled,
     'outreach.ask.cancelled': askSettled,
     // Starting the day, or saving one's settings, arms the day's report; a new main offer tells whoever OK'd their
-    // messages against an older one (./tracking.ts).
-    'outreach.day.started': armDayReportFor,
-    'outreach.automation.saved': armDayReportFor,
+    // messages against an older one (./tracking.ts). A playbook saved, a network turned on and the day started (a
+    // safety net) have the AI write each network's own words for a customers' playbook with none (./words.ts).
+    'outreach.day.started': both(armDayReportFor, wordsWanted),
+    'outreach.automation.saved': both(armDayReportFor, wordsWanted),
+    'outreach.playbook.saved': wordsWanted,
     'main_offer.published': offerPublished,
     // Someone who could partner, read off their profile, waits for the AI's partner check (./partners.ts).
     'outreach.partner.looked': partnerLooked,
@@ -178,6 +183,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [GUESS_COUNTRIES_JOB]: guessCountriesJob,
     [DAY_REPORT_JOB]: dayReportJob,
     [REVIEW_JOB]: reviewJob,
+    [WRITE_WORDS_JOB]: writeWordsJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

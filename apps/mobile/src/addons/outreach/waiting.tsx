@@ -1,3 +1,4 @@
+import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
@@ -8,8 +9,9 @@ import {
   openPageWords,
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
-import { networkOfLink } from '@hfos/core/addons/outreach/networks';
+import { networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import {
+  COMMENT_HOLD_WORDS,
   recentBubbles,
   RECENT_WORDS,
   SendText,
@@ -22,7 +24,13 @@ import {
 } from '@hfos/core/addons/outreach/views/waiting';
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
 import {
+  approveAllTakesComments,
   approveAllWords,
+  commentHoldShown,
+  commentTitle,
+  forumAnswer,
+  forumAnswersLeftWords,
+  messagesTitle,
   moreWords,
   NEED_CLEARS,
   needClearedWords,
@@ -75,6 +83,11 @@ import {
  * Each card's name opens the person menu (decision 91, ./person-menu.tsx) inside the `PersonMenuScope` Today's tab puts
  * around it: their page first, then Contacts, Mark as client, Don't pitch, Never contact and the rest. Each card keeps
  * its own Open button.
+ *
+ * Comments on good posts (decision 92, Instagram's and Alignable's) wait among the messages, from the same copy, so they
+ * too are OK'd, changed, skipped and Approved all with no signal: "Comment on Dana Reyes’s post", with the post's
+ * first words above it and Open the post once HandsFreeOS has said them (the copy keeps no post). Approve all leaves an
+ * answer to a post asking for what the business offers, and says why.
  */
 
 type Asked = Extract<WaitingOutput['items'][number], { kind: 'ask' }>['ask'];
@@ -91,9 +104,22 @@ export interface WaitingFromServer {
   readonly requests: readonly Request[];
   readonly kinds: Pick<WaitingOutput['kinds'], 'ask' | 'need' | 'request'>;
   readonly wheels: WaitingOutput['wheels'];
+  /** The networks whose comments wait under the comments-only hold now (decision 92's 13), for the hold's note. */
+  readonly commentHolds?: WaitingOutput['commentHolds'];
   readonly pushes: WaitingOutput['pushes'];
   /** Each message's chat so far, by its id: with signal only, since the phone's copy doesn't keep chats. */
   readonly recent: ReadonlyMap<string, readonly RecentMessage[]>;
+  /**
+   * Each comment's post (decision 92), by its id: its first words and its link, with signal only, since the copy keeps
+   * no post.
+   */
+  readonly posts?: ReadonlyMap<string, CommentPost>;
+}
+
+/** A comment's post, as HandsFreeOS says it: its first words, and where it is. */
+export interface CommentPost {
+  readonly post: string | null;
+  readonly postUrl: string | null;
 }
 
 export function serverPart(answer: WaitingOutput): WaitingFromServer {
@@ -103,17 +129,29 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
         i.kind === 'reply' || i.kind === 'message' ? [[i.send.sendId, i.send.recent] as const] : [],
       ),
     ),
+    posts: new Map(
+      answer.items.flatMap((i) =>
+        i.kind === 'message' && i.send.kind === 'comment'
+          ? [[i.send.sendId, { post: i.send.post, postUrl: i.send.postUrl }] as const]
+          : [],
+      ),
+    ),
     asks: answer.items.flatMap((i) => (i.kind === 'ask' ? [i.ask] : [])),
     needs: answer.items.flatMap((i) => (i.kind === 'need' ? [i.need] : [])),
     requests: answer.items.flatMap((i) => (i.kind === 'request' ? [i.request] : [])),
     kinds: { ask: answer.kinds.ask, need: answer.kinds.need, request: answer.kinds.request },
     wheels: answer.wheels,
+    commentHolds: answer.commentHolds,
     pushes: answer.pushes,
   };
 }
 
 /** What a press says: done, or waiting on the phone for signal. */
 const saidOf = (online: boolean, now: string, queued: string) => (online ? now : queued);
+
+/** An OK, said: a message goes in its chat, a comment under its post on its network (decision 92). */
+const okdWords = (send: Pick<PhoneSend, 'kind' | 'profileUrl'>) =>
+  send.kind === 'comment' ? W.okdComment(PLATFORMS[networkOfUrl(send.profileUrl)]) : W.okd;
 
 function failed(e: unknown) {
   toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -148,7 +186,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     onOk: async (send, text) => {
       try {
         await okSend(ws, send.sendId, text);
-        toast.show(saidOf(ctx.online, W.okd, W.okdQueued));
+        toast.show(saidOf(ctx.online, okdWords(send), W.okdQueued));
       } catch (e) {
         failed(e);
       }
@@ -156,7 +194,13 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     onSkip: async (send) => {
       try {
         await skipSend(ws, send.sendId);
-        toast.show(saidOf(ctx.online, W.skipped, W.skippedQueued));
+        toast.show(
+          saidOf(
+            ctx.online,
+            send.kind === 'comment' ? W.commentSkipped : W.skipped,
+            W.skippedQueued,
+          ),
+        );
       } catch (e) {
         failed(e);
       }
@@ -164,7 +208,10 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     onOkAll: async (sends) => {
       try {
         await okAll(ws, sends);
-        toast.show(saidOf(ctx.online, W.okdAll(sends.length), W.okdQueued));
+        const comments = phone.messages.some(
+          (m) => m.kind === 'comment' && sends.some((s) => s.sendId === m.sendId),
+        );
+        toast.show(saidOf(ctx.online, W.okdAll(sends.length, comments), W.okdQueued));
       } catch (e) {
         failed(e);
       }
@@ -230,6 +277,11 @@ export function WaitingBody({
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
+  // Comments wait among the messages (decision 92): the heading says so, and Approve all leaves forum answers.
+  const comments = phone.messages.filter((s) => s.kind === 'comment');
+  const answers = comments.filter(forumAnswer).length;
+  // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
+  const held = server ? commentHoldShown(comments, server.commentHolds) : false;
   const count =
     phone.kinds.reply.count +
     phone.kinds.message.count +
@@ -239,6 +291,7 @@ export function WaitingBody({
       key={send.sendId}
       send={send}
       recent={server?.recent.get(send.sendId) ?? []}
+      post={server?.posts?.get(send.sendId) ?? null}
       now={now}
       onOk={() => onOk(send)}
       onChange={() => setChanging(send)}
@@ -304,11 +357,19 @@ export function WaitingBody({
 
       {phone.messages.length ? (
         <Group
-          title={WAITING_KINDS.message}
+          title={messagesTitle(comments.length > 0)}
           count={phone.kinds.message.count}
           shown={phone.messages.length}
           kind="message"
-          note={server?.wheels.on ? wheelsWords(server.wheels) : null}
+          note={
+            [
+              server?.wheels.on ? wheelsWords(server.wheels) : null,
+              held ? COMMENT_HOLD_WORDS : null,
+              all.length >= 2 && answers ? forumAnswersLeftWords(answers) : null,
+            ]
+              .filter(Boolean)
+              .join(' ') || null
+          }
           testID="waiting-message"
           action={
             all.length >= 2 ? (
@@ -318,7 +379,7 @@ export function WaitingBody({
                 onPress={() => onOkAll(all)}
                 testID="waiting-approve-all"
               >
-                {approveAllWords(all.length)}
+                {approveAllWords(all.length, approveAllTakesComments(comments))}
               </Button>
             ) : null
           }
@@ -449,6 +510,7 @@ function Group({
 function SendCard({
   send,
   recent,
+  post,
   now,
   onOk,
   onChange,
@@ -457,6 +519,8 @@ function SendCard({
   send: PhoneSend;
   /** The chat so far, oldest first. */
   recent: readonly RecentMessage[];
+  /** A comment's post, with signal (decision 92): null without, or for a message. */
+  post: CommentPost | null;
   now: number;
   onOk: () => void;
   onChange: () => void;
@@ -464,10 +528,13 @@ function SendCard({
 }) {
   // Each on its own network, as its profile's link says (the phone's copy keeps no more).
   const platform = networkOfUrl(send.profileUrl);
-  const open = chatUrlOn(platform, send.threadKey) ?? send.profileUrl;
+  const comment = send.kind === 'comment';
+  const open = comment
+    ? (post?.postUrl ?? send.profileUrl)
+    : (chatUrlOn(platform, send.threadKey) ?? send.profileUrl);
   const why = oneByOneWords(send);
   return (
-    <Card className="gap-2.5 px-4 py-3.5" testID="waiting-send">
+    <Card className="gap-2.5 px-4 py-3.5" testID={comment ? 'waiting-comment' : 'waiting-send'}>
       <View className="flex-row flex-wrap items-center gap-2">
         <PersonName
           who={{
@@ -479,13 +546,29 @@ function SendCard({
           }}
         />
         <NetworkName platform={platform} />
-        <Text className="text-[12.5px] text-text-3">{todayKindsOn(platform)[send.kind]}</Text>
+        {comment ? null : (
+          <Text className="text-[12.5px] text-text-3">{todayKindsOn(platform)[send.kind]}</Text>
+        )}
         {send.handedOver ? (
           <Badge variant="pending">
             <Text>{W.handedOver}</Text>
           </Badge>
         ) : null}
       </View>
+      {comment ? (
+        // "Comment on Dana Reyes’s post", then the post's first words above the comment (decision 92).
+        <Text className="text-[14.5px] leading-[21px]" testID="waiting-comment-title">
+          {commentTitle(send.name)}
+        </Text>
+      ) : null}
+      {comment && post?.post ? (
+        <Text
+          className="border-l-2 border-border pl-3 text-[13.5px] leading-[19px] text-text-2"
+          testID="waiting-comment-post"
+        >
+          {post.post}
+        </Text>
+      ) : null}
       {recent.length ? (
         <View className="gap-1">
           <Note>{RECENT_WORDS.title}</Note>
@@ -496,6 +579,7 @@ function SendCard({
           />
         </View>
       ) : null}
+      {comment ? <Note>{W.yourComment}</Note> : null}
       <Text
         selectable
         className="rounded-control bg-card-2 px-3 py-2 text-[14.5px] leading-[21px]"
@@ -528,7 +612,11 @@ function SendCard({
             onPress={() => openOutside(open)}
             testID="waiting-open"
           >
-            {send.threadKey ? openChatWords(platform) : openPageWords(platform)}
+            {comment && post?.postUrl
+              ? TOUCHED_POSTS_WORDS.openPost
+              : !comment && send.threadKey
+                ? openChatWords(platform)
+                : openPageWords(platform)}
           </Button>
         ) : null}
       </View>
@@ -564,7 +652,13 @@ function ChangeSheet({
     <Sheet
       open={send !== null}
       onClose={onClose}
-      title={send ? W.changeTitle(send.name) : undefined}
+      title={
+        send
+          ? send.kind === 'comment'
+            ? commentTitle(send.name)
+            : W.changeTitle(send.name)
+          : undefined
+      }
       description={W.changeHelp}
       testID="waiting-change-sheet"
     >
@@ -586,7 +680,7 @@ function ChangeSheet({
           </Text>
         ) : null}
         <Button disabled={!trimmed} onPress={ok} testID="waiting-change-ok">
-          {W.okChanged}
+          {send?.kind === 'comment' ? W.ok : W.okChanged}
         </Button>
       </View>
     </Sheet>

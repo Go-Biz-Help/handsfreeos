@@ -2,21 +2,32 @@
  * What the extension sends HandsFreeOS: the saves built from a read, cut to what the commands take, with Facebook's
  * times made to last; and which businesses it can save to.
  */
+import { FIND_LINES, FINDS_SAVE_MOST } from '@hfos/core/addons/outreach/finds';
+import { GROUP_PEOPLE_MOST } from '@hfos/core/addons/outreach/groups';
 import { FRIENDS_SAVE_MOST } from '@hfos/core/addons/outreach/limits';
 import { describe, expect, it } from 'vitest';
 import type { ChatPage, Person, ProfileRef, ReadResult } from '../src/networks/facebook/types';
+import type { ReadResult as LinkedInRead } from '../src/networks/linkedin/types';
 import {
+  alignableGroupSave,
+  alignableGroupsSave,
+  alignablePostsSave,
   chatCollect,
+  findsSave,
   friendsSave,
   groupDetailFacts,
   groupSave,
   groupsSave,
+  instagramPostsSave,
   isAdminsPage,
   isOwnGroupsPage,
+  linkedInPostsSave,
   listOnPage,
   nameKey,
   outreachBusinesses,
   postsSave,
+  type AlignableMember,
+  type FoundPerson,
 } from '../src/hfos/saves';
 import { instantOf, resolveWhen } from '../src/hfos/when';
 
@@ -449,5 +460,269 @@ describe('outreachBusinesses', () => {
         workspace('c', ['outreach'], ['records.read']),
       ]),
     ).toEqual([{ id: 'a', name: 'Business a' }]);
+  });
+});
+
+describe('found by topic (decision 92)', () => {
+  const IG = 'https://www.instagram.com';
+  const AL = 'https://www.alignable.com';
+  const POST_ID = 'e0e0e0e0-0000-4000-8000-000000000001';
+  const account = (username: string) => ({ id: null, username, url: `${IG}/${username}/` });
+  const business = (id: string) => ({ id, username: null, url: `${AL}/biz/businesses/${id}` });
+  const group = {
+    id: 'springfield-small-business',
+    url: `${AL}/groups/springfield-small-business`,
+    name: 'Springfield Small Business',
+  };
+
+  it('keeps the hashtag or phrase a look or search went with on each Instagram and LinkedIn save', () => {
+    const posts = [
+      {
+        url: `${IG}/p/C0ffee12345/`,
+        author: { username: 'kim_bakes', url: `${IG}/kim_bakes/` },
+        caption: 'Fresh sourdough this morning',
+        likes: 12,
+      },
+    ];
+    const tagged = instagramPostsSave(posts, WS, '#sourdough');
+    expect(tagged.ok && tagged.input.words).toBe('sourdough');
+    const placed = instagramPostsSave(posts, WS);
+    expect(placed.ok && placed.input.words).toBeNull();
+
+    const read = {
+      kind: 'search',
+      url: 'https://www.linkedin.com/search/results/content/?keywords=bakery',
+      posts: [
+        {
+          author: {
+            name: 'Kim Baker',
+            profile: {
+              id: null,
+              username: 'kim-baker',
+              url: 'https://www.linkedin.com/in/kim-baker/',
+            },
+          },
+          company: null,
+          headline: 'Owner, Kim’s Bakery',
+          url: 'https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000001/',
+          when: '2d',
+          text: 'Looking for a bakery for our office party',
+          comments: 2,
+          reactions: 8,
+        },
+      ],
+    } as unknown as LinkedInRead;
+    const searched = linkedInPostsSave(read, WS, 'search', '  bakery for events ');
+    expect(searched.ok && searched.input).toMatchObject({
+      found: 'search',
+      words: 'bakery for events',
+    });
+    const plain = linkedInPostsSave(read, WS);
+    expect(plain.ok && plain.input.words).toBeNull();
+  });
+
+  it('saves a joined Alignable group’s posts with their group, and none when it can’t tell the group', () => {
+    const threads = [
+      {
+        author: { name: 'Dana Reyes', profile: business('B1') },
+        url: `${AL}/forum/how-do-you-find-a-good-bookkeeper`,
+        when: '1d',
+        text: 'How do you find a good bookkeeper?',
+        likes: 3,
+      },
+    ];
+    const town = alignablePostsSave(threads, WS);
+    expect(town.ok && town.input.group).toBeNull();
+    const joined = alignablePostsSave(threads, WS, group);
+    expect(joined.ok && joined.input.group).toEqual({
+      id: null,
+      slug: 'springfield-small-business',
+      url: group.url,
+      name: 'Springfield Small Business',
+    });
+    expect(
+      alignablePostsSave(threads, WS, { id: '!!', url: 'https://example.com/g', name: null }),
+    ).toEqual({ ok: false, why: 'Couldn’t tell which group this is.' });
+  });
+
+  it('saves the groups an Alignable page lists, each once, and as the person’s own on their groups page', () => {
+    const cards = [
+      { ...group, members: 1_204, joined: null, detail: 'Springfield, IL' },
+      { ...group, members: 1_204, joined: null },
+      {
+        id: 'bakers-of-the-midwest',
+        url: `${AL}/groups/bakers-of-the-midwest`,
+        name: 'Bakers of the Midwest',
+        members: null,
+        joined: false,
+      },
+      { id: '!!', url: `${AL}/groups/x`, name: 'Odd', members: 3, joined: null },
+    ];
+    const found = alignableGroupsSave(cards, WS);
+    expect(found.ok && found.input).toEqual({
+      workspaceId: WS,
+      platform: 'alignable',
+      groups: [
+        {
+          group: {
+            id: null,
+            slug: 'springfield-small-business',
+            url: group.url,
+            name: 'Springfield Small Business',
+          },
+          detail: 'Springfield, IL',
+          privacy: null,
+          members: 1_204,
+        },
+        {
+          group: {
+            id: null,
+            slug: 'bakers-of-the-midwest',
+            url: `${AL}/groups/bakers-of-the-midwest`,
+            name: 'Bakers of the Midwest',
+          },
+          detail: null,
+          privacy: null,
+          members: null,
+          joined: false,
+        },
+      ],
+    });
+    const own = alignableGroupsSave(cards, WS, true);
+    expect(own.ok && own.input.groups.map((g) => g.joined)).toEqual([true, true]);
+    expect(alignableGroupsSave([], WS)).toEqual({
+      ok: false,
+      why: 'There are no groups on the page to save.',
+    });
+  });
+
+  it('saves an Alignable group’s members, its leaders as running it, and says the leaders were read only on the last part', () => {
+    const card = { ...group, members: 1_204, joined: true };
+    const member = (i: number, leader = false): AlignableMember => ({
+      name: `Owner ${i}`,
+      profile: business(`B${i}`),
+      lines: ['Bakery', '', 'Springfield, IL'],
+      leader,
+    });
+    const few = alignableGroupSave(card, [member(1, true), member(2), member(2)], WS, true);
+    expect(few.ok && few.input).toHaveLength(1);
+    expect(few.ok && few.input[0]).toMatchObject({
+      platform: 'alignable',
+      privacy: null,
+      members: 1_204,
+      joined: true,
+      adminsPage: true,
+    });
+    expect(
+      few.ok && few.input[0]!.people!.map((p) => [p.name, p.runsGroup, p.part, p.lines]),
+    ).toEqual([
+      ['Owner 1', true, null, ['Bakery', 'Springfield, IL']],
+      ['Owner 2', false, null, ['Bakery', 'Springfield, IL']],
+    ]);
+    const many = Array.from({ length: GROUP_PEOPLE_MOST + 1 }, (_, i) => member(i + 1));
+    const parts = alignableGroupSave(card, many, WS, true);
+    expect(parts.ok && parts.input.map((p) => [p.people!.length, p.adminsPage])).toEqual([
+      [GROUP_PEOPLE_MOST, false],
+      [1, true],
+    ]);
+    // A page with nobody on it yet still says whether its leaders were read.
+    const empty = alignableGroupSave(card, [], WS, true);
+    expect(empty.ok && empty.input).toEqual([
+      expect.objectContaining({ people: [], adminsPage: true }),
+    ]);
+    expect(alignableGroupSave({ ...card, id: '!!' }, [], WS)).toEqual({
+      ok: false,
+      why: 'Couldn’t tell which group this is.',
+    });
+  });
+
+  it('saves a good post’s commenters once each, with what they said, and the post with nobody when none showed', () => {
+    const kim: FoundPerson = {
+      name: 'Kim Baker',
+      profile: account('kim_bakes'),
+      lines: ['Home baker', 'Home baker', 'Springfield', 'Cakes', 'Bread', 'Pies'],
+      said: 'Where do you get your flour?',
+    };
+    const built = findsSave(
+      [
+        kim,
+        kim,
+        { name: 'Nobody', profile: { id: null, username: null, url: 'https://example.com/x' } },
+      ],
+      'commented',
+      'instagram',
+      WS,
+      { postId: POST_ID, words: 'ignored for a post' },
+    );
+    expect(built).toEqual({
+      ok: true,
+      input: [
+        {
+          workspaceId: WS,
+          platform: 'instagram',
+          how: 'commented',
+          postId: POST_ID,
+          group: null,
+          words: null,
+          place: null,
+          people: [
+            {
+              name: 'Kim Baker',
+              profile: account('kim_bakes'),
+              lines: ['Home baker', 'Springfield', 'Cakes', 'Bread'].slice(0, FIND_LINES),
+              said: 'Where do you get your flour?',
+              place: null,
+            },
+          ],
+        },
+      ],
+    });
+    const liked = findsSave([kim], 'liked', 'instagram', WS, { postId: POST_ID });
+    expect(liked.ok && liked.input[0]!.people![0]!.said).toBeNull();
+    // Nobody showed: the post still goes, so it counts as read.
+    const none = findsSave([], 'liked', 'instagram', WS, { postId: POST_ID });
+    expect(none.ok && none.input).toEqual([
+      expect.objectContaining({ postId: POST_ID, people: [] }),
+    ]);
+    expect(findsSave([kim], 'liked', 'instagram', WS)).toEqual({
+      ok: false,
+      why: 'Couldn’t tell which post they’re the people of.',
+    });
+  });
+
+  it('saves a search’s businesses with its words and town, and a group’s members only with their group', () => {
+    const people = Array.from({ length: FINDS_SAVE_MOST + 1 }, (_, i): FoundPerson => ({
+      name: `Owner ${i}`,
+      profile: business(`B${i}`),
+      place: 'Springfield, IL',
+    }));
+    const searched = findsSave(people, 'searched', 'alignable', WS, {
+      words: 'Bakery',
+      place: 'Springfield, IL',
+    });
+    expect(searched.ok && searched.input.map((p) => p.people!.length)).toEqual([
+      FINDS_SAVE_MOST,
+      1,
+    ]);
+    expect(searched.ok && searched.input[0]).toMatchObject({
+      how: 'searched',
+      postId: null,
+      group: null,
+      words: 'Bakery',
+      place: 'Springfield, IL',
+    });
+    expect(searched.ok && searched.input[0]!.people![0]).toMatchObject({
+      place: 'Springfield, IL',
+    });
+    const members = findsSave(people.slice(0, 2), 'member', 'alignable', WS, { group });
+    expect(members.ok && members.input[0]).toMatchObject({
+      how: 'member',
+      group: { slug: 'springfield-small-business' },
+      place: null,
+    });
+    expect(findsSave(people, 'member', 'alignable', WS)).toEqual({
+      ok: false,
+      why: 'Couldn’t tell which group this is.',
+    });
   });
 });

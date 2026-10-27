@@ -1,8 +1,10 @@
 /**
  * Social Outreach's shared words (src/addons/outreach/words.ts), which the web and the phone both say: the parts the
- * web links or shows on their own read the same as the phone's whole sentence. Pure: no database.
+ * web links or shows on their own read the same as the phone's whole sentence, and where Today's Open goes
+ * (src/addons/outreach/network-words.ts). Pure: no database.
  */
 import { describe, expect, it } from 'vitest';
+import { todayOpenOf } from '../../src/addons/outreach/network-words';
 import { sameNamePeople, OUTREACH_WORDS as W } from '../../src/addons/outreach/words';
 
 describe('Social Outreach’s shared words', () => {
@@ -71,5 +73,29 @@ describe('Social Outreach’s shared words', () => {
     ]);
     expect(sameNamePeople(found, { withoutProfile: false })).toHaveLength(3);
     expect(sameNamePeople({ sameName: [] }, { withoutProfile: true })).toEqual([]);
+  });
+
+  it('opens someone on Today on the post first, then their chat, then their page', () => {
+    const item = {
+      postUrl: null,
+      threadKey: null,
+      profileUrl: 'https://www.linkedin.com/in/made-up-1/',
+    };
+    expect(todayOpenOf(item, 'linkedin')).toEqual({
+      url: 'https://www.linkedin.com/in/made-up-1/',
+      words: 'Open on LinkedIn',
+    });
+    const chat = { ...item, threadKey: '2-abc=' };
+    expect(todayOpenOf(chat, 'linkedin')).toEqual({
+      url: 'https://www.linkedin.com/messaging/thread/2-abc%3D/',
+      words: 'Open in LinkedIn messaging',
+    });
+    // A found person's warm-up carries the post its like goes on, as a comment does: Open goes there.
+    const post = 'https://www.linkedin.com/feed/update/urn:li:activity:7000000000000000001/';
+    expect(todayOpenOf({ ...chat, postUrl: post }, 'linkedin')).toEqual({
+      url: post,
+      words: 'Open the post',
+    });
+    expect(todayOpenOf({ ...item, profileUrl: null }, 'facebook')).toBeNull();
   });
 });

@@ -47,10 +47,15 @@ export const DAILY_JOBS = [
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
 /**
- * A once-a-day job only one network's runner does: Instagram's look at the accounts the person followed for who
- * follows them back (../jobs/instagram/follow-backs.ts).
+ * A once-a-day job only some networks' runners do: Instagram's look at the accounts the person followed for who follows
+ * them back (../jobs/instagram/follow-backs.ts); and finding people by topic (decision 92): who liked or reacted to and
+ * commented on good posts, on Instagram and LinkedIn (`post_people`), the checks of the people found, on all three
+ * (`found_checks`, ../jobs/found-checks.ts), and on Alignable its search of businesses (`search`), the person's own
+ * groups read first (`my_groups`) and the posts of the groups they joined (`group_posts`), beside Facebook's
+ * `group_checks`, `join` and `members`.
  */
-export type OwnDailyJob = 'follow_backs';
+export type OwnDailyJob =
+  'follow_backs' | 'post_people' | 'found_checks' | 'search' | 'my_groups' | 'group_posts';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;
@@ -206,13 +211,18 @@ export const workKey = (work: Work): string =>
       ? `send:${work.item.send?.sendId ?? itemKey(work.item)}`
       : `draft:${itemKey(work.item)}`;
 
-/** The messages on a list it drafts and sends: a kind it writes, to someone kept, with their chat or profile. */
+/**
+ * The messages on a list it drafts and sends: a kind it writes, to someone kept, with their chat or profile. A comment
+ * that goes through `sends` (decision 92: where `comment` is among the list's `messages`) also needs its post, kept and
+ * with its link.
+ */
 const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =>
   items.filter(
     (item) =>
       kinds.includes(item.kind) &&
       item.profileId !== null &&
-      (item.profileUrl !== null || item.threadKey !== null),
+      (item.profileUrl !== null || item.threadKey !== null) &&
+      (item.kind !== 'comment' || (item.postId !== null && item.postUrl !== null)),
   );
 
 /**

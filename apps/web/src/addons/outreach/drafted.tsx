@@ -4,11 +4,15 @@
  * list: the texts it would send, as they'd look in Messenger, with **Send**, **Edit** and **Skip** while it waits, and
  * why it waits for an OK of its own when it does (decision 42); once OK'd it goes soon. Changing the words teaches the
  * AI. A message of a few texts (decision 55) keeps a blank line between them while it's changed.
+ *
+ * A comment on a good post (decision 92, Instagram's and Alignable's) waits the same way, with **OK**, **Change** and
+ * **Skip**: the extension posts it under the post once OK'd, and a comment skipped puts its post aside.
  */
-import { oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { commentTitle, oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { Pencil, Send } from 'lucide-react';
+import { Check, Pencil, Send } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -46,29 +50,42 @@ export function Drafted({
   workspaceId,
   name,
   send,
+  comment = null,
 }: {
   workspaceId: string;
-  /** Who it's to. */
+  /** Who it's to: for a comment, whose post it goes under. */
   name: string;
   send: DraftedSend;
+  /** For a comment on a good post (decision 92): the network it's posted on. Null for a message. */
+  comment?: Platform | null;
 }) {
   const [text, setText] = useState(send.text);
   const [editing, setEditing] = useState(false);
   const { busy, act } = useAct();
+  // A comment is one, under the post; a message may go as a few texts.
+  const partsOf = (t: string) => (comment ? [t] : messageParts(t, true));
   if (send.state === 'approved')
     return (
       <div className="mt-3 space-y-1.5" data-testid="today-send-approved">
-        <p className="text-[12.5px] text-text-3">{W.sentOkd}</p>
-        <Bubbles parts={messageParts(send.text, true)} testId="today-send-texts" />
+        <p className="text-[12.5px] text-text-3">{comment ? W.commentOkd : W.sentOkd}</p>
+        <Bubbles parts={partsOf(send.text)} testId="today-send-texts" />
       </div>
     );
-  const parts = messageParts(text, true);
+  const parts = partsOf(text);
   const alone = oneByOneWords(send);
   return (
-    <div className="mt-3 space-y-2" data-testid="today-send">
+    <div
+      className="mt-3 space-y-2"
+      data-testid="today-send"
+      data-kind={comment ? 'comment' : 'message'}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-          {parts.length > 1 ? `Your reply · ${parts.length} texts` : 'Your reply'}
+          {comment
+            ? W.yourComment
+            : parts.length > 1
+              ? `Your reply · ${parts.length} texts`
+              : 'Your reply'}
         </p>
         <p className="text-[12.5px] text-text-3">{W.changeHelp}</p>
       </div>
@@ -81,7 +98,7 @@ export function Drafted({
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          aria-label={`Message to ${name}`}
+          aria-label={comment ? commentTitle(name) : `Message to ${name}`}
           rows={Math.min(8, Math.max(3, text.split('\n').length + 1))}
           autoFocus
         />
@@ -101,13 +118,17 @@ export function Drafted({
                     body: { workspaceId, sends: [{ sendId: send.sendId, text }] },
                   }),
                 ),
-              W.okd,
+              comment ? W.okdComment(PLATFORMS[comment]) : W.okd,
             )
           }
           data-testid="today-send-ok"
         >
-          <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {sendLabel(parts.length)}
+          {comment ? (
+            <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+          ) : (
+            <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
+          )}
+          {comment ? W.ok : sendLabel(parts.length)}
         </Button>
         <Button
           variant="secondary"
@@ -118,7 +139,7 @@ export function Drafted({
           data-testid="today-send-edit"
         >
           <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {editing ? 'Done' : 'Edit'}
+          {editing ? 'Done' : comment ? W.change : 'Edit'}
         </Button>
         <Button
           variant="ghost"
@@ -133,7 +154,7 @@ export function Drafted({
                     body: { workspaceId, sendId: send.sendId },
                   }),
                 ),
-              `Skipped. ${name} is off your list for today.`,
+              comment ? W.commentSkipped : `Skipped. ${name} is off your list for today.`,
             )
           }
           data-testid="today-send-skip"

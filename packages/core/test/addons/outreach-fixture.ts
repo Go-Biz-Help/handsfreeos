@@ -255,3 +255,58 @@ export async function runAsSystem(
     { correlationId: randomUUID(), channel: 'test' },
   ).then((r) => r.output);
 }
+
+/**
+ * A new computer of `u`'s with the extension on a build, saying it's there: the one that works now (decision 41). Its
+ * install id. Today gives people found by topic and comments to send only to 0.95.0 or later (decision 92).
+ */
+export async function computerOn(u: TestUser, ws: string, version: string): Promise<string> {
+  const id = randomUUID();
+  await runWith(
+    u,
+    ws,
+    'outreach.live.beat',
+    {
+      computer: { id, name: 'Chrome on Mac', version },
+      active: true,
+      status: { state: 'idle', line: null, lineAt: null, nextAt: null },
+    },
+    { channel: 'extension', commandId: randomUUID(), occurredAt: new Date(), sentAt: new Date() },
+  );
+  return id;
+}
+
+/**
+ * The AI's check of someone from their own page, as `u`'s computer's look and the worker's answer keep it: of someone
+ * found when they're a find of `u`'s (decision 92).
+ */
+export async function checkedAs(
+  u: TestUser,
+  ws: string,
+  profileId: string,
+  answer: {
+    readonly fit: 'good' | 'maybe' | 'not';
+    readonly why: readonly string[];
+    readonly playbookId?: string | null;
+  },
+): Promise<void> {
+  const looked = (await runAs(u, ws, 'outreach.check.look', {
+    profileId,
+    lines: ['Owner of a small trades business · Austin, Texas'],
+  })) as { checkId: string };
+  const [at] = await rows<{ looked_at: Date | string }>(
+    admin(),
+    sql`select looked_at from addon_outreach.checks where id = ${looked.checkId}`,
+  );
+  await runAsSystem(ws, 'outreach.check.save', {
+    checkId: looked.checkId,
+    lookedAt: new Date(at!.looked_at).toISOString(),
+    answer: {
+      fit: answer.fit,
+      playbookId: answer.playbookId ?? null,
+      why: [...answer.why],
+      about: null,
+      nextStep: null,
+    },
+  });
+}

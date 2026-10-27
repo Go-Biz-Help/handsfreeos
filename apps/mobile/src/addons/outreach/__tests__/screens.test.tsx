@@ -4,6 +4,7 @@ import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
+import { COMMENT_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -18,15 +19,16 @@ import { OutreachMoreRow } from '../more';
 import { isSetUp, WebOnlyBody } from '../page';
 import { PersonMenuScope } from '../person-menu';
 import { PipelineBody } from '../pipeline';
-import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
+import { mergeSection, PlaybookBody, sectionsOf, sectionWords } from '../playbook';
 import { TodayBody } from '../today';
 import { id, TZ, WS } from './mocks';
 
 /**
  * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
  * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
- * asking for what the business offers first, each name opening the person menu, the Pipeline's Client stage, and a
- * playbook changed a part at a time on what's there now. Settings have their own file (./settings.test.tsx).
+ * asking for what the business offers first, comments drafted to wait on Instagram and Alignable (decision 92), each
+ * name opening the person menu, the Pipeline's Client stage, and a playbook changed a part at a time on what's there
+ * now. Settings have their own file (./settings.test.tsx).
  */
 
 jest.mock('expo-router', () => ({
@@ -202,6 +204,73 @@ describe('Today on the phone', () => {
     const comments = screen.getByTestId('today-comment');
     expect(within(comments).getByText('Comment on a post · 1')).toBeTruthy();
     expect(within(comments).queryByText('Lee Park')).toBeNull();
+  });
+
+  it('shows a comment drafted to wait with OK and Skip, and no Not for me beside them', async () => {
+    const drafted = (n: number, name: string, needsYou: string | null): TodayItem => ({
+      ...post(n, name, false),
+      profileUrl: `https://www.instagram.com/made.up.${n}/`,
+      postUrl: `https://www.instagram.com/p/MadeUp${n}/`,
+      post: 'New roof on a craftsman in Hyde Park this week.',
+      why: ['Posted under #austinroofing'],
+      send: {
+        sendId: id(60 + n),
+        state: 'waiting',
+        text: 'That ridge line came out clean. How long did the tear-off take?',
+        handedOver: false,
+        needsYou,
+      },
+    });
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [drafted(1, 'Sam Ortiz', null), drafted(2, 'Rowan Hale', COMMENT_NEEDS_YOU.answer)],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+    };
+    const onOk = jest.fn();
+    const onSkip = jest.fn();
+    await render(
+      <TodayBody
+        platform="instagram"
+        today={today}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={onOk}
+        onSkip={onSkip}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const [sam, rowan] = screen.getAllByTestId('today-item');
+    expect(within(sam!).getByText('Posted under #austinroofing')).toBeTruthy();
+    expect(within(sam!).getByText('New roof on a craftsman in Hyde Park this week.')).toBeTruthy();
+    expect(
+      within(sam!).getByText(
+        'I’d post this comment. Change it if you like; your changes teach the AI.',
+      ),
+    ).toBeTruthy();
+    // Open goes to the post the comment goes under, as on the web.
+    expect(within(sam!).getByTestId('today-open')).toHaveTextContent('Open the post');
+    // Skipping a comment puts its post aside, so there's no Not for me beside it.
+    expect(within(sam!).queryByTestId('today-not-for-me')).toBeNull();
+    expect(within(sam!).queryByTestId('today-send-alone')).toBeNull();
+    await fireEvent.press(within(sam!).getByTestId('today-ok'));
+    expect(onOk).toHaveBeenCalledWith(id(61));
+    await fireEvent.press(within(sam!).getByTestId('today-skip'));
+    expect(onSkip).toHaveBeenCalledWith(id(61));
+    // A forum answer says it waits for an OK of its own.
+    expect(within(rowan!).getByTestId('today-send-alone').props.children).toBe(
+      `It waits for you on its own: ${COMMENT_NEEDS_YOU.answer}.`,
+    );
   });
 
   it('shows today’s helpful post, OKs it for the computer, or puts it aside', async () => {
@@ -951,6 +1020,30 @@ describe('A playbook on the phone', () => {
     expect(scripted).toContain('1 · Who it’s for, and the problem\nSay who.\nShow: You');
   });
 
+  it('shows each network’s own words on a customers’ playbook that runs there, and what an emptied list means', () => {
+    const details = {
+      ...PLAYBOOK.details,
+      platforms: ['facebook' as const, 'instagram' as const, 'alignable' as const],
+      hashtags: ['austinroofing', 'hailrepair'],
+      businessKinds: [],
+      wordsWritten: ['instagram' as const, 'alignable' as const],
+      worksOnline: true,
+    };
+    expect(sectionsOf(details)).toEqual(
+      expect.arrayContaining(['hashtags', 'businessKinds', 'worksOnline']),
+    );
+    expect(sectionsOf(details)).not.toContain('postSearches');
+    expect(sectionsOf({ ...details, goal: 'partner' })).not.toContain('hashtags');
+    expect(sectionWords(details, 'hashtags')).toBe('#austinroofing\n#hailrepair');
+    expect(sectionWords(details, 'businessKinds')).toBe(
+      'Alignable won’t search for businesses for this playbook.',
+    );
+    expect(sectionWords({ ...details, wordsWritten: [] }, 'businessKinds')).toBe('Nothing yet.');
+    expect(sectionWords(details, 'worksOnline')).toBe(
+      'You work with clients online, so Alignable searches anywhere.',
+    );
+  });
+
   it('lets owners and admins change a part, and says what’s wrong when it can’t be saved', async () => {
     const onSave = jest.fn(async () => 'Keep it under 300 characters.');
     await render(
@@ -975,6 +1068,38 @@ describe('A playbook on the phone', () => {
       'signs',
     );
     expect(await screen.findByText('Keep it under 300 characters.')).toBeTruthy();
+  });
+
+  it('says under a network’s words whether the AI writes them, as the web does', async () => {
+    const body = (playbook: Playbook) => (
+      <PlaybookBody
+        playbook={playbook}
+        error={null}
+        manages
+        online
+        onRetry={jest.fn()}
+        onSave={jest.fn()}
+        onArchive={jest.fn()}
+      />
+    );
+    await render(body(PLAYBOOK));
+    await fireEvent.press(screen.getByTestId('playbook-edit-hashtags'));
+    expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
+      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+    );
+    // Words typed in are the person's own: the AI never adds to them.
+    await fireEvent.changeText(screen.getByTestId('playbook-lines'), 'roofleak');
+    expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
+      'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
+    );
+    // A list the AI wrote and the person emptied looks at nothing.
+    await render(
+      body({ ...PLAYBOOK, details: { ...PLAYBOOK.details, wordsWritten: ['instagram'] } }),
+    );
+    await fireEvent.press(screen.getByTestId('playbook-edit-hashtags'));
+    expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
+      'Instagram won’t look at hashtags for this playbook.',
+    );
   });
 
   it('is read-only for everyone else', async () => {

@@ -200,6 +200,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
       }
 
       const weekAgo = new Date(now - HELPFUL_GROUP_DAYS * DAY).toISOString();
+      // Facebook's groups only: one joined on Alignable (decision 92) is never Facebook's to post in.
       const candidates = await rows<{
         id: string;
         name: string | null;
@@ -222,7 +223,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
                 where po.group_id = g.id and po.user_id = ${me}) as asked
             from addon_outreach.groups g
             join addon_outreach.my_groups m on m.group_id = g.id and m.user_id = ${me} and m.joined
-            where g.workspace_id = ${ws}
+            where g.workspace_id = ${ws} and g.platform = 'facebook'
               ${input.groupId ? sql`and g.id = ${input.groupId}` : sql``}`,
       );
       if (input.groupId && !candidates.length)

@@ -1,7 +1,7 @@
 /**
  * Social Outreach's own tables, on the database: the Drizzle mirror matches the live columns and the manifest names
  * every table; a member reads the playbooks but only owners and admins write them; nobody deletes a step noted or a
- * group; and none of it shows while the add-on is off.
+ * group; a find outlives its post, and a comment waits only with one; and none of it shows while the add-on is off.
  */
 import { getTableColumns, getTableName } from 'drizzle-orm';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -24,7 +24,7 @@ async function refusal(p: Promise<unknown>): Promise<string> {
     await p;
   } catch (e) {
     const cause = (e as { cause?: { code?: string } }).cause;
-    return cause?.code || String(e);
+    return cause?.code || (e as { code?: string }).code || String(e);
   }
   throw new Error('It was allowed.');
 }
@@ -122,6 +122,91 @@ describe('Social Outreach’s tables', () => {
         ),
       ),
     ).toBe('23514');
+  });
+
+  it('keep a find when its post goes, and a comment waits only with its post (decision 92)', async () => {
+    const [writer] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          values (${ws}, 'instagram', 'quinn.roofs', 'https://www.instagram.com/quinn.roofs/', 'Quinn Harlow')
+          returning id`,
+    );
+    const [liker] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          values (${ws}, 'instagram', 'sage.builds', 'https://www.instagram.com/sage.builds/', 'Sage Whitfield')
+          returning id`,
+    );
+    const [post] = await rows<{ id: string; words: string | null; people_read_at: Date | null }>(
+      admin(),
+      sql`insert into addon_outreach.posts
+            (workspace_id, user_id, profile_id, url, body, found, check_state, words, seen_at)
+          values (${ws}, ${member.id}, ${writer!.id}, 'https://www.instagram.com/p/Cq1Roof/',
+            'Who fixes hail damage around here?', 'search', 'good', 'austinroofing', now())
+          returning id, words, people_read_at`,
+    );
+    expect(post).toMatchObject({ words: 'austinroofing', people_read_at: null });
+    const [find] = await rows<{ id: string; how: string }>(
+      admin(),
+      sql`insert into addon_outreach.finds
+            (workspace_id, user_id, profile_id, platform, how, post_id, words, said, found_at)
+          values (${ws}, ${member.id}, ${liker!.id}, 'instagram', 'commented', ${post!.id}, 'austinroofing',
+            'Same thing happened to us last spring.', now())
+          returning id, how`,
+    );
+    expect(find!.how).toBe('commented');
+    // Only the five ways someone is found.
+    expect(
+      await refusal(
+        rows(
+          admin(),
+          sql`insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, found_at)
+              values (${ws}, ${owner.id}, ${liker!.id}, 'instagram', 'followed', now())`,
+        ),
+      ),
+    ).toBe('23514');
+    // A check is of someone known unless the server says it's of someone found.
+    const [check] = await rows<{ via: string }>(
+      admin(),
+      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, looked_at)
+          values (${ws}, ${member.id}, ${liker!.id}, now()) returning via`,
+    );
+    expect(check!.via).toBe('known');
+    expect(
+      await refusal(
+        rows(
+          admin(),
+          sql`update addon_outreach.checks set via = 'stranger'
+              where workspace_id = ${ws} and profile_id = ${liker!.id}`,
+        ),
+      ),
+    ).toBe('23514');
+
+    // A comment needs its post; a message has none.
+    const sendOf = (kind: string, postId: string | null) =>
+      rows(
+        admin(),
+        sql`insert into addon_outreach.sends (workspace_id, user_id, profile_id, kind, text, drafted, post_id)
+            values (${ws}, ${member.id}, ${writer!.id}, ${kind}, 'Hail is rough. Glad you asked.',
+              'Hail is rough. Glad you asked.', ${postId})`,
+      );
+    expect(await refusal(sendOf('comment', null))).toBe('23514');
+    expect(await refusal(sendOf('opener', post!.id))).toBe('23514');
+    await sendOf('comment', post!.id);
+
+    // The post going lets go of the find's post, never the find or its business, and takes the comment with it.
+    await rows(admin(), sql`delete from addon_outreach.posts where id = ${post!.id}`);
+    const [kept] = await rows<{ workspace_id: string; post_id: string | null }>(
+      admin(),
+      sql`select workspace_id, post_id from addon_outreach.finds where id = ${find!.id}`,
+    );
+    expect(kept).toEqual({ workspace_id: ws, post_id: null });
+    expect(
+      await rows(
+        admin(),
+        sql`select id from addon_outreach.sends where workspace_id = ${ws} and kind = 'comment'`,
+      ),
+    ).toEqual([]);
   });
 
   it('show nothing while the add-on is off', async () => {

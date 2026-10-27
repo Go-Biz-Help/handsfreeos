@@ -15,7 +15,10 @@
  *   profiles) on a page of its own drawn in the interop frame, with its box to write in and its Send, which LinkedIn
  *   keeps off till something's written; nothing is written (LinkedIn shows the other person someone's typing), and a
  *   window over the page is closed again.
- * - **Liking:** one of their posts on their activity, and its Like; never pressed.
+ * - **Liking:** one of their posts on their activity, or (decision 92) the post on its own page, and its Like; never
+ *   pressed.
+ * - **Who reacted** (decision 92): on someone else's post, on its own page, its reactions count opens the box of who
+ *   reacted, whose rows say each one's headline and how far they are; the box is closed again with its Dismiss.
  * - **Withdrawing:** on Sent invitations, each invitation's Withdraw; never pressed.
  * - **The data file:** on Get a copy of your data, what each step looks for; nothing ticked or pressed.
  *
@@ -41,12 +44,13 @@ import {
   waitFor,
   WRITING,
 } from './auto';
-import { composer, startOf } from './compose';
+import { closeBox, composer, reactionsBox, reactionsCount, reactorRows, startOf } from './compose';
 import { LINKEDIN_FILE_PLANS, PREPARING } from './data';
 import { CONTROLS, controlsIn, mainOf, placesOf, wordsOf } from './dom';
 import { readChat } from './chat';
 import { readInvitations } from './invitations';
 import { maskText, outlineNow } from './outline';
+import { readPost } from './posts';
 import { aboutMissing, headlineMissing, tryAbout, tryHeadline } from './own-profile';
 import type { ProfileRef } from './types';
 import { classifyUrl, comparable, linkedinUrl, sameMember } from './urls';
@@ -66,6 +70,7 @@ export const TRY_STEPS = [
   'connect',
   'message',
   'like',
+  'reactors',
   'withdraw',
   'file',
 ] as const satisfies readonly TryStep[];
@@ -377,10 +382,20 @@ export function tryMessagePage(doc: Document, href: string, them: ProfileRef): S
   );
 }
 
-/** Liking, on their activity: one of their posts, and its Like, never pressed. */
+/**
+ * Liking, on their activity: one of their posts, and its Like, never pressed. On a post's own page (decision 92: the
+ * post a search found, liked there), that post, when it's theirs.
+ */
 export function tryLike(doc: Document, href: string, profile: ProfileRef): StepTry {
   const posts = theirPosts(doc, href, profile);
-  if (!posts.length) return untried('like', 'none of their posts on their activity', { posts: 0 });
+  if (!posts.length)
+    return untried(
+      'like',
+      classifyUrl(href).kind === 'post'
+        ? 'the post on its own page isn’t theirs'
+        : 'none of their posts on their activity',
+      { posts: 0 },
+    );
   const liked = posts.filter((p) => p.post.liked).length;
   const pick = posts.find((p) => !p.post.liked) ?? posts[0]!;
   const like = likeOf(pick.box);
@@ -390,6 +405,65 @@ export function tryLike(doc: Document, href: string, profile: ProfileRef): StepT
     like ? [] : ['no Like on their post'],
     like ? [] : namesIn(pick.box),
   );
+}
+
+/**
+ * Who reacted, on someone else's post on its own page (decision 92): its reactions count opens the box of who reacted,
+ * whose rows are read as the runner reads them (the line under each name and how far they are), and its Dismiss closes
+ * it again. Nothing in the box is pressed. With nobody's reaction on the post, there's nothing to try it on.
+ */
+export async function tryReactors(doc: Document, href: string): Promise<StepTry> {
+  const post = postOnPage(doc);
+  if (!post) return untried('reactors', 'no post on the post’s own page');
+  const count = reactionsCount(post);
+  if (!count) {
+    if (readPost(post, href)?.reactions === 0)
+      return untried('reactors', 'nobody has reacted to the post', { count: false });
+    return went(
+      'reactors',
+      { count: false },
+      ['no reactions count on the post to open who reacted'],
+      namesIn(post),
+    );
+  }
+  count.click();
+  const box = await waitFor(() => reactionsBox(doc, href));
+  if (!box) {
+    const other = [...doc.querySelectorAll(OVER_THE_PAGE)].filter((b) => shown(b)).pop();
+    const outline = outlineNow(doc);
+    if (other) await closeBox(other);
+    return {
+      ...went(
+        'reactors',
+        { count: true, box: false, other: Boolean(other) },
+        [
+          other
+            ? 'the box its reactions count opened shows nobody'
+            : 'its reactions count opened no box of who reacted',
+        ],
+        other ? namesIn(other) : [],
+      ),
+      outline,
+    };
+  }
+  const rows = reactorRows(box, href);
+  const degrees = rows.filter((row) => row.degree !== null).length;
+  const headlines = rows.filter((row) => row.headline !== null).length;
+  // Your own row says neither: the rest each say how far they are.
+  const missing = [rows.length > 1 && !degrees && 'no row in the box says how far they are'].filter(
+    (m): m is string => typeof m === 'string',
+  );
+  const outline = missing.length ? outlineNow(doc) : undefined;
+  const closed = await closeBox(box);
+  if (!closed) missing.push('the box of who reacted didn’t close again');
+  return {
+    ...went(
+      'reactors',
+      { count: true, box: true, rows: rows.length, degrees, headlines, closed },
+      missing,
+    ),
+    ...(outline ? { outline } : {}),
+  };
 }
 
 /** Withdrawing, on Sent invitations: each invitation's Withdraw, never pressed. */

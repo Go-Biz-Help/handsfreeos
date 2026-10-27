@@ -17,15 +17,17 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.10.0',
+  version: '0.11.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
   // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
   // 5: a playbook has its short video's script. 6: a partner playbook says which kinds of partner it looks for.
   // 7: a playbook runs on its own networks only; a customers' playbook saved before gets Facebook and LinkedIn, as it
-  // ran on both.
-  dataVersion: 7,
+  // ran on both. 8: a playbook has each network's own words (hashtags on Instagram, LinkedIn's post searches, kinds of
+  // business on Alignable), whether it works with clients online, and which networks' words the AI wrote; empty on one
+  // saved before.
+  dataVersion: 8,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
@@ -78,6 +80,7 @@ export const outreachAddon = defineAddon({
     emits: [
       'outreach.playbook.saved',
       'outreach.playbook.archived',
+      'outreach.playbook.words_written',
       'outreach.profile.saved',
       'outreach.chat.saved',
       'outreach.touch.saved',
@@ -143,6 +146,7 @@ export const outreachAddon = defineAddon({
       'outreach.partner.saved',
       'outreach.partner.marked',
       'outreach.client.marked',
+      'outreach.finds.saved',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -160,7 +164,8 @@ export const outreachAddon = defineAddon({
     // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
     // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
     // older one (decision 70, ./tracking.ts). Someone who could partner, read off their profile, waits for the AI's
-    // partner check (decision 81, ./partners.ts).
+    // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on and the day started have the AI
+    // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -186,6 +191,7 @@ export const outreachAddon = defineAddon({
       'outreach.automation.saved',
       'main_offer.published',
       'outreach.partner.looked',
+      'outreach.playbook.saved',
     ],
   },
   jobs: [
@@ -202,6 +208,7 @@ export const outreachAddon = defineAddon({
     'outreach.day_report',
     'outreach.review',
     'outreach.check_partners',
+    'outreach.write_words',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -219,6 +226,7 @@ export const outreachAddon = defineAddon({
     'engagements',
     'file_chats',
     'file_people',
+    'finds',
     'follow_ups',
     'friend_ends',
     'friends',

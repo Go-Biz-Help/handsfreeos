@@ -23,9 +23,16 @@ import {
   writeAboutUs,
 } from './own-profile';
 import { alignableNoticer } from './actions';
-import { connectOnPage, likeTheirPost, theirPosts, writeMessage } from './auto';
+import {
+  commentOn,
+  connectOnPage,
+  joinOnPage,
+  likeTheirPost,
+  theirPosts,
+  writeMessage,
+} from './auto';
 import { openConversation, scrollAny, showAllConnections } from './browse';
-import { readAlignable } from './read';
+import { JOIN, JOIN_ASKED, JOINED, readAlignable } from './read';
 import { readReplies } from './replies';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
@@ -107,8 +114,24 @@ const PLACES: Readonly<Record<string, string>> = {
   start: 'account',
 };
 
-/** A group's own pages under its address, never one of its discussions: /groups/<group>/members, its events. */
-const GROUP_PAGES = new Set(['search', 'events', 'members', 'about', 'new', 'edit', 'settings']);
+/**
+ * A group's own pages under its address, never one of its discussions: /groups/<group>/members, its events; and from
+ * 0.95.0 (decision 92) the likeliest of its leaders' and rules' pages, and its Join's and Leave's.
+ */
+const GROUP_PAGES = new Set([
+  'search',
+  'events',
+  'members',
+  'about',
+  'new',
+  'edit',
+  'settings',
+  'leaders',
+  'admins',
+  'rules',
+  'join',
+  'leave',
+]);
 
 function kindOf(url: URL): string {
   const [first = '', second, third] = partsOf(url).map((p) => p.toLowerCase());
@@ -167,6 +190,18 @@ export function townOf(href: string): string | null {
   const url = alignableUrl(href);
   const [first = ''] = url ? partsOf(url) : [];
   return TOWN.test(first) ? first.toLowerCase() : null;
+}
+
+/**
+ * The business an address is, or a person on it: "austin-tx/acme-plumbing" for /austin-tx/acme-plumbing and
+ * /austin-tx/acme-plumbing/dana-reyes, whatever their case. Null for any other address. So the person's own business,
+ * as their profile opens at it, is told from anyone else's on a list (decision 92: the readers leave them out).
+ */
+export function businessOf(href: string): string | null {
+  const url = alignableUrl(href);
+  const [first = '', second = ''] = url ? partsOf(url) : [];
+  if (!TOWN.test(first) || !SLUG.test(second) || TOWN_PAGES.has(second.toLowerCase())) return null;
+  return `${first}/${second}`.toLowerCase();
 }
 
 function profileOf(url: URL): { username: string; url: string } | null {
@@ -474,6 +509,59 @@ const WORDS = new Set(
     'View as Others See It',
     'Profile Strength',
     'Complete Your Profile',
+    // Its groups' words (0.95.0, decision 92), as far as they can be told till Check reads them: a search for groups,
+    // the person's own, a group's own page with its Join, its About and its people, and a post's box to comment in.
+    'My Groups',
+    'Your Groups',
+    'Joined Groups',
+    'Groups You’ve Joined',
+    "Groups You've Joined",
+    'Discover Groups',
+    'Find Groups',
+    'Search Groups',
+    'Suggested Groups',
+    'Recommended Groups',
+    'Popular Groups',
+    'Local Groups',
+    'All Groups',
+    'Create a Group',
+    'Create Group',
+    'Group',
+    'View Group',
+    'Join Group',
+    'Join This Group',
+    'Request to Join',
+    'Ask to Join',
+    'Requested',
+    'Cancel Request',
+    'Leave Group',
+    'Member',
+    'All Members',
+    'Group Members',
+    'See All Members',
+    'View All Members',
+    'Leaders',
+    'Leader',
+    'Group Leaders',
+    'Group Leader',
+    'Organizer',
+    'Organizers',
+    'Admin',
+    'Admins',
+    'Moderator',
+    'Moderators',
+    'Host',
+    'Hosts',
+    'About This Group',
+    'About the Group',
+    'Group Rules',
+    'Rules',
+    'Discussions in This Group',
+    'Recent Discussions',
+    'Write a reply...',
+    'Write a reply…',
+    'Write an answer...',
+    'Write an answer…',
   ].map((w) => w.toLowerCase()),
 );
 
@@ -574,10 +662,56 @@ const PATH_WORDS = new Set([
   'reports',
   'report',
   'flags',
+  // A group's own pages and the person's own groups (0.95.0, decision 92), as far as they can be told: the next Check
+  // says which are real.
+  'my_groups',
+  'my-groups',
+  'mine',
+  'joined',
+  'join',
+  'leave',
+  'leaders',
+  'admins',
+  'moderators',
+  'organizers',
+  'rules',
+  'discover',
+  'browse',
+  'recommended',
+  'popular',
+  'nearby',
+  'categories',
+  'category',
 ]);
 
-/** Its own words in an address's query: what kind of search, and from where (the owner's Check, 0.62.0). */
-const QUERY_KEPT = new Set(['doc_type', 'source', 'request_source', 'from', 'size']);
+/**
+ * Its own words in an address's query: what kind of search, and from where (the owner's Check, 0.62.0); and from
+ * 0.95.0 (decision 92) the likeliest keys a search's place and kind go in, so the next Check says which a search for
+ * businesses in a town, or for groups, uses. Never where someone is to the street: no keys for an address or a spot on
+ * a map.
+ */
+const QUERY_KEPT = new Set([
+  'doc_type',
+  'source',
+  'request_source',
+  'from',
+  'size',
+  'location',
+  'loc',
+  'near',
+  'city',
+  'town',
+  'state',
+  'region',
+  'zip',
+  'zip_code',
+  'zipcode',
+  'postal_code',
+  'radius',
+  'distance',
+  'within',
+  'kind',
+]);
 
 /** Alignable's warnings: what any site says when it holds an account back, till Check reads its own. */
 const WARNINGS: readonly RegExp[] = [
@@ -597,6 +731,8 @@ const RECOMMENDED = /^recommended$/i;
 const LIKE = /^(like|liked|unlike)$/i;
 const COMMENT_BOX = /\b(comment|reply|answer)\b/i;
 const COMMENT = /^(comment|reply|answer)$/i;
+/** What a group's own page shows in place of Join once the person's in it, or asked. */
+const IN_GROUP = new RegExp(`${JOINED.source}|${JOIN_ASKED.source}`, 'i');
 
 export const ALIGNABLE: LookingSite = {
   platform: 'alignable',
@@ -633,12 +769,18 @@ export const ALIGNABLE: LookingSite = {
   // The person's own steps, noted as they take them (part 2): Connect, Like, a forum answer's Send, and a message.
   noticer: alignableNoticer,
   // What its runner presses on its own (part 5), each only on its own page: a like on a post of theirs, their own
-  // Connect, and a message in their conversation (./auto.ts). Never a comment, an answer or a recommendation.
+  // Connect, and a message in their conversation (./auto.ts). From 0.95.0 (decision 92) a comment on a good post, in
+  // its own reply form at the top, and a group's own Join, on its page. Alignable asks no questions before a join, as
+  // far as its pages showed, so the join's questions are answered with none: the runner never waits on them. Never a
+  // recommendation.
   auto: {
     theirPosts: (doc, href, profile) => theirPosts(doc, href, profile).map((f) => f.post),
     like: likeTheirPost,
     connect: connectOnPage,
     message: writeMessage,
+    comment: commentOn,
+    join: joinOnPage,
+    answerJoin: () => Promise.resolve('none'),
   },
   words: WORDS,
   warnings: WARNINGS,
@@ -705,6 +847,18 @@ export const ALIGNABLE: LookingSite = {
     like: {
       on: ['*'],
       look: (doc) => lookFor('like', mainOf(doc), ALIGNABLE, { words: LIKE, name: 'Like' }),
+    },
+    // A group's own Join (0.95.0, decision 92), on its page: looked at, never pressed.
+    join: {
+      on: ['community'],
+      look: (doc) =>
+        lookFor(
+          'join',
+          mainOf(doc),
+          ALIGNABLE,
+          { words: JOIN, name: 'Join' },
+          { words: IN_GROUP, why: 'you’re in this group already, or asked to join' },
+        ),
     },
     // Their own profile's editors (decision 80): opened and closed with nothing written or saved, and About Us's page
     // looked at for its box and Save.

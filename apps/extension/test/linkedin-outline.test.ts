@@ -34,6 +34,8 @@ const PAGES = [
   ['linkedin-data-ready.html', `${LI}/mypreferences/d/download-my-data`],
   ['linkedin-feed-2026-10.html', `${LI}/feed/`],
   ['linkedin-own-profile-2026-10.html', `${LI}/in/chris-gee-12/?isSelfProfile=true`],
+  ['linkedin-post-2026-10.html', `${LI}/feed/update/urn:li:activity:7380000000000000777/`],
+  ['linkedin-reactions-2026-10.html', `${LI}/feed/update/urn:li:activity:7380000000000000777/`],
 ] as const;
 
 const outlines = Object.fromEntries(
@@ -82,6 +84,10 @@ describe('the outline of a LinkedIn page', () => {
     expect(post).toContain('data-urn="urn:li:activity:{');
     expect(post).toContain('span aria-hidden="true" "3h •"');
     expect(outlines['linkedin-invite-box.html']).toContain('"Add a note to your invitation?"');
+    // Someone else's post in the newer layout (decision 92): its "Load more comments" kept as words, and the box of
+    // who reacted with its Dismiss.
+    expect(outlines['linkedin-post-2026-10.html']).toContain('p "Load more comments"');
+    expect(outlines['linkedin-reactions-2026-10.html']).toContain('aria-label="Dismiss"');
   });
 
   it('keeps LinkedIn’s words on Get a copy of your data, so a step it couldn’t find can be named', () => {
@@ -166,6 +172,20 @@ describe('the outline of a LinkedIn page', () => {
         'Lee Heating',
         'chris-gee',
         '7380000000000000500',
+        // Decision 92's: someone else's post in the newer layout, and who reacted to it.
+        'Priya',
+        'Dalton',
+        'Hector',
+        'Jade Moreno',
+        'Bianca',
+        'Marcus Webb',
+        'Holt Family',
+        'Riverbend',
+        'San Marcos',
+        'cleaning crew',
+        'Hopkins',
+        'priya-dalton',
+        '7380000000000000777',
       ])
         expect(outline, `${name}: ${secret}`).not.toContain(secret);
   });

@@ -1,10 +1,15 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
-import { OUTREACH_WORDS as W, playbookSectionTitle } from '@hfos/core/addons/outreach/words';
+import {
+  findWordsHint,
+  OUTREACH_WORDS as W,
+  playbookSectionTitle,
+} from '@hfos/core/addons/outreach/words';
 import {
   ANSWER_NEXT_KEYS,
   answerNextLabel,
+  hasWordsOn,
   nextQuestionId,
   followUpGapsFor,
   PACE_LIMITS,
@@ -17,6 +22,7 @@ import {
   type Playbook,
   type PlaybookDetails,
   type PlaybookQuestion,
+  type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
@@ -49,7 +55,8 @@ import {
  * One playbook on the phone (decision 44): each part of it, and for owners and admins, changing it a part at a time
  * in a sheet. Before each save the phone asks for the playbook again and puts only the part changed on what it finds,
  * so a change made meanwhile on the web isn't undone. The AI's help (Improve, Suggest more) is on the web. It needs
- * signal. Its networks are one part: one playbook for every network (Chris), at least one picked.
+ * signal. Its networks are one part: one playbook for every network (Chris), at least one picked. Each network's own
+ * words, and whether its clients are online, show on a customers' playbook while that network is ticked (decision 92).
  */
 
 export type Section = keyof typeof W.playbookSections | 'name';
@@ -77,8 +84,28 @@ export const SECTION_FIELDS: Readonly<
   avoid: ['avoid'],
   disclaimer: ['disclaimer'],
   tags: ['tags'],
+  hashtags: ['hashtags'],
+  postSearches: ['postSearches'],
+  businessKinds: ['businessKinds'],
+  worksOnline: ['worksOnline'],
 };
 const SECTIONS = Object.keys(SECTION_FIELDS) as Exclude<Section, 'name'>[];
+
+/** The parts only a customers' playbook has, each shown while its network is ticked (decision 92). */
+const NETWORK_SECTIONS: Partial<Record<Exclude<Section, 'name'>, WordsPlatform>> = {
+  hashtags: 'instagram',
+  postSearches: 'linkedin',
+  businessKinds: 'alignable',
+  worksOnline: 'alignable',
+};
+
+/** The parts a playbook shows: each network's own words only where `hasWordsOn` says. */
+export function sectionsOf(details: PlaybookDetails): Exclude<Section, 'name'>[] {
+  return SECTIONS.filter((section) => {
+    const on = NETWORK_SECTIONS[section];
+    return !on || hasWordsOn(details, on);
+  });
+}
 
 /** The playbook as it is now, with only the part changed on the phone put on it. */
 export function mergeSection(
@@ -156,6 +183,17 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
     case 'tone':
     case 'disclaimer':
       return or(details[section]);
+    case 'hashtags':
+    case 'postSearches':
+    case 'businessKinds': {
+      const lines = details[section] ?? [];
+      const platform = NETWORK_SECTIONS[section]!;
+      if (lines.length) return list(section === 'hashtags' ? lines.map((t) => `#${t}`) : lines);
+      // Emptied once the AI wrote it: that network looks at nothing for this playbook.
+      return details.wordsWritten?.includes(platform) ? W.findWords.none[platform] : W.empty;
+    }
+    case 'worksOnline':
+      return details.worksOnline ? W.worksOnline.yes : W.worksOnline.no;
     default:
       return list(details[section]);
   }
@@ -287,7 +325,7 @@ export function PlaybookBody({
           testID="playbook-name"
         />
       </List>
-      {SECTIONS.map((section) => (
+      {sectionsOf(playbook.details).map((section) => (
         <Part
           key={section}
           title={playbookSectionTitle(section, playbook.details)}
@@ -638,6 +676,37 @@ function SectionEditor({
           tags={d.tags}
           onChange={(questions) => set({ questions })}
         />
+      );
+    case 'hashtags':
+    case 'postSearches':
+    case 'businessKinds': {
+      const platform = NETWORK_SECTIONS[section]!;
+      return (
+        <>
+          <LinesInput
+            value={d[section] ?? []}
+            onChange={(lines) => set({ [section]: lines })}
+            testID="playbook-lines"
+          />
+          <Note testID="playbook-words-hint">{findWordsHint(d, platform)}</Note>
+          {section === 'hashtags' ? <Note>{W.findWords.hashtagHint}</Note> : null}
+        </>
+      );
+    }
+    case 'worksOnline':
+      return (
+        <View className="gap-3">
+          <View className="flex-row items-center gap-3">
+            <Text className="flex-1 text-[14.5px] font-medium">{W.worksOnline.label}</Text>
+            <Switch
+              label={W.worksOnline.label}
+              checked={d.worksOnline === true}
+              onCheckedChange={(worksOnline) => set({ worksOnline })}
+              testID="playbook-works-online"
+            />
+          </View>
+          <Note>{d.worksOnline ? W.worksOnline.yes : W.worksOnline.no}</Note>
+        </View>
       );
     default:
       return (

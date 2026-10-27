@@ -8555,6 +8555,43 @@
                 "type": "boolean",
                 "const": true
               },
+              "hashtags": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                }
+              },
+              "postSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
+              "businessKinds": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "worksOnline": {
+                "type": ["boolean", "null"]
+              },
+              "wordsWritten": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["instagram", "linkedin", "alignable"]
+                }
+              },
               "audience": {
                 "anyOf": [
                   {

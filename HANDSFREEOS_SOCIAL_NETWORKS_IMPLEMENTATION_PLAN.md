@@ -228,6 +228,9 @@ after they accept, since LinkedIn won't let the person message anyone else.
    goes on their own feed.
 3. **Posts asking for what the business offers** (decision 49): LinkedIn's post search with the playbook's signs
    ("looking for a…", "can anyone recommend…"), sorted by latest, looked at every hour or two in working hours.
+   (From extension 0.95.0, decision 92 in docs/outreach.md: the search goes with each playbook's own phrases, 5 a
+   day in turn, and who reacted to and commented on its good posts are found too, each checked by the AI from their
+   own profile inside the 40 a day before anything is done.)
 4. **People search** by title, industry and place, 2nd-degree first. A free account hits a monthly search limit, so
    this goes lightly. Sales Navigator later.
 5. **Groups**, checked as Facebook's (decision 48), but most are quiet.

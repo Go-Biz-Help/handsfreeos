@@ -1,11 +1,12 @@
 /**
  * Instagram's addresses (./site.ts), as they've long been: instagram.com/<name>/ for an account (its followers and
  * following under it), /p/<code>/ and /reel/<code>/ for a post (newer links put the account's name first),
- * /explore/tags/<tag>/ for a hashtag, /explore/locations/<id>/<name>/ for a place, /explore/search/keyword/?q= for a
- * search, /explore/people/ for the accounts it suggests, /direct/inbox/, /direct/requests/ and /direct/t/<id>/ for
- * messages, and /accounts/edit/ for the person's own profile's form. Shared by the site, its readers (./read.ts) and
- * the noting of the person's own steps (./actions.ts). From the owner's Check of 21 Oct 2026: a hashtag's page sends
- * the tab to a search for it (/explore/search/keyword/?q=%23<tag>), and /explore/locations/ alone is no list of places.
+ * /p/<code>/liked_by/ for a post's Likes box over it (decision 92), /explore/tags/<tag>/ for a hashtag,
+ * /explore/locations/<id>/<name>/ for a place, /explore/search/keyword/?q= for a search, /explore/people/ for the
+ * accounts it suggests, /direct/inbox/, /direct/requests/ and /direct/t/<id>/ for messages, and /accounts/edit/ for the
+ * person's own profile's form. Shared by the site, its readers (./read.ts) and the noting of the person's own steps
+ * (./actions.ts). From the owner's Check of 21 Oct 2026: a hashtag's page sends the tab to a search for it
+ * (/explore/search/keyword/?q=%23<tag>), and /explore/locations/ alone is no list of places.
  */
 
 export const HOST = 'www.instagram.com';
@@ -79,6 +80,8 @@ export function kindOf(url: URL): string {
     if (second === 'locations' && /^\d+$/.test(third)) return 'place';
     return second === 'people' ? 'suggested' : 'explore';
   }
+  // A post's Likes box (decision 92): Instagram puts /p/<code>/liked_by/ in the address while it's open over the post.
+  if ((first === 'p' || first === 'reel') && third === 'liked_by') return 'likers';
   if (first === 'p' || first === 'reel' || first === 'tv') return 'post';
   // A reel opens in the reels player, at /reels/<code>/: its own page still.
   if (first === 'reels') return second ? 'post' : 'reels';
@@ -94,6 +97,8 @@ export function kindOf(url: URL): string {
   if (first === 'stories') return 'story';
   if (first === 'challenge') return 'check';
   if (NOT_NAMES.has(first) || !NAME.test(first)) return 'other';
+  if ((second === 'p' || second === 'reel') && partsOf(url)[3]?.toLowerCase() === 'liked_by')
+    return 'likers';
   if (second === 'p' || second === 'reel') return 'post';
   if (second === 'followers' || second === 'following') return second;
   return 'profile';
