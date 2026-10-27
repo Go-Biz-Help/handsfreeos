@@ -547,11 +547,16 @@ describe('Alignable’s groups beside Facebook’s (decision 92)', () => {
     expect(names(await runAs(owner, ws, 'outreach.groups.to_check', {}))).toEqual([
       'Texas Roofers Network',
     ]);
-    // The person's own Alignable group first, then the one that fits by name; never the one its name skips.
+    // The person's own Alignable group first, then the ones that fit by name, best first: the roofers' group by its
+    // words and its town, the small one by its town alone.
     const onAlignable = await runAs(owner, ws, 'outreach.groups.to_check', {
       platform: 'alignable',
     });
-    expect(names(onAlignable)).toEqual(['Austin Trades Circle', 'Austin Roofers Circle']);
+    expect(names(onAlignable)).toEqual([
+      'Austin Trades Circle',
+      'Austin Roofers Circle',
+      'Austin Quiet Club',
+    ]);
     expect(onAlignable.saved).toBe(3);
     expect(
       (await runAs(owner, ws, 'outreach.groups.to_check', { platform: 'linkedin' })).groups,
