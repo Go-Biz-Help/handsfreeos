@@ -193,6 +193,39 @@ const ALIGNABLE_PAGES: Record<string, string> = {
     <div data-testid="channel-header-loaded"><a href="/biz/businesses/42?user=5"><div>Dana Reyes</div></a></div>
     <div data-testid="full-view-write-message"><div contenteditable="true"></div><textarea placeholder="Write a message"></textarea>
       <button aria-label="Send" data-testid="messaging-send-external"></button></div></div>`),
+  // Its groups (0.95.0, decision 92), at the first of the addresses they may be at: their own, their town's among
+  // them; a search for groups with one they aren't in; and that group's page, its About and its members.
+  [`${AL}/biz/groups`]: html(`${ALIGNABLE_MENU}<main><h1>My Groups</h1>
+    <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span><button>Joined</button></div>
+    <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><span>86 members</span><button>Joined</button></div>
+  </main>`),
+  [`${AL}/groups/search?q=small%20business`]: html(`${ALIGNABLE_MENU}<main><h1>Groups</h1>
+    <div><div><a href="/groups/home-pros-network"><img alt="" /></a></div>
+      <div><a href="/groups/home-pros-network">Home Pros Network</a><span>For people who fix and build homes</span>
+        <span>1,204 members</span><button>Join</button></div></div>
+  </main>`),
+  [`${AL}/groups/home-pros-network`]: html(`${ALIGNABLE_MENU}<main>
+    <h1 data-testid="group-header/header-text">Home Pros Network</h1>
+    <div><span>1,204 members</span><button>Join</button></div>
+    <section><div><div><div><a aria-label="Go to Riley Stone’s profile" href="/denver-co/stone-gutters?user=8"></a></div>
+      <div><a href="/denver-co/stone-gutters?user=8"><span>Riley Stone</span><span>at</span><span>Stone Gutters</span></a>
+        <div><span>Posted in</span><a href="/groups/home-pros-network/gutter-season"><span>2h</span></a></div></div></div>
+      <div><div title="Gutter season"><span>Who else is busy with gutters?</span></div></div>
+      <div><div><a href="/biz/likes?resource=10"><span>2</span><span>Like</span></a></div>
+        <div><a href="/biz/discussions/93">Comment</a></div></div></div></section>
+  </main>`),
+  [`${AL}/groups/home-pros-network/about`]: html(`${ALIGNABLE_MENU}<main><h1>Home Pros Network</h1>
+    <div><h2>About this group</h2><p>For people who fix and build homes.</p><p>Share leads and tips.</p></div>
+    <span>1,204 members</span><button>Join</button></main>`),
+  [`${AL}/groups/home-pros-network/members`]:
+    html(`${ALIGNABLE_MENU}<main><h1>Home Pros Network</h1>
+    <h2>Group Leaders</h2>
+    <div><a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a><a href="/denver-co/stone-gutters">Stone Gutters</a>
+      <span>Organizer</span></div>
+    <h2>Members (1,204)</h2>
+    <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
+      <span>Painter in Boise</span><button>Connect</button></div>
+  </main>`),
 };
 
 /** Where Alignable sends an address: their own profile, to their business's page in its town. */
@@ -492,6 +525,13 @@ describe('Check Alignable', () => {
       `${AL}/biz/my_network`,
       `${AL}/biz/my_network/received?_fat=a`,
       `${AL}/biz/conversations?with_business_id=42`,
+      // Then its groups (0.95.0, decision 92): theirs, at the first address that lists any; a search for them; and a
+      // group that isn't their town's, one they aren't in, with its About and its members. Its Join is never pressed.
+      `${AL}/biz/groups`,
+      `${AL}/groups/search?q=small%20business`,
+      `${AL}/groups/home-pros-network`,
+      `${AL}/groups/home-pros-network/about`,
+      `${AL}/groups/home-pros-network/members`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
     // Nothing is written in the chat or the answer's box, and nothing's pressed there.
@@ -509,6 +549,8 @@ describe('Check Alignable', () => {
       ['checkup.recommend', true],
       ['checkup.like', true],
       ['checkup.comment', true],
+      // A group's own Join, looked at on its page and never pressed.
+      ['checkup.join', true],
     ]);
     // Each editor's note keeps its outline while it was open.
     expect(notes.find((n) => n.job === 'checkup.pitch')).toMatchObject({ outline: true });
@@ -520,7 +562,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 16 Alignable pages and tried 8 steps up to their last press. Everything works.',
+      'Read 21 Alignable pages and tried 9 steps up to their last press. Everything works.',
     );
   });
 
@@ -569,7 +611,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 16 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
+      'Read 21 Alignable pages and tried 9 steps up to their last press. Not working: recommending.',
     );
   });
 });

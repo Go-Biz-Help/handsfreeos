@@ -8,27 +8,26 @@
  * Alignable warning.
  */
 import { alignablePostsSave } from '../../hfos/saves';
-import { townOf } from '../../networks/alignable/site';
 import { counted } from '../../words';
 import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
-import { ALIGNABLE, readAlignableIn, SCROLL_PACE_MS, signedOutEnd, SIGNED_IN } from './read';
+import {
+  ALIGNABLE,
+  myTown,
+  readAlignableIn,
+  SCROLL_PACE_MS,
+  signedOutEnd,
+  SIGNED_IN,
+} from './read';
 
 /** Screens of the town's posts it reads. */
 export const TOWN_SCREENS = 4;
-/** Their own profile, at their business's address: its town is the first part. */
-const MINE = `${ALIGNABLE}/biz/businesses/my_profile`;
 /** For the town's posts to be drawn after its page: the owner's Check (0.67.0) read it while they were loading. */
-const DRAWN_MS = 3_000;
+export const DRAWN_MS = 3_000;
 
 /** Reads their town's posts, a few screens, and sends what it finds for the AI to check. */
 export async function findPostsInTown(job: Job): Promise<JobEnd> {
-  job.progress('Opening your profile to see your town…');
-  await job.tab.open(MINE);
-  const mine = await readAlignableIn(job.tab);
-  const warned = await warnedOn(job, mine);
-  if (warned) return warned;
-  if (mine.signedOut) return signedOutEnd();
-  const town = townOf(mine.url) ?? townOf(mine.own ?? '');
+  const town = await myTown(job);
+  if (town !== null && typeof town === 'object') return town;
   if (!town)
     return {
       line: `Alignable didn’t show your town on your profile. Add your business’s town on Alignable, then ask again. ${SIGNED_IN}`,

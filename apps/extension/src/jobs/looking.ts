@@ -54,6 +54,7 @@ import {
   putUsernameIn,
   unseenWords as centerUnseenWords,
 } from './accounts-center';
+import { groupStops } from './alignable/checkup';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
 import { checkUsernames, putInByHand, type ByHandPart } from './profile-parts';
@@ -474,7 +475,8 @@ async function nextPages(
       await c.note('a chat with messages', countOf(read, 'chats'));
     } else c.nothingOn.push('a chat with messages');
   } else c.nothingOn.push('a chat with a connection');
-  return null;
+  // From 0.95.0 (decision 92), its groups: theirs, a search for them, and one not their town's (./alignable/checkup.ts).
+  return groupStops(c, job, town);
 }
 
 /** How many of one of the network's own readers' lists a page had (`LookingRead.found`). */

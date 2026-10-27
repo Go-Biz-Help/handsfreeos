@@ -15,6 +15,11 @@
  *   connected: its own Remove Connection.
  * - **Messages:** the conversations down the side (`conversationInSidebar`), and the one open: who, its box and Send,
  *   and from the owner's Check of 21 Oct 2026 (0.83.0) its messages, each the person's or theirs, and who wrote last.
+ * - **Groups** (from 0.95.0, decision 92; drawn from guessed markup till the owner's next Check): the groups a page
+ *   lists (a search for groups, the person's own groups) by their links (/groups/<group>), each with how many members,
+ *   whether they're in it and the line under its name (`groupCards`); a group's own page, its About and its members
+ *   page: its name, members, its own Join and where they stand, and its About (`groupFacts`); and who's in it, each by
+ *   their business, its leaders marked (`memberRows`, `groupLeaders`).
  *
  * It reads by Alignable's own test ids, its links' addresses and its words, never class names. Everything here is what
  * the page showed. Check notes only how many of each it found, never what they say (../../jobs/report.ts).
@@ -23,6 +28,7 @@ import { measuredSide } from '../facebook/chat';
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { Named, ProfileRef } from '../facebook/types';
+import { mainOf, nameOf } from '../looking/looks';
 import { aboutUsOf, codeBoxIn, idealOf } from './own-profile';
 
 const HOST = 'https://www.alignable.com';
@@ -174,6 +180,15 @@ export type AlignableFound = {
    * for before a change (the owner's Check, 0.68.0).
    */
   readonly codeBox: boolean;
+  /** From 0.95.0 (decision 92): the groups a page lists (a search for groups, the person's own groups). */
+  readonly groups: readonly GroupCard[];
+  /** On a group's page of its people: who's in it, each by their business, its leaders marked. */
+  readonly members: readonly Member[];
+  /**
+   * A group's own page, its About or a page of its people: left out on any other page, so a report of a business's
+   * page or a post's is no longer for it (../../jobs/report.ts keeps only so much).
+   */
+  readonly group?: GroupPage;
 };
 
 export function urlOf(href: string | null | undefined, base: string): URL | null {
@@ -671,6 +686,496 @@ export function businessPage(doc: Document, base: string): BusinessPage | null {
   };
 }
 
+// ------------------------------------------------------------------------------------------------ groups
+
+/** A group's name in its address: /groups/<group>. */
+const GROUP_SLUG = /^[A-Za-z0-9._-]{1,100}$/;
+/** What sits at /groups/<word> that's never a group: Alignable's own pages for groups, as far as they can be told. */
+const NOT_GROUPS = new Set([
+  'search',
+  'events',
+  'members',
+  'about',
+  'new',
+  'edit',
+  'settings',
+  'create',
+  'my_groups',
+  'my-groups',
+  'mine',
+  'joined',
+  'discover',
+  'browse',
+  'suggested',
+  'recommended',
+  'popular',
+  'trending',
+  'nearby',
+  'local',
+  'all',
+  'categories',
+  'category',
+]);
+/** A group's own pages under its address that say what it is: its About, its rules, and its people. */
+const GROUP_OWN_PAGES = new Set(['about', 'members', 'leaders', 'admins', 'rules']);
+/** Its other pages under its address, never one of its discussions either (as ./site.ts's `GROUP_PAGES`). */
+const GROUP_OTHER_PAGES = new Set(['events', 'new', 'edit', 'settings', 'search', 'join', 'leave']);
+/** Its pages that list its people: its members, and its leaders where it has a page of them. */
+const GROUP_PEOPLE_PAGES = new Set(['members', 'leaders', 'admins']);
+/** How many groups a read keeps: a person's own may be many, and a search's screen is a few dozen. */
+const GROUPS_MOST = 100;
+/** How many of a group's members a read keeps: enough screens of them to go on with. */
+const MEMBERS_MOST = 300;
+/** As much of a line of a group's About as a read keeps (core's `GROUP_LINE_MOST`), and how many. */
+const ABOUT_LINE_MOST = 300;
+const ABOUT_LINES = 30;
+
+/** A group's Join, and what it says once the person is in it, or asked and waiting. Never Join Now or Join Free. */
+export const JOIN = /^(join|join group|join this group|request to join|ask to join)$/i;
+export const JOINED = /^(joined|leave|leave group|member|you['’]re a member|you are a member)$/i;
+export const JOIN_ASKED = /^(requested|request sent|pending|cancel request|awaiting approval)$/i;
+/** A link to a group that's only a way in: never its name. */
+const VIEW = /^(view|view group|open|open group|see group|visit|visit group|go to group)$/i;
+/** A section of a group's people that's its leaders, and the mark beside one in a list of them. */
+const LEADERS =
+  /^(group )?(leaders?|leadership|organizers?|co-?organizers?|admins?|administrators?|moderators?|hosts?)( \(\d[\d,]*\))?$/i;
+const LEADER_MARK =
+  /^(group )?(leader|organizer|co-?organizer|admin|administrator|moderator|host|owner|founder)$/i;
+const ABOUT_HEADING = /^about( this group| the group| us| group)?$/i;
+/** A heading of a page of a group's people that starts a section of them: its leaders, or its members. */
+const PEOPLE_SECTION = /^(all |other |group )?members?( \(\d[\d,]*\))?$/i;
+/** A row's own buttons' words: never a line about them. */
+const ROW_CONTROLS =
+  /^(connect|connected|message|send message|request sent|pending|follow|following|remove)$/i;
+const HEADINGS = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+const CONTROLS = 'button, [role="button"], a[href]';
+
+/** A group by its address: its name there, its page, and which of its own pages a link is to (null: the group's). */
+export function groupOf(
+  url: URL,
+): { readonly id: string; readonly url: string; readonly page: string | null } | null {
+  const [first = '', slug = '', page] = parts(url);
+  if (first.toLowerCase() !== 'groups' || !GROUP_SLUG.test(slug)) return null;
+  if (NOT_GROUPS.has(slug.toLowerCase())) return null;
+  return { id: slug, url: `${HOST}/groups/${slug}`, page: page ? page.toLowerCase() : null };
+}
+
+/** A group as a link to it showed it: its name in its address, its page, and its name when the page said it. */
+export interface GroupLink {
+  readonly id: string;
+  readonly url: string;
+  readonly name: string | null;
+}
+
+/** A group as a list of them showed it (a search's, the person's own groups): how many, and whether they're in it. */
+export interface GroupCard extends GroupLink {
+  readonly members: number | null;
+  /** In it (Joined, Leave), or not (its own Join, or asked and waiting); null when its card didn't say. */
+  readonly joined: boolean | null;
+  /** The line under its name: what it's about, or where. */
+  readonly detail: string | null;
+}
+
+/** A group's own page (and its About and members pages): what it says of itself, and where the person stands. */
+export interface GroupPage extends GroupCard {
+  /** Asked to join, and waiting. */
+  readonly asked: boolean;
+  /** Its own Join, to press. */
+  readonly join: boolean;
+  /** What its About says, a line a piece. */
+  readonly about: readonly string[];
+  /** On a page of its people: whether it showed its leaders, as a section of them or a leader's mark on a row. */
+  readonly leaders: boolean;
+}
+
+/** Someone a group's page of its people shows: by their business, its name, the lines under theirs, and a leader. */
+export interface Member extends Named {
+  readonly profile: ProfileRef;
+  readonly business: string | null;
+  readonly lines: readonly string[];
+  /** One of its leaders: under its leaders' heading, or marked as one. */
+  readonly leader: boolean;
+}
+
+/** Whether a part of the page is one of the site's menus: never a group's card, nor a member's row. */
+const inMenu = (el: Element) =>
+  el.closest('nav, header, footer, [role="navigation"], [role="banner"]') !== null;
+
+/** How many members a group says it has: "1,204 members", "1.2K Members", "Members (1,204)". */
+export function membersIn(text: string): number | null {
+  const counted =
+    /\b(\d[\d,]*(?:\.\d+)?)\s*([km])?\+?\s+members?\b/i.exec(text) ??
+    /\bmembers?\s*[:(]\s*(\d[\d,]*(?:\.\d+)?)\s*([km])?\)?/i.exec(text);
+  if (!counted) return null;
+  const n = Number(counted[1]!.replace(/,/g, ''));
+  const times = { k: 1_000, m: 1_000_000 }[counted[2]?.toLowerCase() as 'k' | 'm'] ?? 1;
+  return Number.isFinite(n) ? Math.round(n * times) : null;
+}
+
+/** The first short line in a part of the page that says how many members. */
+function membersOn(root: Element): number | null {
+  for (const el of root.querySelectorAll('span, div, p, li, small, strong, a')) {
+    const text = clean(el.textContent);
+    if (!text || text.length > 60) continue;
+    const count = membersIn(text);
+    if (count !== null) return count;
+  }
+  return null;
+}
+
+/** The lines in a part of the page that hold no other: a card's or a row's, as shown. */
+const leafLines = (root: Element): string[] =>
+  [...root.querySelectorAll('span, div, p, li, small, strong, em, a, h1, h2, h3, h4, h5, h6')]
+    .filter((el) => el.childElementCount === 0 && !el.closest('svg'))
+    .map((el) => clean(el.textContent))
+    .filter(Boolean);
+
+/** Whether a line is one of a group's controls' words, a count of its members, or a way in. */
+const pageWords = (line: string) =>
+  JOIN.test(line) ||
+  JOINED.test(line) ||
+  JOIN_ASKED.test(line) ||
+  VIEW.test(line) ||
+  membersIn(line) !== null;
+
+/** Where the person stands with a group, by the controls given: in it, asked, or with its Join to press. */
+function standing(controls: readonly HTMLElement[]): {
+  readonly joined: boolean;
+  readonly asked: boolean;
+  readonly join: HTMLElement | null;
+} {
+  const says = (words: RegExp) => controls.some((c) => words.test(nameOf(c)));
+  const joined = says(JOINED);
+  const asked = !joined && says(JOIN_ASKED);
+  const join = joined || asked ? null : (controls.find((c) => JOIN.test(nameOf(c))) ?? null);
+  return { joined, asked, join };
+}
+
+/** The groups a part of the page links to, by the name in their addresses, lowercased. */
+const groupsIn = (root: ParentNode, base: string) =>
+  new Set(
+    linksIn(root, base).flatMap(({ url }) => {
+      const group = groupOf(url);
+      return group ? [group.id.toLowerCase()] : [];
+    }),
+  );
+
+/** How far up from a link its card is looked for, and from a control the group it's for. */
+const CARD_STEPS = 4;
+const OWN_STEPS = 6;
+
+/**
+ * The groups a page lists (a search for groups, the person's own groups, a list of them): each by its links, read
+ * from the largest part around them that links to no other group, never a menu's. Its name (its link's words, else its
+ * heading), how many members it says, whether the person is in it, and the line under its name. Not on a group's own
+ * pages or its discussions: there, links to other groups are only suggestions, and `groupFacts` reads the group.
+ */
+export function groupCards(doc: Document, base: string): GroupCard[] {
+  const here = urlOf(base, base);
+  if (here && groupOf(here)) return [];
+  const main = mainOf(doc);
+  const byGroup = new Map<string, { group: GroupLink; anchors: HTMLAnchorElement[] }>();
+  for (const { a, url } of linksIn(main, base)) {
+    const group = groupOf(url);
+    if (!group || group.page !== null || inMenu(a) || a.closest(PART('discussion-comment')))
+      continue;
+    const key = group.id.toLowerCase();
+    const seen = byGroup.get(key);
+    if (seen) seen.anchors.push(a);
+    else byGroup.set(key, { group: { id: group.id, url: group.url, name: null }, anchors: [a] });
+  }
+  const found: GroupCard[] = [];
+  for (const [key, { group, anchors }] of byGroup) {
+    let card = around(anchors);
+    for (
+      let up = card?.parentElement ?? null, steps = 0;
+      card && up && up !== main && main.contains(up) && steps < CARD_STEPS;
+      up = up.parentElement, steps++
+    ) {
+      const groups = groupsIn(up, base);
+      if (groups.size > 1 || !groups.has(key)) break;
+      card = up;
+    }
+    if (!card) continue;
+    const named = anchors
+      .map((a) => clean(a.textContent) || clean(a.getAttribute('title')))
+      .find((words) => words && !pageWords(words));
+    const name = named || clean(card.querySelector(HEADINGS)?.textContent) || null;
+    const lines = leafLines(card).filter((line) => line !== name && !pageWords(line));
+    const now = standing([...card.querySelectorAll<HTMLElement>(CONTROLS)]);
+    found.push({
+      ...group,
+      name,
+      members: membersOn(card),
+      joined: now.joined ? true : now.asked || now.join ? false : null,
+      detail: lines[0] ?? null,
+    });
+    if (found.length >= GROUPS_MOST) break;
+  }
+  return found;
+}
+
+/**
+ * A group's own controls on its page: never one in another group's card (one it suggests) nor in a post. A control
+ * is the group's when the nearest part around it that links to any group links to this one alone, or none does.
+ */
+function ownControls(main: Element, base: string, id: string): HTMLElement[] {
+  const key = id.toLowerCase();
+  return [...main.querySelectorAll<HTMLElement>(CONTROLS)].filter((control) => {
+    if (inMenu(control) || control.closest(PART('discussion-comment'))) return false;
+    for (
+      let up = control.parentElement, steps = 0;
+      up && up !== main && steps < OWN_STEPS;
+      up = up.parentElement, steps++
+    ) {
+      const groups = groupsIn(up, base);
+      if (groups.size) return groups.size === 1 && groups.has(key);
+    }
+    return true;
+  });
+}
+
+/** What a group's About says, a line a piece: its section's, or on its About page the page's. Never a link's words. */
+function aboutOn(main: Element, page: boolean): string[] {
+  const heading = [...main.querySelectorAll(`${HEADINGS}, span, div, strong, p`)].find(
+    (el) =>
+      (el.matches(HEADINGS) || el.childElementCount === 0) &&
+      !el.closest('a, button') &&
+      !inMenu(el) &&
+      ABOUT_HEADING.test(clean(el.textContent)),
+  );
+  let part: Element | null = page && !heading ? main : null;
+  if (heading)
+    for (
+      let up = heading.parentElement, steps = 0;
+      up && main.contains(up) && steps < 4;
+      up = up.parentElement, steps++
+    )
+      if (clean(up.textContent).length > clean(heading.textContent).length) {
+        part = up;
+        break;
+      }
+  if (!part) return [];
+  const blocks = [...part.querySelectorAll('p, li, dd')];
+  const lines = (
+    blocks.length
+      ? blocks
+      : [...part.querySelectorAll('span, div')].filter((el) => !el.children.length)
+  )
+    .filter((el) => !el.closest(`a, button, ${HEADINGS}`) && !inMenu(el))
+    .map((el) => clean(el.textContent).slice(0, ABOUT_LINE_MOST))
+    .filter((line) => line && !ABOUT_HEADING.test(line));
+  return [...new Set(lines)].slice(0, ABOUT_LINES);
+}
+
+/** The group page the tab shows (its own, its About, a page of its people): which group, and the page's main part. */
+function groupHere(
+  doc: Document,
+  base: string,
+): { readonly at: NonNullable<ReturnType<typeof groupOf>>; readonly main: Element } | null {
+  const here = urlOf(base, base);
+  const at = here ? groupOf(here) : null;
+  if (!at || (at.page !== null && !GROUP_OWN_PAGES.has(at.page))) return null;
+  return { at, main: mainOf(doc) };
+}
+
+/**
+ * Where the person stands with the group the page is (its own page, its About, a page of its people), by its own
+ * controls: in it, asked and waiting, or with its Join to press (its runner's, ./auto.ts). Null on any other page.
+ */
+export function groupStanding(
+  doc: Document,
+  base: string,
+): (ReturnType<typeof standing> & { readonly group: GroupLink }) | null {
+  const here = groupHere(doc, base);
+  if (!here) return null;
+  const { at, main } = here;
+  return {
+    group: { id: at.id, url: at.url, name: clean(main.querySelector('h1')?.textContent) || null },
+    ...standing(ownControls(main, base, at.id)),
+  };
+}
+
+/**
+ * A group's own page, its About and the pages of its people (/groups/<group>, /about, /members): its name (its
+ * heading), how many members it says, where the person stands by its own controls, what its About says, and on a page
+ * of its people whether it showed its leaders. Null on any other page.
+ */
+export function groupFacts(doc: Document, base: string): GroupPage | null {
+  const here = groupHere(doc, base);
+  const now = groupStanding(doc, base);
+  if (!here || !now) return null;
+  const { at, main } = here;
+  return {
+    ...now.group,
+    members: membersOn(main),
+    joined: now.joined ? true : now.asked || now.join ? false : null,
+    detail: null,
+    asked: now.asked,
+    join: now.join !== null,
+    about: aboutOn(main, at.page === 'about'),
+    leaders: at.page !== null && GROUP_PEOPLE_PAGES.has(at.page) && groupLeaders(doc, base).shown,
+  };
+}
+
+/**
+ * The business a member's link is to: their business's page, by its address in its town or Alignable's id, or their
+ * own under it (/<town-st>/<business>/<person>, as ./site.ts's `profileOf` reads it), which goes to the business:
+ * Alignable's people are their businesses, and a found check reads the business's page.
+ */
+export function memberBusiness(url: URL): ProfileRef | null {
+  const [first = '', second = '', person, more] = parts(url);
+  if (more !== undefined) return null;
+  // Their own page, under their business's in its town: never a business by Alignable's id (/biz/businesses/<id>).
+  if (person !== undefined && TOWN.test(first)) {
+    if (!SLUG.test(person)) return null;
+    return businessRef(new URL(`${HOST}/${first}/${second}`), idIn(url));
+  }
+  return businessRef(url, idIn(url));
+}
+
+/** A member's row: the largest part around their links that links to nobody else's business, a few steps up. */
+function rowsOf(
+  main: Element,
+  base: string,
+): { row: Element; profile: ProfileRef; anchors: HTMLAnchorElement[] }[] {
+  const byBusiness = new Map<string, { profile: ProfileRef; anchors: HTMLAnchorElement[] }>();
+  const keyOf = (profile: ProfileRef) =>
+    (profile.username ?? profile.id ?? profile.url).toLowerCase();
+  for (const { a, url } of linksIn(main, base)) {
+    if (inMenu(a) || a.closest(PART('discussion-comment'))) continue;
+    const profile = memberBusiness(url);
+    if (!profile) continue;
+    const key = keyOf(profile);
+    const seen = byBusiness.get(key);
+    if (seen) seen.anchors.push(a);
+    else byBusiness.set(key, { profile, anchors: [a] });
+  }
+  const businessesIn = (root: Element) =>
+    new Set(
+      linksIn(root, base).flatMap(({ url }) => {
+        const profile = memberBusiness(url);
+        return profile ? [keyOf(profile)] : [];
+      }),
+    );
+  // A section's heading is never part of a row, even a section of one: its leaders, with one leader in it.
+  const sections = [...main.querySelectorAll(HEADINGS)].filter((h) => {
+    const words = clean(h.textContent);
+    return LEADERS.test(words) || PEOPLE_SECTION.test(words);
+  });
+  return [...byBusiness].flatMap(([key, { profile, anchors }]) => {
+    let row = around(anchors);
+    for (
+      let up = row?.parentElement ?? null, steps = 0;
+      row && up && up !== main && main.contains(up) && steps < CARD_STEPS;
+      up = up.parentElement, steps++
+    ) {
+      const businesses = businessesIn(up);
+      if (businesses.size > 1 || !businesses.has(key)) break;
+      if (sections.some((h) => up!.contains(h) && !row!.contains(h))) break;
+      row = up;
+    }
+    return row ? [{ row, profile, anchors }] : [];
+  });
+}
+
+/** Whether a part of the page sits under a heading of its leaders: the nearest heading before it, outside any row. */
+function underLeaders(row: Element, headings: readonly Element[]): boolean {
+  let last: Element | null = null;
+  for (const heading of headings)
+    if (heading.compareDocumentPosition(row) & heading.DOCUMENT_POSITION_FOLLOWING) last = heading;
+  return last !== null && LEADERS.test(clean(last.textContent));
+}
+
+/** Who a group's page of its people shows, each by their business, and its leaders marked. */
+function peopleOn(
+  doc: Document,
+  base: string,
+): { readonly members: Member[]; readonly shown: boolean } {
+  const here = urlOf(base, base);
+  const at = here ? groupOf(here) : null;
+  if (!at?.page || !GROUP_PEOPLE_PAGES.has(at.page)) return { members: [], shown: false };
+  const main = mainOf(doc);
+  const rows = rowsOf(main, base);
+  const headings = [...main.querySelectorAll(HEADINGS)].filter(
+    (h) => !rows.some(({ row }) => row.contains(h)) && !inMenu(h),
+  );
+  let marked = false;
+  const members = rows.slice(0, MEMBERS_MOST).flatMap(({ row, profile, anchors }): Member[] => {
+    const said = anchors
+      .map((a) => ({ a, words: clean(a.textContent) }))
+      .filter(({ words }) => words && !pageWords(words));
+    // Their own name is on the link to them (/<town-st>/<business>/<person>), else the first words on a link.
+    const own = said.find(({ a }) => {
+      const url = urlOf(a.getAttribute('href'), base);
+      return url !== null && parts(url).length === 3;
+    });
+    const name = (own ?? said[0])?.words;
+    if (!name) return [];
+    const business = said.find(({ words }) => words !== name)?.words ?? null;
+    const lines = leafLines(row).filter(
+      (line) => line !== name && line !== business && !pageWords(line) && !LEADER_MARK.test(line),
+    );
+    const mark = leafLines(row).some((line) => LEADER_MARK.test(line));
+    marked ||= mark;
+    return [
+      {
+        name,
+        profile: { ...profile, id: profile.id ?? idAround(row, base) },
+        business,
+        lines: lines.filter((line) => !ROW_CONTROLS.test(line)),
+        leader: mark || underLeaders(row, headings),
+      },
+    ];
+  });
+  return {
+    members,
+    shown: marked || headings.some((h) => LEADERS.test(clean(h.textContent))),
+  };
+}
+
+/** The people a group's page of them shows (its members page): each by their business, its leaders marked. */
+export const memberRows = (doc: Document, base: string): Member[] => peopleOn(doc, base).members;
+
+/**
+ * A group's leaders, on a page of its people: whether it showed any (a section of them, or a leader's mark on a row),
+ * and who. A page that shows none lets its members be read (decision 92's gate), and leaders are never reached.
+ */
+export function groupLeaders(
+  doc: Document,
+  base: string,
+): { readonly shown: boolean; readonly leaders: Member[] } {
+  const { members, shown } = peopleOn(doc, base);
+  return { shown, leaders: members.filter((m) => m.leader) };
+}
+
+/** Alignable's id for a discussion, from a link to it (/biz/discussions/<id>): how a post's own page is known. */
+export function discussionIdOf(href: string | null | undefined): string | null {
+  const url = urlOf(href, HOST);
+  if (!url) return null;
+  const [first, second, id] = parts(url);
+  return first === 'biz' && second === 'discussions' && id && ID.test(id) ? id : null;
+}
+
+/**
+ * Whether the page is one discussion's own (a post's, a forum question's): /biz/discussions/<id>, a group's discussion
+ * at /groups/<group>/<discussion>, or a town's forum question (/<town-st>/forum/<id>/…).
+ */
+export function isDiscussionPage(href: string): boolean {
+  const url = urlOf(href, href);
+  if (!url) return false;
+  if (discussionIdOf(url.toString())) return true;
+  const group = groupOf(url);
+  if (group?.page)
+    return (
+      !GROUP_OWN_PAGES.has(group.page) &&
+      !GROUP_OTHER_PAGES.has(group.page) &&
+      parts(url).length === 3
+    );
+  const [first = '', second = '', third] = parts(url);
+  return TOWN.test(first) && second.toLowerCase() === 'forum' && !!third;
+}
+
 // ------------------------------------------------------------------------------------------------ messages
 
 function chatRows(doc: Document): ChatRow[] {
@@ -720,7 +1225,7 @@ function rowOf(card: Element): { readonly row: Element; readonly picture: Elemen
 }
 
 /** Whether two businesses are different ones, by whichever of Alignable's id and address both have. */
-const differ = (a: ProfileRef, b: ProfileRef) =>
+export const differ = (a: ProfileRef, b: ProfileRef) =>
   (a.id !== null && b.id !== null && a.id !== b.id) ||
   (a.username !== null && b.username !== null && a.username !== b.username);
 
@@ -868,6 +1373,7 @@ function engagedOn(doc: Document, base: string): Engaged[] {
 }
 
 export function readAlignable(doc: Document, href: string): AlignableFound {
+  const group = groupFacts(doc, href);
   return {
     businesses: [...searchResults(doc, href).slice(0, MOST), ...connectionRows(doc, href)],
     engaged: engagedOn(doc, href),
@@ -879,5 +1385,8 @@ export function readAlignable(doc: Document, href: string): AlignableFound {
     chat: chatOpen(doc, href),
     answerBox: answerBoxOn(doc),
     codeBox: codeBoxIn(doc) !== null,
+    groups: groupCards(doc, href),
+    members: memberRows(doc, href),
+    ...(group ? { group } : {}),
   };
 }
