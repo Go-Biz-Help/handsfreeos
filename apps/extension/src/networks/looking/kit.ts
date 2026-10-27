@@ -3,10 +3,11 @@
  * Their sites are let on from install (decision 85), and their script runs only while both Chrome allows it and HandsFreeOS says the network is on for them (../on.ts). There it reads the
  * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
  * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
- * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's), and, on Instagram, who wrote
- * back in its chats. Where its site has its own Accounts Center (Instagram's, decision 89), its tab may go there too,
- * and answers Put these in's asks for the username and the name there (../accounts-center/work.ts); those pages aren't
- * its own (`owns`), so nothing done there is noted.
+ * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's; from 0.95.0 a comment and a
+ * group's Join where the site declares them, decision 92), and, on Instagram, who wrote back in its chats. Where its
+ * site has its own Accounts Center (Instagram's, decision 89), its tab may go there too, and answers Put these in's
+ * asks for the username and the name there (../accounts-center/work.ts); those pages aren't its own (`owns`), so
+ * nothing done there is noted.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
@@ -17,6 +18,8 @@ import type {
   CodeAnswer,
   CodeAsk,
   ConnectAsk,
+  JoinAnswer,
+  JoinAsk,
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
@@ -93,22 +96,62 @@ async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
   return { ok: true, result: await site.unfollow(document) };
 }
 
-/** The runner's presses it answers: their posts, a like, Connect (Follow), Message and a message. Never a comment. */
-type OnItsOwnAsk =
-  Exclude<AutoAsk, { readonly type: 'hfos-comment' }> | ConnectAsk | OpenMessageAsk;
-const ON_ITS_OWN_ASKS = new Set([
+/**
+ * The runner's presses it answers: their posts, a like, Connect (Follow), Message and a message; and from 0.95.0
+ * (decision 92) a comment and a group's Join, only for a site that declares them (`auto.comment`, `auto.join`).
+ */
+export type OnItsOwnAsk = AutoAsk | ConnectAsk | OpenMessageAsk | JoinAsk;
+export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>([
   'hfos-their-posts',
   'hfos-like-post',
   'hfos-connect',
   'hfos-open-message',
   'hfos-message',
+  'hfos-comment',
+  'hfos-join',
+  'hfos-join-answer',
 ]);
+
+/**
+ * A comment, or a group's Join and its questions, on a site that declares them (decision 92): never anywhere else. A
+ * comment says whose post it is and which, and goes only on that post's own page.
+ */
+async function commentOrJoin(
+  site: LookingSite,
+  ask: Extract<OnItsOwnAsk, { readonly type: 'hfos-comment' | 'hfos-join' | 'hfos-join-answer' }>,
+): Promise<AutoAnswer | JoinAnswer> {
+  const auto = site.auto;
+  const href = location.href;
+  if (ask.type === 'hfos-comment') {
+    if (!auto?.comment)
+      return { ok: false, error: `The extension doesn’t comment on ${site.name} on its own.` };
+    if (!ask.profile || !ask.postUrl)
+      return { ok: false, error: `The extension didn’t say whose post it is on ${site.name}.` };
+    return {
+      ok: true,
+      result: await auto.comment(document, href, ask.text, {
+        profile: ask.profile,
+        postUrl: ask.postUrl,
+      }),
+    };
+  }
+  if (!auto?.join)
+    return { ok: false, error: `The extension doesn’t join groups on ${site.name}.` };
+  if (ask.type === 'hfos-join') return { ok: true, step: await auto.join(document, href) };
+  // A site that asks no questions before a join says there were none to answer.
+  return {
+    ok: true,
+    result: auto.answerJoin ? await auto.answerJoin(document, ask.answers) : 'none',
+  };
+}
 
 /** One of its runner's presses, on a network whose site has them (Alignable's, Instagram's): none anywhere else. */
 async function onItsOwn(
   site: LookingSite,
   ask: OnItsOwnAsk,
-): Promise<PostsAnswer | AutoAnswer | BrowseAnswer> {
+): Promise<PostsAnswer | AutoAnswer | BrowseAnswer | JoinAnswer> {
+  if (ask.type === 'hfos-comment' || ask.type === 'hfos-join' || ask.type === 'hfos-join-answer')
+    return commentOrJoin(site, ask);
   const auto = site.auto;
   if (!auto)
     return { ok: false, error: `The extension doesn’t work on ${site.name} on its own yet.` };

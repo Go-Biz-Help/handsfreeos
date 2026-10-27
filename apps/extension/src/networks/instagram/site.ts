@@ -16,7 +16,6 @@
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
-import { typeInto } from '../facebook/join';
 import { outlineNow } from '../looking/read';
 import {
   boxesSaying,
@@ -26,6 +25,7 @@ import {
   namesIn,
   pause,
   waitFor,
+  writeIn,
   writingIn,
 } from '../looking/looks';
 import type { LookingSite } from '../looking/site';
@@ -269,24 +269,6 @@ const headerOf = (doc: Document): ParentNode => mainOf(doc).querySelector('heade
 
 /** The boxes to write a message in, anywhere on the page: a chat opened over it, or the chat's own page. */
 const chatBoxes = (doc: Document): HTMLElement[] => boxesSaying(doc, CHAT_BOX);
-
-/**
- * Writes in a box as typing does (Chrome's own insertText, whose events the page takes as a person's), or empties it;
- * a plain box's value set by hand only where that can't be done. From the owner's third Check (0.60.0): a value set by
- * hand showed Post but didn't stay in Instagram's box. Typing goes where the focus is, so it's never done unless the box
- * has it.
- */
-function writeIn(doc: Document, box: HTMLElement, text: string): void {
-  box.focus();
-  const focused = doc.activeElement === box;
-  if (focused && box instanceof doc.defaultView!.HTMLTextAreaElement) box.select();
-  else if (focused && typeof doc.execCommand === 'function') doc.execCommand('selectAll');
-  const typed =
-    focused &&
-    typeof doc.execCommand === 'function' &&
-    (text ? doc.execCommand('insertText', false, text) : doc.execCommand('delete'));
-  if (!typed) typeInto(doc, box, text, true);
-}
 
 /** Whether a box is there with something written in it. */
 const written = (box: Element | null): boolean => box !== null && writingIn(box);

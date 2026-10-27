@@ -26,9 +26,10 @@
  *   the warm-ups still to come; a follow a day after, with their account's own Follow; and the messages: drafted after
  *   a look-up of their account, and sent once OK'd in their chat, typing only into its own box. The first message
  *   goes once they follow back; the one to their Requests (part 12's rule) as one text, never split; follow-ups only in
- *   a chat they've answered or accepted, as HandsFreeOS lists them. Comments wait for the person's OK each time
- *   (public writing: they post them, and the extension notes them), and unfollowing stays the person's ticks, as
- *   withdrawing old requests does on the other networks.
+ *   a chat they've answered or accepted, as HandsFreeOS lists them. From 0.95.0 a comment on a good post is drafted
+ *   by the AI and goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the person's
+ *   OK while the comment hold or training wheels are on, then goes on its own, only in the post's own box.
+ *   Unfollowing stays the person's ticks, as withdrawing old requests does on the other networks.
  * - **At Instagram's pace:** a few minutes between steps, slower than LinkedIn's, within Instagram's low limits, which
  *   HandsFreeOS keeps (its list holds only what they have room for).
  * - **Stops on any Instagram warning** ("Action blocked", "Try again later"), for the day, on Instagram alone: the
@@ -66,12 +67,20 @@ import { saveFollowers } from '../jobs/instagram/people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
+import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
 import { instagram } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
+import {
+  commentDoing,
+  draftComment,
+  isCommentWork,
+  sendComment,
+  type CommentRunner,
+} from './comments';
 import { DAILY_CHATS } from './daily';
 import {
   beforeDay,
@@ -103,15 +112,15 @@ const NAME = NETWORKS.instagram.name;
 export const INSTAGRAM_ALARM = 'hfos-auto-instagram';
 
 /**
- * The kinds it does on its own on Instagram, in order (its kit's `runs.auto`): comments wait for the person's OK each
- * time, and follow requests from private accounts are theirs to confirm.
+ * The kinds it does on its own on Instagram, in order (its kit's `runs.auto`): comments go through `sends`, as
+ * messages do (./comments.ts), and follow requests from private accounts are theirs to confirm.
  */
 export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Instagram, in order: the newest followers first (`requests`: on Instagram, who followed back
  * is who accepted), then who followed back seen on their own accounts (`follow_backs`), the checks, the chats, Find
  * partners, and from part 15 the day's hashtags and places (`posts`) and the notifications' warm leads (`helpful`, as
- * Alignable's are).
+ * Alignable's are). From 0.95.0 the people found by topic are checked last (`found_checks`, decision 92).
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -121,19 +130,27 @@ export const INSTAGRAM_DAILY = [
   'partners',
   'posts',
   'helpful',
+  'found_checks',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
+/**
+ * The jobs whose words are said: those on the list, and who liked and commented on good posts (`post_people`,
+ * decision 92), which goes on the list before `found_checks` with its job.
+ */
+type InstagramDailyWords = InstagramDaily | 'post_people';
 
-const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
+const DAILY_DOING: Readonly<Record<InstagramDailyWords, string>> = {
   requests: 'Reading your newest followers on Instagram…',
   follow_backs: 'Looking at the accounts you followed on Instagram for who followed you back…',
   checks: 'Checking your followers for good fits…',
   chats: 'Reading your Instagram chats for the AI…',
   partners: 'Searching Instagram for people who could partner with you, then reading them…',
-  posts: 'Looking at your area’s hashtags and places on Instagram for the AI…',
+  posts: 'Looking at your hashtags and your area’s places on Instagram for the AI…',
   helpful: 'Reading your notifications for who followed you, or liked or commented on your posts…',
+  post_people: 'Reading who liked and commented on good posts on Instagram…',
+  found_checks: 'Checking the people found on Instagram for good fits…',
 };
-const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
+const DAILY_NAMES: Readonly<Record<InstagramDailyWords, string>> = {
   requests: 'Your newest followers',
   follow_backs: 'Who followed you back',
   checks: 'Check my followers',
@@ -141,6 +158,8 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   partners: 'Find partners',
   posts: 'Your hashtags and places',
   helpful: 'Who engaged with you',
+  post_people: 'Who liked and commented',
+  found_checks: 'Check the people found',
 };
 
 /** Instagram's pace between steps: slower than LinkedIn's, as Instagram blocks fast (the plan's "The risk"). */
@@ -244,6 +263,22 @@ function wantOf(profileUrl: string | null): ProfileRef | null {
   const account = accountIn(profileUrl);
   return account ? { id: null, username: account.username, url: account.url } : null;
 }
+
+/**
+ * What a comment's send (./comments.ts, decision 92) borrows: this window's tab, and a look at the page it opened for
+ * Instagram's warning or its sign-in.
+ */
+const commenting: CommentRunner = {
+  platform: PLATFORM,
+  tab,
+  async onPage(businessId) {
+    await setState({ tabId: tab.tabId });
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { stop };
+    return page.signedOut ? { again: SIGNED_OUT } : null;
+  },
+};
 
 /** Opens their account (a look they may see) and checks it's theirs, by the name in its address. */
 async function openAccount(
@@ -522,8 +557,12 @@ async function bringInChat(
   return null;
 }
 
-/** Drafts a message with the AI after looking them up on Instagram, and hands it to HandsFreeOS to wait or go. */
+/**
+ * Drafts a message with the AI after looking them up on Instagram, and hands it to HandsFreeOS to wait or go; a comment
+ * on a good post is drafted from the post (decision 92).
+ */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.kind === 'comment') return draftComment(item, businessId);
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
@@ -586,13 +625,16 @@ async function sendDone(sendId: string, businessId: string, sent: boolean, why: 
 
 /**
  * Sends a message OK'd in their Instagram chat, as a few short texts when the person texts that way, and notes it.
- * One to their Requests goes as one text: Instagram passes only one till they accept it.
+ * One to their Requests goes as one text: Instagram passes only one till they accept it. A comment OK'd, or past the
+ * hold, goes on its post's own page (decision 92).
  */
 async function sendMessage(
   item: TodayListItem,
   businessId: string,
   split: boolean,
 ): Promise<Outcome> {
+  if (item.kind === 'comment')
+    return sendComment(item, wantOf(item.profileUrl), businessId, commenting);
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;
@@ -668,7 +710,7 @@ export function doWork(
     case 'friend_request':
       return followThem(work.item, businessId);
     default:
-      // Never on its list for it (`INSTAGRAM_AUTO`): comments are the person's.
+      // Never on its list for it (`INSTAGRAM_AUTO`): comments go as sends, drafted and sent above.
       return Promise.resolve({
         done: false,
         line: `${work.item.name}: that’s yours to do on Instagram`,
@@ -683,11 +725,12 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
 };
 
 const doing = (work: Work) =>
-  work.do === 'step'
+  commentDoing(work) ??
+  (work.do === 'step'
     ? `${DOING[work.item.kind] ?? 'Working on'} ${work.item.name}…`
     : work.do === 'draft'
       ? `Writing a message to ${work.item.name}…`
-      : `Sending ${work.item.name} a message…`;
+      : `Sending ${work.item.name} a message…`);
 
 const doneAs = (work: Work): DoneKind =>
   work.do === 'step'
@@ -696,7 +739,9 @@ const doneAs = (work: Work): DoneKind =>
       : (work.item.kind as DoneKind)
     : work.do === 'draft'
       ? 'drafted'
-      : 'sent';
+      : isCommentWork(work)
+        ? 'comment'
+        : 'sent';
 
 /** What's left on Instagram's list for it today: only the kinds it does there. */
 export function instagramWorkLeft(
@@ -767,6 +812,8 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
       );
     case 'helpful':
       return readInstagramWarmLeads(job);
+    case 'found_checks':
+      return checkFound(job, { platform: PLATFORM, read: readThemOnInstagram });
   }
 }
 

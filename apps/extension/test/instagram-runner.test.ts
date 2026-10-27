@@ -416,6 +416,10 @@ describe('what it does on Instagram’s list', () => {
     expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w', posts: 'v' } })).toBe(
       'helpful',
     );
+    // Last, the people found by topic checked for good fits (decision 92).
+    const all = { ...done, chats: 'z', partners: 'w', posts: 'v', helpful: 't' };
+    expect(nextInstagramDaily({ daily: all })).toBe('found_checks');
+    expect(nextInstagramDaily({ daily: { ...all, found_checks: 's' } })).toBeNull();
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {
@@ -1028,6 +1032,7 @@ describe('Instagram’s growing (part 15)', () => {
         platform: 'instagram',
         group: null,
         found: 'search',
+        words: null,
         posts: [
           {
             url: `${IG}/p/C7aaaaaaa/`,

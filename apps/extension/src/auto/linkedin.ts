@@ -46,6 +46,7 @@ import { chatMemory, LINKEDIN_MESSAGING, readChats } from '../jobs/chats';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
+import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
@@ -81,6 +82,7 @@ import {
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type OwnDailyJob,
   type Work,
 } from './plan';
 import { askInLine, inTurn } from './turns';
@@ -93,7 +95,10 @@ export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
 /** The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. */
 export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request', 'comment'];
-/** The once-a-day jobs on LinkedIn, in order. */
+/**
+ * The once-a-day jobs on LinkedIn, in order. From 0.95.0 the people found by topic are checked last (`found_checks`,
+ * decision 92), inside its 40 profiles read, found people first.
+ */
 export const LINKEDIN_DAILY = [
   'requests',
   'checks',
@@ -101,24 +106,34 @@ export const LINKEDIN_DAILY = [
   'posts',
   'partners',
   'helpful',
-] as const satisfies readonly DailyJob[];
+  'found_checks',
+] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
+/**
+ * The jobs whose words are said: those on the list, and who reacted to and commented on good posts (`post_people`,
+ * decision 92), which goes on the list before `found_checks` with its job.
+ */
+type LinkedInDailyWords = LinkedInDaily | 'post_people';
 
-const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
+const DAILY_DOING: Readonly<Record<LinkedInDailyWords, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
   posts: 'Finding posts with LinkedIn’s post search…',
   partners: 'Searching LinkedIn for people who could partner with you, then reading them…',
   helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
+  post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
+  found_checks: 'Checking the people found on LinkedIn for good fits…',
 };
-const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
+const DAILY_NAMES: Readonly<Record<LinkedInDailyWords, string>> = {
   requests: 'Invitations',
   checks: 'Check my connections',
   chats: 'Read my chats',
   posts: 'Find posts',
   partners: 'Find partners',
   helpful: 'Helpful posts',
+  post_people: 'Who reacted and commented',
+  found_checks: 'Check the people found',
 };
 
 /** LinkedIn's pace between steps: slower than Facebook's, a person's. */
@@ -720,6 +735,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
     }
     case 'helpful':
       return linkedInHelpfulDaily(job);
+    case 'found_checks':
+      return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
   }
 }
 

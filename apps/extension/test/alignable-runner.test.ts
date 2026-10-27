@@ -399,6 +399,10 @@ describe('what it does on Alignable’s list', () => {
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z', posts: 'w' } })).toBe(
       'helpful',
     );
+    // Then the businesses found by topic checked for good fits (decision 92).
+    const all = { ...done, chats: 'c', partners: 'z', posts: 'w', helpful: 'v' };
+    expect(nextAlignableDaily({ daily: all })).toBe('found_checks');
+    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBeNull();
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {

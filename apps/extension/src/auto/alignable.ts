@@ -20,9 +20,12 @@
  *   look alone when it doesn't (warm-up); a connection request with their page's own Connect, the business checked by
  *   Alignable's id first, never to one their page shows they're connected with already (0.94.0), who's kept as a
  *   connection instead; and the messages: drafted after a look-up of their page, and sent once OK'd in Alignable's
- *   messages, typing only into that conversation's box. Comments and forum answers wait for the person's OK each time
- *   (they post them, and the extension notes them), and Recommend is only ever theirs. Requests they got are left for
- *   them to accept, and old requests to withdraw are theirs too: no reader of the ones they've sent is built.
+ *   messages, typing only into that conversation's box. From 0.95.0 a comment on a good post is drafted by the AI and
+ *   goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the person's OK while the
+ *   comment hold or training wheels are on, then goes on its own, only in the post's own reply form; an answer to a
+ *   post asking for what the business offers waits for their OK every time. Recommend is only ever theirs. Requests
+ *   they got are left for them to accept, and old requests to withdraw are theirs too: no reader of the ones they've
+ *   sent is built.
  * - **At Alignable's pace:** a few minutes between steps, within Alignable's limits, which HandsFreeOS keeps (its list
  *   holds only what they have room for).
  * - **Stops on any Alignable warning,** for the day, on Alignable alone: the other networks go on.
@@ -58,6 +61,7 @@ import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
+import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
 import { alignable } from '../networks';
@@ -65,6 +69,13 @@ import { businessRef, idIn, urlOf } from '../networks/alignable/read';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
+import {
+  commentDoing,
+  draftComment,
+  isCommentWork,
+  sendComment,
+  type CommentRunner,
+} from './comments';
 import { DAILY_CHATS } from './daily';
 import {
   beforeDay,
@@ -85,6 +96,7 @@ import {
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type OwnDailyJob,
   type Work,
 } from './plan';
 import { askInLine, inTurn } from './turns';
@@ -95,14 +107,15 @@ const NAME = NETWORKS.alignable.name;
 export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
 
 /**
- * The kinds it does on its own on Alignable, in order (its kit's `runs.auto`): comments and forum answers wait for the
- * person's OK each time, and requests they got are theirs to accept.
+ * The kinds it does on its own on Alignable, in order (its kit's `runs.auto`): comments and forum answers go through
+ * `sends`, as messages do (./comments.ts), and requests they got are theirs to accept.
  */
 export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Alignable, in order, as Instagram's: the requests, the connections checked, their chats
- * (0.84.0), Find partners, their town's posts, and last who engaged with them, from their notifications (`helpful`: who
- * engaged, here with no helpful post of their own).
+ * (0.84.0), Find partners, their town's posts, and who engaged with them, from their notifications (`helpful`: who
+ * engaged, here with no helpful post of their own). From 0.95.0 the businesses found by topic are checked last
+ * (`found_checks`, decision 92).
  */
 export const ALIGNABLE_DAILY = [
   'requests',
@@ -111,24 +124,47 @@ export const ALIGNABLE_DAILY = [
   'partners',
   'posts',
   'helpful',
-] as const satisfies readonly DailyJob[];
+  'found_checks',
+] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
+/**
+ * The jobs whose words are said: those on the list, and those that go on it with their jobs (decision 92): the
+ * person's own groups first (`my_groups`), and after the town's posts the search of businesses like their clients
+ * (`search`), the groups found and checked, joined, their members read, and their posts (`group_checks`, `join`,
+ * `members`, `group_posts`).
+ */
+type AlignableDailyWords =
+  AlignableDaily | 'my_groups' | 'search' | 'group_checks' | 'join' | 'members' | 'group_posts';
 
-const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
+const DAILY_DOING: Readonly<Record<AlignableDailyWords, string>> = {
+  my_groups: 'Reading your groups on Alignable…',
   requests: 'Checking your connection requests on Alignable…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your Alignable chats for the AI…',
   partners: 'Searching Alignable for businesses that could partner with you, then reading them…',
   posts: 'Reading your town’s posts and forum questions for the AI…',
+  search: 'Searching Alignable for businesses like your clients…',
+  group_checks: 'Finding Alignable groups for your niche and area, and checking them…',
+  join: 'Joining good Alignable groups, as your groups run low on people to reach…',
+  members: 'Reading the members of your Alignable groups, leaders first…',
+  group_posts: 'Reading the posts in your Alignable groups for the AI…',
   helpful: 'Reading your notifications for who liked, commented on or recommended you…',
+  found_checks: 'Checking the businesses found on Alignable for good fits…',
 };
-const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
+const DAILY_NAMES: Readonly<Record<AlignableDailyWords, string>> = {
+  my_groups: 'Your groups',
   requests: 'Connection requests',
   checks: 'Check my connections',
   chats: 'Read my chats',
   partners: 'Find partners',
   posts: 'Find posts in your town',
+  search: 'Search for businesses',
+  group_checks: 'Check groups',
+  join: 'Join groups',
+  members: 'Group members',
+  group_posts: 'Posts in your groups',
   helpful: 'Who engaged with you',
+  found_checks: 'Check the businesses found',
 };
 
 /** Alignable's pace between steps: LinkedIn's, a person's (the plan's "The risk, said plainly"). */
@@ -230,6 +266,22 @@ function wantOf(profileUrl: string | null): ProfileRef | null {
   const url = urlOf(profileUrl, ALIGNABLE);
   return url ? businessRef(url, idIn(url)) : null;
 }
+
+/**
+ * What a comment's send (./comments.ts, decision 92) borrows: this window's tab, and a look at the page it opened for
+ * Alignable's warning or its sign-in.
+ */
+const commenting: CommentRunner = {
+  platform: PLATFORM,
+  tab,
+  async onPage(businessId) {
+    await setState({ tabId: tab.tabId });
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { stop };
+    return page.signedOut ? { again: SIGNED_OUT } : null;
+  },
+};
 
 /**
  * Opens their business page (a look they may see) and checks it's theirs, by Alignable's id for it: the page, and the
@@ -517,9 +569,10 @@ async function openChat(
 /**
  * Drafts a message with the AI after looking their business page up on Alignable, and hands it to HandsFreeOS to wait
  * or go. A reply is drafted from what HandsFreeOS knows: their conversation as the day's Read my chats last brought it
- * in (0.84.0).
+ * in (0.84.0). A comment on a good post is drafted from the post (decision 92).
  */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.kind === 'comment') return draftComment(item, businessId);
   const looked = await lookUpOnAlignable(jobFor(businessId), item.name, item.profileUrl);
   if ('end' in looked)
     return looked.end.warned ? { stop: looked.end.line } : { done: false, line: looked.end.line };
@@ -576,12 +629,17 @@ async function sendDone(sendId: string, businessId: string, sent: boolean, why: 
   }
 }
 
-/** Sends a message OK'd in Alignable's messages, as a few short texts when the person texts that way, and notes it. */
+/**
+ * Sends a message OK'd in Alignable's messages, as a few short texts when the person texts that way, and notes it. A
+ * comment OK'd, or past the hold, goes on its post's own page (decision 92).
+ */
 async function sendMessage(
   item: TodayListItem,
   businessId: string,
   split: boolean,
 ): Promise<Outcome> {
+  if (item.kind === 'comment')
+    return sendComment(item, wantOf(item.profileUrl), businessId, commenting);
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;
@@ -646,7 +704,7 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
     case 'friend_request':
       return connect(work.item, businessId);
     default:
-      // Never on its list for it (`ALIGNABLE_AUTO`): comments and answers are the person's.
+      // Never on its list for it (`ALIGNABLE_AUTO`): comments and answers go as sends, drafted and sent above.
       return Promise.resolve({
         done: false,
         line: `${work.item.name}: that’s yours to do on Alignable`,
@@ -661,11 +719,12 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
 };
 
 const doing = (work: Work) =>
-  work.do === 'step'
+  commentDoing(work) ??
+  (work.do === 'step'
     ? `${DOING[work.item.kind] ?? 'Working on'} ${work.item.name}…`
     : work.do === 'draft'
       ? `Writing a message to ${work.item.name}…`
-      : `Sending ${work.item.name} a message…`;
+      : `Sending ${work.item.name} a message…`);
 
 const doneAs = (work: Work): DoneKind =>
   work.do === 'step'
@@ -674,7 +733,9 @@ const doneAs = (work: Work): DoneKind =>
       : (work.item.kind as DoneKind)
     : work.do === 'draft'
       ? 'drafted'
-      : 'sent';
+      : isCommentWork(work)
+        ? 'comment'
+        : 'sent';
 
 /** What's left on Alignable's list for it today: only the kinds it does there. */
 export function alignableWorkLeft(
@@ -715,6 +776,8 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return findPostsInTown(job);
     case 'helpful':
       return readWarmLeads(job);
+    case 'found_checks':
+      return checkFound(job, { platform: PLATFORM, read: readThemOnAlignable });
   }
 }
 

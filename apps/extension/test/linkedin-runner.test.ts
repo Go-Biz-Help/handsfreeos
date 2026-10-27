@@ -321,6 +321,10 @@ describe('what it does on LinkedIn’s list', () => {
         daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v' },
       }),
     ).toBe('helpful');
+    // Last, the people found by topic checked for good fits (decision 92).
+    const all = { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v', helpful: 'u' };
+    expect(nextLinkedInDaily({ daily: all })).toBe('found_checks');
+    expect(nextLinkedInDaily({ daily: { ...all, found_checks: 't' } })).toBeNull();
   });
 
   it('sends an invitation without a note from their profile, and notes it as LinkedIn’s', async () => {

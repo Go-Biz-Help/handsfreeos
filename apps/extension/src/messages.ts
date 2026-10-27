@@ -80,7 +80,16 @@ export type AutoAsk =
       readonly index: number;
       readonly url: string | null;
     }
-  | { readonly type: 'hfos-comment'; readonly text: string }
+  /**
+   * On Instagram and Alignable (decision 92, ./networks/looking/kit.ts), `profile` and `postUrl` say whose post it is
+   * and which: the comment goes only on that post's own page, in its own box. Facebook and LinkedIn go by the page.
+   */
+  | {
+      readonly type: 'hfos-comment';
+      readonly text: string;
+      readonly profile?: ProfileRef;
+      readonly postUrl?: string | null;
+    }
   /**
    * On LinkedIn and Alignable, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts,
    * src/networks/alignable/auto.ts).
@@ -99,7 +108,8 @@ export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly prof
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what
- * Facebook asks first; then answer its questions with the AI's answers and submit them.
+ * Facebook asks first; then answer its questions with the AI's answers and submit them. On Alignable (decision 92,
+ * src/networks/looking/kit.ts) its group's own Join, on a site that declares it; it asks no questions there.
  */
 export type JoinAsk =
   | { readonly type: 'hfos-join' }
