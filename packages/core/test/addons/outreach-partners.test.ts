@@ -18,6 +18,7 @@ import {
   partnerMarksFor,
   partnerPrompt,
   partnerReadsPerDay,
+  partnerSearchWords,
   partnerSystem,
 } from '../../src/addons/outreach/partners';
 import {
@@ -26,6 +27,7 @@ import {
   PlaybookDetails,
   upgradePlaybookDetails,
 } from '../../src/addons/outreach/playbooks';
+import { postSearchWords } from '../../src/addons/outreach/posts';
 import { outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -202,6 +204,44 @@ describe('a partner playbook', () => {
       state: 'todo',
       left: 'Write a playbook and pick its niche on the Playbooks tab.',
     });
+  });
+});
+
+describe('the words a search for partners goes with (decision 92)', () => {
+  it('are the partner playbooks’ as they always were, whatever the customers’ own phrases', () => {
+    const partners = {
+      ...partnerPlaybook,
+      platforms: ['linkedin' as const],
+      signs: ['“Realtor” in their intro'],
+      groupWords: ['Austin homeowners'],
+    };
+    const customers = {
+      ...blankPlaybook(),
+      platforms: ['linkedin' as const],
+      signs: ['“Owner” in their intro'],
+      groupWords: ['roofing'],
+      postSearches: ['storm damage', 'roof leak'],
+      wordsWritten: ['linkedin' as const],
+    };
+    expect(partnerSearchWords([{ details: partners }], 'linkedin')).toEqual([
+      'Realtor',
+      'Austin homeowners',
+    ]);
+    // A partner playbook's words are never read as phrases of its own, even ones left on it.
+    const leftOn = {
+      ...partners,
+      postSearches: ['roof leak'],
+      wordsWritten: ['linkedin' as const],
+    };
+    expect(partnerSearchWords([{ details: leftOn }], 'linkedin')).toEqual([
+      'Realtor',
+      'Austin homeowners',
+    ]);
+    // The customers' post search goes with their own phrases instead.
+    expect(postSearchWords([{ details: customers }], 'linkedin', 0)).toEqual([
+      'storm damage',
+      'roof leak',
+    ]);
   });
 });
 

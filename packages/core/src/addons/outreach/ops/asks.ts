@@ -62,7 +62,7 @@ import {
 import { isOffline, networkOffWords } from '../live';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
-import { postSearchWords } from '../posts';
+import { dayNumber, postSearchWords } from '../posts';
 import { ProfileSaveOutput } from '../saves';
 import { askCodes, asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
@@ -162,7 +162,8 @@ async function taskOf(
           task: {
             kind: 'posts',
             groups: null,
-            words: postSearchWords(await playbooksInUse(ctx, platform), platform),
+            // The playbooks' own phrases, the day's in turn (decision 92).
+            words: postSearchWords(await playbooksInUse(ctx, platform), platform, dayNumber()),
           },
           target,
           about: askAbout(ask),

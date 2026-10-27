@@ -585,6 +585,24 @@ export const hasWordsOn = (
   platform: WordsPlatform,
 ): boolean => !forPartners(details) && runsOn(details, platform);
 
+/**
+ * A playbook's own words of one part on a network (data version 8, decision 92), for the look or search that reads
+ * them: its list when it has one; none when the AI wrote it and the person emptied it, so that network looks at
+ * nothing for the playbook; or null while the AI hasn't written for that network (or the part isn't that network's),
+ * when the made-up words from its signs and words for groups stand in.
+ */
+export function ownWordsOn(
+  details: Partial<Pick<PlaybookDetails, FindWordsPart | 'wordsWritten'>>,
+  platform: Platform,
+  part: FindWordsPart,
+): readonly string[] | null {
+  if (!(platform in FIND_WORDS_PARTS) || FIND_WORDS_PARTS[platform as WordsPlatform] !== part)
+    return null;
+  const list = details[part] ?? [];
+  if (list.length) return list;
+  return details.wordsWritten?.includes(platform as WordsPlatform) ? [] : null;
+}
+
 /** The days before follow-ups when they were one number (before data version 4) and the business changed it. */
 const OLD_FOLLOW_UP_START = 3;
 

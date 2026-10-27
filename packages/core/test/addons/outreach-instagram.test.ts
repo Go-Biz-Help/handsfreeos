@@ -355,25 +355,92 @@ describe('Instagram’s hashtags and places (part 15)', () => {
     signs: readonly string[] = [],
     platforms: readonly Platform[] = ['instagram'],
   ) => ({ details: { area, groupWords: [...groupWords], signs: [...signs], platforms } });
+  /** A playbook with hashtags of its own (data version 8), and the networks the AI has written for. */
+  const tagged = (
+    area: string,
+    hashtags: readonly string[],
+    wordsWritten: readonly ('instagram' | 'linkedin' | 'alignable')[] = ['instagram'],
+  ) => ({
+    details: {
+      ...playbook(area, ['roofing']).details,
+      hashtags: [...hashtags],
+      wordsWritten: [...wordsWritten],
+    },
+  });
 
-  it('makes local hashtags from the area and the words for groups, a few a day in turn', () => {
+  it('makes local hashtags from the area and the words for groups, 5 a day in turn', () => {
     const looks = (day: number) =>
       postLooks(
-        [playbook('Austin and Round Rock, TX', ['plumbing', 'drain cleaning'])],
+        [playbook('Austin and Round Rock, TX', ['plumbing', 'drain cleaning', 'water heaters'])],
         'instagram',
         day,
       );
     expect(looks(0)).toEqual({
-      tags: ['austinplumbing', 'austindraincleaning', 'roundrockplumbing'],
+      tags: [
+        'austinplumbing',
+        'austindraincleaning',
+        'austinwaterheaters',
+        'roundrockplumbing',
+        'roundrockdraincleaning',
+      ],
       places: ['Austin', 'Round Rock'],
     });
     // The next day goes on round them.
     expect(looks(1).tags).toEqual([
-      'roundrockdraincleaning',
+      'roundrockwaterheaters',
       'austinplumbing',
       'austindraincleaning',
+      'austinwaterheaters',
+      'roundrockplumbing',
     ]);
-    expect(TAG_LOOKS_PER_DAY).toBe(3);
+    expect(TAG_LOOKS_PER_DAY).toBe(5);
+  });
+
+  it('looks at the playbooks’ own hashtags first, 5 a day in turn (decision 92)', () => {
+    const own = tagged('Austin', [
+      'austinroofing',
+      'roofrepair',
+      'atxhomeowners',
+      'stormdamage',
+      'newroof',
+      'roofleak',
+      'homerepairtips',
+    ]);
+    expect(postLooks([own], 'instagram', 0)).toEqual({
+      tags: ['austinroofing', 'roofrepair', 'atxhomeowners', 'stormdamage', 'newroof'],
+      places: ['Austin'],
+    });
+    expect(postLooks([own], 'instagram', 1).tags).toEqual([
+      'roofleak',
+      'homerepairtips',
+      'austinroofing',
+      'roofrepair',
+      'atxhomeowners',
+    ]);
+    // A playbook the AI hasn't written for yet adds its made-up ones after them.
+    expect(
+      postLooks(
+        [tagged('Austin', ['austinroofing']), playbook('Denver', ['plumbing'])],
+        'instagram',
+        0,
+      ),
+    ).toEqual({ tags: ['austinroofing', 'denverplumbing'], places: ['Austin', 'Denver'] });
+    // Hashtags the person wrote before the AI did are the playbook's own all the same.
+    expect(postLooks([tagged('Austin', ['roofrepair'], [])], 'instagram', 0).tags).toEqual([
+      'roofrepair',
+    ]);
+  });
+
+  it('makes them up only while the AI hasn’t written Instagram’s, and an emptied list gives none', () => {
+    // Emptied by the person once the AI wrote them: that playbook looks at nothing on Instagram, not even its places.
+    expect(postLooks([tagged('Austin', [])], 'instagram', 0)).toEqual({ tags: [], places: [] });
+    expect(
+      postLooks([tagged('Austin', []), playbook('Denver', ['plumbing'])], 'instagram', 0),
+    ).toEqual({ tags: ['denverplumbing'], places: ['Denver'] });
+    // Written for LinkedIn alone: Instagram still makes its own up.
+    expect(postLooks([tagged('Austin', [], ['linkedin'])], 'instagram', 0).tags).toEqual([
+      'austinroofing',
+    ]);
   });
 
   it('keeps words that name the area as they are, and the signs’ quoted words when there are no words for groups', () => {
