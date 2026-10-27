@@ -345,6 +345,7 @@ import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos'
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
 import { DayInput, DayOutput } from '@hfos/core/addons/outreach/live';
 import { PartnerMarkInput, PartnerMarkOutput } from '@hfos/core/addons/outreach/partners';
+import { ClientSetInput, ClientSetOutput } from '@hfos/core/addons/outreach/person-menu';
 import {
   Playbook,
   PlaybookArchiveInput,
@@ -589,6 +590,8 @@ export const PHONE_COMMANDS = {
   'outreach.ask.make': command(ONLINE, AskMakeInput, AskMakeOutput),
   'outreach.ask.reply': command(ONLINE, AskReplyInput, AskChangedOutput),
   'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
+  // Mark as client, or Not a client after all, from the person menu on a name (decision 91): with signal.
+  'outreach.client.set': command(ONLINE, ClientSetInput, ClientSetOutput),
   'outreach.day.start': command(ANYTIME, DayInput, DayOutput),
   'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
   'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),

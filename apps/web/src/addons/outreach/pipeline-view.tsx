@@ -53,6 +53,7 @@ export const STAGE_TONE: Record<Stage, BadgeVariant> = {
   ready: 'pending',
   pitched: 'accent',
   booked: 'ok',
+  client: 'ok',
   lost: 'danger',
 };
 

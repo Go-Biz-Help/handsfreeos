@@ -7940,6 +7940,37 @@
         "required": ["workspaceId", "settings"]
       }
     },
+    "outreach.client.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client": {
+            "type": "boolean"
+          },
+          "personId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "profileId", "client"]
+      }
+    },
     "outreach.day.start": {
       "offline": "anytime",
       "input": {
@@ -14631,6 +14662,22 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "outreach.profile.marks": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
       }
     },
     "outreach.readiness": {
