@@ -3,6 +3,9 @@
  * kept for them for 30 days, and the bell beside Ask HandsFreeOS lists them, newest first, on the phone and on the
  * web: pressing one opens the screen its push opens. Browser-safe: both bells say these words and count this way.
  *
+ * - **Only the business on screen** (the owner's pick): its bell lists and counts that business's, never another's,
+ *   with the person's own about no business (a new support ticket, a sign-in to the extension).
+ *
  * - **What it counts:** the notifications not seen yet (opening the bell sees them), and the add-ons' alerts still
  *   open that none of those already counts. An alert stays counted until it's done (decision 82 in docs/outreach.md),
  *   even one the business was closed for, which was never pushed.
@@ -22,9 +25,9 @@ export const BELL_WORDS = {
   label: (n: number) =>
     n === 0 ? 'Notifications' : n === 1 ? 'Notifications: 1 new' : `Notifications: ${n} new`,
   /** Under the title, while there's anything to show. */
-  about: `What HandsFreeOS sent to your phone in the last ${NOTIFICATIONS_KEPT_DAYS} days. Press one to open it.`,
+  about: `What HandsFreeOS sent to your phone for this business in the last ${NOTIFICATIONS_KEPT_DAYS} days. Press one to open it.`,
   /** With nothing kept and no alert open. */
-  none: `Nothing yet. What HandsFreeOS sends to your phone shows up here for ${NOTIFICATIONS_KEPT_DAYS} days.`,
+  none: `Nothing yet. What HandsFreeOS sends to your phone for this business shows up here for ${NOTIFICATIONS_KEPT_DAYS} days.`,
   /** Over the add-ons' alerts still open, kept at the top until each is done. */
   needsYou: 'Needs you',
   /** Over the notifications, when alerts are above them. */

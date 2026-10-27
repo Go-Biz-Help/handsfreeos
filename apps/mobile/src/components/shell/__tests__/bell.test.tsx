@@ -15,10 +15,10 @@ import { pendingLinks } from '@/links/pending';
 import { BELL_PAGE, BELL_SQL, BELL_UNSEEN_SQL, bellMarks } from '@/push/bell';
 
 /**
- * The bell beside Ask HandsFreeOS (20261027012600): every push the person's phones were handed in the last 30 days,
- * newest first, from every business they're in, under the add-ons' alerts still open (decision 82 in
- * docs/outreach.md). It counts what's new; opening it sees them, and pressing one reads it and opens its screen once
- * the sheet has gone.
+ * The bell beside Ask HandsFreeOS (20261027012600): every push about the business on screen the person's phones were
+ * handed in the last 30 days, and their own about no business, newest first, under the add-ons' alerts still open
+ * (decision 82 in docs/outreach.md). Never another business's: the owner's pick. It counts what's new there; opening
+ * it sees them, in that business only, and pressing one reads it and opens its screen once the sheet has gone.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), navigate: jest.fn() } }));
@@ -35,6 +35,8 @@ jest.mock('@/lib/api', () => ({
 const DALE = '11111111-1111-4111-8111-111111111111';
 const ASK = '22222222-2222-4222-8222-222222222222';
 const ALERT = '33333333-3333-4333-8333-333333333333';
+/** The business on screen, and another the person is in. */
+const HERE = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const OTHER = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
 const business = (id: string): Business => ({
@@ -88,13 +90,13 @@ interface Kept {
 
 const kept = (n: number, over: Partial<Kept> = {}): Kept => ({
   id: `aaaaaaaa-0000-4000-8000-${String(n).padStart(12, '0')}`,
-  workspace_id: OTHER,
+  workspace_id: HERE,
   push_id: `bbbbbbbb-0000-4000-8000-${String(n).padStart(12, '0')}`,
   category: 'customer_message',
   title: `Customer ${n}`,
-  subtitle: 'Text · Bayou Bistro',
+  subtitle: 'Text · Lone Star HVAC & Roofing',
   body: `Message ${n}`,
-  path: `/app/w/${OTHER}/inbox/conv-${n}`,
+  path: `/app/w/${HERE}/inbox/conv-${n}`,
   refs: '{}',
   sent_at: new Date(NOW - n * 60_000).toISOString(),
   seen_at: null,
@@ -102,22 +104,34 @@ const kept = (n: number, over: Partial<Kept> = {}): Kept => ({
   ...over,
 });
 
-/** The copy: open alerts for the business on screen, and the person's notifications. */
+/** In another business, with its words. */
+const elsewhere = (n: number, over: Partial<Kept> = {}): Kept =>
+  kept(n, {
+    workspace_id: OTHER,
+    subtitle: 'Text · Bayou Bistro',
+    path: `/app/w/${OTHER}/inbox/conv-${n}`,
+    ...over,
+  });
+
+/** The copy: open alerts for the business on screen, and every notification the person has, as SQLite reads them. */
 const copyOf = (alerts: unknown[], notifications: Kept[]) =>
-  (useQuery as jest.Mock).mockImplementation((sql: string, params?: unknown[]) => ({
-    data:
-      sql === OPEN_ALERTS_SQL
-        ? alerts
-        : sql === BELL_SQL
-          ? [...notifications]
-              .sort((a, b) => b.sent_at.localeCompare(a.sent_at))
-              .slice(0, Number(params?.[0]))
-          : sql === BELL_UNSEEN_SQL
-            ? notifications.filter((n) => n.seen_at === null)
-            : [],
-    isLoading: false,
-    isFetching: false,
-  }));
+  (useQuery as jest.Mock).mockImplementation((sql: string, params: unknown[] = []) => {
+    const listed = notifications.filter(
+      (n) => n.workspace_id === params[0] || n.workspace_id === null,
+    );
+    return {
+      data:
+        sql === OPEN_ALERTS_SQL
+          ? alerts
+          : sql === BELL_SQL
+            ? listed.sort((a, b) => b.sent_at.localeCompare(a.sent_at)).slice(0, Number(params[1]))
+            : sql === BELL_UNSEEN_SQL
+              ? listed.filter((n) => n.seen_at === null)
+              : [],
+      isLoading: false,
+      isFetching: false,
+    };
+  });
 
 const post = api.POST as unknown as jest.Mock;
 const changed = change as unknown as jest.Mock;
@@ -159,9 +173,9 @@ afterEach(() => {
 });
 
 describe('the notifications bell', () => {
-  it('shows no count and says what will show up when nothing is kept or open', async () => {
-    copyOf([], []);
-    await draw('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  it('shows no count and says what will show up when nothing is kept or open, whatever another business has', async () => {
+    copyOf([], [elsewhere(1)]);
+    await draw(HERE);
     expect(screen.queryByTestId('bell-count')).toBeNull();
     expect(screen.getByLabelText('Notifications')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('bell-button'));
@@ -170,24 +184,28 @@ describe('the notifications bell', () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
-  it('lists every push, newest first, from every business, and sees the new ones as it opens', async () => {
-    const ws = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  it('lists the business’s pushes, newest first, never another’s, and sees the new ones there as it opens', async () => {
     copyOf(
       [],
       [
         kept(1),
         kept(2, { seen_at: '2026-10-26T17:59:00.000Z' }),
+        // About no business: every business's bell lists it.
         kept(3, {
-          workspace_id: ws,
-          subtitle: 'Lone Star HVAC & Roofing',
+          workspace_id: null,
+          category: 'support_ticket',
+          title: 'New support ticket',
+          subtitle: null,
+          path: '/admin/support/ticket-3',
           seen_at: '2026-10-26T17:59:00.000Z',
           read_at: '2026-10-26T17:59:00.000Z',
         }),
         kept(4),
+        elsewhere(5),
       ],
     );
-    await draw(ws);
-    // Two not seen yet, whichever business they're from.
+    const view = await draw(HERE);
+    // Two not seen yet in this business; another business's new one isn't counted here.
     expect(screen.getByTestId('bell-count')).toHaveTextContent('2');
     expect(screen.getByLabelText('Notifications: 2 new')).toBeTruthy();
 
@@ -195,23 +213,36 @@ describe('the notifications bell', () => {
     const items = screen.getAllByTestId('bell-item');
     expect(items).toHaveLength(4);
     expect(items[0]).toHaveTextContent(/Customer 1/);
-    expect(items[0]).toHaveTextContent(/Text · Bayou Bistro/);
+    expect(items[0]).toHaveTextContent(/Text · Lone Star HVAC & Roofing/);
     expect(items[0]).toHaveTextContent(/1 min ago/);
-    expect(items[2]).toHaveTextContent(/Lone Star HVAC & Roofing/);
+    expect(items[2]).toHaveTextContent(/New support ticket/);
+    expect(screen.queryByText(/Bayou Bistro/)).toBeNull();
     // Unread until pressed, seen or not: the first, second and fourth.
     expect(screen.getAllByTestId('bell-unread')).toHaveLength(3);
     expect(items[0].props.accessibilityLabel).toMatch(/^Not opened yet\. Customer 1/);
     expect(items[2].props.accessibilityLabel).not.toMatch(/Not opened yet/);
-    // Opening it sees everything up to the newest it showed, and the count goes at once.
-    expect(changed).toHaveBeenCalledWith('notification.seen', { upTo: kept(1).sent_at });
+    // Opening it sees everything there up to the newest it showed, and the count goes at once.
+    expect(changed).toHaveBeenCalledWith('notification.seen', {
+      workspaceId: HERE,
+      upTo: kept(1).sent_at,
+    });
     expect(screen.queryByTestId('bell-count')).toBeNull();
     expect(screen.queryByText(/Needs you/)).toBeNull();
+
+    // The other business's bell still counts its own new one, before the copy catches up.
+    await view.unmount();
+    await draw(OTHER);
+    expect(screen.getByTestId('bell-count')).toHaveTextContent('1');
+    await fireEvent.press(screen.getByTestId('bell-button'));
+    expect(screen.getAllByTestId('bell-item').map((i) => i.props.accessibilityLabel)).toEqual([
+      expect.stringMatching(/^New support ticket/),
+      expect.stringMatching(/^Not opened yet\. Customer 5\. Text · Bayou Bistro/),
+    ]);
   });
 
-  it('reads one pressed and opens its screen in its own business once the sheet is gone', async () => {
-    const ws = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+  it('reads one pressed and opens its screen once the sheet is gone', async () => {
     copyOf([], [kept(1), kept(2)]);
-    await draw(ws);
+    await draw(HERE);
     await fireEvent.press(screen.getByTestId('bell-button'));
     const gone = modalGone();
     await fireEvent.press(screen.getAllByTestId('bell-item')[1]!);
@@ -220,7 +251,7 @@ describe('the notifications bell', () => {
     // iOS opens nothing while a modal is still going: the screen opens once the sheet is gone.
     expect(pendingLinks.open).not.toHaveBeenCalled();
     await act(async () => gone());
-    expect(pendingLinks.open).toHaveBeenCalledWith(`/app/w/${OTHER}/inbox/conv-2`);
+    expect(pendingLinks.open).toHaveBeenCalledWith(`/app/w/${HERE}/inbox/conv-2`);
     await fireEvent.press(screen.getByTestId('bell-button'));
     expect(screen.getAllByTestId('bell-unread')).toHaveLength(1);
   });
@@ -230,7 +261,7 @@ describe('the notifications bell', () => {
       [],
       Array.from({ length: BELL_PAGE + 3 }, (_, i) => kept(i + 1, { seen_at: NOW_ISO })),
     );
-    await draw('abababab-abab-4bab-8bab-abababababab');
+    await draw(HERE);
     await fireEvent.press(screen.getByTestId('bell-button'));
     expect(screen.getAllByTestId('bell-item')).toHaveLength(BELL_PAGE);
     await fireEvent.press(screen.getByTestId('bell-older'));

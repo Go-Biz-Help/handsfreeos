@@ -18,7 +18,7 @@ test('on a phone: the bell in the header, empty until a push comes', async ({ pa
 
   await bell.click();
   await expect(page.getByTestId('bell-none')).toHaveText(
-    'Nothing yet. What HandsFreeOS sends to your phone shows up here for 30 days.',
+    'Nothing yet. What HandsFreeOS sends to your phone for this business shows up here for 30 days.',
   );
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('bell-none')).toBeHidden();

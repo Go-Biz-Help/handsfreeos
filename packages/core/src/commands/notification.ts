@@ -1,9 +1,9 @@
 /**
  * Notifications under the bell (20261027012600): every push a person's phones were handed is kept for them for 30
- * days, and the bell beside Ask HandsFreeOS lists them, on the phone and on the web. Opening the bell marks what it
- * showed as seen, so its count leaves them out (`notification.seen`); pressing one, in the bell or as the push itself,
- * marks it read (`notification.read`). Both are the person's own and change nothing anyone else sees: no event, and
- * both are safe to send again.
+ * days, and the bell beside Ask HandsFreeOS lists the business on screen's, on the phone and on the web. Opening the
+ * bell marks what it showed as seen, so its count leaves them out (`notification.seen`), in that business only;
+ * pressing one, in the bell or as the push itself, marks it read (`notification.read`). Both are the person's own and
+ * change nothing anyone else sees: no event, and both are safe to send again.
  */
 import { rows, sql } from '@hfos/db/client';
 import { requireHuman } from '../kernel/actor';
@@ -28,7 +28,7 @@ const uuids = (ids: readonly string[]) =>
 export const notificationSeen = defineCommand({
   name: 'notification.seen',
   description:
-    'Note that you opened your notifications, so the bell stops counting the ones you saw. Ones that came in after stay new.',
+    'Note that you opened your notifications in a business, so its bell stops counting the ones you saw. Ones that came in after stay new, and so do other businesses’.',
   risk: 0,
   input: NotificationSeenInput,
   output: NotificationSeenOutput,
@@ -46,7 +46,8 @@ export const notificationSeen = defineCommand({
     const seen = await rows<{ id: string }>(
       ctx.tx,
       sql`update app.notifications n set seen_at = now()
-          where n.user_id = ${me} and n.seen_at is null ${upTo}
+          where n.user_id = ${me} and (n.workspace_id = ${input.workspaceId} or n.workspace_id is null)
+            and n.seen_at is null ${upTo}
           returning n.id`,
     );
     return { seen: seen.length };

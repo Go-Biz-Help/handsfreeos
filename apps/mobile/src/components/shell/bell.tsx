@@ -89,30 +89,34 @@ const bellRows = (rows: readonly NotificationsRow[]): BellNotification[] =>
   });
 
 /**
- * The bell's notifications from the person's copy (me_v1): the newest `limit` of them, from every business they're
- * in, and every one not seen yet, for the count.
+ * The bell's notifications from the person's copy (me_v1): the newest `limit` of the business's (and the person's own
+ * about no business), and every one of those not seen yet, for the count.
  */
-export function useBellNotifications(limit: number): {
+export function useBellNotifications(
+  workspaceId: string,
+  limit: number,
+): {
   readonly list: readonly BellNotification[];
   readonly unseen: readonly BellNotification[];
 } {
-  const { data: page } = useQuery<NotificationsRow>(BELL_SQL, [limit]);
-  const { data: unseen } = useQuery<NotificationsRow>(BELL_UNSEEN_SQL);
+  const { data: page } = useQuery<NotificationsRow>(BELL_SQL, [workspaceId, limit]);
+  const { data: unseen } = useQuery<NotificationsRow>(BELL_UNSEEN_SQL, [workspaceId]);
   return React.useMemo(() => ({ list: bellRows(page), unseen: bellRows(unseen) }), [page, unseen]);
 }
 
 /**
- * The bell beside Ask HandsFreeOS (20261027012600, packages/core/src/bell.ts). Its count is what's new: the
- * notifications not seen yet and the add-ons' alerts still open. Its sheet keeps those alerts at the top, under Needs
- * you, until each is done, then lists every push this person's phones were handed in the last 30 days, newest first,
- * from every business they're in, the unread ones marked. Opening it sees them; pressing one reads it and opens the
- * screen its push opens, in its own business (the route map, as a tap on the push does).
+ * The bell beside Ask HandsFreeOS (20261027012600, packages/core/src/bell.ts), for the business on screen only. Its
+ * count is what's new there: the notifications not seen yet and the add-ons' alerts still open. Its sheet keeps those
+ * alerts at the top, under Needs you, until each is done, then lists every push about the business this person's
+ * phones were handed in the last 30 days (and their own about no business), newest first, the unread ones marked.
+ * Opening it sees them; pressing one reads it and opens the screen its push opens (the route map, as a tap on the push
+ * does).
  */
 export function BellButton() {
   const { business, userId } = useBusiness();
   const alerts = useOpenAlerts();
   const [limit, setLimit] = React.useState(BELL_PAGE);
-  const { list, unseen } = useBellNotifications(limit);
+  const { list, unseen } = useBellNotifications(business.id, limit);
   const marks = useBellMarks(userId);
   const [open, setOpen] = React.useState(false);
   const opening = React.useRef<(() => void) | null>(null);
@@ -126,7 +130,7 @@ export function BellButton() {
 
   // Everything the bell showed is seen: as it opens, and again as it closes, for any that came in meanwhile.
   const see = () => {
-    if (fresh.length > 0) markSeen(userId, newestSent([...list, ...fresh]));
+    if (fresh.length > 0) markSeen(userId, business.id, newestSent([...list, ...fresh]));
   };
   const show = () => {
     setOpen(true);

@@ -60,7 +60,10 @@ export const PushDeviceListOutput = z.object({
 /** One push kept under a person's bell: its words, its business and the screen it opens, as the push. */
 export const BellNotification = z.object({
   id: uuid,
-  /** The business it's about; null for one about none (a new support ticket, a sign-in to the extension). */
+  /**
+   * The business it's about; null for one about none (a new support ticket, a sign-in to the extension), which the
+   * bell lists in every business.
+   */
   workspaceId: uuid.nullable(),
   /** The push's category (PUSH_CATEGORIES). */
   category: z.string(),
@@ -81,18 +84,22 @@ export const BellNotification = z.object({
 export type BellNotification = z.infer<typeof BellNotification>;
 
 export const NotificationListInput = z.object({
+  /** The business on screen: the bell lists its notifications, never another business's. */
+  workspaceId: uuid,
   limit: z.number().int().min(1).max(100).default(30),
   cursor: z.string().max(400).optional(),
 });
 export const NotificationListOutput = z.object({
-  /** Newest first, from every business the person is in. */
+  /** Newest first: the business's, and the person's own about no business. */
   notifications: z.array(BellNotification),
-  /** How many aren't seen yet: what the bell counts. */
+  /** How many of those aren't seen yet: what the bell counts. */
   unseen: z.number().int().min(0),
   nextCursor: z.string().nullable(),
 });
 
 export const NotificationSeenInput = z.object({
+  /** The business whose bell was opened: only what it lists is seen. */
+  workspaceId: uuid,
   /**
    * The newest one the bell showed (its `sentAt`): anything that came in after it stays new. Left out, every one
    * kept so far.

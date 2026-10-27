@@ -5927,7 +5927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Note that you opened your notifications, so the bell stops counting the ones you saw. Ones that came in after stay new.
+         * Note that you opened your notifications in a business, so its bell stops counting the ones you saw. Ones that came in after stay new, and so do other businesses’.
          * @description Risk level 0. Emits .
          */
         post: operations["command_notification_seen"];
@@ -17907,7 +17907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your notifications: what HandsFreeOS sent to your phone in the last 30 days, newest first, from every business you’re in, and how many are new.
+         * Your notifications in a business: what HandsFreeOS sent to your phone about it in the last 30 days, and about no business, newest first, and how many are new.
          * @description Any signed-in user.
          */
         post: operations["query_notification_list"];
@@ -35000,6 +35000,8 @@ export interface operations {
                 "application/json": {
                     /** Format: date-time */
                     upTo?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
                 };
             };
         };
@@ -68488,6 +68490,8 @@ export interface operations {
                     cursor?: string;
                     /** @default 30 */
                     limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
                 };
             };
         };

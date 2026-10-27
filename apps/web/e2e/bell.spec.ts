@@ -92,7 +92,7 @@ test('a push is kept under the bell, and pressing it opens the conversation', as
             token,
             'queries',
             'notification.list',
-            {},
+            { workspaceId },
           )
         ).notifications.map((n) => n.readAt !== null),
       { message: 'HandsFreeOS keeps it as read, for the phone too' },

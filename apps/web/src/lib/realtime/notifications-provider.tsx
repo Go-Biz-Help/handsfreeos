@@ -23,7 +23,7 @@ interface NotificationsValue {
   readonly loaded: boolean;
   /** The last read failed, and nothing is listed. */
   readonly failed: boolean;
-  /** Newest first, from every business the person is in. */
+  /** Newest first: this business's, and the person's own about no business. */
   readonly list: readonly BellItem[];
   readonly alerts: readonly BellAlert[];
   /** What the bell counts: what's new, and the alerts still open that none of those already counts. */
@@ -58,7 +58,10 @@ const NotificationsContext = createContext<NotificationsValue>({
 });
 
 const PAGE = 30;
-/** One from another business has no channel here: the list is read again this often while the tab is in view. */
+/**
+ * One about no business (a new support ticket, a sign-in to the extension) has no channel: the list is read again this
+ * often while the tab is in view.
+ */
 const EVERY_MS = 60_000;
 
 interface Page {
@@ -83,10 +86,11 @@ const alertOf = (i: AttentionItem): BellAlert[] =>
 
 /**
  * The bell's notifications (20261027012600, packages/core/src/bell.ts): what HandsFreeOS sent to this person's phones
- * in the last 30 days, from every business they're in, with the add-ons' alerts still open in this business. The list
- * is read on mount, when one is kept in this business (`notification.kept` on its channel), every minute while the
- * tab is in view, and when the tab comes back; the alerts when an item here changes. Opening the bell sees what it
- * showed, and pressing one reads it: both show at once, before HandsFreeOS's answer.
+ * in the last 30 days about this business, never another's (the owner's pick), and their own about no business, with
+ * the add-ons' alerts still open here. The list is read on mount, when one is kept in this business
+ * (`notification.kept` on its channel), every minute while the tab is in view, and when the tab comes back; the alerts
+ * when an item here changes. Opening the bell sees what it showed, in this business only, and pressing one reads it:
+ * both show at once, before HandsFreeOS's answer.
  */
 export function NotificationsProvider({
   workspaceId,
@@ -110,11 +114,22 @@ export function NotificationsProvider({
   const kept = useLiveVersion(['notification'], 500);
   const items = useLiveVersion(['attention_item'], 1_000);
 
+  // Another business on screen: its own bell, from scratch, while the shell around it stays.
+  const [shown, setShown] = useState(workspaceId);
+  if (shown !== workspaceId) {
+    setShown(workspaceId);
+    setFirst(null);
+    setOlder({ list: [], nextCursor: null });
+    setFailed(false);
+    setAlerts([]);
+    setSeenUpTo(null);
+  }
+
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
     apiBrowser()
-      .POST('/v1/queries/notification.list', { body: { limit: PAGE } })
+      .POST('/v1/queries/notification.list', { body: { workspaceId, limit: PAGE } })
       .then((r) => {
         const out = unwrap(r);
         if (cancelled) return;
@@ -127,7 +142,7 @@ export function NotificationsProvider({
     return () => {
       cancelled = true;
     };
-  }, [enabled, kept, tick]);
+  }, [enabled, workspaceId, kept, tick]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -202,7 +217,7 @@ export function NotificationsProvider({
         if (!upTo) return;
         setSeenUpTo((prev) => (prev && prev > upTo ? prev : upTo));
         void apiBrowser()
-          .POST('/v1/commands/notification.seen', { body: { upTo } })
+          .POST('/v1/commands/notification.seen', { body: { workspaceId, upTo } })
           .catch(() => undefined);
       },
       read: (n) => {
@@ -215,7 +230,7 @@ export function NotificationsProvider({
       loadOlder: () => {
         if (!cursor) return;
         void apiBrowser()
-          .POST('/v1/queries/notification.list', { body: { limit: PAGE, cursor } })
+          .POST('/v1/queries/notification.list', { body: { workspaceId, limit: PAGE, cursor } })
           .then((r) => {
             const out = unwrap(r);
             setOlder((prev) => ({
@@ -230,7 +245,7 @@ export function NotificationsProvider({
         setTick((t) => t + 1);
       },
     };
-  }, [enabled, first, older, failed, alerts, seenUpTo, readHere]);
+  }, [enabled, workspaceId, first, older, failed, alerts, seenUpTo, readHere]);
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }

@@ -5774,11 +5774,16 @@
       "input": {
         "type": "object",
         "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "upTo": {
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "required": ["workspaceId"]
       }
     },
     "onboarding_setup.finish": {

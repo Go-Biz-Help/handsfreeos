@@ -7,8 +7,10 @@
 --
 --        app.notifications keeps every push a person's phones were handed,
 --        for that person: its words, its business and the screen it opens
---        (`path`, as the push). The bell beside Ask HandsFreeOS lists them,
---        newest first, on the phone and on the web.
+--        (`path`, as the push). The bell beside Ask HandsFreeOS lists the
+--        business on screen's, never another's (the owner's pick), with the
+--        person's own about no business, newest first, on the phone and on
+--        the web.
 --
 --        - **One row per person per thing.** A push that replaces an earlier
 --          one on the phone (the same collapse id: a conversation's, a

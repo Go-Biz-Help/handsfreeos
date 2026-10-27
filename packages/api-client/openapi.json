@@ -44236,7 +44236,7 @@
     "/v1/commands/notification.seen": {
       "post": {
         "operationId": "command_notification_seen",
-        "summary": "Note that you opened your notifications, so the bell stops counting the ones you saw. Ones that came in after stay new.",
+        "summary": "Note that you opened your notifications in a business, so its bell stops counting the ones you saw. Ones that came in after stay new, and so do other businesses’.",
         "tags": [
           "commands"
         ],
@@ -44248,12 +44248,20 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
                   "upTo": {
                     "type": "string",
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                   }
-                }
+                },
+                "required": [
+                  "workspaceId"
+                ]
               }
             }
           }
@@ -109332,7 +109340,7 @@
     "/v1/queries/notification.list": {
       "post": {
         "operationId": "query_notification_list",
-        "summary": "Your notifications: what HandsFreeOS sent to your phone in the last 30 days, newest first, from every business you’re in, and how many are new.",
+        "summary": "Your notifications in a business: what HandsFreeOS sent to your phone about it in the last 30 days, and about no business, newest first, and how many are new.",
         "tags": [
           "queries"
         ],
@@ -109344,6 +109352,11 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
                   "limit": {
                     "default": 30,
                     "type": "integer",
@@ -109354,7 +109367,10 @@
                     "type": "string",
                     "maxLength": 400
                   }
-                }
+                },
+                "required": [
+                  "workspaceId"
+                ]
               }
             }
           }

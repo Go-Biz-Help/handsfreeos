@@ -1,9 +1,10 @@
 /**
  * The bell's notifications (20261027012600) on the local database:
- * - **notification.list** gives a person their own, newest first, from every business they're in, a page at a time
- *   (two pushes in the same millisecond are both listed once), with how many are new.
- * - **notification.seen** sees what the bell showed, up to its newest (to the millisecond): one that came in after
- *   stays new.
+ * - **notification.list** gives a person their own in the business on screen, with their own about no business,
+ *   newest first, a page at a time (two pushes in the same millisecond are both listed once), with how many are new.
+ *   Never another business's: the owner's pick.
+ * - **notification.seen** sees what the business's bell showed, up to its newest (to the millisecond): one that came
+ *   in after stays new, and so does every other business's.
  * - **notification.read** reads the ones pressed, in the bell (their ids) or as pushes (the pushes' ids), and so sees
  *   them too; never someone else's.
  * - Both are the person's own: no event, and no receipt for a phone's command.
@@ -51,7 +52,7 @@ const run = <I extends z.ZodType, O extends z.ZodType>(
   u: TestUser,
   meta: RequestMeta = web(),
 ) => executeCommand(api(), cmd, input, human(u), meta).then((r) => r.output);
-const list = (u: TestUser, input: Record<string, unknown> = {}) =>
+const list = (u: TestUser, input: Record<string, unknown>) =>
   executeQuery(api(), notificationList, input, human(u), web());
 
 let dale: TestUser;
@@ -106,7 +107,7 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 describe('notification.list', () => {
-  it('lists a person’s own, newest first, from every business, a page at a time', async () => {
+  it('lists a person’s own in the business on screen, and about none, never another’s, a page at a time', async () => {
     const tie = new Date(base + 5 * MIN).toISOString();
     const a = await kept(dale, 1);
     const b = await kept(dale, 2, { workspaceId: B });
@@ -115,29 +116,34 @@ describe('notification.list', () => {
     const d = await kept(dale, 7, { workspaceId: null });
     await kept(marco, 8);
 
-    const all = await list(dale);
-    expect(all.notifications.map((n) => n.id)).toEqual([
+    const inA = await list(dale, { workspaceId: A });
+    expect(inA.notifications.map((n) => n.id)).toEqual([
       d.id,
       ...[c1.id, c2.id].sort().reverse(),
-      b.id,
       a.id,
     ]);
-    expect(all.unseen).toBe(5);
-    expect(all.nextCursor).toBeNull();
-    expect(all.notifications[0]).toMatchObject({ workspaceId: null, alertId: null, readAt: null });
-    expect(all.notifications[3]).toMatchObject({ workspaceId: B, subtitle: 'Text · Bell A' });
+    expect(inA.unseen).toBe(4);
+    expect(inA.nextCursor).toBeNull();
+    expect(inA.notifications[0]).toMatchObject({ workspaceId: null, alertId: null, readAt: null });
+    expect(inA.notifications[3]).toMatchObject({ workspaceId: A, subtitle: 'Text · Bell A' });
+
+    // The other business's bell: its own, and the one about no business again.
+    const inB = await list(dale, { workspaceId: B });
+    expect(inB.notifications.map((n) => n.id)).toEqual([d.id, b.id]);
+    expect(inB.unseen).toBe(2);
 
     // Two a page: the two sent in the same moment are split across pages, each listed once.
     const seen: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = await list(dale, { limit: 2, ...(cursor ? { cursor } : {}) });
+      const page = await list(dale, { workspaceId: A, limit: 2, ...(cursor ? { cursor } : {}) });
       seen.push(...page.notifications.map((n) => n.id));
       cursor = page.nextCursor ?? undefined;
     } while (cursor);
-    expect(seen).toEqual(all.notifications.map((n) => n.id));
+    expect(seen).toEqual(inA.notifications.map((n) => n.id));
 
-    expect((await list(marco)).notifications).toHaveLength(1);
+    expect((await list(marco, { workspaceId: A })).notifications).toHaveLength(1);
+    await expectHfos(() => list(dale, {}), 'validation');
   });
 
   it('names the add-on alert a push was about, only when it is one', async () => {
@@ -145,37 +151,49 @@ describe('notification.list', () => {
     const alertId = randomUUID();
     await kept(owner, 1, { workspaceId: null, refs: { alertId } });
     await kept(owner, 2, { workspaceId: null, refs: { alertId: 'not-an-id' } });
-    const out = await list(owner);
+    const out = await list(owner, { workspaceId: A });
     expect(out.notifications.map((n) => n.alertId)).toEqual([null, alertId]);
   });
 });
 
 describe('notification.seen and notification.read', () => {
-  it('see what the bell showed, and leave what came after new', async () => {
+  it('see what the business’s bell showed, and leave what came after and other businesses’ new', async () => {
     const u = await createTestUser('bell-seen');
-    const older = await kept(u, 1, { workspaceId: null });
+    const elsewhere = await kept(u, 0, { workspaceId: B });
+    const older = await kept(u, 1);
     // Kept to the microsecond, as the database keeps a time.
     const shown = await kept(u, 2, {
       workspaceId: null,
       at: new Date(base + 2 * MIN).toISOString().replace('Z', '456Z'),
     });
-    const after = await kept(u, 3, { workspaceId: null });
-    const first = await list(u);
+    const after = await kept(u, 3);
+    const first = await list(u, { workspaceId: A });
     // The list's times stop at the millisecond; the bell says it saw up to the second one.
     const upTo = first.notifications.find((n) => n.id === shown.id)!.sentAt;
     const commandId = randomUUID();
-    expect(await run(notificationSeen, { upTo }, u, phone(commandId))).toEqual({ seen: 2 });
-    const next = await list(u);
+    expect(await run(notificationSeen, { workspaceId: A, upTo }, u, phone(commandId))).toEqual({
+      seen: 2,
+    });
+    const next = await list(u, { workspaceId: A });
     expect(next.unseen).toBe(1);
     expect(next.notifications.map((n) => [n.id, n.seenAt !== null])).toEqual([
       [after.id, false],
       [shown.id, true],
       [older.id, true],
     ]);
+    // The other business's, older than all of them, is still new there.
+    const inB = await list(u, { workspaceId: B });
+    expect(inB.notifications.map((n) => [n.id, n.seenAt !== null])).toEqual([
+      [shown.id, true],
+      [elsewhere.id, false],
+    ]);
+    expect(inB.unseen).toBe(1);
     // Again: nothing more to see.
-    expect(await run(notificationSeen, { upTo }, u, phone())).toEqual({ seen: 0 });
-    // Without a time, everything.
-    expect(await run(notificationSeen, {}, u)).toEqual({ seen: 1 });
+    expect(await run(notificationSeen, { workspaceId: A, upTo }, u, phone())).toEqual({ seen: 0 });
+    // Without a time, everything in the business.
+    expect(await run(notificationSeen, { workspaceId: A }, u)).toEqual({ seen: 1 });
+    expect(await run(notificationSeen, { workspaceId: B }, u)).toEqual({ seen: 1 });
+    await expectHfos(() => run(notificationSeen, { upTo }, u), 'validation');
     // The person's own: no event, and no receipt for the phone's command.
     const receipts = await admin()
       .select()
@@ -201,14 +219,16 @@ describe('notification.seen and notification.read', () => {
       read: 1,
     });
     expect(await run(notificationRead, { pushIds: [asPush.pushId] }, u)).toEqual({ read: 0 });
-    const out = await list(u);
+    const out = await list(u, { workspaceId: A });
     expect(out.notifications.map((n) => [n.id, n.readAt !== null, n.seenAt !== null])).toEqual([
       [untouched.id, false, false],
       [asPush.id, true, true],
       [inBell.id, true, true],
     ]);
     expect(out.unseen).toBe(1);
-    expect((await list(marco)).notifications.find((n) => n.id === marcos.id)?.readAt).toBeNull();
+    expect(
+      (await list(marco, { workspaceId: A })).notifications.find((n) => n.id === marcos.id)?.readAt,
+    ).toBeNull();
 
     await expectHfos(() => run(notificationRead, {}, u), 'validation');
   });

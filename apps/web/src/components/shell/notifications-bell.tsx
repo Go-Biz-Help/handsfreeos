@@ -8,13 +8,12 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { BellItem } from '@/lib/api/types';
 import { useNotifications, type BellAlert } from '@/lib/realtime/notifications-provider';
 import { cn } from '@/lib/utils';
-import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 import { useWorkspaceShell } from './workspace-shell';
 
-const IN_A_BUSINESS = /^\/app\/w\/([0-9a-f-]{36})(?=[/?#]|$)/;
+const IN_A_BUSINESS = /^\/app\/w\/[0-9a-f-]{36}(?=[/?#]|$)/;
 
 /**
- * Where the web opens a notification's path: a business's page, or the support desk. Null for one only the phone
+ * Where the web opens a notification's path: the business's page, or the support desk. Null for one only the phone
  * opens (a sign-in to the extension, which the web asks about on its own).
  */
 export function webHrefOf(path: string): string | null {
@@ -23,10 +22,10 @@ export function webHrefOf(path: string): string | null {
 
 /**
  * The bell (20261027012600, packages/core/src/bell.ts): at the top of the side menu, and beside Ask HandsFreeOS in
- * the phone-width header. Its count is what's new. Its sheet keeps the add-ons' alerts still open at the top, under
- * Needs you, then lists what HandsFreeOS sent to the person's phones in the last 30 days, newest first, from every
- * business they're in, the unread ones marked. Opening it sees them; pressing one reads it and opens its page, in
- * its own business.
+ * the phone-width header, for this business only. Its count is what's new here. Its sheet keeps the add-ons' alerts
+ * still open at the top, under Needs you, then lists what HandsFreeOS sent to the person's phones about this business
+ * in the last 30 days (and their own about no business), newest first, the unread ones marked. Opening it sees them;
+ * pressing one reads it and opens its page.
  */
 export function NotificationsBell({ variant }: { variant: 'sidebar' | 'header' }) {
   const n = useNotifications();
@@ -42,10 +41,6 @@ export function NotificationsBell({ variant }: { variant: 'sidebar' | 'header' }
   };
   const go = (href: string) => {
     show(false);
-    const business = IN_A_BUSINESS.exec(href)?.[1];
-    // Another business's page opens that business, as the switcher does.
-    if (business && business !== workspaceId)
-      document.cookie = `${WORKSPACE_COOKIE}=${business}; path=/; max-age=31536000; samesite=lax`;
     router.push(href);
   };
   const press = (item: BellItem) => {
