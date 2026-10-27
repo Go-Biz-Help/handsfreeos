@@ -191,7 +191,7 @@ vi.mock('../src/tab', async () => {
   };
 });
 
-const { doWork, linkedInTick, linkedInWorkLeft, nextLinkedInDaily, runLinkedInDaily } =
+const { runLinkedInDaily, doWork, linkedInTick, linkedInWorkLeft, nextLinkedInDaily } =
   await import('../src/auto/linkedin');
 const { WorkTab } = await import('../src/tab');
 const { answer } = await import('../src/hfos/session');
