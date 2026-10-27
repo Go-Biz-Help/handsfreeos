@@ -549,14 +549,15 @@ describe('Founding', () => {
     expect(lifetime).toHaveTextContent(FOUNDING_WORDS.paidNote, { exact: false });
     expect(screen.getByTestId('founding-status-founding_lifetime')).toHaveTextContent('Open now');
 
+    // The monthly spots are seats with a cap like the others (20261027012700).
     const monthly = screen.getByTestId('founding-offer-monthly');
     expect(monthly).toHaveTextContent('$97/month · draft', { exact: false });
-    expect(monthly).toHaveTextContent(FOUNDING_WORDS.monthlyNote, { exact: false });
+    expect(monthly).toHaveTextContent(FOUNDING_WORDS.renewsNote('monthly'), { exact: false });
     expect(monthly).toHaveTextContent(
       'Opens by itself when Founding lifetime has 10 seats out — 0 of 10 now.',
       { exact: false },
     );
-    expect(screen.queryByTestId('founding-cap-monthly')).toBeNull();
+    expect(screen.getByTestId('founding-cap-monthly')).toBeTruthy();
 
     // Pending and waitlisted wait on us; a declined one doesn't.
     expect(screen.getByText('Waiting on you · 2')).toBeTruthy();

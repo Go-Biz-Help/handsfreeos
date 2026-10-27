@@ -8,10 +8,10 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 /**
- * A founding seat paid by the year (20261027009500), on Settings → Usage & balance: when it renews and for how much,
- * stopping it renewing (or starting it again while the year is paid for), and paying a refused renewal with another
- * card. That payment is a founding checkout like the first one, so it goes through the same page that waits for
- * Stripe and sends them there.
+ * A founding spot paid by the month or the year (20261027009500, 20261027012700), on Settings → Usage & balance: when
+ * it renews and for how much, stopping it renewing (or starting it again while it is paid for), and paying a refused
+ * renewal with another card. That payment is a founding checkout like the first one, so it goes through the same page
+ * that waits for Stripe and sends them there.
  */
 export function FoundingPlanCard({
   workspaceId,
@@ -66,7 +66,7 @@ export function FoundingPlanCard({
         {FOUNDING_PLAN_WORDS.title}
       </h2>
       <p className="mt-1 max-w-[460px] text-[13px] text-text-2">
-        {FOUNDING_PLAN_WORDS.price(plan.priceCents)}
+        {FOUNDING_PLAN_WORDS.price(plan.priceCents, plan.plan)}
       </p>
 
       {refused ? (

@@ -22,6 +22,10 @@
  * business is told, and pays that year on a founding checkout of its own with another card. The seat stays on
  * meanwhile. The same sweep gives back the seats somebody stopped renewing, once their year is up. Every charge is
  * keyed on the seat and the year it is for, so a retry, or a sweep that runs twice, charges once.
+ *
+ * **The $97 spot is paid by the month** (20261027012700), by the same page, sweep and job: only the period differs,
+ * and the database decides it. A spot a business bought itself from the plan page gets a page that lapses in
+ * `SELF_SERVE_PAGE_MINUTES`, because its spot is only held for an hour while it pays.
  */
 import {
   executeCommand,
@@ -71,6 +75,12 @@ export const FOUNDING_CHECKOUT_KIND = 'founding_checkout';
 
 const HOUR = 60 * 60_000;
 
+/**
+ * How long Stripe keeps a page open for a spot a business is buying for itself. Stripe takes 30 minutes to a day; the
+ * spot is held an hour (`private.founding_buy`), and a few minutes over Stripe's least keeps clocks from disagreeing.
+ */
+export const SELF_SERVE_PAGE_MINUTES = 45;
+
 /** A person pressed Pay on a new checkout: the page is made by a job, so it retries on its own. */
 export const onFoundingCheckoutRequested: EventHandler = async (ctx) => {
   const { workspaceId, organizationId } = ctx.scope;
@@ -93,10 +103,12 @@ type CheckoutRow = {
   offer_id: string;
   offer_name: string;
   billing: string;
-  /** Set on a page paying a refused renewal: the year it renews. */
+  /** Set on a page paying a refused renewal: the month or year it renews. */
   renewal_for: string | Date | null;
   requested_by: string | null;
   email: string | null;
+  /** The business is buying this spot itself, from the plan page (20261027012700). */
+  self_serve: boolean;
 };
 
 const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
@@ -105,33 +117,52 @@ const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
       tx,
       sql`select c.id, c.status::text as status, c.amount_cents, o.id as offer_id, o.name as offer_name,
             case when o.paid_yearly then 'yearly' else o.billing end as billing, c.renewal_for,
-            c.requested_by::text as requested_by, u.email::text as email
+            c.requested_by::text as requested_by, u.email::text as email, g.self_serve
           from platform.founding_checkouts c
           join platform.founding_offers o on o.id = c.offer_id
+          join platform.founding_grants g on g.id = c.grant_id
           left join app.users u on u.id = c.requested_by
           where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
     ),
   );
 
-/** A year on from an ISO date, the way the database moves `current_period_end`. */
-const yearAfter = (iso: string | Date): string => {
+/** What one payment pays for: a month, a year, or nothing more (a seat paid once). */
+const periodOf = (billing: string): 'month' | 'year' | null =>
+  billing === 'monthly' ? 'month' : billing === 'yearly' ? 'year' : null;
+
+/**
+ * A month or a year on from an ISO date, the way the database moves `current_period_end` (Postgres keeps a month on
+ * the 31st to the month's last day, and so does this).
+ */
+const periodAfter = (iso: string | Date, period: 'month' | 'year'): string => {
   const d = new Date(iso);
-  d.setUTCFullYear(d.getUTCFullYear() + 1);
+  const day = d.getUTCDate();
+  if (period === 'year') d.setUTCFullYear(d.getUTCFullYear() + 1);
+  else {
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    d.setUTCDate(Math.min(day, last));
+  }
   return d.toISOString();
 };
 
-/** What Stripe's page says the money is for: a seat paid once, a first year, or a renewal paid with another card. */
+/**
+ * What Stripe's page says the money is for: a seat paid once, a first month or year, or a renewal paid with another
+ * card.
+ */
 function checkoutWords(c: CheckoutRow): { productName: string; description: string } {
   const price = foundingPrice(Number(c.amount_cents));
+  const period = periodOf(c.billing);
   if (c.renewal_for)
     return {
-      productName: `HandsFreeOS — ${c.offer_name}: another year`,
-      description: `Paid through ${foundingLongDay(yearAfter(c.renewal_for))}. This card is charged ${price} next year; you can stop it renewing in Settings → Usage & balance.`,
+      productName: `HandsFreeOS — ${c.offer_name}: another ${period ?? 'year'}`,
+      description: `Paid through ${foundingLongDay(periodAfter(c.renewal_for, period ?? 'year'))}. This card is charged ${price} next ${period ?? 'year'}; you can stop it renewing in Settings → Usage & balance.`,
     };
-  if (c.billing === 'yearly')
+  if (period)
     return {
-      productName: `HandsFreeOS — ${c.offer_name}: the first year`,
-      description: `HandsFreeOS for one business. Then ${price} a year, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`,
+      productName: `HandsFreeOS — ${c.offer_name}: the first ${period}`,
+      description: `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`,
     };
   return {
     productName: `HandsFreeOS — ${c.offer_name}`,
@@ -188,7 +219,7 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       scope,
       checkoutId,
       'failed',
-      'Paying online is not switched on yet. Your seat is still held — we will be in touch.',
+      'Paying online is not switched on yet. Your spot is still held — we will be in touch.',
     );
     return;
   }
@@ -200,8 +231,12 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       checkoutId,
       amountCents: Number(c.amount_cents),
       ...checkoutWords(c),
-      // A seat paid by the year keeps the card, for next year's renewal charged without them there.
-      ...(c.billing === 'yearly' || c.renewal_for ? { saveCard: true } : {}),
+      // A spot paid by the month or the year keeps the card, for the next renewal charged without them there.
+      ...(periodOf(c.billing) || c.renewal_for ? { saveCard: true } : {}),
+      // A spot the business is buying itself is held for an hour, so its page closes well inside that.
+      ...(c.self_serve && !c.renewal_for
+        ? { expiresAt: new Date(Date.now() + SELF_SERVE_PAGE_MINUTES * 60_000).toISOString() }
+        : {}),
       successUrl: back('paid'),
       cancelUrl: back('cancel'),
       customerEmail: c.email,
@@ -243,7 +278,7 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
         scope,
         checkoutId,
         'failed',
-        'The payment page could not be made. Your seat is still held — try again in a little while.',
+        'The payment page could not be made. Try again in a little while.',
       );
       return;
     }
@@ -360,6 +395,8 @@ export const planFoundingRenewals: JobHandler = async (ctx) => {
 type PlanRow = {
   grant_id: string | null;
   grant_status: string | null;
+  /** How the seat's offer is paid: `monthly` or `yearly` renew. */
+  billing: string | null;
   current_period_end: string | Date | null;
   price_cents: number;
   stripe_customer_id: string | null;
@@ -374,7 +411,9 @@ const planRow = (ctx: { db: Db }, scope: TenantScope) =>
   asWorker(ctx.db, scope, (tx) =>
     rows<PlanRow>(
       tx,
-      sql`select p.grant_id, g.status::text as grant_status, p.current_period_end, p.price_cents,
+      sql`select p.grant_id, g.status::text as grant_status,
+            case when o.paid_yearly then 'yearly' else o.billing end as billing,
+            p.current_period_end, p.price_cents,
             p.stripe_customer_id, p.stripe_card_id, p.renewal_stopped_at, p.renewal_failed_at,
             w.name as business, o.name as offer_name
           from app.workspace_plans p
@@ -437,7 +476,7 @@ export const renewFoundingSeat: JobHandler = async (ctx) => {
       method: 'card',
       sourceToken: p.stripe_card_id,
       customerRef: p.stripe_customer_id,
-      description: `HandsFreeOS — ${p.offer_name ?? 'founding seat'}: another year for ${p.business}`,
+      description: `HandsFreeOS — ${p.offer_name ?? 'founding spot'}: another ${periodOf(p.billing ?? '') ?? 'year'} for ${p.business}`,
       metadata: { founding_grant_id: grantId, workspace_id: scope.workspaceId },
       // The seat and the year: however often this runs, that year is charged once.
       idempotencyKey: `founding-renewal-${grantId}-${forPaidThrough}`,
@@ -478,6 +517,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
   };
   const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage#founding`;
   const offer = p.offer_name ?? 'founding';
+  const period = periodOf(p.billing ?? '') ?? 'year';
   const mail =
     ctx.event.eventType === 'founding.renewed'
       ? foundingRenewedEmail({
@@ -486,6 +526,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
           paid: foundingPrice(Number(payload.paidCents ?? p.price_cents)),
           until: foundingLongDay(payload.paidThrough ?? iso(p.current_period_end)),
           link,
+          period,
         })
       : foundingRenewalFailedEmail({
           business: p.business,
@@ -493,6 +534,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
           amount: foundingPrice(Number(payload.amountCents ?? p.price_cents)),
           reason: payload.problem ?? 'The card was declined.',
           link,
+          period,
         });
   for (const m of await managers(ctx.tx, scope.workspaceId))
     await ctx.mailer.send({ to: m.email, ...mail });
@@ -523,7 +565,7 @@ export function checkoutOutcome(
       return {
         kind: 'closed',
         status: 'expired',
-        problem: 'The payment page ran out before it was paid. Your seat is still held for now.',
+        problem: 'The payment page ran out before it was paid. Nothing was taken.',
       };
     case 'checkout.session.async_payment_failed':
       return {

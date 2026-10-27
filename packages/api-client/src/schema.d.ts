@@ -3497,6 +3497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/founding.buy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer before paying gives the first hold back.
+         * @description Risk level 3. Requires money.manage. Emits founding.checkout_requested.
+         */
+        post: operations["command_founding_buy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/founding.claim": {
         parameters: {
             query?: never;
@@ -3567,7 +3587,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Pay the founding seat’s yearly renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.
+         * Pay the founding seat’s renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.
          * @description Risk level 3. Requires money.manage. Emits founding.checkout_requested.
          */
         post: operations["command_founding_pay_renewal"];
@@ -3647,7 +3667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Stop this business’s founding seat renewing each year, or start it again while the year is still paid for. Stopped, the seat stays until the year paid for is over, then goes back.
+         * Stop this business’s founding seat renewing each month or year, or start it again while that is still paid for. Stopped, the seat stays until the month or year paid for is over, then goes back.
          * @description Risk level 3. Requires money.manage. Emits founding.renewal_stopped, founding.renewal_resumed.
          */
         post: operations["command_founding_set_renewing"];
@@ -16907,7 +16927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How many seats each public offer has left. The only founding read that reaches somebody signed out, and it carries nothing but numbers.
+         * How many spots each public offer has left, and what it costs. The only founding read that reaches somebody signed out, and it carries nothing but numbers.
          * @description Any signed-in user.
          */
         post: operations["query_founding_counts"];
@@ -29598,6 +29618,41 @@ export interface operations {
                         /** @enum {string} */
                         status: "active" | "reserved";
                         workspaceId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_founding_buy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkoutId: string;
+                        created: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed";
+                        url: string | null;
                     };
                 };
             };
@@ -57299,6 +57354,7 @@ export interface operations {
                             id: string;
                             industry: string;
                             name: string;
+                            needsPlan: boolean;
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
@@ -64144,6 +64200,7 @@ export interface operations {
                         problem: string;
                         renewal: boolean;
                         seatActive: boolean;
+                        selfServe: boolean;
                         /** @enum {string} */
                         status: "pending" | "open" | "paid" | "expired" | "failed";
                         url: string | null;
@@ -83294,6 +83351,7 @@ export interface operations {
                             inboxPerPerson: boolean;
                             industry: string;
                             name: string;
+                            needsPlan: boolean;
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;

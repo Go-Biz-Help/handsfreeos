@@ -50,7 +50,7 @@ type CountRow = {
 export const foundingCounts = defineQuery({
   name: 'founding.counts',
   description:
-    'How many seats each public offer has left. The only founding read that reaches somebody signed out, and it carries nothing but numbers.',
+    'How many spots each public offer has left, and what it costs. The only founding read that reaches somebody signed out, and it carries nothing but numbers.',
   input: FoundingCountsInput,
   output: FoundingCountsOutput,
   permission: null,
@@ -510,6 +510,7 @@ export const foundingCheckoutStatus = defineQuery({
       renewal: boolean;
       billing: 'once' | 'yearly' | 'monthly';
       paid_through: Date | string | null;
+      self_serve: boolean;
     }>(ctx.tx, sql`select * from private.founding_checkout_state(${input.checkoutId}::uuid)`);
     if (!c)
       throw HfosError.notFound(
@@ -529,6 +530,7 @@ export const foundingCheckoutStatus = defineQuery({
       renewal: c.renewal,
       billing: c.billing,
       paidThrough: iso(c.paid_through),
+      selfServe: c.self_serve,
     };
   },
 });

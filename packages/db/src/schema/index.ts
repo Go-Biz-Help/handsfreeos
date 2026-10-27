@@ -70,6 +70,11 @@ export const organizations = app.table('organizations', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   createdBy: uuid('created_by'),
+  /**
+   * Made while a paid founding spot was on sale (20261027012700): it picks a plan and pays before it uses HandsFreeOS.
+   * Set when it is made, never by the business; `private.workspace_needs_plan` is the question to ask.
+   */
+  needsPlan: boolean('needs_plan').notNull().default(false),
   ...timestamps(),
 });
 
@@ -7120,6 +7125,8 @@ export const foundingGrants = platform.table('founding_grants', {
   /** Ours, never theirs. No tenant policy reaches this table. */
   revokeReason: text('revoke_reason').notNull().default(''),
   grantedBy: uuid('granted_by').references(() => users.id, { onDelete: 'set null' }),
+  /** The business took it itself from the plan page (`founding.buy`), held an hour while it pays (20261027012700). */
+  selfServe: boolean('self_serve').notNull().default(false),
   ...timestamps(),
 });
 
