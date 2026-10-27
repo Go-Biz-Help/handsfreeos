@@ -228,7 +228,7 @@ describe('leads and clients', () => {
   });
 
   it('names the first reason someone is a client: a paid bill before the tag', async () => {
-    const cause = async (personId: string) =>
+    const cause = async (personId: string | undefined) =>
       (
         await rows<{ cause: string | null }>(
           admin(),
