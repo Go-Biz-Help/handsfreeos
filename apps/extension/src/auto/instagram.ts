@@ -64,6 +64,7 @@ import { lookUpOnInstagram } from '../jobs/instagram/lookup';
 import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
+import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
@@ -71,6 +72,7 @@ import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
 import { instagram } from '../networks';
+import { instagramUrl, postOf } from '../networks/instagram/urls';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
@@ -120,7 +122,8 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * The once-a-day jobs on Instagram, in order: the newest followers first (`requests`: on Instagram, who followed back
  * is who accepted), then who followed back seen on their own accounts (`follow_backs`), the checks, the chats, Find
  * partners, and from part 15 the day's hashtags and places (`posts`) and the notifications' warm leads (`helpful`, as
- * Alignable's are). From 0.95.0 the people found by topic are checked last (`found_checks`, decision 92).
+ * Alignable's are). From 0.95.0 (decision 92) who liked and commented on the good posts the hashtags found
+ * (`post_people`), and last the people found by topic checked for good fits (`found_checks`).
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -130,16 +133,12 @@ export const INSTAGRAM_DAILY = [
   'partners',
   'posts',
   'helpful',
+  'post_people',
   'found_checks',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
-/**
- * The jobs whose words are said: those on the list, and who liked and commented on good posts (`post_people`,
- * decision 92), which goes on the list before `found_checks` with its job.
- */
-type InstagramDailyWords = InstagramDaily | 'post_people';
 
-const DAILY_DOING: Readonly<Record<InstagramDailyWords, string>> = {
+const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Reading your newest followers on Instagram…',
   follow_backs: 'Looking at the accounts you followed on Instagram for who followed you back…',
   checks: 'Checking your followers for good fits…',
@@ -150,7 +149,7 @@ const DAILY_DOING: Readonly<Record<InstagramDailyWords, string>> = {
   post_people: 'Reading who liked and commented on good posts on Instagram…',
   found_checks: 'Checking the people found on Instagram for good fits…',
 };
-const DAILY_NAMES: Readonly<Record<InstagramDailyWords, string>> = {
+const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Your newest followers',
   follow_backs: 'Who followed you back',
   checks: 'Check my followers',
@@ -372,18 +371,72 @@ async function likeOne(
   return liked.result === 'done' ? 'liked' : 'already';
 }
 
+/** Whether two links are the same post, however each was written. */
+function samePost(a: string, b: string): boolean {
+  const one = instagramUrl(a);
+  const two = instagramUrl(b);
+  return !!one && !!two && postOf(one) !== null && postOf(one) === postOf(two);
+}
+
+/**
+ * The post a poster found by topic wrote (decision 92), liked first, on its own page: `liked`, `already`, or null when
+ * there's none to like there (it isn't right to like, or it's gone or isn't theirs now), so their latest is liked in
+ * its place, as anyone's is.
+ */
+async function likeFoundPost(
+  item: TodayListItem,
+  businessId: string,
+): Promise<'liked' | 'already' | null | { readonly stop: string } | { readonly again: string }> {
+  const them = wantOf(item.profileUrl);
+  if (!item.postUrl || !them) return null;
+  const text = item.post ?? '';
+  if (neverLike({ text, pictures: [] })) return null;
+  const went = await likeOne(item, businessId, them, { url: item.postUrl, text });
+  await setState({ tabId: tab.tabId });
+  return went === 'not' ? null : went;
+}
+
+/** What a warm-up's likes came to, in words: the post it found first, then any of their latest. */
+function warmedLine(
+  item: TodayListItem,
+  found: 'liked' | 'already' | null,
+  liked: number,
+  next: string,
+): string {
+  if (found === 'liked')
+    return `Liked ${item.name}’s post it found${liked ? ' and another of theirs' : ''}: ${next}`;
+  if (found === 'already')
+    return liked
+      ? `Liked another of ${item.name}’s posts, the one it found liked already: ${next}`
+      : `${item.name}’s post it found was liked already: ${next}`;
+  return !liked
+    ? `${item.name}’s post was liked already: ${next}`
+    : `Looked at ${item.name}’s Instagram and liked ${liked === 1 ? 'a post' : `${liked} posts`} of theirs: ${next}`;
+}
+
 /**
  * A look at their account, and a like on one or two of their recent posts, a day before the follow: the first that
  * nothing rules out (never one about grief, illness or trouble), and the next one too while the day's likes have room
  * past the warm-ups still to come (`spare`). One liked already counts. With no post to see (a private account, or none
  * yet), or none right to like, the look alone is the warm-up, and HandsFreeOS hears there was nothing to like, so the
- * follow needn't wait.
+ * follow needn't wait. From 0.95.0 (decision 92) someone found by a post they wrote gets the like on that post first,
+ * on its own page (`postUrl`), and one of their latest beside it only while the day's likes have room; when that post
+ * is gone, or isn't right to like, their latest is liked in its place.
  */
 async function warmUp(item: TodayListItem, businessId: string, spare: number): Promise<Outcome> {
   const after = afterWarmUp(item);
+  const found = await likeFoundPost(item, businessId);
+  if (typeof found === 'object' && found !== null) return found;
+  const done = (liked: number): Outcome => ({
+    done: true,
+    line: warmedLine(item, found, liked, after.next),
+  });
+  // The post it found, liked: a second of theirs only while the day's likes have room.
+  if (found && spare <= 0) return done(0);
   const opened = await openAccount(item, businessId);
-  if ('outcome' in opened) return opened.outcome;
+  if ('outcome' in opened) return found && 'done' in opened.outcome ? done(0) : opened.outcome;
   const lookOnly = async (why: string): Promise<Outcome> => {
+    if (found) return done(0);
     await missed(item, businessId);
     return {
       done: true,
@@ -396,14 +449,17 @@ async function warmUp(item: TodayListItem, businessId: string, spare: number): P
     most: LIKE_POSTS_READ,
   });
   if (!theirs.ok) throw new Error(theirs.error);
-  const posts = theirs.posts.flatMap((p) => (p.url ? [{ url: p.url, text: p.text }] : []));
+  // Never the post it found again.
+  const posts = theirs.posts.flatMap((p) =>
+    p.url && !(item.postUrl && samePost(p.url, item.postUrl)) ? [{ url: p.url, text: p.text }] : [],
+  );
   if (!posts.length) return lookOnly('with no post of theirs to see');
   // The first that nothing rules out, then the next after it that nothing rules out either.
   const safe = posts.filter((post) => !neverLike({ text: post.text, pictures: [] }));
   if (!safe.length) return lookOnly('and none of their posts were right to like');
-  const most = spare > 0 ? LIKES_MOST : 1;
+  const most = found ? 1 : spare > 0 ? LIKES_MOST : 1;
   let liked = 0;
-  let already = 0;
+  let already = found ? 1 : 0;
   for (const post of safe.slice(0, most)) {
     if (liked + already > 0) await pause(SETTLE_MS);
     const went = await likeOne(item, businessId, opened.noted, post);
@@ -415,12 +471,7 @@ async function warmUp(item: TodayListItem, businessId: string, spare: number): P
       return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
     } else break;
   }
-  return {
-    done: true,
-    line: !liked
-      ? `${item.name}’s post was liked already: ${after.next}`
-      : `Looked at ${item.name}’s Instagram and liked ${liked === 1 ? 'a post' : `${liked} posts`} of theirs: ${after.next}`,
-  };
+  return done(liked);
 }
 
 /** A follow, with their account's own Follow (or Follow Back), then their account read again to see it went. */
@@ -767,6 +818,19 @@ export function spareLikes(list: Pick<TodayList, 'limits'>, left: readonly Work[
 export const nextInstagramDaily = (state: Pick<AutoState, 'daily'>): InstagramDaily | null =>
   INSTAGRAM_DAILY.find((job) => state.daily?.[job] === undefined) ?? null;
 
+/** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
+const reporting = (job: Job, kind: InstagramDaily): Job => ({
+  ...job,
+  report:
+    job.report ??
+    reporter(job.tab, job.hfos, {
+      businessId: job.businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: kind,
+    }),
+});
+
 /** Does one of Instagram's once-a-day jobs. */
 export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -791,17 +855,7 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
     case 'posts':
       // A page with no posts, or a post it couldn't read, is noted with its outline (decision 74).
       return lookAtTagsAndPlaces(
-        {
-          ...job,
-          report:
-            job.report ??
-            reporter(job.tab, job.hfos, {
-              businessId: job.businessId,
-              platform: PLATFORM,
-              askId: null,
-              job: 'posts',
-            }),
-        },
+        reporting(job, kind),
         valueOf(
           await job.hfos({
             type: 'hfos-post-words',
@@ -812,6 +866,9 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
       );
     case 'helpful':
       return readInstagramWarmLeads(job);
+    case 'post_people':
+      // A post it couldn't read, or whose Likes box didn't open, is noted with its outline (decision 74).
+      return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnInstagram });
   }

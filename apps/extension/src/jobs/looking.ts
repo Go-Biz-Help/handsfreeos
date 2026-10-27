@@ -10,8 +10,9 @@
  * - **Instagram:** the feed, the person's own account (read as the AI's check reads it) and its form (the bio), a
  *   search, someone from their feed
  *   (Follow, which isn't tried on someone they follow, and Message, whose chat is opened and closed), one of their posts
- *   (Like, and the box to comment in, where a word is written and taken out to see Post show), the accounts Instagram
- *   suggests and up to three of them (Follow, on someone they don't follow), and their messages.
+ *   (Like, and the box to comment in, where a word is written and taken out to see Post show; from 0.95.0, decision 92,
+ *   its Likes box opened by its count of likes and closed again, and its View all comments pressed once), the accounts
+ *   Instagram suggests and up to three of them (Follow, on someone they don't follow), and their messages.
  * - **Alignable:** its signed-in pages at /biz (alignable.com/ is its public home page, signed in or not; the owner's
  *   first Check, 17 Oct 2026), then the places its menus lead to, those whose words say people, messages or posts
  *   first (never anything that signs out, pays or deletes), the person's own profile and a business's or a member's,
@@ -159,15 +160,23 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
     await c.note('a post', null);
     await c.tryHere('like');
     await c.tryHere('comment');
+    // Who liked it (decision 92): its Likes box opened by its count of likes, outlined while it's open, and closed
+    // again by its own Close. Then its View all comments (or Load more comments) pressed once, and the post read
+    // again: a post with only a few comments shows none, so nothing more is noted.
+    await c.tryHere('reactors');
+    if (stoppedEnd(job)) return stoppedEnd(job)!;
+    const before = commentsOf(page);
+    if ((await job.tab.ask({ type: 'hfos-more-comments' })).ok) {
+      const more = await c.readTill(page, (p) => commentsOf(p) > before, 3);
+      if (isEnd(more)) return more;
+      await c.note('a post’s comments', commentsOf(more));
+    }
   } else {
-    await c.nothingFor(
-      'like',
-      'no post with its own link on their account, your feed or the search',
-    );
-    await c.nothingFor(
-      'comment',
-      'no post with its own link on their account, your feed or the search',
-    );
+    for (const step of ['like', 'comment', 'reactors'] as const)
+      await c.nothingFor(
+        step,
+        'no post with its own link on their account, your feed or the search',
+      );
   }
 
   // Someone you don't follow, for Follow: the accounts Instagram suggests, then the search's and your feed's.
@@ -481,6 +490,12 @@ async function nextPages(
 const countOf = (page: LookingRead, list: string): number => {
   const rows = page.found?.[list];
   return Array.isArray(rows) ? rows.length : 0;
+};
+
+/** How many comments Instagram's readers found on a post's page: counted, never said. */
+const commentsOf = (page: LookingRead): number => {
+  const post = page.found?.post as { readonly comments?: unknown } | null | undefined;
+  return Array.isArray(post?.comments) ? post.comments.length : 0;
 };
 
 const ABOUT_FORM = 'your About Us’s page';

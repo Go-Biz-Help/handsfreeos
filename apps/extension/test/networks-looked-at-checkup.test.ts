@@ -50,9 +50,14 @@ const INSTAGRAM_PAGES: Record<string, string> = {
     '<a href="/p/',
     '<a href="/dana.reyes/reel/R0aBc12XyZq/">a reel</a><a href="/p/',
   ),
+  // A post with a comment, its View all comments, and its count of likes, which opens its Likes box (decision 92).
   [`${IG}/p/E2bCd45EfGh/`]: html(`<main role="main"><article>
     <a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a>
+    <ul id="comments"><li><a href="/sam.carter/">sam.carter</a><span>Lovely tiles!</span>
+      <a href="/p/E2bCd45EfGh/c/17900000000000001/"><time>2h</time></a><div role="button">Reply</div></li></ul>
+    <div role="button" id="more-comments">View all 4 comments</div>
     <div role="button"><svg aria-label="Like"><title>Like</title></svg></div>
+    <section><a href="/p/E2bCd45EfGh/liked_by/" id="likes-count"><span>12 likes</span></a></section>
     <form><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></article></main>`),
   [`${IG}/explore/people/`]: html(`${IG_MENU}<main role="main"><h1>Suggested</h1>
     <div><a href="/lee.park/">lee.park</a><button>Follow</button></div></main>`),
@@ -77,10 +82,27 @@ const INSTAGRAM_PAGES: Record<string, string> = {
 };
 
 /**
- * What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written; and
- * their count of followers opens the box of them (the owner's Check, 21 Oct 2026).
+ * What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written;
+ * their count of followers opens the box of them (the owner's Check, 21 Oct 2026); and a post's count of likes opens
+ * its Likes box, which its Close closes, and its View all comments shows another comment (decision 92).
  */
 function instagramDoes(doc: Document) {
+  doc.querySelector('#likes-count')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const box = doc.createElement('div');
+    box.setAttribute('role', 'dialog');
+    box.innerHTML = `<h2>Likes</h2><div role="button" aria-label="Close"></div>
+      <div><a href="/jo.baker/">jo.baker</a><span>Jo Baker</span><button>Follow</button></div>`;
+    box.querySelector('[aria-label="Close"]')!.addEventListener('click', () => box.remove());
+    doc.body.append(box);
+  });
+  doc.querySelector('#more-comments')?.addEventListener('click', () =>
+    doc.querySelector('#comments')!.insertAdjacentHTML(
+      'beforeend',
+      `<li><a href="/lee.park/">lee.park</a><span>Where is this?</span>
+        <a href="/p/E2bCd45EfGh/c/17900000000000002/"><time>1h</time></a><div role="button">Reply</div></li>`,
+    ),
+  );
   doc
     .querySelector('#followers-count')
     ?.addEventListener('click', () =>
@@ -280,7 +302,8 @@ function fakeTab(
         message.type === 'hfos-try' ||
         message.type === 'hfos-own-profile' ||
         message.type === 'hfos-open-chat' ||
-        message.type === 'hfos-show-all'
+        message.type === 'hfos-show-all' ||
+        message.type === 'hfos-more-comments'
       ) {
         // As the tab answers it (src/networks/looking/kit.ts), on this page.
         vi.stubGlobal('location', new URL(at));
@@ -337,14 +360,19 @@ describe('Check Instagram', () => {
       `${IG}/direct/inbox/`,
       `${IG}/direct/t/340282366841710300/`,
     ]);
-    // It reads (their own account too, as the AI's check would), and tries: nothing else is asked of the tab.
-    expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-own-profile', 'hfos-try']));
+    // It reads (their own account too, as the AI's check would), tries, and shows more of a post's comments once:
+    // nothing else is asked of the tab.
+    expect(new Set(asked)).toEqual(
+      new Set(['hfos-read', 'hfos-own-profile', 'hfos-try', 'hfos-more-comments']),
+    );
+    expect(asked.filter((t) => t === 'hfos-more-comments')).toHaveLength(1);
     expect(notes.filter((n) => n.job?.startsWith('checkup.')).map((n) => n.job)).toEqual([
       'checkup.bio',
       'checkup.follow',
       'checkup.message',
       'checkup.like',
       'checkup.comment',
+      'checkup.reactors',
       'checkup.summary',
     ]);
     expect(notes.find((n) => n.job === 'checkup.message')?.found).toMatchObject({
@@ -355,9 +383,16 @@ describe('Check Instagram', () => {
       post: 1,
       emptied: true,
     });
-    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 5, working: 5 });
+    // Its Likes box, opened by its count of likes, read, and closed again by its own Close (decision 92).
+    expect(notes.find((n) => n.job === 'checkup.reactors')?.found).toMatchObject({
+      likes: true,
+      box: true,
+      rows: 1,
+      closed: true,
+    });
+    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 6, working: 6 });
     expect(end).toEqual({
-      line: 'Read 12 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      line: 'Read 12 Instagram pages and tried 6 steps up to their last press. Everything works.',
       warned: false,
     });
   });
@@ -388,7 +423,7 @@ describe('Check Instagram', () => {
       true,
     ]);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
     );
   });
 
@@ -438,7 +473,7 @@ describe('Check Instagram', () => {
     ]);
     expect(opened).not.toContain(`${IG}/explore/locations/`);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
     );
   });
 

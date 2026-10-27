@@ -63,7 +63,14 @@ export type BrowseAsk =
   /** A list of groups, or a search for them: scroll the page for more (src/jobs/groups.ts). */
   | { readonly type: 'hfos-scroll-page' }
   /** A list that opens on a few (Alignable's My Network, on its picks): its tab of them all (src/jobs/alignable). */
-  | { readonly type: 'hfos-show-all' };
+  | { readonly type: 'hfos-show-all' }
+  /**
+   * A good post's people on Instagram (decision 92, src/networks/instagram/browse.ts): its Likes box opened by its
+   * count of likes, its View all comments pressed once, and the box over the page closed again.
+   */
+  | { readonly type: 'hfos-open-likers' }
+  | { readonly type: 'hfos-more-comments' }
+  | { readonly type: 'hfos-close-dialog' };
 
 export type BrowseAnswer = { readonly ok: boolean };
 

@@ -74,18 +74,38 @@ async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
   return { ok: true, code: await put(document, ask.code) };
 }
 
-/** Its lists, for the person's asks: scrolled for more, switched to their tab of them all, or a chat opened. */
-async function browse(
-  site: LookingSite,
-  ask: Extract<BrowseAsk, { type: 'hfos-scroll-list' | 'hfos-show-all' | 'hfos-open-chat' }>,
-): Promise<BrowseAnswer> {
+/** The asks about its lists it answers, where its site has them: never Facebook's chats, feed or pages. */
+type LookingBrowseAsk = Exclude<
+  BrowseAsk,
+  { type: 'hfos-scroll-chats' | 'hfos-scroll-feed' | 'hfos-scroll-page' }
+>;
+const BROWSE_ASKS: ReadonlySet<string> = new Set<LookingBrowseAsk['type']>([
+  'hfos-scroll-list',
+  'hfos-show-all',
+  'hfos-open-chat',
+  'hfos-open-likers',
+  'hfos-more-comments',
+  'hfos-close-dialog',
+]);
+
+/**
+ * Its lists, for the person's asks: scrolled for more, switched to their tab of them all, or a chat opened; and from
+ * 0.95.0 a good post's people (Instagram's, decision 92): its Likes box opened and closed, its comments shown.
+ */
+async function browse(site: LookingSite, ask: LookingBrowseAsk): Promise<BrowseAnswer> {
   const lists = site.lists;
   if (!lists) return { ok: false };
   if (ask.type === 'hfos-open-chat')
     return {
       ok: lists.openChat ? await lists.openChat(document, location.href, ask.name ?? null) : false,
     };
-  const go = ask.type === 'hfos-scroll-list' ? lists.scroll : lists.showAll;
+  const go = {
+    'hfos-scroll-list': lists.scroll,
+    'hfos-show-all': lists.showAll,
+    'hfos-open-likers': lists.openLikers,
+    'hfos-more-comments': lists.moreComments,
+    'hfos-close-dialog': lists.closeDialog,
+  }[ask.type];
   return { ok: go ? await go(document, location.href) : false };
 }
 
@@ -212,10 +232,8 @@ export function lookingKit(site: LookingSite): Kit {
             ? ownProfile(site, ask as OwnProfileAsk)
             : ask.type === 'hfos-put-code'
               ? putCode(site, ask as CodeAsk)
-              : ask.type === 'hfos-scroll-list' ||
-                  ask.type === 'hfos-show-all' ||
-                  ask.type === 'hfos-open-chat'
-                ? browse(site, ask as Parameters<typeof browse>[1])
+              : BROWSE_ASKS.has(ask.type)
+                ? browse(site, ask as LookingBrowseAsk)
                 : ask.type === 'hfos-unfollow'
                   ? unfollowHere(site)
                   : ON_ITS_OWN_ASKS.has(ask.type)
