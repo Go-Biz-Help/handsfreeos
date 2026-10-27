@@ -65,7 +65,9 @@ export interface FindWordsDue {
  * The networks whose words the AI writes for a playbook now: a customers' playbook's networks among the three, each
  * list still empty and not written by the AI before (so a list the person emptied stays empty). Works online is asked
  * with them, only while it's null. None while the playbook doesn't say who it's for (its niche, who it's for or their
- * problem): with nothing to write from, it waits for them rather than spend its one write.
+ * problem): with nothing to write from, it waits for them rather than spend its one write. Given the networks somebody
+ * in the business works, only those: a network nobody works waits till someone turns it on, so the day's AI isn't
+ * spent on words nobody looks with.
  */
 export function wordsDue(
   details: Pick<PlaybookDetails, 'goal' | 'platforms' | 'wordsWritten' | 'worksOnline'> &
@@ -75,12 +77,17 @@ export function wordsDue(
         'hashtags' | 'postSearches' | 'businessKinds' | 'niche' | 'audience' | 'problem'
       >
     >,
+  worked?: readonly WordsPlatform[],
 ): FindWordsDue {
   const whoFor = [details.niche, details.audience, details.problem].some((w) => w?.trim());
   if (forPartners(details) || !whoFor) return { networks: [], askOnline: false };
   const written = details.wordsWritten ?? [];
   const networks = WORDS_PLATFORM_KEYS.filter(
-    (p) => hasWordsOn(details, p) && !written.includes(p) && !details[FIND_WORDS_PARTS[p]]?.length,
+    (p) =>
+      hasWordsOn(details, p) &&
+      (!worked || worked.includes(p)) &&
+      !written.includes(p) &&
+      !details[FIND_WORDS_PARTS[p]]?.length,
   );
   return { networks, askOnline: networks.length > 0 && (details.worksOnline ?? null) === null };
 }

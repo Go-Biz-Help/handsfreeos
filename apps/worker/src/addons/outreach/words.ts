@@ -7,16 +7,21 @@
  * words and never again once they emptied a list. Partner playbooks get none.
  *
  * - A playbook saved, a network turned on and the day started (a safety net) queue one write per business.
+ * - Only for the networks somebody in the business works: one nobody works waits till someone turns it on.
  * - One ask per playbook that needs words, a few playbooks a run. At the day's AI limit the rest wait 6 hours; with
  *   the AI not set up nothing is written till the next save or day, and the old words are looked with meanwhile.
  * - The words it keeps tell nobody to write again: `outreach.playbook.words` never says the playbook was saved.
  */
 import { liveMainOffer } from './assist';
+import { NETWORKS_DEFAULTS, NetworksSettings } from '@hfos/core/addons/outreach/automation';
+import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { playbookWords } from '@hfos/core/addons/outreach/ops/playbooks';
 import {
   PARTNER_GOAL,
   PlaybookDetails,
   upgradePlaybookDetails,
+  WORDS_PLATFORM_KEYS,
+  type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
 import {
   checkedFindWords,
@@ -62,6 +67,27 @@ export async function wordsWanted(ctx: AddonEventContext): Promise<void> {
   );
 }
 
+/**
+ * The networks with words that somebody in the business works: anyone's own choice, or the business's starting choice
+ * for those who haven't made their own, inside the networks the business allows.
+ */
+function networksWorked(
+  settings: unknown,
+  kept: readonly { networks: unknown }[],
+): WordsPlatform[] {
+  const rules = outreachSettings(settings).rules;
+  const choices = [
+    rules.defaults.networks,
+    ...kept.map((k) => {
+      const read = NetworksSettings.safeParse(k.networks ?? {});
+      return read.success ? read.data : NETWORKS_DEFAULTS;
+    }),
+  ];
+  return WORDS_PLATFORM_KEYS.filter(
+    (p) => rules.networksAllowed.includes(p) && choices.some((c) => c[p].on),
+  );
+}
+
 /** `outreach.write_words`: writes the words of the business's customers' playbooks that need them. */
 export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
   const ws = ctx.scope.workspaceId;
@@ -69,6 +95,17 @@ export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
     business: (
       await rows<{ name: string }>(tx, sql`select name from app.workspaces where id = ${ws}`)
     )[0],
+    settings: (
+      await rows<{ settings: unknown }>(
+        tx,
+        sql`select settings from app.addon_installations
+            where workspace_id = ${ws} and addon_id = ${ctx.manifest.id}`,
+      )
+    )[0]?.settings,
+    kept: await rows<{ networks: unknown }>(
+      tx,
+      sql`select networks from addon_outreach.automation where workspace_id = ${ws}`,
+    ),
     playbooks: await rows<{ id: string; name: string; details: unknown }>(
       tx,
       sql`select id, name, details from addon_outreach.playbooks
@@ -77,10 +114,12 @@ export async function writeWordsJob(ctx: AddonJobContext): Promise<JobResult> {
           order by created_at`,
     ),
   }));
+  const worked = networksWorked(found.settings, found.kept);
+  if (!worked.length) return;
   const due = found.playbooks.flatMap((p) => {
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     if (!read.success) return [];
-    const needs: FindWordsDue = wordsDue(read.data);
+    const needs: FindWordsDue = wordsDue(read.data, worked);
     return needs.networks.length ? [{ id: p.id, name: p.name, details: read.data, needs }] : [];
   });
   if (!due.length) return;

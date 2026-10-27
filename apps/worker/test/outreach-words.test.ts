@@ -2,11 +2,12 @@
  * Social Outreach in the worker: the AI (the stand-in model here) writes each network's own words for a customers'
  * playbook (decision 92): the hashtags Instagram looks at, the phrases LinkedIn's post search goes with and the kinds
  * of business Alignable's search looks for, with whether the business works with them online. Only a list that's
- * empty and that it hasn't written before, never a partner playbook's, never again on its own writing, and at the
- * day's AI limit the rest wait.
+ * empty and that it hasn't written before, never a partner playbook's, never again on its own writing, only on a
+ * network somebody in the business works, and at the day's AI limit the rest wait.
  */
 import { randomUUID } from 'node:crypto';
 import type { AiProvider } from '@hfos/ai';
+import { AUTOMATION_DEFAULTS } from '@hfos/core/addons/outreach/automation';
 import { blankPlaybook } from '@hfos/core/addons/outreach/playbooks';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -75,6 +76,22 @@ function counting(inner: AiProvider = scriptedAi()) {
   return { provider, asks: () => asks };
 }
 
+/** The owner works these networks, besides Facebook. */
+const works = (ws: string, ...nets: ('instagram' | 'linkedin' | 'alignable')[]) =>
+  runAs(owner, ws, 'outreach.automation.save', {
+    settings: {
+      ...AUTOMATION_DEFAULTS,
+      networks: Object.fromEntries(nets.map((p) => [p, { on: true }])),
+    },
+  });
+
+/** A business whose owner works every network. */
+async function everywhere(name: string): Promise<string> {
+  const ws = await outreachBusiness(owner, name);
+  await works(ws, 'instagram', 'linkedin', 'alignable');
+  return ws;
+}
+
 /** A customers' playbook on every network, for roofers in Austin, with what's given over it. */
 const roofers = (over: Record<string, unknown> = {}) => ({
   ...blankPlaybook(),
@@ -114,7 +131,7 @@ describe('the AI’s words for finding people by topic', () => {
   it('fills only the empty lists it hasn’t written, and never one the person emptied', async () => {
     const ai = counting();
     const s = testServices({ ai: { provider: ai.provider } });
-    const ws = await outreachBusiness(owner, 'Outreach Words Co');
+    const ws = await everywhere('Outreach Words Co');
     // The person's own hashtags stay as they are: the AI writes LinkedIn's and Alignable's.
     const saved = await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Austin roofers',
@@ -164,7 +181,7 @@ describe('the AI’s words for finding people by topic', () => {
   it('waits for who a playbook is for, then writes once: its words never ask for more', async () => {
     const ai = counting();
     const s = testServices({ ai: { provider: ai.provider } });
-    const ws = await outreachBusiness(owner, 'Outreach Words Once Co');
+    const ws = await everywhere('Outreach Words Once Co');
     // Nothing to write from yet.
     const saved = await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Online coaches',
@@ -202,7 +219,7 @@ describe('the AI’s words for finding people by topic', () => {
   it('writes nothing for a partner playbook, and the command refuses one', async () => {
     const ai = counting();
     const s = testServices({ ai: { provider: ai.provider } });
-    const ws = await outreachBusiness(owner, 'Outreach Words Partners Co');
+    const ws = await everywhere('Outreach Words Partners Co');
     const saved = await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Partners',
       details: roofers({ goal: 'partner', groupWords: ['Austin homeowners'] }),
@@ -226,10 +243,36 @@ describe('the AI’s words for finding people by topic', () => {
     ).toBe('outreach_playbook_partner_words');
   });
 
+  it('writes only for the networks somebody works, and the rest once they’re turned on', async () => {
+    const ai = counting();
+    const s = testServices({ ai: { provider: ai.provider } });
+    const ws = await outreachBusiness(owner, 'Outreach Words Facebook Co');
+    // Facebook only, as to start: none of the three has words to write.
+    const saved = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Austin roofers',
+      details: roofers(),
+    });
+    await drain(s, ws);
+    expect(ai.asks()).toBe(0);
+    expect(await detailsOf(saved.id)).toMatchObject({ wordsWritten: [], worksOnline: null });
+
+    // LinkedIn turned on: its words, and works online, now; Instagram's and Alignable's wait.
+    await works(ws, 'linkedin');
+    await drain(s, ws);
+    expect(ai.asks()).toBe(1);
+    expect(await detailsOf(saved.id)).toMatchObject({
+      hashtags: [],
+      postSearches: ['missed calls', 'roofers tips', 'hiring help'],
+      businessKinds: [],
+      worksOnline: false,
+      wordsWritten: ['linkedin'],
+    });
+  });
+
   it('leaves the rest waiting at the day’s AI limit', async () => {
     const ai = counting(costlyAi());
     const s = testServices({ ai: { provider: ai.provider } });
-    const ws = await outreachBusiness(owner, 'Outreach Capped Words Co');
+    const ws = await everywhere('Outreach Capped Words Co');
     await setAiLimit(ws, 1);
     const first = await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Austin roofers',

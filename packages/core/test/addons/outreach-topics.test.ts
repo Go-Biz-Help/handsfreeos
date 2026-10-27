@@ -45,6 +45,12 @@ describe('the lists the AI writes', () => {
     expect(wordsDue(playbook({ niche: null }))).toEqual({ networks: [], askOnline: false });
     expect(wordsDue(playbook({ niche: null, problem: 'Missed calls' })).networks).toHaveLength(3);
   });
+
+  it('leave out a network nobody in the business works', () => {
+    expect(wordsDue(playbook(), ['linkedin'])).toEqual({ networks: ['linkedin'], askOnline: true });
+    // Nobody works any of the three: nothing to write, and nothing to ask.
+    expect(wordsDue(playbook(), [])).toEqual({ networks: [], askOnline: false });
+  });
 });
 
 describe('the ask', () => {
