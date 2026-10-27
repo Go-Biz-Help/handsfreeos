@@ -36,7 +36,7 @@ import {
   todayDraftPrompt,
   type TodayItem,
 } from '../../src/addons/outreach/today';
-import { outreachBusiness, runAs } from './outreach-fixture';
+import { checkedAs, computerOn, outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const IG = 'https://www.instagram.com';
@@ -541,7 +541,7 @@ describe('Instagram’s growing on Today (part 15)', () => {
     ]);
   });
 
-  it('likes a post of each author a hashtag’s look found, then follows them a day after', async () => {
+  it('likes a post of each author a hashtag’s look found, then follows them a day after, for a computer before 0.95.0', async () => {
     const saved = await runAs(owner, ws, 'outreach.posts.save', {
       platform: 'instagram',
       found: 'search',
@@ -580,6 +580,139 @@ describe('Instagram’s growing on Today (part 15)', () => {
       'Wrote a post your search on Instagram found',
     ]);
     expect((await quinn()).map(([kind]) => kind)).not.toContain('warm_up');
+  });
+});
+
+/**
+ * Instagram's people found by topic (decision 92): for a computer on 0.95.0 or later, a good post's writer and who
+ * commented on it reach Today only after the AI's check of them from their own page. The writer's like goes on the
+ * post the hashtag's look found; a commenter gets one of their own liked; the follow comes a day after.
+ */
+describe('Instagram’s people found by topic (decision 92)', () => {
+  let owner: TestUser;
+  let ws: string;
+  let playbookId: string;
+
+  beforeAll(async () => {
+    owner = await createTestUser('outig-found', { fullName: 'Morgan Owner' });
+    ws = await outreachBusiness(owner, 'Outreach Instagram Found Co');
+    const details = PLAYBOOK_TEMPLATES.crm_demos.details;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'CRM demos',
+      template: 'crm_demos',
+      details: {
+        ...details,
+        platforms: ['instagram'],
+        area: 'Austin, TX',
+        hashtags: ['austinplumbing'],
+      },
+    });
+    const [playbook] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws} and name = 'CRM demos'`,
+    );
+    playbookId = playbook!.id;
+    await computerOn(owner, ws, '0.95.0');
+  }, 60_000);
+
+  afterAll(closeTestDbs);
+
+  const POST = `${IG}/p/DQfound0001/`;
+  const account = (username: string) => ({ id: null, username, url: `${IG}/${username}/` });
+  const profileOf = async (username: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.profiles
+            where workspace_id = ${ws} and platform = 'instagram' and username = ${username}`,
+      )
+    )[0]!.id;
+  const listed = async () =>
+    ((await runAs(owner, ws, 'outreach.today', { platform: 'instagram' })).items as TodayItem[])
+      .filter((i) => i.kind === 'warm_up' || i.kind === 'friend_request')
+      .map((i) => ({ name: i.name, kind: i.kind, why: i.why, postUrl: i.postUrl, post: i.post }));
+
+  it('likes the writer’s found post and a post of a commenter’s own once the AI checked them good, then follows', async () => {
+    await runAs(owner, ws, 'outreach.posts.save', {
+      platform: 'instagram',
+      found: 'search',
+      words: 'austinplumbing',
+      posts: [
+        {
+          url: POST,
+          author: account('sage.plumbing'),
+          name: 'sage.plumbing',
+          text: 'Three of us run a plumbing crew around Austin and the calls get lost. What do other small crews use to keep track?',
+        },
+      ],
+    });
+    const [post] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.posts where workspace_id = ${ws} and url = ${POST}`,
+    );
+    // The AI said the post was worth a comment: its writer is found.
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'waiting' where id = ${post!.id}`,
+    );
+    await runAsSystem(ws, 'outreach.post.check', {
+      postId: post!.id,
+      check: { good: true, strong: false, why: 'Asking how to keep track of calls' },
+    });
+    await runAs(owner, ws, 'outreach.finds.save', {
+      platform: 'instagram',
+      how: 'commented',
+      postId: post!.id,
+      people: [{ profile: account('tate.drains'), name: 'tate.drains' }],
+    });
+    // Nobody before the AI's check of them.
+    expect(await listed()).toEqual([]);
+
+    await checkedAs(owner, ws, await profileOf('sage.plumbing'), {
+      fit: 'good',
+      why: ['Runs a three-person plumbing crew'],
+      playbookId,
+    });
+    await checkedAs(owner, ws, await profileOf('tate.drains'), {
+      fit: 'good',
+      why: ['Owns a drain cleaning business in Austin'],
+      playbookId,
+    });
+    expect(await listed()).toEqual([
+      {
+        name: 'sage.plumbing',
+        kind: 'warm_up',
+        why: [
+          'Wrote a post under #austinplumbing',
+          'Runs a three-person plumbing crew',
+          'Like the post it found: their follow comes a day after',
+        ],
+        postUrl: POST,
+        post: expect.stringMatching(/^Three of us run a plumbing crew/),
+      },
+      {
+        name: 'tate.drains',
+        kind: 'warm_up',
+        why: [
+          'Commented on a post under #austinplumbing',
+          'Owns a drain cleaning business in Austin',
+          'Their follow comes a day after',
+        ],
+        postUrl: null,
+        post: null,
+      },
+    ]);
+
+    // The writer's like was yesterday: the follow comes.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
+          values (${ws}, ${await profileOf('sage.plumbing')}, ${owner.id}, 'like', now() - interval '21 hours')`,
+    );
+    expect((await listed()).map((i) => [i.name, i.kind, i.why.at(-1)])).toEqual([
+      ['sage.plumbing', 'friend_request', 'You liked the post it found'],
+      ['tate.drains', 'warm_up', 'Their follow comes a day after'],
+    ]);
   });
 });
 

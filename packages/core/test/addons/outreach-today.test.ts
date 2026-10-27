@@ -7,10 +7,16 @@
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
+import {
+  AUTOMATION_DEFAULTS,
+  NETWORK_CHOICES_DEFAULTS,
+  NETWORKS_DEFAULTS,
+} from '../../src/addons/outreach/automation';
+import { LEADERS_WAIT_DAYS } from '../../src/addons/outreach/finds';
+import { NETWORKS } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { checkedDrafts, todayDraftPrompt } from '../../src/addons/outreach/today';
-import { outreachBusiness, runAs } from './outreach-fixture';
+import { checkedAs, computerOn, outreachBusiness, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -267,5 +273,167 @@ describe('the list for today', () => {
     expect(await again()).toMatchObject({ personId: added.personId, demoBooked: false });
     await runAs(owner, ws, 'outreach.demo.mark', { profileId: first.profileId, booked: true });
     expect(await again()).toMatchObject({ demoBooked: true });
+  });
+});
+
+/**
+ * People found by topic (decision 92) on Alignable's list: a group's member reaches it only through the AI's check of
+ * them from their own page, never by the words they show as Facebook's do, and only once the group's leaders were read
+ * first, or a week after the person joined. Only a computer on 0.95.0 or later gets them.
+ */
+describe('people found by topic on Alignable', () => {
+  let owner: TestUser;
+  let ws: string;
+  const alignable = (slug: string, name: string) => ({
+    id: null,
+    slug,
+    url: `https://www.alignable.com/groups/${slug}`,
+    name,
+  });
+  const trades = alignable('austin-trades-circle', 'Austin Trades Circle');
+  const roofers = alignable('austin-roofers-circle', 'Austin Roofers Circle');
+  const business = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.alignable.com/austin-tx/${slug}`,
+  });
+  const member = (slug: string, name: string, runsGroup = false) => ({
+    profile: business(slug),
+    name,
+    lines: ['Owner at a home services company'],
+    runsGroup,
+  });
+  const idOf = async (slug: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = ${slug}`,
+      )
+    )[0]!.id;
+  const listed = async () =>
+    (
+      (await runAs(owner, ws, 'outreach.today', { platform: 'alignable' })).items as {
+        kind: string;
+        name: string;
+        why: string[];
+      }[]
+    ).map((i) => [i.kind, i.name, i.why]);
+
+  beforeAll(async () => {
+    owner = await createTestUser('outt-alignable', { fullName: 'Quinn Owner' });
+    ws = await outreachBusiness(owner, 'Outreach Today Alignable Co');
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: { ...crm.details, platforms: ['alignable'], area: 'Austin' },
+    });
+    await computerOn(owner, ws, '0.95.0');
+    // The trades circle's members, its leaders read; the roofers' circle's, its leaders not read yet.
+    await runAs(owner, ws, 'outreach.group.save', {
+      platform: 'alignable',
+      group: trades,
+      people: [member('reyes-plumbing', 'Dana Reyes')],
+    });
+    await runAs(owner, ws, 'outreach.group.save', {
+      platform: 'alignable',
+      group: trades,
+      people: [member('park-electric', 'Lee Park', true)],
+      adminsPage: true,
+    });
+    await runAs(owner, ws, 'outreach.group.save', {
+      platform: 'alignable',
+      group: roofers,
+      people: [member('ng-roofing', 'Kim Ng')],
+    });
+  }, 60_000);
+  afterAll(closeTestDbs);
+
+  it('lists a group’s member only after a good check, never by the words they show', async () => {
+    // A sign on Dana's page, in a group whose leaders were read: Facebook's list would have them; Alignable's doesn't.
+    expect(await listed()).toEqual([]);
+    await runAs(owner, ws, 'outreach.finds.save', {
+      platform: 'alignable',
+      how: 'member',
+      group: trades,
+      people: [member('reyes-plumbing', 'Dana Reyes')],
+    });
+    expect(await listed()).toEqual([]);
+    await checkedAs(owner, ws, await idOf('reyes-plumbing'), {
+      fit: 'good',
+      why: ['Owns a plumbing company in Austin'],
+    });
+    expect(await listed()).toEqual([
+      [
+        'warm_up',
+        'Dana Reyes',
+        [
+          'In the Alignable group Austin Trades Circle',
+          'Owns a plumbing company in Austin',
+          'Their connection request comes a day after',
+        ],
+      ],
+    ]);
+  });
+
+  it('waits for a group’s leaders to be read first, or a week after joining it', async () => {
+    await runAs(owner, ws, 'outreach.finds.save', {
+      platform: 'alignable',
+      how: 'member',
+      group: roofers,
+      people: [member('ng-roofing', 'Kim Ng')],
+    });
+    await checkedAs(owner, ws, await idOf('ng-roofing'), {
+      fit: 'good',
+      why: ['Runs a roofing crew'],
+    });
+    const kim = async () => (await listed()).filter(([, name]) => name === 'Kim Ng');
+    expect(await kim()).toEqual([]);
+    // Joined a few days ago: still waiting on its leaders.
+    await runAs(owner, ws, 'outreach.groups.save', {
+      platform: 'alignable',
+      groups: [{ group: roofers, joined: true }],
+    });
+    const joinedDaysAgo = (days: number) =>
+      rows(
+        admin(),
+        sql`update addon_outreach.my_groups m set created_at = now() - ${`${days} days`}::interval
+            from addon_outreach.groups g
+            where g.id = m.group_id and m.workspace_id = ${ws} and m.user_id = ${owner.id}
+              and g.slug = ${roofers.slug}`,
+      );
+    await joinedDaysAgo(LEADERS_WAIT_DAYS - 2);
+    expect(await kim()).toEqual([]);
+    // A week on, no leaders section has held them back for good.
+    await joinedDaysAgo(LEADERS_WAIT_DAYS + 1);
+    expect((await kim()).map(([kind]) => kind)).toEqual(['warm_up']);
+  });
+
+  it('gives a computer before 0.95.0 nobody found by topic', async () => {
+    await computerOn(owner, ws, '0.94.0');
+    expect(await listed()).toEqual([]);
+    await computerOn(owner, ws, '0.95.0');
+    expect((await listed()).map(([, name]) => name)).toEqual(['Dana Reyes', 'Kim Ng']);
+  });
+
+  it('halves its limits on training wheels', async () => {
+    const before = (await runAs(owner, ws, 'outreach.today', { platform: 'alignable' })).limits;
+    expect(before.friend_request.most).toBe(NETWORKS.alignable.dailyLimits.friend_request);
+    // Sending (b) on Alignable starts its training wheels.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          alignable: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: 'everything' },
+        },
+      },
+    });
+    const today = await runAs(owner, ws, 'outreach.today', { platform: 'alignable' });
+    expect(today.wheels.on).toBe(true);
+    expect(today.limits.friend_request.most).toBe(
+      Math.floor(NETWORKS.alignable.dailyLimits.friend_request / 2),
+    );
+    expect(today.limits.like.most).toBe(NETWORKS.alignable.dailyLimits.like / 2);
   });
 });

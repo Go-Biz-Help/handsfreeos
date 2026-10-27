@@ -74,6 +74,12 @@ export const FIND_WORDS_MOST = 160;
 export const FIND_PLACE_MOST = 100;
 /** Someone found is checked, and offered on Today after a good check, within this many days of being found. */
 export const FIND_FRESH_DAYS = 14;
+/**
+ * A group's members are reached only once its leaders were read first, as Facebook's admins are (decision 92): a
+ * members page read with no leaders on it marks them read, and so does this many days after the person joined, so a
+ * reader drawn from guessed markup never holds the members back for good.
+ */
+export const LEADERS_WAIT_DAYS = 7;
 
 /** A find as its fact line reads it: how, on which network, with what words, where, and in which group. */
 export interface FindOf {

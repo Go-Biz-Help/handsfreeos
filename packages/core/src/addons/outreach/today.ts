@@ -7,6 +7,9 @@
  *   admins and moderators has been read; never anyone who runs a group, is on Don't pitch, is in Contacts, or has had
  *   a request from the business already. As many as today's limit has left. Ahead of them, people found by a search
  *   (whoever wrote a post the network's search found, off any group), once a comment or a like has warmed them up.
+ *   On Instagram, LinkedIn and Alignable, for a computer on 0.95.0 or later (decision 92), people found by topic
+ *   (./finds.ts) whose AI check from their own page was good take the place of both: a like first on every network, a
+ *   poster's on the post it found, and anyone that pick had warmed up already still gets their request.
  * - **Like a post first** (decision 33, while the person's **Like a post first** is on): someone's request waits until
  *   a day after one of their posts was liked, so the list has likes for tomorrow's requests, as many as a day's
  *   requests. A profile with no post to like goes without.
@@ -183,7 +186,10 @@ export const TodayItem = z.object({
   /** The chat, for a follow-up or a reply. */
   chatId: z.uuid().nullable(),
   threadKey: z.string().nullable(),
-  /** The post to comment on: its link, when Facebook said it was posted, and what it says (cut short). */
+  /**
+   * The post to comment on, or for a warm-up the post someone found by topic wrote, which the like goes on (decision
+   * 92): its link, when the network said it was posted, and what it says (cut short).
+   */
   postId: z.uuid().nullable(),
   postUrl: z.string().nullable(),
   posted: z.string().nullable(),

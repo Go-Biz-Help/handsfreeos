@@ -23,7 +23,15 @@ import { networkOfLink, NETWORKS, profileMisfit } from '../../src/addons/outreac
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { notReadyWords, readinessOf } from '../../src/addons/outreach/readiness';
 import { PROFILE_ITEMS, PROFILE_ITEMS_ON } from '../../src/addons/outreach/profile-check';
-import { outreachBusiness, refused, runAs, runAsSystem, runWith } from './outreach-fixture';
+import {
+  checkedAs,
+  computerOn,
+  outreachBusiness,
+  refused,
+  runAs,
+  runAsSystem,
+  runWith,
+} from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 
@@ -914,52 +922,215 @@ describe('one person on two networks', () => {
   });
 });
 
-describe('people found by a search', () => {
-  it('get an invitation on LinkedIn once a comment on the post the search found warmed them up', async () => {
+/**
+ * LinkedIn's people found by topic (decision 92): a good post's writer reaches Today only after the AI's check of
+ * them from their own page, liked on the post it found, then invited a day after; who reacted gets a post of their own
+ * liked. A comment no longer stands in for the like. Anyone the old search pick warmed up already still gets their
+ * invitation. Only a computer on 0.95.0 or later gets this list.
+ */
+describe('people found by topic on LinkedIn', () => {
+  const POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000777/';
+  const OLD_POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000778/';
+  const COLD_POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000779/';
+  const person = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `https://www.linkedin.com/in/${slug}/`,
+  });
+  const idOf = async (slug: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = ${slug}`,
+      )
+    )[0]!.id;
+  const postIdOf = async (u: TestUser, url: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.posts where workspace_id = ${ws} and user_id = ${u.id} and url = ${url}`,
+      )
+    )[0]!.id;
+  /** The AI's check of someone found, from their own page: good, maybe or not, for the playbook. */
+  const checked = async (u: TestUser, slug: string, fit: 'good' | 'maybe' | 'not', why: string) => {
+    const [playbook] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.playbooks where workspace_id = ${ws} and name = 'CRM demos'`,
+    );
+    await checkedAs(u, ws, await idOf(slug), { fit, why: [why], playbookId: playbook!.id });
+  };
+  /** A like or a comment noted so many hours ago; a comment on the post it was under. */
+  const touched = (
+    u: TestUser,
+    slug: string,
+    kind: 'like' | 'comment',
+    hoursAgo: number,
+    postUrl: string | null = null,
+  ) =>
+    rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at, post_url)
+          select ${ws}, p.id, ${u.id}, ${kind}, now() - ${`${hoursAgo} hours`}::interval, ${postUrl}
+          from addon_outreach.profiles p where p.workspace_id = ${ws} and p.username = ${slug}`,
+    );
+  type Listed = {
+    name: string;
+    kind: string;
+    why: string[];
+    postId: string | null;
+    postUrl: string | null;
+    post: string | null;
+  };
+  const listOf = async (u: TestUser, platform?: 'linkedin') =>
+    (await runAs(u, ws, 'outreach.today', platform ? { platform } : {})).items as Listed[];
+
+  it('likes a writer’s found post once the AI checked them good, then invites them; a reactor gets a post of their own', async () => {
     const sky = await teammate('Sky Reyes');
-    const author = {
-      id: null,
-      username: 'robin-vale-plumbing',
-      url: 'https://www.linkedin.com/in/robin-vale-plumbing/',
-    };
+    await computerOn(sky, ws, '0.95.0');
     await runAs(sky, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      found: 'search',
+      words: 'missed calls',
+      posts: [
+        {
+          url: POST,
+          author: person('robin-vale-plumbing'),
+          name: 'Robin Vale',
+          text: 'I’m the owner of a small plumbing business and we keep missing calls. Can anyone recommend a simple CRM?',
+        },
+      ],
+    });
+    const postId = await postIdOf(sky, POST);
+    // The AI said the post was worth a comment: its writer is found.
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'waiting' where id = ${postId}`,
+    );
+    await runAsSystem(ws, 'outreach.post.check', {
+      postId,
+      check: { good: true, strong: false, why: 'Asking for a simple CRM' },
+    });
+    // Who reacted to it, as the computer read them.
+    await runAs(sky, ws, 'outreach.finds.save', {
+      platform: 'linkedin',
+      how: 'liked',
+      postId,
+      people: [
+        { profile: person('quinn-harper-roofing'), name: 'Quinn Harper' },
+        { profile: person('drew-park-hvac'), name: 'Drew Park' },
+        { profile: person('ellis-ford-design'), name: 'Ellis Ford' },
+      ],
+    });
+    const names = ['Robin Vale', 'Quinn Harper', 'Drew Park', 'Ellis Ford'];
+    const found = async () =>
+      (await listOf(sky, 'linkedin'))
+        .filter((i) => names.includes(i.name))
+        .map((i) => [i.name, i.kind]);
+    // Nobody before the AI's check of them: only the post's comment.
+    expect(await found()).toEqual([['Robin Vale', 'comment']]);
+
+    await checked(sky, 'robin-vale-plumbing', 'good', 'Owns a small plumbing business');
+    await checked(sky, 'quinn-harper-roofing', 'good', 'Runs a roofing crew');
+    await checked(sky, 'drew-park-hvac', 'maybe', 'Might run an HVAC company');
+    await checked(sky, 'ellis-ford-design', 'not', 'A designer, not a trade');
+    const list = await listOf(sky, 'linkedin');
+    // A maybe and a no are never listed.
+    expect(list.filter((i) => names.includes(i.name)).map((i) => [i.name, i.kind])).toEqual([
+      ['Robin Vale', 'comment'],
+      ['Robin Vale', 'warm_up'],
+      ['Quinn Harper', 'warm_up'],
+    ]);
+    // The writer's like goes on the post it found; a reactor's on one of their own.
+    const robin = list.find((i) => i.name === 'Robin Vale' && i.kind === 'warm_up')!;
+    expect(robin).toMatchObject({
+      postId,
+      postUrl: POST,
+      post: expect.stringMatching(/^I’m the owner/),
+    });
+    expect(robin.why).toEqual([
+      'Wrote a post your search for “missed calls” found',
+      'Owns a small plumbing business',
+      'Like the post it found: their invitation to connect comes a day after',
+    ]);
+    const quinn = list.find((i) => i.name === 'Quinn Harper')!;
+    expect(quinn).toMatchObject({ postId: null, postUrl: null, post: null });
+    expect(quinn.why).toEqual([
+      'Reacted to a post your search for “missed calls” found',
+      'Runs a roofing crew',
+      'Their invitation to connect comes a day after',
+    ]);
+
+    // A comment on the post no longer stands in for the like.
+    await touched(sky, 'robin-vale-plumbing', 'comment', 21, POST);
+    expect((await found()).filter(([name]) => name === 'Robin Vale')).toEqual([
+      ['Robin Vale', 'warm_up'],
+    ]);
+    // Liked yesterday: the invitation comes.
+    await touched(sky, 'robin-vale-plumbing', 'like', 21);
+    const invited = (await listOf(sky, 'linkedin')).find(
+      (i) => i.name === 'Robin Vale' && i.kind === 'friend_request',
+    );
+    expect(invited?.why).toEqual([
+      'Wrote a post your search for “missed calls” found',
+      'Owns a small plumbing business',
+      'You liked the post it found',
+    ]);
+    // Facebook's list never has them: they're on LinkedIn.
+    expect((await listOf(sky)).filter((i) => names.includes(i.name))).toEqual([]);
+  });
+
+  it('still invites a writer the old search pick warmed up, and a computer before 0.95.0 keeps that pick', async () => {
+    const kim = await teammate('Kim Vale');
+    await computerOn(kim, ws, '0.95.0');
+    await runAs(kim, ws, 'outreach.posts.save', {
       platform: 'linkedin',
       found: 'search',
       posts: [
         {
-          url: 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000777/',
-          author,
-          name: 'Robin Vale',
-          text: 'I’m the owner of a small plumbing business. Can anyone recommend a simple CRM?',
+          url: OLD_POST,
+          author: person('avery-north-electric'),
+          name: 'Avery North',
+          text: 'Owner of a small electrical company here. What CRM do you use for quotes?',
+        },
+        {
+          url: COLD_POST,
+          author: person('jules-park-cleaning'),
+          name: 'Jules Park',
+          text: 'Owner of a cleaning company. Any CRM tips for a small team?',
         },
       ],
     });
-    // The AI said the post was worth a comment.
+    // Called good before the computer found people by topic: no find, no check of them.
     await rows(
       admin(),
       sql`update addon_outreach.posts set check_state = 'good'
-          where workspace_id = ${ws} and user_id = ${sky.id}`,
+          where workspace_id = ${ws} and user_id = ${kim.id}`,
     );
-    const onToday = async (platform?: 'linkedin') =>
-      (await runAs(sky, ws, 'outreach.today', platform ? { platform } : {})).items
-        .filter((i: { name: string }) => i.name === 'Robin Vale')
-        .map((i: { kind: string; why: string[] }) => [i.kind, i.why[0]]);
-    // With Like a post first on, their post's comment is their warm-up: no invitation yet.
-    expect(await onToday('linkedin')).toEqual([['comment', expect.any(String)]]);
+    // Avery was warmed up with a comment, as the old pick did on LinkedIn.
+    await touched(kim, 'avery-north-electric', 'comment', 21, OLD_POST);
+    const writers = async () =>
+      (await listOf(kim, 'linkedin'))
+        .filter((i) => i.kind !== 'comment')
+        .map((i) => [i.name, i.kind, i.why[0]]);
+    // Avery carries on to the invitation; Jules, never warmed and never checked, gets nothing new.
+    expect(await writers()).toEqual([
+      ['Avery North', 'friend_request', 'Wrote a post your search on LinkedIn found'],
+    ]);
 
-    // Sky commented on it yesterday: the invitation comes, said to be from the search.
+    // An older build on the computer that works now: the old search pick, as it was.
+    await computerOn(kim, ws, '0.94.0');
+    expect(await writers()).toEqual([
+      ['Avery North', 'friend_request', 'Wrote a post your search on LinkedIn found'],
+    ]);
+    // With no comment of Avery's, the old pick waits on the comment; the new one on the AI's check.
     await rows(
       admin(),
-      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
-          select ${ws}, po.profile_id, ${sky.id}, 'comment', now() - interval '21 hours'
-          from addon_outreach.posts po where po.workspace_id = ${ws} and po.user_id = ${sky.id}`,
+      sql`delete from addon_outreach.touches where workspace_id = ${ws} and user_id = ${kim.id}`,
     );
-    expect(await onToday('linkedin')).toContainEqual([
-      'friend_request',
-      'Wrote a post your search on LinkedIn found',
-    ]);
-    // Facebook's list never has them: they're on LinkedIn.
-    expect(await onToday()).toEqual([]);
+    expect(await writers()).toEqual([]);
+    expect(
+      (await listOf(kim, 'linkedin')).filter((i) => i.kind === 'comment').map((i) => i.name),
+    ).toEqual(expect.arrayContaining(['Avery North', 'Jules Park']));
   });
 });
 
