@@ -4,7 +4,7 @@
  * theirs to draft from.
  */
 import { createTokenVerifier } from '@hfos/core/server';
-import { workspaceMemberships } from '@hfos/db/schema';
+import { people, recordTags, tags, workspaceMemberships } from '@hfos/db/schema';
 import {
   closeTestDbs,
   createTestUser,
@@ -310,6 +310,33 @@ describe('drafts for Today', () => {
     const video = (await draft(owner, { kind: 'reply', chatId })).json();
     expect(video).toMatchObject({ kind: 'video', answer: 'yes' });
     expect(video.drafts[0]).toMatch(/short video[\s\S]*https:\/\/www\.loom\.com\/share\/abc123$/);
+  });
+
+  it('answers a client’s yes as a reply, with no link or video (decision 91)', async () => {
+    // Dana is in Contacts now, tagged Client: the same yes, kept, gets a reply.
+    const db = testDbs().admin.db;
+    const [person] = await db
+      .insert(people)
+      .values({ workspaceId: ws, firstName: 'Dana', lastName: 'Reyes' })
+      .returning({ id: people.id });
+    await db.update(profiles).set({ personId: person!.id }).where(eq(profiles.id, profileId));
+    const [tag] = await db
+      .insert(tags)
+      .values({ workspaceId: ws, name: 'Client' })
+      .returning({ id: tags.id });
+    await db
+      .insert(recordTags)
+      .values({ workspaceId: ws, tagId: tag!.id, recordType: 'person', recordId: person!.id });
+    await db
+      .update(followUps)
+      .set({ answer: null, answeredAt: null })
+      .where(eq(followUps.profileId, profileId));
+    const res = (await draft(owner, { kind: 'reply', chatId })).json();
+    expect(res).toMatchObject({ kind: 'reply', answer: 'yes' });
+    for (const d of res.drafts as string[]) {
+      expect(d).not.toContain('loom.com');
+      expect(d).not.toMatch(/link to book/);
+    }
   });
 });
 
