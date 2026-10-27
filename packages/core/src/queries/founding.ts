@@ -182,6 +182,7 @@ export const platformFounding = defineQuery({
         paid_through: Date | null;
         renewal_stopped_at: Date | null;
         renewal_problem: string | null;
+        self_serve: boolean;
       }>(
         ctx.tx,
         // The plan is joined in for `grace_ends_at` alone: the page has to show how long a revoked business
@@ -190,7 +191,7 @@ export const platformFounding = defineQuery({
         // no seat to turn on, which somebody has to refund or fix. A yearly seat's year comes from its plan.
         sql`select g.id, g.offer_id, g.organization_id, org.name as organization_name, g.workspace_id,
               g.status::text as status, g.reserved_at, g.expires_at, g.activated_at, g.revoked_at,
-              g.revoke_reason, p.grace_ends_at,
+              g.revoke_reason, p.grace_ends_at, g.self_serve,
               c.status::text as checkout_status, c.problem as checkout_problem,
               case when p.grant_id = g.id then p.current_period_end end as paid_through,
               case when p.grant_id = g.id then p.renewal_stopped_at end as renewal_stopped_at,
@@ -264,6 +265,7 @@ export const platformFounding = defineQuery({
         paidThrough: iso(g.paid_through),
         renewing: g.paid_through !== null && g.renewal_stopped_at === null,
         renewalProblem: g.renewal_problem,
+        selfServe: g.self_serve,
       })),
     };
   },
@@ -367,11 +369,12 @@ export const platformFoundingBusiness = defineQuery({
         renewal_problem: string | null;
         checkout_status: 'pending' | 'open' | 'paid' | 'expired' | 'failed' | null;
         checkout_problem: string | null;
+        self_serve: boolean;
       }>(
         ctx.tx,
         sql`select g.id, g.offer_id, o.name as offer_name, g.status::text as status, g.workspace_id,
               w.name as workspace_name, g.reserved_at, g.expires_at, g.activated_at, g.revoked_at,
-              g.revoke_reason, p.grace_ends_at,
+              g.revoke_reason, p.grace_ends_at, g.self_serve,
               c.status::text as checkout_status, c.problem as checkout_problem,
               case when p.grant_id = g.id then p.current_period_end end as paid_through,
               case when p.grant_id = g.id then p.renewal_stopped_at end as renewal_stopped_at,
@@ -412,6 +415,7 @@ export const platformFoundingBusiness = defineQuery({
             paidThrough: iso(g.paid_through),
             renewing: g.paid_through !== null && g.renewal_stopped_at === null,
             renewalProblem: g.renewal_problem,
+            selfServe: g.self_serve,
           }
         : null,
       offers: offers.map((o) => ({

@@ -447,6 +447,8 @@ export const FoundingQueueOutput = z.strictObject({
       renewing: z.boolean(),
       /** The last renewal the card refused, until it is paid with another card. Null when nothing is owed. */
       renewalProblem: z.string().nullable(),
+      /** Picked by the business on the plan page (`founding.buy`), not approved or given by staff. */
+      selfServe: z.boolean(),
     }),
   ),
 });
@@ -500,6 +502,8 @@ export const FoundingBusinessOutput = z.strictObject({
       paidThrough: z.iso.datetime().nullable(),
       renewing: z.boolean(),
       renewalProblem: z.string().nullable(),
+      /** Picked by the business on the plan page (`founding.buy`), not approved or given by staff. */
+      selfServe: z.boolean(),
     })
     .nullable(),
   /** Every founding offer, so the page can say which can be given today and why the others can't. */

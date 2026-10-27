@@ -107998,6 +107998,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "selfServe": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -108017,7 +108020,8 @@
                           "checkoutProblem",
                           "paidThrough",
                           "renewing",
-                          "renewalProblem"
+                          "renewalProblem",
+                          "selfServe"
                         ],
                         "additionalProperties": false
                       }
@@ -108362,6 +108366,9 @@
                                 "string",
                                 "null"
                               ]
+                            },
+                            "selfServe": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -108381,7 +108388,8 @@
                             "checkoutProblem",
                             "paidThrough",
                             "renewing",
-                            "renewalProblem"
+                            "renewalProblem",
+                            "selfServe"
                           ],
                           "additionalProperties": false
                         },

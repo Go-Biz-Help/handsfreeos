@@ -5,10 +5,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   FOUNDING_PICK_WORDS as W,
+  foundingBusinessSeatLine,
+  foundingGivenBackLine,
   foundingPickable,
   foundingPickFirst,
   foundingPriceWords,
+  foundingSeatLine,
   type FoundingPickOffer,
+  type FoundingSeatFacts,
 } from '../src/support/founding-words';
 
 const offer = (over: Partial<FoundingPickOffer> & { offerId: string }): FoundingPickOffer => ({
@@ -79,5 +83,45 @@ describe('the words', () => {
   it('never prices anything on the phone', () => {
     const phone = [W.phoneTitle, W.phoneBody('Lone Star Plumbing'), W.phoneCheck, W.phoneOther];
     for (const line of phone) expect(line).not.toMatch(/\$|pay|price|a year|a month/i);
+  });
+});
+
+describe('a spot the business picked itself, in Admin → Founding', () => {
+  const held: FoundingSeatFacts = {
+    status: 'reserved',
+    offerId: 'monthly',
+    reservedAt: '2026-10-27T15:00:00.000Z',
+    expiresAt: '2026-10-27T16:00:00.000Z',
+    activatedAt: null,
+    revokedAt: null,
+    revokeReason: '',
+    graceEndsAt: null,
+    checkoutStatus: 'open',
+    checkoutProblem: '',
+    selfServe: true,
+  };
+
+  it('says it was picked, not approved, while they pay', () => {
+    const line = foundingSeatLine(held);
+    expect(line).toMatch(/picked .* on the plan page, not paid yet · paying now$/);
+    expect(line).not.toMatch(/approved/);
+    const business = foundingBusinessSeatLine(
+      { ...held, offerName: 'Founding Monthly', workspaceId: null, workspaceName: null },
+      'ws',
+    );
+    expect(business).toMatch(/^Founding Monthly · picked .* on the plan page, not paid yet$/);
+  });
+
+  it('says it was never paid once the hold lapses', () => {
+    expect(foundingGivenBackLine({ ...held, status: 'expired' })).toMatch(
+      /^picked on the plan page, never paid · expired /,
+    );
+  });
+
+  it('still says approved for a spot staff approved', () => {
+    expect(foundingSeatLine({ ...held, selfServe: false })).toMatch(/approved .*, not taken up/);
+    expect(foundingGivenBackLine({ ...held, selfServe: false, status: 'expired' })).toMatch(
+      /^never taken up · expired /,
+    );
   });
 });

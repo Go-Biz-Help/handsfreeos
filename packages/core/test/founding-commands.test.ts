@@ -807,6 +807,33 @@ describe('a spot the business buys itself (20261027012700)', () => {
     expect(await eventsOf('founding.checkout_requested', first.checkoutId)).toHaveLength(1);
   });
 
+  it('shows staff the spot was picked on the plan page, not approved', async () => {
+    await buy(owner);
+    const { grants } = await executeQuery(
+      api(),
+      platformFounding,
+      { offerId: MONTHLY },
+      human(staff),
+      meta(),
+    );
+    expect(grants).toEqual([
+      expect.objectContaining({
+        organizationId: orgId,
+        status: 'reserved',
+        selfServe: true,
+        checkoutStatus: 'pending',
+      }),
+    ]);
+    const { seat } = await executeQuery(
+      api(),
+      platformFoundingBusiness,
+      { workspaceId: wsId },
+      human(staff),
+      meta(),
+    );
+    expect(seat).toMatchObject({ offerId: MONTHLY, status: 'reserved', selfServe: true });
+  });
+
   it('says in plain words when every spot has gone', async () => {
     await admin().execute(
       sql`update platform.founding_offers set seat_cap = 0 where id = ${MONTHLY}`,

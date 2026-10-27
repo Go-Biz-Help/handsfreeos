@@ -74729,6 +74729,7 @@ export interface operations {
                             reservedAt: string;
                             revokedAt: string | null;
                             revokeReason: string;
+                            selfServe: boolean;
                             /** @enum {string} */
                             status: "reserved" | "active" | "revoked" | "expired";
                             workspaceId: string | null;
@@ -74810,6 +74811,7 @@ export interface operations {
                             reservedAt: string;
                             revokedAt: string | null;
                             revokeReason: string;
+                            selfServe: boolean;
                             /** @enum {string} */
                             status: "reserved" | "active" | "revoked" | "expired";
                             workspaceId: string | null;

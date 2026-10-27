@@ -248,6 +248,7 @@ const grant = (over: Partial<Queue['grants'][number]>): Queue['grants'][number] 
   paidThrough: null,
   renewing: false,
   renewalProblem: null,
+  selfServe: false,
   ...over,
 });
 

@@ -65,6 +65,8 @@ export interface FoundingSeatFacts {
   readonly renewing?: boolean;
   /** The last renewal the card refused, until it is paid with another card. */
   readonly renewalProblem?: string | null;
+  /** Picked by the business on the plan page rather than approved or given (20261027012700). */
+  readonly selfServe?: boolean;
 }
 
 /** "Oct 3", in the reader's own zone; a dash for a date that isn't there. */
@@ -280,12 +282,10 @@ export const foundingApplicationLine = (a: FoundingApplicationFacts): string =>
     a.industry ? ` · ${a.industry}` : ''
   } · ${foundingDay(a.createdAt)}`;
 
-/** A seat that's out: approved and waiting to be taken up (and maybe being paid for), or in use. */
+/** A seat that's out: held and waiting to be taken up (and maybe being paid for), or in use. */
 export const foundingSeatLine = (g: FoundingSeatFacts): string =>
   `${g.offerId} · ${
-    g.status === 'reserved'
-      ? `approved ${foundingDay(g.reservedAt)}, not taken up — expires ${foundingDay(g.expiresAt)}`
-      : `using it since ${foundingDay(g.activatedAt)}`
+    g.status === 'reserved' ? foundingHeldLine(g) : `using it since ${foundingDay(g.activatedAt)}`
   }${
     g.status === 'reserved' && (g.checkoutStatus === 'pending' || g.checkoutStatus === 'open')
       ? ' · paying now'
@@ -298,11 +298,20 @@ export const foundingYearLine = (g: Pick<FoundingSeatFacts, 'paidThrough' | 'ren
     ? ` · paid through ${foundingLongDay(g.paidThrough)}${g.renewing ? ', renews' : ', not renewing'}`
     : '';
 
+/**
+ * A seat held and not on yet. Staff approved it and it waits to be taken up, or the business picked it on the plan
+ * page and hasn't paid: nobody approved that one, and it is held for an hour, not days.
+ */
+const foundingHeldLine = (g: FoundingSeatFacts): string =>
+  g.selfServe
+    ? `picked ${foundingDay(g.reservedAt)} on the plan page, not paid yet`
+    : `approved ${foundingDay(g.reservedAt)}, not taken up — expires ${foundingDay(g.expiresAt)}`;
+
 /** A seat given back: never taken up, or taken back, and how long they keep working. */
 export const foundingGivenBackLine = (g: FoundingSeatFacts): string =>
   `${
     g.status === 'expired'
-      ? `never taken up · expired ${foundingDay(g.expiresAt)}`
+      ? `${g.selfServe ? 'picked on the plan page, never paid' : 'never taken up'} · expired ${foundingDay(g.expiresAt)}`
       : `revoked ${foundingDay(g.revokedAt)} · ${g.revokeReason}`
   }${g.graceEndsAt ? ` · still working until ${foundingDay(g.graceEndsAt)}` : ''}`;
 
@@ -410,7 +419,7 @@ export function foundingBusinessSeatLine(
     seat.status === 'active'
       ? `since ${foundingDay(seat.activatedAt)}${foundingYearLine(seat)}`
       : seat.status === 'reserved'
-        ? `approved ${foundingDay(seat.reservedAt)}, not taken up — expires ${foundingDay(seat.expiresAt)}`
+        ? foundingHeldLine(seat)
         : foundingGivenBackLine(seat);
   return `${seat.offerName} · ${state}${where}`;
 }
