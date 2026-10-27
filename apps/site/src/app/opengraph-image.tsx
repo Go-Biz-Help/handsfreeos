@@ -73,7 +73,7 @@ export default function OpengraphImage() {
             fontWeight: 700,
           }}
         >
-          Start free
+          Sign up
         </div>
         <div style={{ color: '#676c75' }}>handsfreeos.com</div>
       </div>

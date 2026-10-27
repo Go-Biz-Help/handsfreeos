@@ -51,7 +51,7 @@ export default function AppPage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button href={urls.signUp} size="lg">
-                Start free
+                Sign up
               </Button>
               <Button href="/pricing" size="lg" variant="secondary">
                 See pricing
@@ -159,7 +159,7 @@ export default function AppPage() {
           </p>
           <div className="mt-8 flex justify-center">
             <Button href={urls.signUp} size="lg">
-              Start free
+              Sign up
             </Button>
           </div>
         </div>

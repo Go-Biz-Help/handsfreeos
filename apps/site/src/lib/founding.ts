@@ -9,11 +9,13 @@
  * that is not what we expected — comes back as `null`, and the components say the offer exists without
  * saying how much is left. Nobody is misled by an absent number; they are misled by a wrong one.
  *
- * **The number is a decoration, not a promise.** The seat is taken under a row lock in Postgres whatever
- * this said. Caching it for a minute is therefore free: the worst case is somebody reading "3 left" that
- * became "2 left" thirty seconds ago, and applying anyway — which is exactly what the waitlist is for.
+ * **The number is a decoration, not a promise.** The spot is held under a row lock in Postgres when somebody
+ * presses Pay in the app, whatever this said. Caching it for a minute is therefore free: the worst case is
+ * somebody reading "3 left" that became "2 left" thirty seconds ago, signing up, and being told by the app's
+ * plan page that they've gone.
  */
 import 'server-only';
+import { foundingSpots, type FoundingSpotContent } from '@/content/site';
 
 export interface FoundingCount {
   readonly offerId: string;
@@ -25,11 +27,11 @@ export interface FoundingCount {
   readonly claimed: number;
   readonly remaining: number;
   /**
-   * `once` is a founding seat, free or paid once. `yearly` is a founding seat paid each year. `monthly` is the plan
-   * itself, which has no seats.
+   * `once` is a founding spot, free or paid once. `yearly` is one paid each year, and `monthly` one paid each month:
+   * since 20261027012700 the monthly plan is founding spots too, a thousand of them.
    */
   readonly billing: 'once' | 'yearly' | 'monthly';
-  /** Whether its numbers are for printing. Off for the monthly plan. */
+  /** Whether its numbers are for printing. */
   readonly showCounter: boolean;
   /** A later founding offer has opened after this one: it is no longer what is on sale. */
   readonly superseded: boolean;
@@ -86,37 +88,29 @@ export async function foundingCounts(): Promise<readonly FoundingCount[] | null>
   }
 }
 
-/** One offer's numbers by id, or null — the id is the row in `platform.founding_offers`. */
-export async function foundingCount(offerId: string): Promise<FoundingCount | null> {
-  const all = await foundingCounts();
-  return all?.find((o) => o.offerId === offerId) ?? null;
+/** A founding spot this site sells, with its live numbers: null when the worker could not be reached. */
+export interface FoundingSpot {
+  readonly content: FoundingSpotContent;
+  readonly count: FoundingCount | null;
 }
 
 /**
- * The founding offer on sale right now: the one seat-based offer that nothing later has superseded. In the
- * growth plan that is the free seats until they are all out, then the $497 seats.
+ * The founding spots on sale now, in `foundingSpots`' order: the ones the database has open that nothing later has
+ * superseded, full or not. A full one stays on the page saying so; it is the only honest answer to "is there room".
  *
- * Null when the worker could not be reached, or when no founding offer is open or closed at all. The pages
- * read that as "say nothing about founding seats" rather than guess which stage it is.
+ * When the worker cannot be reached, every spot is shown without its numbers. Signing up holds nothing — the spot is
+ * held when they pay, under the cap's lock — so the cost of being wrong for a minute is somebody signing up for a
+ * spot that has gone, and the app's plan page tells them so. A pricing page with nothing on it to buy would cost
+ * every visitor instead.
  */
-export function currentFoundingOffer(
-  counts: readonly FoundingCount[] | null,
-): FoundingCount | null {
-  const live = (counts ?? []).filter(
-    (c) => c.billing !== 'monthly' && c.status !== 'draft' && !c.superseded,
-  );
-  // Several at once only if somebody opened offers out of order by hand; the later one is the later stage.
-  return live.at(-1) ?? null;
+export function foundingSpotsOnSale(counts: readonly FoundingCount[] | null): FoundingSpot[] {
+  if (counts === null) return foundingSpots.map((content) => ({ content, count: null }));
+  return foundingSpots.flatMap((content) => {
+    const count = counts.find((c) => c.offerId === content.id);
+    return count && count.status === 'open' && !count.superseded ? [{ content, count }] : [];
+  });
 }
 
-/**
- * Whether the $97 plan is on sale. It opens itself partway through the $497 seats.
- *
- * When the worker cannot be reached this answers **yes**. The plan is the product that outlasts every founding
- * offer, and a pricing page that hid it on a network blip would have nothing on it to buy at all. Signing up
- * charges nothing by itself, so the cost of being wrong for a minute is a sign-up, not a sale.
- */
-export function monthlyOnSale(counts: readonly FoundingCount[] | null): boolean {
-  if (counts === null) return true;
-  return counts.some((c) => c.billing === 'monthly' && c.status === 'open');
-}
+/** Room left, as far as anybody knows: unknown numbers count as room, and the database decides at Pay. */
+export const hasRoom = (spot: FoundingSpot): boolean =>
+  spot.count === null || spot.count.remaining > 0;

@@ -258,7 +258,7 @@ export default async function PostPage({ params }: Props) {
                 the invoice — one system for small service businesses.
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
-                <Button href={urls.signUp}>Start free</Button>
+                <Button href={urls.signUp}>Sign up</Button>
                 <Button href="/features" variant="secondary">
                   See what it does
                 </Button>
