@@ -76,7 +76,10 @@ function counting(inner: AiProvider = scriptedAi()) {
   return { provider, asks: () => asks };
 }
 
-/** The stand-in model, whose words for a playbook about "unusable" come back as no answer it can use. */
+/**
+ * The stand-in model, whose words for a playbook about "unusable" come back as no answer it can use. The business’s
+ * name is in every ask, so a business using it must never be named "unusable".
+ */
 function unusable(inner: AiProvider = scriptedAi()): AiProvider {
   return {
     ...inner,
@@ -285,7 +288,7 @@ describe('the AI’s words for finding people by topic', () => {
   it('passes over an answer it can’t use for the playbooks after it, and never asks again and again', async () => {
     const ai = counting(unusable());
     const s = testServices({ ai: { provider: ai.provider } });
-    const ws = await everywhere('Outreach Unusable Words Co');
+    const ws = await everywhere('Outreach Passed Over Words Co');
     // More than a run's playbooks whose answers can't be used, saved first, then two that can.
     for (let i = 1; i <= WRITE_WORDS_BATCH; i++)
       await runAs(owner, ws, 'outreach.playbook.save', {
