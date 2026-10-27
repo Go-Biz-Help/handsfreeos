@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
   assistantToolByName,
+  BIN_WORDS,
+  binDeletedWords,
   catalogAddon,
   executeCommand,
   executeQuery,
@@ -26,7 +28,7 @@ import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
  * The last settings the Assistant used to hand back (the owner, 2026-10-26): add-ons on and off, the Deleted bin,
- * partners and Settings → Safety. Each card says what will really change, nothing changes until Confirm, and then
+ * partners and Settings → Safety; and moving things to the bin (2026-10-27). Each card says what will really change, nothing changes until Confirm, and then
  * the screen's own command runs as the person.
  */
 
@@ -104,7 +106,7 @@ afterAll(closeTestDbs);
 describe('the last settings by asking', () => {
   it('each has a step label, asks first, and goes only to people the screens allow', () => {
     const names = Object.keys(moreSettingsConfirmTools);
-    expect(names).toHaveLength(5);
+    expect(names).toHaveLength(6);
     for (const name of names) {
       expect(assistantToolByName.get(name)?.autonomy, name).toBe('confirm');
       expect(moreSettingsStepLabels[name], name).toBeTruthy();
@@ -116,8 +118,9 @@ describe('the last settings by asking', () => {
     // The bin is for whoever is trusted with deleting: owners, to start.
     const ownerTools = toolsFor((p) => hasWorkspacePermission('owner', p)).map((t) => t.name);
     for (const name of names) expect(ownerTools, name).toContain(name);
-    for (const name of names.filter((n) => n !== 'restore_from_bin'))
+    for (const name of names.filter((n) => n !== 'restore_from_bin' && n !== 'move_to_bin'))
       expect(adminTools, name).toContain(name);
+    expect(adminTools).not.toContain('move_to_bin');
   });
 
   it('changes Safety’s times and safety person on Confirm', async () => {
@@ -202,6 +205,27 @@ describe('the last settings by asking', () => {
     const { items } = await q<{ items: { id: string }[] }>('bin.list');
     expect(items.map((i) => i.id)).not.toContain(binItemId);
     expect(assistantToolByName.has('empty_bin')).toBe(false);
+  });
+
+  it('moves a customer to the Deleted bin on Confirm, saying what goes with them', async () => {
+    const kai = await customer('Kai');
+    const { card, parsed } = await prepare('move_to_bin', { kind: 'person', ids: [kai] });
+    expect(card.title).toBe('Delete Kai Test for good?');
+    expect(field(card, 'Customer')).toBe('Kai Test');
+    expect(card.confirmLabel).toBe(BIN_WORDS.submit);
+    // Nothing goes until Confirm.
+    expect(
+      (await q<{ items: { name: string }[] }>('bin.list')).items.map((i) => i.name),
+    ).not.toContain('Kai Test');
+    const done = await confirm('move_to_bin', parsed);
+    expect(done.outcome).toBe(binDeletedWords('person', ['Kai Test']));
+    expect((await q<{ items: { name: string }[] }>('bin.list')).items.map((i) => i.name)).toContain(
+      'Kai Test',
+    );
+    // Gone already: said before any card, in the bin's own words.
+    await expect(prepare('move_to_bin', { kind: 'person', ids: [kai] })).rejects.toThrow(
+      'That isn’t here any more',
+    );
   });
 
   it('turns an add-on off and on again, saying what everyone loses', async () => {

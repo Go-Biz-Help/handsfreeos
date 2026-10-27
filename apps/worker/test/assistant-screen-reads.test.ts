@@ -8,6 +8,7 @@ import {
   executeCommand,
   hasStaffPermission,
   hasWorkspacePermission,
+  isStaffPermission,
   NOT_FOR_THE_ASSISTANT,
   organizationCreate,
   personCreate,
@@ -125,6 +126,8 @@ describe('what the Assistant can see', () => {
     expect(new Set(tools.map((t) => t.name)).size).toBe(tools.length);
     for (const t of tools) {
       expect(t.autonomy, t.name).toBe('auto');
+      // A staff screen looks across businesses, so it names the one it reads (the test below).
+      if (t.query.permission && isStaffPermission(t.query.permission)) continue;
       expect(Object.keys(t.input.shape), t.name).not.toContain('workspaceId');
     }
   });
