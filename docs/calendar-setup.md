@@ -369,6 +369,15 @@ For production:
 6. Until Zoom approves the app for the Marketplace, only accounts added as testers on the app can connect.
    Check the exact screen names against Zoom's current Marketplace before relying on them; they move.
 
+## HandsFreeOS video calls
+
+A calendar's **Online** place (or one service on it) can also be set to **HandsFreeOS video call** (Settings →
+Calendars → Locations), once support has turned video calls on for the business in /admin. Nobody connects
+anything: each appointment gets its own call when it's booked, customers join from their own Join link in the
+browser, and the team joins with **Join video call** on the appointment. While calls are on, an Online place with no
+link of its own makes one too. LiveKit carries the video; its setup is "Video calls: LiveKit" in
+`docs/operations.md`, and how the calls work is `docs/video-calls.md`.
+
 ## The coaching Zoom app
 
 AI Sales Coach listens in Zoom meetings through a **second** Zoom app, "HandsFreeOS Sales Coach", apart from the one

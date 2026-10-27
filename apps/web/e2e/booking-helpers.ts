@@ -107,14 +107,18 @@ export interface Owner {
 }
 
 /** A new business whose owner works every hour of every day, with a booking site. */
-export async function ownerWithSite(page: Page, label: string, business: string): Promise<Owner> {
+export async function ownerWithSite(
+  page: Page,
+  label: string,
+  business: string,
+): Promise<Owner & { readonly email: string }> {
   const { email } = await signUpAndConfirm(page, label);
   const workspaceId = await createBusiness(page, { name: business });
   const { token, userId } = await signInOwner(email);
   await api(token, 'commands', 'schedule.set', { workspaceId, ownerId: userId, weekly: ALL_WEEK });
   const site = `e2e-${randomUUID().slice(0, 8)}`;
   await api(token, 'commands', 'booking_site.update', { workspaceId, slug: site, name: business });
-  return { token, userId, workspaceId, site, business };
+  return { email, token, userId, workspaceId, site, business };
 }
 
 /** A public calendar for the owner, bookable right away, changes and cancels allowed until the start. */
