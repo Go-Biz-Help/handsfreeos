@@ -184,6 +184,8 @@ describe('the seeded card', () => {
       'speech.voice.kchar': 5,
       // Zoom's transcript of a coached meeting, at 1.5× its Developer Pack credits.
       'speech.meeting.minute': 3,
+      // A person's minute in a HandsFreeOS video call is 0.3¢; one minute on its own is lifted by the floor.
+      'video.minute': 1,
       'ai.unknown.mtok': 2250,
       // The carriers' texting registration fees, at exactly what Twilio charges us.
       'a2p.brand.registration': 450,
@@ -223,6 +225,13 @@ describe('the seeded card', () => {
       'speech.meeting.minute',
     ] as const)
       expect(SEED_CARD.rates[key].markupBp, key).toBe(15_000);
+  });
+
+  it('charges a HandsFreeOS video call one and a half times what LiveKit charges, per person', () => {
+    // An hour of two people (14a): about 40¢.
+    expect(priceOf(SEED_CARD, 'video.minute', 120).amountCents).toBe(36);
+    expect(SEED_CARD.rates['video.minute'].markupBp).toBe(15_000);
+    expect(SEED_CARD.rates['video.minute'].unit).toBe('minute');
   });
 
   it('charges the half-cent lines their half cent once there is more than one of them', () => {

@@ -46,6 +46,7 @@ import { chatWidgetGet, chatWidgetList } from './chat';
 import { auditList } from './audit.list';
 import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
 import { liveMeetingAccountMine } from '../commands/live-meeting';
+import { videoCallQueries } from '../commands/video-call';
 import { callSuggestionList } from '../commands/call-suggestion';
 import {
   appointmentGet,
@@ -260,6 +261,8 @@ export const queries: readonly QueryDef[] = [
   ...portalQueries,
   ...portalFileQueries,
   ...portalMessageQueries,
+  // HandsFreeOS video calls (docs/video-calls.md).
+  ...videoCallQueries,
   ...supportQueries,
   ...platformQueries,
   // What our own tools saw when something didn't go (20261027008100).

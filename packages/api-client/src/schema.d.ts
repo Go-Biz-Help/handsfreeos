@@ -847,7 +847,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Try again to make the Zoom link for an online appointment, for instance after its host connected Zoom.
+         * Try again to make the Zoom link or the HandsFreeOS video call for an online appointment, for instance after its host connected Zoom.
          * @description Risk level 1. Requires appointments.write. Emits appointment.meeting_link_requested.
          */
         post: operations["command_appointment_make_meeting_link"];
@@ -14477,6 +14477,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.admit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let someone who is waiting into a HandsFreeOS video call.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.admitted.
+         */
+        post: operations["command_video_call_admit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a HandsFreeOS video call for everyone in it. The team can start it again from the appointment.
+         * @description Risk level 2. Requires appointments.write. Emits video_call.ended_by_host.
+         */
+        post: operations["command_video_call_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join a HandsFreeOS video call as someone from the team.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.team_joining.
+         */
+        post: operations["command_video_call_join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mute someone’s microphone in a HandsFreeOS video call. Only they can turn it back on.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.mute_requested.
+         */
+        post: operations["command_video_call_mute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone out of a HandsFreeOS video call. To come back they have to be let in again.
+         * @description Risk level 2. Requires appointments.write. Emits video_call.person_removed.
+         */
+        post: operations["command_video_call_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.turn_away": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn away someone who is asking to join a HandsFreeOS video call.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.turned_away.
+         */
+        post: operations["command_video_call_turn_away"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_calls.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: turn HandsFreeOS video calls on or off for one business, so its Online places can make them.
+         * @description Risk level 3. Requires platform.addons.manage. Emits video_calls.changed.
+         */
+        post: operations["command_video_calls_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_link.create": {
         parameters: {
             query?: never;
@@ -21157,6 +21297,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/video_call.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A HandsFreeOS video call: its appointment, who is in it, who has been, and who is waiting to be let in.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/waitlist.list": {
         parameters: {
             query?: never;
@@ -23368,7 +23528,7 @@ export interface operations {
                         /** @default false */
                         record?: boolean;
                         /** @default null */
-                        video?: ("none" | "google_meet" | "zoom") | null;
+                        video?: ("none" | "google_meet" | "zoom" | "handsfree") | null;
                     };
                     notes?: string | null;
                     /** @default true */
@@ -23729,7 +23889,7 @@ export interface operations {
                         /** @default false */
                         record?: boolean;
                         /** @default null */
-                        video?: ("none" | "google_meet" | "zoom") | null;
+                        video?: ("none" | "google_meet" | "zoom" | "handsfree") | null;
                     };
                     notes?: string | null;
                     title?: string;
@@ -25338,7 +25498,7 @@ export interface operations {
                                  * @default none
                                  * @enum {string}
                                  */
-                                video?: "none" | "google_meet" | "zoom";
+                                video?: "none" | "google_meet" | "zoom" | "handsfree";
                             }[];
                         };
                         /** @default {} */
@@ -25469,7 +25629,7 @@ export interface operations {
                                     seats?: number;
                                     userIds?: string[];
                                     /** @enum {string} */
-                                    video?: "none" | "google_meet" | "zoom";
+                                    video?: "none" | "google_meet" | "zoom" | "handsfree";
                                 };
                                 /** Format: uuid */
                                 serviceId: string;
@@ -52580,7 +52740,7 @@ export interface operations {
                         /** @default false */
                         record?: boolean;
                         /** @default null */
-                        video?: ("none" | "google_meet" | "zoom") | null;
+                        video?: ("none" | "google_meet" | "zoom" | "handsfree") | null;
                     };
                     notes?: string | null;
                     /** @default false */
@@ -52821,7 +52981,7 @@ export interface operations {
                         /** @default false */
                         record?: boolean;
                         /** @default null */
-                        video?: ("none" | "google_meet" | "zoom") | null;
+                        video?: ("none" | "google_meet" | "zoom" | "handsfree") | null;
                     };
                     notes?: string | null;
                     serviceId?: string | null;
@@ -55085,6 +55245,248 @@ export interface operations {
                         updated: string[];
                         /** Format: uuid */
                         userId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_admit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_join: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        call: {
+                            aiNotes: boolean;
+                            appointmentId: string | null;
+                            endedAt: string | null;
+                            hostUserId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            personId: string | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "open" | "live" | "ended";
+                        };
+                        name: string;
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_mute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        requested: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_turn_away: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_calls_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    on: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        on: boolean;
+                        was: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -59294,7 +59696,7 @@ export interface operations {
                                 /** @default false */
                                 record: boolean;
                                 /** @default null */
-                                video: ("none" | "google_meet" | "zoom") | null;
+                                video: ("none" | "google_meet" | "zoom" | "handsfree") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -59449,7 +59851,7 @@ export interface operations {
                                 /** @default false */
                                 record: boolean;
                                 /** @default null */
-                                video: ("none" | "google_meet" | "zoom") | null;
+                                video: ("none" | "google_meet" | "zoom" | "handsfree") | null;
                             };
                             notes: string | null;
                             occurrence: number | null;
@@ -61097,7 +61499,7 @@ export interface operations {
                                          * @default none
                                          * @enum {string}
                                          */
-                                        video: "none" | "google_meet" | "zoom";
+                                        video: "none" | "google_meet" | "zoom" | "handsfree";
                                     }[];
                                 };
                                 notifications: {
@@ -61216,7 +61618,7 @@ export interface operations {
                                             seats?: number;
                                             userIds?: string[];
                                             /** @enum {string} */
-                                            video?: "none" | "google_meet" | "zoom";
+                                            video?: "none" | "google_meet" | "zoom" | "handsfree";
                                         };
                                         /** Format: uuid */
                                         serviceId: string;
@@ -74410,6 +74812,7 @@ export interface operations {
                             status: "new" | "open" | "waiting_on_customer" | "solved" | "closed";
                             subject: string;
                         }[];
+                        videoCalls: boolean;
                     };
                 };
             };
@@ -82151,6 +82554,86 @@ export interface operations {
             };
         };
     };
+    query_video_call_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    callId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointment: {
+                            customers: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            startsAt: string;
+                            status: string;
+                            title: string;
+                        } | null;
+                        call: {
+                            aiNotes: boolean;
+                            appointmentId: string | null;
+                            endedAt: string | null;
+                            hostUserId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            personId: string | null;
+                            startedAt: string | null;
+                            /** @enum {string} */
+                            state: "open" | "live" | "ended";
+                        } | null;
+                        host: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        } | null;
+                        people: {
+                            askedAt: string | null;
+                            connected: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            joinedAt: string | null;
+                            /** @enum {string} */
+                            kind: "team" | "customer" | "guest";
+                            leftAt: string | null;
+                            name: string;
+                            personId: string | null;
+                            seconds: number;
+                            /** @enum {string} */
+                            state: "waiting" | "admitted" | "in" | "left" | "turned_away" | "removed";
+                            userId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_waitlist_list: {
         parameters: {
             query?: never;
@@ -83305,6 +83788,7 @@ export interface operations {
                             };
                             slug: string;
                             timezone: string;
+                            videoCalls: boolean;
                         };
                     };
                 };

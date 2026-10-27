@@ -95,6 +95,8 @@ export const workspaces = app.table('workspaces', {
   phoneListener: text('phone_listener'),
   /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
   isPlatform: boolean('is_platform').notNull().default(false),
+  /** HandsFreeOS video calls are on for it (20261027013000): support turns them on in /admin. */
+  videoCalls: boolean('video_calls').notNull().default(false),
   ...timestamps(),
 });
 
@@ -2747,6 +2749,52 @@ export const liveMeetings = app.table('live_meetings', {
   streamId: text('stream_id'),
   startedAt: ts('started_at'),
   endedAt: ts('ended_at'),
+  ...timestamps(),
+});
+
+/**
+ * A HandsFreeOS video call (20261027013000): one appointment's call, open, live or over. LiveKit carries it; the
+ * worker hands out its tickets and hears who came and went.
+ */
+export const videoCalls = app.table('video_calls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  hostUserId: userRef('host_user_id'),
+  state: text('state').notNull().default('open'),
+  aiNotes: boolean('ai_notes').notNull().default(true),
+  roomSid: text('room_sid'),
+  startedAt: ts('started_at'),
+  endedAt: ts('ended_at'),
+  secondsBilled: integer('seconds_billed').notNull().default(0),
+  ...timestamps(),
+});
+
+/** Who's in a video call: a teammate, a customer on their own Join link, or someone let in (20261027013000). */
+export const videoCallPeople = app.table('video_call_people', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id').notNull(),
+  kind: text('kind').notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
+    onDelete: 'cascade',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  state: text('state').notNull().default('waiting'),
+  knockKeyHash: text('knock_key_hash'),
+  askedAt: ts('asked_at'),
+  admittedAt: ts('admitted_at'),
+  admittedBy: userRef('admitted_by'),
+  joinedAt: ts('joined_at'),
+  lastJoinedAt: ts('last_joined_at'),
+  leftAt: ts('left_at'),
+  seconds: integer('seconds').notNull().default(0),
   ...timestamps(),
 });
 

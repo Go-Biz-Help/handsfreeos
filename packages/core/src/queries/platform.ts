@@ -233,6 +233,7 @@ export const platformBusinessGet = defineQuery({
       phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
       phoneListener: PHONE_LISTENERS.find((l) => l === row.w.phoneListener) ?? null,
       isPlatform: row.w.isPlatform,
+      videoCalls: row.w.videoCalls,
       addonGrants: grants.map((g) => ({
         addonId: g.addon_id,
         note: g.note,

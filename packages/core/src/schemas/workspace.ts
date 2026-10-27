@@ -228,6 +228,11 @@ export const WorkspaceGetOutput = z.object({
      * is how the wrong key gets read.
      */
     inboxPerPerson: z.boolean(),
+    /**
+     * HandsFreeOS video calls are on here (docs/video-calls.md): the Online place offers them, and appointments
+     * set to one show Join. Support turns them on in /admin.
+     */
+    videoCalls: z.boolean(),
     createdAt: isoDateTime,
     /**
      * What this person can do here now (0108): core's capabilities and running add-ons', where they hold the

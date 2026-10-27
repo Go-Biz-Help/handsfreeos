@@ -61,6 +61,7 @@ export const workspaceGet = defineQuery({
             (row.ws.settings as Record<string, unknown> | null)?.['inbox'] as
               { perPerson?: unknown } | undefined
           )?.perPerson === true,
+        videoCalls: row.ws.videoCalls,
         createdAt: row.ws.createdAt.toISOString(),
         capabilities: currentCapabilityIds({
           catalog: ADDON_CATALOG,

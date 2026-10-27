@@ -58,9 +58,12 @@ export const AppointmentLocation = z.object({
   address: z.string().trim().max(300).nullable().default(null),
   meetingUrl: z.url().max(500).nullable().default(null),
   postalCode: z.string().trim().max(20).nullable().default(null),
-  /** Online only: the link is made for it (`google_meet`, `zoom`), filled in once the host's account has it. */
+  /**
+   * Online only: the link is made for it (`google_meet`, `zoom`), filled in once the host's account has it; or it's a
+   * HandsFreeOS video call (`handsfree`), whose link is the team's way into the call.
+   */
   video: VideoProvider.nullable().default(null),
-  /** Zoom: the meeting's id there, so a move or a cancel follows it. */
+  /** Zoom: the meeting's id there, so a move or a cancel follows it. A HandsFreeOS call: the call's id. */
   meetingId: z.string().max(100).nullable().default(null),
   /** Zoom: the times the meeting was last set to (`startsAt|endsAt`), so an unchanged one isn't sent again. */
   meetingFor: z.string().max(100).nullable().default(null),

@@ -111,11 +111,17 @@ export interface LoadedCalendar {
   readonly timeZone: string;
   readonly config: CalendarConfig;
   readonly updatedAt: Date;
+  /** The business has HandsFreeOS video calls on, so its Online places can make them (absent: off). */
+  readonly videoCalls?: boolean;
 }
 
 type CalendarRow = typeof calendars.$inferSelect;
 
-export function toLoadedCalendar(row: CalendarRow, workspaceZone: string): LoadedCalendar {
+export function toLoadedCalendar(
+  row: CalendarRow,
+  workspaceZone: string,
+  videoCalls = false,
+): LoadedCalendar {
   return {
     id: row.id,
     workspaceId: row.workspaceId,
@@ -132,6 +138,7 @@ export function toLoadedCalendar(row: CalendarRow, workspaceZone: string): Loade
     timeZone: row.timezone ?? workspaceZone,
     config: parseConfig(row.config),
     updatedAt: row.updatedAt,
+    videoCalls,
   };
 }
 
@@ -148,7 +155,7 @@ export async function loadCalendar(
       sql`select 1 from app.calendars where id = ${calendarId} and workspace_id = ${workspaceId} for update`,
     );
   const [row] = await tx
-    .select({ c: calendars, zone: workspaces.timezone })
+    .select({ c: calendars, zone: workspaces.timezone, videoCalls: workspaces.videoCalls })
     .from(calendars)
     .innerJoin(workspaces, eq(workspaces.id, calendars.workspaceId))
     .where(and(eq(calendars.id, calendarId), eq(calendars.workspaceId, workspaceId)));
@@ -156,7 +163,7 @@ export async function loadCalendar(
     throw HfosError.notFound(
       'That calendar isn’t there anymore. It may have been deleted. Refresh and try again.',
     );
-  return toLoadedCalendar(row.c, row.zone);
+  return toLoadedCalendar(row.c, row.zone, row.videoCalls);
 }
 
 export async function workspaceZone(tx: Tx, workspaceId: string): Promise<string> {

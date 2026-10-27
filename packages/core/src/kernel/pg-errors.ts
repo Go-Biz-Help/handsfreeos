@@ -343,6 +343,17 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 403,
     message: 'That is one of our own addresses. Use a domain your business owns.',
   },
+  // HandsFreeOS video calls (docs/video-calls.md): support's switch, and who changes what in a call.
+  video_calls_switch_is_ours: {
+    status: 403,
+    message:
+      'Only HandsFreeOS support turns video calls on or off for a business. Ask support if you’d like them.',
+  },
+  video_call_state_transition: {
+    status: 409,
+    message:
+      'That call changed while you were looking at it. Refresh the page to see who’s in it now.',
+  },
   // Relationships (0101): what the database says when a pair or a type breaks its rules.
   relationship_end_full: {
     status: 409,
