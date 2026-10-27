@@ -3,7 +3,7 @@
  * replies handed over, messages to OK, steps the extension needs them for, and friend requests that are theirs to
  * decide (every request lately that Today doesn't list to confirm, so none is on neither). A need is the same need
  * when noted again, stays quiet a week after Let it go, and clears when its step is noted; a message that didn't go
- * becomes one. Approve all leaves the messages that wait one at a time, and Today counts them the same way. A press
+ * becomes one. Each is on its profile's network and links there: the link given on it, else their page. Approve all leaves the messages that wait one at a time, and Today counts them the same way. A press
  * that waited keeps its moment. The Live tab and the team view count what waits as the list does.
  */
 import { rows, sql } from '@hfos/db/client';
@@ -31,6 +31,7 @@ type Item = {
   need?: {
     needId: string;
     step: string;
+    platform: string;
     name: string;
     url: string | null;
     text: string | null;
@@ -414,7 +415,7 @@ describe('Waiting for you', () => {
     expect(after.map((i) => i.need!.step)).toEqual(['comment']);
   });
 
-  it('clears a comment with no post kept by its link, keeps only Facebook links, and waits from when it arrived', async () => {
+  it('clears a comment with no post kept by its link, links only on its network, and waits from when it arrived', async () => {
     const ivy = (
       await runAs(owner, ws, 'outreach.friend.set', {
         profile: fb('ivy.stone.3'),
@@ -438,7 +439,7 @@ describe('Waiting for you', () => {
     expect(Date.now() - new Date(kept!.seen_at).getTime()).toBeGreaterThan(2 * 60 * MIN);
     // It began to wait when it reached HandsFreeOS: the bundled push takes it for new.
     expect(Date.now() - new Date(kept!.created_at).getTime()).toBeLessThan(5 * MIN);
-    // A link that isn't Facebook's isn't kept.
+    // A link on no network of theirs isn't kept: their page on Facebook is.
     const elsewhere = await runAs(owner, ws, 'outreach.need.note', {
       step: 'warm_up',
       profileId: ivy,
@@ -447,7 +448,12 @@ describe('Waiting for you', () => {
       why: 'couldn’t find “Like”',
     });
     const shown = ((await waiting()).items as Item[]).filter((i) => i.need?.name === 'Ivy Stone');
-    expect(shown.find((i) => i.need!.needId === elsewhere.needId)!.need!.url).toBeNull();
+    expect(shown.find((i) => i.need!.needId === elsewhere.needId)!.need).toMatchObject({
+      platform: 'facebook',
+      url: 'https://www.facebook.com/ivy.stone.3',
+    });
+    // The comment's post, kept as its link.
+    expect(shown.find((i) => i.need!.needId === noted.needId)!.need!.url).toBe(postUrl);
     await runAs(owner, ws, 'outreach.touch.save', {
       kind: 'comment',
       profile: fb('ivy.stone.3'),
@@ -456,6 +462,49 @@ describe('Waiting for you', () => {
     });
     const left = ((await waiting()).items as Item[]).filter((i) => i.need?.name === 'Ivy Stone');
     expect(left.map((i) => i.need!.step)).toEqual(['warm_up']);
+  });
+
+  it('links each step on its own network: Alignable’s keeps its link, and one kept with none opens their page', async () => {
+    const page = 'https://www.alignable.com/springfield-il/lane-landscaping-co';
+    const lane = (
+      await runAs(owner, ws, 'outreach.friend.set', {
+        platform: 'alignable',
+        profile: { id: null, username: 'lane-landscaping-co', url: page },
+        name: 'Lane Landscaping Co',
+        keep: false,
+      })
+    ).profileId as string;
+    const noted = await runAs(owner, ws, 'outreach.need.note', {
+      step: 'friend_request',
+      profileId: lane,
+      name: 'Lane Landscaping Co',
+      url: page,
+      why: 'couldn’t find Connect on their page',
+    });
+    const shown = async () =>
+      ((await waiting()).items as Item[]).find((i) => i.need?.needId === noted.needId)!.need!;
+    expect(await shown()).toMatchObject({
+      step: 'friend_request',
+      platform: 'alignable',
+      url: page,
+    });
+    // One kept with no link, as every network's but Facebook's were till now: it opens their page, on Alignable.
+    await rows(admin(), sql`update addon_outreach.needs set url = null where id = ${noted.needId}`);
+    expect(await shown()).toMatchObject({ platform: 'alignable', url: page });
+    // Seen again with a link on another network: their page is kept instead.
+    await runAs(owner, ws, 'outreach.need.note', {
+      step: 'friend_request',
+      profileId: lane,
+      name: 'Lane Landscaping Co',
+      url: 'https://www.facebook.com/lane.landscaping',
+      why: 'couldn’t find Connect on their page',
+    });
+    const [kept] = await rows<{ url: string | null }>(
+      admin(),
+      sql`select url from addon_outreach.needs where id = ${noted.needId}`,
+    );
+    expect(kept!.url).toBe(page);
+    await runAs(owner, ws, 'outreach.need.clear', { needId: noted.needId, how: 'dismissed' });
   });
 
   it('keeps a press that waited at its moment: the extension couldn’t again after it, so it stays', async () => {
@@ -521,6 +570,9 @@ describe('Waiting for you', () => {
       step: 'message',
       text: 'Hi Fern!',
       why: 'couldn’t find the box to write in',
+      // No chat with them yet: their page, on their network.
+      platform: 'facebook',
+      url: 'https://www.facebook.com/fern.ash.9',
     });
     // Sent by hand: noted, and done.
     await runAs(owner, ws, 'outreach.touch.save', {
@@ -662,5 +714,52 @@ describe('friend requests to decide', () => {
     const got = await runAs(owner, ws, 'outreach.waiting', {});
     expect(got.items).toEqual([]);
     expect(got.count).toBe(0);
+  });
+});
+
+describe('a friend request accepted', () => {
+  it('clears the need to send it once their friends list has them, but one noted after that look', async () => {
+    const ws = await business('Outreach Accepted Co', false);
+    const opal = (
+      await runAs(owner, ws, 'outreach.friend.set', {
+        profile: fb('opal.reed.3'),
+        name: 'Opal Reed',
+        keep: false,
+      })
+    ).profileId as string;
+    const need = (u: TestUser) =>
+      runAs(u, ws, 'outreach.need.note', {
+        step: 'friend_request',
+        profileId: opal,
+        name: 'Opal Reed',
+        url: null,
+        why: 'couldn’t find “Add friend”',
+      });
+    const needs = async (u: TestUser) =>
+      ((await runAs(u, ws, 'outreach.waiting', {})).items as Item[]).flatMap((i) =>
+        i.need ? [`${i.need.step}: ${i.need.name}`] : [],
+      );
+    const friends = (u: TestUser, at?: Date) =>
+      runAs(
+        u,
+        ws,
+        'outreach.friends.save',
+        { list: 'friends', people: [{ profile: fb('opal.reed.3'), name: 'Opal Reed' }] },
+        at,
+      );
+    await need(owner);
+    await need(member);
+    // A look at the friends list from before the need leaves it open (Waiting for you hides it all the same, as
+    // they're friends now).
+    const cleared = await events(ws, 'outreach.need.cleared');
+    await friends(owner, ago(MIN));
+    expect(await events(ws, 'outreach.need.cleared')).toBe(cleared);
+    await friends(owner);
+    expect(await needs(owner)).toEqual([]);
+    expect(await events(ws, 'outreach.need.cleared')).toBe(cleared + 1);
+    // The member's own need is theirs, till their list has Opal.
+    expect(await needs(member)).toEqual(['friend_request: Opal Reed']);
+    await friends(member);
+    expect(await needs(member)).toEqual([]);
   });
 });

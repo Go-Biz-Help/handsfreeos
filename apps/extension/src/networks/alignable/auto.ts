@@ -6,8 +6,9 @@
  *   as a button: never its count, which opens who liked it, and never an answer's), and only while it isn't liked yet.
  *   It's liked once the Like says so (Liked, Unlike, or pressed) or its count goes up.
  * - **Connect** on their business page: only its own, a link to /biz/connection_requests/… carrying Alignable's id for
- *   their business, and only while it says Connect. It makes the request at once and may open another page, so the tab
- *   answers as it presses, and the runner opens their page again to see the request went.
+ *   their business, and only while it says Connect: never while their page shows you're connected (its own Remove
+ *   Connection, 0.94.0). It makes the request at once and may open another page, so the tab answers as it presses, and
+ *   the runner opens their page again to see the request went.
  * - **A message** in their conversation (/biz/conversations?with_business_id=<id>): typed only into that conversation's
  *   own box (`full-view-write-message`) while it's empty, and sent with its Send (`messaging-send-external`). It went
  *   once the box empties.
@@ -144,13 +145,14 @@ export function connectFor(doc: Document, href: string, id: string): HTMLElement
 /**
  * Presses their own Connect, on their business page alone (by Alignable's id for it), while it says Connect. It makes
  * the request at once and may open another page, so it answers as it presses, before that page loads: the runner opens
- * their page again to see it went. `already` when it says they're asked or connected; `none` when there's nothing to
- * press, which is the person's.
+ * their page again to see it went. `already` when their page shows you're connected (its own Remove Connection) or its
+ * Connect says they're asked or connected; `none` when there's nothing to press, which is the person's.
  */
 export function connectOnPage(doc: Document, href: string, profile: ProfileRef): AutoResult {
   const id = profile.id;
   const page = businessPage(doc, href);
   if (!id || !page?.profile || page.profile.id !== id) return 'none';
+  if (page.connected) return 'already';
   const link = connectFor(doc, href, id);
   if (!link) return 'none';
   const words = nameOf(link);

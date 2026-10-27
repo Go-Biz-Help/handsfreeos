@@ -33,6 +33,7 @@ import {
 } from '../friends';
 import { outreachAddon } from '../manifest';
 import { NETWORKS } from '../networks';
+import { CLIENT_SKIPPED_KINDS, mayTakeOff } from '../person-menu';
 import {
   forPartners,
   PlaybookDetails,
@@ -41,7 +42,7 @@ import {
   type Platform,
 } from '../playbooks';
 import type { Friendship } from '../saves';
-import { friends, imports, playbooks, profiles, sends } from '../tables';
+import { friends, imports, playbooks, profiles } from '../tables';
 import {
   countryLetsSql,
   countryRuleOf,
@@ -54,11 +55,12 @@ import {
   once,
   pitchable,
   requireFits,
+  skipOutreachTo,
   type Profile,
   type ProfileKey,
 } from './common';
 import { checksSummary } from './checks';
-import { clearNeeds } from './needs';
+import { clearNeeds, doneNeeds } from './needs';
 
 /** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
 const LIST_STATE: Readonly<Record<FriendList, FriendState & Friendship>> = {
@@ -142,7 +144,7 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
   output: FriendsSaveOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.friends.saved'],
+  emits: ['outreach.friends.saved', 'outreach.need.cleared'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -239,6 +241,21 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
         })),
         at,
       );
+      // Friends (connections) now: a friend request the extension handed to the person is done, however it was sent
+      // (an Alignable business whose page says Remove Connection), and leaves Waiting for you.
+      if (input.list === 'friends')
+        for (const need of await doneNeeds(
+          ctx,
+          me,
+          { profileIds: people.map((p) => found(p.profile)!.id), steps: ['friend_request'] },
+          at,
+        ))
+          await ctx.emit({
+            type: 'outreach.need.cleared',
+            entityType: 'outreach_need',
+            entityId: need.id,
+            payload: { userId: me, how: 'done', step: need.step },
+          });
       const result = {
         saved: people.length,
         added: added.length,
@@ -286,7 +303,7 @@ export async function profileToSet(
 export const friendSet = defineAddonCommand(outreachAddon, {
   name: 'outreach.friend.set',
   description:
-    'Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.',
+    'Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message, and their outreach waiting for an OK is skipped) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.',
   risk: 1,
   input: FriendSetInput,
   output: FriendSetOutput,
@@ -302,16 +319,12 @@ export const friendSet = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
+    const manages = scopeCan(ctx.scope, 'outreach.manage' as Permission);
     return once(async () => {
       let profile = await profileToSet(ctx, input, me, at);
       if (input.dontPitch !== undefined && input.dontPitch !== profile.dontPitch) {
         // Taking someone off is for whoever put them on, or an owner or admin: it can't undo a teammate's family.
-        if (
-          !input.dontPitch &&
-          profile.dontPitchBy &&
-          profile.dontPitchBy !== me &&
-          !scopeCan(ctx.scope, 'outreach.manage' as Permission)
-        ) {
+        if (!input.dontPitch && !mayTakeOff(profile.dontPitchBy, me, manages)) {
           const was = await dontPitchOf(ctx, profile);
           throw HfosError.forbidden(
             `${was?.by ?? 'A teammate'} put ${profile.name} on the Don’t pitch list, so only they or an owner or admin can take them off.`,
@@ -327,15 +340,13 @@ export const friendSet = defineAddonCommand(outreachAddon, {
           )
           .where(eq(profiles.id, profile.id))
           .returning()) as [Profile];
+        // Their outreach waiting for an OK, or OK'd and not sent, anyone's, never goes now; a reply still does
+        // (Chris, 26 Oct 2026, decision 91: picked from a Messages to OK card, the card leaves).
+        if (input.dontPitch) await skipOutreachTo(ctx, [profile.id], CLIENT_SKIPPED_KINDS);
       }
       if (input.neverContact !== undefined && input.neverContact !== profile.neverContact) {
         // As with Don't pitch: taking someone off is for whoever put them on, or an owner or admin.
-        if (
-          !input.neverContact &&
-          profile.neverContactBy &&
-          profile.neverContactBy !== me &&
-          !scopeCan(ctx.scope, 'outreach.manage' as Permission)
-        ) {
+        if (!input.neverContact && !mayTakeOff(profile.neverContactBy, me, manages)) {
           const was = await neverContactOf(ctx, profile);
           throw HfosError.forbidden(
             `${was?.by ?? 'A teammate'} put ${profile.name} on the Never contact list, so only they or an owner or admin can take them off.`,
@@ -352,26 +363,7 @@ export const friendSet = defineAddonCommand(outreachAddon, {
           .where(eq(profiles.id, profile.id))
           .returning()) as [Profile];
         // Messages drafted for them and not sent yet, anyone's, never go now.
-        if (input.neverContact) {
-          const skipped = await ctx.tx
-            .update(sends)
-            .set({ state: 'skipped', doneAt: at, updatedAt: at })
-            .where(
-              and(
-                eq(sends.workspaceId, ws),
-                eq(sends.profileId, profile.id),
-                inArray(sends.state, ['waiting', 'approved']),
-              ),
-            )
-            .returning({ kind: sends.kind });
-          for (const s of skipped)
-            await ctx.emit({
-              type: 'outreach.send.skipped',
-              entityType: 'outreach_profile',
-              entityId: profile.id,
-              payload: { kind: s.kind },
-            });
-        }
+        if (input.neverContact) await skipOutreachTo(ctx, [profile.id]);
       }
       const [friend] = await ctx.tx
         .select()

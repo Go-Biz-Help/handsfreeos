@@ -8,13 +8,15 @@
  *   messages wait for your OK". It pushes only when a message or step began to wait (reached HandsFreeOS) since the
  *   last one, and keeps when it went (`waiting_pushes`), in the same transaction as the push. Replies handed over
  *   aren't in it: each pushed on its own.
- * - **One for each**: each such message or need pushes at once: "Dana Reyes: a message waits for your OK".
+ * - **One for each**: each such message or need pushes at once: "Dana Reyes: a message waits for your OK", and a
+ *   need with its network: "Dana Reyes: the extension needs you on Alignable".
  *
  * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests never push: Facebook
  * tells people of those itself. Every push goes to the person alone, on their add-ons switch, and opens Waiting for
  * you. What they choose and their hours are read as their Waiting for you reads them (`outreach.waiting`, asked on
  * their behalf), so the phone and the extension's pop-ups follow one rule.
  */
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { waiting } from '@hfos/core/addons/outreach/ops/waiting';
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
 import {
@@ -111,6 +113,8 @@ interface Nudge {
   readonly name: string;
   readonly personId: string | null;
   readonly why: string | null;
+  /** A need's network, which its push names. */
+  readonly platform?: Platform;
 }
 
 /** Something began to wait for the person: a push now, or the bundled one armed, as they chose. */
@@ -123,7 +127,7 @@ async function nudge(ctx: AddonEventContext, userId: string, what: Nudge): Promi
       key: `waiting:${ctx.event.id}`,
       userIds: [userId],
       permission: 'outreach.use',
-      ...eachPushWords(what.kind, what.name, what.why),
+      ...eachPushWords(what.kind, what.name, what.why, what.platform ?? null),
       href: WAITING_HREF,
       // The same person's newer one replaces it on the phone.
       collapseKey: `waiting-${what.profileId}`,
@@ -168,9 +172,15 @@ export async function needNoted(ctx: AddonEventContext): Promise<void> {
   if (!p.userId || !ctx.event.entityId) return;
   const userId = p.userId;
   const [need] = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ profile_id: string; name: string; why: string; person_id: string | null }>(
+    rows<{
+      profile_id: string;
+      name: string;
+      why: string;
+      person_id: string | null;
+      platform: Platform;
+    }>(
       tx,
-      sql`select n.profile_id, n.name, n.why, p.person_id from addon_outreach.needs n
+      sql`select n.profile_id, n.name, n.why, p.person_id, p.platform from addon_outreach.needs n
           join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
           where n.workspace_id = ${ctx.scope.workspaceId} and n.id = ${ctx.event.entityId}
             and n.user_id = ${userId} and n.state = 'open'`,
@@ -184,6 +194,7 @@ export async function needNoted(ctx: AddonEventContext): Promise<void> {
     name: need.name,
     personId: need.person_id,
     why: need.why,
+    platform: need.platform,
   });
 }
 

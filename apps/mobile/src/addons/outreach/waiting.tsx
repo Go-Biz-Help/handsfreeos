@@ -3,6 +3,7 @@ import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   chatUrlOn,
   networkOfUrl,
+  networkOfWaiting,
   openChatWords,
   openPageWords,
   todayKindsOn,
@@ -25,6 +26,7 @@ import {
   moreWords,
   NEED_CLEARS,
   needClearedWords,
+  needPageOf,
   needTitle,
   needWhyWords,
   oneByOneWords,
@@ -53,6 +55,7 @@ import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
 import { NetworkName } from './networks';
+import { PersonName } from './person-menu';
 import {
   NeedsSignal,
   Note,
@@ -68,6 +71,10 @@ import {
  * the phone's back online. What they asked their computer that needs them there (decision 43, with **Carry on**,
  * **Skip** and **Stop**), the steps it needs them for and the friend requests to decide come from HandsFreeOS, with
  * signal, and the screen says so plainly without.
+ *
+ * Each card's name opens the person menu (decision 91, ./person-menu.tsx) inside the `PersonMenuScope` Today's tab puts
+ * around it: their page first, then Contacts, Mark as client, Don't pitch, Never contact and the rest. Each card keeps
+ * its own Open button.
  */
 
 type Asked = Extract<WaitingOutput['items'][number], { kind: 'ask' }>['ask'];
@@ -462,7 +469,15 @@ function SendCard({
   return (
     <Card className="gap-2.5 px-4 py-3.5" testID="waiting-send">
       <View className="flex-row flex-wrap items-center gap-2">
-        <Text className="text-[15px] font-semibold">{send.name}</Text>
+        <PersonName
+          who={{
+            profileId: send.profileId,
+            name: send.name,
+            url: send.profileUrl,
+            platform,
+            threadKey: send.threadKey,
+          }}
+        />
         <NetworkName platform={platform} />
         <Text className="text-[12.5px] text-text-3">{todayKindsOn(platform)[send.kind]}</Text>
         {send.handedOver ? (
@@ -587,17 +602,31 @@ function NeedCard({
   when: string;
   onClear: (how: NeedClear) => void;
 }) {
-  const platform = networkOfUrl(need.url);
+  // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.
+  const platform = networkOfWaiting({ kind: 'need', need });
   const messenger = need.step === 'message' ? chatUrlOn(platform, need.threadKey) : null;
-  // Only an address on a network the add-on knows opens.
-  const onFacebook = need.url && networkOfLink(need.url) ? need.url : null;
+  // Only an address on a network the add-on knows opens: their page there, the post, or the chat.
+  const page = need.url && networkOfLink(need.url) ? need.url : null;
   const why = needWhyWords(need.why);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-need-item">
+      {/* The name on its own, so it can be a button with its own target; the step under it says it in words. */}
       <View className="flex-row flex-wrap items-center gap-2">
-        <Text className="text-[15px] font-semibold">{needTitle(need.step, need.name)}</Text>
+        <PersonName
+          who={{
+            profileId: need.profileId,
+            name: need.name,
+            // Their page: a comment's or a like's address is the post, and a message's may be the chat.
+            url: needPageOf(need),
+            platform,
+            threadKey: need.threadKey,
+          }}
+        />
         <NetworkName platform={platform} />
       </View>
+      <Text className="text-[14.5px] leading-[21px]" testID="waiting-need-title">
+        {needTitle(need.step, need.name, platform)}
+      </Text>
       <Note>{[why, when].filter(Boolean).join(' · ')}</Note>
       {need.text ? (
         <Text
@@ -621,12 +650,13 @@ function NeedCard({
         >
           {NEED_CLEARS.dismissed}
         </Button>
-        {messenger || onFacebook ? (
+        {messenger || page ? (
           <Button
             size="md"
             variant="ghost"
             icon={ExternalLink}
-            onPress={() => openOutside(messenger ?? onFacebook)}
+            onPress={() => openOutside(messenger ?? page)}
+            testID="waiting-need-open"
           >
             {messenger ? openChatWords(platform) : openPageWords(platform)}
           </Button>
@@ -649,7 +679,9 @@ function RequestCard({
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-request-item">
       <View className="flex-row flex-wrap items-center gap-2">
-        <Text className="text-[15px] font-semibold">{request.name}</Text>
+        <PersonName
+          who={{ profileId: request.profileId, name: request.name, url: request.url, platform }}
+        />
         <NetworkName platform={platform} />
       </View>
       <Note>{W.asked(when, request.mutualFriends)}</Note>
@@ -660,6 +692,7 @@ function RequestCard({
           variant="secondary"
           icon={ExternalLink}
           onPress={() => openOutside(request.url)}
+          testID="waiting-request-open"
         >
           {openPageWords(platform)}
         </Button>

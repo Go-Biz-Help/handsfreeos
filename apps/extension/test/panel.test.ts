@@ -263,3 +263,80 @@ describe('a step an ask hands the person', () => {
     }
   });
 });
+
+describe('Get ready, with your profile as advice (decision 90)', () => {
+  /** Get ready's items: the profile's state and what's left of it, and the rest done or not. */
+  const ready = (profile: 'done' | 'todo', rest: 'done' | 'todo', more: { ready: boolean }) => ({
+    ready: more.ready,
+    items: [
+      { item: 'offer' as const, state: rest, left: null },
+      { item: 'playbook' as const, state: 'done' as const, left: null },
+      {
+        item: 'profile' as const,
+        state: profile,
+        left: profile === 'done' ? null : '2 things left to change on your Facebook profile',
+      },
+      { item: 'messages' as const, state: 'done' as const, left: null },
+      { item: 'numbers' as const, state: 'done' as const, left: null },
+    ],
+  });
+
+  async function drawn(shown: ReturnType<typeof ready>): Promise<HTMLElement> {
+    const status = {
+      automation: { settings: { sending: 'steps' } } as unknown as AutoStatus['automation'],
+      trouble: null,
+      businessId: 'b-one',
+      noting: true,
+      state: freshState('2026-10-26'),
+      webUrl: WEB,
+      live: null,
+      warned: null,
+      pastLimit: null,
+      ready: shown,
+    } satisfies AutoStatus;
+    const p = panel({}, { 'hfos-auto': { ok: true, value: status } });
+    const { startStatus } = await import('../src/panel/status');
+    const box = p.document.createElement('section');
+    p.document.body.append(box);
+    startStatus(box);
+    await settle();
+    return box;
+  }
+
+  const TODAY = `${WEB}/app/w/b-one/a/outreach?view=today`;
+
+  it('counts only what holds the day, and says under the profile that the day doesn’t wait on it', async () => {
+    const box = await drawn(ready('todo', 'todo', { ready: false }));
+    expect(box.textContent).toContain('1 thing to do before the extension reaches anyone for you.');
+    const profile = box.querySelector('[data-testid="panel-ready-profile"]')!;
+    expect(profile.className).toBe('next advice');
+    expect(profile.textContent).toContain('2 things left to change on your Facebook profile');
+    expect(profile.textContent).toContain(
+      'Your day doesn’t wait on this one: finish it before or after you start.',
+    );
+    expect(box.querySelector('[data-testid="panel-ready-offer"]')!.className).toBe('next');
+    expect(box.querySelector('[data-testid="panel-advice"]')).toBeNull();
+  });
+
+  it('shows the profile left beside Start once nothing else holds the day, with where to finish it', async () => {
+    const box = await drawn(ready('todo', 'done', { ready: true }));
+    expect(box.querySelector('[data-testid="panel-ready"]')).toBeNull();
+    expect([...box.querySelectorAll('button')].map((b) => b.textContent)).toContain('Start my day');
+    const advice = box.querySelector('[data-testid="panel-advice"]')!;
+    expect(advice.textContent).toContain(
+      'Your profile · 2 things left to change on your Facebook profile',
+    );
+    expect(advice.textContent).toContain('You can start now and finish it later.');
+    const link = advice.querySelector('a')!;
+    expect([link.textContent, link.href, link.target]).toEqual([
+      'Check your profile',
+      TODAY,
+      '_blank',
+    ]);
+  });
+
+  it('shows no advice once the profile’s done too', async () => {
+    const box = await drawn(ready('done', 'done', { ready: true }));
+    expect(box.querySelector('[data-testid="panel-advice"]')).toBeNull();
+  });
+});

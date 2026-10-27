@@ -173,7 +173,7 @@ export function PartnersBody({
                 {W.more}
               </Button>
             ) : null}
-            {!online ? <Note>{W.person.needsSignal}</Note> : null}
+            {!online ? <Note>{P.needsSignal}</Note> : null}
           </>
         ) : (
           <Card className="gap-1.5 px-5 py-6" testID="partners-empty">

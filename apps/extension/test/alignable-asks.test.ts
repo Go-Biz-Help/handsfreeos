@@ -302,6 +302,7 @@ describe('Check my connections, Research and a look-up, on Alignable', () => {
       partner: null,
       tags: [],
       connect: false,
+      connected: false,
       recommend: false,
       refer: false,
       message: false,

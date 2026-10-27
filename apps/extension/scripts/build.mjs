@@ -65,6 +65,8 @@ const ACCOUNTS_CENTER = ['https://accountscenter.facebook.com/*'];
 const NETWORKS = [
   'https://www.linkedin.com/*',
   'https://www.instagram.com/*',
+  // Instagram's own Accounts Center, where its username and name change (decision 89, from 0.94.0).
+  'https://accountscenter.instagram.com/*',
   'https://www.alignable.com/*',
 ];
 /**

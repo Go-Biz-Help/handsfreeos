@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { doPath, doStep, type FetchStep } from '../src/networks/facebook/fetch';
 import { readPage } from '../src/networks/facebook/page';
+import { withTheirName } from '../src/networks/facebook/auto';
 import { sameProfile, TIDY_PLANS, tidyPage } from '../src/networks/facebook/tidy';
 import { boxEverything, load } from './load';
 
@@ -117,6 +118,28 @@ describe('cancelling a request', () => {
     button.addEventListener('click', () => relabel(button, 'Add friend'));
     expect(readPage(doc, URL).profile?.friendship).toBe(TIDY_PLANS.cancel_request.before);
     walk(doc, TIDY_PLANS.cancel_request.path, TIDY_PLANS.cancel_request.then);
+    expect(readPage(doc, URL).profile?.friendship).toBe('not_friends');
+  });
+
+  it('presses Cancel request when its label has their name after it', () => {
+    // From October 2026: "Cancel request Dana Reyes" for screen readers, "Cancel request" to see.
+    const doc = load('profile-2026.html', URL);
+    const button = standing(doc)!;
+    const label = (words: string) => {
+      button.setAttribute('aria-label', `${words} Dana Reyes`);
+      [...button.querySelectorAll('span')].at(-1)!.textContent = words;
+    };
+    label('Cancel request');
+    button.addEventListener('click', () => label('Add Friend'));
+    expect(readPage(doc, URL).profile?.friendship).toBe(TIDY_PLANS.cancel_request.before);
+    expect(() =>
+      walk(doc, TIDY_PLANS.cancel_request.path, TIDY_PLANS.cancel_request.then),
+    ).toThrow();
+    walk(
+      doc,
+      withTheirName(TIDY_PLANS.cancel_request.path, ['Dana Reyes']),
+      TIDY_PLANS.cancel_request.then,
+    );
     expect(readPage(doc, URL).profile?.friendship).toBe('not_friends');
   });
 

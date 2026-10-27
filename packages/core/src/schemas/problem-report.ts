@@ -17,6 +17,8 @@ export const PROBLEM_OUTLINE_MOST = 200_000;
 export const PROBLEM_KEEP_DAYS = 30;
 /** The most one person's tools send in a day; past it, a report isn't kept. */
 export const PROBLEM_REPORTS_A_DAY = 500;
+/** The most things a report says it found: a tool that saw more keeps what matters most (the extension's report.ts). */
+export const PROBLEM_FOUND_MOST = 40;
 
 /** What sent it. */
 export const PROBLEM_SOURCES = ['extension', 'web', 'phone'] as const;
@@ -30,7 +32,10 @@ const foundValue = z.union([
 ]);
 export const ProblemFound = z
   .record(z.string().regex(/^[a-z][a-zA-Z]{0,39}$/), foundValue)
-  .refine((found) => Object.keys(found).length <= 40, 'At most 40 things found.');
+  .refine(
+    (found) => Object.keys(found).length <= PROBLEM_FOUND_MOST,
+    `At most ${PROBLEM_FOUND_MOST} things found.`,
+  );
 export type ProblemFound = z.output<typeof ProblemFound>;
 
 /** One report, as a tool sends it. */

@@ -11,7 +11,8 @@
  * notes it, which takes it off the list and counts it against today's limits. While the person's computer is online,
  * Draft asks it to look the person up on Facebook first (decision 21, a `lookup` ask: ./asks.tsx), and the drafts come
  * back on the ask; offline, or with **Draft from what HandsFreeOS knows**, they come from what HandsFreeOS knows. Each
- * person kept as a profile has a menu with Add to Contacts, Demo booked and Don't pitch (./person-menu.tsx). A first message's
+ * person kept as a profile has a menu on their name (./person-menu.tsx, decision 91): their page, Contacts, Mark as
+ * client, Demo booked, Don't pitch and Never contact; the icon beside the name opens the post, chat or page. A first message's
  * drafts open the way the playbook's next opener says, and copying one notes which it was, for the results card
  * (decision 23). Anyone on the list for a message has the person's own demo link to copy (decision 24).
  *
@@ -29,6 +30,7 @@
  * Partners from the Partners list (decision 81) have a part of their own below it: a like first, the ask, follow-ups,
  * the details after a yes, and replies, each message with an OK of its own. Copying one moves them along the list.
  */
+import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
@@ -49,6 +51,8 @@ import {
   findPostsWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
+  openChatWords,
+  openPageWords,
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
 import {
@@ -67,6 +71,7 @@ import {
   CheckCheck,
   ChevronDown,
   Copy,
+  ExternalLink,
   Loader2,
   Sparkles,
   Video,
@@ -88,7 +93,7 @@ import { AskButton, AskLine, latestAskOn, targetOf } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
-import { PersonMenu } from './person-menu';
+import { PersonName } from './person-menu';
 import { GetReadyCard } from './get-ready';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
@@ -132,6 +137,12 @@ const KIND_BADGE = {
 function openUrl(item: TodayItem, platform: Platform): string | null {
   if (item.postUrl) return item.postUrl;
   return chatUrlOn(platform, item.threadKey) ?? item.profileUrl;
+}
+
+/** What `openUrl` opens, in words: the post, their chat, or their page. */
+function openUrlWords(item: TodayItem, platform: Platform): string {
+  if (item.postUrl) return TOUCHED_POSTS_WORDS.openPost;
+  return chatUrlOn(platform, item.threadKey) ? openChatWords(platform) : openPageWords(platform);
 }
 
 export function TodayView({
@@ -578,17 +589,49 @@ function TodayRow({
     <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
-          {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-accent-text hover:underline"
-            >
-              {item.name}
-            </a>
+          {partner ? (
+            url ? (
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-accent-text hover:underline"
+              >
+                {item.name}
+              </a>
+            ) : (
+              <span className="font-medium">{item.name}</span>
+            )
           ) : (
-            <span className="font-medium">{item.name}</span>
+            // The name opens the person menu (decision 91); the icon beside it opens the post, chat or page.
+            <span className="inline-flex max-w-full items-center gap-1 align-top">
+              <PersonName
+                workspaceId={workspaceId}
+                who={{
+                  profileId: item.profileId,
+                  name: item.name,
+                  platform,
+                  url: item.profileUrl,
+                  threadKey: item.threadKey,
+                  personId: item.personId,
+                  demoBooked: item.demoBooked,
+                }}
+                className={cn('font-medium', item.profileId && 'text-accent-text')}
+              />
+              {url ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={openUrlWords(item, platform)}
+                  title={openUrlWords(item, platform)}
+                  className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-[4px] text-text-3 hover:bg-card-2 hover:text-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                  data-testid="today-open"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden />
+                </a>
+              ) : null}
+            </span>
           )}
           {item.why.length ? (
             <div className="text-[12.5px] text-text-3">{item.why.join(' · ')}</div>
@@ -606,7 +649,6 @@ function TodayRow({
             </Badge>
           ) : null}
           <Badge variant={KIND_BADGE[item.kind]}>{todayKindsOn(platform)[item.kind]}</Badge>
-          {partner ? null : <PersonMenu workspaceId={workspaceId} who={item} />}
         </span>
       </div>
       {item.post ? (

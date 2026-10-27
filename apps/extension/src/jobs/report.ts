@@ -6,17 +6,19 @@
  *
  * A note has the page's kind and its address as the outline masks it (people's and groups' parts as {1}, {2}…),
  * whether Chrome showed the page, what the readers found (counts, yes or no, and the network's own section names
- * from the outline's headings; never words), a line on what was missing, and, when asked, the outline itself: tags,
- * roles and the network's own words, with everything a person wrote as "[2 words]". A note that can't be made or
- * sent is let go: it never stops or slows the job past the read.
+ * from the outline's headings; never words) within the most core keeps (`reportFound`), a line on what was missing,
+ * and, when asked, the outline itself: tags, roles and the network's own words, with everything a person wrote as
+ * "[2 words]". A note that can't be made or sent is let go: it never stops or slows the job past the read.
  */
-import { PROBLEM_OUTLINE_MOST } from '@hfos/core/problem-report';
+import { PROBLEM_FOUND_MOST, PROBLEM_OUTLINE_MOST } from '@hfos/core/problem-report';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
 import type { PageRead } from '../networks/kit';
 import { editorMissing, type EditorSteps } from '../networks/facebook/editors';
-import { usernameMissing, type UsernameSteps } from '../networks/facebook/username';
+import { nameMissing, type NameSteps } from '../networks/accounts-center/name';
+import type { CenterNetwork } from '../networks/accounts-center/pages';
+import { usernameMissing, type UsernameSteps } from '../networks/accounts-center/username';
 import type { StepTry } from '../networks/tries';
 import {
   aboutMissing,
@@ -96,38 +98,147 @@ const filled = (value: unknown): boolean =>
         value === true ||
         (value !== null && typeof value === 'object');
 
-/** What the readers found on a page: how many of each list, and which parts of a profile. Never what they said. */
-export function pageFound(read: PageRead): Record<string, number | boolean> {
-  const found: Record<string, number | boolean> = {};
+/** Something a report says was found: a count, a yes or no, or names (the network's own, or the readers'). */
+type Fact = number | boolean | readonly string[];
+
+/**
+ * What each thing found is, least needed first: how many of a list's rows had one of their parts, those folded into
+ * the parts some rows lacked, a list's count, the lists with none, the page's own read (with the readers' warnings and
+ * notes), the network's own section names, and what the job itself found, which is what the report is for.
+ */
+const NEEDED = ['part', 'lacking', 'list', 'empty', 'own', 'sections', 'job'] as const;
+
+interface FoundFact {
+  readonly key: string;
+  readonly value: Fact;
+  readonly is: (typeof NEEDED)[number];
+  /** A part's list and its own name (`threads`, `author` for `threadsAuthor`). */
+  readonly list?: string;
+  readonly part?: string;
+}
+
+/** The read's lists a report keeps with the page's own read: what the readers warned of, and their notes. */
+const KEPT_LISTS: ReadonlySet<string> = new Set(['warnings', 'notes']);
+/** The lists with none, by name, once a report has to fold them. */
+const EMPTY_KEY = 'emptyLists';
+
+/** What the readers found on a page, each with what it is, in the read's order. Never what anyone said. */
+function pageFacts(read: PageRead): FoundFact[] {
+  // One of each, where it was first found, as the last read of it says.
+  const facts = new Map<string, FoundFact>();
+  const put = (fact: FoundFact) => facts.set(fact.key, fact);
   for (const [key, value] of Object.entries(read))
-    if (Array.isArray(value) && /^[a-z][a-zA-Z]{0,39}$/.test(key)) found[key] = value.length;
+    if (Array.isArray(value) && /^[a-z][a-zA-Z]{0,39}$/.test(key))
+      put({ key, value: value.length, is: KEPT_LISTS.has(key) ? 'own' : 'list' });
   // A network's own readers' (Alignable's businesses, posts, answers, chats): each list's count, how many of its rows
   // had each of their parts, and which parts a page's own read had. Never what any of them said.
   const lists = (read as { readonly found?: Readonly<Record<string, unknown>> }).found;
   for (const [key, value] of Object.entries(lists ?? {})) {
     if (!/^[a-z][a-zA-Z]{0,30}$/.test(key)) continue;
-    if (typeof value === 'boolean') found[key] = value;
+    if (typeof value === 'boolean') put({ key, value, is: 'own' });
     else if (Array.isArray(value)) {
-      found[key] = value.length;
+      put({ key, value: value.length, is: 'list' });
       for (const part of partsOf(value[0]))
-        found[`${key}${upper(part)}`] = value.filter((row) =>
-          filled((row as Record<string, unknown> | null)?.[part]),
-        ).length;
+        put({
+          key: `${key}${upper(part)}`,
+          value: value.filter((row) => filled((row as Record<string, unknown> | null)?.[part]))
+            .length,
+          is: 'part',
+          list: key,
+          part,
+        });
     } else if (value && typeof value === 'object') {
-      found[key] = true;
+      put({ key, value: true, is: 'own' });
       for (const part of partsOf(value))
-        found[`${key}${upper(part)}`] = filled((value as Record<string, unknown>)[part]);
-    } else if (value === null) found[key] = false;
+        put({
+          key: `${key}${upper(part)}`,
+          value: filled((value as Record<string, unknown>)[part]),
+          is: 'own',
+        });
+    } else if (value === null) put({ key, value: false, is: 'own' });
   }
   const profile = (read as { readonly profile?: Record<string, unknown> | null }).profile;
   if (profile && typeof profile === 'object') {
-    found.profile = true;
+    put({ key: 'profile', value: true, is: 'own' });
     for (const key of ['name', 'headline', 'about', 'role', 'company', 'location'] as const)
       if (key in profile)
-        found[`profile${key[0]!.toUpperCase()}${key.slice(1)}`] =
-          profile[key] !== null && profile[key] !== undefined && profile[key] !== '';
+        put({
+          key: `profile${upper(key)}`,
+          value: profile[key] !== null && profile[key] !== undefined && profile[key] !== '',
+          is: 'own',
+        });
   }
-  return found;
+  return [...facts.values()];
+}
+
+/** What the readers found on a page: how many of each list, and which parts of a profile. Never what they said. */
+export function pageFound(read: PageRead): Record<string, number | boolean> {
+  return Object.fromEntries(
+    pageFacts(read).map((fact) => [fact.key, fact.value as number | boolean]),
+  );
+}
+
+/**
+ * What a report says was found: the page's facts, the network's own section names and the job's own facts (which win
+ * over the page's of the same name), within the most core keeps (`PROBLEM_FOUND_MOST`), so a page with many lists,
+ * such as an Alignable business's page with posts and answers on it, is never refused for it. Past the most, the same
+ * page always loses the same facts, least needed first:
+ *
+ * 1. The lists with none are folded into one, `emptyLists`, by name: nothing is lost.
+ * 2. Each list's parts, from the read's last list back, are folded into one, `<list>Lacking`: the names of the parts
+ *    some of its rows didn't have (`threadsLacking: ['likes']`), in place of how many had each.
+ * 3. What's still too many goes, least needed first and the read's last first (`NEEDED`): parts, then folded parts,
+ *    then lists' counts, then the lists with none. The page's own read, its warnings and notes, its section names and
+ *    the job's own facts go only past all those, which no page comes near.
+ */
+export function reportFound(
+  read: PageRead,
+  sections: readonly string[] = [],
+  job: ReportNote['found'] = {},
+  most: number = PROBLEM_FOUND_MOST,
+): Record<string, number | boolean | string[]> {
+  let facts: FoundFact[] = [
+    ...pageFacts(read).filter((fact) => !Object.hasOwn(job, fact.key)),
+    ...(sections.length && !Object.hasOwn(job, 'sections')
+      ? [{ key: 'sections', value: sections, is: 'sections' as const }]
+      : []),
+    ...Object.entries(job).map(([key, value]) => ({ key, value, is: 'job' as const })),
+  ];
+  /** Facts made one, in the first one's place (they're in the read's order); or let go, when its name is taken. */
+  const fold = (gone: readonly FoundFact[], into: FoundFact) => {
+    const at = facts.indexOf(gone[0]!);
+    const kept = facts.filter((fact) => !gone.includes(fact));
+    if (!kept.some((fact) => fact.key === into.key)) kept.splice(at, 0, into);
+    facts = kept;
+  };
+  const empty = facts.filter((fact) => fact.is === 'list' && fact.value === 0);
+  if (facts.length > most && empty.length > 1)
+    fold(empty, { key: EMPTY_KEY, value: empty.map((fact) => fact.key), is: 'empty' });
+  for (const list of facts.filter((fact) => fact.is === 'list').reverse()) {
+    if (facts.length <= most) break;
+    const parts = facts.filter((fact) => fact.is === 'part' && fact.list === list.key);
+    if (parts.length > 1)
+      fold(parts, {
+        key: `${list.key}Lacking`,
+        value: parts.flatMap((fact) =>
+          (fact.value as number) < (list.value as number) ? [fact.part!] : [],
+        ),
+        is: 'lacking',
+      });
+  }
+  if (facts.length > most) {
+    const gone = new Set(
+      facts
+        .map((fact, at) => ({ at, need: NEEDED.indexOf(fact.is) }))
+        .sort((a, b) => a.need - b.need || b.at - a.at)
+        .slice(0, facts.length - most)
+        .map(({ at }) => at),
+    );
+    facts = facts.filter((_, at) => !gone.has(at));
+  }
+  return Object.fromEntries(
+    facts.map(({ key, value }) => [key, typeof value === 'object' ? [...value] : value]),
+  );
 }
 
 /** A note of a person's own profile as it was read for the AI's check: what was there, and what wasn't. */
@@ -271,12 +382,18 @@ export function editorNote(part: 'bio' | 'links', steps: EditorSteps | undefined
   };
 }
 
-/** How putting Facebook's username in went, step by step, for the note that goes with handing it over (decision 89). */
-export function usernameNote(steps: UsernameSteps | undefined): ReportNote {
+/**
+ * How putting the username in went, on Accounts Center for the person's own Facebook or Instagram profile, step by
+ * step, for the note that goes with handing it over (decision 89).
+ */
+export function usernameNote(
+  steps: UsernameSteps | undefined,
+  network: CenterNetwork = 'facebook',
+): ReportNote {
   const job = 'profile_edit.username';
   if (!steps)
     return { job, note: 'The tab didn’t say how putting the username in went.', outline: true };
-  const missing = usernameMissing(steps);
+  const missing = usernameMissing(steps, false, network);
   const { names, asking, answer, ...counts } = steps;
   return {
     job,
@@ -286,6 +403,33 @@ export function usernameNote(steps: UsernameSteps | undefined): ReportNote {
       code: asking === 'code',
       confirm: asking === 'confirm',
       answered: answer !== 'none',
+      ...(names.length ? { seen: names } : {}),
+    },
+    note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
+    outline: true,
+  };
+}
+
+/**
+ * How putting the name in went, on Accounts Center for the person's own Facebook or Instagram profile, step by step,
+ * for the note that goes with handing it over (decision 89): as the username's, with how the name is shown.
+ */
+export function nameNote(steps: NameSteps | undefined, network: CenterNetwork): ReportNote {
+  const job = 'profile_edit.name';
+  if (!steps)
+    return { job, note: 'The tab didn’t say how putting the name in went.', outline: true };
+  const missing = nameMissing(steps, network);
+  const { names, asking, answer, order, ...counts } = steps;
+  return {
+    job,
+    found: {
+      ...counts,
+      password: asking === 'password',
+      code: asking === 'code',
+      confirm: asking === 'confirm',
+      answered: answer !== 'none',
+      orderKept: order === 'kept',
+      orderUnpicked: order === 'unpicked',
       ...(names.length ? { seen: names } : {}),
     },
     note: missing.length ? `Not done: ${missing.join('; ')}.` : null,
@@ -344,11 +488,7 @@ export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
             page: String(answer.result.kind).slice(0, 40),
             path: (PAGE_LINE.exec(outline)?.[1] ?? '').slice(0, 500),
             shown: answer.shown ?? null,
-            found: {
-              ...pageFound(answer.result),
-              ...(sections.length ? { sections } : {}),
-              ...note.found,
-            },
+            found: reportFound(answer.result, sections, note.found),
             note: note.note?.slice(0, 300) ?? null,
             outline: note.outline && outline ? outline.slice(0, PROBLEM_OUTLINE_MOST) : null,
           },

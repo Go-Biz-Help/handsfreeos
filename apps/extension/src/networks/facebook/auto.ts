@@ -15,7 +15,7 @@
 import { COMMENT_BOX, hasWriting, MESSAGE_BOX, REPLY_BOX, SEND, WRITING } from './actions';
 import { clean, inTopBar, isAfter, labelOf } from './dom';
 import { shown, type FetchStep } from './fetch';
-import { sameName } from './people';
+import { nameForms, sameName } from './people';
 import { COMMENT, LIKE, postBoxes, readPost } from './posts';
 import type { TidyPlan } from './tidy';
 import type { ProfilePage, ProfileRef } from './types';
@@ -68,6 +68,31 @@ export const AUTO_PLANS: Readonly<Record<AutoJob, AutoPlan>> = {
     ],
   },
 };
+
+/**
+ * A profile's steps with the person's name after their words too, first: from October 2026 Add friend's label has it
+ * for screen readers ("Add Friend Jane Doe", the owner's problem reports of 26 Oct 2026), Cancel request's may too, and
+ * an exact step missed it. Their name whole and without its nickname, as the profile's reader takes it (./profile.ts),
+ * and only theirs: a button with theirs is pressed before a plain one, and never one with someone else's under People
+ * you may know.
+ */
+export function withTheirName(
+  steps: readonly FetchStep[],
+  names: readonly (string | null)[],
+): FetchStep[] {
+  const known = [...new Set(names.flatMap((name) => (name ? nameForms(name) : [])))];
+  return steps.map((step) =>
+    step.action === 'press'
+      ? {
+          ...step,
+          words: [
+            ...step.words.flatMap((word) => known.map((name) => `${word} ${name}`)),
+            ...step.words,
+          ],
+        }
+      : step,
+  );
+}
 
 /** On someone's profile, Message opens a chat with them: a small window over the page, or Messenger. */
 export const MESSAGE_PATH: readonly FetchStep[] = [

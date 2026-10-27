@@ -352,6 +352,7 @@ describe('The network on every row', () => {
         ready: 0,
         pitched: 0,
         booked: 0,
+        client: 0,
         lost: 0,
       },
       people: [person(1, 'facebook', 'Riley Stone'), person(2, 'linkedin', 'Quinn Harper')],

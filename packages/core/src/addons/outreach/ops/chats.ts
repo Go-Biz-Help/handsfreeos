@@ -6,11 +6,9 @@
  * unless it takes everyone.
  */
 import { and, eq, sql } from 'drizzle-orm';
-import { tags as tagTable } from '@hfos/db/schema';
 import { rows } from '@hfos/db/client';
 import { personCreate } from '../../../commands/person.create';
 import { recordSetTags } from '../../../commands/record.set_tags';
-import { tagCreate } from '../../../commands/tag.create';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { splitName } from '../../../inbox/contact';
@@ -35,7 +33,7 @@ import { nameKey } from '../download';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles } from '../tables';
-import { inWorkspace, keptProfile, once, sourceFor } from './common';
+import { inWorkspace, keptProfile, once, sourceFor, tagIdsFor } from './common';
 import { noteAnswer } from './conversation';
 import { noteChatRead } from './stages';
 
@@ -51,35 +49,6 @@ async function contactsSetting(ctx: CommandContext | QueryContext): Promise<Cont
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
   );
   return outreachSettings(installed?.settings).contactsFromChats;
-}
-
-/** The business's tags by these names, made where they're missing. */
-async function tagIdsFor(ctx: CommandContext, names: readonly string[]): Promise<string[]> {
-  if (!names.length) return [];
-  const ws = ctx.scope.workspaceId!;
-  const had = await ctx.tx
-    .select({ id: tagTable.id, name: tagTable.name })
-    .from(tagTable)
-    .where(
-      and(
-        eq(tagTable.workspaceId, ws),
-        // The name is citext, whose own = isn't on the search path here: compared without capitals instead.
-        sql`lower(${tagTable.name}::text) in (${sql.join(
-          names.map((n) => sql`${n.toLowerCase()}`),
-          sql`, `,
-        )})`,
-      ),
-    );
-  const byKey = new Map(had.map((t) => [String(t.name).toLowerCase(), t.id]));
-  const ids: string[] = [];
-  for (const name of names) {
-    const id =
-      byKey.get(name.toLowerCase()) ??
-      (await executeCommandWithin(ctx, tagCreate, { workspaceId: ws, name })).output.tagId;
-    byKey.set(name.toLowerCase(), id);
-    ids.push(id);
-  }
-  return [...new Set(ids)];
 }
 
 export const chatRead = defineAddonCommand(outreachAddon, {
