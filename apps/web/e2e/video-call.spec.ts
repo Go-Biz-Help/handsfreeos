@@ -103,12 +103,17 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   // Their confirmation carries their own Join link, which opens the call itself: a camera check, then Join.
   const mail = await waitForMail(email, 'You’re booked: Coaching call');
   const join = linkFrom(mail.text || mail.html, /http:\/\/localhost:3000\/j\/[0-9A-Za-z]{18}/);
+  // It says the AI takes notes, and so does the page before they join.
+  expect(mail.text || mail.html).toContain('AI takes notes');
   const customer = await (
     await browser.newContext({ permissions: ['camera', 'microphone'] })
   ).newPage();
   await customer.goto(join);
   await expect(customer.getByTestId('call-heading')).toHaveText('Coaching call');
   await expect(customer.getByTestId('prejoin-name')).toHaveValue('Maya Brooks');
+  await expect(customer.getByTestId('prejoin-ai-notice')).toContainText(
+    'No video or sound is kept',
+  );
   await customer.getByTestId('prejoin-join').click();
   // Nobody from the team is there yet.
   await expect(customer.getByTestId('call-waiting')).toContainText('will be right with you');
@@ -128,6 +133,14 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
     await expect(p.locator('[data-testid="call-tile"][data-video="on"]')).toHaveCount(2, {
       timeout: 30_000,
     });
+
+  // The owner can turn the AI's notes off for this call.
+  const notes = team.getByTestId('call-ai-notes');
+  await expect(notes).toContainText('AI notes on');
+  await notes.click();
+  await team.getByTestId('call-ai-notes-off').click();
+  await team.getByTestId('call-ai-notes-off-confirm').click();
+  await expect(notes).toContainText('AI notes off');
 
   // Chat reaches the other side.
   await team.getByTestId('call-chat-button').click();

@@ -35,6 +35,8 @@ export * from './crm/synced';
 export * from './crm/contact-points';
 export * from './crm/person-merge';
 export * from './crm/picked-contact';
+// A new contact started from a customer search that found nobody (New appointment, web and phone).
+export * from './crm/new-contact';
 // The search text a phone works out for itself: its pickers and its offline search.
 export * from './crm/search-text';
 // Fields a business invents, and the kinds of records and relationships it makes up (0101).
@@ -65,6 +67,7 @@ export * from './assistant/consent';
 // How the business is set up, and where each part of it lives (M12).
 export * from './assistant/settings-map';
 export * from './assistant/places-map';
+export * from './assistant/coverage';
 // The Assistant's words, and the settings people have of their own (M10 step 17).
 export * from './assistant/words';
 export * from './account/settings-words';

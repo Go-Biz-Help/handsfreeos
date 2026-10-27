@@ -2805,6 +2805,26 @@ export const videoCallPeople = app.table('video_call_people', {
 });
 
 /**
+ * What the AI's listener heard in a video call, line by line, until the stretch is over and the lines become the
+ * appointment's transcript (20261027013300).
+ */
+export const videoCallLines = app.table('video_call_lines', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id').notNull(),
+  personRowId: uuid('person_row_id')
+    .notNull()
+    .references(() => videoCallPeople.id, { onDelete: 'cascade' }),
+  side: text('side').notNull(),
+  name: text('name').notNull(),
+  body: text('body').notNull(),
+  language: text('language'),
+  saidAt: ts('said_at').notNull(),
+  lineKey: text('line_key').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
  * Which HandsFreeOS person a Zoom user is, in one business, for the live coaching Zoom app (20261027005100): made
  * when they add the app in Zoom and connect it, ended when they disconnect or remove it. No tokens are kept.
  */

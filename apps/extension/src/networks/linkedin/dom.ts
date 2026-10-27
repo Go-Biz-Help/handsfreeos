@@ -43,6 +43,20 @@ export function inTopBar(element: Element): boolean {
   return header !== null && header.closest('main, [role="main"]') === null;
 }
 
+/**
+ * Whether an element sits in the page's own top bar, told more narrowly, for a part over the page whose own header may
+ * be a `header` too (a conversation window's): one marked as the page's, or a header with the page's navigation in it.
+ */
+export function inPageBar(element: Element): boolean {
+  if (element.closest('[role="banner"]')) return true;
+  const header = element.closest('header');
+  return (
+    header !== null &&
+    header.closest('main, [role="main"]') === null &&
+    header.querySelector('nav, [role="navigation"]') !== null
+  );
+}
+
 /** The page's main column: LinkedIn's rails beside it (your card, suggestions, ads) and its chat windows aren't in it. */
 export function mainOf(doc: Document): Element {
   return doc.querySelector('main, [role="main"]') ?? doc.body;

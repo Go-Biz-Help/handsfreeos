@@ -1,13 +1,14 @@
 /**
  * Sales Coach on a call as it happens (docs/salescoach.md): the hooks the worker calls with each line it hears, on a
- * phone call (telephony/live.ts) or a Zoom meeting (meetings/live.ts).
+ * phone call (telephony/live.ts), a Zoom meeting (meetings/live.ts) or a HandsFreeOS video call (video-calls/coach.ts).
  *
  * - **Start**: the coached call begins with the business's usual playbook, and what the business knows is read once.
  * - **Each line**: when the customer has just finished saying something worth answering (coach.ts `cardMoment`), and
  *   the coach isn't still thinking about the last one, the fast model reads the playbook, the business and the last
  *   few minutes of the call, and says where the call is in the script and whether there's a card to show. A card goes
  *   to the rep's screen at once (the live update), and an objection's also to their phone, for a rep on their cell.
- * - **End**: what was said is kept, and the write-up is queued (./after-call.ts).
+ * - **End**: what was said is kept, and the write-up is queued (./after-call.ts). A video call whose AI notes were
+ *   turned off is forgotten instead: no lines, no cards, no write-up.
  *
  * A call's state lives here, on the machine hearing it, for as long as the call: nothing else needs it.
  */
@@ -95,7 +96,7 @@ export const salescoachLiveCalls: AddonLiveCalls = {
     }
   },
 
-  async onEnd(ctx, call, lines) {
+  async onEnd(ctx, call, lines, how) {
     const state = calls.get(call.key);
     calls.delete(call.key);
     if (!state) return;
@@ -105,7 +106,8 @@ export const salescoachLiveCalls: AddonLiveCalls = {
       {
         workspaceId: ctx.scope.workspaceId,
         coachedCallId: state.coachedCallId,
-        lines: keptLines(lines),
+        lines: how?.forgotten ? [] : keptLines(lines),
+        forgotten: how?.forgotten ?? false,
       },
       ctx.actor,
       ctx.meta,

@@ -9,9 +9,14 @@
  *   - anyone else asks to be let in, and the team lets them in or turns them away; someone taken out has to ask
  *     again;
  *   - when the room closes, everyone's minutes are added up once, and a later stretch of the call counts its own;
- *   - nothing opens while the business has calls off, and its appointments get no call.
+ *   - nothing opens while the business has calls off, and its appointments get no call;
+ *   - what the AI heard is kept by the worker alone, once a line and only from people on the call, is seen only by
+ *     the call's business, is forgotten when the team turns the call's AI notes off, and becomes the appointment's
+ *     transcript once when the stretch of the call is over;
+ *   - the coach hears a stretch of the call as a live meeting of the person on the team it's for, with the customer
+ *     in the call, only while they're in it and the AI notes are on, and once a stretch.
  */
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { asUser, rows, sql } from '@hfos/db/client';
 import {
   closeTestDbs,
@@ -25,18 +30,22 @@ import { HfosError } from '../src/errors';
 import {
   platformBusinessGet,
   videoCallAdmit,
+  videoCallCoach,
   videoCallEnd,
   videoCallEnter,
   videoCallFinished,
   videoCallGet,
+  videoCallHeard,
   videoCallJoin,
   videoCallJoined,
   videoCallKnock,
+  videoCallKeepWords,
   videoCallKnockStatus,
   videoCallLeft,
   videoCallMute,
   videoCallOpen,
   videoCallRemove,
+  videoCallSetAi,
   videoCallsSet,
   videoCallTurnAway,
   workspaceGet,
@@ -594,6 +603,281 @@ describe('the database', () => {
       rows(tx, sql`select id from app.video_calls where id = ${callId}`),
     );
     expect(seen).toEqual([]);
+  });
+});
+
+describe('what the AI heard', () => {
+  let callId: string;
+  let appointmentId: string;
+  let customerRow: string;
+  let priyaRow: string;
+  const SAID = 'Can you send the quote by Friday please?';
+  const base = Date.now();
+  const line = (key: string, personId: string, second = 0, text = SAID) => ({
+    key,
+    personId,
+    text,
+    saidAt: at(base, second),
+    language: 'en',
+  });
+  const heard = (lines: unknown[]) =>
+    runSystem(videoCallHeard, { workspaceId: t.wsId, callId, lines }, t.scope);
+  const linesOf = () =>
+    rows<{ side: string; name: string; body: string }>(
+      admin(),
+      sql`select side, name, body from app.video_call_lines where video_call_id = ${callId}
+          order by said_at, line_key`,
+    );
+
+  beforeAll(async () => {
+    const b = await booking('14:00');
+    appointmentId = b.appointmentId;
+    callId = (
+      await runSystem(
+        videoCallOpen,
+        { workspaceId: t.wsId, appointmentId: b.appointmentId },
+        t.scope,
+      )
+    ).callId;
+    priyaRow = (await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya)).personId;
+    customerRow = (
+      await runSystem(
+        videoCallEnter,
+        { workspaceId: t.wsId, attendeeId: b.attendeeId, name: 'Sol Customer' },
+        t.scope,
+      )
+    ).personId!;
+  });
+
+  it('is kept by the worker alone, once a line, and only from people on the call', async () => {
+    expect(await heard([line('a:0', customerRow), line('a:1', priyaRow, 1)])).toEqual({ kept: 2 });
+    // Sent again (the listener retrying): one copy.
+    expect(await heard([line('a:0', customerRow)])).toEqual({ kept: 0 });
+    // Someone who isn't on the call.
+    expect(await heard([line('a:2', randomUUID())])).toEqual({ kept: 0 });
+    expect(await linesOf()).toEqual([
+      { side: 'customer', name: 'Sol Customer', body: SAID },
+      { side: 'team', name: 'Priya Tech', body: SAID },
+    ]);
+
+    // Nobody else keeps lines: not by the command, and not by the table.
+    await expectHfos(
+      () =>
+        run(
+          videoCallHeard,
+          { workspaceId: t.wsId, callId, lines: [line('b:0', priyaRow)] },
+          t.owner,
+        ),
+      'forbidden',
+      403,
+    );
+    const typed = await expectPgError(() =>
+      asUser(api(), t.owner.claims, (tx) =>
+        rows(
+          tx,
+          sql`insert into app.video_call_lines
+                (workspace_id, video_call_id, person_row_id, side, name, body, said_at, line_key)
+              values (${t.wsId}, ${callId}, ${priyaRow}, 'team', 'Priya', 'Made up', now(), 'b:1')`,
+        ),
+      ),
+    );
+    expect(typed.code).toBe('42501');
+
+    // The business sees them; nobody else does.
+    const mine = await asUser(api(), t.member.claims, (tx) =>
+      rows(tx, sql`select id from app.video_call_lines where video_call_id = ${callId}`),
+    );
+    expect(mine).toHaveLength(2);
+    const stranger = await createTestUser('vcall-lines-stranger');
+    const theirs = await asUser(api(), stranger.claims, (tx) =>
+      rows(tx, sql`select id from app.video_call_lines where video_call_id = ${callId}`),
+    );
+    expect(theirs).toEqual([]);
+  });
+
+  it('is forgotten when the team turns the call’s AI notes off, and nothing is kept until they’re on again', async () => {
+    const off = { workspaceId: t.wsId, callId, on: false };
+    expect(await run(videoCallSetAi, off, t.owner)).toEqual({ changed: true, aiNotes: false });
+    expect(await linesOf()).toEqual([]);
+    const [changed] = await events('video_call.ai_changed', callId);
+    expect(changed!.payload).toMatchObject({ appointmentId, on: false, forgotten: 2 });
+    expect(await ask(videoCallGet, { workspaceId: t.wsId, callId }, t.owner)).toMatchObject({
+      call: { aiNotes: false },
+    });
+    expect(await heard([line('c:0', customerRow)])).toEqual({ kept: 0 });
+    // The AI can't turn them back on behind the team's back.
+    await expectHfos(
+      () => runSystem(videoCallSetAi, { ...off, on: true }, t.scope),
+      'forbidden',
+      403,
+    );
+
+    expect(await run(videoCallSetAi, { ...off, on: true }, t.owner)).toEqual({
+      changed: true,
+      aiNotes: true,
+    });
+    expect(await heard([line('c:1', customerRow, 2)])).toEqual({ kept: 1 });
+  });
+
+  it('becomes the appointment’s transcript once, when the stretch of the call is over', async () => {
+    await heard([line('d:0', priyaRow, 3), line('d:1', customerRow, 4)]);
+    const keep = (stretch: string, until: string) =>
+      runSystem(videoCallKeepWords, { workspaceId: t.wsId, callId, until, stretch }, t.scope);
+    // Only what was said by the end of the stretch: a line after it waits for the next.
+    await heard([line('d:2', customerRow, 120)]);
+    const kept = await keep('RM_core_1', at(base, 60));
+    expect(kept).toMatchObject({ transcriptId: expect.any(String), lines: 3 });
+    const [transcript, ...more] = await rows<{
+      provider: string;
+      external_id: string;
+      body: string;
+    }>(
+      admin(),
+      sql`select provider, external_id, body from app.appointment_transcripts
+          where appointment_id = ${appointmentId}`,
+    );
+    expect(more).toEqual([]);
+    expect(transcript).toEqual({
+      provider: 'handsfree',
+      external_id: 'video:RM_core_1',
+      body: `Sol Customer: ${SAID}\nPriya Tech: ${SAID}\nSol Customer: ${SAID}`,
+    });
+    const [ready] = await rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events
+          where event_type = 'appointment.transcript_ready' and entity_id = ${appointmentId}`,
+    );
+    expect(ready!.payload).toMatchObject({
+      transcriptId: kept.transcriptId,
+      provider: 'handsfree',
+    });
+    expect(JSON.stringify(ready!.payload)).not.toContain('quote');
+    expect(await linesOf()).toEqual([{ side: 'customer', name: 'Sol Customer', body: SAID }]);
+
+    // The same stretch again keeps nothing more.
+    expect(await keep('RM_core_1', at(base, 60))).toEqual({ transcriptId: null, lines: 0 });
+    // A stretch with only a few words ("Can you hear me?") isn't a conversation: its lines go, and no transcript.
+    await heard([line('e:0', customerRow, 130, 'Can you hear me?')]);
+    expect(await keep('RM_core_2', at(base, 200))).toEqual({ transcriptId: null, lines: 2 });
+    expect(await linesOf()).toEqual([]);
+    const all = await rows(
+      admin(),
+      sql`select id from app.appointment_transcripts where appointment_id = ${appointmentId}`,
+    );
+    expect(all).toHaveLength(1);
+  });
+});
+
+describe('the coach in the call', () => {
+  let callId: string;
+  let appointmentId: string;
+  let attendeeId: string;
+  let customerRow: string;
+  let priyaRow: string;
+  const t0 = Date.now();
+  const enter = () =>
+    runSystem(videoCallEnter, { workspaceId: t.wsId, attendeeId, name: 'Rae Customer' }, t.scope);
+  const coach = (userId: string) =>
+    runSystem(videoCallCoach, { workspaceId: t.wsId, callId, userId }, t.scope);
+  const inRoom = (personId: string, participantSid: string, seconds: number) =>
+    runSystem(
+      videoCallJoined,
+      {
+        workspaceId: t.wsId,
+        callId,
+        personId,
+        roomSid: 'RM_coach_1',
+        participantSid,
+        at: at(t0, seconds),
+      },
+      t.scope,
+    );
+  const meetings = () =>
+    rows<{
+      id: string;
+      user_id: string;
+      provider: string;
+      state: string;
+      appointment_id: string | null;
+      person_id: string | null;
+      meeting_uuid: string;
+    }>(
+      admin(),
+      sql`select id, user_id, provider, state, appointment_id, person_id, meeting_uuid from app.live_meetings
+          where workspace_id = ${t.wsId} and provider = 'handsfree' and appointment_id = ${appointmentId}
+          order by created_at`,
+    );
+  const nobody = {
+    liveMeetingId: null,
+    personId: null,
+    conversationId: null,
+    startedAt: null,
+    stretch: null,
+  };
+
+  beforeAll(async () => {
+    const b = await booking('09:00');
+    appointmentId = b.appointmentId;
+    attendeeId = b.attendeeId;
+    callId = (await runSystem(videoCallOpen, { workspaceId: t.wsId, appointmentId }, t.scope))
+      .callId;
+    priyaRow = (await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya)).personId;
+    customerRow = (await enter()).personId!;
+  });
+
+  it('makes a stretch of the call a live meeting of the person on the team, once, with the customer in it', async () => {
+    // Not live yet: nobody is in the room.
+    expect(await coach(t.priya.id)).toEqual(nobody);
+    await inRoom(priyaRow, 'PA_priya', 0);
+    // Priya's in: Rae, waiting, goes in.
+    expect(await enter()).toMatchObject({ status: 'in', personId: customerRow });
+    await inRoom(customerRow, 'PA_rae', 5);
+    const customer = (await person(customerRow)).person_id;
+    expect(customer).not.toBeNull();
+
+    const first = await coach(t.priya.id);
+    expect(first).toMatchObject({
+      liveMeetingId: expect.any(String),
+      personId: customer,
+      startedAt: expect.any(String),
+      stretch: 'RM_coach_1',
+    });
+    // Asked again (a listener that restarted): the same live meeting.
+    expect((await coach(t.priya.id)).liveMeetingId).toBe(first.liveMeetingId);
+    expect(await meetings()).toEqual([
+      {
+        id: first.liveMeetingId,
+        user_id: t.priya.id,
+        provider: 'handsfree',
+        state: 'live',
+        appointment_id: appointmentId,
+        person_id: customer,
+        meeting_uuid: 'RM_coach_1',
+      },
+    ]);
+    const started = await rows(
+      admin(),
+      sql`select id from app.events where event_type = 'live_meeting.started'
+          and entity_id = ${first.liveMeetingId}`,
+    );
+    expect(started).toHaveLength(1);
+
+    // Someone on the team who isn't in the call isn't coached in it.
+    expect(await coach(t.owner.id)).toEqual(nobody);
+    // Only the worker asks.
+    await expectHfos(
+      () => run(videoCallCoach, { workspaceId: t.wsId, callId, userId: t.priya.id }, t.owner),
+      'forbidden',
+      403,
+    );
+  });
+
+  it('isn’t coached while the AI notes are off', async () => {
+    const off = { workspaceId: t.wsId, callId, on: false };
+    await run(videoCallSetAi, off, t.owner);
+    expect(await coach(t.priya.id)).toEqual(nobody);
+    await run(videoCallSetAi, { ...off, on: true }, t.owner);
+    expect((await coach(t.priya.id)).liveMeetingId).toBe((await meetings())[0]!.id);
   });
 });
 

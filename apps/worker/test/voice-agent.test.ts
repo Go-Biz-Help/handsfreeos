@@ -797,6 +797,9 @@ describe('the pieces', () => {
   it('reads Deepgram’s results as words heard', () => {
     expect(listenParams().get('encoding')).toBe('mulaw');
     expect(listenParams().get('sample_rate')).toBe('8000');
+    // A HandsFreeOS video call's sound, heard better.
+    expect(listenParams('wide').get('encoding')).toBe('linear16');
+    expect(listenParams('wide').get('sample_rate')).toBe('16000');
     expect(
       heardOf({
         type: 'Results',

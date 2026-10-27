@@ -23,7 +23,7 @@ import { isAfter } from '../facebook/dom';
 import { shown, visible } from '../facebook/fetch';
 import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
-import { CONTROLS, mainOf, placesOf, wordsOf } from './dom';
+import { CONTROLS, inPageBar, mainOf, placesOf, wordsOf } from './dom';
 import { peopleLinked } from './people';
 import {
   barOf,
@@ -248,21 +248,47 @@ export function sendFor(box: Element, pattern: RegExp, offToo = false): HTMLElem
   return null;
 }
 
+/** Whether the focus is in a box, on its own page or in the interop box it's drawn in. */
+function focusIn(box: Element): boolean {
+  const focused = (box.getRootNode() as Document | ShadowRoot).activeElement;
+  return !!focused && box.contains(focused);
+}
+
+/** Takes what was typed out of a box that was empty before, only with the focus in it. */
+function takeOut(box: HTMLElement): void {
+  box.focus();
+  if (!focusIn(box)) return;
+  if (box.tagName === 'TEXTAREA') (box as HTMLTextAreaElement).select();
+  else box.ownerDocument.getSelection()?.selectAllChildren(box);
+  box.ownerDocument.execCommand('delete', false);
+}
+
 /**
  * Types into a box to write in, and sends it with its button; it's sent once the box empties. It types with the box's
- * own page, which for a box in LinkedIn's interop frame is the frame's.
+ * own page, which for a box in LinkedIn's interop frame is the frame's. For a message, `theirs` finds their
+ * conversation's box again, for the checks before typing and before sending.
  */
-async function typeAndSend(box: HTMLElement, text: string, pattern: RegExp) {
+async function typeAndSend(
+  box: HTMLElement,
+  text: string,
+  pattern: RegExp,
+  theirs?: () => HTMLElement | null,
+): Promise<AutoResult> {
   // Something written there already is the person's: left alone.
-  if (hasWriting(box)) return 'not_sent' as const;
+  if (hasWriting(box)) return 'not_sent';
   box.focus();
   box.click();
   await pause(300);
+  if (theirs && !focusIn(box)) return 'not_theirs';
   box.ownerDocument.execCommand('insertText', false, text);
   await pause(800);
-  if (!hasWriting(box)) return 'not_sent' as const;
+  if (theirs && hasWriting(box) && theirs() !== box) {
+    takeOut(box);
+    return 'not_theirs';
+  }
+  if (!hasWriting(box)) return 'not_sent';
   const send = sendFor(box, pattern);
-  if (!send) return 'none' as const;
+  if (!send) return 'none';
   send.click();
   return (await waitFor(() => (hasWriting(box) ? null : true), 6_000)) ? 'done' : 'not_sent';
 }
@@ -320,13 +346,36 @@ const messageBoxes = (root: ParentNode) =>
 const pagesOf = (doc: Document) =>
   placesOf(doc).filter((place): place is Document => place.nodeType === 9);
 
-/** The window over the page a box is in: the nearest box around it that links to anyone. */
+/** A conversation window's own Close, in its header: "Close your conversation with Dana Reyes". */
+const CLOSE_CONVERSATION = /^close your\b.*\bconversation\b/i;
+/** Where a conversation's messages are, whose links may lead to anyone: its log, its list's items, an article. */
+const IN_MESSAGES = '[role="log"], li, [role="listitem"], article, [role="article"]';
+
+/** The links in a part of the page outside its conversation's messages. */
+function linksOutsideMessages(part: Element): Element[] {
+  return [...part.querySelectorAll('a[href]')].filter((link) => {
+    const messages = link.closest(IN_MESSAGES);
+    return !messages || messages === part || !part.contains(messages);
+  });
+}
+
+/**
+ * Who the window over the page a box is in is with, as its header links to them: the people linked outside its
+ * messages in the nearest box around it with the window's own Close (its header may be a `header`: only the page's own
+ * top bar is left out). Nobody when there's no such box: a window whose Close it can't tell has nobody it's surely
+ * with, as the links further up may be another window's. Never the main column or past it, nor a box with a second
+ * box to write in or a second Close, as shown: past those, the links are the page's or another window's.
+ */
 function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
   const main = mainOf(doc);
   let up = box.parentElement;
   for (let steps = 0; up && steps < 20 && !up.contains(main); steps++, up = up.parentElement) {
-    const people = peopleLinked(up.querySelectorAll('a[href]'), href);
-    if (people.length) return people.map((p) => p.profile);
+    const closes = [...up.querySelectorAll(CONTROLS)].filter(
+      (c) => shown(c) && says(c, CLOSE_CONVERSATION),
+    );
+    if (closes.length > 1 || [...up.querySelectorAll(WRITING)].filter(shown).length > 1) break;
+    if (closes.length === 1)
+      return peopleLinked(linksOutsideMessages(up), href, inPageBar).map((p) => p.profile);
   }
   return [];
 }
@@ -361,11 +410,14 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
   // LinkedIn's in its interop box does (the owner's Check LinkedIn of 17 Oct 2026, on 0.54.0), is known as theirs.
   const page = address.kind === 'profile' ? profileOn(doc, href).profile : null;
   const known = page?.id && !them.id && sameMember(page, them) ? { ...them, id: page.id } : them;
+  // Everyone the window links to outside its messages is them: one left open from someone else never counts.
+  const isTheirs = (box: HTMLElement) => {
+    const linked = windowLinks(box, doc, href);
+    return linked.length > 0 && linked.every((p) => sameMember(p, known));
+  };
   const theirs = placesOf(doc)
     .flatMap(messageBoxes)
-    .filter(
-      (box) => !main.contains(box) && windowLinks(box, doc, href).some((p) => sameMember(p, known)),
-    );
+    .filter((box) => !main.contains(box) && isTheirs(box));
   return theirs.length === 1 ? theirs[0]! : null;
 }
 
@@ -377,14 +429,19 @@ export function openMessage(doc: Document): boolean {
   return true;
 }
 
-/** Writes a message to them in their conversation and sends it, waiting a little for the box to show. */
+/**
+ * Writes a message to them in their conversation and sends it, waiting a little for the box to show. Nothing is typed
+ * unless the focus is in their box, and nothing is sent unless, once typed, it's still their conversation's box; else
+ * what was typed is taken out again (`not_theirs`).
+ */
 export async function writeMessage(
   doc: Document,
   href: string,
   text: string,
   them: ProfileRef,
 ): Promise<AutoResult> {
-  const box = await waitFor(() => messageBoxFor(doc, href, them), 5_000);
+  const theirs = () => messageBoxFor(doc, href, them);
+  const box = await waitFor(theirs, 5_000);
   if (!box) return 'none';
-  return typeAndSend(box, text, SENDS_MESSAGE);
+  return typeAndSend(box, text, SENDS_MESSAGE, theirs);
 }

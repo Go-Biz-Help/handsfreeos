@@ -62,6 +62,15 @@ export interface VideoCallProvider {
   mute(room: string, identity: string): Promise<boolean>;
   /** Closes a room, taking everyone out. One that's already closed is no trouble. */
   close(room: string): Promise<void>;
+
+  // The AI hearing the call (part 2): its listener, in the media process (video-calls/listener.ts).
+
+  /** The listener's ticket into a room: unseen, hearing everyone's microphone, sending only captions. */
+  listenerTicket(room: string): Promise<VideoTicket>;
+  /** Who's in a room now: how many people, and whether a listener (this machine's or another's) is there too. */
+  whoIsIn(room: string): Promise<{ readonly people: number; readonly listener: boolean }>;
+  /** Tells everyone in the call whether the AI is hearing it ("AI notes on"). A room that's closed is no trouble. */
+  markAi(room: string, on: boolean): Promise<void>;
 }
 
 /** LiveKit refused or didn't answer. `permanent` is a refusal that trying again won't change. */

@@ -668,7 +668,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                                        |
 | Groups, theirs first, then new ones (decision 48)        | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
-| Finding people by topic (decision 92)                    | `finds.ts`, `ops/finds.ts`, `topics.ts`, `sends.ts` (`commentHoldOn`), `apps/worker/src/addons/outreach/words.ts`, `apps/extension/src/jobs/found-checks.ts`, `src/auto/comments.ts`, `supabase/migrations/20261027013100_outreach_found_by_topic.sql`                              |
+| Finding people by topic (decision 92)                    | `finds.ts`, `ops/finds.ts`, `topics.ts`, `sends.ts` (`commentHoldOn`), `apps/worker/src/addons/outreach/words.ts`, `apps/extension/src/jobs/found-checks.ts`, `src/auto/comments.ts`, `supabase/migrations/20261027014100_outreach_found_by_topic.sql`                              |
 | Asking the extension                                     | `asks.ts`, `ops/asks.ts`, `apps/web/src/addons/outreach/asks.tsx`, `apps/worker/src/addons/outreach/asks.ts`, `supabase/migrations/20261027001700_outreach_asks.sql`                                                                                                                |
 | Its jobs                                                 | `apps/extension/src/asks/run.ts`, `src/hfos/asks.ts`, `src/jobs/`, `src/offscreen.ts`                                                                                                                                                                                               |
 | Reading as the person goes, panel or not                 | `apps/extension/src/facebook/looking.ts`, `src/hfos/looked.ts`, `src/content.ts`                                                                                                                                                                                                    |
@@ -879,7 +879,10 @@ than a store extension, and for more features, and answered the questions the sa
     (c) it drafts the day's messages first thing, before the other steps; with (a) after them. With (b), once the
     training wheels are off, a first message or follow-up goes as it is. What's OK'd, the extension sends in
     Messenger, in the chat when HandsFreeOS knows it, else from their profile's **Message**, at a person's pace, and
-    notes it as its own; one it couldn't send says why and leaves the list for the day.
+    notes it as its own; one it couldn't send says why and leaves the list for the day. From extension 0.94.1 it
+    types a message only into a chat the page shows is with them, never into another chat window left open from the
+    person before, and sends nothing when it can't tell: a chat that links to a profile counts only by their number or
+    username, never by a name someone else may share. LinkedIn's and Instagram's sending goes the same way.
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
     rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Built: the
     AI says whether each reply it drafts is simple; with (b) a simple one goes as it is, with (c) every one does, and
@@ -2219,7 +2222,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     tags… linkedin could probably do a similar thing", "Alignable definitely has a search feature and also it should
     use the groups as a resource especially if we are looking for business owners in a certain niche or location",
     then his answers "1a 2a 3a 4a 5a 6a 7a 8a 9: check town and if online business check anywhere 10a 11b").
-    Extension 0.95.0, data version 8, migration `20261027013100`. Changes decisions 46 and 78, and LinkedIn's "The
+    Extension 0.95.0, data version 8, migration `20261027014100`. Changes decisions 46 and 78, and LinkedIn's "The
     post's writer is someone to connect with".
     - **The AI writes each customer playbook's words, once** (1a): **Hashtags on Instagram**, **Words to search
       LinkedIn’s posts with** and **Kinds of business to search for on Alignable**, from its niche, ideal client and

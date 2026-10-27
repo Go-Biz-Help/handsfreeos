@@ -249,9 +249,9 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Book an appointment: Calendar, press New appointment (or an empty time), fill in Customer, Calendar, Service, With, Date, Start, Length and Location, then Book; untick Tell (their name) to book without messaging them',
       'See one person’s week: Calendar, Week, then pick them in Person',
       'Book repeat visits: in New appointment, pick Every week, Every 2 weeks or Every month under Repeats and how many visits, then Book; Repeats shows when the calendar’s Repeats section has Staff can repeat visits on, and dates that don’t fit are listed, not booked',
+      'Book someone who isn’t a customer yet: in New appointment, type their name under Customer; when nobody matches, press Add (their name) as a new contact, save them, and they’re the customer (the phone app’s New appointment does the same under Who it’s for)',
     ],
     notHere: [
-      'adding a new customer from the booking box (add them in Contacts first)',
       'blocking time from the calendar itself (time off is Settings → My calendar, Add time off)',
     ],
     canChange: ['list appointments over any dates, done, missed or cancelled included'],

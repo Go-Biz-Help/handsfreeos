@@ -768,6 +768,80 @@ describe('a message on Alignable', () => {
     ).toMatchObject({ sent: false, why: 'Alignable showed a different conversation' });
   });
 
+  it('sends one when the header links to their business by its address in its town alone, and never to another business’s so', async () => {
+    for (const [header, goes] of [
+      ['/austin-tx/acme-plumbing', true],
+      ['/austin-tx/kim-bakes', false],
+    ] as const) {
+      // Kept by its address in its town, with its conversation's key; the header shows the same name either way.
+      world.pages = (url) =>
+        url === DANA_CHAT
+          ? { html: chatHtml().replace('/biz/businesses/42?user=5', header) }
+          : null;
+      const sent: string[] = [];
+      world.behave = sentOn(sent);
+      world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+      const outcome = await doWork(
+        { do: 'send', item: approved({ profileUrl: DANA_PAGE, threadKey: '42' }) },
+        ME.businessId,
+        false,
+      );
+      expect(outcome).toEqual(
+        goes
+          ? { done: true, line: 'Sent Dana Reyes a message' }
+          : { done: false, line: 'Dana Reyes: couldn’t find the box to write in' },
+      );
+      expect(sent).toEqual(goes ? ['Glad to help, Dana.'] : []);
+    }
+  });
+
+  it('sends nothing, and takes the writing out, when the focus isn’t in its box or the conversation changes as it’s typed', async () => {
+    for (const trouble of ['focus', 'header'] as const) {
+      world.pages = (url) => (url === DANA_CHAT ? { html: chatHtml() } : null);
+      const sent: string[] = [];
+      let box: HTMLElement | null = null;
+      world.behave = (doc) => {
+        sentOn(sent)(doc);
+        box = doc.querySelector<HTMLElement>('#box');
+        const type = doc.execCommand;
+        if (trouble === 'focus') box!.focus = () => undefined;
+        else
+          doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+            const typed = type.call(doc, command, ui, text);
+            // Alignable opens another business's conversation in the same box as it's typed.
+            if (command === 'insertText')
+              doc
+                .querySelector('[data-testid="channel-header-loaded"] a')!
+                .setAttribute('href', '/biz/businesses/77?user=9');
+            return typed;
+          };
+      };
+      world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+      const outcome = await doWork({ do: 'send', item: approved() }, ME.businessId, false);
+      expect(outcome).toEqual({
+        done: false,
+        line: 'Dana Reyes: its typing didn’t stay in their conversation, so it took it out and sent nothing',
+      });
+      expect(sent).toEqual([]);
+      expect(box!.textContent).toBe('');
+    }
+  });
+
+  it('types nothing in a conversation whose header isn’t drawn, on its address alone', async () => {
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    doc.querySelector('[data-testid="channel-header-loaded"]')!.remove();
+    const sent: string[] = [];
+    sentOn(sent)(doc);
+    const dana = { id: '42', username: null, url: DANA };
+    expect(await writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', dana)).toBe('none');
+    expect(sent).toEqual([]);
+    expect(doc.querySelector('#box')!.textContent).toBe('');
+  });
+
   it('drafts one after looking their business page up, and leaves it to wait for their OK', async () => {
     world.pages = (url) => (url === DANA ? { html: businessHtml(), at: DANA_PAGE } : null);
     world.hfos['hfos-draft'] = () => ({

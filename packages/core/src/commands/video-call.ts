@@ -14,14 +14,23 @@
  * - **In the call** the team can take someone out, mute them, or end the call for everyone. LiveKit is told by the
  *   worker, from the events.
  * - **When it ends**, the minutes everyone was in go on the balance (`video.minute`), once per stretch of the call.
+ * - **The AI hears it** while the call's AI notes are on (part 2): the worker's listener sends what it heard a few
+ *   lines at a time (`video_call.heard`), and when a stretch is over the lines become the appointment's transcript
+ *   (`video_call.keep_words`), which today's After the call starts from. The team can turn the notes off for one
+ *   call (`video_call.set_ai`), which forgets what was heard of it so far.
+ * - **The Sales Coach hears it** too (part 3), while the AI notes are on: the listener makes the stretch of the call
+ *   a live meeting for the person on the team it coaches (`video_call.coach`), and hands the words to the add-ons
+ *   that listen, as with a Zoom meeting.
  */
-import { and, asc, eq, inArray, sql as dsql } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, sql as dsql } from 'drizzle-orm';
 import {
   appointmentAttendees,
   appointments,
   appointmentStaff,
+  appointmentTranscripts,
   people,
   users,
+  videoCallLines,
   videoCallPeople,
   videoCalls,
   workspaces,
@@ -35,10 +44,13 @@ import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext, QueryContext } from '../kernel/types';
 import {
   hostFirstName,
+  sideOfKind,
   VIDEO_CALL_KINDS,
   VIDEO_CALL_MAX_PEOPLE,
   VIDEO_CALL_PERSON_STATES,
   VIDEO_CALL_STATES,
+  videoCallTranscript,
+  type VideoCallKind,
 } from '../meetings/video-calls';
 import { AppointmentLocation } from '../schemas/calendar';
 import { isoDateTime, uuid } from '../schemas/common';
@@ -729,6 +741,8 @@ export const videoCallFinished = defineCommand({
         // Everyone the total covers, for "7 min · 2 people" on the statement.
         people,
         total,
+        // When the stretch ended: what the AI heard up to here is its transcript (video_call.keep_words).
+        endedAt: at.toISOString(),
       },
       after: { state: 'ended' },
     });
@@ -1142,6 +1156,289 @@ export const videoCallKnockStatus = defineQuery({
   },
 });
 
+// ---------- the AI hearing the call (part 2) ----------
+
+/**
+ * AI notes on or off for one call (the owner's 8a): the team's to turn. Off, the listener leaves within seconds and
+ * what it heard of the call so far is forgotten, so the call gets no notes or suggestions from it; on again, it
+ * listens from then on.
+ */
+export const videoCallSetAi = defineCommand({
+  name: 'video_call.set_ai',
+  description:
+    'Turn the AI’s notes on or off for one HandsFreeOS video call. Turning them off forgets what the AI heard of the call so far.',
+  risk: 1,
+  input: z.object({ workspaceId: uuid, callId: uuid, on: z.boolean() }),
+  output: z.object({ changed: z.boolean(), aiNotes: z.boolean() }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.ai_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const call = await lockCall(ctx, input.callId);
+    if (call.aiNotes === input.on) return { changed: false, aiNotes: call.aiNotes };
+    await ctx.tx.update(videoCalls).set({ aiNotes: input.on }).where(eq(videoCalls.id, call.id));
+    const forgotten = input.on
+      ? []
+      : await ctx.tx
+          .delete(videoCallLines)
+          .where(eq(videoCallLines.videoCallId, call.id))
+          .returning({ id: videoCallLines.id });
+    await ctx.emit({
+      type: 'video_call.ai_changed',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, on: input.on, forgotten: forgotten.length },
+      before: { aiNotes: call.aiNotes },
+      after: { aiNotes: input.on },
+    });
+    return { changed: true, aiNotes: input.on };
+  },
+});
+
+const HeardLine = z.object({
+  /** The listener's own name for the line, so a batch sent twice keeps one copy. */
+  key: z.string().trim().min(1).max(100),
+  /** Who said it: their identity in the room, a row of the call's people. */
+  personId: uuid,
+  text: z.string().trim().min(1).max(4000),
+  saidAt: isoDateTime,
+  language: z
+    .string()
+    .regex(/^[a-z]{2}$/)
+    .nullable()
+    .default(null),
+});
+
+/**
+ * What the listener heard, a few lines at a time, kept until the stretch of the call is over. Lines from someone who
+ * isn't on the call are dropped, and nothing is kept once the call's AI notes are off: the listener is on its way
+ * out, and what it heard is forgotten.
+ */
+export const videoCallHeard = defineCommand({
+  name: 'video_call.heard',
+  description:
+    'Worker: what the AI’s listener heard in a HandsFreeOS video call, a few lines at a time.',
+  risk: 0,
+  input: z.object({ workspaceId: uuid, callId: uuid, lines: z.array(HeardLine).min(1).max(200) }),
+  output: z.object({ kept: z.int() }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    // Locked, so a batch can't land just after the team turned the notes off and their words were forgotten.
+    const call = await lockCall(ctx, input.callId);
+    if (!call.aiNotes) return { kept: 0 };
+    const byId = new Map((await peopleOf(ctx.tx, call.id)).map((p) => [p.id, p]));
+    const values = input.lines.flatMap((l) => {
+      const p = byId.get(l.personId);
+      return p
+        ? [
+            {
+              workspaceId: call.workspaceId,
+              videoCallId: call.id,
+              personRowId: p.id,
+              side: sideOfKind(p.kind as VideoCallKind),
+              name: p.name,
+              body: l.text,
+              language: l.language,
+              saidAt: new Date(l.saidAt),
+              lineKey: l.key,
+            },
+          ]
+        : [];
+    });
+    if (!values.length) return { kept: 0 };
+    const kept = await ctx.tx
+      .insert(videoCallLines)
+      .values(values)
+      .onConflictDoNothing({ target: [videoCallLines.videoCallId, videoCallLines.lineKey] })
+      .returning({ id: videoCallLines.id });
+    return { kept: kept.length };
+  },
+});
+
+/** Fewer words than this isn't a conversation worth notes ("Can you hear me?"): it's dropped, not kept. */
+export const VIDEO_CALL_TRANSCRIPT_MIN_WORDS = 15;
+
+/**
+ * A stretch of the call is over: what the listener heard up to its end becomes the appointment's transcript, which
+ * the AI's notes and suggestions start from as with Zoom's (`appointment.transcript_ready`), and the lines go. Once
+ * per stretch: the same stretch again keeps nothing more.
+ */
+export const videoCallKeepWords = defineCommand({
+  name: 'video_call.keep_words',
+  description:
+    'Worker: a stretch of a HandsFreeOS video call is over, so what the AI heard becomes the appointment’s transcript.',
+  risk: 0,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    /** The end of the stretch: lines said up to here are its. */
+    until: isoDateTime,
+    /** The stretch's own name (LiveKit's room id), which its transcript is kept under. */
+    stretch: z.string().trim().min(1).max(100),
+  }),
+  output: z.object({ transcriptId: uuid.nullable(), lines: z.int() }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['appointment.transcript_ready'],
+  async handler(ctx, input) {
+    const call = await lockCall(ctx, input.callId);
+    const lines = await ctx.tx
+      .select()
+      .from(videoCallLines)
+      .where(
+        and(
+          eq(videoCallLines.videoCallId, call.id),
+          lte(videoCallLines.saidAt, new Date(input.until)),
+        ),
+      )
+      .orderBy(asc(videoCallLines.saidAt), asc(videoCallLines.createdAt));
+    if (!lines.length) return { transcriptId: null, lines: 0 };
+    await ctx.tx.delete(videoCallLines).where(
+      inArray(
+        videoCallLines.id,
+        lines.map((l) => l.id),
+      ),
+    );
+    const words = lines.reduce((n, l) => n + l.body.split(/\s+/).filter(Boolean).length, 0);
+    // Calls that aren't for an appointment keep their words with the customer (part 5).
+    if (!call.appointmentId || !call.aiNotes || words < VIDEO_CALL_TRANSCRIPT_MIN_WORDS)
+      return { transcriptId: null, lines: lines.length };
+    const [appt] = await ctx.tx
+      .select({ id: appointments.id, title: appointments.title })
+      .from(appointments)
+      .where(eq(appointments.id, call.appointmentId));
+    if (!appt) return { transcriptId: null, lines: lines.length };
+    const [row] = await ctx.tx
+      .insert(appointmentTranscripts)
+      .values({
+        workspaceId: call.workspaceId,
+        appointmentId: appt.id,
+        provider: 'handsfree',
+        externalId: `video:${input.stretch}`,
+        body: videoCallTranscript(lines).slice(0, 2_000_000),
+      })
+      .onConflictDoNothing({
+        target: [appointmentTranscripts.appointmentId, appointmentTranscripts.externalId],
+      })
+      .returning({ id: appointmentTranscripts.id });
+    if (!row) return { transcriptId: null, lines: lines.length };
+    // Never the words themselves: the event and the activity log say a transcript arrived.
+    await ctx.emit({
+      type: 'appointment.transcript_ready',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { transcriptId: row.id, provider: 'handsfree' },
+      after: { title: appt.title, provider: 'handsfree' },
+    });
+    return { transcriptId: row.id, lines: lines.length };
+  },
+});
+
+const NoCoach = {
+  liveMeetingId: null,
+  personId: null,
+  conversationId: null,
+  startedAt: null,
+  stretch: null,
+} as const;
+
+/**
+ * The Sales Coach in the call (part 3): the listener hears a call with someone on the team the coach is for, so this
+ * stretch of the call becomes a live meeting the add-ons that listen hear (`liveCalls`), as a Zoom meeting does. No
+ * claim is needed: the call knows who's in it, and who the customer is (the customer in the call, else the call's or
+ * the appointment's). The live meeting is the person's for this stretch (LiveKit's room id), and a listener that
+ * restarted in the middle of it finds the same one. Nothing, while the call isn't live, its AI notes are off, or
+ * the person isn't in it.
+ */
+export const videoCallCoach = defineCommand({
+  name: 'video_call.coach',
+  description:
+    'Worker: the AI’s listener hears a HandsFreeOS video call with someone on the team who is coached, so the add-ons that listen hear it too.',
+  risk: 0,
+  input: z.object({ workspaceId: uuid, callId: uuid, userId: uuid }),
+  output: z.object({
+    liveMeetingId: uuid.nullable(),
+    personId: uuid.nullable(),
+    conversationId: uuid.nullable(),
+    startedAt: isoDateTime.nullable(),
+    /** The stretch of the call: LiveKit's room id. */
+    stretch: z.string().nullable(),
+  }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['live_meeting.started'],
+  async handler(ctx, input) {
+    // Locked, so the team can't turn the notes off between the check and the live meeting.
+    const call = await lockCall(ctx, input.callId);
+    if (call.state !== 'live' || !call.aiNotes || !call.roomSid) return NoCoach;
+    const list = await peopleOf(ctx.tx, call.id);
+    const theirs = list.find(
+      (p) => p.kind === 'team' && p.userId === input.userId && p.state === 'in' && connected(p),
+    );
+    if (!theirs) return NoCoach;
+    const inTheCall = list
+      .filter((p) => p.kind === 'customer' && p.personId && p.state === 'in' && connected(p))
+      .sort((a, b) => (a.joinedAt?.getTime() ?? 0) - (b.joinedAt?.getTime() ?? 0))[0];
+    const [booked] =
+      !inTheCall && !call.personId && call.appointmentId
+        ? await ctx.tx
+            .select({ personId: appointmentAttendees.personId })
+            .from(appointmentAttendees)
+            .where(
+              and(
+                eq(appointmentAttendees.appointmentId, call.appointmentId),
+                inArray(appointmentAttendees.status, ['booked', 'attended', 'no_show']),
+              ),
+            )
+            .orderBy(asc(appointmentAttendees.createdAt))
+            .limit(1)
+        : [];
+    const personId = inTheCall?.personId ?? call.personId ?? booked?.personId ?? null;
+    const ws = call.workspaceId;
+    const [made] = await rows<{ id: string; started_at: Date | string }>(
+      ctx.tx,
+      sql`insert into app.live_meetings
+            (workspace_id, user_id, provider, meeting_uuid, appointment_id, person_id, state, stream_id, started_at)
+          values (${ws}, ${input.userId}, 'handsfree', ${call.roomSid}, ${call.appointmentId},
+            ${personId}, 'live', ${call.roomSid}, now())
+          on conflict (workspace_id, user_id, provider, meeting_uuid) where state in ('waiting', 'live')
+          do nothing
+          returning id, started_at`,
+    );
+    if (made)
+      await ctx.emit({
+        type: 'live_meeting.started',
+        entityType: 'live_meeting',
+        entityId: made.id,
+        payload: { userId: input.userId, provider: 'handsfree' },
+      });
+    // Heard again (a listener that restarted): the same live meeting, with the customer once they're known.
+    const [open] = made
+      ? [{ id: made.id, started_at: made.started_at, person_id: personId }]
+      : await rows<{ id: string; started_at: Date | string; person_id: string | null }>(
+          ctx.tx,
+          sql`update app.live_meetings set person_id = coalesce(person_id, ${personId}::uuid)
+              where workspace_id = ${ws} and user_id = ${input.userId} and provider = 'handsfree'
+                and meeting_uuid = ${call.roomSid} and state = 'live'
+              returning id, started_at, person_id`,
+        );
+    if (!open) return NoCoach;
+    return {
+      liveMeetingId: open.id,
+      personId: open.person_id,
+      conversationId: call.conversationId,
+      startedAt: new Date(open.started_at).toISOString(),
+      stretch: call.roomSid,
+    };
+  },
+});
+
 export const videoCallCommands = [
   videoCallOpen,
   videoCallEnter,
@@ -1155,6 +1452,10 @@ export const videoCallCommands = [
   videoCallRemove,
   videoCallMute,
   videoCallEnd,
+  videoCallSetAi,
+  videoCallHeard,
+  videoCallKeepWords,
+  videoCallCoach,
 ] as const;
 
 export const videoCallQueries = [videoCallGet, videoCallKnockStatus] as const;

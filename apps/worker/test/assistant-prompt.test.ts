@@ -5,6 +5,7 @@ import { contextText, lastingText, turnText, type PromptContext } from '../src/a
 import { ADDON_WORKER_MODULES } from '../src/addons/modules';
 import { assistantRequest } from '../src/assistant/runtime';
 import { allAddonActionTools } from '../src/assistant/tools-addons';
+import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 
 const PROMPT: PromptContext = {
   businessName: 'Lone Star HVAC',
@@ -65,6 +66,12 @@ describe('what every question sends (assistantRequest)', () => {
     const withActions = assistantRequest([...assistantTools, ...addonTools, ...actions], searching);
     expect(inView(withActions.tools)).toEqual(inView(core.tools));
     expect(withActions.system).toBe(core.system);
+    // The screens' own commands too.
+    const screens = allScreenActionTools();
+    expect(screens.length).toBeGreaterThan(100);
+    const withScreens = assistantRequest([...assistantTools, ...screens], searching);
+    expect(inView(withScreens.tools)).toEqual(inView(core.tools));
+    expect(withScreens.system).toBe(core.system);
   });
 
   it('works out each tool once, so the next question sends the very same definitions', () => {

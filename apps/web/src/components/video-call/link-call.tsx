@@ -18,6 +18,7 @@ import {
   type VideoTicket,
 } from '@/lib/api/public-booking';
 import { joinVideoCall } from '@/lib/api/worker';
+import { CallCoachPanel, type CallBusiness } from './call-coach';
 import { AfterCall, CallFrame, CallProblem, Waiting } from './call-frame';
 import { CallRoom } from './call-room';
 import { keepKnock, keptKnock, newKnockKey, useKnockWatch, type Knock } from './knock';
@@ -42,8 +43,8 @@ export function LinkCall({
   teammate,
 }: {
   callId: string;
-  /** Signed in: their name, from their account. */
-  teammate: { readonly name: string } | null;
+  /** Signed in: their name, from their account, and their businesses, for the coach beside the video. */
+  teammate: { readonly name: string; readonly businesses?: readonly CallBusiness[] } | null;
 }) {
   const [call, setCall] = useState<PublicCall | null>(null);
   const [step, setStep] = useState<Step>({ kind: 'loading' });
@@ -135,7 +136,10 @@ export function LinkCall({
     }
   });
 
-  if (step.kind === 'in')
+  if (step.kind === 'in') {
+    const business = step.team
+      ? teammate?.businesses?.find((b) => b.id === step.team!.workspaceId)
+      : undefined;
     return (
       <CallRoom
         ticket={step.ticket}
@@ -143,12 +147,14 @@ export function LinkCall({
         heading={{ title: call?.business ?? VIDEO_CALL_WORDS.name }}
         color={step.team ? null : (call?.look.color ?? null)}
         team={step.team}
+        coach={business ? <CallCoachPanel business={business} /> : null}
         onEnd={(end) => {
           if (!step.team && end === 'removed') keepKnock(null, callId);
           setStep({ kind: 'after', end, team: !!step.team });
         }}
       />
     );
+  }
 
   const business = call ? { name: call.business, look: call.look } : null;
   return (
@@ -174,6 +180,7 @@ export function LinkCall({
           name={me.current.name}
           nameFixed={!asGuest}
           joinLabel={asGuest ? 'Ask to join' : VIDEO_CALL_WORDS.join}
+          notice={call?.aiNotes ? VIDEO_CALL_WORDS.aiNotice(call.business) : null}
           busy={busy}
           error={error}
           onJoin={(name, choices) => {

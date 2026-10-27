@@ -6,7 +6,7 @@
  * dots outside the texting alphabet, times without ranges, and "Reply STOP to opt out." on the first text to
  * a number. Emails go through message.send as plain text, which the worker renders with clickable links.
  */
-import { plainSpaces, type Reminder } from '@hfos/core/server';
+import { plainSpaces, VIDEO_CALL_WORDS, type Reminder } from '@hfos/core/server';
 import {
   clock,
   dayLong,
@@ -40,6 +40,8 @@ export interface Visit {
   readonly meetingUrl: string | null;
   /** The call is recorded and transcribed (Zoom with Record and transcribe on): the customer is told. */
   readonly recorded?: boolean;
+  /** A HandsFreeOS video call, whose AI takes notes: the customer is told (the owner's 9a). */
+  readonly aiNotes?: boolean;
   /** First names of the people who come, the host first. */
   readonly staff: readonly string[];
 }
@@ -133,7 +135,13 @@ export function whereLine(v: Visit): string | null {
   if (v.locationKind === 'customer_address') return v.address ?? 'At your address';
   if (v.locationKind === 'business') return v.address;
   if (v.locationKind === 'virtual')
-    return `${v.meetingUrl ? `Online: ${v.meetingUrl}` : 'Online'}${v.recorded ? ' (this call is recorded and transcribed)' : ''}`;
+    return `${v.meetingUrl ? `Online: ${v.meetingUrl}` : 'Online'}${
+      v.recorded
+        ? ' (this call is recorded and transcribed)'
+        : v.aiNotes
+          ? ` (${VIDEO_CALL_WORDS.emailNotice})`
+          : ''
+    }`;
   if (v.locationKind === 'phone') return 'By phone';
   return v.address;
 }

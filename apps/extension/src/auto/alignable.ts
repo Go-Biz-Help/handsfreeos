@@ -751,9 +751,11 @@ async function sendMessage(
       ? wrote.error
       : wrote.result === 'none'
         ? 'couldn’t find the box to write in'
-        : wrote.result !== 'done'
-          ? 'Alignable didn’t take the message'
-          : null;
+        : wrote.result === 'not_theirs'
+          ? `its typing didn’t stay in their conversation, so it took it out${i === 0 ? ' and sent nothing' : ''}`
+          : wrote.result !== 'done'
+            ? 'Alignable didn’t take the message'
+            : null;
     if (why === null) continue;
     if (i === 0) return failed(`${item.name}: ${why}`);
     partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;

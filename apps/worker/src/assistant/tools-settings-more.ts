@@ -1,10 +1,18 @@
 /**
  * The last settings the Assistant used to hand back (packages/core/src/assistant/tools-settings-more.ts): add-ons,
- * the Deleted bin, partners and Settings → Safety. Each card is read from what is there now, so it says what will
+ * the Deleted bin (moving things in, and bringing them back), partners and Settings → Safety. Each card is read from what is there now, so it says what will
  * really change; a request that changes nothing is turned back before a card is drawn. On Confirm, the screen's own
  * command runs as the person.
  */
-import { HfosError } from '@hfos/core';
+import {
+  BIN_WORDS,
+  binContentsTotal,
+  binDeleteBox,
+  binDeletedWords,
+  HfosError,
+  type BinContents,
+  type BinKind,
+} from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -25,6 +33,13 @@ const LIFECYCLE = {
   turn_on: 'enable',
   turn_off: 'disable',
   uninstall: 'uninstall',
+} as const;
+/** Each move's command, written out in full: the Assistant's coverage check reads the names as they are written. */
+const LIFECYCLE_COMMAND = {
+  install: 'addon.install',
+  turn_on: 'addon.enable',
+  turn_off: 'addon.disable',
+  uninstall: 'addon.uninstall',
 } as const;
 type Move = keyof typeof LIFECYCLE;
 
@@ -119,7 +134,7 @@ const manageAddOn: SettingsConfirmTool = {
     const impact = await impactOf(db, ctx, args);
     if (impact.outcome === 'refused' && impact.refusal)
       throw HfosError.rule(impact.refusal.rule, 409, impact.refusal.message);
-    await command(db, ctx, `addon.${LIFECYCLE[act]}`, {
+    await command(db, ctx, LIFECYCLE_COMMAND[act], {
       addonId: args['addonId'],
       include: impact.needsAgreement,
     });
@@ -133,7 +148,7 @@ const manageAddOn: SettingsConfirmTool = {
     return {
       outcome: outcomes[act],
       href: href(ctx, 'add-ons'),
-      command: `addon.${LIFECYCLE[act]}`,
+      command: LIFECYCLE_COMMAND[act],
     };
   },
 };
@@ -221,6 +236,99 @@ const restoreFromBin: SettingsConfirmTool = {
       outcome: `${back.name} is back${back.joined ? ', joined to the conversation that carried on' : ''}`,
       href: href(ctx, 'settings/deleted-bin'),
       command: 'bin.restore',
+    };
+  },
+};
+
+/** Each kind's delete, as the screens' Delete for good… runs it, and what its input calls the ids. */
+const BIN_COMMANDS: Record<BinKind, { name: string; key: string }> = {
+  person: { name: 'person.delete', key: 'personIds' },
+  conversation: { name: 'conversation.delete', key: 'conversationIds' },
+  appointment: { name: 'appointment.delete', key: 'appointmentId' },
+  lead: { name: 'lead.delete', key: 'leadIds' },
+  company: { name: 'company.delete', key: 'companyIds' },
+  custom_record: { name: 'custom_record.delete', key: 'customRecordIds' },
+};
+
+interface BinPreview {
+  items: {
+    id: string;
+    name: string | null;
+    contents: BinContents;
+    rule: string | null;
+    message: string | null;
+  }[];
+}
+
+/** The delete's own input: a booking is one at a time, and says whether its customers are told. */
+function binDelete(args: Args): { kind: BinKind; name: string; input: Args } {
+  const kind = String(args['kind']) as BinKind;
+  const ids = Array.isArray(args['ids']) ? (args['ids'] as string[]) : [];
+  const c = BIN_COMMANDS[kind];
+  if (!c) throw HfosError.validation([{ path: 'kind', message: 'Pick what to delete.' }]);
+  if (kind !== 'appointment') return { kind, name: c.name, input: { [c.key]: ids } };
+  if (ids.length !== 1)
+    throw HfosError.validation(
+      [{ path: 'ids', message: 'One booking at a time.' }],
+      'Bookings are deleted one at a time. Pick the one to delete first.',
+    );
+  return {
+    kind,
+    name: c.name,
+    input: { appointmentId: ids[0], notify: args['tellCustomers'] !== false },
+  };
+}
+
+/**
+ * Moving things to the Deleted bin (the owner, 2026-10-27): the card is the screens' delete box — what goes with them,
+ * what stays, and that they wait 30 days — read from what deleting them would take now. One that can't go yet is said
+ * before any card, in the bin's own words.
+ */
+const moveToBin: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { kind } = binDelete(args);
+    const { items } = await query<BinPreview>(db, ctx, 'bin.preview', { kind, ids: args['ids'] });
+    if (items.length === 0)
+      throw HfosError.notFound('None of those are here anymore: they may be deleted already.');
+    const stopped = items.filter((i) => i.rule);
+    if (stopped.length)
+      throw HfosError.conflict(
+        stopped
+          .map((i) => i.message ?? `${i.name ?? 'One of them'} can’t be deleted yet.`)
+          .join(' '),
+        stopped[0]!.rule!,
+      );
+    const names = items.map((i) => i.name ?? BIN_WORDS.kinds[kind]);
+    const box = binDeleteBox(kind, names, binContentsTotal(items.map((i) => i.contents)));
+    const card = settingsCard(toolCallId, 'move_to_bin', {
+      title: box.title,
+      fields: [
+        {
+          label: BIN_WORDS.kinds[kind],
+          value:
+            names.length > 3
+              ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
+              : names.join(', '),
+        },
+      ],
+      confirmLabel: BIN_WORDS.submit,
+    });
+    return {
+      card: { ...card, body: box.lines.join('\n') },
+      result: { waiting: true, deleting: names, says: box.lines },
+    };
+  },
+
+  async commit(db, ctx, args) {
+    const { kind, name, input } = binDelete(args);
+    const out = await command<{ deleted: { name: string }[] }>(db, ctx, name, input);
+    return {
+      outcome: binDeletedWords(
+        kind,
+        out.deleted.map((d) => d.name),
+      ),
+      href: href(ctx, 'settings/deleted-bin'),
+      command: name,
     };
   },
 };
@@ -543,6 +651,7 @@ const updateSafetySettings: SettingsConfirmTool = {
 
 export const moreSettingsConfirmTools: Record<string, SettingsConfirmTool> = {
   manage_add_on: manageAddOn,
+  move_to_bin: moveToBin,
   restore_from_bin: restoreFromBin,
   update_partner_settings: updatePartnerSettings,
   manage_partner: managePartner,
@@ -552,6 +661,7 @@ export const moreSettingsConfirmTools: Record<string, SettingsConfirmTool> = {
 /** What the panel says while each one runs. */
 export const moreSettingsStepLabels: Record<string, string> = {
   manage_add_on: 'Getting the add-on change ready',
+  move_to_bin: 'Checking what goes with it',
   restore_from_bin: 'Finding it in the Deleted bin',
   update_partner_settings: 'Changing how partners are paid',
   manage_partner: 'Changing the partner',

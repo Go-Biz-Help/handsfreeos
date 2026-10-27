@@ -1,3 +1,4 @@
+import { VIDEO_CALL_NAME, VIDEO_CALL_WORDS } from '@hfos/core';
 import * as React from 'react';
 import { Linking, View } from 'react-native';
 import { Video } from '@/components/icons';
@@ -9,7 +10,8 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 /** The video meeting on an appointment's place, from `appointments.location` as the commands store it. */
 export interface Meeting {
-  readonly video: 'zoom' | 'google_meet' | null;
+  /** `handsfree` is a HandsFreeOS video call, which the AI hears while its notes are on (docs/video-calls.md). */
+  readonly video: 'zoom' | 'google_meet' | 'handsfree' | null;
   readonly url: string | null;
   readonly error: string | null;
   readonly record: boolean;
@@ -26,19 +28,20 @@ export function meetingOf(location: string | null): Meeting | null {
       record?: boolean;
     };
     if (p.kind !== 'virtual') return null;
-    const video = p.video === 'zoom' || p.video === 'google_meet' ? p.video : null;
+    const video =
+      p.video === 'zoom' || p.video === 'google_meet' || p.video === 'handsfree' ? p.video : null;
     return {
       video,
       url: p.meetingUrl ?? null,
       error: p.meetingError ?? null,
-      record: video !== null && p.record === true,
+      record: (video === 'zoom' || video === 'google_meet') && p.record === true,
     };
   } catch {
     return null;
   }
 }
 
-const PROVIDER = { zoom: 'Zoom', google_meet: 'Google Meet' } as const;
+const PROVIDER = { zoom: 'Zoom', google_meet: 'Google Meet', handsfree: VIDEO_CALL_NAME } as const;
 
 /** The link to join, or why there's none yet (the web's Make link fixes that). */
 export function MeetingLink({ meeting }: { meeting: Meeting }) {
@@ -106,10 +109,13 @@ export function CallRecord({
   workspaceId,
   appointmentId,
   online,
+  ours = false,
 }: {
   workspaceId: string;
   appointmentId: string;
   online: boolean;
+  /** A HandsFreeOS video call: its transcript comes from the AI's notes, once the call ends. */
+  ours?: boolean;
 }) {
   const [review, setReview] = React.useState<Review | null>(null);
   const [transcripts, setTranscripts] = React.useState<Transcript[]>([]);
@@ -163,7 +169,7 @@ export function CallRecord({
   if (!latest && !review?.summary && !review?.items.length)
     return (
       <Text className="text-[13px] text-text-2" testID="call-record-waiting">
-        The transcript shows here after the call.
+        {ours ? VIDEO_CALL_WORDS.transcriptSoon : 'The transcript shows here after the call.'}
       </Text>
     );
   return (

@@ -22,6 +22,8 @@ export const DESK_SECTIONS = [
   { key: 'health', label: 'Health', needs: 'platform.health.read' },
   // What our own tools saw when something didn't go (20261027008100), read beside Health.
   { key: 'problems', label: 'Problem reports', needs: 'platform.health.read' },
+  // What Ask HandsFreeOS can't do yet, and Copy gaps for Claude (assistant/coverage.ts), read beside Health.
+  { key: 'assistant', label: 'Assistant coverage', needs: 'platform.health.read' },
   { key: 'rates', label: 'Rates', needs: 'platform.rates.manage' },
   { key: 'founding', label: 'Founding', needs: 'platform.founding.manage' },
   { key: 'replies', label: 'Saved replies' },

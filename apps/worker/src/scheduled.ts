@@ -35,6 +35,7 @@ import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentMeetTranscriptPoll } from './meetings/meet-poll';
+import { VIDEO_CALL_KEEP_WORDS_JOB, videoCallKeepWordsJob } from './video-calls/handlers';
 import { appointmentCallReview } from './meetings/review';
 import { meetingSettingsCheck } from './meetings/settings';
 import { appointmentTranscriptFetch, appointmentTranscriptWatch } from './meetings/transcripts';
@@ -548,6 +549,8 @@ export const jobs: JobMap = {
   'appointment.call_review': appointmentCallReview,
   // A recorded Google Meet call's transcript, looked for after it ends.
   'appointment.meet_transcript_poll': appointmentMeetTranscriptPoll,
+  // What the AI heard in a HandsFreeOS video call, made the appointment's transcript once the stretch is over.
+  [VIDEO_CALL_KEEP_WORDS_JOB]: videoCallKeepWordsJob,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,

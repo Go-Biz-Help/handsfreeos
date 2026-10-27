@@ -102,6 +102,90 @@ export const VIDEO_CALL_ATTRIBUTES = { kind: 'hfos.kind', hand: 'hfos.hand' } as
 
 /** The data topic reactions travel on: one emoji at a time, never kept. */
 export const VIDEO_CALL_REACTIONS_TOPIC = 'hfos.reactions';
+
+// ---------- the AI hearing the call (part 2) ----------
+
+/**
+ * The data topic captions travel on, from the listener to everyone in the call: each person's words as they're
+ * heard, a guess first and then the finished line. The screens show them only with CC on.
+ */
+export const VIDEO_CALL_CAPTIONS_TOPIC = 'hfos.captions';
+
+/** The room's metadata key that says the AI is hearing the call now ('on'), set by the listener. */
+export const VIDEO_CALL_ROOM_AI = 'hfos.ai';
+
+/** One caption: who's talking (their identity in the room and the name shown), what they've said so far. */
+export interface VideoCallCaption {
+  /** The same for every guess at one line and for the line itself, so a screen replaces rather than adds. */
+  readonly id: string;
+  readonly who: string;
+  readonly name: string;
+  readonly text: string;
+  /** The finished line; before that, the listener's guess so far. */
+  readonly final: boolean;
+}
+
+/** A caption as it travels, or null for anything that isn't one. */
+export function captionOf(payload: Uint8Array | string): VideoCallCaption | null {
+  try {
+    const raw: unknown = JSON.parse(
+      typeof payload === 'string' ? payload : new TextDecoder().decode(payload),
+    );
+    if (!raw || typeof raw !== 'object') return null;
+    const c = raw as Record<string, unknown>;
+    if (
+      typeof c['id'] !== 'string' ||
+      typeof c['who'] !== 'string' ||
+      typeof c['name'] !== 'string' ||
+      typeof c['text'] !== 'string'
+    )
+      return null;
+    return {
+      id: c['id'].slice(0, 100),
+      who: c['who'].slice(0, 100),
+      name: c['name'].slice(0, 120),
+      text: c['text'].slice(0, 2000),
+      final: c['final'] === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Whether the room says the AI is hearing it, from its metadata (JSON the listener sets). */
+export function roomAiOn(metadata: string | null | undefined): boolean {
+  if (!metadata) return false;
+  try {
+    const m: unknown = JSON.parse(metadata);
+    return (
+      !!m && typeof m === 'object' && (m as Record<string, unknown>)[VIDEO_CALL_ROOM_AI] === 'on'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** The team's side or the customer's, for the transcript and the coach: anyone let in is the customer's. */
+export const sideOfKind = (kind: VideoCallKind): 'team' | 'customer' =>
+  kind === 'team' ? 'team' : 'customer';
+
+/**
+ * What a stretch of a call said, as the appointment keeps it: one line per turn, "Name: words", a person's lines run
+ * together while nobody else speaks, as Zoom's and Google Meet's transcripts read.
+ */
+export function videoCallTranscript(
+  lines: readonly { readonly name: string; readonly body: string }[],
+): string {
+  const turns: { who: string; said: string }[] = [];
+  for (const l of lines) {
+    const said = l.body.trim();
+    if (!said) continue;
+    const last = turns[turns.length - 1];
+    if (last && last.who === l.name) last.said += ` ${said}`;
+    else turns.push({ who: l.name, said });
+  }
+  return turns.map((t) => `${t.who}: ${t.said}`).join('\n');
+}
 export const VIDEO_CALL_REACTIONS = ['👍', '❤️', '😂', '👏', '🎉', '😮'] as const;
 export type VideoCallReaction = (typeof VIDEO_CALL_REACTIONS)[number];
 
@@ -164,6 +248,31 @@ export const VIDEO_CALL_WORDS = {
   turnAway: 'Turn away',
   remove: 'Remove',
   mute: 'Mute',
+  // The AI hearing the call (the owner's 8a to 11a).
+  /** In the call, for everyone, while the AI hears it. */
+  aiOn: 'AI notes on',
+  /** Before joining, while the call's AI notes are on: joining is agreeing (9a). */
+  aiNotice: (business: string) =>
+    `${business} uses AI to take notes from what’s said in this call. No video or sound is kept. By joining, you agree to this.`,
+  /** On the booking page, before booking a HandsFreeOS call (9a). */
+  bookingNotice: 'AI takes notes from what’s said in this video call. No video or sound is kept.',
+  /** In the confirmation and reminders, beside the Join link (9a). */
+  emailNotice: 'AI takes notes from what’s said in the call. No video or sound is kept.',
+  /** The team's switch in the call. */
+  aiTurnOff: 'Turn off AI notes for this call',
+  aiTurnOn: 'Turn on AI notes for this call',
+  aiOffConfirm:
+    'The AI stops listening, and what it heard of this call so far is forgotten. There will be no notes or suggestions from it.',
+  aiTurnedOff: 'AI notes are off for this call.',
+  aiTurnedOn: 'AI notes are on for this call.',
+  captions: 'Captions',
+  captionsOn: 'Show captions',
+  captionsOff: 'Hide captions',
+  /** CC on while the AI isn't hearing the call: there's nothing to caption. */
+  captionsNeedAi: 'Captions come from the AI’s notes, which are off for this call.',
+  /** The appointment's transcript of a HandsFreeOS call. */
+  transcriptFrom: 'From the video call',
+  transcriptSoon: 'With AI notes on, the transcript shows here a minute after the call ends.',
 } as const;
 
 /** The push to the team when a customer waits for them, or someone asks to be let in. */

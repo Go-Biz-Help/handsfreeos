@@ -38,6 +38,10 @@ export interface HeardWords {
 /** 8 kHz μ-law is a byte a sample: a call's audio in bytes, divided by this, is its length in seconds. */
 export const MULAW_BYTES_A_SECOND = 8_000;
 
+/** A video call's sound (`audio: 'wide'`): 16 kHz, 16-bit, one channel, so two bytes a sample. */
+export const WIDE_SAMPLE_RATE = 16_000;
+export const WIDE_BYTES_A_SECOND = WIDE_SAMPLE_RATE * 2;
+
 /**
  * How long after the caller's last word the listener said their turn was over, in milliseconds: the audio heard
  * by then (`heardTo`, seconds from the start of the stream) less where that word ended. Null when the word's end
@@ -68,10 +72,15 @@ export interface ListenHandlers {
 export interface ListenOptions {
   /** Who hears the call, when support picked one for the business in /admin; null is the worker's VOICE_LISTENER. */
   readonly listener?: PhoneListener | null;
+  /**
+   * What the audio is: a phone call's 8 kHz μ-law (`phone`, the default), or a HandsFreeOS video call's 16 kHz
+   * 16-bit sound (`wide`, little-endian), which is heard better. Wide sound is always heard by Nova-3.
+   */
+  readonly audio?: 'phone' | 'wide';
 }
 
 export interface Listening {
-  /** One frame of the caller's audio (8 kHz μ-law). */
+  /** One frame of the caller's audio (8 kHz μ-law, or 16 kHz 16-bit with `audio: 'wide'`). */
   send(audio: Buffer): void;
   close(): Promise<void>;
 }

@@ -246,6 +246,52 @@ describe('writing a message only in the conversation with them', () => {
     },
   );
 
+  /**
+   * Dana's window over the feed with its header drawn as a `header`, as LinkedIn's own may be, outside the main
+   * column as the page's top bar is: on its own, or above one box holding the messages and the form.
+   */
+  function headedWindow(boxed: boolean, body: boolean): Document {
+    const doc = load('linkedin-chat-window.html', `${LI}/feed/`);
+    const bar = doc.querySelector('._bh')!;
+    const header = doc.createElement('header');
+    header.append(...bar.childNodes);
+    bar.replaceWith(header);
+    if (body) {
+      const around = doc.createElement('div');
+      header.after(around);
+      around.append(doc.querySelector('._bl')!, doc.querySelector('form')!);
+    }
+    return boxed ? boxEverything(doc) : doc;
+  }
+
+  it.each([
+    ['as written', false, false],
+    ['with a bare box around every element', true, false],
+    ['above its messages and form', false, true],
+    ['above its messages and form, with a bare box around every element', true, true],
+  ] as const)(
+    'in the window whose header is a header, as the page’s top bar is, %s',
+    async (_, boxed, body) => {
+      const doc = headedWindow(boxed, body);
+      const sent = typing(doc);
+      expect(await writeMessage(doc, `${LI}/feed/`, 'Glad to help, Dana.', dana)).toBe('done');
+      expect(sent).toEqual(['Glad to help, Dana.']);
+    },
+  );
+
+  it('in the window as shown, past a second box to write in or a second Close kept hidden', async () => {
+    for (const hidden of [
+      '<textarea hidden aria-hidden="true"></textarea>',
+      '<button type="button" hidden aria-label="Close your conversation with Dana Reyes"></button>',
+    ]) {
+      const doc = load('linkedin-chat-window.html', `${LI}/feed/`);
+      doc.querySelector('form')!.insertAdjacentHTML('afterbegin', hidden);
+      const sent = typing(doc);
+      expect(await writeMessage(doc, `${LI}/feed/`, 'Glad to help, Dana.', dana)).toBe('done');
+      expect(sent).toEqual(['Glad to help, Dana.']);
+    }
+  });
+
   describe('on the new conversation’s page Message opens, drawn in LinkedIn’s interop frame', () => {
     const NEW = `${LI}/messaging/thread/new/?recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW`;
 
@@ -326,6 +372,80 @@ describe('writing a message only in the conversation with them', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(await writing).toBe('none');
     expect(sent).toEqual([]);
+  });
+
+  it('never writes in the last person’s window, though its messages link to them or it links to nobody', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    // Dana's window, still open as Sam's is opened: one of her messages links to Sam.
+    const shared = load('linkedin-chat-window.html', `${LI}/feed/`);
+    const sentShared = typing(shared);
+    shared
+      .querySelector('p[dir="ltr"]')!
+      .insertAdjacentHTML('beforeend', ` <a href="${LI}/in/sam-lee-77/">Sam Lee</a>`);
+    const writing = writeMessage(shared, `${LI}/feed/`, 'Hi Sam', sam);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await writing).toBe('none');
+    expect(sentShared).toEqual([]);
+    // Dana's window links to nobody, and Sam's has drawn its header beside it, but not its box yet.
+    const unlinked = load('linkedin-chat-window.html', `${LI}/feed/`);
+    const sentUnlinked = typing(unlinked);
+    for (const link of unlinked.querySelectorAll('aside a')) link.replaceWith(...link.childNodes);
+    unlinked
+      .querySelector('aside')!
+      .insertAdjacentHTML(
+        'beforeend',
+        `<div><h2><a href="${LI}/in/sam-lee-77/">Sam Lee</a></h2></div>`,
+      );
+    const again = writeMessage(unlinked, `${LI}/feed/`, 'Hi Sam', sam);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await again).toBe('none');
+    expect(sentUnlinked).toEqual([]);
+    expect(unlinked.querySelector('[role="textbox"]')!.textContent?.trim()).toBe('');
+  });
+
+  it('takes no window for anyone’s when it can’t tell the window’s own Close', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    // Dana's window, its header linking to nobody and its Close worded otherwise, and only her messages linking to
+    // her; beside it Sam's, which has drawn its header, but no Close it can tell nor a box yet.
+    const doc = load('linkedin-chat-window.html', `${LI}/feed/`);
+    const sent = typing(doc);
+    const header = doc.querySelector('._bh')!;
+    header.querySelector('h2 a')!.replaceWith('Dana Reyes');
+    header.querySelector('[aria-label^="Close"]')!.setAttribute('aria-label', 'Close window');
+    doc
+      .querySelector('aside')!
+      .insertAdjacentHTML(
+        'beforeend',
+        `<div><div><h2><a href="${LI}/in/sam-lee-77/">Sam Lee</a></h2>` +
+          '<button type="button" aria-label="Close window"></button></div></div>',
+      );
+    const writing = writeMessage(doc, `${LI}/feed/`, 'Hi Sam', sam);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await writing).toBe('none');
+    expect(sent).toEqual([]);
+    expect(doc.querySelector('[role="textbox"]')!.textContent?.trim()).toBe('');
+  });
+
+  it('sends nothing, and takes the writing out, when the focus isn’t in their box or the window changes as it’s typed', async () => {
+    for (const trouble of ['focus', 'header'] as const) {
+      const doc = load('linkedin-chat-window.html', `${LI}/feed/`);
+      const sent = typing(doc);
+      const box = doc.querySelector<HTMLElement>('[role="textbox"]')!;
+      const type = doc.execCommand;
+      if (trouble === 'focus') box.focus = () => undefined;
+      else
+        doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+          const typed = type.call(doc, command, ui, text);
+          if (command === 'insertText')
+            doc.querySelector('h2 a')!.setAttribute('href', `${LI}/in/sam-lee-77/`);
+          return typed;
+        };
+      expect(await writeMessage(doc, `${LI}/feed/`, 'Glad to help, Dana.', dana)).toBe(
+        'not_theirs',
+      );
+      expect(sent).toEqual([]);
+      expect(box.textContent?.trim()).toBe('');
+    }
   });
 
   it('presses Message on their profile', () => {

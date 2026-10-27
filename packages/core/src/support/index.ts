@@ -7,3 +7,4 @@ export * from './addon-votes-words';
 export * from './rates-words';
 export * from './founding-words';
 export * from './problem-words';
+export * from './coverage-words';

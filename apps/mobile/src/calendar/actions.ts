@@ -34,6 +34,8 @@ export interface AskForTime {
   readonly acknowledgeWarnings?: boolean;
   /** The phone's own id for this booking, so asking twice books once. Made here when it isn't given. */
   readonly clientId?: string;
+  /** Changes it waits for: adding the customer it's for, a moment ago in the same sheet. */
+  readonly dependsOn?: readonly string[];
 }
 
 /**
@@ -42,23 +44,27 @@ export interface AskForTime {
  */
 export async function askForTime(a: AskForTime): Promise<{ id: string; clientId: string }> {
   const clientId = a.clientId ?? newId();
-  const made = await change('appointment.create', {
-    workspaceId: a.workspaceId,
-    calendarId: a.calendarId,
-    startsAt: a.startsAt,
-    durationMinutes: a.durationMinutes,
-    ...(a.serviceId ? { serviceId: a.serviceId } : {}),
-    ...(a.userIds && a.userIds.length ? { userIds: [...a.userIds] } : {}),
-    ...(a.personId ? { personId: a.personId } : {}),
-    partySize: 1,
-    ...(a.title ? { title: a.title } : {}),
-    notes: a.notes ?? '',
-    ...(a.address ? { location: { kind: 'customer_address' as const, address: a.address } } : {}),
-    ...(a.leadId ? { leadId: a.leadId } : {}),
-    acknowledgeWarnings: a.acknowledgeWarnings ?? false,
-    clientId,
-    notify: a.notify,
-  });
+  const made = await change(
+    'appointment.create',
+    {
+      workspaceId: a.workspaceId,
+      calendarId: a.calendarId,
+      startsAt: a.startsAt,
+      durationMinutes: a.durationMinutes,
+      ...(a.serviceId ? { serviceId: a.serviceId } : {}),
+      ...(a.userIds && a.userIds.length ? { userIds: [...a.userIds] } : {}),
+      ...(a.personId ? { personId: a.personId } : {}),
+      partySize: 1,
+      ...(a.title ? { title: a.title } : {}),
+      notes: a.notes ?? '',
+      ...(a.address ? { location: { kind: 'customer_address' as const, address: a.address } } : {}),
+      ...(a.leadId ? { leadId: a.leadId } : {}),
+      acknowledgeWarnings: a.acknowledgeWarnings ?? false,
+      clientId,
+      notify: a.notify,
+    },
+    { dependsOn: a.dependsOn ?? [] },
+  );
   return { id: made.id, clientId };
 }
 

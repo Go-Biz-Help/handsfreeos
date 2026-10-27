@@ -64,9 +64,18 @@ const isScopeKey = (key: string): key is ScopeKey =>
  */
 export function modelInput(input: z.ZodType): { input: z.ZodObject; scope: ScopeKey[] } | null {
   if (!(input instanceof z.ZodObject)) return null;
+  if (!('workspaceId' in input.shape)) return null;
+  return scopedInput(input);
+}
+
+/**
+ * An object input without whichever of the business's ids it takes, and those ids: what the model sees of a core
+ * command or query the Assistant runs as it is (assistant/screen-actions.ts, screen-reads.ts), whatever its scope.
+ */
+export function scopedInput(input: z.ZodObject): { input: z.ZodObject; scope: ScopeKey[] } {
   const shape = input.shape as Record<string, z.ZodType>;
-  if (!('workspaceId' in shape)) return null;
   const scope = SCOPE_KEYS.filter((k) => k in shape);
+  if (scope.length === 0) return { input, scope };
   // `.omit` keeps everything else about the object, but refuses one with refinements. The model's view can do
   // without those: the kernel parses the operation's own schema, refinements and all, before anything runs.
   if (!input._zod.def.checks?.length) {
