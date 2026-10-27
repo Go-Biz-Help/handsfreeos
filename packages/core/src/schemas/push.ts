@@ -54,3 +54,75 @@ export const PushDeviceListOutput = z.object({
     }),
   ),
 });
+
+// ---------- notifications under the bell (20261027012600) ----------
+
+/** One push kept under a person's bell: its words, its business and the screen it opens, as the push. */
+export const BellNotification = z.object({
+  id: uuid,
+  /**
+   * The business it's about; null for one about none (a new support ticket, a sign-in to the extension), which the
+   * bell lists in every business.
+   */
+  workspaceId: uuid.nullable(),
+  /** The push's category (PUSH_CATEGORIES). */
+  category: z.string(),
+  title: z.string(),
+  /** The business's name, after the channel for a customer's message ("Text · Lone Star HVAC & Roofing"). */
+  subtitle: z.string().nullable(),
+  body: z.string(),
+  /** Where pressing it goes: the web path its push opens. */
+  path: z.string(),
+  /** The add-on alert it was about (its push's `refs.alertId`): the bell counts the two as one while it's open. */
+  alertId: uuid.nullable(),
+  sentAt: z.iso.datetime(),
+  /** When the bell was opened with it in the list; null while it's new. */
+  seenAt: z.iso.datetime().nullable(),
+  /** When it was pressed, in the bell or as the push itself; null while it's unread. */
+  readAt: z.iso.datetime().nullable(),
+});
+export type BellNotification = z.infer<typeof BellNotification>;
+
+export const NotificationListInput = z.object({
+  /** The business on screen: the bell lists its notifications, never another business's. */
+  workspaceId: uuid,
+  limit: z.number().int().min(1).max(100).default(30),
+  cursor: z.string().max(400).optional(),
+});
+export const NotificationListOutput = z.object({
+  /** Newest first: the business's, and the person's own about no business. */
+  notifications: z.array(BellNotification),
+  /** How many of those aren't seen yet: what the bell counts. */
+  unseen: z.number().int().min(0),
+  nextCursor: z.string().nullable(),
+});
+
+export const NotificationSeenInput = z.object({
+  /** The business whose bell was opened: only what it lists is seen. */
+  workspaceId: uuid,
+  /**
+   * The newest one the bell showed (its `sentAt`): anything that came in after it stays new. Left out, every one
+   * kept so far.
+   */
+  upTo: z.iso.datetime().optional(),
+});
+export const NotificationSeenOutput = z.object({
+  /** How many were new until now. */
+  seen: z.number().int().min(0),
+});
+
+export const NotificationReadInput = z
+  .object({
+    /** Ones pressed in the bell. */
+    ids: z.array(uuid).max(100).optional(),
+    /** Pushes pressed on the phone (their `notificationId`): the notifications they're kept as. */
+    pushIds: z.array(uuid).max(100).optional(),
+  })
+  .refine((v) => (v.ids?.length ?? 0) + (v.pushIds?.length ?? 0) > 0, {
+    path: ['ids'],
+    error: 'Name the notifications that were opened.',
+  });
+export const NotificationReadOutput = z.object({
+  /** How many were unread until now. */
+  read: z.number().int().min(0),
+});

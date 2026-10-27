@@ -6,12 +6,15 @@
  * - **The receipts clean-up:** receipts older than 90 days go a batch at a time, recent ones stay, and it comes back
  *   the next night.
  * - **The problem reports clean-up:** reports older than 30 days go, handled or not; recent ones stay.
+ * - **The notifications clean-up:** what the bell lists goes after 30 days, a batch at a time, read or not; recent
+ *   ones stay, and it comes back the next night.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { executeCommand, organizationCreate, type HumanActor } from '@hfos/core/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { NOTIFICATION_JOBS, nextNotificationCleanUp } from '../src/housekeeping/notifications';
 import { nextProblemReportCleanUp, PROBLEM_REPORT_JOBS } from '../src/housekeeping/problem-reports';
 import { nextReceiptCleanUp, RECEIPT_JOBS } from '../src/housekeeping/receipts';
 import {
@@ -240,6 +243,37 @@ describe('the daily problem reports clean-up', () => {
     expect(left.map((r) => r.id)).toEqual([recent]);
     const next = new Date((await jobRow(clean)).run_at);
     expect(next.getTime()).toBe(nextProblemReportCleanUp(next.getTime() - 60 * 60_000).getTime());
+    await rows(admin(), sql`update app.scheduled_jobs set status = 'done' where id = ${clean}`);
+  });
+});
+
+describe('the daily notifications clean-up', () => {
+  it('removes notifications older than 30 days a batch at a time, read or not, keeps recent ones, and comes back the next night', async () => {
+    const insert = async (ago: string, read: boolean) => {
+      const pushId = randomUUID();
+      return (
+        await rows<{ id: string }>(
+          admin(),
+          sql`insert into app.notifications (user_id, workspace_id, push_id, collapse_key, category, title, body, path,
+                sent_at, seen_at, read_at)
+              values (${owner.id}, ${workspaceId}, ${pushId}, ${pushId}, 'customer_message', 'Old Customer',
+                'Is anyone there?', ${`/app/w/${workspaceId}/inbox`}, now() - ${ago}::interval,
+                ${read ? sql`now()` : sql`null`}, ${read ? sql`now()` : sql`null`}) returning id`,
+        )
+      )[0]!.id;
+    };
+    await insert('31 days', false);
+    await insert('45 days', true);
+    const recent = await insert('29 days', false);
+    const clean = await job(NOTIFICATION_JOBS.cleanUp, { batch: 1 }, false);
+    expect(await runJob(clean)).toMatchObject({ claimed: 1, rescheduled: 1, failed: 0 });
+    const left = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.notifications where user_id = ${owner.id}`,
+    );
+    expect(left.map((r) => r.id)).toEqual([recent]);
+    const next = new Date((await jobRow(clean)).run_at);
+    expect(next.getTime()).toBe(nextNotificationCleanUp(next.getTime() - 60 * 60_000).getTime());
     await rows(admin(), sql`update app.scheduled_jobs set status = 'done' where id = ${clean}`);
   });
 });

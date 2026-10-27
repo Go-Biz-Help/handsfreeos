@@ -131,6 +131,9 @@ begin
   insert into app.command_receipts (user_id, command_id, workspace_id, command, input_hash, outcome, answer, occurred_at)
     values (member, gen_random_uuid(), ws, 'task.create', repeat('e', 64), 'applied', '{}', now());
   insert into app.push_devices (user_id, platform, expo_push_token, app_version) values (member, 'android', 'ExponentPushToken[' || suffix || ']', '1.0.0');
+  insert into app.notifications (user_id, workspace_id, push_id, collapse_key, category, title, body, path, sent_at)
+    values (member, ws, gen_random_uuid(), 'conversation-' || suffix, 'customer_message', 'Mike Johnson', 'Is anyone there?',
+      '/app/w/' || ws || '/inbox', now());
   insert into app.user_phones (user_id, e164) values (member, '+15125550172');
 end
 $fixture$`;
@@ -475,7 +478,7 @@ describe('the gates', () => {
   it('send an agency to its own people, and each person only their own things', async () => {
     expect(await count('agency_v1', 'organizations', agencyAdmin)).toBe(1);
     expect(await count('agency_v1', 'organizations', member)).toBe(0);
-    for (const output of ['command_receipts', 'push_devices', 'user_phones']) {
+    for (const output of ['command_receipts', 'notifications', 'push_devices', 'user_phones']) {
       expect(await count('me_v1', output, member), output).toBe(1);
       expect(await count('me_v1', output, owner), output).toBe(0);
     }

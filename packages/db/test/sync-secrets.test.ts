@@ -36,6 +36,8 @@ const PUBLISHED = [
   // The business's booking site and who has the portal (20261022001100).
   'booking_sites',
   'portal_access',
+  // What the bell lists: a person's own notifications (20261027012600).
+  'notifications',
   'ai_teammate_drafts',
   'ai_teammates',
   'appointment_attendees',

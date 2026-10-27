@@ -10,6 +10,9 @@ export type Me = Ok<'/v1/queries/account.me'>;
 // Milestone 10: a person's own account (Settings → Account, Delete my account)
 export type AccountDeletionCheck = Ok<'/v1/queries/account.deletion_check'>;
 export type PushDeviceList = Ok<'/v1/queries/push_device.list'>;
+// The bell (20261027012600): what HandsFreeOS sent to the person's phones in the last 30 days.
+export type NotificationList = Ok<'/v1/queries/notification.list'>;
+export type BellItem = NotificationList['notifications'][number];
 export type CellPhone = NonNullable<Ok<'/v1/queries/user_phone.get'>['phone']>;
 export type WorkspaceSummary = Me['workspaces'][number];
 export type WorkspaceGet = Ok<'/v1/queries/workspace.get'>;

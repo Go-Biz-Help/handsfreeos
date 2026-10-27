@@ -12,7 +12,7 @@ import { businessMark, cn } from '@/lib/utils';
 import { askHref, usePhonePageRecord } from '@/assistant/page-record';
 import { searchScreenHref } from '@/search/href';
 
-import { AlertsButton } from './alerts-button';
+import { BellButton } from './bell';
 import { BrandMark } from './brand';
 import { businessHref, useOptionalBusiness } from './business-context';
 
@@ -21,8 +21,8 @@ export type Leading = 'business' | 'back' | 'close' | 'none';
 /**
  * The top bar of every screen, as the phone boards draw it: the business mark at the left (it opens the switcher),
  * or Back or Close on a screen opened from another; the title; and Ask HandsFreeOS at the right, always one tap away,
- * with the bell beside it for the add-ons' alerts still open (./alerts-button.tsx), then Search everything on a
- * business's own screens (design/m10, the top bar).
+ * with the bell beside it for the person's notifications and the add-ons' alerts still open (./bell.tsx), then Search
+ * everything on a business's own screens (design/m10, the top bar).
  */
 export function AppBar({
   title,
@@ -108,7 +108,7 @@ export function AppBar({
         </View>
         {trailing}
         {/* Not while viewing as a teammate (20261018000100): the Assistant is for doing, and their chats are theirs. */}
-        {ask && ctx && !ctx.viewing ? <AlertsButton /> : null}
+        {ask && ctx && !ctx.viewing ? <BellButton /> : null}
         {ask && ctx && !ctx.viewing ? (
           <Pressable
             role="button"

@@ -80,6 +80,7 @@ Every query names its columns. Columns not listed never leave for a phone, even 
 | `command_receipts`                                                                | What became of each command their phone sent (outcome, answer)  | Theirs; the server keeps 90 days                           | `input_hash`              |
 | `push_devices`                                                                    | Their devices: platform, version, name, last seen, turned off   | Theirs                                                     | `expo_push_token`         |
 | `user_phones`                                                                     | Their cells and verification state                              | Theirs                                                     |                           |
+| `notifications`                                                                   | Every push their phones were handed, for each business's bell   | Theirs; the server keeps 30 days                           | `collapse_key`            |
 | `estimates`, `estimate_lines`, `invoices`, `invoice_lines`, `payments`, `refunds` | Money of the jobs they're on (member rule of 0050)              | `auth.user_id() IN member_viewer_ids AND sync_window`      | See the money table below |
 
 ### `business_v1` — one business kept offline

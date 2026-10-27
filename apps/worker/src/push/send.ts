@@ -7,7 +7,9 @@
  * stops partway (the worker restarting, the database dropping out) never sends to them again. Only a request Expo
  * answered with an error, which took none of it, goes again on the job's next try. A ticket that already says the
  * app is gone turns that phone off at once. A push about a customer's new message goes only while nobody has answered
- * it and the AI teammate hasn't taken the conversation (`whileWaiting`): a reply that came first ends it.
+ * it and the AI teammate hasn't taken the conversation (`whileWaiting`): a reply that came first ends it. Each person
+ * whose phones were handed it has it kept under their bell (`private.keep_push_notification`, 20261027012600), in the
+ * transaction that writes those phones down as handed over.
  *
  * `push.receipts`, 15 minutes after each request: what Apple and Google said. A phone the app is gone from
  * (DeviceNotRegistered) is turned off, unless it registered again after the push went; receipts not ready yet are
@@ -32,7 +34,7 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client';
 import { z } from 'zod';
-import type { JobHandler, JobMap } from '../jobs';
+import type { JobContext, JobHandler, JobMap } from '../jobs';
 import { errorMessage } from '../outbox';
 import { tenantOf } from '../services';
 import { messageFor, type PushNotice } from './payload';
@@ -107,6 +109,8 @@ const ReceiptsPayload = z.object({
 
 interface Device {
   readonly id: string;
+  /** Whose phone it is: the person the push is kept for under their bell. */
+  readonly userId: string;
   readonly platform: PushPlatform;
   readonly token: string;
 }
@@ -120,7 +124,7 @@ async function liveDevices(
   if (userIds.length === 0) return [];
   return rows<Device & Record<string, unknown>>(
     tx,
-    sql`select d.id, d.platform::text as platform, d.expo_push_token as token
+    sql`select d.id, d.user_id as "userId", d.platform::text as platform, d.expo_push_token as token
         from app.push_devices d join app.users u on u.id = d.user_id
         where d.user_id in (${sql.join(
           userIds.map((id) => sql`${id}::uuid`),
@@ -171,7 +175,7 @@ async function staffDevices(
   if (userIds.length === 0) return [];
   return rows<Device & Record<string, unknown>>(
     tx,
-    sql`select device_id as id, platform, token
+    sql`select device_id as id, user_id as "userId", platform, token
         from private.staff_push_devices(${PUSH_CATEGORIES[category].switch}, array[${sql.join(
           userIds.map((id) => sql`${id}::uuid`),
           sql`, `,
@@ -205,7 +209,7 @@ async function ownDevices(
   if (userIds.length === 0) return [];
   return rows<Device & Record<string, unknown>>(
     tx,
-    sql`select device_id as id, platform, token
+    sql`select device_id as id, user_id as "userId", platform, token
         from private.own_push_devices(array[${sql.join(
           userIds.map((id) => sql`${id}::uuid`),
           sql`, `,
@@ -253,6 +257,40 @@ const writeDelivery = (tx: Tx, jobId: string, delivery: Delivery) =>
         set payload = jsonb_set(payload, '{_delivery}', ${JSON.stringify(delivery)}::jsonb)
         where id = ${jobId}`,
   );
+
+/**
+ * The push, kept under the bell of each person whose phones it was handed to (20261027012600): a new row, or the row
+ * of what it replaces on the phone. Kept once per push, so a retried send changes nothing. In a savepoint: the bell
+ * is a second copy, and one it can't keep never undoes what the send records about the phones.
+ */
+const keepUnderBell = async (
+  ctx: JobContext,
+  tx: Tx,
+  p: z.infer<typeof SendPayload>,
+  devices: readonly Device[],
+) => {
+  const userIds = [...new Set(devices.map((d) => d.userId))];
+  if (userIds.length === 0) return;
+  try {
+    await tx.transaction((sp) =>
+      sp.execute(
+        sql`select private.keep_push_notification(
+              array[${sql.join(
+                userIds.map((id) => sql`${id}::uuid`),
+                sql`, `,
+              )}],
+              ${p.workspaceId}::uuid, ${p.notificationId}::uuid, ${p.collapseId ?? null}, ${p.category},
+              ${p.title}, ${p.subtitle}, ${p.body}, ${p.path}, ${JSON.stringify(p.refs)}::jsonb,
+              ${p.sentAt}::timestamptz)`,
+      ),
+    );
+  } catch (e) {
+    ctx.log.warn(
+      { err: errorMessage(e), notificationId: p.notificationId },
+      'could not keep a push under the bell',
+    );
+  }
+};
 
 /** Counts of each error word, for a log line that says what went wrong without saying to whom. */
 const tally = (errors: readonly string[]) =>
@@ -342,11 +380,12 @@ export const pushSendJob: JobHandler = async (ctx) => {
         );
         throw e;
       }
-      // It may have gone: never twice, so these phones are done with.
+      // It may have gone: never twice, so these phones are done with, and their people have it under the bell.
       handedOver.push(...ids);
-      await asWorker(ctx.db, {}, (tx) =>
-        writeDelivery(tx, ctx.job.id, { handedOver, inFlight: [] }),
-      );
+      await asWorker(ctx.db, {}, async (tx) => {
+        await writeDelivery(tx, ctx.job.id, { handedOver, inFlight: [] });
+        await keepUnderBell(ctx, tx, p, chunk);
+      });
       ctx.log.warn(
         { err: errorMessage(e), notificationId: p.notificationId, phones: ids.length },
         'a push may not have reached Expo; it is not sent again',
@@ -373,6 +412,7 @@ export const pushSendJob: JobHandler = async (ctx) => {
     });
     const turnedOff = await asWorker(ctx.db, scope, async (tx) => {
       await writeDelivery(tx, ctx.job.id, { handedOver, inFlight: [] });
+      await keepUnderBell(ctx, tx, p, chunk);
       if (accepted.length > 0)
         await scheduleJob(tx, {
           kind: PUSH_JOBS.receipts,

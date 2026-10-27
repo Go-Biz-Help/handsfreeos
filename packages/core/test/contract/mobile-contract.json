@@ -5745,6 +5745,47 @@
         "required": ["workspaceId", "body"]
       }
     },
+    "notification.read": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "pushIds": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    },
+    "notification.seen": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "upTo": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "onboarding_setup.finish": {
       "offline": "online",
       "input": {
@@ -16595,6 +16636,24 @@
         "avatar_url": "text",
         "settings": "jsonb",
         "deleted_at": "timestamp with time zone",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "me_v1.notifications": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "push_id": "uuid",
+        "category": "text",
+        "title": "text",
+        "subtitle": "text",
+        "body": "text",
+        "path": "text",
+        "refs": "jsonb",
+        "sent_at": "timestamp with time zone",
+        "seen_at": "timestamp with time zone",
+        "read_at": "timestamp with time zone",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }
