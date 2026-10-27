@@ -425,11 +425,12 @@ describe('checking friends and chats', () => {
   });
 
   it('takes someone found by topic as known once they’re a friend, without a look again (decision 92)', async () => {
+    // Found on Facebook, whose Today this reads: each network's Today lists only its own people.
     const quinn = (
       await rows<{ id: string }>(
         admin(),
         sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
-            values (${ws}, 'linkedin', 'quinn-harper-3', 'https://www.linkedin.com/in/quinn-harper-3/',
+            values (${ws}, 'facebook', 'quinn.harper.3', 'https://www.facebook.com/quinn.harper.3',
               'Quinn Harper')
             returning id`,
       )
@@ -437,7 +438,7 @@ describe('checking friends and chats', () => {
     await rows(
       admin(),
       sql`insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, words, found_at)
-          values (${ws}, ${owner.id}, ${quinn}, 'linkedin', 'commented', 'missed calls', now())`,
+          values (${ws}, ${owner.id}, ${quinn}, 'facebook', 'commented', 'missed calls', now())`,
     );
     const via = async () =>
       (
@@ -475,19 +476,9 @@ describe('checking friends and chats', () => {
 
     // A connection now: the same check counts at once.
     await runAs(owner, ws, 'outreach.friends.save', {
-      platform: 'linkedin',
+      platform: 'facebook',
       list: 'friends',
-      people: [
-        {
-          profile: {
-            id: null,
-            username: 'quinn-harper-3',
-            url: 'https://www.linkedin.com/in/quinn-harper-3/',
-          },
-          name: 'Quinn Harper',
-          mutualFriends: null,
-        },
-      ],
+      people: [person('quinn.harper.3', 'Quinn Harper')],
     });
     expect(await reconnecting()).toContain('Quinn Harper');
     expect(await fits()).toContain('Quinn Harper');
