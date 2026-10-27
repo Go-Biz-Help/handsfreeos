@@ -386,7 +386,11 @@ describe('Names open the person menu', () => {
   );
 
   it('makes each name on Today a button that opens it, with no “…” beside it; a partner’s stays words', async () => {
-    const partner = { ...post(3, 'Sam Partner', false), kind: 'opener' as const, partnerId: id(99) };
+    const partner = {
+      ...post(3, 'Sam Partner', false),
+      kind: 'opener' as const,
+      partnerId: id(99),
+    };
     await render(
       scoped(
         <TodayBody

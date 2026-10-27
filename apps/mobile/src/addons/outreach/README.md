@@ -10,7 +10,7 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   `_layout.tsx` is the gate: only someone holding `outreach.use`, which they hold only while the add-on runs here.
 - **Screens** are in this folder, one file a tab: `waiting.tsx`, `live.tsx`, `today.tsx`, `groups.tsx`, `chats.tsx`,
   `playbooks.tsx`, `playbook.tsx`, `settings.tsx`; `more.tsx` is the one row in More, `asks.tsx` the buttons
-  that ask the computer, and `person-menu.tsx` the menu on each of Today's people. Each has a pure `…Body` the
+  that ask the computer, and `person-menu.tsx` the person menu on every name. Each has a pure `…Body` the
   tests draw with props, and a `…Screen` that asks for what it shows. Only the routes and `src/addons/registry.ts`
   import from here.
 - **Settings is a menu with a page for each part** (Chris, 2026-10-16; core's `settings-parts.ts`): `settings.tsx` is
@@ -55,10 +55,23 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   (`outreach.ask.make`, online, so never queued), the line under each with **Carry on**, **Skip** and **Stop**, the
   Live screen's **Asked of your computer** and Waiting for you's **Your computer needs you**. `outreach.asks` is asked
   again every 15 seconds while a screen with asks is open, and a screen reloads its list once an ask ends done.
-- **The person menu on Today** (`person-menu.tsx`, as the web's) needs signal: **Add to Contacts** asks for the
-  customers with the same name first (`outreach.lookup`, `sameNamePeople`) and offers **It’s them** or **Add as new**
-  (`outreach.profile.contact`); **Demo booked** (`outreach.demo.mark`) and **Don’t pitch** (`outreach.friend.set`).
-  All three are online commands, so never queued.
+- **The person menu on every name** (decision 91, `person-menu.tsx`, as the web's): on Waiting for you's cards,
+  Today's list, the Pipeline and Chats, the name is a button (labelled with the name, 44 points tall, with a hint
+  saying what it opens) that opens the person's menu. A screen makes its names buttons by putting `PersonMenuScope`
+  around them (the business, the signal, `writesContacts` from `records.write`, and what to reload after a change);
+  with none, or no profile (the phone's copy of a message gives ''), the name is words. Core's `personMenuItems`
+  decides the order, what shows and the words, the web's too. **Open on {Network}** comes first and **Open in
+  {messages}** second when the chat is known: both work with no signal. Everything else needs signal, and with none
+  shows greyed out under a note saying so: where they stand (`outreach.profile.marks`, asked each time the menu
+  opens, its switches waiting till it answers); **Add to Contacts**, asking for the customers with the same name
+  first (`outreach.lookup`, `sameNamePeople`) with **It’s them** or **Add as new** (`outreach.profile.contact`);
+  **Mark as client**, through the same same-name step when they aren't in Contacts, or **Not a client after all**
+  (`outreach.client.set`), or a line saying why Contacts counts them a client; **Demo booked**
+  (`outreach.demo.mark`); **Don’t pitch** and **Never contact**, or taking them off, or who put them on
+  (`outreach.friend.set`). Add to Contacts and Mark as client show only for someone who may add and edit customers.
+  Partners' names on Today stay words, and Chats leaves out Don’t pitch and Never contact, which each chat has as
+  switches. The Pipeline's cards keep their own marks, so its menu has no moves. Each card keeps its own Open
+  button. All of these are online commands, so nothing is queued.
 - **Get ready** (decision 63, `ready.tsx`) shows above Today's list until the person is ready, as the web's card,
   and Start my day waits, saying beside it what holds the day and where it's done (`notReadyWords`), on every row of
   the strip. Their profile never holds it (decision 90): once nothing else is left, the card stays while the profile

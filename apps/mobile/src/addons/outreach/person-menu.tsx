@@ -270,9 +270,15 @@ function NameMenu({
         if (personId) openWebPath(`/app/w/${workspaceId}/customers/people/${personId}`);
         return;
       case 'add-contact':
-        return void run(key, sameFirst('contact', () => contact(null)));
+        return void run(
+          key,
+          sameFirst('contact', () => contact(null)),
+        );
       case 'mark-client':
-        return void run(key, personId ? () => client(true) : sameFirst('client', () => client(true)));
+        return void run(
+          key,
+          personId ? () => client(true) : sameFirst('client', () => client(true)),
+        );
       case 'not-client':
         return void run(key, () => client(false));
       case 'demo':
@@ -335,9 +341,7 @@ function NameMenu({
         onClose={close}
         onItem={onItem}
         onPick={(picked) =>
-          void run('same', () =>
-            same?.then === 'client' ? client(true, picked) : contact(picked),
-          )
+          void run('same', () => (same?.then === 'client' ? client(true, picked) : contact(picked)))
         }
         onNew={() =>
           void run('same', () => (same?.then === 'client' ? client(true) : contact(null)))

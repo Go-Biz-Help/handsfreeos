@@ -616,7 +616,7 @@ function TodayRow({
                   personId: item.personId,
                   demoBooked: item.demoBooked,
                 }}
-                className="font-medium text-accent-text"
+                className={cn('font-medium', item.profileId && 'text-accent-text')}
               />
               {url ? (
                 <a

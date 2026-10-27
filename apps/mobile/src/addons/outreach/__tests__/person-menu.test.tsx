@@ -123,7 +123,12 @@ const shown = () => {
   const ids: string[] = [];
   const walk = (node: { props: { testID?: unknown }; children?: unknown[] | null }) => {
     const t = node.props.testID;
-    if (typeof t === 'string' && t.startsWith('person-') && t !== 'person-menu-sheet' && ids.at(-1) !== t)
+    if (
+      typeof t === 'string' &&
+      t.startsWith('person-') &&
+      t !== 'person-menu-sheet' &&
+      ids.at(-1) !== t
+    )
       ids.push(t);
     for (const c of node.children ?? []) if (c && typeof c === 'object') walk(c as typeof node);
   };
@@ -197,7 +202,12 @@ describe('The person menu on the phone', () => {
   it('opens their page, and their chat, with no signal, while the rest wait under the note', async () => {
     const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     await open(
-      { ...DANA, platform: 'facebook', url: 'https://www.facebook.com/dana.reyes', threadKey: '42' },
+      {
+        ...DANA,
+        platform: 'facebook',
+        url: 'https://www.facebook.com/dana.reyes',
+        threadKey: '42',
+      },
       { online: false },
     );
     expect(shown().slice(0, 3)).toEqual([
@@ -315,9 +325,7 @@ describe('The person menu on the phone', () => {
   });
 
   it('says why they’re a client where only Contacts can change it', async () => {
-    answers(
-      marksOf({ personId: CUSTOMER, client: { on: true, tagged: false, because: 'paid' } }),
-    );
+    answers(marksOf({ personId: CUSTOMER, client: { on: true, tagged: false, because: 'paid' } }));
     await open();
     expect(screen.queryByTestId('person-client')).toBeNull();
     expect(screen.getByTestId('person-client-line')).toHaveTextContent(
