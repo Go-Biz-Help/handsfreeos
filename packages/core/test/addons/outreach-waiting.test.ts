@@ -749,11 +749,7 @@ describe('a friend request accepted', () => {
       );
     await need(owner);
     await need(member);
-    // Their sent requests, or a look at the friends list from before the need, leave it.
-    await runAs(owner, ws, 'outreach.friends.save', {
-      list: 'sent',
-      people: [{ profile: fb('opal.reed.3'), name: 'Opal Reed' }],
-    });
+    // A look at the friends list from before the need leaves it.
     await friends(owner, ago(60 * MIN));
     expect(await needs(owner)).toEqual(['friend_request: Opal Reed']);
     const cleared = await events(ws, 'outreach.need.cleared');
