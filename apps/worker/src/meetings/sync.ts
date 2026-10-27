@@ -4,6 +4,11 @@
  * when the appointment is cancelled, a no-show or deleted. The link, Zoom's id for the meeting and the times it was
  * set to live on the appointment's place, so a retry, a late run or a run twice is always safe. When there's no
  * Zoom to make it in, the place says why, in words for the team.
+ *
+ * A HandsFreeOS video call (docs/video-calls.md) runs the same job: its call is made, its host kept in step with
+ * the appointment's, and its address (the team's way in) put on the place, where the team's calendars and emails
+ * find it. There's nothing to move or delete: the call is the appointment's, and customers come in by their own
+ * Join links.
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -11,6 +16,7 @@ import {
   appointmentSetMeetingLink,
   executeCommand,
   meetingConnectionFail,
+  videoCallOpen,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { appointments, appointmentStaff, meetingConnections, users } from '@hfos/db/schema';
@@ -32,8 +38,8 @@ const REFRESH_AHEAD_MS = 5 * 60_000;
 const USABLE = ['active', 'error'] as const;
 
 /**
- * Asks for an appointment's Zoom meeting to be made, moved or deleted. Only queued for appointments set to get a
- * Zoom link, so everyone else never runs the job.
+ * Asks for an appointment's Zoom meeting to be made, moved or deleted, or its HandsFreeOS video call made. Only
+ * queued for appointments set to get one of those, so everyone else never runs the job.
  */
 export async function queueMeetingSync(
   tx: Tx,
@@ -45,7 +51,7 @@ export async function queueMeetingSync(
         select ${scope.organizationId}, ${scope.workspaceId}, 'appointment.meeting_sync',
           ${`appointment.meeting_sync:${appointmentId}`}, now(), ${JSON.stringify({ appointmentId })}::jsonb
         where exists (select 1 from app.appointments a
-                where a.id = ${appointmentId}::uuid and a.location ->> 'video' = 'zoom')
+                where a.id = ${appointmentId}::uuid and a.location ->> 'video' in ('zoom', 'handsfree'))
         on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null
         do update set run_at = least(app.scheduled_jobs.run_at, excluded.run_at)`,
   );
@@ -153,6 +159,32 @@ export const appointmentMeetingSync: JobHandler = async (ctx) => {
   const parsed = AppointmentLocation.safeParse(a.location ?? {});
   if (!parsed.success) return;
   const place = parsed.data;
+  if (place.kind === 'virtual' && place.video === 'handsfree') {
+    if (a.status !== 'scheduled' || a.binItemId !== null) return;
+    const actor = systemActor(scope);
+    const { output } = await executeCommand(
+      ctx.db,
+      videoCallOpen,
+      { workspaceId: scope.workspaceId, appointmentId: a.id },
+      actor,
+      workerMeta(),
+    );
+    if (!place.meetingUrl)
+      await executeCommand(
+        ctx.db,
+        appointmentSetMeetingLink,
+        {
+          workspaceId: scope.workspaceId,
+          appointmentId: a.id,
+          video: 'handsfree',
+          meetingUrl: `${ctx.webUrl}/call/${output.callId}`,
+          meetingId: output.callId,
+        },
+        actor,
+        workerMeta(),
+      );
+    return;
+  }
   // Set to something else since: nothing to keep in step.
   if (place.kind !== 'virtual' || place.video !== 'zoom') return;
 

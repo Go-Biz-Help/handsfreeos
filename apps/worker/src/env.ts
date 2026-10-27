@@ -298,6 +298,16 @@ export interface WorkerEnv {
   readonly pushProvider: 'expo' | 'fake' | 'none';
   /** Expo's access token for enhanced push security: every push carries it. The worker's alone. */
   readonly expoAccessToken: string | null;
+  /**
+   * HandsFreeOS video calls (video-calls/): LiveKit, the stand-in that keeps what it was asked (the default outside
+   * production; production refuses it), or none (production before LiveKit is set up: Join says calls aren't
+   * ready, and nothing else changes).
+   */
+  readonly videoProvider: 'livekit' | 'fake' | 'none';
+  /** LiveKit's project address (wss://…), and its API key and secret: the worker signs every ticket. */
+  readonly livekitUrl: string | null;
+  readonly livekitApiKey: string | null;
+  readonly livekitApiSecret: string | null;
 }
 
 const list = (value: string | undefined): string[] =>
@@ -607,6 +617,32 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       'EXPO_BASE_URL is for Expo’s own testing; production sends pushes only to Expo',
     );
 
+  // Video calls: LiveKit's three values go together. Production without them runs with calls not ready rather than
+  // refusing to start, so a deploy before the LiveKit account exists is safe; one or two of them is a paste gone
+  // wrong, said at deploy.
+  const livekitUrl = env.LIVEKIT_URL?.trim().replace(/\/+$/, '') || null;
+  const livekitApiKey = env.LIVEKIT_API_KEY?.trim() || null;
+  const livekitApiSecret = env.LIVEKIT_API_SECRET?.trim() || null;
+  const livekitSet = [livekitUrl, livekitApiKey, livekitApiSecret].filter(Boolean).length;
+  if (livekitSet && livekitSet < 3)
+    throw new Error(
+      'LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET go together: set all three, from LiveKit Cloud → Settings → API keys',
+    );
+  if (livekitUrl && !(production ? /^wss:\/\/[^/]+$/ : /^wss?:\/\/[^/]+$/).test(livekitUrl))
+    throw new Error(
+      `LIVEKIT_URL must be the project’s ${production ? 'wss://' : 'ws:// or wss://'} address, like wss://handsfreeos-abc123.livekit.cloud`,
+    );
+  const videoProvider = (env.VIDEO_PROVIDER ??
+    (production ? (livekitSet ? 'livekit' : 'none') : 'fake')) as string;
+  if (!['livekit', 'fake', 'none'].includes(videoProvider))
+    throw new Error('VIDEO_PROVIDER must be livekit, fake or none');
+  if (production && videoProvider === 'fake')
+    throw new Error('VIDEO_PROVIDER=fake is for development and tests only');
+  if (videoProvider === 'livekit' && !livekitSet)
+    throw new Error(
+      'LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required with VIDEO_PROVIDER=livekit',
+    );
+
   // The website's pixel carries the publishable `pk-` key, and it is the one most likely to be pasted here. It can
   // only write from a browser, so every report would be refused; said at deploy rather than in a log nobody reads.
   const opinlyApiKey = (env.OPINLY_API_KEY ?? '').trim() || null;
@@ -752,6 +788,10 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     fetchTestOrigins,
     pushProvider: pushProvider as WorkerEnv['pushProvider'],
     expoAccessToken,
+    videoProvider: videoProvider as WorkerEnv['videoProvider'],
+    livekitUrl,
+    livekitApiKey,
+    livekitApiSecret,
   };
 }
 

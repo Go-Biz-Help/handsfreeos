@@ -21,6 +21,19 @@ export const VIDEO_CALL_MAX_PEOPLE = 10;
 /** How early a customer's own link opens the call, as with Zoom and Meet links today. */
 export const VIDEO_CALL_OPENS_MS = 60 * 60_000;
 
+/**
+ * Whether a customer's own link opens the call now: from an hour before the start until the end, and after the end
+ * for as long as the call is still going.
+ */
+export function videoCallLinkOpens(
+  at: { readonly startsAt: number; readonly endsAt: number; readonly live: boolean },
+  now: number,
+): 'early' | 'open' | 'over' {
+  if (now < at.startsAt - VIDEO_CALL_OPENS_MS) return 'early';
+  if (now > at.endsAt && !at.live) return 'over';
+  return 'open';
+}
+
 /** How long a ticket to the room lasts: long enough to connect and reconnect, no longer. */
 export const VIDEO_CALL_TICKET_SECONDS = 15 * 60;
 
@@ -102,7 +115,7 @@ export const isInAppBrowser = (userAgent: string | null | undefined): boolean =>
   !!userAgent && IN_APP_BROWSER.test(userAgent);
 
 /** A first name for "Dana will be right with you", from a full name or an email. */
-export const firstNameOf = (name: string | null | undefined): string | null => {
+export const hostFirstName = (name: string | null | undefined): string | null => {
   const n = (name ?? '').trim().split(/[\s@]+/)[0];
   return n ? n : null;
 };

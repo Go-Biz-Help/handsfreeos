@@ -9,6 +9,9 @@
  *   do are sent on without being counted.
  * - **From an hour before to the end.** Outside that the page shows the session's time instead.
  * - **A forwarded link** still counts for the person it was made for. That's rare, and harmless here.
+ * - **A HandsFreeOS video call** (docs/video-calls.md) isn't sent anywhere: the page is the call. It answers `call`
+ *   with the name on the booking and the business's look, and the page's Join goes to video-calls/routes.ts. Joining
+ *   is counted when they're really in the call, not here.
  */
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
@@ -18,6 +21,7 @@ import {
   executeCommand,
   HfosError,
   loadCalendar,
+  videoCallLinkOpens,
   type RequestMeta,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -25,6 +29,7 @@ import { appointmentAttendees, appointments } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { resolveJoinToken } from '../booking/links';
+import { publicLookOf, type PublicLook } from '../look/public';
 import { systemActor } from '../services';
 import { header, type HttpDeps } from './common';
 
@@ -58,7 +63,22 @@ export type JoinAnswer =
       readonly business: string;
       /** "Tue, Oct 27 · 7:00 pm", where the calendar is. */
       readonly when: string;
+    }
+  | {
+      /** A HandsFreeOS video call, open now: the page is the call. */
+      readonly state: 'call';
+      readonly title: string;
+      readonly business: string;
+      readonly when: string;
+      /** The name on their booking, filled in for them. */
+      readonly name: string;
+      readonly look: PublicLook;
     };
+
+const isVideoCall = (location: unknown): boolean => {
+  const l = (location ?? {}) as { kind?: unknown; video?: unknown };
+  return l.kind === 'virtual' && l.video === 'handsfree';
+};
 
 /** The meeting's own address, when it is one a browser should be sent to. */
 function meetingAddress(location: unknown): string | null {
@@ -97,13 +117,28 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
           if (!row) return null;
           const calendar = await loadCalendar(tx, scope.workspaceId, row.p.calendarId);
           // The name customers know it by: the booking site's, else the business's.
-          const [w] = await rows<{ name: string }>(
+          const [w] = await rows<{ name: string; settings: unknown; video_calls: boolean }>(
             tx,
-            sql`select coalesce(nullif(bs.name, ''), w.name) as name
+            sql`select coalesce(nullif(bs.name, ''), w.name) as name, w.settings, w.video_calls
                 from app.workspaces w left join app.booking_sites bs on bs.workspace_id = w.id
                 where w.id = ${scope.workspaceId}`,
           );
-          return { ...row, timeZone: calendar.timeZone, business: w?.name ?? 'The business' };
+          const [who] = await rows<{ name: string; live: boolean }>(
+            tx,
+            sql`select trim(concat_ws(' ', p.first_name, p.last_name)) as name,
+                  exists (select 1 from app.video_calls c
+                          where c.appointment_id = ${row.p.id} and c.state = 'live') as live
+                from app.people p where p.id = ${row.a.personId}`,
+          );
+          return {
+            ...row,
+            timeZone: calendar.timeZone,
+            business: w?.name ?? 'The business',
+            look: publicLookOf(w?.settings, deps.storageUrl),
+            videoCalls: w?.video_calls === true,
+            name: who?.name ?? '',
+            live: who?.live === true,
+          };
         });
         if (!seat) throw notFound();
         const said = {
@@ -113,6 +148,19 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
         };
         if (seat.a.status === 'cancelled' || seat.p.status === 'cancelled')
           return { state: 'cancelled', ...said };
+        if (isVideoCall(seat.p.location)) {
+          if (!deps.videoCalls || !seat.videoCalls) return { state: 'no_link', ...said };
+          const opens = videoCallLinkOpens(
+            {
+              startsAt: seat.p.startsAt.getTime(),
+              endsAt: seat.p.endsAt.getTime(),
+              live: seat.live,
+            },
+            Date.now(),
+          );
+          if (opens !== 'open') return { state: opens, ...said };
+          return { state: 'call', ...said, name: seat.name, look: seat.look };
+        }
         const url = meetingAddress(seat.p.location);
         if (!url) return { state: 'no_link', ...said };
         const now = Date.now();

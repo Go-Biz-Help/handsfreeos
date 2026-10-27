@@ -32,6 +32,7 @@ import {
   videoCallJoin,
   videoCallJoined,
   videoCallKnock,
+  videoCallKnockStatus,
   videoCallLeft,
   videoCallMute,
   videoCallOpen,
@@ -49,6 +50,7 @@ import {
   makeCalendar,
   nextWeekday,
   run,
+  askSystem,
   runSystem,
   setupTeam,
   type Team,
@@ -175,6 +177,7 @@ describe('a customer on their own link', () => {
   let callId: string;
   let customerRow: string;
   let priyaRow: string;
+  let sam: string;
   const t0 = Date.now();
 
   beforeAll(async () => {
@@ -282,16 +285,29 @@ describe('a customer on their own link', () => {
   });
 
   describe('anyone else', () => {
-    let sam: string;
     let lee: string;
 
     it('asks to be let in, and the team lets them in or turns them away', async () => {
+      const samKey = knockKey();
       const knocked = await runSystem(
         videoCallKnock,
-        { workspaceId: t.wsId, callId, name: 'Sam Guest', knockKeyHash: knockKey() },
+        { workspaceId: t.wsId, callId, name: 'Sam Guest', knockKeyHash: samKey },
         t.scope,
       );
       sam = knocked.personId;
+      const standing = (personId: string, knockKeyHash: string) =>
+        askSystem(
+          videoCallKnockStatus,
+          { workspaceId: t.wsId, callId, personId, knockKeyHash },
+          t.scope,
+        );
+      expect(await standing(sam, samKey)).toEqual({
+        status: 'waiting',
+        name: 'Sam Guest',
+        host: 'Priya',
+      });
+      // Only the page that knocked can ask.
+      await expectHfos(() => standing(sam, knockKey()), 'not_found', 404);
       expect(knocked.host).toBe('Priya');
       expect((await events('video_call.knocked', callId)).map((e) => e.payload.name)).toEqual([
         'Sam Guest',
@@ -307,17 +323,20 @@ describe('a customer on their own link', () => {
         changed: false,
       });
       expect((await person(sam)).state).toBe('admitted');
+      expect((await standing(sam, samKey)).status).toBe('in');
 
+      const leeKey = knockKey();
       lee = (
         await runSystem(
           videoCallKnock,
-          { workspaceId: t.wsId, callId, name: 'Lee Guest', knockKeyHash: knockKey() },
+          { workspaceId: t.wsId, callId, name: 'Lee Guest', knockKeyHash: leeKey },
           t.scope,
         )
       ).personId;
       expect(
         await run(videoCallTurnAway, { workspaceId: t.wsId, callId, personId: lee }, t.member),
       ).toEqual({ changed: true });
+      expect((await standing(lee, leeKey)).status).toBe('turned_away');
       await expectHfos(
         () => run(videoCallAdmit, { workspaceId: t.wsId, callId, personId: lee }, t.member),
         'video_call_not_waiting',
@@ -459,6 +478,21 @@ describe('a customer on their own link', () => {
     expect(await run(videoCallEnd, { workspaceId: t.wsId, callId }, t.priya)).toEqual({
       changed: false,
     });
+    // Sam's old ticket doesn't open the ended call while nobody from the team is in it.
+    expect(
+      await runSystem(
+        videoCallJoined,
+        {
+          workspaceId: t.wsId,
+          callId,
+          personId: sam,
+          roomSid: 'RM_third',
+          participantSid: 'PA_sam',
+          at: at(t0, 2000),
+        },
+        t.scope,
+      ),
+    ).toEqual({ changed: false, kick: true });
   });
 });
 

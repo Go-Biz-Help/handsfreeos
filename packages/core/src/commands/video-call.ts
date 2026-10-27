@@ -34,7 +34,7 @@ import { defineCommand, defineQuery } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext, QueryContext } from '../kernel/types';
 import {
-  firstNameOf,
+  hostFirstName,
   VIDEO_CALL_KINDS,
   VIDEO_CALL_MAX_PEOPLE,
   VIDEO_CALL_PERSON_STATES,
@@ -320,7 +320,7 @@ export const videoCallEnter = defineCommand({
     if (!(await videoCallsOn(ctx.tx, ws))) throw callsOff();
     const { call } = await callForAppointment(ctx, seat.p.id);
     await lockCall(ctx, call.id);
-    const host = firstNameOf(await userName(ctx.tx, call.hostUserId));
+    const host = hostFirstName(await userName(ctx.tx, call.hostUserId));
     const list = await peopleOf(ctx.tx, call.id);
     const mine = list.find((p) => p.kind === 'customer' && p.attendeeId === input.attendeeId);
     const say = (status: z.infer<typeof EnterOutput>['status'], row: PersonRow | null) => ({
@@ -488,7 +488,7 @@ export const videoCallKnock = defineCommand({
       personId: null,
       knockKeyHash: input.knockKeyHash,
     });
-    return { personId: row.id, host: firstNameOf(await userName(ctx.tx, call.hostUserId)) };
+    return { personId: row.id, host: hostFirstName(await userName(ctx.tx, call.hostUserId)) };
   },
 });
 
@@ -506,13 +506,15 @@ const PresenceInput = z.object({
   at: isoDateTime.optional(),
 });
 
-/** Someone LiveKit let in with a ticket they shouldn't use any more: the worker takes them out again. */
-const kickedFrom = (call: CallRow, p: PersonRow | undefined) =>
+/**
+ * Someone LiveKit let in with a ticket they shouldn't use any more, so the worker takes them out again: taken out or
+ * turned away, or back in a call that ended before anyone from the team is in it again.
+ */
+const kickedFrom = (call: CallRow, p: PersonRow | undefined, list: readonly PersonRow[]) =>
   !p ||
   p.state === 'removed' ||
   p.state === 'turned_away' ||
-  // A call that was ended starts again only for the team.
-  (call.state === 'ended' && p.kind !== 'team');
+  (call.state === 'ended' && p.kind !== 'team' && !teamIsIn(list));
 
 export const videoCallJoined = defineCommand({
   name: 'video_call.joined',
@@ -533,7 +535,8 @@ export const videoCallJoined = defineCommand({
       .from(videoCallPeople)
       .where(and(eq(videoCallPeople.id, input.personId), eq(videoCallPeople.videoCallId, call.id)))
       .for('update');
-    if (kickedFrom(call, p)) return { changed: false, kick: true };
+    const list = call.state === 'ended' ? await peopleOf(ctx.tx, call.id) : [];
+    if (kickedFrom(call, p, list)) return { changed: false, kick: true };
     const person = p!;
     // The same connection told twice.
     if (input.participantSid && person.participantSid === input.participantSid)
@@ -1088,6 +1091,57 @@ export const videoCallGet = defineQuery({
   },
 });
 
+const knockStatus = (call: CallRow, p: PersonRow, list: readonly PersonRow[]) => {
+  if (p.state === 'admitted' || connected(p)) return 'in' as const;
+  if (p.state === 'waiting') return 'waiting' as const;
+  if (p.state === 'turned_away') return 'turned_away' as const;
+  if (p.state === 'removed') return 'removed' as const;
+  // Let in before, and gone: back in while the call goes on with the team in it, else they ask again.
+  return call.state !== 'ended' && teamIsIn(list) ? ('in' as const) : ('left' as const);
+};
+
+/**
+ * How a request to join stands, for the page that's waiting on it (the worker's, every few seconds). Only that page
+ * holds the key, so its hash is what shows it's theirs. `in`: let in, or let in before and the call is still going
+ * with the team in it, so the page may have a ticket.
+ */
+export const videoCallKnockStatus = defineQuery({
+  name: 'video_call.knock_status',
+  description:
+    'Worker: how a request to join a HandsFreeOS video call stands, for the page that asked.',
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    personId: uuid,
+    knockKeyHash: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+  output: z.object({
+    status: z.enum(['waiting', 'in', 'turned_away', 'removed', 'left']),
+    name: z.string(),
+    host: z.string().nullable(),
+  }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const [call] = await ctx.tx
+      .select()
+      .from(videoCalls)
+      .where(
+        and(eq(videoCalls.id, input.callId), eq(videoCalls.workspaceId, ctx.scope.workspaceId!)),
+      );
+    if (!call) throw notThere();
+    const list = await peopleOf(ctx.tx, call.id);
+    const p = list.find((x) => x.id === input.personId);
+    if (!p || p.kind !== 'guest' || p.knockKeyHash !== input.knockKeyHash)
+      throw HfosError.notFound(
+        'We can’t find your request to join this call. Ask again from the call’s link.',
+      );
+    const status = knockStatus(call, p, list);
+    return { status, name: p.name, host: hostFirstName(await userName(ctx.tx, call.hostUserId)) };
+  },
+});
+
 export const videoCallCommands = [
   videoCallOpen,
   videoCallEnter,
@@ -1103,4 +1157,4 @@ export const videoCallCommands = [
   videoCallEnd,
 ] as const;
 
-export const videoCallQueries = [videoCallGet] as const;
+export const videoCallQueries = [videoCallGet, videoCallKnockStatus] as const;

@@ -14,6 +14,7 @@
  * - **A call nobody took** (`missedCall`): an inbound call that went unanswered, and the voicemail if one was left,
  *   to the conversation's assignee, else the owners and admins.
  * - **A customer's new message** (`customerWaiting`): arrival.ts.
+ * - **Someone waiting in a video call** (`booking`): to the call's host and the people working it (video-calls/push.ts).
  * - **A new support ticket** (`supportTickets`), to HandsFreeOS's support people about no business: support/push.ts.
  *
  * Whoever did it gets nothing about it. A push is a second channel: a handler runs in a savepoint, and a failure is
@@ -56,6 +57,7 @@ import {
 } from './moment';
 import { pushAudience, queuePush, type PushMoment } from './queue';
 import { CHANNEL_WORD, channelRefs, conversationCollapseId } from './urgent';
+import { onVideoCallWaitingPush } from '../video-calls/push';
 
 // ---------- approvals ----------
 
@@ -661,6 +663,8 @@ const PUSH_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'attendee.cancelled': onAppointmentPush,
   'attendee.removed': onAppointmentPush,
   'appointment.reassigned': onAppointmentPush,
+  'video_call.waiting': onVideoCallWaitingPush,
+  'video_call.knocked': onVideoCallWaitingPush,
   'lead.assigned': onAssignedPush,
   'conversation.assigned': onAssignedPush,
   'task.created': onAssignedPush,

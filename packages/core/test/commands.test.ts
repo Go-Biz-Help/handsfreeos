@@ -857,6 +857,7 @@ describe('registry', () => {
       'portal.files',
       'portal.messages',
       'video_call.get',
+      'video_call.knock_status',
       // M13: reading the support desk and the admin side.
       'support.ticket.list',
       'support.ticket.get',

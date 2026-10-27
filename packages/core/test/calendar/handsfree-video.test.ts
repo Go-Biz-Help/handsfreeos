@@ -9,10 +9,11 @@ import {
   callIdOfRoom,
   callLengthLabel,
   effectiveVideo,
-  firstNameOf,
+  hostFirstName,
   isInAppBrowser,
   isPersonIdentity,
   LISTENER_IDENTITY,
+  videoCallLinkOpens,
   videoCallRoom,
   videoCallWaitingPushWords,
 } from '../../src/meetings/video-calls';
@@ -116,6 +117,20 @@ describe('a call’s room', () => {
     expect(callIdOfRoom(null)).toBeNull();
   });
 
+  it('opens a customer’s link an hour before, and keeps it open while the call runs over', () => {
+    const at = {
+      startsAt: Date.UTC(2026, 10, 3, 15),
+      endsAt: Date.UTC(2026, 10, 3, 16),
+      live: false,
+    };
+    const min = 60_000;
+    expect(videoCallLinkOpens(at, at.startsAt - 61 * min)).toBe('early');
+    expect(videoCallLinkOpens(at, at.startsAt - 60 * min)).toBe('open');
+    expect(videoCallLinkOpens(at, at.endsAt)).toBe('open');
+    expect(videoCallLinkOpens(at, at.endsAt + min)).toBe('over');
+    expect(videoCallLinkOpens({ ...at, live: true }, at.endsAt + 30 * min)).toBe('open');
+  });
+
   it('tells a person in it from the AI’s listener', () => {
     expect(isPersonIdentity(id)).toBe(true);
     expect(isPersonIdentity(LISTENER_IDENTITY)).toBe(false);
@@ -140,9 +155,9 @@ describe('the words', () => {
   });
 
   it('says who they’re waiting for by first name, and how long someone was in', () => {
-    expect(firstNameOf('Dana Rivera')).toBe('Dana');
-    expect(firstNameOf('dana@example.com')).toBe('dana');
-    expect(firstNameOf('  ')).toBeNull();
+    expect(hostFirstName('Dana Rivera')).toBe('Dana');
+    expect(hostFirstName('dana@example.com')).toBe('dana');
+    expect(hostFirstName('  ')).toBeNull();
     expect(callLengthLabel(20)).toBe('under a minute');
     expect(callLengthLabel(4 * 60)).toBe('4 min');
     expect(callLengthLabel(65 * 60)).toBe('1 hr 5 min');

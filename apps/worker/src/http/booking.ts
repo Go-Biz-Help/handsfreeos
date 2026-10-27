@@ -277,6 +277,7 @@ type StoredLocation = {
   address?: string | null;
   meetingUrl?: string | null;
   postalCode?: string | null;
+  video?: string | null;
 };
 
 function whereText(location: unknown): string | null {
@@ -287,6 +288,8 @@ function whereText(location: unknown): string | null {
     const text = [address, zip && !address.includes(zip) ? zip : ''].filter(Boolean).join(', ');
     return text || (l.kind === 'customer_address' ? 'At your address' : null);
   }
+  // A HandsFreeOS call's address is the team's: the customer joins from the link in their confirmation.
+  if (l.kind === 'virtual' && l.video === 'handsfree') return 'Online video call';
   if (l.kind === 'virtual') return l.meetingUrl ? `Online: ${l.meetingUrl}` : 'Online';
   if (l.kind === 'phone') return 'By phone';
   return null;

@@ -73,6 +73,7 @@ import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
 import { registerVoiceAgentRoute } from './voice-agent';
 import { registerLiveCallRoute } from './live-calls';
+import { registerVideoCallRoutes } from '../video-calls/routes';
 
 export type { HttpDeps } from './common';
 
@@ -318,6 +319,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVideoLinkRoutes(app, deps);
   // Joining an online session through a person's own Join link (funnels).
   await registerJoinRoutes(app, deps);
+  // HandsFreeOS video calls: the team's and customers' tickets, asking to be let in, and LiveKit's webhooks.
+  await registerVideoCallRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);
   // A business's own policy or terms, given back with the texting section in place (20261027006500).

@@ -71,6 +71,7 @@ type StoredLocation = {
   meetingUrl?: string | null;
   postalCode?: string | null;
   record?: boolean;
+  video?: string | null;
 };
 
 /** The street address, with the customer's ZIP when the address doesn't carry it. */
@@ -193,9 +194,13 @@ export async function loadBooking(
     seats: row.a.seats,
     locationKind: location.kind ?? null,
     address: addressOf(location),
+    // A HandsFreeOS video call is entered from the customer's own link alone, so theirs is there from the
+    // confirmation on, before the call has its own address.
     meetingUrl:
-      location.kind === 'virtual' && location.meetingUrl && opts.forCustomer
-        ? ((await joinUrlFor(tx, s.bookingLinks, row.a.id)) ?? location.meetingUrl)
+      location.kind === 'virtual' &&
+      (location.meetingUrl || location.video === 'handsfree') &&
+      opts.forCustomer
+        ? ((await joinUrlFor(tx, s.bookingLinks, row.a.id)) ?? location.meetingUrl ?? null)
         : (location.meetingUrl ?? null),
     recorded: location.record === true,
     staff: staff.firstNames,
