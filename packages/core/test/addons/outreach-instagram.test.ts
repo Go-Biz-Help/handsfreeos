@@ -709,9 +709,10 @@ describe('Instagram’s people found by topic (decision 92)', () => {
       sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
           values (${ws}, ${await profileOf('sage.plumbing')}, ${owner.id}, 'like', now() - interval '21 hours')`,
     );
+    // Today lists likes before requests (TODAY_KINDS).
     expect((await listed()).map((i) => [i.name, i.kind, i.why.at(-1)])).toEqual([
-      ['sage.plumbing', 'friend_request', 'You liked the post it found'],
       ['tate.drains', 'warm_up', 'Their follow comes a day after'],
+      ['sage.plumbing', 'friend_request', 'You liked the post it found'],
     ]);
   });
 });

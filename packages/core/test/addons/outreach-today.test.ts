@@ -413,7 +413,8 @@ describe('people found by topic on Alignable', () => {
     await computerOn(owner, ws, '0.94.0');
     expect(await listed()).toEqual([]);
     await computerOn(owner, ws, '0.95.0');
-    expect((await listed()).map(([, name]) => name)).toEqual(['Dana Reyes', 'Kim Ng']);
+    // Both members: the latest checked first.
+    expect((await listed()).map(([, name]) => name)).toEqual(['Kim Ng', 'Dana Reyes']);
   });
 
   it('halves its limits on training wheels', async () => {
