@@ -83,7 +83,7 @@ export const coachedCalls = addonSalescoach.table(
       onDelete: 'set null',
     }),
     channel: text('channel'),
-    /** A Zoom meeting the coach heard live (round three, 20261027005000): core's live meeting. */
+    /** A Zoom meeting (round three, 20261027005000) or a HandsFreeOS video call the coach heard live: core’s live meeting. */
     liveMeetingId: uuid('live_meeting_id').references(() => liveMeetings.id, {
       onDelete: 'cascade',
     }),

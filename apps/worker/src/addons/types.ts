@@ -140,16 +140,19 @@ export interface AddonWorkerModule {
 }
 
 /** A call heard live: which, who on the team is on it, and the customer when the call knows them. */
-/** What's heard live: a phone call (core's call), or a Zoom meeting someone claimed (core's live meeting). */
+/**
+ * What's heard live: a phone call (core's call), or a live meeting (core's `app.live_meetings`): a Zoom meeting
+ * someone claimed, or a stretch of a HandsFreeOS video call.
+ */
 export interface LiveCall {
   /** The call's or the meeting's id: one of these is heard once at a time. */
   readonly key: string;
   readonly kind: 'call' | 'meeting';
   /** Core's call, for a phone call. */
   readonly callId: string | null;
-  /** Core's live meeting (`app.live_meetings`), for a Zoom meeting. */
+  /** Core's live meeting (`app.live_meetings`), for a Zoom meeting or a video call. */
   readonly liveMeetingId: string | null;
-  /** Twilio's sid for a phone call; Zoom's stream id for a meeting. */
+  /** Twilio's sid for a phone call; Zoom's stream id for a meeting; the room's stretch for a video call. */
   readonly callSid: string;
   readonly teamUserId: string;
   /** Who called whom, on a phone call; null for a meeting. */
@@ -177,12 +180,22 @@ export interface AddonLiveCalls {
     line: LiveLine,
     lines: readonly LiveLine[],
   ) => Promise<void>;
-  /** The call (or its stream) ended: everything that was said. */
+  /** The call (or its stream) ended: everything that was said, and how it ended. */
   readonly onEnd?: (
     ctx: AddonScopeContext,
     call: LiveCall,
     lines: readonly LiveLine[],
+    how?: LiveEnd,
   ) => Promise<void>;
+}
+
+/** How something heard live ended. */
+export interface LiveEnd {
+  /**
+   * The people on it turned the AI off for it (a HandsFreeOS video call's AI notes): nothing of it is to be kept,
+   * and `lines` is empty.
+   */
+  readonly forgotten?: boolean;
 }
 
 /** The AI teammate's reply an add-on checks (round seven). */

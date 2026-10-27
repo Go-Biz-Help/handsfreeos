@@ -10,7 +10,8 @@
  *   (VIDEO_CALL_CAPTIONS_TOPIC). The screens show them with CC on.
  * - **Lines** are each person's turns, kept a few at a time (`video_call.heard`), so a listener that restarts in
  *   the middle of a call (a deploy) loses next to nothing. When the stretch of the call is over they become the
- *   appointment's transcript (`video_call.keep_words`, from handlers.ts).
+ *   appointment's transcript (`video_call.keep_words`, from handlers.ts). Each goes to the coach as it's finished
+ *   too (coach.ts).
  * - **The balance**: the seconds of sound sent, on the live speech line, about once a minute.
  *
  * The room is behind `ListenerRoom`, so this file and its tests never load LiveKit's native media library
@@ -315,6 +316,8 @@ export interface CallHearingDeps {
   readonly now?: () => number;
   /** Keeps lines heard (`video_call.heard`). Throws when it couldn't, and they're sent again. */
   readonly keep: (lines: readonly HeardLine[]) => Promise<void>;
+  /** Each line as it's finished, before it's kept: the coach in the call (coach.ts). */
+  readonly onLine?: (line: HeardLine) => void;
   /** Seconds of sound sent, on the business's balance. Never throws. */
   readonly bill: (seconds: number) => Promise<void>;
   /** Sends captions to everyone in the call. */
@@ -421,6 +424,7 @@ export class CallHearing {
   }
 
   private line(l: HeardLine): void {
+    this.deps.onLine?.(l);
     this.waiting.push(l);
     if (this.waiting.length > WAITING_MAX) {
       this.waiting.splice(0, this.waiting.length - WAITING_MAX);

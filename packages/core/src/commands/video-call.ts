@@ -18,6 +18,9 @@
  *   lines at a time (`video_call.heard`), and when a stretch is over the lines become the appointment's transcript
  *   (`video_call.keep_words`), which today's After the call starts from. The team can turn the notes off for one
  *   call (`video_call.set_ai`), which forgets what was heard of it so far.
+ * - **The Sales Coach hears it** too (part 3), while the AI notes are on: the listener makes the stretch of the call
+ *   a live meeting for the person on the team it coaches (`video_call.coach`), and hands the words to the add-ons
+ *   that listen, as with a Zoom meeting.
  */
 import { and, asc, eq, inArray, lte, sql as dsql } from 'drizzle-orm';
 import {
@@ -1336,6 +1339,106 @@ export const videoCallKeepWords = defineCommand({
   },
 });
 
+const NoCoach = {
+  liveMeetingId: null,
+  personId: null,
+  conversationId: null,
+  startedAt: null,
+  stretch: null,
+} as const;
+
+/**
+ * The Sales Coach in the call (part 3): the listener hears a call with someone on the team the coach is for, so this
+ * stretch of the call becomes a live meeting the add-ons that listen hear (`liveCalls`), as a Zoom meeting does. No
+ * claim is needed: the call knows who's in it, and who the customer is (the customer in the call, else the call's or
+ * the appointment's). The live meeting is the person's for this stretch (LiveKit's room id), and a listener that
+ * restarted in the middle of it finds the same one. Nothing, while the call isn't live, its AI notes are off, or
+ * the person isn't in it.
+ */
+export const videoCallCoach = defineCommand({
+  name: 'video_call.coach',
+  description:
+    'Worker: the AI’s listener hears a HandsFreeOS video call with someone on the team who is coached, so the add-ons that listen hear it too.',
+  risk: 0,
+  input: z.object({ workspaceId: uuid, callId: uuid, userId: uuid }),
+  output: z.object({
+    liveMeetingId: uuid.nullable(),
+    personId: uuid.nullable(),
+    conversationId: uuid.nullable(),
+    startedAt: isoDateTime.nullable(),
+    /** The stretch of the call: LiveKit's room id. */
+    stretch: z.string().nullable(),
+  }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['live_meeting.started'],
+  async handler(ctx, input) {
+    // Locked, so the team can't turn the notes off between the check and the live meeting.
+    const call = await lockCall(ctx, input.callId);
+    if (call.state !== 'live' || !call.aiNotes || !call.roomSid) return NoCoach;
+    const list = await peopleOf(ctx.tx, call.id);
+    const theirs = list.find(
+      (p) => p.kind === 'team' && p.userId === input.userId && p.state === 'in' && connected(p),
+    );
+    if (!theirs) return NoCoach;
+    const inTheCall = list
+      .filter((p) => p.kind === 'customer' && p.personId && p.state === 'in' && connected(p))
+      .sort((a, b) => (a.joinedAt?.getTime() ?? 0) - (b.joinedAt?.getTime() ?? 0))[0];
+    const [booked] =
+      !inTheCall && !call.personId && call.appointmentId
+        ? await ctx.tx
+            .select({ personId: appointmentAttendees.personId })
+            .from(appointmentAttendees)
+            .where(
+              and(
+                eq(appointmentAttendees.appointmentId, call.appointmentId),
+                inArray(appointmentAttendees.status, ['booked', 'attended', 'no_show']),
+              ),
+            )
+            .orderBy(asc(appointmentAttendees.createdAt))
+            .limit(1)
+        : [];
+    const personId = inTheCall?.personId ?? call.personId ?? booked?.personId ?? null;
+    const ws = call.workspaceId;
+    const [made] = await rows<{ id: string; started_at: Date | string }>(
+      ctx.tx,
+      sql`insert into app.live_meetings
+            (workspace_id, user_id, provider, meeting_uuid, appointment_id, person_id, state, stream_id, started_at)
+          values (${ws}, ${input.userId}, 'handsfree', ${call.roomSid}, ${call.appointmentId},
+            ${personId}, 'live', ${call.roomSid}, now())
+          on conflict (workspace_id, user_id, provider, meeting_uuid) where state in ('waiting', 'live')
+          do nothing
+          returning id, started_at`,
+    );
+    if (made)
+      await ctx.emit({
+        type: 'live_meeting.started',
+        entityType: 'live_meeting',
+        entityId: made.id,
+        payload: { userId: input.userId, provider: 'handsfree' },
+      });
+    // Heard again (a listener that restarted): the same live meeting, with the customer once they're known.
+    const [open] = made
+      ? [{ id: made.id, started_at: made.started_at, person_id: personId }]
+      : await rows<{ id: string; started_at: Date | string; person_id: string | null }>(
+          ctx.tx,
+          sql`update app.live_meetings set person_id = coalesce(person_id, ${personId}::uuid)
+              where workspace_id = ${ws} and user_id = ${input.userId} and provider = 'handsfree'
+                and meeting_uuid = ${call.roomSid} and state = 'live'
+              returning id, started_at, person_id`,
+        );
+    if (!open) return NoCoach;
+    return {
+      liveMeetingId: open.id,
+      personId: open.person_id,
+      conversationId: call.conversationId,
+      startedAt: new Date(open.started_at).toISOString(),
+      stretch: call.roomSid,
+    };
+  },
+});
+
 export const videoCallCommands = [
   videoCallOpen,
   videoCallEnter,
@@ -1352,6 +1455,7 @@ export const videoCallCommands = [
   videoCallSetAi,
   videoCallHeard,
   videoCallKeepWords,
+  videoCallCoach,
 ] as const;
 
 export const videoCallQueries = [videoCallGet, videoCallKnockStatus] as const;

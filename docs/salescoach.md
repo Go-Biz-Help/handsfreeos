@@ -1,9 +1,9 @@
 # AI Sales Coach
 
 AI Sales Coach (`salescoach`) coaches a business's people while they sell. While someone on the team is on a phone
-call or a Zoom meeting, it listens and shows them, from the business's own playbook, what to say next, the answer to an objection and
-the facts the customer just asked about. After the call it writes the notes, a follow-up to send, a task for each thing
-the rep promised, and a score. The decisions and the rounds still to come are in
+call, in a Zoom meeting or in a HandsFreeOS video call, it listens and shows them, from the business's own playbook,
+what to say next, the answer to an objection and the facts the customer just asked about. After the call it writes
+the notes, a follow-up to send, a task for each thing the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
 **Where it stands (2026-10-16):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses):
@@ -24,6 +24,7 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 | What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                                                                                                                                                                                                      |
 | Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                                                                                                                                                                                                          |
 | Hearing a Zoom meeting live (core)        | `packages/core/src/commands/live-meeting.ts` (`live_meeting.claim`), `apps/worker/src/meetings/live.ts` (`RtmsStream`, `ZoomLiveSession`), `zoom-live.ts` (the coaching Zoom app), `live-routes.ts` (its sign-in, link and webhook)                                                                                                 |
+| Hearing a HandsFreeOS video call live     | core's `video_call.coach`, `apps/worker/src/video-calls/coach.ts`; the cards beside the video in the web's `components/video-call/call-coach.tsx` (docs/video-calls.md, part 3)                                                                                                                                                     |
 | The Zoom panel                            | the web's `zoom-panel.tsx` (`?view=zoom`), `app/zoom/page.tsx` (where the Zoom app starts), `app/zoom/connect/` (linking Zoom), `components/settings/zoom-coach-card.tsx`, `lib/zoom-app.ts` (Zoom's required headers)                                                                                                              |
 | Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                                                                                                                                                                        |
 | The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                                                                                                                                                                        |
@@ -136,7 +137,16 @@ review before anyone outside Go Biz Help's Zoom account can add it.
    Developer Pack credits at 1.5×; see "The AI's hearing and voice" in `docs/operations.md`).
 5. **After.** When Zoom ends the stream (the meeting ends, or the rep presses **Stop coaching**, which stops the
    stream in Zoom), the claim is ended and the meeting is written up like a call: notes on the customer's timeline
-   ("Marco’s Zoom call was coached…"), a task for each promise, and a score.
+   ("Marco’s video call was coached…"), a task for each promise, and a score.
+
+## A coached HandsFreeOS video call
+
+HandsFreeOS's own video calls (docs/video-calls.md, part 3) reach the coach the way Zoom meetings do, with nothing
+to claim or connect. While the call's AI notes are on, each stretch of it is a live meeting of the first person on
+the team in it who's coached, and the AI's listener hands it every line, both sides. The cards show beside the video
+for them, as above the call bar on a phone call. When the stretch is over it's written up and scored like any
+call ("Dana’s video call was coached…"). The team turning AI notes off for the call stops the coach and forgets it:
+no lines, no cards, no write-up.
 
 ## Learning from wins
 
@@ -226,7 +236,8 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   playbooks and what the coach learned (each operation's `ai`). Writing or archiving a playbook, using a lesson and
   stopping a call wait for the person's OK; putting a card away runs on its own.
 - **Consent.** The coach listens only where the number's recording notice is on (Chris, 2026-10-14). On Zoom, Zoom
-  shows its own notice that an app is listening, and the panel says so too.
+  shows its own notice that an app is listening, and the panel says so too. On a HandsFreeOS video call, it's the
+  call's AI notes notice, and it listens only while they're on.
 - **Every call, on its own, and the rep can stop it** (Chris, 2026-10-14). The coach listens on every answered call
   of someone with `salescoach.use`. **Stop coaching this call** (`salescoach.call.stop`, the rep alone, while it's
   live) marks it `stopped`: no more cards or asks to the AI, nothing kept at the end, no write-up. Row security lets

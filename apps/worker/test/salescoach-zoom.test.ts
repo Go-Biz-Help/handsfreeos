@@ -337,14 +337,14 @@ describe('a Zoom meeting heard live', () => {
         sql`select meta ->> 'words' as words from app.activities
             where person_id = ${rosaId} and subtype = 'addon_line'`,
       );
-      expect(line?.words).toMatch(/^Marco’s Zoom call was coached and scored \d+ out of 100$/);
+      expect(line?.words).toMatch(/^Marco’s video call was coached and scored \d+ out of 100$/);
       const [task] = await rows<{ title: string; notes: string }>(
         admin(),
         sql`select title, notes from app.tasks where workspace_id = ${workspaceId} and person_id = ${rosaId}`,
       );
       expect(task).toEqual({
         title: 'Send the plan today',
-        notes: 'Promised on a coached Zoom call.',
+        notes: 'Promised on a coached video call.',
       });
     } finally {
       await zoom.close();

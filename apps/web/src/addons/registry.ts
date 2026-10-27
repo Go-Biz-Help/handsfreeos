@@ -50,7 +50,10 @@ export type SlotEntities = EverySlot<{
   };
   'conversation.panels': { readonly conversationId: string };
   'home.cards': object;
-  /** Above the bar of a call in progress, for the person on it: the customer, when the call knows who it is. */
+  /**
+   * Above the bar of a call in progress, or beside a HandsFreeOS video call's video, for the person on it: the
+   * customer, when the call knows who it is.
+   */
   'call.panels': { readonly personId: string | null };
   /** Above a conversation's message box: the channel being written in, and a way to put words in the box. */
   'composer.suggestions': {

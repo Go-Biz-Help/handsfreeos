@@ -16,5 +16,11 @@ export default async function VideoCallPage({ params }: { params: Promise<{ call
   const session = await getServerSession();
   const me = session ? await getMe().catch(() => null) : null;
   const name = me ? me.user.fullName.trim() || me.user.email.split('@')[0]! : null;
-  return <LinkCall callId={callId} teammate={name ? { name } : null} />;
+  // What each of their businesses runs and lets them do: the coach beside the video, in the call's business.
+  const businesses = (me?.workspaces ?? []).map((w) => ({
+    id: w.id,
+    addons: w.addons,
+    permissions: w.permissions,
+  }));
+  return <LinkCall callId={callId} teammate={name ? { name, businesses } : null} />;
 }
