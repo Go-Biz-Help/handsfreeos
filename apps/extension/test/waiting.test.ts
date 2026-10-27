@@ -37,6 +37,9 @@ function send(
       profileUrl: null,
       chatId: null,
       threadKey: null,
+      postId: null,
+      postUrl: null,
+      post: null,
       text: `Hi ${name}`,
       recent: [],
       state: 'waiting',
@@ -45,9 +48,6 @@ function send(
       handedOver: kind === 'reply',
       needsYou,
       createdAt: new Date(friday10).toISOString(),
-      postId: null,
-      postUrl: null,
-      post: null,
     },
   };
 }
