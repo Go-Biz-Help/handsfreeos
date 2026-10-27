@@ -67,6 +67,10 @@ const ownNames = new Set(
 );
 const addonTools = allAddonAiTools(ADDON_SERVER_MODULES);
 const addonCommands = new Set<string>(addonTools.map((t) => t.op.name));
+// An add-on keeps its own list of what the Assistant never runs, with why (addonAssistantIssues holds it to it).
+const addonNever = new Set(
+  ADDON_SERVER_MODULES.flatMap((m) => Object.keys(m.notForTheAssistant ?? {})),
+);
 const notYet = new Set(ASSISTANT_NOT_YET.flatMap((p) => p.actions));
 const actions = screenActionTools(registry);
 
@@ -76,6 +80,7 @@ describe('what the Assistant can do', () => {
       (name) =>
         !ownNames.has(name) &&
         !addonCommands.has(name) &&
+        !addonNever.has(name) &&
         !(name in SCREEN_ACTIONS) &&
         !(name in NEVER_FOR_THE_ASSISTANT) &&
         !notYet.has(name),
@@ -102,7 +107,9 @@ describe('what the Assistant can do', () => {
       ...Object.keys(NEVER_FOR_THE_ASSISTANT),
       ...notYet,
     ];
-    expect(listed.filter((n) => ownNames.has(n) || addonCommands.has(n))).toEqual([]);
+    expect(
+      listed.filter((n) => ownNames.has(n) || addonCommands.has(n) || addonNever.has(n)),
+    ).toEqual([]);
     for (const page of ASSISTANT_NOT_YET) {
       expect(page.actions.length, page.page).toBeGreaterThan(0);
       expect(page.why.trim().length, page.page).toBeGreaterThan(0);
