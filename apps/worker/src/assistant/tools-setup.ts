@@ -880,7 +880,7 @@ const manageRecordKind: SettingsConfirmTool = {
     }
     const customRecordTypeId = args['customRecordTypeId'];
     if (act === 'archive' || act === 'restore') {
-      const name = `custom_record_type.${act}`;
+      const name = act === 'archive' ? 'custom_record_type.archive' : 'custom_record_type.restore';
       await command(db, ctx, name, { customRecordTypeId });
       return {
         outcome: act === 'archive' ? 'Archived' : 'Brought back',
@@ -1110,7 +1110,7 @@ const manageRelationshipType: SettingsConfirmTool = {
     }
     const relationshipTypeId = args['relationshipTypeId'];
     if (act === 'archive' || act === 'restore') {
-      const name = `relationship_type.${act}`;
+      const name = act === 'archive' ? 'relationship_type.archive' : 'relationship_type.restore';
       await command(db, ctx, name, { relationshipTypeId });
       return {
         outcome: act === 'archive' ? 'Archived' : 'Brought back',

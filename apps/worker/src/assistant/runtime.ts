@@ -15,6 +15,7 @@ import {
   addonToolDescription,
   aiLimitReached,
   isAddonAiTool,
+  isScreenActionTool,
   isScreenReadTool,
   toolInputSchema,
   type AddonAiTool,
@@ -44,6 +45,7 @@ import {
   isAddonActionTool,
   type AddonActionTool,
 } from './tools-addons';
+import { screenActionStep } from './tools-screen-actions';
 import { screenReadStep } from './tools-screen-reads';
 import { billingStepLabels } from './tools-billing';
 import { contentStepLabels } from './tools-content';
@@ -279,7 +281,9 @@ const stepLabel = (tool: OfferedTool) =>
       ? addonActionStep(tool)
       : isScreenReadTool(tool)
         ? screenReadStep(tool)
-        : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
+        : isScreenActionTool(tool)
+          ? screenActionStep(tool)
+          : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
 
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
@@ -411,10 +415,12 @@ export async function ask(
         harder: tool.autonomy === 'confirm',
       };
     }
-    // An add-on's tool hands the operation the model's own arguments (only what the tool declares, never the
-    // business's ids): the kernel parses them once, with the operation's schema, when it runs.
+    // An add-on's tool, or a screen's command as it is, hands the operation the model's own arguments (only what the
+    // tool declares, never the business's ids): the kernel parses them once, with the operation's schema, when it runs.
     const args = (
-      isAddonTool(tool) ? addonToolArguments(tool, call.arguments) : parsed.data
+      isAddonTool(tool) || isScreenActionTool(tool)
+        ? addonToolArguments(tool, call.arguments)
+        : parsed.data
     ) as Record<string, unknown>;
     emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'running' });
     const base = {

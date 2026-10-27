@@ -141,6 +141,11 @@ export interface PromptContext {
   readonly spoken?: boolean;
   /** One line per add-on running here: what its tools cover (packages/core/src/addons/ai.ts, addonDirectory). */
   readonly addons?: readonly string[];
+  /**
+   * They answer HandsFreeOS support, in this role ("Support lead"): the Admin area's tools are theirs too. Never set for
+   * anyone else, who are never told those tools exist (the owner, 2026-10-27).
+   */
+  readonly staffRole?: string | null;
   /** The Action Center's top items in Home's order, with their ids (the attention tools act on them). */
   readonly attention?: {
     readonly scope: 'mine' | 'everyone';
@@ -267,6 +272,11 @@ export function lastingText(c: PromptContext): string {
       : []),
     ...(c.addons?.length
       ? ['Add-ons on here, and what their tools cover:', ...c.addons.map((a) => `- ${a}`)]
+      : []),
+    ...(c.staffRole
+      ? [
+          `${c.personName} also works for HandsFreeOS itself, as ${c.staffRole}: you can help with the Admin area too (support tickets, saved replies, the team, businesses, founding seats, ideas and What’s new), across every business, as their role allows.`,
+        ]
       : []),
     CAPABILITIES_NOTE,
     ...(c.knowledge
