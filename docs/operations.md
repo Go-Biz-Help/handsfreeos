@@ -6952,7 +6952,7 @@ When the test fails on a new command, pick one, in this order:
 
 When it fails on a new setting row, add the row to `SETTING_TOOLS` (the tool, the field in its input, and the value when it's one choice of several; the test checks the tool takes it) or to `SETTINGS_NEVER` with the reason.
 
-`ASSISTANT_NOT_YET` and `SETTINGS_NOT_YET` are the list of gaps, in the order of the side menu and of Settings. A daily routine takes the first page of each, closes the gaps, and opens a pull request for the owner to merge. A page comes off `SETTINGS_NOT_YET` only when every one of its rows is in `SETTING_TOOLS` or `SETTINGS_NEVER`.
+`ASSISTANT_NOT_YET` and `SETTINGS_NOT_YET` are the list of gaps, in the order of the side menu and of Settings. The Admin area's **Assistant coverage** page shows them, with **Copy gaps** to hand them to Claude. A daily routine takes the first page of each, closes the gaps, and opens a pull request for the owner to merge. A page comes off `SETTINGS_NOT_YET` only when every one of its rows is in `SETTING_TOOLS` or `SETTINGS_NEVER`.
 
 ### When a question fails
 
@@ -10525,6 +10525,7 @@ only for the address it was sent to, and only after they have a HandsFreeOS sign
 | Assign tickets, keep the saved replies    |       | Yes  | Yes   |
 | The health page                           |       | Yes  | Yes   |
 | Problem reports                           |       | Yes  | Yes   |
+| Assistant coverage                        |       | Yes  | Yes   |
 | Answer ideas, merge them, take them down  | Yes   | Yes  | Yes   |
 | Move ideas along the roadmap, What's new  |       | Yes  | Yes   |
 | Invite, suspend and remove support people |       |      | Yes   |
@@ -10574,6 +10575,11 @@ the same way it refuses removing a business's last owner.
   paste into a Claude session on the code (the phone shares it instead); **Mark handled** files it. Open ones show
   first, by area. They go after 30 days, handled or not. Leads and admins, like Health. Needs
   `20261027008100_problem_reports.sql`. See "Apply new migrations".
+- **Assistant coverage** is what Ask HandsFreeOS can't do yet, page by page in the menu's order: the actions, the
+  settings pages whose rows aren't checked yet, and what it never does on purpose, with why. **Copy gaps** puts them
+  on the clipboard, ready to paste into a Claude session on the code (the phone shares them instead). It's read from
+  the code, so it changes when a pull request closes a gap. Leads and admins, like Health. See "Keeping the Assistant
+  able to do everything".
 - **Getting started** counts how new businesses get on with setting up, over the last 7, 30 or 90 days: how
   many answered the quick questions, which steps they skip (the most skipped first) and bring back, how many
   finished, how many chose "Add them as you go", and how many hid the guide or turned it off. Counts only, from

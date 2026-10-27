@@ -321,6 +321,7 @@ const DESK_PAGES = [
   'getting-started',
   'health',
   'problems',
+  'assistant',
   'rates',
   'founding',
   'replies',
