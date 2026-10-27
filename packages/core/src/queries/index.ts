@@ -25,6 +25,7 @@ import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
 import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
+import { notificationList, notificationQueries } from './notification';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
   aiTeammateFeedbackList,
@@ -161,6 +162,7 @@ import {
 export {
   accountDeletionCheck,
   pushDeviceList,
+  notificationList,
   userPhoneGet,
   conversationGet,
   conversationThread,
@@ -273,6 +275,8 @@ export const queries: readonly QueryDef[] = [
   me,
   accountDeletionCheck,
   pushDeviceList,
+  // Notifications under the bell (20261027012600).
+  ...notificationQueries,
   // Approving an extension sign-in from the phone or the web (20261027002910).
   extensionSignInPending,
   userPhoneGet,

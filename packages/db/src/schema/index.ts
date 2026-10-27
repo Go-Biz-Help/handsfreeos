@@ -4697,6 +4697,36 @@ export const pushDevices = app.table('push_devices', {
 });
 
 /**
+ * A push a person's phones were handed, kept for them under the bell (20261027012600). One row per person per thing:
+ * a push that replaces an earlier one on the phone (the same collapse id) replaces its row and makes it new again.
+ * The worker keeps them (private.keep_push_notification); people read their own and mark them seen or read. Kept 30
+ * days, and only while the person can open the business.
+ */
+export const notifications = app.table('notifications', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Null for a push about no business (a new support ticket, a sign-in to the extension). */
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** The push's own id (its data.notificationId). */
+  pushId: uuid('push_id').notNull(),
+  /** What it replaces on the phone (data.collapseId), else its push id. */
+  collapseKey: text('collapse_key').notNull(),
+  category: text('category').notNull(),
+  title: text('title').notNull(),
+  subtitle: text('subtitle'),
+  body: text('body').notNull(),
+  /** Where it opens, as the push. */
+  path: text('path').notNull(),
+  refs: jsonb('refs').$type<Json>().notNull().default({}),
+  sentAt: ts('sent_at').notNull(),
+  seenAt: ts('seen_at'),
+  readAt: ts('read_at'),
+  ...timestamps(),
+});
+
+/**
  * Approving an extension sign-in from the phone or the web (20261027002910): one row per Send me a prompt. Two
  * minutes to answer, answered once, a wrong pick refuses it. Only the hash of the extension's secret is kept, and
  * `user_id` is null when the email has no account. People read their own (not the number, hash or email); the
@@ -7961,6 +7991,7 @@ export const tables = {
   rolePermissionOverrides,
   memberPermissionOverrides,
   pushDevices,
+  notifications,
   extensionSignIns,
   userPhones,
   products,

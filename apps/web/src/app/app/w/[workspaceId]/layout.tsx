@@ -20,6 +20,7 @@ import { guideOf } from '@/lib/guide';
 import { CallProvider } from '@/lib/calls/call-provider';
 import { AttentionSummaryProvider } from '@/lib/realtime/attention-summary';
 import { LiveProvider } from '@/lib/realtime/live-provider';
+import { NotificationsProvider } from '@/lib/realtime/notifications-provider';
 import { UnreadProvider } from '@/lib/realtime/unread-provider';
 import { parseTheme } from '@/lib/theme';
 
@@ -71,72 +72,75 @@ export default async function WorkspaceLayout({
         <UnreadProvider workspaceId={workspaceId}>
           {/* The urgent count on Home, in the sidebar and the phone's bottom bar. */}
           <AttentionSummaryProvider workspaceId={workspaceId}>
-            <CallProvider workspaceId={workspaceId} workspaceName={current.name}>
-              {/* Inside LiveProvider: pages refresh when the Assistant changes something. */}
-              <AssistantProvider
-                key={workspaceId}
-                workspaceId={workspaceId}
-                workspaceName={current.name}
-                // A view is for seeing, and the Assistant is for doing; the teammate's chats are theirs.
-                enabled={can(current.permissions, 'assistant.use') && !teammateView}
-                consentNeeded={me.assistantConsent.needed}
-              >
-                {/* Search everything: the sidebar's box and ⌘K, the Search page, and recent searches. */}
-                <SearchProvider
-                  business={{
-                    workspaceId,
-                    userId: signedInAs,
-                    name: current.name,
-                    timeZone: current.timezone,
-                    settings: workspace?.workspace.settings ?? null,
-                    staff: !!platform?.staff,
-                    agency: managesAnAgency({
-                      organizations: me.organizations,
-                      businesses: me.workspaces,
-                    }),
-                  }}
+            {/* The bell's notifications: the signed-in person's own, so not while viewing as a teammate. */}
+            <NotificationsProvider workspaceId={workspaceId} enabled={!teammateView}>
+              <CallProvider workspaceId={workspaceId} workspaceName={current.name}>
+                {/* Inside LiveProvider: pages refresh when the Assistant changes something. */}
+                <AssistantProvider
+                  key={workspaceId}
+                  workspaceId={workspaceId}
+                  workspaceName={current.name}
+                  // A view is for seeing, and the Assistant is for doing; the teammate's chats are theirs.
+                  enabled={can(current.permissions, 'assistant.use') && !teammateView}
+                  consentNeeded={me.assistantConsent.needed}
                 >
-                  {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}
-                  <MenuProvider settings={me.user.settings}>
-                    <div className="flex min-h-screen flex-col bg-bg">
-                      <ThemeSync
-                        theme={parseTheme((me.user.settings as { theme?: unknown }).theme)}
-                      />
-                      {viewingAs ? (
-                        <ViewAsBanner
-                          workspaceId={workspaceId}
-                          businessName={viewingAs.businessName}
-                          expiresAt={viewingAs.expiresAt}
-                          acting={viewingAs.acting}
+                  {/* Search everything: the sidebar's box and ⌘K, the Search page, and recent searches. */}
+                  <SearchProvider
+                    business={{
+                      workspaceId,
+                      userId: signedInAs,
+                      name: current.name,
+                      timeZone: current.timezone,
+                      settings: workspace?.workspace.settings ?? null,
+                      staff: !!platform?.staff,
+                      agency: managesAnAgency({
+                        organizations: me.organizations,
+                        businesses: me.workspaces,
+                      }),
+                    }}
+                  >
+                    {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}
+                    <MenuProvider settings={me.user.settings}>
+                      <div className="flex min-h-screen flex-col bg-bg">
+                        <ThemeSync
+                          theme={parseTheme((me.user.settings as { theme?: unknown }).theme)}
                         />
-                      ) : null}
-                      {teammateView ? (
-                        <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
-                      ) : null}
-                      {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
-                      <div className="flex min-h-0 flex-1">
-                        <Sidebar me={me} current={current} staff={staff} />
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <MobileShell me={me} current={current} staff={staff} />
-                          <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+                        {viewingAs ? (
+                          <ViewAsBanner
+                            workspaceId={workspaceId}
+                            businessName={viewingAs.businessName}
+                            expiresAt={viewingAs.expiresAt}
+                            acting={viewingAs.acting}
+                          />
+                        ) : null}
+                        {teammateView ? (
+                          <TeammateViewBanner workspaceId={workspaceId} view={teammateView} />
+                        ) : null}
+                        {staleView ? <ForgetStaleView workspaceId={workspaceId} /> : null}
+                        <div className="flex min-h-0 flex-1">
+                          <Sidebar me={me} current={current} staff={staff} />
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <MobileShell me={me} current={current} staff={staff} />
+                            <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+                          </div>
+                          <AssistantPanel />
                         </div>
-                        <AssistantPanel />
                       </div>
-                    </div>
-                    <MenuEditor
-                      workspaceId={workspaceId}
-                      permissions={current.permissions}
-                      addons={current.addons}
-                    />
-                  </MenuProvider>
-                  <CallOverlays />
-                  {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
-                  <ExtensionSignInPrompt />
-                  {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
-                  <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
-                </SearchProvider>
-              </AssistantProvider>
-            </CallProvider>
+                      <MenuEditor
+                        workspaceId={workspaceId}
+                        permissions={current.permissions}
+                        addons={current.addons}
+                      />
+                    </MenuProvider>
+                    <CallOverlays />
+                    {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
+                    <ExtensionSignInPrompt />
+                    {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
+                    <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
+                  </SearchProvider>
+                </AssistantProvider>
+              </CallProvider>
+            </NotificationsProvider>
           </AttentionSummaryProvider>
         </UnreadProvider>
       </WorkspaceShellProvider>

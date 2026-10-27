@@ -53,6 +53,7 @@ export const SCREEN_READS = [
   'meeting_connection.list',
   'migration.get',
   'migration.review_queue',
+  'notification.list',
   'number_import.list',
   'number_port.list',
   'onboarding.clients',

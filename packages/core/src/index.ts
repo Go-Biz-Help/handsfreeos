@@ -8,6 +8,8 @@ export * from './intl/index';
 export * from './industries';
 export * from './mobile';
 export * from './push';
+// Notifications under the bell, on the phone and the web (20261027012600).
+export * from './bell';
 export * from './meetings/settings';
 export * from './meetings/review';
 export * from './meetings/google';

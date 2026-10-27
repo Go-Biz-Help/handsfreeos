@@ -19,6 +19,7 @@ import { copyLogger } from '@/sync/logger';
 
 import HfosPhone from '../../modules/hfos-phone';
 
+import { bellMarks, markRead } from './bell';
 import { allCategories } from './categories';
 import {
   followUpOfResponse,
@@ -220,10 +221,21 @@ export const pressRunner = new PressRunner({
   log,
 });
 
+/**
+ * A push pressed in any way (a tap, or one of its buttons) is read under the bell too, once someone is signed in.
+ * Best effort: with no signal it stays unread there.
+ */
+async function readUnderBell(data: PushData): Promise<void> {
+  await waitFor(() => session.getState().status !== 'starting', session.subscribe, 10_000);
+  const state = session.getState();
+  if (state.status === 'signedIn') markRead(state.person.userId, { pushId: data.notificationId });
+}
+
 /** Runs a notification response (a press or a tap) and keeps what happened for the test tools. */
 export async function handleResponse(response: unknown): Promise<PressOutcome | null> {
   const press = pressOf(response);
   if (!press) return null;
+  void readUnderBell(press.data).catch((error: unknown) => log('Reading a pressed push', error));
   try {
     const outcome = await pressRunner.handle(press, { followUp: followUpOfResponse(response) });
     rememberPress(outcome);
@@ -258,6 +270,7 @@ export async function pushBeforeSignOut(): Promise<void> {
   pendingLinks.takeAsk();
   pendingLinks.takeUnlock();
   pressRunner.clearPending();
+  bellMarks.clear();
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([
     pushRegistration.beforeSignOut(),

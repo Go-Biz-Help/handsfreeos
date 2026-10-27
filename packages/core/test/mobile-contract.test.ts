@@ -166,6 +166,9 @@ const ONLINE_COMMANDS = [
   'partner.add',
   'partner.update',
   'partner.referral_set',
+  // The bell (20261027012600): opening it sees its notifications, and pressing one, or its push, opens it.
+  'notification.seen',
+  'notification.read',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social

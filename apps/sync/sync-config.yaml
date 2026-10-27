@@ -57,6 +57,9 @@
 #     Batched into the same recopy, conversations and messages in both inbox arms send only `channel != 'portal'`
 #     rows: a client's portal thread (20261018001200) is seen only by the people on its deal, and the phone has no
 #     portal thread screen yet. They come back with the deal screens too.
+#     **The bell's notifications are an addition in place** (20261027012600): me_v1 gains a person's own
+#     app.notifications, every push their phones were handed. A new table an old build doesn't know is one it never
+#     reads, and me_v1 is a single bucket: a notifications_v1 beside it would have cost every person one more.
 #
 # Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +
 # agency_v1 1 per agency they belong to. business_v1 has five arms: `access` matches everyone who can open
@@ -82,6 +85,8 @@ streams:
       - SELECT id, email, full_name, avatar_url, settings, deleted_at, created_at, updated_at FROM app.users AS my_profile WHERE id = auth.user_id()
       - SELECT id, command_id, workspace_id, command, outcome, answer, occurred_at, received_at FROM app.command_receipts WHERE user_id = auth.user_id()
       - SELECT id, platform, app_version, device_name, last_seen_at, disabled_at, disabled_reason, created_at, updated_at FROM app.push_devices WHERE user_id = auth.user_id()
+      # What the bell lists: every push this person's phones were handed, kept 30 days (20261027012600).
+      - SELECT id, workspace_id, push_id, category, title, subtitle, body, path, refs, sent_at, seen_at, read_at, created_at, updated_at FROM app.notifications WHERE user_id = auth.user_id()
       - SELECT id, e164, verified_at, verification_count, last_verification_at, created_at, updated_at FROM app.user_phones WHERE user_id = auth.user_id()
       # A narrowed inbox: the threads this person is on, and their messages, calls and attention items (0083).
       # The same columns as business_v1's wide arm, byte for byte, or a row synced by both would lose whichever

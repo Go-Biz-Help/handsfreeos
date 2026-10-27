@@ -11,6 +11,8 @@
  *   mid-send and a try that stopped partway never push a phone twice.
  * - **Receipts:** a phone the app is gone from is turned off, from its ticket at once or its receipt later, unless
  *   it registered again since.
+ * - **Under the bell:** each push is kept once for each person its phones were handed, one line per thing, and a bell
+ *   that can't keep one never holds up the send.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -1333,6 +1335,165 @@ describe('the moments, on a business with phones', () => {
       await drain(w, 20_000, map);
       expect(toRiley()).toHaveLength(before + 1);
       expect(dataOf(toRiley().at(-1)!.message).refs).toMatchObject({ taskId });
+    });
+  });
+
+  // The bell (20261027012600): every push a person's phones were handed is kept for them, for the bell's list.
+  describe('under the bell', () => {
+    let sam: TestUser;
+    let samPhone: Phone;
+    let noel: TestUser;
+    beforeAll(async () => {
+      [sam, noel] = await Promise.all([
+        createTestUser('pushes-sam', { fullName: 'Sam Member' }),
+        createTestUser('pushes-noel', { fullName: 'Noel Member' }),
+      ]);
+      await rows(
+        admin(),
+        sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+            values (${w.workspaceId}, ${sam.id}, 'member'), (${w.workspaceId}, ${noel.id}, 'member')`,
+      );
+      samPhone = await phoneOf(sam, 'ios', 'sam');
+    });
+    const queueFor = async (
+      userIds: readonly string[],
+      over: { collapseId?: string; title?: string } = {},
+    ) => {
+      const key = `test:${randomUUID()}`;
+      await asWorker(w.s.db, scope(), (tx) =>
+        queuePush(tx, scope(), {
+          key,
+          category: 'assigned',
+          userIds: [...userIds],
+          title: over.title ?? 'Assigned to you · Rosa Delgado',
+          body: 'Rosa Delgado’s lead is yours now.',
+          path: `/app/w/${w.workspaceId}/leads/${randomUUID()}`,
+          refs: {},
+          ...(over.collapseId ? { collapseId: over.collapseId } : {}),
+        }),
+      );
+      return key;
+    };
+    const bellOf = (u: TestUser) =>
+      rows<{
+        id: string;
+        push_id: string;
+        workspace_id: string | null;
+        category: string;
+        title: string;
+        subtitle: string | null;
+        path: string;
+        seen: boolean;
+        read: boolean;
+      }>(
+        admin(),
+        sql`select id, push_id, workspace_id, category, title, subtitle, path, seen_at is not null as seen,
+              read_at is not null as read
+            from app.notifications where user_id = ${u.id} order by sent_at desc`,
+      );
+    const toSam = () => sent().filter((s) => s.message.to === samPhone.token);
+
+    it('keeps a push once for each person its phones were handed, as the push said it', async () => {
+      const daleBefore = (await bellOf(w.owner)).length;
+      await queueFor([w.owner.id, sam.id, noel.id]);
+      await drain(w);
+      const pushed = dataOf(toSam().at(-1)!.message);
+      const [line] = await bellOf(sam);
+      expect(line).toMatchObject({
+        push_id: pushed.notificationId,
+        workspace_id: w.workspaceId,
+        category: 'assigned',
+        title: 'Assigned to you · Rosa Delgado',
+        subtitle: business,
+        path: pushed.path,
+        seen: false,
+        read: false,
+      });
+      // Two phones, one line; no phone, nothing kept.
+      expect(await bellOf(w.owner)).toHaveLength(daleBefore + 1);
+      expect(await bellOf(noel)).toHaveLength(0);
+    });
+
+    it('keeps one line per thing: the next push about it replaces the line, new again', async () => {
+      const collapseId = `conversation-${randomUUID()}`;
+      await queueFor([sam.id], { collapseId, title: 'Mike Johnson' });
+      await drain(w);
+      const before = await bellOf(sam);
+      await rows(
+        admin(),
+        sql`update app.notifications set seen_at = now(), read_at = now() where id = ${before[0]!.id}`,
+      );
+      await queueFor([sam.id], { collapseId, title: 'Customer waiting · Mike Johnson' });
+      await drain(w);
+      const after = await bellOf(sam);
+      expect(after).toHaveLength(before.length);
+      expect(after[0]).toMatchObject({
+        id: before[0]!.id,
+        push_id: dataOf(toSam().at(-1)!.message).notificationId,
+        title: 'Customer waiting · Mike Johnson',
+        seen: false,
+        read: false,
+      });
+    });
+
+    it('keeps a push that may have gone, and one Expo refused only once it goes', async () => {
+      const lines = async () => (await bellOf(sam)).length;
+      let before = await lines();
+      w.s.push.fake.failNext('lost');
+      await queueFor([sam.id]);
+      await drain(w);
+      expect(await lines()).toBe(before + 1);
+
+      before = await lines();
+      w.s.push.fake.failNext('refused');
+      const key = await queueFor([sam.id]);
+      expect(await jobsOnce(w)).toMatchObject({ retried: 1 });
+      expect(await lines()).toBe(before);
+      await rows(
+        admin(),
+        sql`update app.scheduled_jobs set run_at = now() where id = ${(await pushJob(key))!.id}`,
+      );
+      await drain(w);
+      expect(await lines()).toBe(before + 1);
+    });
+
+    it('never lets the bell hold up a send: one it can’t keep still goes once, and its receipts are checked', async () => {
+      const title = `Kept nowhere ${randomUUID().slice(0, 8)}`;
+      // The bell refusing this one push, as a broken database function would.
+      const refuse = `test_bell_refuses_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+      await admin().execute(
+        sql.raw(`create function public.${refuse}() returns trigger language plpgsql as $$
+          begin
+            if new.title = '${title}' then raise exception 'the bell is broken'; end if;
+            return new;
+          end $$;
+          create trigger ${refuse} before insert on app.notifications
+            for each row execute function public.${refuse}();`),
+      );
+      try {
+        const before = (await bellOf(sam)).length;
+        const pushes = toSam().length;
+        const key = await queueFor([sam.id], { title });
+        await drain(w);
+        expect(toSam()).toHaveLength(pushes + 1);
+        expect(await bellOf(sam)).toHaveLength(before);
+        expect((await pushJob(key))!.status).toBe('done');
+        const pushed = dataOf(toSam().at(-1)!.message);
+        const receipts = await rows(
+          admin(),
+          sql`select 1 from app.scheduled_jobs
+              where kind = ${PUSH_JOBS.receipts} and status = 'pending'
+                and payload ->> 'notificationId' = ${pushed.notificationId}`,
+        );
+        expect(receipts).toHaveLength(1);
+        // Run again, it hands nothing over twice.
+        await drain(w);
+        expect(toSam()).toHaveLength(pushes + 1);
+      } finally {
+        await admin().execute(
+          sql.raw(`drop trigger ${refuse} on app.notifications; drop function public.${refuse}();`),
+        );
+      }
     });
   });
 
