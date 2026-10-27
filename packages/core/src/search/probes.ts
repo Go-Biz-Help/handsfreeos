@@ -83,6 +83,14 @@ const DOCUMENT_NOUN = /^(?:invoice|estimate|inv|est)\.?\s+(?=\S+$)/i;
 /** Money: a dollar sign, cents, or a thousands comma. A bare whole number is never an amount. */
 const READS_AS_MONEY = /^\$\s*[\d,]+(\.\d{1,2})?$|^\d{1,3}(,\d{3})+(\.\d{1,2})?$|^\d+\.\d{1,2}$/;
 
+/** What was typed as digits, when it's only digits and a phone's punctuation with 3 or more digits (`digits`). */
+export function typedDigits(typed: string): string | null {
+  const q = (typed ?? '').trim();
+  if (!PHONE_CHARACTERS.test(q)) return null;
+  const digits = q.replace(/\D/g, '');
+  return digits.length >= SEARCH_MIN_DIGITS ? digits : null;
+}
+
 /** What a search looks for. `country` reads a phone typed without its country code. */
 export function searchProbes(typed: string, opts: { country?: CountryCode } = {}): SearchProbes {
   const q = (typed ?? '').trim();
@@ -105,7 +113,7 @@ export function searchProbes(typed: string, opts: { country?: CountryCode } = {}
     onlyPhoneCharacters && allDigits.length >= 7 ? normalizePhone(q, opts.country ?? 'US') : null;
   const email = EMAIL.test(q) ? q.toLowerCase() : null;
   const domain = !email && !/\s/.test(q) ? (DOMAIN.exec(q)?.[1]?.toLowerCase() ?? null) : null;
-  const digits = onlyPhoneCharacters && allDigits.length >= SEARCH_MIN_DIGITS ? allDigits : null;
+  const digits = typedDigits(q);
   const amount = READS_AS_MONEY.test(q) ? parseMoney(q) : null;
   // A number is one word, or one word after "invoice" or "estimate".
   const numberText = q.replace(DOCUMENT_NOUN, '');

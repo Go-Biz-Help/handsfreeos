@@ -13,7 +13,7 @@
 import { z } from 'zod';
 
 import { CONTACT_EDIT_WORDS, joinName, splitName, type NameParts } from '../inbox/contact';
-import { searchProbes } from '../search/probes';
+import { typedDigits } from '../search/probes';
 import { normalizePhone } from './phone';
 
 /** What both apps say, from the search that found nobody to the contact being added. */
@@ -59,13 +59,13 @@ export interface ContactStart {
 
 /**
  * Where what was typed in a customer search goes on a new contact: digits in Phone (read the way the search reads a
- * number, `searchProbes`, so a number not finished yet goes there too), anything with an @ in Email, and anything
+ * number, `typedDigits`, so a number not finished yet goes there too), anything with an @ in Email, and anything
  * else with a letter in it as the name. Text with a digit in it that isn't a number ("12 Oak St", "Unit 4") starts
  * nothing, since no name has digits: the form opens empty and the person types the name.
  */
 export function contactFromSearch(typed: string): ContactStart {
   const q = (typed ?? '').trim().replace(/\s+/g, ' ');
-  if (searchProbes(q).digits) return { name: '', phone: q, email: '' };
+  if (typedDigits(q)) return { name: '', phone: q, email: '' };
   if (q.includes('@')) return { name: '', phone: '', email: q };
   const name = /\p{L}/u.test(q) && !/\d/.test(q) ? q : '';
   return { name, phone: '', email: '' };
