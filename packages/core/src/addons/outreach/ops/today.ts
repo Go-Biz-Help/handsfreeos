@@ -818,7 +818,8 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
             left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
             ${latestChat('p')}
-            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')} and ${lets}
+            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
+              and not ${isClient('p')} and ${lets}
               and (c.pitch = 'ready' or s.mark = 'ready'
                 or (f.answer = 'yes' and f.stopped_at is null
                   and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))
@@ -981,8 +982,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
     // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
-    // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone,
-    // with no demo link.
+    // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone.
     const chats = await rows<{
       id: string;
       name: string;
@@ -993,11 +993,10 @@ export const today = defineAddonQuery(outreachAddon, {
       last_from_me: boolean;
       summary: string | null;
       next_step: string | null;
-      client: boolean;
     }>(
       ctx.tx,
       sql`select c.id, c.name, c.profile_id, p.url, c.thread_key, c.last_at, c.last_from_me, c.summary,
-            c.next_step, (p.id is not null and ${isClient('p')}) as client
+            c.next_step
           from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
           where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
             and c.platform = ${input.platform}
@@ -1034,7 +1033,7 @@ export const today = defineAddonQuery(outreachAddon, {
           ],
           summary: c.summary,
           nextStep: c.next_step,
-          demoLink: c.client ? null : demoFor(c.profile_id),
+          demoLink: demoFor(c.profile_id),
         }),
       );
     }
@@ -1048,11 +1047,9 @@ export const today = defineAddonQuery(outreachAddon, {
       url: string;
       thread_key: string | null;
       seen_at: Date | string;
-      client: boolean;
     }>(
       ctx.tx,
-      sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url, r.thread_key, r.seen_at,
-            ${isClient('p')} as client
+      sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url, r.thread_key, r.seen_at
           from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
           where r.workspace_id = ${ws} and r.user_id = ${me} and p.platform = ${input.platform}
             and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}
@@ -1072,7 +1069,7 @@ export const today = defineAddonQuery(outreachAddon, {
           profileUrl: r.url,
           threadKey: r.thread_key,
           why: [`Wrote back ${dayWords(r.seen_at, now)}`],
-          demoLink: r.client ? null : demoFor(r.profile_id),
+          demoLink: demoFor(r.profile_id),
         }),
       );
     }

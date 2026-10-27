@@ -8,8 +8,8 @@
  *   Contacts still counts them a client for another reason.
  * - `outreach.profile.marks` says where someone stands as their menu opens, and whether the person may take them off
  *   a list.
- * - On Today a client gets no outreach, only a reply they're owed (with no demo link), and their request is still
- *   confirmed. The Pipeline shows them as clients, with why, out of All in play.
+ * - On Today a client gets no outreach, only a reply they're owed, and their request is still confirmed: no pitch
+ *   either, though they said yes or were marked Ready before they were a client. The Pipeline shows them as clients, with why, out of All in play.
  * - Don't pitch skips outreach waiting for an OK too, never a reply (the owner's answer, 26 Oct 2026).
  */
 import { rows, sql } from '@hfos/db/client';
@@ -468,8 +468,6 @@ describe('a client on Today and in the Pipeline', () => {
         'friend_request: Sam Lee',
       ]),
     );
-    // A client's reply carries no demo link.
-    expect((await items()).find((i) => i.name === 'Quinn Harper')!.demoLink).toBeNull();
   });
 
   it('shows clients in the Pipeline with why, and leaves them out of All in play', async () => {
@@ -493,6 +491,28 @@ describe('a client on Today and in the Pipeline', () => {
     expect((await pipeline()).people.map((p) => [p.name, p.stage])).toEqual([
       ['Avery Lane', 'friends'],
     ]);
+  });
+
+  it('offers a client no pitch, though they said yes or were marked Ready before, and keeps the reply they’re owed', async () => {
+    const quinn = await profileOf('quinn.harper.4');
+    const jo = await profileOf('jo.banks.2');
+    // Quinn said yes to the first message (no playbook has a video, so the link is next), and Jo was marked Ready.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.follow_ups
+            (workspace_id, user_id, profile_id, step, step_at, last_at, answer, answered_at)
+          values (${ws}, ${owner.id}, ${quinn}, 'first', now() - interval '3 days', now() - interval '3 days',
+            'yes', now() - interval '2 days')`,
+    );
+    await runAs(owner, ws, 'outreach.stage.mark', { profileId: jo, mark: 'ready' });
+    const list = await today();
+    expect(list).not.toContain('pitch: Quinn Harper');
+    expect(list).not.toContain('pitch: Jo Banks');
+    expect(list).toContain('reply: Quinn Harper');
+
+    // Once the Client tag is off Quinn, the yes is theirs to pitch again.
+    await runAs(owner, ws, 'outreach.client.set', { profileId: quinn, client: false });
+    expect(await today()).toContain('pitch: Quinn Harper');
   });
 });
 

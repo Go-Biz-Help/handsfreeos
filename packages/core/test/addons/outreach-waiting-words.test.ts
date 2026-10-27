@@ -17,6 +17,7 @@ import {
   messengerChatUrl,
   moreWords,
   needClearedWords,
+  needPageOf,
   needTitle,
   needTitleAround,
   needUrlOf,
@@ -233,6 +234,33 @@ describe('the words', () => {
     expect(needUrlOf('linkedin', null, post, 'https://www.linkedin.com/in/sam-ortiz/')).toBe(post);
     expect(needUrlOf('facebook', `https://www.facebook.com/${'x'.repeat(500)}`)).toBeNull();
     expect(needUrlOf('instagram', null, undefined)).toBeNull();
+  });
+
+  it('give the person menu a need’s link only when it’s their page, never a post or a chat', () => {
+    const page = 'https://www.alignable.com/springfield-il/lane-landscaping-co';
+    const post = '00000000-0000-4000-8000-000000000009';
+    expect(needPageOf({ url: page, postId: null, step: 'friend_request' })).toBe(page);
+    expect(needPageOf({ url: page, postId: null, step: 'confirm' })).toBe(page);
+    // A comment's or a like's link is the post; a message's may be the chat.
+    expect(
+      needPageOf({
+        url: 'https://www.linkedin.com/feed/update/urn:li:activity:7001/',
+        postId: post,
+        step: 'comment',
+      }),
+    ).toBeNull();
+    expect(
+      needPageOf({
+        url: 'https://www.facebook.com/messages/t/4001',
+        postId: null,
+        step: 'message',
+      }),
+    ).toBeNull();
+    // An address on a site the add-on doesn't know, or none.
+    expect(
+      needPageOf({ url: 'https://example.com/riley', postId: null, step: 'friend_request' }),
+    ).toBeNull();
+    expect(needPageOf({ url: null, postId: null, step: 'friend_request' })).toBeNull();
   });
 
   it('mark each need with its profile’s network, by its link only from an older server', () => {

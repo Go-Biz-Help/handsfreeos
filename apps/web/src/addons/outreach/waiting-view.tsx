@@ -33,6 +33,7 @@ import {
   approveAllWords,
   moreWords,
   needClearedWords,
+  needPageOf,
   needTitleAround,
   needWhyWords,
   NEED_CLEARS,
@@ -326,6 +327,8 @@ function NeedRow({
             who={{
               profileId: need.profileId,
               name: need.name,
+              // The step's address when it's their page, so it opens with no signal; else where they stand says.
+              url: needPageOf(need),
               platform,
               threadKey: need.threadKey,
             }}

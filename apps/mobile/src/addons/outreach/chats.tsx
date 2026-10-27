@@ -368,7 +368,7 @@ function ChatMarks({
           />
         </View>
       ))}
-      {!online ? <Note>{W.person.needsSignal}</Note> : null}
+      {!online ? <Note>{W.person.switchesNeedSignal}</Note> : null}
     </View>
   );
 }

@@ -240,6 +240,16 @@ describe('The person menu on the phone', () => {
     opened.mockRestore();
   });
 
+  it('promises nothing to open with no signal when the row knows neither their page nor their chat', async () => {
+    await open({ ...DANA, url: null }, { online: false });
+    expect(screen.queryByTestId('person-open-page')).toBeNull();
+    expect(screen.queryByTestId('person-open-chat')).toBeNull();
+    expect(screen.getByTestId('person-needs-signal')).toHaveTextContent(
+      'Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. Try again when you’re back online.',
+    );
+    expect(api.POST).not.toHaveBeenCalled();
+  });
+
   it('marks them a client through the same-name pick, tied to the customer picked', async () => {
     answers(marksOf(), [{ hasProfile: false }]);
     changed({
@@ -321,6 +331,26 @@ describe('The person menu on the phone', () => {
     );
     expect(toast.show).toHaveBeenCalledWith(
       'The Client tag is off Dana Reyes, but Contacts still counts them a client: they paid a bill. To change that, open them in Contacts.',
+    );
+  });
+
+  it('says in a whole sentence when the same name as a client keeps them one after the tag comes off', async () => {
+    answers(marksOf({ personId: CUSTOMER, client: { on: true, tagged: true, because: null } }));
+    changed({
+      profileId: PROFILE,
+      personId: CUSTOMER,
+      client: true,
+      tagged: false,
+      because: null,
+      addedPerson: false,
+      skipped: 0,
+    });
+    await open();
+    await fireEvent.press(screen.getByTestId('person-client'));
+    await waitFor(() =>
+      expect(toast.show).toHaveBeenCalledWith(
+        'The Client tag is off Dana Reyes, but they have the same name on this network as a client in Contacts, so Social Outreach still leaves them alone. To change that, open that client in Contacts.',
+      ),
     );
   });
 

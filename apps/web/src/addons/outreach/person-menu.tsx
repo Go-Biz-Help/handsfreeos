@@ -20,7 +20,9 @@
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
+  clientSetWords,
   personMenuItems,
+  personMenuOfflineWords,
   type PersonMenuItem,
   type PersonMenuKey,
   type ProfileMarksOutput,
@@ -284,9 +286,8 @@ function NameMenu({
           body: { workspaceId, profileId, client: false },
         }),
       );
-      if (!out.client) toast.success(P.clientOff(name));
-      else
-        toast.info(out.because ? P.clientStill(name, out.because) : P.clientNoOutreach(name, null));
+      if (!out.client) toast.success(clientSetWords(name, false, out));
+      else toast.info(clientSetWords(name, false, out));
     });
   const demo = (booked: boolean) =>
     void act(
@@ -389,7 +390,12 @@ function NameMenu({
     items.filter((i) => i.kind !== 'open' && i.key !== 'move-to' && i.move === undefined),
   ].filter((g) => g.length);
   const status = !online
-    ? { testId: 'person-needs-signal', words: P.needsSignal, Icon: WifiOff, spin: false }
+    ? {
+        testId: 'person-needs-signal',
+        words: personMenuOfflineWords(items),
+        Icon: WifiOff,
+        spin: false,
+      }
     : failed
       ? { testId: 'person-marks-failed', words: failed, Icon: null, spin: false }
       : !marks

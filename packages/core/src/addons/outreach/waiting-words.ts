@@ -157,8 +157,8 @@ const NEED_CONNECT: Readonly<
 };
 
 /**
- * A step handed over, in its network's words, either side of the person's name, so a screen can link the name to
- * their page: ["Send ", " a connection request yourself"] on Alignable.
+ * A step handed over, in its network's words, either side of the person's name, so a screen can put the name, the
+ * person menu's button (decision 91), between the two parts: ["Send ", " a connection request yourself"] on Alignable.
  */
 export function needTitleAround(step: NeedStep, platform: Platform): readonly [string, string] {
   switch (step) {
@@ -206,6 +206,20 @@ export function needUrlOf(
     if (url && url.length <= NEED_URL_MOST && networkOfLink(url) === platform) return url;
   }
   return null;
+}
+
+/**
+ * A step handed over's address when it's their page, for the person menu's Open on {Network} (decision 91): never a
+ * comment's or a like's post, nor a message's, which may be the chat. Null for those, and for an address on a network
+ * the add-on doesn't know; the menu then takes their page from where they stand (`outreach.profile.marks`).
+ */
+export function needPageOf(need: {
+  readonly url: string | null;
+  readonly postId: string | null;
+  readonly step: NeedStep;
+}): string | null {
+  if (need.postId !== null || need.step === 'message') return null;
+  return need.url && networkOfLink(need.url) ? need.url : null;
 }
 
 /** Why a request that fits well is still the person's to decide, rather than Today's to confirm. */

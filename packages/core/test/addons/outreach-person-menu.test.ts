@@ -7,12 +7,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   CLIENT_SKIPPED_KINDS,
+  clientSetWords,
   isClientSkipped,
   mayTakeOff,
   personMenuItems,
+  personMenuOfflineWords,
+  type ClientSetOutput,
   type PersonMenuInput,
   type ProfileMarksOutput,
 } from '../../src/addons/outreach/person-menu';
+import { PARTNER_WORDS } from '../../src/addons/outreach/partners';
 import { OUTREACH_WORDS } from '../../src/addons/outreach/words';
 import { CLIENT_CAUSE_WORDS, CONTACTS_WORDS } from '../../src/crm/record-words';
 
@@ -201,6 +205,22 @@ describe('the person menu', () => {
     expect(offline.filter((i) => i.enabled).map((i) => i.key)).toEqual(['open-page', 'open-chat']);
     expect(offline.filter((i) => i.kind === 'action').every((i) => i.needsSignal)).toBe(true);
   });
+
+  it('says with no signal what opens now, and never promises an Open item it doesn’t show', () => {
+    const waits = 'Contacts, Client, Demo booked, Don’t pitch and Never contact need signal.';
+    const offline = (row: PersonMenuInput['row']) =>
+      personMenuOfflineWords(menu({ online: false, marks: null, row }));
+    expect(offline({ url: 'https://www.facebook.com/dana.reyes.7', platform: 'facebook' })).toBe(
+      `${waits} Opening their page works now.`,
+    );
+    expect(offline({ url: null, platform: 'facebook', threadKey: '100077712345' })).toBe(
+      `${waits} Opening their chat works now.`,
+    );
+    // A chat with no page the list knows, or a comment's need: nothing opens until where they stand comes.
+    expect(offline({ url: null, platform: 'facebook', threadKey: null })).toBe(
+      `${waits} Try again when you’re back online.`,
+    );
+  });
 });
 
 describe('who counts as a client, in words', () => {
@@ -237,6 +257,22 @@ describe('who counts as a client, in words', () => {
     );
   });
 
+  it('says the same thing on the web and the phone after Mark as client and Not a client after all', () => {
+    const out = (client: boolean, because: ClientSetOutput['because'] = null) => ({
+      client,
+      because,
+    });
+    expect(clientSetWords('Dana Reyes', true, out(true))).toBe(P.clientDone('Dana Reyes'));
+    expect(clientSetWords('Dana Reyes', false, out(false))).toBe(P.clientOff('Dana Reyes'));
+    expect(clientSetWords('Dana Reyes', false, out(true, 'paid'))).toBe(
+      P.clientStill('Dana Reyes', 'paid'),
+    );
+    // Still a client for the same name as one on this network: a whole sentence, saying the tag came off and why.
+    expect(clientSetWords('Dana Reyes', false, out(true))).toBe(
+      'The Client tag is off Dana Reyes, but they have the same name on this network as a client in Contacts, so Social Outreach still leaves them alone. To change that, open that client in Contacts.',
+    );
+  });
+
   it('writes every new word with curly apostrophes', () => {
     const said = [
       P.nameHint,
@@ -247,12 +283,17 @@ describe('who counts as a client, in words', () => {
       P.clientDone('Dana Reyes'),
       P.clientOff('Dana Reyes'),
       P.clientStill('Dana Reyes', 'plan'),
+      P.clientStill('Dana Reyes', null),
       P.clientNeedsContacts('Dana Reyes'),
       P.clientNoOutreach('Dana Reyes', 'job'),
       P.notDontPitch,
       P.putOnBy(P.neverContact, null),
       P.taggedFamily,
-      P.needsSignal,
+      P.needsSignal('page'),
+      P.needsSignal(null),
+      P.switchesNeedSignal,
+      OUTREACH_WORDS.neverContactList.needsSignal,
+      PARTNER_WORDS.needsSignal,
     ];
     for (const s of said) expect(s).not.toMatch(/'/);
     expect(P.putOnBy(P.neverContact, null)).toBe('On Never contact');

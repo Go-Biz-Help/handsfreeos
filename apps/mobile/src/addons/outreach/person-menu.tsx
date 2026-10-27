@@ -1,5 +1,7 @@
 import {
+  clientSetWords,
   personMenuItems,
+  personMenuOfflineWords,
   type PersonMenuItem,
   type PersonMenuKey,
   type PersonMenuMove,
@@ -241,9 +243,7 @@ function NameMenu({
       client: on,
       ...(picked ? { personId: picked } : {}),
     });
-    if (on) return P.clientDone(who.name);
-    if (!output.client) return P.clientOff(who.name);
-    return output.because ? P.clientStill(who.name, output.because) : P.clientLine(null);
+    return clientSetWords(who.name, on, output);
   };
   const friendSet = async (list: { dontPitch: boolean } | { neverContact: boolean }) => {
     await change('outreach.friend.set', { workspaceId, profileId, ...list });
@@ -473,7 +473,7 @@ export function PersonMenuSheet({
       <View className="gap-2">
         {opens.map(item)}
         {!online ? (
-          <NeedsSignal words={P.needsSignal} testID="person-needs-signal" />
+          <NeedsSignal words={personMenuOfflineWords(items)} testID="person-needs-signal" />
         ) : problem ? (
           <Note testID="person-marks-problem">{problem}</Note>
         ) : loading ? (

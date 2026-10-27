@@ -26,6 +26,7 @@ import {
   moreWords,
   NEED_CLEARS,
   needClearedWords,
+  needPageOf,
   needTitle,
   needWhyWords,
   oneByOneWords,
@@ -616,7 +617,7 @@ function NeedCard({
             profileId: need.profileId,
             name: need.name,
             // Their page: a comment's or a like's address is the post, and a message's may be the chat.
-            url: need.postId === null && need.step !== 'message' ? page : null,
+            url: needPageOf(need),
             platform,
             threadKey: need.threadKey,
           }}

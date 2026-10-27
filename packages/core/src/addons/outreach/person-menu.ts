@@ -338,5 +338,32 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   return items;
 }
 
+/**
+ * The menu's note with no signal, from the items it shows: what opens now, their page or their chat, or that nothing
+ * does, when the list didn't know their page and where they stand can't be asked.
+ */
+export function personMenuOfflineWords(items: readonly PersonMenuItem[]): string {
+  return P.needsSignal(
+    items.some((i) => i.key === 'open-page')
+      ? 'page'
+      : items.some((i) => i.key === 'open-chat')
+        ? 'chat'
+        : null,
+  );
+}
+
+/**
+ * What the web and the phone say after `outreach.client.set`: a client now; no longer one; or, after Not a client
+ * after all, still one, for Contacts' own reason or the same name as a client on this network (`because` null).
+ */
+export function clientSetWords(
+  name: string,
+  marked: boolean,
+  out: Pick<ClientSetOutput, 'client' | 'because'>,
+): string {
+  if (marked) return P.clientDone(name);
+  return out.client ? P.clientStill(name, out.because) : P.clientOff(name);
+}
+
 /** The causes a client has, as `ClientCause`s, for a screen that names them. */
 export type { ClientCause };

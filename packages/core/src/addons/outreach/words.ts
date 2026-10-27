@@ -302,6 +302,8 @@ export const OUTREACH_WORDS = {
       body: 'Check the spelling and look again.',
     },
     openFacebook: 'Facebook',
+    /** Under the list with no signal: each row's switch waits for it, and its Facebook button doesn't. */
+    needsSignal: 'Taking someone off Never contact needs signal. Opening their page works now.',
   },
   /** The Settings menu's parts under More; General and the networks are `SETTINGS_WORDS`' (decision 73). */
   settingsParts: {
@@ -372,9 +374,14 @@ export const OUTREACH_WORDS = {
       `${name} is a client now. Nobody here sends them outreach, and their replies still come to Waiting for you.`,
     clientOff: (name: string) =>
       `${name} isn’t a client any more. Messages skipped when you marked them stay skipped.`,
-    /** Not a client after all, when Contacts still counts them one for another reason. */
-    clientStill: (name: string, cause: ClientCause) =>
-      `The ${CLIENT_TAG} tag is off ${name}, but Contacts still counts them a client: ${CLIENT_CAUSE_WORDS[cause]}. To change that, open them in Contacts.`,
+    /**
+     * Not a client after all, when they're still one: for Contacts' own reason, or, with none of their own, for the
+     * same name on this network as a client in Contacts (`clientSetWords` in ./person-menu.ts picks).
+     */
+    clientStill: (name: string, cause: ClientCause | null) =>
+      cause
+        ? `The ${CLIENT_TAG} tag is off ${name}, but Contacts still counts them a client: ${CLIENT_CAUSE_WORDS[cause]}. To change that, open them in Contacts.`
+        : `The ${CLIENT_TAG} tag is off ${name}, but they have the same name on this network as a client in Contacts, so Social Outreach still leaves them alone. To change that, open that client in Contacts.`,
     /** The refusal when the person can't add and edit customers (`outreach_client_needs_contacts`). */
     clientNeedsContacts: (name: string) =>
       `Marking ${name} a client tags them in Contacts, and you can’t add and edit customers in this business. Ask an owner of this business to mark them, or to turn on Add and edit customers for you.`,
@@ -400,9 +407,17 @@ export const OUTREACH_WORDS = {
     putOnBy: (list: string, by: string | null) => (by ? `${by} put them on ${list}` : `On ${list}`),
     /** Never pitched for their tag in Contacts, which only Contacts takes off. */
     taggedFamily: `Tagged ${DONT_PITCH_TAG} in Contacts, so never pitched`,
-    /** The phone's menu with no signal. */
-    needsSignal:
-      'Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. Opening their page works now.',
+    /**
+     * The menu with no signal, by what it can open now: their page, their chat, or nothing, when the list doesn't know
+     * their page and where they stand can't be asked (`personMenuOfflineWords` in ./person-menu.ts picks).
+     */
+    needsSignal: (opens: 'page' | 'chat' | null) =>
+      `Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. ${
+        opens ? `Opening their ${opens} works now.` : 'Try again when you’re back online.'
+      }`,
+    /** Under a chat's own Don't pitch and Never contact switches with no signal. */
+    switchesNeedSignal:
+      'Don’t pitch and Never contact need signal. Try again when you’re back online.',
     added: (name: string) => `${name} is in Contacts now.`,
     already: (name: string) => `${name} was in Contacts already.`,
     tied: (name: string) => `${name} is tied to them in Contacts now.`,

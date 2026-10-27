@@ -117,7 +117,7 @@ export function NeverContactBody({
                 {W.more}
               </Button>
             ) : null}
-            {!online ? <Note>{W.person.needsSignal}</Note> : null}
+            {!online ? <Note>{W.neverContactList.needsSignal}</Note> : null}
           </>
         ) : (
           <Card className="gap-1.5 px-5 py-6" testID="never-contact-empty">

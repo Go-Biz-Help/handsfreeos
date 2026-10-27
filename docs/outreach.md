@@ -127,10 +127,11 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 - **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
   phone's `pipeline.tsx`): the **Pipeline** tab, after Today, on the web and the phone, has everyone the person
   reached (a step noted, a chat with words, a good fit or might fit from the checks, a demo, or a mark) by where they
-  stand, worked out each time (`outreach.stages`): booked, not a fit, pitched, ready to pitch, talking (they wrote),
-  friends, warming up (a like, a comment or a friend request), or found; **All in play** lists the ready first, then
-  talking, pitched, friends, warming up, found and booked, each with why, the AI's next step and the latest either
-  way. The AI's read of a chat now also says whether it's time to offer (`pitch`: ready, not yet, or not interested,
+  stand, worked out each time (`outreach.stages`): a client (decision 91), booked, not a fit, pitched, ready to
+  pitch, talking (they wrote), friends, warming up (a like, a comment or a friend request), or found; **All in play**
+  lists the ready first, then talking, pitched, friends, warming up, found and booked, each with why, the AI's next
+  step and the latest either way. Clients are left out of All in play, as Not a fit is: the **Client** chip lists
+  them. The AI's read of a chat now also says whether it's time to offer (`pitch`: ready, not yet, or not interested,
   with why in a line), from the playbook's offer and its conversation's questions. Ready, they go on Today as
   **Pitch**: drafts that answer where the chat left off and offer it with the person's demo link, which the worker
   adds when the AI left it out; copying one, or a pitch the extension sends, moves them on to pitched. A "no" marks
@@ -449,10 +450,10 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   extension couldn't do there and then (a button or box it couldn't find, a different page, the network not taking
   it, a message that didn't go), with **I did it** and **Let it go**, each marked with its profile's network
   (`platform`) and said in that network's words ("Send … a connection request yourself" on Alignable, "Follow …
-  yourself" on Instagram, `needTitle`), the person's name a link to their page on that network (or the post, or the
-  chat) beside **Open on <network>** (`needUrlOf`: the link given when it's on their network, else their page there,
-  so every step links; one kept with none, as every network's but Facebook's were before 26 October 2026, opens their
-  page when it's read); and **Friend requests to decide**, those from the last
+  yourself" on Instagram, `needTitle`), the person's name the button that opens the person menu (their page on that
+  network first, decision 91), beside **Open on <network>** (`needUrlOf`: the link given when it's on their network,
+  the post or the chat, else their page there, so every step links; one kept with none, as every network's but
+  Facebook's were before 26 October 2026, opens their page when it's read); and **Friend requests to decide**, those from the last
   two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**. Each tab's label
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
@@ -2147,7 +2148,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       on Don't pitch or Never contact, and changes no demo, mark, chat, friend or partner. Without Add and edit
       customers it's refused (`outreach_client_needs_contacts`), saying to ask an owner.
     - **A client gets replies, never outreach.** Today leaves them out of every outreach step (`inPlay`); a reply
-      they're owed still shows, with no demo link, and their fitting friend request is still confirmed (`openToMe`:
+      they're owed still shows, and their fitting friend request is still confirmed (`openToMe`:
       saying yes is no pitch, as for a partner in decision 81). The worker drafts their replies as replies, with no
       demo or video link, and their yes never turns into a pitch. `outreach.send.queue` refuses outreach to them
       (`outreach_client`), saying why they're one and what to change.
@@ -2636,7 +2637,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   with a won lead, a job underway or done, a visit they came to, a plan or a paid bill. Social Outreach reads it once
   a query (`clientPeople`, `clientNames` and `isClient` in `ops/common.ts`), never keeps it: every profile on that
   customer, on any network, and any kept under the same name on the same network. `inPlay` leaves clients out of
-  every pick on Today; a reply they're owed stays, with no demo link, and so does a request to confirm (`openToMe`).
+  every pick on Today; a reply they're owed stays, and so does a request to confirm (`openToMe`).
   The worker drafts no link or video for them and never turns their yes into a pitch, and `outreach.send.queue`
   refuses outreach to them (`outreach_client`). Marking one is a tag in Contacts, so it needs `records.write` beside
   `outreach.use` (`outreach_client_needs_contacts`) and goes through core's `record.set_tags`, never `record_tags`
