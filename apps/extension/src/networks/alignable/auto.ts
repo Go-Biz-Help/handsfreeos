@@ -12,20 +12,33 @@
  * - **A message** in their conversation (/biz/conversations?with_business_id=<id>): typed only into that conversation's
  *   own box (`full-view-write-message`) while it's empty, and sent with its Send (`messaging-send-external`). It went
  *   once the box empties.
+ * - **A comment** on a good post (from 0.95.0, decision 92), once it's OK'd or past the comment hold: only on the post's
+ *   own page, by its discussion's id, only in its own reply form at the top (`discussion-comment-reply-form`), never
+ *   one under an answer, only while its box is empty, and sent with that form's own Send. It went once the box empties.
+ *   An answer to a post asking for what the business offers waits for the person's OK every time (decision 79): that's
+ *   HandsFreeOS's to hold, and this only writes what it's handed.
+ * - **Join** on a group's own page (from 0.95.0, decision 92): only its own, never one on another group's card, and
+ *   only while it says Join. Alignable asks no questions before a join, as far as its pages showed; a box asking
+ *   something instead is the person's.
  *
- * Nothing else is pressed, and nothing is written anywhere else: never a comment, a forum answer or a recommendation,
- * which stay the person's. Like the readers, it goes by Alignable's own test ids, its links' addresses and its words,
- * never class names.
+ * Nothing else is pressed, and nothing is written anywhere else: never a recommendation, which stays the person's.
+ * Like the readers, it goes by Alignable's own test ids, its links' addresses and its words, never class names.
  */
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import { visible } from '../facebook/fetch';
+import type { JoinStep } from '../facebook/join';
 import type { ProfileRef } from '../facebook/types';
-import { nameOf, pause, waitFor, writingIn } from '../looking/looks';
+import { nameOf, pause, waitFor, writeIn, writingIn } from '../looking/looks';
+import type { CommentOn } from '../looking/site';
 import {
   businessPage,
   chatOpen,
   CONNECT_AT,
+  differ,
+  discussionIdOf,
+  groupStanding,
   idIn,
+  isDiscussionPage,
   likesIn,
   linksIn,
   PART,
@@ -209,4 +222,86 @@ export async function writeMessage(
   if (!send) return 'none';
   send.click();
   return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
+}
+
+// ------------------------------------------------------------------------------------------------ comments
+
+/** A reply form's own Send, by its words. */
+const SEND = /^(send|post|reply|comment|submit)$/i;
+
+/** The post's own reply form at the top of its page: the only one there not under an answer, else none. */
+function topReplyForm(doc: Document): Element | null {
+  const forms = [...doc.querySelectorAll(PART('discussion-comment-reply-form'))].filter(
+    (form) => !form.closest(PART('discussion-comment')) && visible(form),
+  );
+  return forms.length === 1 ? forms[0]! : null;
+}
+
+/**
+ * A comment on their post (decision 92), once it's OK'd or past the hold: only on a discussion's own page whose post
+ * (its first) is the one asked for, by its discussion's id, and isn't plainly another business's; only in the post's
+ * own reply form at the top, never one under an answer; only while its box is empty; and sent with that form's own
+ * Send. It went once the box empties. `none` with no such page, post, form, box or Send; `not_sent` when something's
+ * written there already (the person's), or Alignable didn't take it.
+ */
+export async function commentOn(
+  doc: Document,
+  href: string,
+  text: string,
+  on: CommentOn,
+): Promise<AutoResult> {
+  const id = discussionIdOf(on.postUrl);
+  if (!id || !isDiscussionPage(href)) return 'none';
+  const post = postParts(doc, href)[0];
+  if (!post || discussionIdOf(post.thread.url) !== id) return 'none';
+  const author = post.thread.author?.profile;
+  if (author && differ(author, on.profile)) return 'none';
+  const form = topReplyForm(doc);
+  const box = form ? [...form.querySelectorAll<HTMLElement>(WRITING)].find(visible) : undefined;
+  const send = form
+    ? [...form.querySelectorAll<HTMLElement>('button, [role="button"], input[type="submit"]')].find(
+        (b) => visible(b) && SEND.test(nameOf(b)),
+      )
+    : undefined;
+  if (!box || !send) return 'none';
+  // Something written there already is the person's: left alone.
+  if (writingIn(box)) return 'not_sent';
+  writeIn(doc, box, text);
+  await pause(800);
+  if (!writingIn(box)) return 'not_sent';
+  send.click();
+  return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
+}
+
+// ------------------------------------------------------------------------------------------------ groups
+
+/** A box over the page that asks something before a join: anything in it to write in or pick from. */
+const ASKS =
+  'textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select, [role="radio"], [role="checkbox"], [contenteditable="true"]';
+const askedSomething = (doc: Document) =>
+  [...doc.querySelectorAll('[role="dialog"], dialog[open], [aria-modal="true"]')].some(
+    (box) => visible(box) && box.querySelector(ASKS) !== null,
+  );
+
+/**
+ * Presses the group's own Join on its page (decision 92): only on a group's own page (or its About or members page),
+ * only its own, never one on another group's card, and only while it says Join. A Join drawn as a link may open
+ * another page, so the tab answers as it presses, and the runner opens the group again to see it went; a button is
+ * waited on to say Joined or Requested. Never `questions`: Alignable asks none before a join, as far as its pages
+ * showed, so the runner never waits on the AI's answers; a box asking something instead is the person's (`choices`).
+ */
+export async function joinOnPage(doc: Document, href: string): Promise<JoinStep> {
+  const now = groupStanding(doc, href);
+  if (!now) return { result: 'none' };
+  if (now.joined || now.asked) return { result: 'already', joined: now.joined };
+  const join = now.join;
+  if (!join || !visible(join)) return { result: 'none' };
+  join.click();
+  if (join.matches('a[href]')) return { result: 'asked' };
+  const went = await waitFor(() => {
+    if (askedSomething(doc)) return 'choices';
+    const after = groupStanding(doc, href);
+    return after && (after.joined || after.asked) ? 'went' : null;
+  }, WENT_MS);
+  return went === 'choices' ? { result: 'choices' } : { result: 'asked' };
 }
