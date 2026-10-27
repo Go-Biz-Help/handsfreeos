@@ -45,6 +45,9 @@ function send(
       handedOver: kind === 'reply',
       needsYou,
       createdAt: new Date(friday10).toISOString(),
+      postId: null,
+      postUrl: null,
+      post: null,
     },
   };
 }
