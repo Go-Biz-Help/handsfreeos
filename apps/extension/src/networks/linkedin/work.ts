@@ -9,9 +9,11 @@
  * - On Sent invitations, the one to a member they ticked withdrawn (./withdraw.ts).
  * - On Get a copy of your data alone, the steps that ask for their archive and download it (./data.ts).
  * - Their helpful post put up on their own feed, and who engaged with one of theirs read (./compose.ts).
+ * - On a good post its search found (decision 92), who commented and who reacted, from the box its reactions count
+ *   opens, which it closes again (./compose.ts).
  * - Once the person lets LinkedIn's runner work on its own (src/auto/linkedin.ts), on the pages of people on their
- *   list for today: their posts read and one liked, Connect without a note, the comment the AI drafted, and the
- *   messages they OK'd (./auto.ts).
+ *   list for today: their posts read and one liked (on their activity, or the post a search found on its own page),
+ *   Connect without a note, the comment the AI drafted, and the messages they OK'd (./auto.ts).
  *
  * Runs in the tab, on the page in front of it: it uses the tab's own document and address.
  */
@@ -30,6 +32,8 @@ import type {
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PostPeopleAnswer,
+  PostPeopleAsk,
   WriteNameAsk,
   TryAnswer,
   TryAsk,
@@ -47,7 +51,7 @@ import {
 } from './auto';
 import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
-import { readComments, readReactions, writeFeedPost } from './compose';
+import { postPeopleOn, readComments, readReactions, writeFeedPost } from './compose';
 import { dataPage } from './data';
 import {
   loadWholeProfile,
@@ -67,6 +71,7 @@ import {
   tryMessage,
   tryMessagePage,
   tryPost,
+  tryReactors,
   tryWithdraw,
 } from './tries';
 import { sentPage, withdraw } from './withdraw';
@@ -91,6 +96,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-fetch-path',
   'hfos-feed-post',
   'hfos-engaged',
+  'hfos-post-people',
   'hfos-try',
 ]);
 
@@ -105,7 +111,8 @@ type WorkAsk =
   | OpenMessageAsk
   | FetchAsk
   | FeedPostAsk
-  | Extract<GroupPostAsk, { type: 'hfos-engaged' }>;
+  | Extract<GroupPostAsk, { type: 'hfos-engaged' }>
+  | PostPeopleAsk;
 
 /** Whether the tab shows a profile: the person's own, after linkedin.com/in/me/ took it there. */
 const onProfile = (href: string) => {
@@ -163,9 +170,14 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
         ? { ok: true, tried: await tryMessage(document, location.href, ask.profile) }
         : wrong('their profile');
     case 'like':
-      return (onProfile || kind === 'activity') && ask.profile
+      // On their activity, or on the post a search found, on its own page (decision 92).
+      return (onProfile || kind === 'activity' || kind === 'post') && ask.profile
         ? { ok: true, tried: tryLike(document, location.href, ask.profile) }
         : wrong('their posts');
+    case 'reactors':
+      return kind === 'post'
+        ? { ok: true, tried: await tryReactors(document, location.href) }
+        : wrong('the post');
     case 'withdraw':
       return sentPage(location.href)
         ? { ok: true, tried: tryWithdraw(document, location.href) }
@@ -194,16 +206,21 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
   return { ok: true, ...(await stepOnPage(document, ask)) };
 }
 
-/** The helpful post (./compose.ts): put up on the feed, or who engaged read on the post's own page. */
+/**
+ * The helpful post (./compose.ts): put up on the feed, or who engaged read on the post's own page; and a good post's
+ * people, on its own.
+ */
 async function postStep(
-  ask: FeedPostAsk | Extract<GroupPostAsk, { type: 'hfos-engaged' }>,
-): Promise<FeedPostAnswer | GroupPostAnswer> {
+  ask: FeedPostAsk | Extract<GroupPostAsk, { type: 'hfos-engaged' }> | PostPeopleAsk,
+): Promise<FeedPostAnswer | GroupPostAnswer | PostPeopleAnswer> {
   const kind = classifyUrl(location.href).kind;
   if (ask.type === 'hfos-feed-post') {
     if (kind !== 'feed') return { ok: false, error: 'LinkedIn didn’t open your feed.' };
     return { ok: true, ...(await writeFeedPost(document, location.href, ask.text)) };
   }
   if (kind !== 'post') return { ok: false, error: 'LinkedIn didn’t open the post.' };
+  if (ask.type === 'hfos-post-people')
+    return { ok: true, ...(await postPeopleOn(document, location.href, ask.writer)) };
   return {
     ok: true,
     comments: readComments(document, location.href),
@@ -216,7 +233,8 @@ async function autoStep(
   ask: AutoAsk | ConnectAsk | OpenMessageAsk,
 ): Promise<AutoAnswer | PostsAnswer | BrowseAnswer> {
   const kind = classifyUrl(location.href).kind;
-  const onTheirs = kind === 'profile' || kind === 'activity';
+  // Their profile, their activity, or (decision 92) the post of theirs a search found, liked on its own page.
+  const onTheirs = kind === 'profile' || kind === 'activity' || kind === 'post';
   switch (ask.type) {
     case 'hfos-their-posts':
       if (!onTheirs) return { ok: false, error: 'LinkedIn didn’t open their posts.' };
@@ -280,6 +298,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return fetchStep(known);
     case 'hfos-feed-post':
     case 'hfos-engaged':
+    case 'hfos-post-people':
       return postStep(known);
     case 'hfos-try':
       return tryStep(known);

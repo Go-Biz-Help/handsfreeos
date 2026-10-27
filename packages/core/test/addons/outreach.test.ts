@@ -18,6 +18,7 @@ import {
   answerNextLabel,
   blankPlaybook,
   followUpGapsFor,
+  hasWordsOn,
   paceOf,
   nextQuestionId,
   PLAYBOOK_TEMPLATES,
@@ -26,6 +27,12 @@ import {
   upgradePlaybookDetails,
   type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
+import {
+  checkedAssist,
+  PlaybookAssistInput,
+  playbookAssistPrompt,
+} from '../../src/addons/outreach/playbook-assist';
+import { OUTREACH_WORDS, playbookSectionTitle } from '../../src/addons/outreach/words';
 import {
   bestFit,
   byFit,
@@ -277,6 +284,71 @@ describe('a playbook’s conversation', () => {
     expect(pace({ messageAfterDays: 1, followUps: 5, followUpGaps: [1, 1, 0, 2, 2] })).toEqual([
       'pace.followUpGaps.2',
     ]);
+  });
+
+  it('reads one saved before each network had its own words, with them empty (data version 8)', () => {
+    const { hashtags, postSearches, businessKinds, worksOnline, wordsWritten, ...before } =
+      PLAYBOOK_TEMPLATES.crm_demos.details;
+    void [hashtags, postSearches, businessKinds, worksOnline, wordsWritten];
+    expect(PlaybookDetails.parse(upgradePlaybookDetails(before))).toMatchObject({
+      hashtags: [],
+      postSearches: [],
+      businessKinds: [],
+      worksOnline: null,
+      wordsWritten: [],
+    });
+    // Its own words parse, each list once, and only the networks the AI writes for.
+    const words = {
+      ...blankPlaybook(),
+      hashtags: ['austinroofing', 'hailrepair'],
+      postSearches: ['missed calls'],
+      businessKinds: ['Roofing Contractor'],
+      worksOnline: true,
+      wordsWritten: ['instagram', 'alignable'],
+    };
+    expect(PlaybookDetails.parse(words)).toEqual(words);
+    const issues = (over: object) =>
+      PlaybookDetails.safeParse({ ...blankPlaybook(), ...over }).error?.issues.map((i) =>
+        i.path.join('.'),
+      );
+    expect(issues({ hashtags: ['austinroofing', 'AustinRoofing'] })).toEqual(['hashtags']);
+    expect(issues({ businessKinds: ['x'.repeat(81)] })).toEqual(['businessKinds.0']);
+    expect(issues({ wordsWritten: ['facebook'] })).toEqual(['wordsWritten.0']);
+  });
+
+  it('gives a network its own words only on a customers’ playbook that runs there', () => {
+    const customers = {
+      ...blankPlaybook(),
+      platforms: ['facebook' as const, 'instagram' as const],
+    };
+    expect(hasWordsOn(customers, 'instagram')).toBe(true);
+    expect(hasWordsOn(customers, 'alignable')).toBe(false);
+    expect(hasWordsOn({ ...customers, goal: 'partner' }, 'instagram')).toBe(false);
+    expect(playbookSectionTitle('hashtags', customers)).toBe('Hashtags on Instagram');
+    expect(OUTREACH_WORDS.findWords.written(5)).toBe(
+      'The AI wrote these from who it’s for and their problem. Change any; it looks at 5 a day, in turn.',
+    );
+  });
+
+  it('helps with each network’s own words: hashtags as people tag them, and whether it works online', () => {
+    const input = PlaybookAssistInput.parse({
+      part: 'hashtags',
+      mode: 'suggest',
+      draft: { name: 'Roofers', hashtags: ['#AustinRoofing'], worksOnline: false },
+    });
+    expect(
+      checkedAssist(
+        {
+          options: ['#Hail Repair!', 'austinroofing', '##', 'roofleak', 'RoofLeak'],
+          questions: [],
+        },
+        input,
+      ).options,
+    ).toEqual(['hailrepair', 'roofleak']);
+    const prompt = playbookAssistPrompt(input, 'Summit Roofing');
+    expect(prompt).toContain('Works online: no');
+    expect(prompt).toContain('#AustinRoofing');
+    expect(prompt).toContain('a few local ones for the area');
   });
 
   it('moves the follow-ups saved as one number into 6, keeping a pace the business changed', () => {

@@ -2201,7 +2201,45 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),
   },
+  { when: /Write the words to look with\.$/, json: (message) => scriptedFindWords(message) },
 ];
+
+/**
+ * Social Outreach's words for finding people by topic (decision 92), from the playbook's niche and area: every list,
+ * asked for or not, so the check can drop what wasn't asked; with a hashtag everyone uses, the business's own name, a
+ * hashtag twice and a phrase too long, for the check to drop too. Works online only when asked: yes when the niche
+ * or the area says online, else no.
+ */
+function scriptedFindWords(message: string) {
+  const business = unquote(quotedBlock(message, 'business') ?? '');
+  const playbook = unquote(quotedBlock(message, 'playbook') ?? '');
+  const write = unquote(quotedBlock(message, 'write') ?? '');
+  const line = (label: string) => new RegExp(`^${label}: (.*)$`, 'm').exec(playbook)?.[1] ?? '';
+  const niche = line('Niche').replace(/^\(not written yet\)$/, '') || 'small business';
+  const area = line('Where they are').replace(/^\(anywhere\)$/, '');
+  const first = niche.split(/\s+/)[0]!.toLowerCase();
+  const town = area.split(',')[0]!.replace(/\s+/g, '').toLowerCase();
+  const kind = first.charAt(0).toUpperCase() + first.slice(1);
+  return {
+    hashtags: [
+      `#${niche}`,
+      `${first}life`,
+      `${first}business`,
+      ...(town ? [`${town}${first}`] : []),
+      'instagood',
+      business,
+      `${kind}Life`,
+    ],
+    postSearches: [
+      'missed calls',
+      `${first} tips`,
+      'looking for a really good one near me',
+      '“hiring help”',
+    ],
+    businessKinds: [kind, 'Property Management', kind],
+    worksOnline: write.includes('worksOnline:') ? /\bonline\b/i.test(`${niche} ${area}`) : null,
+  };
+}
 
 /** Sales Coach's parts of a playbook in the ask (coach.ts `playbookText`): each line's id and its words. */
 function coachParts(text: string, kind: 's' | 'o' | 'p'): { id: string; words: string }[] {

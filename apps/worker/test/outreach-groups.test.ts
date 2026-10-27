@@ -3,9 +3,17 @@
  * (the stand-in model here) for whether the business's people are there, and the posts let go; and a group's join
  * questions are answered by it from the playbook, one answer each, through the worker's actions route; and a helpful
  * post asked for is written by it for one of the person's groups, or put aside when the group's rules don't allow it
- * (decision 50).
+ * (decision 50). Alignable's groups are checked and answered the same way, in Alignable's words and with only the
+ * playbooks that run there (decision 92).
  */
 import { randomUUID } from 'node:crypto';
+import type { AiProvider, AiRequest } from '@hfos/ai';
+import {
+  GROUP_CHECK_SYSTEM,
+  groupCheckSystem,
+  JOIN_ANSWER_SYSTEM,
+  joinAnswerSystem,
+} from '@hfos/core/addons/outreach/group-checks';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import { createTokenVerifier } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -30,6 +38,21 @@ import { testServices, type TestServices } from './helpers';
 const admin = () => testDbs().admin.db;
 const handlers = withAddons({});
 const jobs = { ...addonJobs };
+
+/** A model that remembers every request before the scripted stand-in answers it. */
+function recording(inner: AiProvider) {
+  const requests: AiRequest[] = [];
+  const provider: AiProvider = {
+    id: 'recording',
+    model: inner.model,
+    stream: (request, options) => {
+      requests.push(request);
+      return inner.stream(request, options);
+    },
+  };
+  return { provider, requests };
+}
+const model = recording(scriptedAi());
 
 let owner: TestUser;
 let ws: string;
@@ -83,7 +106,7 @@ const idOf = async (fb: string) =>
   )[0]!.id;
 
 beforeAll(async () => {
-  s = testServices({ ai: { provider: scriptedAi() } });
+  s = testServices({ ai: { provider: model.provider } });
   owner = await createTestUser('outreach-groups-owner', { fullName: 'Pat Owner' });
   ws = await outreachBusiness(owner, 'Outreach Groups Worker Co');
   const crm = PLAYBOOK_TEMPLATES.crm_demos;
@@ -289,5 +312,103 @@ describe('writing a helpful post', () => {
       body: null,
       why_not: 'Only admins post in this group',
     });
+  });
+});
+
+describe('Alignable’s groups (decision 92)', () => {
+  const alignable = (slug: string, name: string) => ({
+    id: null,
+    slug,
+    url: `https://www.alignable.com/groups/${slug}`,
+    name,
+  });
+  const slugId = async (slug: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.groups where workspace_id = ${ws} and slug = ${slug}`,
+      )
+    )[0]!.id;
+  const said = (request: AiRequest) => request.messages[0]!.content as string;
+  const answer = async (groupId: string) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.join.answer',
+      headers: { authorization: `Bearer ${await signInTestUser(owner)}` },
+      payload: { workspaceId: ws, input: { groupId, questions: ['What does your business do?'] } },
+    });
+
+  beforeAll(async () => {
+    // A playbook only on Facebook, and the CRM demos one (on every network) working with clients online.
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Facebook neighbors',
+      template: 'crm_demos',
+      details: { ...PLAYBOOK_TEMPLATES.crm_demos.details, platforms: ['facebook'] },
+    });
+    await rows(
+      admin(),
+      sql`update addon_outreach.playbooks set details = details || '{"worksOnline": true}'::jsonb
+          where workspace_id = ${ws} and name = 'CRM demos'`,
+    );
+    await runAs(owner, ws, 'outreach.groups.save', {
+      platform: 'alignable',
+      groups: [{ group: alignable('austin-contractors-circle', 'Austin Contractors Circle') }],
+    });
+  }, 60_000);
+
+  it('checks a group in its network’s words, with only the playbooks that run there', async () => {
+    const from = model.requests.length;
+    await runAs(owner, ws, 'outreach.group.look', {
+      groupId: await slugId('austin-contractors-circle'),
+      about: ['For contractors who run their own business around Austin'],
+      posts: ['Who does your books?'],
+    });
+    await runAs(owner, ws, 'outreach.group.look', {
+      groupId: await idOf('600000002'),
+      about: ['For small business owners in Austin'],
+      posts: ['Anyone use a CRM?'],
+    });
+    await drain();
+    // The playbook saved asks the AI for its own words too: only the two groups' checks are looked at here.
+    const asked = model.requests
+      .slice(from)
+      .filter((r) => r.system === GROUP_CHECK_SYSTEM || r.system === groupCheckSystem('alignable'));
+    expect(asked).toHaveLength(2);
+    const onAlignable = asked.find((r) => r.system === groupCheckSystem('alignable'))!;
+    expect(onAlignable.system).toContain('Alignable groups');
+    expect(onAlignable.system).not.toContain('Facebook');
+    // Alignable's groups go by who's found there: a playbook for clients online is for anywhere.
+    expect(said(onAlignable)).toContain('Name: CRM demos');
+    expect(said(onAlignable)).toContain('Area: anywhere (it works with clients online)');
+    expect(said(onAlignable)).not.toContain('Facebook neighbors');
+    // Facebook's check is as it was: its own playbooks, and no word of anywhere.
+    const onFacebook = asked.find((r) => r.system === GROUP_CHECK_SYSTEM)!;
+    expect(said(onFacebook)).toContain('Name: Facebook neighbors');
+    expect(said(onFacebook)).not.toContain('anywhere');
+    const [checked] = await rows<{ check_state: string; playbook: string | null }>(
+      admin(),
+      sql`select g.check_state, pb.name as playbook
+          from addon_outreach.groups g left join addon_outreach.playbooks pb on pb.id = g.check_playbook_id
+          where g.workspace_id = ${ws} and g.slug = 'austin-contractors-circle'`,
+    );
+    expect(checked).toEqual({ check_state: 'good', playbook: 'CRM demos' });
+  });
+
+  it('answers an Alignable group’s questions as one of its groups, and a Facebook one’s as before', async () => {
+    const from = model.requests.length;
+    const res = await answer(await slugId('austin-contractors-circle'));
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ answers: ['Answer 1 from the playbook.'] });
+    const onAlignable = model.requests
+      .slice(from)
+      .find((r) => r.system === joinAnswerSystem('alignable'));
+    expect(onAlignable?.system).toContain('an Alignable group');
+    expect(said(onAlignable!)).toContain('Area: anywhere (it works with clients online)');
+
+    const back = model.requests.length;
+    expect((await answer(await idOf('600000001'))).statusCode).toBe(200);
+    const onFacebook = model.requests.slice(back).find((r) => r.system === JOIN_ANSWER_SYSTEM);
+    expect(onFacebook).toBeDefined();
+    expect(said(onFacebook!)).not.toContain('anywhere');
   });
 });

@@ -50,9 +50,14 @@ const INSTAGRAM_PAGES: Record<string, string> = {
     '<a href="/p/',
     '<a href="/dana.reyes/reel/R0aBc12XyZq/">a reel</a><a href="/p/',
   ),
+  // A post with a comment, its View all comments, and its count of likes, which opens its Likes box (decision 92).
   [`${IG}/p/E2bCd45EfGh/`]: html(`<main role="main"><article>
     <a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a>
+    <ul id="comments"><li><a href="/sam.carter/">sam.carter</a><span>Lovely tiles!</span>
+      <a href="/p/E2bCd45EfGh/c/17900000000000001/"><time>2h</time></a><div role="button">Reply</div></li></ul>
+    <div role="button" id="more-comments">View all 4 comments</div>
     <div role="button"><svg aria-label="Like"><title>Like</title></svg></div>
+    <section><a href="/p/E2bCd45EfGh/liked_by/" id="likes-count"><span>12 likes</span></a></section>
     <form><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></article></main>`),
   [`${IG}/explore/people/`]: html(`${IG_MENU}<main role="main"><h1>Suggested</h1>
     <div><a href="/lee.park/">lee.park</a><button>Follow</button></div></main>`),
@@ -77,10 +82,27 @@ const INSTAGRAM_PAGES: Record<string, string> = {
 };
 
 /**
- * What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written; and
- * their count of followers opens the box of them (the owner's Check, 21 Oct 2026).
+ * What Instagram's pages do when pressed or written in: Message opens a chat; Post shows once something's written;
+ * their count of followers opens the box of them (the owner's Check, 21 Oct 2026); and a post's count of likes opens
+ * its Likes box, which its Close closes, and its View all comments shows another comment (decision 92).
  */
 function instagramDoes(doc: Document) {
+  doc.querySelector('#likes-count')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const box = doc.createElement('div');
+    box.setAttribute('role', 'dialog');
+    box.innerHTML = `<h2>Likes</h2><div role="button" aria-label="Close"></div>
+      <div><a href="/jo.baker/">jo.baker</a><span>Jo Baker</span><button>Follow</button></div>`;
+    box.querySelector('[aria-label="Close"]')!.addEventListener('click', () => box.remove());
+    doc.body.append(box);
+  });
+  doc.querySelector('#more-comments')?.addEventListener('click', () =>
+    doc.querySelector('#comments')!.insertAdjacentHTML(
+      'beforeend',
+      `<li><a href="/lee.park/">lee.park</a><span>Where is this?</span>
+        <a href="/p/E2bCd45EfGh/c/17900000000000002/"><time>1h</time></a><div role="button">Reply</div></li>`,
+    ),
+  );
   doc
     .querySelector('#followers-count')
     ?.addEventListener('click', () =>
@@ -193,6 +215,39 @@ const ALIGNABLE_PAGES: Record<string, string> = {
     <div data-testid="channel-header-loaded"><a href="/biz/businesses/42?user=5"><div>Dana Reyes</div></a></div>
     <div data-testid="full-view-write-message"><div contenteditable="true"></div><textarea placeholder="Write a message"></textarea>
       <button aria-label="Send" data-testid="messaging-send-external"></button></div></div>`),
+  // Its groups (0.95.0, decision 92), at the first of the addresses they may be at: their own, their town's among
+  // them; a search for groups with one they aren't in; and that group's page, its About and its members.
+  [`${AL}/biz/groups`]: html(`${ALIGNABLE_MENU}<main><h1>My Groups</h1>
+    <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span><button>Joined</button></div>
+    <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><span>86 members</span><button>Joined</button></div>
+  </main>`),
+  [`${AL}/groups/search?q=small%20business`]: html(`${ALIGNABLE_MENU}<main><h1>Groups</h1>
+    <div><div><a href="/groups/home-pros-network"><img alt="" /></a></div>
+      <div><a href="/groups/home-pros-network">Home Pros Network</a><span>For people who fix and build homes</span>
+        <span>1,204 members</span><button>Join</button></div></div>
+  </main>`),
+  [`${AL}/groups/home-pros-network`]: html(`${ALIGNABLE_MENU}<main>
+    <h1 data-testid="group-header/header-text">Home Pros Network</h1>
+    <div><span>1,204 members</span><button>Join</button></div>
+    <section><div><div><div><a aria-label="Go to Riley Stone’s profile" href="/denver-co/stone-gutters?user=8"></a></div>
+      <div><a href="/denver-co/stone-gutters?user=8"><span>Riley Stone</span><span>at</span><span>Stone Gutters</span></a>
+        <div><span>Posted in</span><a href="/groups/home-pros-network/gutter-season"><span>2h</span></a></div></div></div>
+      <div><div title="Gutter season"><span>Who else is busy with gutters?</span></div></div>
+      <div><div><a href="/biz/likes?resource=10"><span>2</span><span>Like</span></a></div>
+        <div><a href="/biz/discussions/93">Comment</a></div></div></div></section>
+  </main>`),
+  [`${AL}/groups/home-pros-network/about`]: html(`${ALIGNABLE_MENU}<main><h1>Home Pros Network</h1>
+    <div><h2>About this group</h2><p>For people who fix and build homes.</p><p>Share leads and tips.</p></div>
+    <span>1,204 members</span><button>Join</button></main>`),
+  [`${AL}/groups/home-pros-network/members`]:
+    html(`${ALIGNABLE_MENU}<main><h1>Home Pros Network</h1>
+    <h2>Group Leaders</h2>
+    <div><a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a><a href="/denver-co/stone-gutters">Stone Gutters</a>
+      <span>Organizer</span></div>
+    <h2>Members (1,204)</h2>
+    <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
+      <span>Painter in Boise</span><button>Connect</button></div>
+  </main>`),
 };
 
 /** Where Alignable sends an address: their own profile, to their business's page in its town. */
@@ -280,7 +335,8 @@ function fakeTab(
         message.type === 'hfos-try' ||
         message.type === 'hfos-own-profile' ||
         message.type === 'hfos-open-chat' ||
-        message.type === 'hfos-show-all'
+        message.type === 'hfos-show-all' ||
+        message.type === 'hfos-more-comments'
       ) {
         // As the tab answers it (src/networks/looking/kit.ts), on this page.
         vi.stubGlobal('location', new URL(at));
@@ -337,14 +393,19 @@ describe('Check Instagram', () => {
       `${IG}/direct/inbox/`,
       `${IG}/direct/t/340282366841710300/`,
     ]);
-    // It reads (their own account too, as the AI's check would), and tries: nothing else is asked of the tab.
-    expect(new Set(asked)).toEqual(new Set(['hfos-read', 'hfos-own-profile', 'hfos-try']));
+    // It reads (their own account too, as the AI's check would), tries, and shows more of a post's comments once:
+    // nothing else is asked of the tab.
+    expect(new Set(asked)).toEqual(
+      new Set(['hfos-read', 'hfos-own-profile', 'hfos-try', 'hfos-more-comments']),
+    );
+    expect(asked.filter((t) => t === 'hfos-more-comments')).toHaveLength(1);
     expect(notes.filter((n) => n.job?.startsWith('checkup.')).map((n) => n.job)).toEqual([
       'checkup.bio',
       'checkup.follow',
       'checkup.message',
       'checkup.like',
       'checkup.comment',
+      'checkup.reactors',
       'checkup.summary',
     ]);
     expect(notes.find((n) => n.job === 'checkup.message')?.found).toMatchObject({
@@ -355,9 +416,16 @@ describe('Check Instagram', () => {
       post: 1,
       emptied: true,
     });
-    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 5, working: 5 });
+    // Its Likes box, opened by its count of likes, read, and closed again by its own Close (decision 92).
+    expect(notes.find((n) => n.job === 'checkup.reactors')?.found).toMatchObject({
+      likes: true,
+      box: true,
+      rows: 1,
+      closed: true,
+    });
+    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 6, working: 6 });
     expect(end).toEqual({
-      line: 'Read 12 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      line: 'Read 12 Instagram pages and tried 6 steps up to their last press. Everything works.',
       warned: false,
     });
   });
@@ -388,7 +456,7 @@ describe('Check Instagram', () => {
       true,
     ]);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
     );
   });
 
@@ -438,7 +506,7 @@ describe('Check Instagram', () => {
     ]);
     expect(opened).not.toContain(`${IG}/explore/locations/`);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 5 steps up to their last press. Everything works.',
+      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
     );
   });
 
@@ -492,6 +560,13 @@ describe('Check Alignable', () => {
       `${AL}/biz/my_network`,
       `${AL}/biz/my_network/received?_fat=a`,
       `${AL}/biz/conversations?with_business_id=42`,
+      // Then its groups (0.95.0, decision 92): theirs, at the first address that lists any; a search for them; and a
+      // group that isn't their town's, one they aren't in, with its About and its members. Its Join is never pressed.
+      `${AL}/biz/groups`,
+      `${AL}/groups/search?q=small%20business`,
+      `${AL}/groups/home-pros-network`,
+      `${AL}/groups/home-pros-network/about`,
+      `${AL}/groups/home-pros-network/members`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
     // Nothing is written in the chat or the answer's box, and nothing's pressed there.
@@ -509,6 +584,8 @@ describe('Check Alignable', () => {
       ['checkup.recommend', true],
       ['checkup.like', true],
       ['checkup.comment', true],
+      // A group's own Join, looked at on its page and never pressed.
+      ['checkup.join', true],
     ]);
     // Each editor's note keeps its outline while it was open.
     expect(notes.find((n) => n.job === 'checkup.pitch')).toMatchObject({ outline: true });
@@ -520,7 +597,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 16 Alignable pages and tried 8 steps up to their last press. Everything works.',
+      'Read 21 Alignable pages and tried 9 steps up to their last press. Everything works.',
     );
   });
 
@@ -569,7 +646,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 16 Alignable pages and tried 8 steps up to their last press. Not working: recommending.',
+      'Read 21 Alignable pages and tried 9 steps up to their last press. Not working: recommending.',
     );
   });
 });

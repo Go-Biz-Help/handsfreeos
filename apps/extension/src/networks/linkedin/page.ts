@@ -5,16 +5,17 @@
  * outline, unless the page says there's nothing ("No results found") or shows one of LinkedIn's warnings.
  */
 import type { ChatOptions } from '../facebook/chat';
+import { sameName } from '../facebook/people';
 import { readChat } from './chat';
 import { readChats } from './chats';
 import { readCompany } from './company';
-import { inTopBar, mainOf, shownText } from './dom';
+import { inTopBar, mainOf, shownText, yourName } from './dom';
 import { readInvitations } from './invitations';
 import { readNotices } from './notifications';
 import { readPeople } from './people';
 import { postBoxes, readPosts } from './posts';
 import { readProfile } from './profile';
-import type { PageKind, ReadResult } from './types';
+import type { PageKind, Post, ReadResult } from './types';
 import { classifyUrl } from './urls';
 import { readWarnings } from './warnings';
 
@@ -57,6 +58,15 @@ function saysNothing(root: Element): boolean {
   );
 }
 
+/**
+ * A search's posts but the person's own, by the name on the top bar's Me (decision 92): theirs aren't to comment on,
+ * nor them someone to find. With no name shown, every post stays.
+ */
+function notYours(posts: readonly Post[], doc: Document): Post[] {
+  const you = yourName(doc);
+  return posts.filter((post) => !you || !post.author || !sameName(post.author.name, you));
+}
+
 export function readPage(
   doc: Document,
   href: string,
@@ -95,7 +105,7 @@ export function readPage(
       const boxes = postBoxes(main);
       found = {
         people: readPeople(main, base, { skip: (a) => boxes.some((box) => box.contains(a)) }),
-        posts: readPosts(main, base),
+        posts: notYours(readPosts(main, base), doc),
       };
       break;
     }
@@ -109,6 +119,8 @@ export function readPage(
       break;
     }
     case 'search-posts':
+      found = { posts: notYours(readPosts(main, base), doc) };
+      break;
     case 'feed':
     case 'activity':
       found = { posts: readPosts(main, base) };

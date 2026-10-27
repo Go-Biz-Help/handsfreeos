@@ -352,11 +352,14 @@ describe('Find posts in your town, on Alignable', () => {
           <div title="Can anyone recommend a roofer?">Can anyone recommend a roofer after last week’s storm?</div>
           <a href="/biz/discussions/501">Comment</a></div>
         <div><div><a href="/columbus-oh/lee-realty"><span>Sam Lee</span></a></div><div title="Hello">Hello all</div></div>
+        <div><div><a href="/columbus-oh/summit-roofing"><span>Casey Owner</span><span>Summit Roofing</span></a></div>
+          <div title="Storm season">Storm season is here: we’re booking roof checks all week.</div>
+          <a href="/biz/discussions/502">Comment</a></div>
       </main></body></html>`,
       { url: `${AL}/groups/columbus-oh` },
     ).window.document;
 
-  it('opens their town from their profile, and sends its posts by businesses for the AI to check', async () => {
+  it('opens their town from their profile, and sends its posts by businesses for the AI to check, never their own', async () => {
     const { tab, opened } = alignableTab({
       '/biz/businesses/my_profile': mine,
       '/columbus-oh': town,

@@ -3,7 +3,8 @@
  * their phone alone, through records_v1's sealed arm, and leave it once OK'd, skipped or sent. The phone reads them
  * as `outreach.waiting` lists them, OKs and skips them with no signal, and Approve all passes over any handled
  * elsewhere meanwhile. An OK that waited asks "Still send?" after 30 minutes; a skip goes whenever, but never undoes
- * an OK given after it was pressed, and an OK that waited never brings back a message skipped since.
+ * an OK given after it was pressed, and an OK that waited never brings back a message skipped since. A comment
+ * waiting (decision 92) is copied as a message is, its words alone.
  */
 import { randomUUID } from 'node:crypto';
 import { asUser, rows, sql } from '@hfos/db/client';
@@ -61,14 +62,21 @@ async function drafted(
   u: TestUser,
   profileId: string,
   text: string,
-  over: { ago?: number; handedOver?: boolean; needsYou?: string | null; kind?: string } = {},
+  over: {
+    ago?: number;
+    handedOver?: boolean;
+    needsYou?: string | null;
+    kind?: string;
+    postId?: string;
+  } = {},
 ): Promise<string> {
   const at = new Date(Date.now() - (over.ago ?? 0));
   const [row] = await rows<{ id: string }>(
     admin(),
     sql`insert into addon_outreach.sends
-          (workspace_id, user_id, profile_id, kind, text, drafted, handed_over, needs_you, created_at, updated_at)
-        values (${ws}, ${u.id}, ${profileId}, ${over.kind ?? 'opener'}, ${text}, ${text},
+          (workspace_id, user_id, profile_id, kind, post_id, text, drafted, handed_over, needs_you, created_at,
+           updated_at)
+        values (${ws}, ${u.id}, ${profileId}, ${over.kind ?? 'opener'}, ${over.postId ?? null}, ${text}, ${text},
                 ${over.handedOver ?? false}, ${over.needsYou ?? null}, ${at.toISOString()}::timestamptz,
                 ${at.toISOString()}::timestamptz)
         returning id`,
@@ -229,6 +237,47 @@ describe('Social Outreach on the phone', () => {
     expect(left).toEqual([]);
     await phone(owner, 'outreach.send.skip', { sendId: reply });
     await phone(member, 'outreach.send.skip', { sendId: theirs });
+  });
+
+  it('copies a comment waiting as a message, its words alone, and skipping it there sets its post aside', async () => {
+    // A good post of Dana's the person's computer found (decision 92), and the comment drafted for it.
+    const [post] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.posts (workspace_id, user_id, profile_id, url, body, found, check_state, seen_at)
+          values (${ws}, ${owner.id}, ${dana}, 'https://www.facebook.com/groups/1/posts/2/',
+                  'Can anyone recommend a simple CRM?', 'search', 'good', now())
+          returning id`,
+    );
+    const message = await drafted(owner, riley, 'Hi Sam!', { ago: HOUR });
+    const comment = await drafted(owner, dana, 'We keep every call in one shared list.', {
+      kind: 'comment',
+      postId: post!.id,
+    });
+    const mine = await phoneWaiting(owner);
+    expect(ids(mine)).toEqual([message, comment]);
+    expect(mine.messages[1]).toMatchObject({
+      kind: 'comment',
+      name: 'Dana Reyes',
+      text: 'We keep every call in one shared list.',
+    });
+    // The server lists it with its post, as a message to OK; the phone counts it the same.
+    const server = await runAs(owner, ws, 'outreach.waiting', {});
+    const listed = (
+      server.items as { kind: string; send?: { sendId: string; post: string | null } }[]
+    ).filter((i) => i.kind === 'message');
+    expect(listed.map((i) => i.send!.sendId)).toEqual(ids(mine));
+    expect(listed[1]!.send!.post).toBe('Can anyone recommend a simple CRM?');
+    expect(mine.kinds.message.count).toBe(server.kinds.message.count);
+    expect(approveAllFromPhone(mine)).toEqual([{ sendId: message }, { sendId: comment }]);
+    // Skipped on the phone: it leaves, and its post isn't drafted again.
+    await phone(owner, 'outreach.send.skip', { sendId: comment });
+    expect(ids(await phoneWaiting(owner))).toEqual([message]);
+    const [aside] = await rows<{ aside: boolean }>(
+      admin(),
+      sql`select skipped_at is not null as aside from addon_outreach.posts where id = ${post!.id}`,
+    );
+    expect(aside!.aside).toBe(true);
+    await phone(owner, 'outreach.send.skip', { sendId: message });
   });
 
   it('passes over, with Approve all from the phone, a message handled elsewhere meanwhile', async () => {

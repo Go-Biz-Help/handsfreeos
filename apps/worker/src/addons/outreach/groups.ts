@@ -1,5 +1,7 @@
 /**
- * Groups, theirs first, then new ones (docs/outreach.md, decision 48), in the worker:
+ * Groups, theirs first, then new ones (docs/outreach.md, decision 48), in the worker, each on its own network
+ * (Facebook's, or Alignable's since decision 92): the AI hears the network's words, and only the playbooks that run
+ * there.
  *
  * - **The AI's check of a group** (`outreach.check_groups`): what its About page, rules and latest posts said, read
  *   for whether the playbooks' people are there and post. What the extension reads (`outreach.group.looked`) queues
@@ -15,20 +17,26 @@ import {
   checkedGroupAnswer,
   checkedJoinAnswers,
   GROUP_CHECK_SCHEMA,
-  GROUP_CHECK_SYSTEM,
   GroupCheckAnswer,
   groupCheckPrompt,
+  groupCheckSystem,
+  groupsByCheck,
   JOIN_ANSWER_SCHEMA,
-  JOIN_ANSWER_SYSTEM,
   JoinAnswerAnswer,
   JoinAnswerInput,
   joinAnswerPrompt,
+  joinAnswerSystem,
   type GroupCheckPlaybook,
   type JoinAnswerOutput,
 } from '@hfos/core/addons/outreach/group-checks';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { groupCheck } from '@hfos/core/addons/outreach/ops/group-checks';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
-import { PlaybookDetails, upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
+import {
+  PlaybookDetails,
+  runsOn,
+  upgradePlaybookDetails,
+} from '@hfos/core/addons/outreach/playbooks';
 import { executeCommand, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
@@ -89,6 +97,7 @@ export async function checkGroupsJob(ctx: AddonJobContext): Promise<JobResult> {
     )[0],
     waiting: await rows<{
       id: string;
+      platform: Platform;
       name: string | null;
       members: number | null;
       privacy: 'public' | 'private' | null;
@@ -98,7 +107,7 @@ export async function checkGroupsJob(ctx: AddonJobContext): Promise<JobResult> {
       about_at: Date | string;
     }>(
       tx,
-      sql`select id, name, members, privacy, about, rules, check_lines, about_at
+      sql`select id, platform, name, members, privacy, about, rules, check_lines, about_at
           from addon_outreach.groups
           where workspace_id = ${ws} and check_state = 'waiting'
           order by about_at limit ${CHECK_GROUPS_BATCH + 1}`,
@@ -106,18 +115,22 @@ export async function checkGroupsJob(ctx: AddonJobContext): Promise<JobResult> {
     playbooks: await playbooksOf(tx, ws),
   }));
   if (!found.waiting.length) return;
-  const told: GroupCheckPlaybook[] = found.playbooks.map((p) => ({
-    name: p.name,
-    offer: p.details.offer,
-    audience: p.details.audience,
-    signs: p.details.signs,
-    area: p.details.area,
-  }));
   for (const group of found.waiting.slice(0, CHECK_GROUPS_BATCH)) {
+    // The playbooks that run on the group's network, each with its area, or anywhere where that network's groups go
+    // by who's found in them and it works with clients online (decision 92).
+    const here = found.playbooks.filter((p) => runsOn(p.details, group.platform));
+    const told: GroupCheckPlaybook[] = here.map((p) => ({
+      name: p.name,
+      offer: p.details.offer,
+      audience: p.details.audience,
+      signs: p.details.signs,
+      area: p.details.area,
+      worksOnline: groupsByCheck(group.platform) ? p.details.worksOnline : null,
+    }));
     let answer: ReturnType<typeof checkedGroupAnswer> | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: GROUP_CHECK_SYSTEM,
+        system: groupCheckSystem(group.platform),
         messages: [
           {
             role: 'user',
@@ -136,7 +149,7 @@ export async function checkGroupsJob(ctx: AddonJobContext): Promise<JobResult> {
         maxTokens: 400,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      answer = checkedGroupAnswer(value, found.playbooks);
+      answer = checkedGroupAnswer(value, here);
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       if (e.code === 'budget_reached' || e.code === 'wallet_empty')
@@ -175,9 +188,14 @@ export const joinAnswer: AddonWorkerAction<JoinAnswerInput> = {
         await rows<{ name: string }>(tx, sql`select name from app.workspaces where id = ${ws}`)
       )[0],
       group: (
-        await rows<{ name: string | null; rules: string[]; check_playbook_id: string | null }>(
+        await rows<{
+          platform: Platform;
+          name: string | null;
+          rules: string[];
+          check_playbook_id: string | null;
+        }>(
           tx,
-          sql`select name, rules, check_playbook_id from addon_outreach.groups
+          sql`select platform, name, rules, check_playbook_id from addon_outreach.groups
               where workspace_id = ${ws} and id = ${input.groupId}`,
         )
       )[0],
@@ -186,16 +204,18 @@ export const joinAnswer: AddonWorkerAction<JoinAnswerInput> = {
     if (!found.group)
       throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
     const business = found.business?.name ?? 'the business';
+    const platform = found.group.platform;
+    // The playbook the AI's check named, else the first that runs on the group's network.
     const playbook =
       found.playbooks.find((p) => p.id === found.group!.check_playbook_id) ??
-      found.playbooks[0] ??
+      found.playbooks.find((p) => runsOn(p.details, platform)) ??
       null;
     const fallback = playbook?.details.offer
       ? `I run ${business}: ${playbook.details.offer}. I joined to learn and help where I can.`
       : `I run ${business}, and I joined to learn and help where I can.`;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: JOIN_ANSWER_SYSTEM,
+        system: joinAnswerSystem(platform),
         messages: [
           {
             role: 'user',
@@ -208,6 +228,7 @@ export const joinAnswer: AddonWorkerAction<JoinAnswerInput> = {
                     offer: playbook.details.offer,
                     audience: playbook.details.audience,
                     area: playbook.details.area,
+                    worksOnline: groupsByCheck(platform) ? playbook.details.worksOnline : null,
                   }
                 : null,
               rules: found.group.rules,

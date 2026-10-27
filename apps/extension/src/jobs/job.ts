@@ -23,6 +23,8 @@ import type {
   FetchAsk,
   FeedPostAnswer,
   FeedPostAsk,
+  PostPeopleAnswer,
+  PostPeopleAsk,
   GroupPostAnswer,
   GroupPostAsk,
   JoinAnswer,
@@ -65,6 +67,7 @@ export interface JobTab {
   ask(message: JoinAsk): Promise<JoinAnswer>;
   ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
+  ask(message: PostPeopleAsk): Promise<PostPeopleAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   ask(message: PageThereAsk): Promise<PageThereAnswer>;
   ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;

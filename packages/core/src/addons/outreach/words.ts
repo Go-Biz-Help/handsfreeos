@@ -14,7 +14,14 @@ import { DONT_PITCH_TAG } from './limits';
 import { READ_CHATS_WORDS } from './asks';
 import type { ChatView } from './chat-read';
 import type { GroupView } from './groups';
-import { forPartners, type PlaybookDetails } from './playbooks';
+import {
+  FIND_WORDS_PARTS,
+  FIND_WORDS_PER_DAY,
+  forPartners,
+  type FindWordsPart,
+  type PlaybookDetails,
+  type WordsPlatform,
+} from './playbooks';
 
 /** An empty list's title and what fills it. */
 interface Empty {
@@ -117,9 +124,22 @@ export const OUTREACH_WORDS = {
   changeHelp: 'Change it if you like; your changes teach the AI.',
   okChanged: 'OK and send',
   okd: 'OK’d. The extension sends it in Messenger, at a person’s pace.',
-  okdAll: (n: number) =>
-    `OK’d ${things(n, 'message', 'messages')}. The extension sends them in Messenger, at a person’s pace.`,
+  /** Approve all's: with comments among them (decision 92), the messages go and the comments are posted. */
+  okdAll: (n: number, comments = false) =>
+    comments
+      ? `OK’d ${things(n, 'message or comment', 'messages and comments')}. The extension sends and posts them, at a person’s pace.`
+      : `OK’d ${things(n, 'message', 'messages')}. The extension sends them in Messenger, at a person’s pace.`,
   skipped: 'Skipped. They’re off your list for today.',
+  /**
+   * A comment on a good post waiting for the person's OK (decision 92): it goes under the post, on the network it's
+   * on, once OK'd; skipped, the post is put aside so it's never offered again.
+   */
+  yourComment: 'Your comment',
+  commentWaiting: 'I’d post this comment. Change it if you like; your changes teach the AI.',
+  commentOkd: 'OK’d: the extension posts it soon.',
+  okdComment: (network: string) =>
+    `OK’d. The extension posts it under the post on ${network}, at a person’s pace.`,
+  commentSkipped: 'Skipped. That post is off your list, and gets no comment.',
   /** A press with no signal: it waits on the phone. */
   okdQueued:
     'OK’d. It goes to HandsFreeOS when you’re back online. If that takes over 30 minutes, the phone asks you first.',
@@ -573,6 +593,38 @@ export const OUTREACH_WORDS = {
     avoid: 'Words to avoid',
     disclaimer: 'Disclaimer',
     tags: 'Tags',
+    // Each network's own words on a customers' playbook (data version 8, decision 92), shown while it runs there.
+    hashtags: 'Hashtags on Instagram',
+    postSearches: 'Words to search LinkedIn’s posts with',
+    businessKinds: 'Kinds of business to search for on Alignable',
+    worksOnline: 'Clients online',
+  },
+  /**
+   * Each network's own words on a customers' playbook (decision 92): written by the AI once, from who it's for and
+   * their problem, while the list is empty, and the person's to change. An emptied list means that network looks at
+   * nothing for it. Which one shows under a list is `findWordsHint`'s.
+   */
+  findWords: {
+    written: (perDay: number) =>
+      `The AI wrote these from who it’s for and their problem. Change any; it looks at ${perDay} a day, in turn.`,
+    notYet:
+      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+    own: 'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
+    none: {
+      instagram: 'Instagram won’t look at hashtags for this playbook.',
+      linkedin: 'LinkedIn won’t search posts for this playbook.',
+      alignable: 'Alignable won’t search for businesses for this playbook.',
+    } satisfies Record<WordsPlatform, string>,
+    hashtagHint: 'Like austinroofing. Each is cleaned as people tag it: no #, no spaces.',
+    /** A line typed that makes no hashtag: too short, too long, or no letter in it. */
+    hashtagBad: (line: string) =>
+      `“${line}” isn’t a hashtag anyone tags. Write one as people tag it, like austinroofing.`,
+  },
+  /** Whether the business works with a playbook's clients online (decision 92): where Alignable searches. */
+  worksOnline: {
+    label: 'You work with clients online',
+    yes: 'You work with clients online, so Alignable searches anywhere.',
+    no: 'You work with clients near you, so Alignable searches your own town.',
   },
   /**
    * On a partner playbook its words for groups find partners too (stage 4 of the partners plan): the computer searches
@@ -712,6 +764,24 @@ export function playbookSectionTitle(
   return section === 'groupWords' && forPartners(details)
     ? OUTREACH_WORDS.partnerGroupWords
     : OUTREACH_WORDS.playbookSections[section];
+}
+
+/**
+ * What a network's own words on a customers' playbook say under them (decision 92), on the web and the phone, as
+ * `wordsDue` decides what the AI writes: what it wrote; a list it wrote and the person emptied, which looks at nothing;
+ * an empty list it hasn't written, which it fills while it stays empty; or the person's own words, which it never adds
+ * to. `wordsWritten` is the server's, as saved.
+ */
+export function findWordsHint(
+  details: Partial<Pick<PlaybookDetails, FindWordsPart | 'wordsWritten'>>,
+  platform: WordsPlatform,
+): string {
+  const has = (details[FIND_WORDS_PARTS[platform]] ?? []).length > 0;
+  if (details.wordsWritten?.includes(platform))
+    return has
+      ? OUTREACH_WORDS.findWords.written(FIND_WORDS_PER_DAY[platform])
+      : OUTREACH_WORDS.findWords.none[platform];
+  return has ? OUTREACH_WORDS.findWords.own : OUTREACH_WORDS.findWords.notYet;
 }
 
 /** A customer Add to Contacts offers first, from `outreach.lookup`'s `sameName`. */

@@ -33,7 +33,7 @@ import {
   AiAskError,
   askStructured,
 } from '../../ai/ask';
-import type { AddonWorkerAction } from '../types';
+import type { AddonScopeContext, AddonWorkerAction } from '../types';
 
 export const PLAYBOOK_ASSIST_ACTION = 'outreach.playbook.assist';
 export const NICHE_FIT_ACTION = 'outreach.playbook.niche_fit';
@@ -43,7 +43,7 @@ export const NICHE_FIT_ACTION = 'outreach.playbook.niche_fit';
  * without one.
  */
 export async function liveMainOffer(
-  ctx: Parameters<AddonWorkerAction['run']>[0],
+  ctx: Pick<AddonScopeContext, 'db' | 'scope'>,
 ): Promise<{ readonly offer: PlaybookOffer; readonly version: number } | null> {
   const [live] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ parts: unknown; line: string; version: number }>(

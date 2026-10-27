@@ -1,6 +1,6 @@
 /**
  * Social Outreach: each person's own rows stay their own on the database, not only in the operations. A member reads
- * and writes only their own computers, day, feed, needs, pushes and asks. Owners and admins may read the team's days,
+ * and writes only their own computers, day, feed, needs, pushes, asks and the people they found. Owners and admins may read the team's days,
  * which hold no words, and see the team's computers and how many needs and asks wait only through private functions
  * that give status and counts, never a line, a need or a drafted message. Nobody changes a colleague's.
  */
@@ -307,5 +307,49 @@ describe('asks, on the database', () => {
         ),
       ).toBe(0);
     }
+  });
+});
+
+describe('people found by topic, on the database (decision 92)', () => {
+  it('show each person only their own, owners and admins included, and let nobody write a colleague’s', async () => {
+    const [other] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, url, name, username)
+          values (${ws}, 'facebook', 'https://www.facebook.com/jordan.pike', 'Jordan Pike', 'jordan.pike')
+          returning id`,
+    );
+    for (const u of [owner, riley, dana])
+      await rows(
+        admin(),
+        sql`insert into addon_outreach.finds
+              (workspace_id, user_id, profile_id, platform, how, words, said, found_at)
+            values (${ws}, ${u.id}, ${profileId}, 'facebook', 'commented', 'austinroofing',
+              'We had the same leak last spring.', now())`,
+      );
+    expect(await seenBy(riley, 'finds')).toEqual([riley.id]);
+    expect(await seenBy(owner, 'finds')).toEqual([owner.id]);
+    for (const u of [riley, owner])
+      expect(
+        await tried(
+          u,
+          sql`update addon_outreach.finds set said = null
+              where workspace_id = ${ws} and user_id = ${dana.id} returning id`,
+        ),
+      ).toBe(0);
+    expect(
+      await tried(
+        riley,
+        sql`insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, found_at)
+            values (${ws}, ${dana.id}, ${other!.id}, 'facebook', 'liked', now()) returning id`,
+      ),
+    ).toBe('refused');
+    // Their own changes go through.
+    expect(
+      await tried(
+        riley,
+        sql`update addon_outreach.finds set said = null
+            where workspace_id = ${ws} and user_id = ${riley.id} returning id`,
+      ),
+    ).toBe(1);
   });
 });

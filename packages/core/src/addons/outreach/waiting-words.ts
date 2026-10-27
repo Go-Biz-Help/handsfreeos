@@ -6,8 +6,10 @@
  *   them a step it can't find, or waits for their password on Facebook. It pushed at once.
  * - **Replies handed over to you**: a reply the extension drafted that waits because it needs the person, with
  *   Replies (b) or (c) (./sends.ts, `handedOver`). Each waits for an OK of its own, never Approve all.
- * - **Messages to OK**: every other message waiting for the person's OK. Approve all OKs them, except one to someone
- *   who needs the person (`needsYou`), which waits for an OK of its own too (`oneByOne`).
+ * - **Messages to OK**: every other message waiting for the person's OK, and comments on good posts where a network's
+ *   comments wait at first (decision 92). Approve all OKs them, except one to someone who needs the person, or an
+ *   answer to an Alignable post asking for what the business offers (`needsYou`), which waits for an OK of its own
+ *   too (`oneByOne`).
  * - **Steps it needs you for**: a step the extension couldn't do there and then (a button or box it couldn't find, a
  *   different page, the network not taking it, a message that didn't go), handed to the person to do or let go. Each is
  *   marked with its network, in that network's words, and links to their page there (or the post, or the chat).
@@ -91,7 +93,10 @@ export const WAITING_REFRESH_MINUTES = 10;
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
-/** A message that waits for an OK of its own: a reply handed over, or one to someone who needs the person. */
+/**
+ * A message that waits for an OK of its own: a reply handed over, or one to someone who needs the person, or a forum
+ * answer.
+ */
 export const oneByOne = (send: {
   readonly handedOver: boolean;
   readonly needsYou: string | null;
@@ -365,11 +370,12 @@ const sentence = (line: string) => {
 };
 
 /**
- * A push for one message or need, with "one for each": "Dana Reyes: a message waits for your OK". A need's says its
- * network when it's known: "Dana Reyes: the extension needs you on Alignable".
+ * A push for one message, comment or need, with "one for each": "Dana Reyes: a message waits for your OK", "A comment
+ * on Quinn Harper’s post waits for your OK". A need's says its network when it's known: "Dana Reyes: the extension
+ * needs you on Alignable".
  */
 export function eachPushWords(
-  kind: 'message' | 'need',
+  kind: 'message' | 'comment' | 'need',
   name: string,
   why: string | null = null,
   platform: Platform | null = null,
@@ -377,6 +383,11 @@ export function eachPushWords(
   if (kind === 'message')
     return {
       title: `${name}: a message waits for your OK`,
+      body: 'OK it, change it or skip it on Today.',
+    };
+  if (kind === 'comment')
+    return {
+      title: `A comment on ${name}’s post waits for your OK`,
       body: 'OK it, change it or skip it on Today.',
     };
   const said = why ? sentence(why) : '';
@@ -397,9 +408,81 @@ export function handOverPushWords(
   };
 }
 
-/** Approve all's button: "Approve all 5 messages". */
-export const approveAllWords = (count: number) =>
-  `Approve all ${count.toLocaleString('en-US')} ${count === 1 ? 'message' : 'messages'}`;
+/**
+ * Approve all's button: "Approve all 5 messages", or with comments among them (decision 92) "Approve all 5", since
+ * they go together.
+ */
+export const approveAllWords = (count: number, comments = false) =>
+  comments
+    ? `Approve all ${count.toLocaleString('en-US')}`
+    : `Approve all ${count.toLocaleString('en-US')} ${count === 1 ? 'message' : 'messages'}`;
+
+/** Messages to OK's heading: "Messages and comments to OK" while a comment waits among them (decision 92). */
+export const messagesTitle = (comments: boolean): string =>
+  comments ? 'Messages and comments to OK' : WAITING_KINDS.message;
+
+/**
+ * A comment waiting's heading either side of the person's name, so a screen can put the name, the person menu's
+ * button (decision 91), between the two parts.
+ */
+export const COMMENT_TITLE_AROUND = ['Comment on ', '’s post'] as const;
+
+/**
+ * A comment waiting, as Waiting for you heads it, its post's first words above the comment: "Comment on Dana Reyes’s
+ * post".
+ */
+export const commentTitle = (name: string): string =>
+  `${COMMENT_TITLE_AROUND[0]}${name}${COMMENT_TITLE_AROUND[1]}`;
+
+/**
+ * Whether a send waiting is an answer to an Alignable post asking for what the business offers (decision 79): a
+ * comment that waits for an OK of its own (`needsYou`, set for nothing else on a comment), which Approve all leaves.
+ */
+export const forumAnswer = (send: {
+  readonly kind: string;
+  readonly needsYou: string | null;
+}): boolean => send.kind === 'comment' && send.needsYou !== null;
+
+/**
+ * Whether Approve all takes a comment among the messages waiting (decision 92): one that doesn't wait for an OK of its
+ * own (`oneByOne`, so never a forum answer). Its button and what it says after are "messages and comments" only then.
+ * Today, Waiting for you and the phone all ask it.
+ */
+export const approveAllTakesComments = (
+  sends: readonly {
+    readonly kind: string;
+    readonly handedOver: boolean;
+    readonly needsYou: string | null;
+  }[],
+): boolean => sends.some((send) => send.kind === 'comment' && !oneByOne(send));
+
+/**
+ * Whether Messages to OK says what the comments-only hold is (decision 92's 13): while a comment Approve all takes
+ * waits on a network whose hold HandsFreeOS says is on (`outreach.waiting`'s `commentHolds`). Each comment's own
+ * network decides, never the training wheels Waiting for you shows; from a server before it said, never.
+ */
+export function commentHoldShown(
+  sends: readonly {
+    readonly kind: string;
+    readonly handedOver: boolean;
+    readonly needsYou: string | null;
+    readonly profileUrl: string | null;
+  }[],
+  holds: readonly Platform[] | undefined,
+): boolean {
+  if (!holds?.length) return false;
+  return sends.some((send) => {
+    if (send.kind !== 'comment' || oneByOne(send) || !send.profileUrl) return false;
+    const on = networkOfLink(send.profileUrl);
+    return on !== null && holds.includes(on);
+  });
+}
+
+/** Beside Approve all while forum answers wait among the messages: why it leaves them (decision 92). */
+export const forumAnswersLeftWords = (count: number): string =>
+  `Approve all leaves ${
+    count === 1 ? 'the forum answer' : `the ${count.toLocaleString('en-US')} forum answers`
+  }: an answer to a post asking for what you offer always waits for an OK of its own.`;
 
 /** Why a message waits for an OK of its own, under it: "Handed over: they sound upset". */
 export function oneByOneWords(send: {

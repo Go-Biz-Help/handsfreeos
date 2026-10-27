@@ -62,6 +62,15 @@ const PAGES: readonly (readonly [fixture: string, url: string])[] = [
     'linkedin-own-profile-2026-10.html',
     'https://www.linkedin.com/in/chris-gee-12/?isSelfProfile=true',
   ],
+  // Someone else's post on its own page in that layout, and the box of who reacted to it (decision 92).
+  [
+    'linkedin-post-2026-10.html',
+    'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000777/',
+  ],
+  [
+    'linkedin-reactions-2026-10.html',
+    'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000777/',
+  ],
 ];
 
 describe('LinkedIn pages with more boxes than their outline shows', () => {

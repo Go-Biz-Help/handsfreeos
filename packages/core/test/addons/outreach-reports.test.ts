@@ -14,7 +14,7 @@ import {
   askWaitingWords,
   tooOldFor,
 } from '../../src/addons/outreach/asks';
-import { allowedOn, REPORT_WORDS } from '../../src/addons/outreach/reports';
+import { allowedOn, REPORT_WORDS, TRY_STEP_NAMES } from '../../src/addons/outreach/reports';
 import { outreachBusiness, runAs, runWith } from './outreach-fixture';
 
 describe('Check LinkedIn and Check Facebook', () => {
@@ -54,6 +54,15 @@ describe('Check LinkedIn and Check Facebook', () => {
       REPORT_WORDS.checkupAbout('linkedin'),
     ])
       expect(words).toMatch(/It never saves, posts, sends, likes/);
+    // Where people found by topic are read (decision 92): who liked or reacted, and Alignable's groups.
+    expect(REPORT_WORDS.checkupAbout('instagram')).toContain(
+      'its Likes box (opened and closed again)',
+    );
+    expect(REPORT_WORDS.checkupAbout('linkedin')).toContain('a post’s reactions box');
+    expect(REPORT_WORDS.checkupAbout('alignable')).toContain(
+      'a group’s Join (looked at, never pressed)',
+    );
+    expect(TRY_STEP_NAMES.reactors).toBe('reading who liked a post');
   });
 });
 

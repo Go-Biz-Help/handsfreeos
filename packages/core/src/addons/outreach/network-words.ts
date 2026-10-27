@@ -10,6 +10,7 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
+import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import {
   SENDING_MODES,
@@ -30,7 +31,8 @@ import {
   type Platform,
   type RunnerTick,
 } from './networks';
-import { TODAY_KINDS, type TodayKind } from './today';
+import { COMMENT_HOLD_WORDS } from './sends';
+import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
 
@@ -174,9 +176,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Accept invitations from people who fit a playbook',
         'The rest wait for you.',
       ],
+      // Since decision 92 it also reads who reacted to and commented on the good posts, and checks them.
       collect: [
         'Once a day, first: check invitations, find posts and read my chats',
-        'These fill the list it works from. It checks your connections for good fits too.',
+        'These fill the list it works from. It searches posts with your playbooks’ words, reads who reacted to and commented on the good ones, and checks those people and your connections for good fits, inside its 40 profile reads a day.',
       ],
       joinGroups: [
         'Join good groups when my groups run low',
@@ -217,7 +220,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       ],
       collect: [
         'Once a day, first: save my newest followers, and read my messages and notifications',
-        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your area’s hashtags for posts and who wrote them, and looks for partners with Instagram’s search, too.',
+        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your playbooks’ hashtags for posts, reads who liked and commented on the good ones and checks them for good fits, and looks for partners with Instagram’s search, too.',
       ],
       joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [
@@ -253,13 +256,15 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Accept connection requests from people who fit a playbook',
         'The rest wait for you.',
       ],
+      // Since decision 92 it also searches for businesses like the person's clients, and reads their groups.
       collect: [
-        'Once a day, first: check connection requests, and read my messages and my town’s posts',
-        'These fill the list it works from. It checks your connections for good fits, and looks for partners, too.',
+        'Once a day, first: check connection requests, read my messages and my town’s posts, search for businesses like your clients, and read my groups',
+        'These fill the list it works from. It checks your connections, and the businesses it finds, for good fits, and looks for partners, too.',
       ],
+      // Shown since decision 92: Alignable's groups go through the same pipeline as Facebook's.
       joinGroups: [
         'Join good groups when my groups run low',
-        'Alignable’s groups are its local communities.',
+        'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
       ],
       watchPosts: [
         'Look for new questions asking for what I offer, every hour or two',
@@ -303,22 +308,26 @@ export const saveListOn = (platform: Platform): string =>
   MORE[platform].saveList ?? `Save my ${NETWORKS[platform].words.friends} list`;
 
 /**
- * What the extension may do on its own on a network, in its words (Sending, decision 26). Where its runner never
- * comments (Alignable's answers wait for an OK each time), comments stay the person's whatever they pick.
+ * What the extension may do on its own on a network, in its words (Sending, decision 26). Where comments go through
+ * `sends` and wait at first (the kit's `commentsWait`, decision 92), Sending says so (`COMMENT_HOLD_WORDS`), and that
+ * an answer to a post asking for what the business offers always waits where the network keeps those apart.
  */
 export function sendingModesOn(platform: Platform): Readonly<Record<SendingMode, string>> {
   const kit = NETWORKS[platform];
   const requests = cap(kit.words.friendRequests);
-  return kit.runs.auto.includes('comment')
-    ? {
-        ...SENDING_MODES,
-        steps: `${requests}, likes and comments on their own; each message waits for one tap`,
-      }
-    : {
-        ...SENDING_MODES,
-        steps: `${requests} and likes on their own; each message waits for one tap, and you post each comment`,
-        everything: 'Everything on its own, messages too; you post each comment',
-      };
+  const steps = `${requests}, likes and comments on their own; each message waits for one tap`;
+  if (kit.commentsWait === 'never') return { ...SENDING_MODES, steps };
+  const waits = [
+    COMMENT_HOLD_WORDS,
+    ...(kit.forumAnswersPerDay !== null
+      ? ['An answer to a post asking for what you offer always waits for your OK.']
+      : []),
+  ].join(' ');
+  return {
+    ...SENDING_MODES,
+    steps: `${steps}. ${waits}`,
+    everything: `Everything on its own, messages too. ${waits}`,
+  };
 }
 
 /** Under what it does on its own on a network: its limits, its pace, and its warnings. */
@@ -425,6 +434,21 @@ export const openChatWords = (platform: Platform): string =>
 
 /** "Open on Facebook", "Open on LinkedIn". */
 export const openPageWords = (platform: Platform): string => `Open on ${PLATFORMS[platform]}`;
+
+/**
+ * Where Open goes for someone on Today's list, and its words, on the web and the phone: the post it's about (a comment,
+ * a warm lead, or the post a found person's like goes on), else their chat on the network's messaging, else their
+ * page. Null with none of them.
+ */
+export function todayOpenOf(
+  item: Pick<TodayItem, 'postUrl' | 'threadKey' | 'profileUrl'>,
+  platform: Platform,
+): { readonly url: string; readonly words: string } | null {
+  if (item.postUrl) return { url: item.postUrl, words: TOUCHED_POSTS_WORDS.openPost };
+  const chat = chatUrlOn(platform, item.threadKey);
+  if (chat) return { url: chat, words: openChatWords(platform) };
+  return item.profileUrl ? { url: item.profileUrl, words: openPageWords(platform) } : null;
+}
 
 /** "40% of first messages": a network's share of them, beside Results by network. */
 export function shareWords(part: number, whole: number): string {

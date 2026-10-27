@@ -151,6 +151,8 @@ vi.mock('../src/tab', async () => {
 const { alignableTick, alignableWorkLeft, doWork, nextAlignableDaily, runAlignableDaily, longAgo } =
   await import('../src/auto/alignable');
 const { searchAlignable } = await import('../src/jobs/alignable/partner-search');
+const { NO_TOWN } = await import('../src/jobs/alignable/customer-search');
+const { ALIGNABLE: SITE } = await import('../src/networks/alignable/site');
 const { WorkTab } = await import('../src/tab');
 const { LIVE_KEY } = await import('../src/hfos/live');
 const { NETWORKS_KEY } = await import('../src/networks/on');
@@ -388,17 +390,30 @@ describe('what it does on Alignable’s list', () => {
       'warm_up',
       'friend_request',
     ]);
-    expect(nextAlignableDaily({ daily: {} })).toBe('requests');
+    // Their own groups first, before any search or join (decision 92), then the requests.
+    expect(nextAlignableDaily({ daily: {} })).toBe('my_groups');
+    expect(nextAlignableDaily({ daily: { my_groups: 'g' } })).toBe('requests');
     // Their chats right after the connections are checked (0.84.0), as on Instagram; then Find partners, then the
     // town's posts.
-    const done = { requests: 'x', checks: 'y' };
+    const done = { my_groups: 'g', requests: 'x', checks: 'y' };
     expect(nextAlignableDaily({ daily: done })).toBe('chats');
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c' } })).toBe('partners');
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z' } })).toBe('posts');
-    // Last, who engaged with them, from their notifications.
-    expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z', posts: 'w' } })).toBe(
-      'helpful',
-    );
+    // Then the search for businesses like their clients, and the groups: found and checked, joined, their members,
+    // their posts (decision 92).
+    const town = { ...done, chats: 'c', partners: 'z', posts: 'w' };
+    const groups = ['search', 'group_checks', 'join', 'members', 'group_posts'] as const;
+    let daily: Record<string, string> = town;
+    for (const job of groups) {
+      expect(nextAlignableDaily({ daily })).toBe(job);
+      daily = { ...daily, [job]: 'd' };
+    }
+    // Then who engaged with them, from their notifications.
+    expect(nextAlignableDaily({ daily })).toBe('helpful');
+    // Last, the businesses found by topic checked for good fits (decision 92).
+    const all = { ...daily, helpful: 'v' };
+    expect(nextAlignableDaily({ daily: all })).toBe('found_checks');
+    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBeNull();
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {
@@ -948,6 +963,719 @@ describe('Find partners on Alignable', () => {
       line: 'Done. Searched Alignable 1 time and found 2 new people who could partner. Read 1 possible partner for the AI. Good partners show on the Partners list once it has read them.',
       warned: false,
     });
+  });
+});
+
+// ------------------------------------------------------------------------------------------ finding by topic (92)
+
+/** Their own profile, which Alignable opens at their business's address in their town (Austin, TX). */
+const MINE = `${AL}/biz/businesses/my_profile`;
+const myProfile = (town = true) => ({
+  html: '<main><h1 title="Casey Owner">Casey Owner</h1></main>',
+  ...(town ? { at: `${AL}/austin-tx/acme-roofing?user=7` } : {}),
+});
+
+/** A once-a-day job's window, asking HandsFreeOS as `world.hfos` answers. */
+const dailyJob = (): Job => ({
+  tab: new WorkTab('window'),
+  hfos: (async (ask: { readonly type: string }) => {
+    world.asked.push(ask);
+    const found = world.hfos[ask.type];
+    return { ok: true, value: found ? found(ask as Record<string, unknown>) : {} };
+  }) as unknown as Hfos,
+  businessId: ME.businessId,
+  stopped: () => false,
+  progress: () => undefined,
+  warn: async () => undefined,
+  report: async () => undefined,
+});
+
+const inputsOf = (type: string) =>
+  world.asked.filter((a) => a.type === type).map((a) => a.input as Record<string, unknown>);
+const peopleIn = (ask: Record<string, unknown>) =>
+  (ask['input'] as { people: unknown[] }).people.length;
+
+/** Their own business, as a search or a group's members show it: never someone to find. */
+const OWN_ROW = `<div><a href="/austin-tx/acme-roofing?user=7&result_id=4141"><img alt="Casey Owner" /></a>
+    <div><div><div><a title="Casey Owner" href="/austin-tx/acme-roofing?user=7&result_id=4141">Casey Owner</a></div>
+      <div><div><a title="Acme Roofing" href="/austin-tx/acme-roofing?user=7&result_id=4141">Acme Roofing</a>
+        <span>Roofing Contractor</span></div><div>Austin, TX</div></div></div></div></div>`;
+
+describe('the search for businesses like their clients on Alignable', () => {
+  beforeEach(() => {
+    world.hfos['hfos-finds-save'] = (ask) => ({ added: peopleIn(ask) });
+  });
+
+  it('keeps only their town’s businesses on a local search, and every one on a search that works online', async () => {
+    // Their own business shows in both: never kept.
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url === `${AL}/biz/search?q=real%20estate%20agent%20Austin%20TX` ||
+            url === `${AL}/biz/search?q=home%20inspector`
+          ? { html: searchHtml.replace('<ul>', `<ul>${OWN_ROW}`) }
+          : null;
+    world.hfos['hfos-finds-searches'] = () => ({
+      searches: [
+        { words: 'real estate agent', anywhere: false },
+        { words: 'home inspector', anywhere: true },
+      ],
+    });
+    const end = await runAlignableDaily('search', dailyJob());
+    expect(world.opened).toEqual([
+      MINE,
+      `${AL}/biz/search?q=real%20estate%20agent%20Austin%20TX`,
+      `${AL}/biz/search?q=home%20inspector`,
+    ]);
+    expect(inputsOf('hfos-finds-searches')).toEqual([
+      { workspaceId: ME.businessId, platform: 'alignable' },
+    ]);
+    const saves = inputsOf('hfos-finds-save');
+    expect(saves).toMatchObject([
+      {
+        platform: 'alignable',
+        how: 'searched',
+        words: 'real estate agent',
+        place: 'Austin, TX',
+        group: null,
+        postId: null,
+        people: [{ name: 'Hana Hill', profile: { id: '4242' }, place: 'Austin, TX' }],
+      },
+      {
+        how: 'searched',
+        words: 'home inspector',
+        place: null,
+        people: [
+          { name: 'Hana Hill', place: 'Austin, TX' },
+          { name: 'Ivy Inspector', profile: { id: '4343' }, place: 'Round Rock, TX' },
+        ],
+      },
+    ]);
+    // The town's businesses only: never the one in Round Rock on the local search.
+    expect((saves[0]!['people'] as unknown[]).length).toBe(1);
+    expect(end).toEqual({
+      line: 'Searched Alignable for 2 kinds of business: 3 businesses found, 3 new to check. The good fits come onto Today once the AI has read their pages.',
+      warned: false,
+    });
+  });
+
+  it('ends with what to do when Alignable didn’t show their town, after any search that works online', async () => {
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile(false)
+        : url === `${AL}/biz/search?q=home%20inspector`
+          ? { html: searchHtml }
+          : null;
+    world.hfos['hfos-finds-searches'] = () => ({
+      searches: [{ words: 'real estate agent', anywhere: false }],
+    });
+    expect(await runAlignableDaily('search', dailyJob())).toEqual({
+      line: NO_TOWN,
+      warned: false,
+      failed: true,
+    });
+    expect(world.opened).toEqual([MINE]);
+    expect(inputsOf('hfos-finds-save')).toEqual([]);
+
+    world.opened.length = 0;
+    world.hfos['hfos-finds-searches'] = () => ({
+      searches: [
+        { words: 'real estate agent', anywhere: false },
+        { words: 'home inspector', anywhere: true },
+      ],
+    });
+    const end = await runAlignableDaily('search', dailyJob());
+    expect(world.opened).toEqual([MINE, `${AL}/biz/search?q=home%20inspector`]);
+    expect(end.line).toBe(
+      `Searched Alignable for 1 kind of business: 2 businesses found, 2 new to check. The good fits come onto Today once the AI has read their pages. ${NO_TOWN}`,
+    );
+    expect(NO_TOWN).toBe(
+      'Alignable didn’t show your town. Check your business page’s address in Alignable, then start your day again.',
+    );
+  });
+});
+
+/** Made-up groups on Alignable, by HandsFreeOS's ids for them. */
+const GROUPS = [
+  {
+    groupId: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c51',
+    slug: 'home-pros-network',
+    name: 'Home Pros Network',
+  },
+  {
+    groupId: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c52',
+    slug: 'maple-valley-trades',
+    name: 'Maple Valley Trades',
+  },
+  {
+    groupId: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c53',
+    slug: 'cedar-creek-builders',
+    name: 'Cedar Creek Builders',
+  },
+].map((g) => ({ groupId: g.groupId, name: g.name, url: `${AL}/groups/${g.slug}` }));
+const TOWN_GROUP = {
+  groupId: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c50',
+  name: 'Austin Business Owners',
+  url: `${AL}/groups/austin-tx`,
+};
+
+/**
+ * A group's own page: its name, members and where the person stands (its own Join, Joined or Requested), its About, a
+ * post, and another group it suggests with a Join of its own.
+ */
+const groupHtml = (
+  standing: 'join' | 'joined' | 'requested' = 'join',
+  name = 'Home Pros Network',
+) =>
+  `<main><h1>${name}</h1>
+    <div><span>1,204 members</span>${
+      standing === 'joined'
+        ? '<button>Joined</button>'
+        : standing === 'requested'
+          ? '<button>Requested</button>'
+          : '<button data-join="own">Join</button>'
+    }</div>
+    <section><h2>About</h2><p>For people who fix and build homes.</p></section>
+    <section>${post({ id: 93, by: '/denver-co/stone-gutters', name: 'Riley Stone', words: 'Who else is busy with gutters this fall?' })}</section>
+    <aside><h3>Groups you may like</h3>
+      <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><button data-join="other">Join</button></div></aside>
+  </main>`;
+
+/** HandsFreeOS's list of a group to work, as `outreach.groups` gives it. */
+const workGroup = (g: { groupId: string; name: string; url: string }) => ({
+  ...g,
+  privacy: null,
+  members: 1204,
+  detail: null,
+  joined: true,
+  verdict: 'work',
+  reasons: [],
+  playbookName: null,
+  people: 0,
+  runsGroup: 0,
+  replies: 0,
+  demos: 0,
+});
+
+/** What HandsFreeOS says of joining today. */
+const joinsNext = (more: Record<string, unknown> = {}) => ({
+  groups: [],
+  today: 0,
+  perDay: 3,
+  prospects: { left: 40, days: 2, low: true },
+  words: 'home services',
+  anywhere: false,
+  onItsOwn: true,
+  ...more,
+});
+
+describe('Alignable’s groups', () => {
+  it('reads their own groups first, each saved as one they’re in, never one it only suggests', async () => {
+    world.pages = (url) =>
+      url === `${AL}/biz/groups`
+        ? {
+            html: `<main><h1>My Groups</h1>
+              <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span><button>Leave</button></div>
+              <div><a href="/groups/riverbend-roofers">Riverbend Roofers</a><span>86 members</span><button>Joined</button></div>
+              <div><a href="/groups/home-pros-network">Home Pros Network</a><button>Join</button></div>
+              <div><a href="/groups/maple-street-makers">Maple Street Makers</a><span>40 members</span></div></main>`,
+          }
+        : null;
+    world.hfos['hfos-save-groups'] = (ask) => ({
+      saved: (ask['input'] as { groups: unknown[] }).groups.length,
+    });
+    expect(nextAlignableDaily({ daily: {} })).toBe('my_groups');
+    const end = await runAlignableDaily('my_groups', dailyJob());
+    expect(world.opened).toEqual([`${AL}/biz/groups`]);
+    expect(inputsOf('hfos-save-groups')).toMatchObject([
+      {
+        platform: 'alignable',
+        groups: [
+          { group: { url: `${AL}/groups/austin-tx` }, members: 2310, joined: true },
+          { group: { url: `${AL}/groups/riverbend-roofers` }, members: 86, joined: true },
+        ],
+      },
+    ]);
+    expect(end).toEqual({ line: 'Saved 2 groups of yours on Alignable.', warned: false });
+  });
+
+  it('takes every card of their own groups page as theirs when none offers a Join', async () => {
+    world.pages = (url) =>
+      url === `${AL}/biz/groups`
+        ? {
+            html: `<main><h1>My Groups</h1>
+              <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span></div>
+              <div><a href="/groups/maple-street-makers">Maple Street Makers</a><span>40 members</span></div></main>`,
+          }
+        : null;
+    world.hfos['hfos-save-groups'] = (ask) => ({
+      saved: (ask['input'] as { groups: unknown[] }).groups.length,
+    });
+    const end = await runAlignableDaily('my_groups', dailyJob());
+    expect(inputsOf('hfos-save-groups')).toMatchObject([
+      {
+        groups: [
+          { group: { url: `${AL}/groups/austin-tx` }, joined: true },
+          { group: { url: `${AL}/groups/maple-street-makers` }, joined: true },
+        ],
+      },
+    ]);
+    expect(end).toEqual({ line: 'Saved 2 groups of yours on Alignable.', warned: false });
+  });
+
+  it('keeps the plain cards of their own groups page beside one asked and waiting, leaving that one out', async () => {
+    // A group it asked to join, whose leaders haven't said yet: the page still offers no Join.
+    world.pages = (url) =>
+      url === `${AL}/biz/groups`
+        ? {
+            html: `<main><h1>My Groups</h1>
+              <div><a href="/groups/austin-tx">Austin Business Owners</a><span>2,310 members</span></div>
+              <div><a href="/groups/maple-street-makers">Maple Street Makers</a><span>40 members</span></div>
+              <div><a href="/groups/home-pros-network">Home Pros Network</a><span>1,204 members</span>
+                <button>Cancel Request</button></div></main>`,
+          }
+        : null;
+    world.hfos['hfos-save-groups'] = (ask) => ({
+      saved: (ask['input'] as { groups: unknown[] }).groups.length,
+    });
+    const end = await runAlignableDaily('my_groups', dailyJob());
+    expect(world.opened).toEqual([`${AL}/biz/groups`]);
+    expect(inputsOf('hfos-save-groups')).toMatchObject([
+      {
+        groups: [
+          { group: { url: `${AL}/groups/austin-tx` }, joined: true },
+          { group: { url: `${AL}/groups/maple-street-makers` }, joined: true },
+        ],
+      },
+    ]);
+    expect(end).toEqual({ line: 'Saved 2 groups of yours on Alignable.', warned: false });
+  });
+
+  it('finds groups with today’s words in their town when none wait, then sends each for the AI’s check', async () => {
+    let asked = 0;
+    world.hfos['hfos-groups-to-check'] = () =>
+      asked++ === 0
+        ? { groups: [], saved: 2 }
+        : { groups: [{ ...GROUPS[0]!, joined: false }], saved: 3 };
+    world.hfos['hfos-joins-next'] = () => joinsNext();
+    world.hfos['hfos-save-groups'] = (ask) => ({
+      saved: (ask['input'] as { groups: unknown[] }).groups.length,
+    });
+    world.hfos['hfos-group-look'] = () => ({});
+    const search = `${AL}/groups/search?q=home%20services%20Austin%20TX`;
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url === search
+          ? {
+              html: `<main><div><a href="/groups/home-pros-network">Home Pros Network</a>
+                <span>For people who fix and build homes</span><span>1,204 members</span><button>Join</button></div></main>`,
+            }
+          : url === GROUPS[0]!.url
+            ? { html: groupHtml() }
+            : null;
+    const end = await runAlignableDaily('group_checks', dailyJob());
+    expect(world.opened).toEqual([MINE, search, GROUPS[0]!.url]);
+    expect(inputsOf('hfos-groups-to-check')[0]).toMatchObject({ platform: 'alignable', most: 4 });
+    expect(inputsOf('hfos-save-groups')).toMatchObject([
+      { platform: 'alignable', groups: [{ group: { url: GROUPS[0]!.url }, joined: false }] },
+    ]);
+    expect(inputsOf('hfos-group-look')).toEqual([
+      {
+        workspaceId: ME.businessId,
+        groupId: GROUPS[0]!.groupId,
+        about: ['For people who fix and build homes.'],
+        posts: ['Who else is busy with gutters this fall?'],
+        joined: false,
+      },
+    ]);
+    expect(end).toEqual({
+      line: 'Found 1 group on Alignable for your niche and area. Checked 1 group. The good ones are joined as your groups run low on people to reach.',
+      warned: false,
+    });
+  });
+
+  it('joins only the good groups HandsFreeOS lists, at most today’s 3, each with its own Join', async () => {
+    const standing = new Map<string, 'join' | 'joined' | 'requested'>();
+    const pressed: string[] = [];
+    world.pages = (url) => {
+      const group = GROUPS.find((g) => g.url === url);
+      return group ? { html: groupHtml(standing.get(url) ?? 'join', group.name) } : null;
+    };
+    world.behave = (doc, url) => {
+      for (const join of doc.querySelectorAll<HTMLElement>('[data-join]'))
+        join.addEventListener('click', () => {
+          if (join.dataset['join'] !== 'own') return void pressed.push(`another group, on ${url}`);
+          pressed.push(url);
+          // The first lets them straight in; the others wait for their leaders.
+          const now = url === GROUPS[0]!.url ? 'joined' : 'requested';
+          standing.set(url, now);
+          join.textContent = now === 'joined' ? 'Joined' : 'Requested';
+        });
+    };
+    world.hfos['hfos-joins-next'] = () => joinsNext({ groups: GROUPS });
+    world.hfos['hfos-join-note'] = () => ({});
+    const end = await runAlignableDaily('join', dailyJob());
+    // Each group's page, then again to see how its Join went.
+    expect(world.opened).toEqual(GROUPS.flatMap((g) => [g.url, g.url]));
+    expect(pressed).toEqual(GROUPS.map((g) => g.url));
+    expect(inputsOf('hfos-joins-next')[0]).toMatchObject({ platform: 'alignable' });
+    expect(inputsOf('hfos-join-note')).toEqual(
+      GROUPS.map((g, i) => ({
+        workspaceId: ME.businessId,
+        groupId: g.groupId,
+        state: i === 0 ? 'joined' : 'pending',
+        answers: [],
+        why: null,
+      })),
+    );
+    expect(end).toEqual({
+      line: 'Joined 1 group on Alignable. Asked to join 2 groups: their leaders say yes or no.',
+      warned: false,
+      failed: false,
+    });
+  });
+
+  it('joins nothing once today’s are joined, while their groups have people left, or while they’ve said not to', async () => {
+    const cases = [
+      [{ today: 3 }, 'That’s today’s 3 groups joined on Alignable. It carries on tomorrow.'],
+      [
+        { prospects: { left: 400, days: 20, low: false } },
+        'Your Alignable groups have 400 people left to reach: no need to join more yet.',
+      ],
+      [{ onItsOwn: false }, 'Joining groups on its own is off in your Alignable settings.'],
+    ] as const;
+    for (const [more, line] of cases) {
+      world.hfos['hfos-joins-next'] = () => joinsNext({ groups: GROUPS, ...more });
+      expect((await runAlignableDaily('join', dailyJob())).line).toBe(line);
+    }
+    expect(world.opened).toEqual([]);
+  });
+
+  it('answers that there were no questions to a join: Alignable asks none, so nothing waits on the AI', async () => {
+    expect(typeof SITE.auto?.join).toBe('function');
+    expect(typeof SITE.auto?.comment).toBe('function');
+    world.pages = (url) => (url === GROUPS[0]!.url ? { html: groupHtml() } : null);
+    const tab = new WorkTab('window');
+    await tab.open(GROUPS[0]!.url);
+    expect(await tab.ask({ type: 'hfos-join-answer', answers: [] })).toEqual({
+      ok: true,
+      result: 'none',
+    });
+  });
+
+  it('reads a group’s members, its leaders first and kept as running it; everyone else is sent as found', async () => {
+    world.hfos['hfos-groups'] = (ask) =>
+      (ask['input'] as { view: string }).view === 'work'
+        ? { groups: [workGroup(GROUPS[0]!)] }
+        : { groups: [] };
+    world.hfos['hfos-save-group'] = (ask) => ({ people: peopleIn(ask) });
+    world.hfos['hfos-finds-save'] = (ask) => ({ added: peopleIn(ask) });
+    // Their own business is a member too: never saved, as a member or as found.
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url === `${GROUPS[0]!.url}/members`
+          ? {
+              html: `<main><h1>Home Pros Network</h1><span>1,204 members</span>
+              <h2>Group Leaders</h2>
+              <div><a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a><a href="/denver-co/stone-gutters">Stone Gutters</a></div>
+              <h2>Members (1,204)</h2>
+              <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
+                <span>Painter in Boise</span></div>
+              <div><a href="/austin-tx/acme-roofing/casey-owner">Casey Owner</a><a href="/austin-tx/acme-roofing">Acme Roofing</a>
+                <span>Roofer in Austin</span></div>
+              <div><a href="/biz/businesses/5150?user=3">Morgan Vale</a><span>Vale Bookkeeping</span></div></main>`,
+            }
+          : null;
+    const end = await runAlignableDaily('members', dailyJob());
+    expect(world.opened).toEqual([MINE, `${GROUPS[0]!.url}/members`]);
+    const [saved] = inputsOf('hfos-save-group');
+    expect(saved).toMatchObject({
+      platform: 'alignable',
+      group: { url: GROUPS[0]!.url },
+      joined: true,
+      adminsPage: true,
+    });
+    expect(
+      (saved!['people'] as { name: string; runsGroup: boolean }[]).map((p) => [
+        p.name,
+        p.runsGroup,
+      ]),
+    ).toEqual([
+      ['Riley Stone', true],
+      ['Jamie Pine', false],
+      ['Morgan Vale', false],
+    ]);
+    // Its leaders are never sent as found: they stay partner leads.
+    const [found] = inputsOf('hfos-finds-save');
+    expect(found).toMatchObject({
+      platform: 'alignable',
+      how: 'member',
+      group: { url: GROUPS[0]!.url },
+      people: [
+        { name: 'Jamie Pine', place: 'Boise, ID' },
+        { name: 'Morgan Vale', place: null },
+      ],
+    });
+    expect((found!['people'] as unknown[]).length).toBe(2);
+    expect(end).toEqual({
+      line: 'Saved 3 businesses from 1 Alignable group, 2 new to check. Group leaders are kept as partner leads, never reached.',
+      warned: false,
+    });
+  });
+
+  it('reads the posts of their groups other than their town’s, each saved with its group', async () => {
+    world.hfos['hfos-groups'] = (ask) =>
+      (ask['input'] as { view: string }).view === 'work'
+        ? { groups: [workGroup(TOWN_GROUP), workGroup(GROUPS[0]!)] }
+        : { groups: [] };
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    // A post of their own in the group: never sent.
+    const own = post({
+      id: 94,
+      by: '/austin-tx/acme-roofing',
+      name: 'Casey Owner',
+      words: 'We’re booking roof checks before the storms.',
+    });
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url === GROUPS[0]!.url
+          ? { html: groupHtml('joined').replace('<aside>', `<section>${own}</section><aside>`) }
+          : null;
+    const end = await runAlignableDaily('group_posts', dailyJob());
+    // Never their town's group: its posts are Find posts in your town's.
+    expect(world.opened).toEqual([MINE, GROUPS[0]!.url]);
+    expect(inputsOf('hfos-save-posts')).toMatchObject([
+      {
+        platform: 'alignable',
+        group: { url: GROUPS[0]!.url },
+        posts: [
+          { url: `${AL}/biz/discussions/93`, text: 'Who else is busy with gutters this fall?' },
+        ],
+      },
+    ]);
+    expect(end).toEqual({
+      line: 'Read 2 posts in 1 Alignable group: 1 post sent for the AI to check. The good ones go on your list for today.',
+      warned: false,
+    });
+  });
+});
+
+/** A post's own page, wherever Alignable opens it: their post, its own reply form at the top, and an answer's own. */
+const DISCUSSION = `${AL}/biz/discussions/93`;
+const discussionHtml = (o: { by?: string; name?: string; top?: boolean } = {}) => `<main><section>
+  ${post({ id: 93, by: o.by, name: o.name, when: '4h', words: 'Who has tips for a water heater that keeps tripping?' })}
+  ${o.top === false ? '' : '<form data-testid="discussion-comment-reply-form" id="top"><textarea placeholder="Write a comment"></textarea><button>Send</button></form>'}
+  <div data-testid="discussion-comment"><a href="/salem-or/park-florist?user=4">Lee Park</a><span>1h</span>
+    <div data-testid="discussion-comment-body">Check the breaker first.</div><button>Reply</button>
+    <form data-testid="discussion-comment-reply-form" id="under"><textarea placeholder="Write a reply"></textarea>
+      <button>Send</button></form></div>
+</section></main>`;
+const discussionAt = (html: string) => ({ html, at: `${AL}/groups/austin-tx/water-heater-tips` });
+
+describe('a business found by topic on Alignable', () => {
+  const HANA = `${AL}/austin-tx/hill-homes`;
+  const hanaHtml = (asked = false) =>
+    businessHtml({ id: '4242', asked }).replace(/Dana Reyes/g, 'Hana Hill');
+
+  it('with no posts, is looked at for the AI’s check, warmed up by the look alone, then connected', async () => {
+    let asked = false;
+    world.pages = (url) => (url === HANA ? { html: hanaHtml(asked) } : null);
+    world.behave = (doc) =>
+      doc.querySelector('#connect')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        asked = true;
+      });
+    world.hfos['hfos-finds-next'] = () => ({
+      people: [
+        {
+          profileId: PROFILE_ID,
+          name: 'Hana Hill',
+          url: HANA,
+          how: 'searched',
+          words: 'real estate agent',
+          postUrl: null,
+        },
+      ],
+      today: 0,
+      perDay: 30,
+    });
+    world.hfos['hfos-check-look'] = () => ({});
+    expect(await runAlignableDaily('found_checks', dailyJob())).toEqual({
+      line: 'Done. Checked 1 person found by topic for the AI. The good fits come onto Today once it has read them.',
+      warned: false,
+    });
+    expect(inputsOf('hfos-check-look')).toMatchObject([
+      {
+        profileId: PROFILE_ID,
+        missing: false,
+        lines: expect.arrayContaining(['About Us: Family plumbers in Austin since 1990.']),
+      },
+    ]);
+    const hana = { name: 'Hana Hill', profileUrl: HANA };
+    expect(
+      await doWork({ do: 'step', item: item({ kind: 'warm_up', ...hana }) }, ME.businessId, false),
+    ).toEqual({
+      done: true,
+      line: 'Looked at Hana Hill’s business page, with no recent post of theirs to like: the look is the warm-up, so the connection request can go next',
+    });
+    expect(
+      await doWork(
+        { do: 'step', item: item({ kind: 'friend_request', ...hana }) },
+        ME.businessId,
+        false,
+      ),
+    ).toEqual({ done: true, line: 'Sent Hana Hill a connection request' });
+    expect(world.opened).toEqual([HANA, HANA, HANA, HANA]);
+    expect(notedAs()).toEqual([
+      { kind: 'friend_request', auto: true, postUrl: null, id: '4242', platform: 'alignable' },
+    ]);
+  });
+});
+
+describe('a warm-up for the writer of a post found on Alignable', () => {
+  // Found by their post, by their business's address in its town.
+  const found = item({ kind: 'warm_up', profileUrl: DANA_PAGE, postUrl: DISCUSSION });
+  const liking = (pressed: string[]) => (doc: Document) => {
+    for (const like of doc.querySelectorAll('[data-like]'))
+      like.addEventListener('click', (event) => {
+        event.preventDefault();
+        pressed.push(like.getAttribute('data-like')!);
+        like.querySelector('div')!.textContent = 'Liked';
+      });
+  };
+
+  it('likes the post they were found by, on its own page', async () => {
+    world.pages = (url) => (url === DISCUSSION ? discussionAt(discussionHtml()) : null);
+    const pressed: string[] = [];
+    world.behave = liking(pressed);
+    expect(await doWork({ do: 'step', item: found }, ME.businessId, false)).toEqual({
+      done: true,
+      line: 'Liked Dana Reyes’s post that was found for you: the connection request comes tomorrow',
+    });
+    expect(world.opened).toEqual([DISCUSSION]);
+    expect(pressed).toEqual(['93']);
+    expect(notedAs()).toEqual([
+      { kind: 'like', auto: true, postUrl: DISCUSSION, id: null, platform: 'alignable' },
+    ]);
+    expect(missedPosted()).toEqual([]);
+  });
+
+  it('falls back to their business page’s warm-up when the post there isn’t theirs', async () => {
+    world.pages = (url) =>
+      url === DISCUSSION
+        ? discussionAt(discussionHtml({ by: '/austin-tx/best-bakery', name: 'Sam Lee' }))
+        : url === DANA_PAGE
+          ? { html: businessHtml({ posts: post({ id: 91 }) }) }
+          : null;
+    const pressed: string[] = [];
+    world.behave = liking(pressed);
+    expect(await doWork({ do: 'step', item: found }, ME.businessId, false)).toEqual({
+      done: true,
+      line: 'Looked at Dana Reyes’s business page and liked a post of theirs: the connection request comes tomorrow',
+    });
+    expect(world.opened).toEqual([DISCUSSION, DANA_PAGE]);
+    // Never the other business's post.
+    expect(pressed).toEqual(['91']);
+  });
+});
+
+describe('a comment on a good post on Alignable', () => {
+  const SEND_ID = '6f708192-a3b4-4c5d-8e6f-708192a3b4c5';
+  const comment = (state: 'waiting' | 'approved' | null) =>
+    item({
+      kind: 'comment',
+      profileUrl: DANA_PAGE,
+      postId: 'post-93',
+      postUrl: DISCUSSION,
+      post: 'Who has tips for a water heater that keeps tripping?',
+      send: state
+        ? {
+            sendId: SEND_ID,
+            state,
+            text: 'Check the reset button on the thermostat first.',
+            handedOver: false,
+            needsYou: null,
+          }
+        : null,
+    } as Partial<TodayListItem>);
+  const list = (state: 'waiting' | 'approved' | null) =>
+    ({
+      items: [comment(state)],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['comment'],
+      sending: 'steps',
+    }) as never;
+  /** Each form's Send empties its box, as Alignable's does once a comment went. */
+  const sending = (sent: string[]) => (doc: Document) => {
+    for (const form of doc.querySelectorAll('form'))
+      form.querySelector('button')!.addEventListener('click', () => {
+        const box = form.querySelector('textarea')!;
+        sent.push(`${form.id}: ${box.value}`);
+        box.value = '';
+      });
+  };
+
+  it('is drafted, waits for the person’s OK, then goes in the post’s own reply form', async () => {
+    expect(alignableWorkLeft(list(null), []).map((w) => w.do)).toEqual(['draft']);
+    world.hfos['hfos-draft'] = () => ({
+      drafts: ['Check the reset button on the thermostat first.'],
+    });
+    world.answers['/v1/commands/outreach.send.queue'] = () => ({
+      sendId: SEND_ID,
+      state: 'waiting',
+    });
+    expect(await doWork({ do: 'draft', item: comment(null) }, ME.businessId, false)).toEqual({
+      done: true,
+      line: 'Wrote a comment on Dana Reyes’s post: it waits for your OK',
+    });
+    // Waiting for their OK: nothing to do.
+    expect(alignableWorkLeft(list('waiting'), [])).toEqual([]);
+    // Once OK'd, it goes.
+    expect(alignableWorkLeft(list('approved'), []).map((w) => w.do)).toEqual(['send']);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({});
+    world.pages = (url) => (url === DISCUSSION ? discussionAt(discussionHtml()) : null);
+    const sent: string[] = [];
+    world.behave = sending(sent);
+    expect(await doWork({ do: 'send', item: comment('approved') }, ME.businessId, false)).toEqual({
+      done: true,
+      line: 'Commented on Dana Reyes’s post',
+    });
+    expect(sent).toEqual(['top: Check the reset button on the thermostat first.']);
+    expect(notedAs()).toEqual([
+      { kind: 'comment', auto: true, postUrl: DISCUSSION, id: null, platform: 'alignable' },
+    ]);
+    expect(
+      world.posted.filter((p) => p.path === '/v1/commands/outreach.send.done').map((p) => p.body),
+    ).toEqual([{ workspaceId: ME.businessId, sendId: SEND_ID, sent: true, why: null }]);
+  });
+
+  it('is never written in a reply box under an answer, and HandsFreeOS hears it didn’t go', async () => {
+    world.answers['/v1/commands/outreach.send.done'] = () => ({});
+    world.pages = (url) =>
+      url === DISCUSSION ? discussionAt(discussionHtml({ top: false })) : null;
+    const sent: string[] = [];
+    world.behave = sending(sent);
+    expect(await doWork({ do: 'send', item: comment('approved') }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes’s post: couldn’t find the post’s own box to comment in',
+    });
+    expect(sent).toEqual([]);
+    expect(world.noted).toEqual([]);
+    expect(
+      world.posted.filter((p) => p.path === '/v1/commands/outreach.send.done').map((p) => p.body),
+    ).toEqual([
+      {
+        workspaceId: ME.businessId,
+        sendId: SEND_ID,
+        sent: false,
+        why: 'couldn’t find the post’s own box to comment in',
+      },
+    ]);
   });
 });
 

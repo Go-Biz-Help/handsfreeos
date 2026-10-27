@@ -124,6 +124,19 @@ export type HelpfulEngaged = Ok<'/v1/commands/outreach.helpful.engaged'>;
 export type NetworkEngagedInput = Body<'/v1/commands/outreach.engaged.save'>;
 export type NetworkEngaged = Ok<'/v1/commands/outreach.engaged.save'>;
 export type PostWords = Ok<'/v1/queries/outreach.posts.words'>;
+/**
+ * People found by topic on Instagram, LinkedIn and Alignable (decision 92, packages/core/src/addons/outreach/finds.ts):
+ * the good posts whose likers and commenters to read next, who a post's people, a search or a group showed, who to check
+ * next for the AI's found check, and today's searches of Alignable's businesses.
+ */
+export type PostsPeopleNextInput = Body<'/v1/queries/outreach.posts.people_next'>;
+export type PostsPeopleNext = Ok<'/v1/queries/outreach.posts.people_next'>;
+export type FindsSaveInput = Body<'/v1/commands/outreach.finds.save'>;
+export type FindsSaved = Ok<'/v1/commands/outreach.finds.save'>;
+export type FindsNextInput = Body<'/v1/queries/outreach.finds.next'>;
+export type FindsNext = Ok<'/v1/queries/outreach.finds.next'>;
+export type FindsSearchesInput = Body<'/v1/queries/outreach.finds.searches'>;
+export type FindsSearches = Ok<'/v1/queries/outreach.finds.searches'>;
 export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -300,6 +313,18 @@ export type HfosAsk =
   /** Today's searches for partners on a network, and who one found (stage 4 of the partners plan). */
   | { readonly type: 'hfos-partner-searches'; readonly input: PartnerSearchesInput }
   | { readonly type: 'hfos-partner-leads'; readonly input: PartnerLeadsInput }
+  /**
+   * People found by topic (decision 92): which good posts' likers and commenters to read next, who a post's people, a
+   * search or a group's members showed, who to check next for the AI, and today's searches of Alignable's businesses.
+   */
+  | { readonly type: 'hfos-posts-people-next'; readonly input: PostsPeopleNextInput }
+  | { readonly type: 'hfos-finds-save'; readonly input: FindsSaveInput }
+  | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
+  | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
+  /**
+   * Groups to check and to join, and how one went: Facebook's unless the input says its network (`platform`), as
+   * Alignable's groups do (decision 92).
+   */
   | { readonly type: 'hfos-groups-to-check'; readonly input: GroupsToCheckInput }
   | { readonly type: 'hfos-group-look'; readonly input: GroupLookInput }
   | { readonly type: 'hfos-joins-next'; readonly input: JoinsNextInput }
@@ -365,6 +390,10 @@ export interface HfosValues {
   readonly 'hfos-partner-look': PartnerLooked;
   readonly 'hfos-partner-searches': PartnerSearches;
   readonly 'hfos-partner-leads': PartnerLeadsKept;
+  readonly 'hfos-posts-people-next': PostsPeopleNext;
+  readonly 'hfos-finds-save': FindsSaved;
+  readonly 'hfos-finds-next': FindsNext;
+  readonly 'hfos-finds-searches': FindsSearches;
   readonly 'hfos-groups-to-check': GroupsToCheck;
   readonly 'hfos-group-look': GroupLooked;
   readonly 'hfos-joins-next': JoinsNext;

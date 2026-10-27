@@ -11,12 +11,16 @@
  * - **Message** under their name, which opens a chat with them: over the page, or on its own page.
  * - **A message** in their chat: typed only into its own box (Message), on its page with them or over their account,
  *   while the box is empty, and sent with the box's own Send. It went once the box empties.
+ * - **A comment** on a good post of theirs (decision 92, from 0.95.0), once the person OK'd it or the comment hold is
+ *   past: only on that post's own page, whose own link names them; only in the post's own box (never one drawn to
+ *   reply under someone's comment), only while it's empty, typed as a person types, and sent with that box's own
+ *   form's Post. It went once the box empties.
  *
- * Nothing else is pressed, and nothing is written anywhere else: never a comment, which stays the person's to post
- * (the plan's "Anything public … waits for an OK"). Like the readers, it goes by Instagram's own words, labels, roles
- * and link addresses, never class names.
+ * Nothing else is pressed, and nothing is written anywhere else. Like the readers, it goes by Instagram's own words,
+ * labels, roles and link addresses, never class names.
  */
 import type { AutoResult, TheirPost } from '../facebook/auto';
+import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { ProfileRef } from '../facebook/types';
 import {
@@ -26,10 +30,20 @@ import {
   nameOf,
   pause,
   waitFor,
+  writeIn,
   writingIn,
 } from '../looking/looks';
+import type { CommentOn } from '../looking/site';
 import { authorOf, chatOn, linksIn, ownOf, postRootOf, profileOn, says } from './read';
-import { instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
+import {
+  instagramUrl,
+  isCommentLink,
+  kindOf,
+  partsOf,
+  postAuthorOf,
+  postOf,
+  profileOf,
+} from './urls';
 
 const FOLLOW = /^(follow|follow back)$/i;
 const FOLLOWED = /^(following|requested)$/i;
@@ -39,6 +53,9 @@ const COMMENT = /^comment$/i;
 const REPLY = /^reply$/i;
 const MESSAGE = /^message$/i;
 const SEND = /^send$/i;
+/** A post's own box to comment in, as its label says, and its form's Post. */
+const COMMENT_BOX = /^add a comment/i;
+const POST = /^post$/i;
 /** A chat's box to write in, as its label says. */
 const CHAT_BOX = /^(message|write a message)/i;
 /** How long a like, a follow and a message are waited on to show they went. */
@@ -314,4 +331,114 @@ export async function writeMessage(
   }
   send.click();
   return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
+}
+
+// ------------------------------------------------------------------------------------------------ comments
+
+/** Who a post's own link names (/<name>/p/<code>/): never the account beside it, which may be someone it tags. */
+function namedByItsLink(root: Element, href: string, code: string): string | null {
+  for (const { url } of linksIn(root, href)) {
+    const name = postAuthorOf(url);
+    if (name && partsOf(url)[2] === code) return name;
+  }
+  return null;
+}
+
+/**
+ * Whether a box sits among the post's comments, drawn to reply under one: the nearest part around it that holds a
+ * comment (its own link, or its Reply) doesn't hold the post's own Like too, as the part around the post's own box
+ * does.
+ */
+function amongComments(box: Element, root: Element, href: string): boolean {
+  for (let up = box.parentElement; up; up = up.parentElement) {
+    const comment = linksIn(up, href).some(({ url }) => isCommentLink(url)) || says(up, REPLY);
+    if (comment) return postLikeOf(up) === null;
+    if (up === root) break;
+  }
+  return false;
+}
+
+/**
+ * The post's own box to comment in, on its page: the one box saying "Add a comment…" in the post's part of the page,
+ * never one among its comments. Null with none, or with more than one, as which is the post's can't be told.
+ */
+export function postCommentBoxOf(doc: Document, href: string): HTMLElement | null {
+  const root = postRootOf(doc);
+  const boxes = boxesSaying(root, COMMENT_BOX).filter((box) => !amongComments(box, root, href));
+  return boxes.length === 1 ? boxes[0]! : null;
+}
+
+/** The box's own form's Post, while it's on: in its form, else the nearest part around it that holds one. */
+function postFor(box: Element): HTMLElement | null {
+  const form = box.closest('form');
+  if (form) return controlsSaying(form, POST)[0] ?? null;
+  for (let up = box.parentElement, n = 0; up && n < 3; up = up.parentElement, n++) {
+    const post = controlsSaying(up, POST);
+    if (post.length) return post.length === 1 ? post[0]! : null;
+  }
+  return null;
+}
+
+/** What's written in a box, as one line: a plain box's value, or the words in one drawn to write in. */
+const writtenIn = (box: Element): string =>
+  clean('value' in box && typeof box.value === 'string' ? box.value : box.textContent);
+
+/**
+ * Comments on their post and posts it (decision 92), once the person OK'd it or the comment hold is past: only on the
+ * post asked for, on its own page, when its own link names them (`on`); only in the post's own box, never one among its
+ * comments, and only while that box is empty; typed as a person types (`writeIn`), then sent with that box's own Post.
+ * `done` once the box empties; `none` with no such page or box, or no Post by it (what was typed is taken out again);
+ * `not_sent` when the box had writing in it already, what was typed didn't take, or Instagram didn't take it.
+ */
+export async function writeTheirComment(
+  doc: Document,
+  href: string,
+  on: CommentOn,
+  text: string,
+): Promise<AutoResult> {
+  const page = instagramUrl(href);
+  const url = page && kindOf(page) === 'post' ? postOf(page) : null;
+  const asked = instagramUrl(on.postUrl);
+  if (!url || !asked || postOf(asked) !== url || !text.trim()) return 'none';
+  const code = partsOf(new URL(url))[1]!;
+  if (!isThem(namedByItsLink(postRootOf(doc), href, code), on.profile)) return 'none';
+  // Instagram draws the form again once its box has the focus (Post shows), so the box is found again each look.
+  const now = () => postCommentBoxOf(doc, href);
+  const box = await waitFor(now, WENT_MS);
+  if (!box) return 'none';
+  // Something written there already is the person's: left alone.
+  if (writingIn(box)) return 'not_sent';
+  box.focus();
+  box.click();
+  await pause(400);
+  const live = now();
+  if (!live) return 'none';
+  if (writingIn(live)) return 'not_sent';
+  writeIn(doc, live, text);
+  const typed = await waitFor(() => {
+    const b = now();
+    return b && writtenIn(b) === clean(text) ? b : null;
+  }, 1_500);
+  const takeOut = () => {
+    const b = now();
+    if (b && writingIn(b)) writeIn(doc, b, '');
+  };
+  if (!typed) {
+    takeOut();
+    return 'not_sent';
+  }
+  const post = await waitFor(() => {
+    const b = now();
+    return b ? postFor(b) : null;
+  }, 3_000);
+  if (!post) {
+    takeOut();
+    return 'none';
+  }
+  post.click();
+  const went = await waitFor(() => {
+    const b = now();
+    return b && !writingIn(b) ? true : null;
+  }, SENT_MS);
+  return went ? 'done' : 'not_sent';
 }

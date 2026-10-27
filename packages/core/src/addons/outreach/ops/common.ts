@@ -24,7 +24,7 @@ import { outreachSettings, type OutreachSettings } from '../chat-read';
 import { countryRuleOn, linesCountry, type CountryHow, type CountryRule } from '../countries';
 import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
-import type { MessageKind } from '../automation';
+import type { SendKind } from '../automation';
 import { outreachAddon } from '../manifest';
 import { profileMisfit } from '../networks';
 import type { ClientStanding } from '../person-menu';
@@ -279,13 +279,15 @@ export const clientCauseOf = (
   from app.people ccp where ccp.id = ${sql.raw(p)}.person_id)`;
 
 /**
- * Skips the messages waiting for an OK, or OK'd and not sent, to some profiles, anyone's: of `kinds`, or every kind.
- * Each skipped tells (`outreach.send.skipped`), so Waiting for you and the phone's copy let it go. How many.
+ * Skips the messages waiting for an OK, or OK'd and not sent, to some profiles, anyone's: of `kinds`, or every kind,
+ * a comment on their post among them (Never contact). Each skipped tells (`outreach.send.skipped`), so Waiting for you
+ * and the phone's copy let it go. How many. A comment skipped here was never the person's skip of the post: its post
+ * stays as it was (decision 92's 16 is the person's own Skip).
  */
 export async function skipOutreachTo(
   ctx: CommandContext,
   profileIds: readonly string[],
-  kinds?: readonly MessageKind[],
+  kinds?: readonly SendKind[],
 ): Promise<number> {
   if (!profileIds.length || kinds?.length === 0) return 0;
   const at = changeMoment(ctx.meta);

@@ -8,12 +8,18 @@ import { networkOfWaiting } from '../../src/addons/outreach/network-words';
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import {
   approveAllCount,
+  approveAllTakesComments,
   approveAllWords,
   badgeText,
   bundleAt,
   bundleDue,
   bundlePushWords,
+  commentHoldShown,
+  commentTitle,
   eachPushWords,
+  forumAnswer,
+  forumAnswersLeftWords,
+  messagesTitle,
   messengerChatUrl,
   moreWords,
   needClearedWords,
@@ -315,5 +321,56 @@ describe('the words', () => {
     expect(oneByOneWords({ handedOver: false, needsYou: null })).toBeNull();
     expect(approveAllWords(1)).toBe('Approve all 1 message');
     expect(approveAllWords(5)).toBe('Approve all 5 messages');
+  });
+
+  it('say a comment waiting by its post, and take comments into Approve all (decision 92)', () => {
+    expect(eachPushWords('comment', 'Quinn Harper')).toEqual({
+      title: 'A comment on Quinn Harper’s post waits for your OK',
+      body: 'OK it, change it or skip it on Today.',
+    });
+    expect(commentTitle('Dana Reyes')).toBe('Comment on Dana Reyes’s post');
+    expect(messagesTitle(false)).toBe('Messages to OK');
+    expect(messagesTitle(true)).toBe('Messages and comments to OK');
+    expect(approveAllWords(5, true)).toBe('Approve all 5');
+    // An Alignable answer to a post asking for what the business offers says why it waits on its own.
+    expect(
+      oneByOneWords({ handedOver: false, needsYou: 'a forum answer always waits for your OK' }),
+    ).toBe('It waits for you on its own: a forum answer always waits for your OK.');
+    // Approve all leaves forum answers, and says why beside it.
+    expect(
+      forumAnswer({ kind: 'comment', needsYou: 'a forum answer always waits for your OK' }),
+    ).toBe(true);
+    expect(forumAnswer({ kind: 'comment', needsYou: null })).toBe(false);
+    expect(forumAnswer({ kind: 'reply', needsYou: 'they sound upset' })).toBe(false);
+    expect(forumAnswersLeftWords(1)).toBe(
+      'Approve all leaves the forum answer: an answer to a post asking for what you offer always waits for an OK of its own.',
+    );
+    expect(forumAnswersLeftWords(2)).toMatch(/^Approve all leaves the 2 forum answers: /);
+  });
+
+  it('say comments go with Approve all, and the comments’ hold, only for comments it takes (decision 92)', () => {
+    const message = { kind: 'message', handedOver: false, needsYou: null, profileUrl: null };
+    const comment = {
+      kind: 'comment',
+      handedOver: false,
+      needsYou: null,
+      profileUrl: 'https://www.instagram.com/avery.cole.bakes/',
+    };
+    const answer = {
+      kind: 'comment',
+      handedOver: false,
+      needsYou: 'a forum answer always waits for your OK',
+      profileUrl: 'https://www.alignable.com/austin-tx/pike-roofing',
+    };
+    expect(approveAllTakesComments([message, comment])).toBe(true);
+    // A forum answer waits for an OK of its own: Approve all says messages alone.
+    expect(approveAllTakesComments([message, answer])).toBe(false);
+    // The hold's note goes by each comment's own network, never by a forum answer.
+    expect(commentHoldShown([comment], ['instagram'])).toBe(true);
+    expect(commentHoldShown([comment], ['alignable'])).toBe(false);
+    expect(commentHoldShown([answer], ['alignable'])).toBe(false);
+    expect(commentHoldShown([message], ['instagram', 'alignable'])).toBe(false);
+    // From a server before it said which: never.
+    expect(commentHoldShown([comment], undefined)).toBe(false);
   });
 });

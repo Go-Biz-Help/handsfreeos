@@ -59,7 +59,7 @@ import {
   type Profile,
   type ProfileKey,
 } from './common';
-import { checksSummary } from './checks';
+import { checksSummary, knownCheck } from './checks';
 import { clearNeeds, doneNeeds } from './needs';
 
 /** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
@@ -597,12 +597,14 @@ export const friendsList = defineAddonQuery(outreachAddon, {
     // One network's people, counts too, when asked: every network's otherwise.
     const onNetwork = input.platform ? sql`p.platform = ${input.platform}` : sql`true`;
 
+    // Checks of people the person knows, decided now (decision 92): someone found by topic shows once they're a
+    // friend or have chatted, never before.
     const [fits] = await rows<{ fits: number }>(
       ctx.tx,
       sql`select count(*)::int as fits from addon_outreach.checks ch
           join addon_outreach.profiles p on p.id = ch.profile_id
           where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
-            and ${pitchable('p')} and ${lets('p')} and ${onNetwork}`,
+            and ${knownCheck(me)} and ${pitchable('p')} and ${lets('p')} and ${onNetwork}`,
     );
     const [mine] = await rows<{ friends: number; requests: number; sent: number; keep: number }>(
       ctx.tx,
@@ -632,7 +634,7 @@ export const friendsList = defineAddonQuery(outreachAddon, {
         ch.next_step as check_next_step, ch.checked_at, p.country, p.country_through
       from addon_outreach.profiles p
       left join addon_outreach.friends f on f.profile_id = p.id and f.user_id = ${me}
-      left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+      left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me} and ${knownCheck(me)}
       left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
       left join app.people pp on pp.id = p.person_id
       left join app.users u on u.id = p.dont_pitch_by

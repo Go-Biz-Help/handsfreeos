@@ -132,7 +132,16 @@ describe('a report of a page with more found than core keeps', () => {
       /^(business([A-Z].*)?|chat|answerBox|codeBox|warnings|notes)$/.test(key),
     ),
   );
-  const empties = ['places', 'edits', 'businesses', 'engaged', 'requests', 'chats'];
+  const empties = [
+    'places',
+    'edits',
+    'businesses',
+    'engaged',
+    'requests',
+    'chats',
+    'groups',
+    'members',
+  ];
 
   it('is more than a report keeps, as the readers found it', () => {
     expect(Object.keys(page).length).toBeGreaterThan(PROBLEM_FOUND_MOST);

@@ -78,6 +78,7 @@ const TRYING: Readonly<Record<TryStep, string>> = {
   recommend: 'recommending',
   pitch: 'your elevator pitch',
   ideal: 'your ideal customer',
+  reactors: 'who liked a post',
 };
 
 /**

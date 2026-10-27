@@ -4,7 +4,9 @@
  * reads its pages and looks for Follow, Message, Like, the box to comment in and the bio's box, pressing none of them.
  * From the plan's part 10 its own readers read its pages (./read.ts), from part 11 the person's own steps there are
  * noted (./actions.ts), from part 12 it works in the app, and from part 14 its runner presses a few of its buttons on
- * its own once the person lets it (./auto.ts). Instagram's terms forbid automated collection and it blocks fast
+ * its own once the person lets it (./auto.ts); from 0.95.0 (decision 92) it reads who liked and commented on good posts
+ * (a post's Likes box opened and closed again), and posts a comment the person OK'd, only in the post's own box.
+ * Instagram's terms forbid automated collection and it blocks fast
  * ("Action blocked"), so the extension reads only what the person asks or lets it, at a person's pace, and stops on
  * any warning there.
  *
@@ -16,7 +18,6 @@
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
-import { typeInto } from '../facebook/join';
 import { outlineNow } from '../looking/read';
 import {
   boxesSaying,
@@ -26,15 +27,30 @@ import {
   namesIn,
   pause,
   waitFor,
+  writeIn,
   writingIn,
 } from '../looking/looks';
 import type { LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { instagramNoticer } from './actions';
-import { followThem, likeTheirPost, openTheirChat, theirPosts, writeMessage } from './auto';
+import {
+  followThem,
+  likeTheirPost,
+  openTheirChat,
+  theirPosts,
+  writeMessage,
+  writeTheirComment,
+} from './auto';
 import { bioBoxOf, readOwnProfile, submitsOf, writeBio, writeBioSteps } from './own-profile';
-import { readInstagram } from './read';
-import { openChat, openFollowers, scrollList } from './browse';
+import { likersBox, likersOn, readInstagram } from './read';
+import {
+  closeDialog,
+  moreComments,
+  openChat,
+  openFollowers,
+  openLikers,
+  scrollList,
+} from './browse';
 import { readReplies } from './replies';
 import { unfollow } from './unfollow';
 import { HOST, instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
@@ -114,6 +130,9 @@ const WORDS = new Set(
     'others',
     'and',
     'View all comments',
+    'Load more comments',
+    'View more comments',
+    'Likes',
     'View replies',
     'Hide replies',
     'Reply',
@@ -270,24 +289,6 @@ const headerOf = (doc: Document): ParentNode => mainOf(doc).querySelector('heade
 /** The boxes to write a message in, anywhere on the page: a chat opened over it, or the chat's own page. */
 const chatBoxes = (doc: Document): HTMLElement[] => boxesSaying(doc, CHAT_BOX);
 
-/**
- * Writes in a box as typing does (Chrome's own insertText, whose events the page takes as a person's), or empties it;
- * a plain box's value set by hand only where that can't be done. From the owner's third Check (0.60.0): a value set by
- * hand showed Post but didn't stay in Instagram's box. Typing goes where the focus is, so it's never done unless the box
- * has it.
- */
-function writeIn(doc: Document, box: HTMLElement, text: string): void {
-  box.focus();
-  const focused = doc.activeElement === box;
-  if (focused && box instanceof doc.defaultView!.HTMLTextAreaElement) box.select();
-  else if (focused && typeof doc.execCommand === 'function') doc.execCommand('selectAll');
-  const typed =
-    focused &&
-    typeof doc.execCommand === 'function' &&
-    (text ? doc.execCommand('insertText', false, text) : doc.execCommand('delete'));
-  if (!typed) typeInto(doc, box, text, true);
-}
-
 /** Whether a box is there with something written in it. */
 const written = (box: Element | null): boolean => box !== null && writingIn(box);
 
@@ -322,17 +323,24 @@ export const INSTAGRAM: LookingSite = {
     scroll: (doc, href) => scrollList(doc, href),
     showAll: (doc, href) => openFollowers(doc, href),
     openChat: (doc, _href, name) => openChat(doc, name),
+    // A good post's people (decision 92, 0.95.0): its Likes box opened by its count of likes and closed again by its
+    // own Close, scrolled as any box over the page is, and its View all comments pressed once.
+    openLikers: (doc, href) => openLikers(doc, href),
+    moreComments: (doc, href) => moreComments(doc, href),
+    closeDialog: (doc, href) => closeDialog(doc, href),
   },
   // Who wrote back in their chats (part 13), as the person goes and as Read my chats goes.
   replies: readReplies,
   // What its runner presses on its own (part 14), each only on its own page: a like on a post of theirs, Follow and
-  // Message under their name, and a message in their chat (./auto.ts). Never a comment.
+  // Message under their name, and a message in their chat (./auto.ts). From 0.95.0 (decision 92) a comment the person
+  // OK'd, or past the comment hold, on a good post of theirs: only on that post's page, in its own box.
   auto: {
     theirPosts,
     like: likeTheirPost,
     connect: followThem,
     openMessage: openTheirChat,
     message: writeMessage,
+    comment: (doc, href, text, on) => writeTheirComment(doc, href, on, text),
   },
   host: HOST,
   url: instagramUrl,
@@ -458,6 +466,44 @@ export const INSTAGRAM: LookingSite = {
           },
           [],
         );
+      },
+    },
+    // On a post's own page (decision 92): its Likes box, opened by its count of likes as a person opens it, its rows
+    // counted and the page outlined while it's open, then closed again by its own Close. Nothing in it is pressed.
+    reactors: {
+      on: ['post'],
+      look: async (doc, href) => {
+        const at = () => doc.defaultView?.location.href ?? href;
+        if (!openLikers(doc, href))
+          return {
+            ...untried('reactors', 'no count of likes on the post to open its Likes box with', {
+              likes: false,
+            }),
+            seen: namesIn(mainOf(doc), INSTAGRAM),
+          };
+        const box = await waitFor(() => likersBox(doc, at()), 6_000);
+        const rows = box
+          ? ((await waitFor(() => {
+              const read = likersOn(doc, at());
+              return read.length ? read : null;
+            }, 4_000)) ?? [])
+          : [];
+        const outline = outlineNow(doc, INSTAGRAM);
+        const closed = box ? await closeDialog(doc, at()) : true;
+        const missing = missingOf([
+          !box && 'pressing its count of likes opened no Likes box',
+          box && !rows.length && 'nobody read in the Likes box',
+          !closed && 'the Likes box didn’t close again',
+        ]);
+        return {
+          ...went(
+            'reactors',
+            { likes: true, box: box !== null, rows: rows.length, closed },
+            missing,
+            missing.length ? namesIn(box ?? mainOf(doc), INSTAGRAM) : [],
+          ),
+          outline,
+        };
       },
     },
     // On a post's own page: its box to comment in, and its Post, which Instagram shows only once something's written:

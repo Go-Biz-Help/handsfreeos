@@ -48,6 +48,7 @@ import {
   checkedDrafts,
   draftOfferOf,
   DRAFTS_FOR,
+  fitsComment,
   fitsRequests,
   isPartnerKind,
   TODAY_DRAFT_SCHEMA,
@@ -385,8 +386,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         DRAFTS_FOR[kind],
         found.voice.split && kind !== 'comment' && kind !== 'warm_lead' && !toRequests,
       );
-      // To their Requests: only one short text with no link goes.
-      const drafts = toRequests && kind === 'opener' ? checked.filter(fitsRequests) : checked;
+      // To their Requests: only one short text with no link goes. A comment that waits to be posted (Instagram's and
+      // Alignable's, decision 92) never carries a link, and on Instagram no hashtag, within its 30 words.
+      const drafts =
+        toRequests && kind === 'opener'
+          ? checked.filter(fitsRequests)
+          : kind === 'comment'
+            ? checked.filter((d) => fitsComment(d, platform))
+            : checked;
       // The link always goes with the link and the video with the video (decisions 47 and 66): one the AI left out
       // goes on the end.
       const must = kind === 'pitch' ? link : kind === 'video' ? videoLink : null;
