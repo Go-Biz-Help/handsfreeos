@@ -1,7 +1,8 @@
 /**
  * Check LinkedIn's tries (src/networks/linkedin/tries.ts; docs/outreach.md, decision 76), on hand-written pages of
  * made-up people, as LinkedIn behaves when a control is pressed: each step taken up to its last press, what it found
- * said, and nothing ever saved, posted, liked, sent, connected or withdrawn.
+ * said, and nothing ever saved, posted, liked, sent, connected or withdrawn. From decision 92, Like on someone else's
+ * post on its own page, and the box of who reacted opened from its reactions count and closed again.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DATA_PAGE } from '../src/networks/linkedin/data';
@@ -14,6 +15,7 @@ import {
   tryMessage,
   tryMessagePage,
   tryPost,
+  tryReactors,
   tryWithdraw,
 } from '../src/networks/linkedin/tries';
 import type { ProfileRef } from '../src/networks/linkedin/types';
@@ -26,6 +28,13 @@ const ACTIVITY = `${DANA}recent-activity/all/`;
 const SENT = `${LI}/mynetwork/invitation-manager/sent/`;
 const POST = `${LI}/feed/update/urn:li:activity:7380000000000000101/`;
 const dana: ProfileRef = { id: null, username: 'dana-reyes-4b2a1c', url: DANA };
+/** Someone else's post on its own page, in LinkedIn's newer layout, and its writer. */
+const THEIR_POST = `${LI}/feed/update/urn:li:activity:7380000000000000777/`;
+const priya: ProfileRef = {
+  id: null,
+  username: 'priya-dalton-hvac',
+  url: `${LI}/in/priya-dalton-hvac/`,
+};
 
 const asWrittenAndBoxed = [
   ['as written', false],
@@ -458,6 +467,26 @@ describe('liking, withdrawing and the data file', () => {
   });
 
   it.each(asWrittenAndBoxed)(
+    'finds the post on its own page and its Like, never pressed, when it’s theirs, %s',
+    (_, boxed) => {
+      const doc = page('linkedin-post-2026-10.html', THEIR_POST, boxed);
+      const pressed = presses(doc);
+      expect(tryLike(doc, THEIR_POST, priya)).toEqual({
+        step: 'like',
+        tried: true,
+        works: true,
+        found: { posts: 1, liked: 0, like: true },
+        missing: [],
+      });
+      expect(tryLike(doc, THEIR_POST, dana)).toMatchObject({
+        tried: false,
+        missing: ['the post on its own page isn’t theirs'],
+      });
+      expect(pressed).toEqual([]);
+    },
+  );
+
+  it.each(asWrittenAndBoxed)(
     'finds each invitation you sent and its Withdraw, never pressed, %s',
     (_, boxed) => {
       const doc = page('linkedin-invitations-sent.html', SENT, boxed);
@@ -499,6 +528,78 @@ describe('liking, withdrawing and the data file', () => {
       works: false,
       found: { steps: 5, found: 4 },
       missing: ['nothing saying “Request archive”'],
+    });
+  });
+});
+
+describe('who reacted', () => {
+  /** The post's "55 reactions", a link in the newer layout. */
+  const countOf = (doc: Document) =>
+    [...doc.querySelectorAll('main a')].find((a) =>
+      /^55\s*reactions$/.test(a.textContent!.replace(/\s+/g, ' ').trim()),
+    )!;
+
+  /** The post as LinkedIn behaves: its count opens the box of who reacted, and Dismiss closes it unless `closes`. */
+  function theirPost(boxed: boolean, more: { opens?: boolean; closes?: boolean } = {}) {
+    const doc = page('linkedin-post-2026-10.html', THEIR_POST, boxed);
+    const pressed = presses(doc);
+    countOf(doc).addEventListener('click', (event) => {
+      event.preventDefault();
+      if (more.opens === false) return;
+      const box = copyIn(doc, 'linkedin-reactions-2026-10.html', '#modal-outlet', boxed);
+      if (more.closes !== false)
+        box.querySelector('[aria-label="Dismiss"]')!.addEventListener('click', () => box.remove());
+    });
+    return { doc, pressed };
+  }
+
+  it.each(asWrittenAndBoxed)(
+    'opens the box from the post’s reactions count, finds its rows, and closes it with Dismiss, %s',
+    async (_, boxed) => {
+      const { doc, pressed } = theirPost(boxed);
+      expect(await tryReactors(doc, THEIR_POST)).toEqual({
+        step: 'reactors',
+        tried: true,
+        works: true,
+        // Five rows: each says the line under their name, all but yours how far they are.
+        found: { count: true, box: true, rows: 5, degrees: 4, headlines: 5, closed: true },
+        missing: [],
+      });
+      expect(pressed.slice(1)).toEqual(['Dismiss']);
+      expect(doc.querySelector('[role="dialog"]')).toBeNull();
+    },
+  );
+
+  it('says so when the post shows no reactions count to open', async () => {
+    const { doc, pressed } = theirPost(false);
+    countOf(doc).remove();
+    expect(await tryReactors(doc, THEIR_POST)).toMatchObject({
+      tried: true,
+      works: false,
+      found: { count: false },
+      missing: ['no reactions count on the post to open who reacted'],
+    });
+    expect(pressed).toEqual([]);
+  });
+
+  // LinkedIn is given a few seconds to open it first.
+  it('says so when its count opens no box, keeping the outline', { timeout: 15_000 }, async () => {
+    const { doc } = theirPost(false, { opens: false });
+    const tried = await tryReactors(doc, THEIR_POST);
+    expect(tried).toMatchObject({
+      works: false,
+      found: { count: true, box: false, other: false },
+      missing: ['its reactions count opened no box of who reacted'],
+    });
+    expect(tried.outline).toBeTruthy();
+  });
+
+  it('says so when the box doesn’t close again', async () => {
+    const { doc } = theirPost(false, { closes: false });
+    expect(await tryReactors(doc, THEIR_POST)).toMatchObject({
+      works: false,
+      found: { box: true, rows: 5, closed: false },
+      missing: ['the box of who reacted didn’t close again'],
     });
   });
 });

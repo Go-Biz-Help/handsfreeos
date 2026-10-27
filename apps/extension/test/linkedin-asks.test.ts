@@ -960,6 +960,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         ['post', `${LI}/feed/`],
         ['connect', DANA],
         ['comment', POST],
+        // Decision 92: Like on someone else's post on its own page, and who reacted to it.
+        ['like', POST],
+        ['reactors', POST],
         ['message', DANA],
         ['like', ACTIVITY],
         ['withdraw', SENT],
@@ -980,6 +983,8 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         'checkup.connect',
         'page',
         'checkup.comment',
+        'checkup.like',
+        'checkup.reactors',
         'page',
         'page',
         'checkup.message',
@@ -993,9 +998,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         true,
       );
       expect(notes.filter((n) => !n.job).every((n) => n.outline)).toBe(true);
-      expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 9, working: 9 });
+      expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 10, working: 10 });
       expect(end).toEqual({
-        line: 'Read 12 LinkedIn pages and tried 9 steps up to their last press. Everything works.',
+        line: 'Read 12 LinkedIn pages and tried 10 steps up to their last press. Everything works.',
         warned: false,
       });
     });
@@ -1038,13 +1043,13 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       });
       expect(notes.at(-1)!.found).toEqual({
         pages: 12,
-        steps: 9,
-        working: 7,
+        steps: 10,
+        working: 8,
         notWorking: ['headline'],
         nothingToTry: ['like'],
       });
       expect(end.line).toBe(
-        'Read 12 LinkedIn pages and tried 9 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
+        'Read 12 LinkedIn pages and tried 10 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
       );
     });
 
@@ -1077,9 +1082,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         ]);
         // The address it was handed is the job's alone: never in a note.
         expect(JSON.stringify(notes)).not.toContain('compose');
-        expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 9, working: 9 });
+        expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 10, working: 10 });
         expect(end.line).toBe(
-          'Read 13 LinkedIn pages and tried 9 steps up to their last press. Everything works.',
+          'Read 13 LinkedIn pages and tried 10 steps up to their last press. Everything works.',
         );
       } finally {
         delete pages[COMPOSE];
@@ -1114,6 +1119,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
           THEIR_POST,
         ]);
         expect(tried).toContainEqual(['comment', THEIR_POST]);
+        expect(tried).toContainEqual(['reactors', THEIR_POST]);
         expect(notes.filter((n) => n.job === 'checkup.comment')).toHaveLength(1);
         expect(end.line).toMatch(/Everything works\.$/);
       } finally {
@@ -1132,14 +1138,16 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       const { hfos } = fakeHfos();
       const { job } = jobWith(tab, hfos, { report: async (note = {}) => void notes.push(note) });
       const end = await onLinkedIn({ kind: 'checkup' }, job);
-      // No connections read: neither their profile nor their posts opened, and messaging and liking say why.
+      // No connections read: neither their profile nor their posts opened, and messaging says why; liking was tried
+      // on the person's post on its own page (decision 92).
       expect(opened).not.toContain(ACTIVITY);
       expect(tried.map(([step]) => step)).not.toContain('message');
+      expect(tried).toContainEqual(['like', POST]);
       expect(notes.find((n) => n.job === 'checkup.message')).toMatchObject({
         note: 'Messaging: not tried, no connection to try it with.',
         outline: false,
       });
-      expect(end.line).toContain('Nothing to try on: messaging and liking.');
+      expect(end.line).toContain('Nothing to try on: messaging.');
     });
   });
 });
@@ -1239,7 +1247,13 @@ describe('finding posts with LinkedIn’s post search', () => {
       `${LI}/search/results/content/?keywords=handyman&sortBy=%22date_posted%22`,
     ]);
     const saves = sentOf(sent, 'hfos-save-posts').map((a) => a.input);
-    expect(saves[0]).toMatchObject({ platform: 'linkedin', group: null, found: 'search' });
+    // With the phrase that found them (decision 92): worth the AI's check whatever their words say.
+    expect(saves[0]).toMatchObject({
+      platform: 'linkedin',
+      group: null,
+      found: 'search',
+      words: 'recommend a plumber',
+    });
     expect(saves[0]!.posts.map((p) => p.name)).toEqual(['Jordan Blake', 'Renée Park']);
     // The same posts again for the second words: not sent twice.
     expect(saves).toHaveLength(1);
@@ -1256,6 +1270,8 @@ describe('finding posts with LinkedIn’s post search', () => {
     );
     expect(opened).toEqual([]);
     expect(end).toMatchObject({ failed: true });
-    expect(end.line).toContain('On the Playbooks tab, add some under Words to search for groups');
+    expect(end.line).toContain(
+      'On the Playbooks tab, add some under Words to search LinkedIn’s posts with',
+    );
   });
 });

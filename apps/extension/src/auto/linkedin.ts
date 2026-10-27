@@ -12,14 +12,18 @@
  *   after that the invitations each morning and the connections weekly.
  * - **Once a day,** as the person's LinkedIn choices say (`collect`): the invitations, the connections checked for good
  *   fits (40 profiles a day: each is seen), their chats read for the AI, posts found with LinkedIn's post search, and
- *   today's helpful post asked for (for their own feed) with who engaged with those up lately read.
+ *   today's helpful post asked for (for their own feed) with who engaged with those up lately read. From 0.95.0
+ *   (decision 92) the post search goes with the playbooks' own phrases, who reacted to and commented on the good posts
+ *   it found is read (`post_people`, ../jobs/linkedin/post-people.ts), and the people found are checked by the AI from
+ *   their own profiles, last, inside the 40 profiles read (`found_checks`).
  * - **Today's helpful post,** when their LinkedIn posting choice lets it post on its own (`posting: 'own'`): put up on
  *   their own feed once the AI has written it (../jobs/linkedin/helpful.ts).
  * - **Then LinkedIn's list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own
- *   (`auto`): a look at their profile and a like on a post of theirs (warm-up), an invitation to connect without a
- *   note (Chris), a comment in the post's own box, and the messages: drafted after a look-up, and sent once OK'd, in
- *   LinkedIn messaging, typing only into that conversation's box. Invitations they sent you are left for them to
- *   accept. Old invitations are withdrawn only when the person ticks them (their ask, ../asks/run.ts).
+ *   (`auto`): a look at their profile and a like on a post of theirs (warm-up; for a writer a search found, the post it
+ *   found, liked on its own page), an invitation to connect without a note (Chris), a comment in the post's own box,
+ *   and the messages: drafted after a look-up, and sent once OK'd, in LinkedIn messaging, typing only into that
+ *   conversation's box. Invitations they sent you are left for them to accept. Old invitations are withdrawn only
+ *   when the person ticks them (their ask, ../asks/run.ts).
  * - **At LinkedIn's pace:** a few minutes between steps, within LinkedIn's own limits, which HandsFreeOS keeps (its
  *   list holds only what they have room for, the week's 80 invitations among them).
  * - **Stops on any LinkedIn warning,** for the day, on LinkedIn alone: Facebook's runner goes on.
@@ -30,7 +34,12 @@ import { businessDay } from '@hfos/core/addons/outreach/automation';
 import type { MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
-import { fallbackLikePick, LIKE_POSTS_READ, likedText } from '@hfos/core/addons/outreach/like-pick';
+import {
+  fallbackLikePick,
+  LIKE_POSTS_READ,
+  likedText,
+  neverLike,
+} from '@hfos/core/addons/outreach/like-pick';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
@@ -53,11 +62,12 @@ import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
 import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
 import { checkInvitations } from '../jobs/linkedin/people';
 import { findPostsBySearch } from '../jobs/linkedin/posts';
+import { readPostPeople } from '../jobs/linkedin/post-people';
 import { searchLinkedIn } from '../jobs/linkedin/partner-search';
 import { LINKEDIN, readLinkedIn } from '../jobs/linkedin/read';
 import { linkedin, type LinkedInRead } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
-import { comparable, profileRefOf, sameMember } from '../networks/linkedin/urls';
+import { comparable, postOf, profileRefOf, sameMember } from '../networks/linkedin/urls';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
 import { DAILY_CHATS } from './daily';
@@ -96,8 +106,9 @@ export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 /** The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. */
 export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request', 'comment'];
 /**
- * The once-a-day jobs on LinkedIn, in order. From 0.95.0 the people found by topic are checked last (`found_checks`,
- * decision 92), inside its 40 profiles read, found people first.
+ * The once-a-day jobs on LinkedIn, in order. From 0.95.0 (decision 92) who reacted to and commented on the good posts
+ * its search found is read after the helpful post (`post_people`), and the people found are checked last
+ * (`found_checks`), inside its 40 profiles read, found people first.
  */
 export const LINKEDIN_DAILY = [
   'requests',
@@ -106,16 +117,12 @@ export const LINKEDIN_DAILY = [
   'posts',
   'partners',
   'helpful',
+  'post_people',
   'found_checks',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
-/**
- * The jobs whose words are said: those on the list, and who reacted to and commented on good posts (`post_people`,
- * decision 92), which goes on the list before `found_checks` with its job.
- */
-type LinkedInDailyWords = LinkedInDaily | 'post_people';
 
-const DAILY_DOING: Readonly<Record<LinkedInDailyWords, string>> = {
+const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
@@ -125,7 +132,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDailyWords, string>> = {
   post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
   found_checks: 'Checking the people found on LinkedIn for good fits…',
 };
-const DAILY_NAMES: Readonly<Record<LinkedInDailyWords, string>> = {
+const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Invitations',
   checks: 'Check my connections',
   chats: 'Read my chats',
@@ -260,16 +267,87 @@ async function missed(item: TodayListItem, businessId: string, line: string): Pr
   return { done: false, line };
 }
 
+/** What comes after a warm-up, in words: the invitation, or for a partner the ask about partnering (decision 81). */
+interface After {
+  readonly without: string;
+  readonly next: string;
+}
+
+/**
+ * The like on the post a search found them by (decision 92), on that post's own page: their post, by its link, when
+ * nothing rules it out (never one about grief, illness or trouble). One liked already counts. Null when the post is
+ * gone, isn't theirs or isn't one to like: then one of their latest is liked instead.
+ */
+async function likeFoundPost(
+  item: TodayListItem,
+  businessId: string,
+  after: After,
+): Promise<Outcome | null> {
+  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const url = item.postUrl ? postOf(item.postUrl) : null;
+  if (!want || !url) return null;
+  await tab.open(url);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.kind !== 'post') return null;
+  const theirs = await tab.ask({ type: 'hfos-their-posts', profile: want, most: LIKE_POSTS_READ });
+  if (!theirs.ok) throw new Error(theirs.error);
+  const index = theirs.posts.findIndex((p) => p.url !== null && postOf(p.url) === url);
+  const found = theirs.posts[index];
+  if (!found || neverLike({ text: found.text, pictures: [] })) return null;
+  if (!found.liked) {
+    const liked = await tab.ask({ type: 'hfos-like-post', profile: want, index, url: found.url });
+    if (!liked.ok) throw new Error(liked.error);
+    if (liked.result === 'none' || liked.result === 'not_sent')
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`);
+    await pause(SETTLE_MS);
+    const warned = await warnedOn(await read(), businessId);
+    if (warned) return { stop: warned };
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: want },
+        group: null,
+        postUrl: url,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: found.text, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return {
+    done: true,
+    line: found.liked
+      ? `${item.name}’s post was liked already: ${after.next}`
+      : `Liked ${item.name}’s post that your search found: ${after.next}`,
+  };
+}
+
 /**
  * A look at their profile, and a like on a post of theirs, a day before the invitation: the first post of theirs that
- * nothing rules out (never one about grief, illness or trouble), not liked yet. One liked already counts.
+ * nothing rules out (never one about grief, illness or trouble), not liked yet. One liked already counts. For a writer
+ * found by a search (decision 92), the like goes on the post it found, on its own page, and their latest only when
+ * that one's gone.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
   // A partner's warm-up comes before the ask about partnering (decision 81), not an invitation.
-  const after =
+  const after: After =
     item.kind === 'partner_warm_up'
       ? { without: 'the ask about partnering goes without', next: 'the ask comes tomorrow' }
       : { without: 'the invitation goes without', next: 'the invitation comes tomorrow' };
+  if (item.postUrl) {
+    const found = await likeFoundPost(item, businessId, after);
+    if (found) return found;
+    await pause(SETTLE_MS);
+  }
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   await pause(SETTLE_MS);
@@ -735,6 +813,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
     }
     case 'helpful':
       return linkedInHelpfulDaily(job);
+    case 'post_people':
+      return readPostPeople(job);
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
   }

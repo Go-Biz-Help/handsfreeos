@@ -3,7 +3,8 @@
  * on hand-written pages of made-up people: it works only while LinkedIn's day is started; before LinkedIn's first day
  * it saves the person's connections first, noting it as LinkedIn's; and each step on LinkedIn's list (a look and a like,
  * an invitation without a note, a comment, a message OK'd) is pressed on its own page and noted as the extension's own,
- * as LinkedIn's. Invitations they got are left for them, and a LinkedIn warning stops it for the day.
+ * as LinkedIn's; for a writer its post search found, the like goes on that post, on its own page, and on their latest
+ * when it's gone (decision 92). Invitations they got are left for them, and a LinkedIn warning stops it for the day.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
@@ -321,10 +322,14 @@ describe('what it does on LinkedIn’s list', () => {
         daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v' },
       }),
     ).toBe('helpful');
-    // Last, the people found by topic checked for good fits (decision 92).
+    // Then who reacted to and commented on the good posts its search found, and last the people found by topic
+    // checked for good fits (decision 92).
     const all = { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v', helpful: 'u' };
-    expect(nextLinkedInDaily({ daily: all })).toBe('found_checks');
-    expect(nextLinkedInDaily({ daily: { ...all, found_checks: 't' } })).toBeNull();
+    expect(nextLinkedInDaily({ daily: all })).toBe('post_people');
+    expect(nextLinkedInDaily({ daily: { ...all, post_people: 's' } })).toBe('found_checks');
+    expect(
+      nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't' } }),
+    ).toBeNull();
   });
 
   it('sends an invitation without a note from their profile, and notes it as LinkedIn’s', async () => {
@@ -371,6 +376,90 @@ describe('what it does on LinkedIn’s list', () => {
         platform: 'linkedin',
       },
     ]);
+  });
+
+  describe('for a writer its post search found (decision 92)', () => {
+    const FOUND = `${LI}/feed/update/urn:li:activity:7380000000000000777/`;
+    const PRIYA = `${LI}/in/priya-dalton-hvac/`;
+    const found = (more: Partial<TodayListItem> = {}) =>
+      item({
+        kind: 'warm_up',
+        name: 'Priya Dalton',
+        profileUrl: PRIYA,
+        postId: '7e8f90a1-b2c3-44d5-86e7-f8091a2b3c4d',
+        postUrl: `${FOUND}?utm_source=share`,
+        ...more,
+      });
+    /** The newer layout's reaction button, as LinkedIn shows a like given. */
+    const likes = (doc: Document) => {
+      const button = doc.querySelector('button[aria-label="Reaction button state: no reaction"]');
+      button?.addEventListener('click', () => {
+        button.setAttribute('aria-label', 'Reaction button state: like');
+        button.querySelector('span span')!.textContent = '56';
+      });
+      for (const like of doc.querySelectorAll('[aria-label="React Like"]'))
+        like.addEventListener('click', () => like.setAttribute('aria-pressed', 'true'));
+    };
+
+    it('likes the post it found on that post’s own page, and notes it with the post', async () => {
+      world.pages = (url) => (url === FOUND ? { fixture: 'linkedin-post-2026-10.html' } : null);
+      world.behave = likes;
+      const outcome = await doWork({ do: 'step', item: found() }, ME.businessId, false);
+      expect(outcome).toEqual({
+        done: true,
+        line: 'Liked Priya Dalton’s post that your search found: the invitation comes tomorrow',
+      });
+      // Straight to the post, at its own address: no look at the profile first.
+      expect(world.opened).toEqual([FOUND]);
+      expect(notedAs()).toEqual([
+        { kind: 'like', auto: true, postUrl: FOUND, platform: 'linkedin' },
+      ]);
+    });
+
+    it('counts the post as liked when it was already, pressing nothing', async () => {
+      world.pages = () => ({ fixture: 'linkedin-post-2026-10.html' });
+      world.behave = (doc) =>
+        doc
+          .querySelector('button[aria-label="Reaction button state: no reaction"]')!
+          .setAttribute('aria-label', 'Reaction button state: like');
+      const outcome = await doWork({ do: 'step', item: found() }, ME.businessId, false);
+      expect(outcome).toEqual({
+        done: true,
+        line: 'Priya Dalton’s post was liked already: the invitation comes tomorrow',
+      });
+      expect(notedAs()).toEqual([
+        { kind: 'like', auto: true, postUrl: FOUND, platform: 'linkedin' },
+      ]);
+    });
+
+    it.each([
+      ['LinkedIn no longer shows the post', { fixture: 'linkedin-feed.html', at: `${LI}/feed/` }],
+      ['the post isn’t theirs', { fixture: 'linkedin-post-2026-10.html' }],
+    ])('likes their latest instead when %s', async (_, post) => {
+      world.pages = (url) =>
+        url === FOUND
+          ? post
+          : url.endsWith('recent-activity/all/')
+            ? { fixture: 'linkedin-activity.html' }
+            : { fixture: 'linkedin-profile.html' };
+      world.behave = likes;
+      // Dana Reyes, by a post that isn't hers.
+      const outcome = await doWork(
+        { do: 'step', item: found({ name: 'Dana Reyes', profileUrl: DANA }) },
+        ME.businessId,
+        false,
+      );
+      expect(outcome).toMatchObject({ done: true });
+      expect(world.opened).toEqual([FOUND, DANA, `${DANA}recent-activity/all/`]);
+      expect(notedAs()).toEqual([
+        {
+          kind: 'like',
+          auto: true,
+          postUrl: `${LI}/feed/update/urn:li:activity:7380000000000000302/`,
+          platform: 'linkedin',
+        },
+      ]);
+    });
   });
 
   it('comments in the post’s own box, with the AI’s draft', async () => {
