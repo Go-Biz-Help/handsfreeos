@@ -1,5 +1,5 @@
 'use client';
-import { formatPhone } from '@hfos/core';
+import { formatPhone, NEW_CONTACT_WORDS } from '@hfos/core';
 import { Button, ButtonLink } from '@/components/ui/button';
 import type { Match } from '@/lib/api/types';
 import { Callout } from './chips';
@@ -15,12 +15,15 @@ export function DuplicateWarning({
   kind,
   matches,
   onSaveAnyway,
+  onChoose,
   saving,
 }: {
   workspaceId: string;
   kind: 'person' | 'company';
   matches: Match[];
   onSaveAnyway?: () => void;
+  /** Use the one already there instead (New appointment books them), in place of opening them. */
+  onChoose?: (match: Match) => void;
   saving?: boolean;
 }) {
   const first = matches[0];
@@ -35,9 +38,20 @@ export function DuplicateWarning({
           {matches.length > 1 ? ` ${matches.length - 1} more match.` : ''}
         </span>
         <span className="flex flex-wrap gap-2">
-          <ButtonLink href={href} variant="secondary" size="sm">
-            Open {first.name}
-          </ButtonLink>
+          {onChoose ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onChoose(first)}
+              data-testid="choose-match"
+            >
+              {NEW_CONTACT_WORDS.choose(first.name)}
+            </Button>
+          ) : (
+            <ButtonLink href={href} variant="secondary" size="sm">
+              Open {first.name}
+            </ButtonLink>
+          )}
           {onSaveAnyway ? (
             <Button
               variant="ghost"

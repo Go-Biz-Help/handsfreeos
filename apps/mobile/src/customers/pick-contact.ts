@@ -1,15 +1,9 @@
-import {
-  alreadyACustomer,
-  personFromContact,
-  PICKED_CONTACT_WORDS as W,
-  type CustomerContactRow,
-  type PersonFromContact,
-} from '@hfos/core';
+import { personFromContact, PICKED_CONTACT_WORDS as W } from '@hfos/core';
 import * as React from 'react';
 
-import { change, changes, newId } from '@/changes';
-
 import HfosPhone from '../../modules/hfos-phone';
+
+import { addCustomer } from './add-customer';
 
 /** What picking a customer from the phone's contacts came to. */
 export type PickedCustomer =
@@ -17,44 +11,6 @@ export type PickedCustomer =
   | { readonly kind: 'already'; readonly id: string; readonly name: string }
   | { readonly kind: 'cancelled' }
   | { readonly kind: 'failed'; readonly message: string };
-
-/** The business's customers as the phone's copy holds them, for telling whether a picked contact is one already. */
-const CUSTOMER_CONTACTS_SQL = `
-  SELECT id, first_name, last_name, email, phone_e164, other_phones, other_emails FROM people
-  WHERE workspace_id = ? AND archived_at IS NULL`;
-
-const INSERT_PERSON = `
-  INSERT INTO people (id, workspace_id, first_name, last_name, email, phone, phone_e164, address_line1,
-    address_line2, city, state, postal_code, country, other_emails, other_phones, other_addresses, source,
-    created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-/** The customer as the phone shows them until HandsFreeOS answers with its own row. */
-function personRow(id: string, workspaceId: string, person: PersonFromContact): unknown[] {
-  const now = new Date().toISOString();
-  const a = person.address;
-  return [
-    id,
-    workspaceId,
-    person.firstName,
-    person.lastName,
-    person.email,
-    person.phone,
-    person.phone,
-    a?.line1 ?? null,
-    a?.line2 ?? null,
-    a?.city ?? null,
-    a?.state ?? null,
-    a?.postalCode ?? null,
-    a ? (a.country ?? 'US') : null,
-    JSON.stringify(person.otherEmails),
-    JSON.stringify(person.otherPhones),
-    JSON.stringify(person.otherAddresses.map((o) => ({ ...o, country: o.country ?? 'US' }))),
-    person.source,
-    now,
-    now,
-  ];
-}
 
 /**
  * Picks one customer from the phone's own contacts and adds them to the business, or finds them already there
@@ -69,21 +25,8 @@ export async function pickCustomerFromContacts(workspaceId: string): Promise<Pic
     if (picked === 'unavailable') return { kind: 'failed', message: W.unavailable };
     const made = personFromContact(picked);
     if (!made.ok) return { kind: 'failed', message: made.message };
-
-    const db = changes.open?.db;
-    if (db) {
-      const rows = await db.getAll<CustomerContactRow>(CUSTOMER_CONTACTS_SQL, [workspaceId]);
-      const found = alreadyACustomer(rows, made.person);
-      if (found) return { kind: 'already', ...found };
-    }
-
-    const id = newId();
-    await change(
-      'person.create',
-      { workspaceId, id, ...made.person },
-      { optimistic: (tx) => tx.execute(INSERT_PERSON, personRow(id, workspaceId, made.person)) },
-    );
-    return { kind: 'added', id, name: made.name };
+    const { kind, id, name } = await addCustomer(workspaceId, made.person, made.name);
+    return { kind, id, name };
   } catch (error) {
     return { kind: 'failed', message: error instanceof Error ? error.message : String(error) };
   }
