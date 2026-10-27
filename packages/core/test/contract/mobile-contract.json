@@ -1432,7 +1432,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["none", "google_meet", "zoom"]
+                    "enum": ["none", "google_meet", "zoom", "handsfree"]
                   },
                   {
                     "type": "null"
@@ -1680,7 +1680,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["none", "google_meet", "zoom"]
+                    "enum": ["none", "google_meet", "zoom", "handsfree"]
                   },
                   {
                     "type": "null"
