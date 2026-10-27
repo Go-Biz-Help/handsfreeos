@@ -26,6 +26,8 @@ export const DESK_SECTIONS = [
   { key: 'assistant', label: 'Assistant coverage', needs: 'platform.health.read' },
   { key: 'rates', label: 'Rates', needs: 'platform.rates.manage' },
   { key: 'founding', label: 'Founding', needs: 'platform.founding.manage' },
+  // People who sell HandsFreeOS for a share (20261027014000): their applications, shares and the businesses they sent.
+  { key: 'affiliates', label: 'Affiliates', needs: 'platform.affiliates.manage' },
   { key: 'replies', label: 'Saved replies' },
   { key: 'staff', label: 'Support people' },
 ] as const satisfies readonly { key: string; label: string; needs?: string }[];

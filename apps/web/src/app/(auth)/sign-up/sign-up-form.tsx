@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { NO_CONNECTION } from '@/lib/auth/code-messages';
+import { affiliateTrailData, type AffiliateTrail } from '@/lib/auth/visitor';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -30,16 +31,18 @@ const PRIVACY_URL = 'https://handsfreeos.com/privacy';
 /**
  * Creating an account: Continue with Google once it's turned on, or a name, an email and a password. The email is
  * confirmed with a 6-digit code typed here, read on whichever device gets the email, and the new account carries on
- * to `next`: setting up a business, or the invitation it came from. `visitor` is the website's Opinly visitor id
- * (`lib/auth/visitor.ts`).
+ * to `next`: setting up a business, or the invitation it came from. `visitor` is the website's Opinly visitor id and
+ * `affiliate` the affiliate link they came by (`lib/auth/visitor.ts`).
  */
 export function SignUpForm({
   next,
   visitor,
+  affiliate,
   google,
 }: {
   next: string;
   visitor?: string;
+  affiliate?: AffiliateTrail;
   google: boolean;
 }) {
   const router = useRouter();
@@ -72,7 +75,11 @@ export function SignUpForm({
       email: email.trim(),
       password,
       options: {
-        data: { full_name: name.trim(), ...(visitor ? { opinly_anon_id: visitor } : {}) },
+        data: {
+          full_name: name.trim(),
+          ...(visitor ? { opinly_anon_id: visitor } : {}),
+          ...affiliateTrailData(affiliate),
+        },
       },
     });
     setBusy(false);
@@ -138,7 +145,7 @@ export function SignUpForm({
       {google ? (
         <>
           <div className="mt-6">
-            <GoogleButton next={next} visitor={visitor} />
+            <GoogleButton next={next} visitor={visitor} affiliate={affiliate} />
           </div>
           <OrDivider />
         </>

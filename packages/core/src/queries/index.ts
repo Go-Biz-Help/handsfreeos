@@ -21,6 +21,7 @@ import { platformQueries } from './platform';
 import { problemReportQueries } from './problem-reports';
 import { teammateViewQueries } from './teammate-view';
 import { foundingQueries } from './founding';
+import { affiliateQueries } from './affiliates';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
 import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
@@ -272,6 +273,8 @@ export const queries: readonly QueryDef[] = [
   // Viewing the app as a teammate (20261018000100).
   ...teammateViewQueries,
   ...foundingQueries,
+  // HandsFreeOS's own affiliate program (20261027014000).
+  ...affiliateQueries,
   me,
   accountDeletionCheck,
   pushDeviceList,
@@ -511,6 +514,7 @@ export * from './wallet';
 export * from './port';
 export * from './branded-domain';
 export * from './founding';
+export * from './affiliates';
 export * from './offer';
 export * from './main-offer';
 export * from './partners';

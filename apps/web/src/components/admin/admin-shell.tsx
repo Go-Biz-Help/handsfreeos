@@ -5,6 +5,7 @@ import {
   Bot,
   Bug,
   Building2,
+  Handshake,
   HeartPulse,
   Inbox,
   Lightbulb,
@@ -43,6 +44,7 @@ const ICONS: Readonly<Record<DeskSectionKey, LucideIcon>> = {
   assistant: Bot,
   rates: Tag,
   founding: Ticket,
+  affiliates: Handshake,
   replies: MessageSquareQuote,
   staff: Users,
 };

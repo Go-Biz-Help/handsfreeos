@@ -7333,6 +7333,71 @@ export const workspacePlans = app.table('workspace_plans', {
 });
 
 /**
+ * Affiliates (20261027014000, HANDSFREEOS_AFFILIATES_IMPLEMENTATION_PLAN.md): people who sell HandsFreeOS itself for
+ * a share of what the businesses they send pay. HandsFreeOS's own program, so it sits in `platform` beside the
+ * founding spots. The share everyone gets is one row.
+ */
+export const affiliateSettings = platform.table('affiliate_settings', {
+  id: boolean('id').primaryKey().default(true),
+  /** In basis points: 4000 is 40%. */
+  rateBp: integer('rate_bp').notNull().default(4000),
+  updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** One a person, whether or not they have a business. They write it only through `private.affiliate_apply`. */
+export const affiliates = platform.table('affiliates', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** What their link carries (`handsfreeos.com/?ref=<code>`), lowercase. */
+  code: text('code').notNull().unique(),
+  /** applied, approved, turned_down, paused or ended. */
+  status: text('status').notNull().default('applied'),
+  name: text('name').notNull(),
+  /** How they'll share HandsFreeOS, in their words. */
+  pitch: text('pitch').notNull().default(''),
+  links: text('links').notNull().default(''),
+  /** Their own share in basis points; null for everyone's. */
+  rateBp: integer('rate_bp'),
+  appliedAt: ts('applied_at').notNull().defaultNow(),
+  decidedAt: ts('decided_at'),
+  decidedBy: uuid('decided_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+/** Their link's clicks, counted a day (UTC) at a time. */
+export const affiliateClicks = platform.table(
+  'affiliate_clicks',
+  {
+    affiliateId: uuid('affiliate_id')
+      .notNull()
+      .references(() => affiliates.id, { onDelete: 'cascade' }),
+    day: date('day').notNull(),
+    clicks: integer('clicks').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.affiliateId, t.day] })],
+);
+
+/** The business an affiliate sent: one affiliate a business, set as it's made, or by staff by hand. */
+export const affiliateReferrals = platform.table('affiliate_referrals', {
+  organizationId: uuid('organization_id')
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  affiliateId: uuid('affiliate_id')
+    .notNull()
+    .references(() => affiliates.id, { onDelete: 'cascade' }),
+  /** link, code or by_hand. */
+  how: text('how').notNull(),
+  clickedAt: ts('clicked_at'),
+  referredAt: ts('referred_at').notNull().defaultNow(),
+  markedBy: uuid('marked_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
  * Automations' "Thank-you after the job" (0094): which way each customer's thank-you went, one per attendee. A
  * `card` row is what opens Home's "job not thanked" card.
  */
@@ -7955,6 +8020,10 @@ export const tables = {
   foundingGrants,
   foundingApplications,
   workspacePlans,
+  affiliateSettings,
+  affiliates,
+  affiliateClicks,
+  affiliateReferrals,
   reviewConnections,
   reviews,
   metaConnections,

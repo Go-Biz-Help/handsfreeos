@@ -152,6 +152,7 @@ import { onCallReferral, onMessageReferral } from '../automations/referrals';
 import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
+import { affiliateHandlers } from './affiliates';
 import { roadmapHandlers } from '../addons/roadmap';
 import { onFileFingerprint } from './file-fingerprint';
 import { onFileText } from '../files/file-text';
@@ -479,6 +480,8 @@ export const handlers: HandlerMap = {
   'support_access.requested': [onSupportAccessRequested],
   // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
   ...ideaHandlers,
+  // HandsFreeOS's own affiliate program (20261027014000): applications told to staff, decisions to the person.
+  ...affiliateHandlers,
   // Voting on what's next (0109): the team's pick, told to the businesses that voted for it.
   ...roadmapHandlers,
 };
