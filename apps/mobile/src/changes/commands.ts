@@ -139,6 +139,10 @@ import {
   MessageRetryOutput,
   MessageSendInput,
   MessageSendOutput,
+  NotificationReadInput,
+  NotificationReadOutput,
+  NotificationSeenInput,
+  NotificationSeenOutput,
   OnboardingSetupFinishInput,
   OnboardingSetupFinishOutput,
   OnboardingSetupSaveInput,
@@ -572,6 +576,10 @@ export const PHONE_COMMANDS = {
   // A text or email that didn't go out, sent again from its thread: with signal only, since it goes at once.
   'message.retry': command(ONLINE, MessageRetryInput, MessageRetryOutput),
   'message.send': command(FRESH, MessageSendInput, MessageSendOutput),
+  // The bell's notifications (20261027012600): opening the bell sees them, and pressing one, or its push, opens it.
+  // Online: what the bell shows comes back from HandsFreeOS, and one missed is seen again the next time.
+  'notification.read': command(ONLINE, NotificationReadInput, NotificationReadOutput),
+  'notification.seen': command(ONLINE, NotificationSeenInput, NotificationSeenOutput),
   // The onboarding setup (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8): making the business after
   // signing up, each screen's answers as it's finished, and "Stay in the loop". Online, as quick setup's are: what
   // each screen shows next comes from HandsFreeOS.

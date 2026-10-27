@@ -35,13 +35,14 @@ import {
   UnreadCount,
   UrgentCount,
 } from './nav-links';
+import { NotificationsBell } from './notifications-bell';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
 
 /**
- * Phone chrome: a top bar with the menu and search, a left drawer with the full navigation, and a bottom bar. The
- * top bar's search opens Search everything's page, except in the Inbox, where it searches conversations and offers
- * Search everything for what was typed.
+ * Phone chrome: a top bar with the menu, the bell and search, a left drawer with the full navigation, and a bottom
+ * bar. The top bar's search opens Search everything's page, except in the Inbox, where it searches conversations and
+ * offers Search everything for what was typed.
  */
 export function MobileShell({
   me,
@@ -134,6 +135,7 @@ export function MobileShell({
             <SquarePen className="h-5 w-5" strokeWidth={1.5} />
           </Link>
         ) : null}
+        <NotificationsBell variant="header" />
         <MobileAskButton />
         {inInbox ? (
           <button

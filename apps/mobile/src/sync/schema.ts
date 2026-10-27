@@ -695,6 +695,25 @@ export const syncedTables = {
     created_at: column.text,
     updated_at: column.text,
   }),
+  /** me_v1 */
+  notifications: new Table(
+    {
+      workspace_id: column.text,
+      push_id: column.text,
+      category: column.text,
+      title: column.text,
+      subtitle: column.text,
+      body: column.text,
+      path: column.text,
+      refs: column.text,
+      sent_at: column.text,
+      seen_at: column.text,
+      read_at: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** business_v1 */
   opt_outs: new Table(
     {
@@ -2252,6 +2271,32 @@ export interface MyProfileRow {
   readonly updated_at: string | null;
 }
 
+/** A row of `notifications` (me_v1). */
+export interface NotificationsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly push_id: string | null;
+  readonly category: string | null;
+  readonly title: string | null;
+  readonly subtitle: string | null;
+  readonly body: string | null;
+  readonly path: string | null;
+  /** jsonb: JSON text here */
+  readonly refs: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly sent_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly seen_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly read_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
 /** A row of `opt_outs` (business_v1). */
 export interface OptOutsRow {
   readonly id: string;
@@ -3042,6 +3087,7 @@ export interface SyncedRows {
   leads: LeadsRow;
   messages: MessagesRow;
   my_profile: MyProfileRow;
+  notifications: NotificationsRow;
   opt_outs: OptOutsRow;
   organization_memberships: OrganizationMembershipsRow;
   organizations: OrganizationsRow;
