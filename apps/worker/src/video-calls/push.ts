@@ -2,9 +2,10 @@
  * The push when someone is waiting in a HandsFreeOS video call (docs/video-calls.md): a customer on their own link
  * waiting for the team ("Ana is waiting in the video call"), or anyone else asking to be let in. It goes to the
  * call's host and everyone working the appointment, under Your appointments (`booking`), and a later one about the
- * same call replaces the one showing.
+ * same call replaces the one showing. Tapping it opens the call: the phone's call screen, or the call's page on the
+ * web.
  */
-import { videoCallWaitingPushWords } from '@hfos/core/server';
+import { videoCallAppPath, videoCallWaitingPushWords } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { managerIds, payloadOf, pushMoment, str } from '../push/moment';
 import { queuePush } from '../push/queue';
@@ -43,7 +44,7 @@ export const onVideoCallWaitingPush = pushMoment('booking', async (ctx, scope) =
     userIds: people.length ? people : await managerIds(ctx.tx, ws),
     title: words.title,
     body: words.body,
-    path: appointmentId ? `/app/w/${ws}/calendar?appt=${appointmentId}` : `/app/w/${ws}/calendar`,
+    path: videoCallAppPath(ws, callId),
     refs: appointmentId ? { appointmentId } : {},
     collapseId: `video-call-${callId}`,
   });

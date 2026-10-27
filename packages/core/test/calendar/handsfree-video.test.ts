@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { locationFor } from '../../src/calendar/booking';
 import { parseConfig } from '../../src/calendar/index';
 import {
+  callIdOfLink,
   callIdOfRoom,
   callLengthLabel,
   effectiveVideo,
@@ -13,6 +14,7 @@ import {
   isInAppBrowser,
   isPersonIdentity,
   LISTENER_IDENTITY,
+  videoCallAppPath,
   videoCallLinkOpens,
   videoCallRoom,
   videoCallWaitingPushWords,
@@ -115,6 +117,16 @@ describe('a call’s room', () => {
     expect(callIdOfRoom('hf-not-a-call')).toBeNull();
     expect(callIdOfRoom(`other-${id}`)).toBeNull();
     expect(callIdOfRoom(null)).toBeNull();
+  });
+
+  it('reads a call back from its own link, for the phone’s Join, and names where the team’s apps open it', () => {
+    expect(callIdOfLink(`https://app.handsfreeos.com/call/${id}`)).toBe(id);
+    expect(callIdOfLink(`http://localhost:3000/call/${id.toUpperCase()}/?x=1`)).toBe(id);
+    expect(callIdOfLink(`https://app.handsfreeos.com/call/${id}/more`)).toBeNull();
+    expect(callIdOfLink('https://zoom.us/j/123')).toBeNull();
+    expect(callIdOfLink('https://app.handsfreeos.com/call/not-a-call')).toBeNull();
+    expect(callIdOfLink(null)).toBeNull();
+    expect(videoCallAppPath('w1', id)).toBe(`/app/w/w1/call/${id}`);
   });
 
   it('opens a customer’s link an hour before, and keeps it open while the call runs over', () => {

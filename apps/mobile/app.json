@@ -281,8 +281,8 @@
         "expo-image-picker",
         {
           "photosPermission": "HandsFreeOS adds the photos you choose to your customers’ records.",
-          "cameraPermission": "HandsFreeOS uses the camera to take photos for your customers’ records.",
-          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, or record a voice note."
+          "cameraPermission": "HandsFreeOS uses the camera to take photos for your customers’ records, and to show you in the HandsFreeOS video calls you join.",
+          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, record a voice note, or are in a HandsFreeOS video call."
         }
       ],
       [
@@ -294,10 +294,18 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, or record a voice note.",
+          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, record a voice note, or are in a HandsFreeOS video call.",
           "recordAudioAndroid": true,
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
+        }
+      ],
+      "@livekit/react-native-expo-plugin",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "HandsFreeOS uses the camera to take photos for your customers’ records, and to show you in the HandsFreeOS video calls you join.",
+          "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant or your AI teammate, record a voice note, or are in a HandsFreeOS video call."
         }
       ]
     ],

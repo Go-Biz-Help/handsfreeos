@@ -407,6 +407,10 @@ describe('a customer on their own Join link', () => {
         message: expect.objectContaining({ title: 'Eli Customer is waiting in the video call' }),
       }),
     ]);
+    // Tapping it opens the call itself: the phone's call screen, or the call's page on the web.
+    expect(pushesAbout(b.callId)[0]!.message.data).toMatchObject({
+      path: `/app/w/${w.workspaceId}/call/${b.callId}`,
+    });
     // The page asks again while they wait: no new wait, nobody told again.
     expect((await enter(b.link, { name: 'Eli Customer' })).json()).toMatchObject({
       status: 'waiting',

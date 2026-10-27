@@ -24,6 +24,8 @@ const SIZES = {
   sm: { box: 'size-6', text: 'text-[10px]' },
   md: { box: 'size-8', text: 'text-xs' },
   lg: { box: 'size-10', text: 'text-[13px]' },
+  // Someone in a video call with their camera off.
+  xl: { box: 'size-20', text: 'text-[26px]' },
 } as const;
 
 /** A person's initials in a circle, as on the web (`Avatar name="Dale Ramsey"` → DR). */

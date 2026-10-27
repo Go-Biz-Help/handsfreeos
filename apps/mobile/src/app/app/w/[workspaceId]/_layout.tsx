@@ -18,8 +18,8 @@ export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
 
 /**
  * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Search everything, the AI teammate's test
- * console and quick setup, setting the business up, Changes on this phone, and (test builds) This phone's copy. The
- * call sheet sits over all of them (`startCall`).
+ * console and quick setup, setting the business up, Changes on this phone, (test builds) This phone's copy, and a
+ * HandsFreeOS video call. The call sheet sits over all of them (`startCall`).
  */
 export default function BusinessLayout() {
   const state = useSession();
@@ -84,6 +84,11 @@ function Business({ userId }: { userId: string }) {
             <Stack.Screen name="setup" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
+            {/* A pushed screen rather than a modal, so notes about the call show over it; nothing swipes it away. */}
+            <Stack.Screen
+              name="call/[callId]"
+              options={{ animation: 'slide_from_bottom', gestureEnabled: false }}
+            />
           </Stack>
           <AskFromNotification />
           <CallSheetHost />

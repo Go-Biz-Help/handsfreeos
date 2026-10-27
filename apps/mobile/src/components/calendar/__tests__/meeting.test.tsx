@@ -1,13 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import * as React from 'react';
+import { Linking } from 'react-native';
 import { CallRecord, MeetingLink, meetingOf } from '@/components/calendar/meeting';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 
 /**
- * An online appointment on the phone: its Zoom or Meet link to join, and for a recorded call the AI's summary,
- * its suggestions (approved or dismissed here, as on the web) and what was said.
+ * An online appointment on the phone: its Zoom or Meet link to join, a HandsFreeOS video call joined in the app, and
+ * for a recorded call the AI's summary, its suggestions (approved or dismissed here, as on the web) and what was said.
  */
+
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 jest.mock('@/lib/api', () => ({
   api: { POST: jest.fn() },
@@ -24,6 +28,7 @@ const post = api.POST as unknown as jest.Mock;
 
 beforeEach(() => {
   post.mockReset();
+  (router.push as jest.Mock).mockClear();
   jest.spyOn(toast, 'show').mockImplementation(() => 1);
   jest.spyOn(toast, 'error').mockImplementation(() => 1);
 });
@@ -53,12 +58,45 @@ describe('the video call', () => {
     await render(
       <MeetingLink
         meeting={{ video: 'zoom', url: null, error: 'Dale hasn’t connected Zoom.', record: false }}
+        workspaceId={WS}
       />,
     );
     expect(screen.getByTestId('appointment-meeting-error')).toHaveTextContent(
       'Dale hasn’t connected Zoom.',
     );
     expect(screen.queryByTestId('appointment-join')).toBeNull();
+  });
+
+  it('opens a HandsFreeOS video call in the app', async () => {
+    const call = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    await render(
+      <MeetingLink
+        meeting={{
+          video: 'handsfree',
+          url: `https://app.handsfreeos.com/call/${call}`,
+          error: null,
+          record: false,
+        }}
+        workspaceId={WS}
+      />,
+    );
+    expect(screen.getByText('HandsFreeOS video call')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('appointment-join'));
+    expect(router.push).toHaveBeenCalledWith(`/app/w/${WS}/call/${call}`);
+  });
+
+  it('opens Zoom in its own app', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    await render(
+      <MeetingLink
+        meeting={{ video: 'zoom', url: 'https://zoom.us/j/1', error: null, record: false }}
+        workspaceId={WS}
+      />,
+    );
+    await fireEvent.press(screen.getByTestId('appointment-join'));
+    expect(open).toHaveBeenCalledWith('https://zoom.us/j/1');
+    expect(router.push).not.toHaveBeenCalled();
+    open.mockRestore();
   });
 });
 

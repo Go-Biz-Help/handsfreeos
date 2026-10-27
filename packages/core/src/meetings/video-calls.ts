@@ -71,6 +71,23 @@ export function callIdOfRoom(room: string | null | undefined): string | null {
   return UUID.test(id) ? id : null;
 }
 
+/**
+ * The call a HandsFreeOS video call's own link opens (`<web>/call/<id>`, the team's address on the appointment), or
+ * null for any other link: the phone's Join opens that call in the app rather than the browser.
+ */
+export function callIdOfLink(url: string | null | undefined): string | null {
+  const m = /^https?:\/\/[^/?#]+\/call\/([^/?#]+)\/?(?:[?#]|$)/i.exec(url ?? '');
+  const id = m?.[1]?.toLowerCase() ?? '';
+  return UUID.test(id) ? id : null;
+}
+
+/**
+ * Where the team's apps open a call, under the business: the phone's call screen, and on the web a page that goes on
+ * to the call's own link. The push about someone waiting opens it.
+ */
+export const videoCallAppPath = (workspaceId: string, callId: string): string =>
+  `/app/w/${workspaceId}/call/${callId}`;
+
 /** Someone in the room who is a person on the call (a row's id), not the AI's listener. */
 export const isPersonIdentity = (identity: string | null | undefined): boolean =>
   !!identity && UUID.test(identity);
@@ -244,10 +261,32 @@ export const VIDEO_CALL_WORDS = {
     'Your browser didn’t let this page use your camera or microphone. Allow them in your browser’s settings for this page, then try again.',
   poweredBy: 'Powered by HandsFreeOS',
   endForEveryone: 'End for everyone',
+  endForEveryoneConfirm: 'End the call for everyone?',
+  endForEveryoneHow:
+    'Everyone leaves the call now. Customers can come back in on their own link once someone from your team joins again.',
+  leaveOnly: 'Leave the call',
   letIn: 'Let in',
   turnAway: 'Turn away',
   remove: 'Remove',
   mute: 'Mute',
+  /** Who someone in the call is, in the list of people. */
+  kinds: { team: 'Team', customer: 'Customer', guest: 'Guest' },
+  askingToJoin: (name: string) => `${name} is asking to join`,
+  joining: 'Joining the call…',
+  reconnecting: 'Reconnecting…',
+  aloneTeam: 'You’re the only one here so far.',
+  aloneOthers: 'Waiting for the others to join.',
+  /** Why someone isn't in the call any more, past what `left`, `removed` and `ended` say. */
+  endedTeam:
+    'Everyone has left. Starting it again lets customers back in on their own link.',
+  elsewhereTitle: 'You’re in this call somewhere else',
+  elsewhere: 'You joined from another tab or device, so this one stepped out.',
+  lostTitle: 'Your connection to the call dropped',
+  lost: 'Check your internet connection, then join again.',
+  opening: 'Opening the call…',
+  /** The stand-in's call (`fake:` tickets, on laptops and in tests without LiveKit): nothing is carried. */
+  standIn:
+    'Test call: video calls here run on a stand-in, so nobody’s camera or sound is carried. With LiveKit set up, this is the call.',
   // The AI hearing the call (the owner's 8a to 11a).
   /** In the call, for everyone, while the AI hears it. */
   aiOn: 'AI notes on',

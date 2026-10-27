@@ -1,4 +1,5 @@
-import { VIDEO_CALL_NAME, VIDEO_CALL_WORDS } from '@hfos/core';
+import { VIDEO_CALL_NAME, VIDEO_CALL_WORDS, callIdOfLink, videoCallAppPath } from '@hfos/core';
+import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { Linking, View } from 'react-native';
 import { Video } from '@/components/icons';
@@ -43,9 +44,17 @@ export function meetingOf(location: string | null): Meeting | null {
 
 const PROVIDER = { zoom: 'Zoom', google_meet: 'Google Meet', handsfree: VIDEO_CALL_NAME } as const;
 
-/** The link to join, or why there's none yet (the web's Make link fixes that). */
-export function MeetingLink({ meeting }: { meeting: Meeting }) {
+/**
+ * The link to join, or why there's none yet (the web's Make link fixes that). A HandsFreeOS video call opens in the
+ * app (docs/video-calls.md, "On the phone"); Zoom and Google Meet open their own apps or the browser.
+ */
+export function MeetingLink({ meeting, workspaceId }: { meeting: Meeting; workspaceId: string }) {
   const name = meeting.video ? PROVIDER[meeting.video] : 'Video call';
+  const callId = meeting.video === 'handsfree' ? callIdOfLink(meeting.url) : null;
+  const join = () => {
+    if (callId) router.push(videoCallAppPath(workspaceId, callId) as Href);
+    else if (meeting.url) void Linking.openURL(meeting.url);
+  };
   if (meeting.url)
     return (
       <View testID="appointment-meeting">
@@ -55,7 +64,7 @@ export function MeetingLink({ meeting }: { meeting: Meeting }) {
           size="sm"
           icon={Video}
           className="mt-2 self-start"
-          onPress={() => void Linking.openURL(meeting.url!)}
+          onPress={join}
           testID="appointment-join"
         >
           Join

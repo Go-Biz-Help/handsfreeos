@@ -265,7 +265,7 @@ export default function Appointment() {
 
       {meeting ? (
         <Section label="Video call">
-          <MeetingLink meeting={meeting} />
+          <MeetingLink meeting={meeting} workspaceId={business.id} />
         </Section>
       ) : null}
       {meeting?.record || meeting?.video === 'handsfree' ? (

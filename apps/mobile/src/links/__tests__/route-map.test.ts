@@ -34,6 +34,7 @@ describe('the route map', () => {
       'customers/companies/:companyId': { href: `customers/companies/${ID}`, later: false },
       tasks: { href: 'tasks', later: false },
       calendar: { href: 'calendar', later: false },
+      'call/:callId': { href: `call/${ID}`, later: false },
       money: { href: 'money', later: false },
       'money/invoices': { href: 'money', later: false },
       'money/invoices/:invoiceId': { href: `money/invoices/${ID}`, later: false },
@@ -219,6 +220,8 @@ describe('the route map', () => {
       [`/app/w/${WS}/workflows/approvals?filter=ai`, `/app/w/${WS}/approvals?filter=ai`],
       [`/app/w/${WS}/workflows/approvals`, `/app/w/${WS}/approvals`],
       [`/app/w/${WS}/calendar?appt=${ID}`, `/app/w/${WS}/calendar?appt=${ID}`],
+      // Someone waiting in a HandsFreeOS video call: the call screen itself.
+      [`/app/w/${WS}/call/${ID}`, `/app/w/${WS}/call/${ID}`],
       [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/leads/${ID}`],
       [`/app/w/${WS}/tasks`, `/app/w/${WS}/tasks`],
       [`/app/w/${WS}/money/invoices/${ID}`, `/app/w/${WS}/money/invoices/${ID}`],

@@ -334,7 +334,7 @@ function CallScreen({
     for (const p of got.people) {
       if (p.state !== 'waiting' || p.kind !== 'guest' || told.current.has(p.id)) continue;
       told.current.add(p.id);
-      toast(`${p.name} is asking to join`, {
+      toast(VIDEO_CALL_WORDS.askingToJoin(p.name), {
         duration: 10_000,
         action: {
           label: VIDEO_CALL_WORDS.letIn,
@@ -470,20 +470,18 @@ function CallScreen({
             role="status"
             data-testid="call-reconnecting"
           >
-            Reconnecting…
+            {VIDEO_CALL_WORDS.reconnecting}
           </p>
         ) : null}
         <div className="relative flex min-h-0 flex-1 gap-2 px-2">
           <div className="relative min-h-0 min-w-0 flex-1">
             {state === ConnectionState.Connecting ? (
               <div className="flex h-full items-center justify-center text-[13px] text-text-2">
-                Joining the call…
+                {VIDEO_CALL_WORDS.joining}
               </div>
             ) : (
               <CallStage
-                alone={
-                  team ? 'You’re the only one here so far.' : 'Waiting for the others to join.'
-                }
+                alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers}
               />
             )}
             <Reactions floating={floating} />
@@ -630,7 +628,7 @@ function CallScreen({
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" data-theme="dark">
                 <DropdownMenuItem onSelect={onLeave} data-testid="call-leave-only">
-                  Leave the call
+                  {VIDEO_CALL_WORDS.leaveOnly}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   danger
@@ -656,8 +654,8 @@ function CallScreen({
       </div>
       <Dialog open={confirmEnd} onOpenChange={setConfirmEnd}>
         <DialogContent
-          title="End the call for everyone?"
-          description="Everyone leaves the call now. Customers can come back in on their own link once someone from your team joins again."
+          title={VIDEO_CALL_WORDS.endForEveryoneConfirm}
+          description={VIDEO_CALL_WORDS.endForEveryoneHow}
         >
           <div className="mt-5 flex justify-end gap-2">
             <DialogClose asChild>
@@ -916,10 +914,7 @@ function StandIn({ heading, team, onEnd }: CallRoomProps) {
         data-testid="call-stand-in"
       >
         <Avatar name={heading.title} size="lg" />
-        <p className="max-w-[420px] text-[13.5px] text-text-2">
-          Test call: video calls here run on a stand-in, so nobody’s camera or sound is carried.
-          With LiveKit set up, this is the call.
-        </p>
+        <p className="max-w-[420px] text-[13.5px] text-text-2">{VIDEO_CALL_WORDS.standIn}</p>
         {team && got ? (
           <div className="w-full max-w-[420px] text-left">
             {got.people
@@ -964,7 +959,7 @@ function StandInAsking({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 py-1.5 text-[13.5px]">
-      {name} is asking to join
+      {VIDEO_CALL_WORDS.askingToJoin(name)}
       <Button
         size="sm"
         onClick={() =>
