@@ -67,6 +67,7 @@ import {
   recentOf,
   type Ctx,
 } from './common';
+import { knownCheck } from './checks';
 import { playbooksInUse } from './friends';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
@@ -1076,6 +1077,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Reconnect (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither
     // side has written for a month, and not on the list already. They share the first messages' limit with Say hi.
+    // Someone found by topic is one only once they're a friend or have chatted (decision 92, `knownCheck`).
     const reconnectLeft = Math.max(
       0,
       leftToday(limits, 'reconnect') - items.filter((i) => i.kind === 'opener').length,
@@ -1103,7 +1105,7 @@ export const today = defineAddonQuery(outreachAddon, {
               select c.id, c.thread_key, c.last_at from addon_outreach.file_chats c
               where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
             ) c on true
-            where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good'
+            where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good' and ${knownCheck(me)}
               and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and (c.last_at is null or c.last_at < ${quiet}::timestamptz)
               and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id

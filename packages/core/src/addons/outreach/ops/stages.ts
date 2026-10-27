@@ -26,6 +26,7 @@ import {
 import type { ClientCause } from '../person-menu';
 import { profiles, stages } from '../tables';
 import { OUTREACH_WORDS } from '../words';
+import { knownCheck } from './checks';
 import { clientCauseOf, inWorkspace, isClient, pitchable, type Ctx } from './common';
 import { noteSent, offerVersionFor, restartConversation } from './conversation';
 import type { CheckVerdict } from '../checks';
@@ -109,8 +110,10 @@ function staged(ctx: Ctx, me: string, which: SQL) {
         and (exists (select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me})
           or exists (select 1 from addon_outreach.file_chats c
             where c.profile_id = p.id and c.user_id = ${me} and c.read_state <> 'none')
+          -- Someone found by topic counts once the AI calls them good, not on a maybe (decision 92).
           or exists (select 1 from addon_outreach.checks ch
-            where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict in ('good', 'maybe'))
+            where ch.profile_id = p.id and ch.user_id = ${me}
+              and (ch.verdict = 'good' or (ch.verdict = 'maybe' and ${knownCheck(me)})))
           or exists (select 1 from addon_outreach.demos d
             where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null)
           or exists (select 1 from addon_outreach.stages s where s.profile_id = p.id and s.user_id = ${me}))

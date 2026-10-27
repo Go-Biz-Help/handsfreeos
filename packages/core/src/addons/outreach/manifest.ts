@@ -146,6 +146,7 @@ export const outreachAddon = defineAddon({
       'outreach.partner.saved',
       'outreach.partner.marked',
       'outreach.client.marked',
+      'outreach.finds.saved',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and

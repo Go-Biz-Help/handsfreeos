@@ -11,9 +11,15 @@
  * - **Nobody new is read while 3 days of checks wait** (`findsWaitingMost`), so people found never run ahead of what
  *   gets checked.
  *
- * Browser-safe: the extension, the web, the phone and the worker read these words and shapes.
+ * Browser-safe: the extension, the web, the phone and the worker read these words and shapes. The server's side is
+ * ./ops/finds.ts.
  */
-import { NETWORKS, PLATFORMS, type Platform } from './networks';
+import { z } from 'zod';
+import { GroupRef } from './activity';
+import { quoted, says } from './fit';
+import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
+import type { PlaybookDetails } from './playbooks';
+import { PersonName, ProfileRef } from './saves';
 
 /**
  * How someone was found, the strongest first: they wrote a post the AI called good, commented on one, liked or reacted
@@ -56,6 +62,11 @@ export const FINDS_WAITING_DAYS = 3;
  */
 export const findsWaitingMost = (foundChecksPerDay: number): number =>
   FINDS_WAITING_DAYS * Math.max(0, foundChecksPerDay);
+/**
+ * How many days of the network's likes the good fits found may wait for theirs (the warm-up before a request): past
+ * it, nobody more is checked till Today catches up.
+ */
+export const FIND_LIKES_BEHIND_DAYS = 2;
 /** What a commenter said, cut to this, kept only until the AI's check reads it. */
 export const FIND_SAID_MOST = 300;
 /** The hashtag, phrase or kind of business someone was found with, and the place a search showed. */
@@ -119,3 +130,165 @@ export function findFact(find: FindOf): string {
     }
   }
 }
+
+/**
+ * Whether what someone shows says a playbook's skip word in quotes ("“Realtor”"), any playbook's, as a post's words
+ * are weighed (./posts.ts `postLook`): the word, or null. Someone who says one is never kept as found.
+ */
+export function skipWordIn(
+  playbooks: readonly { readonly details: Pick<PlaybookDetails, 'skip'> }[],
+  lines: readonly string[],
+): string | null {
+  if (!lines.length) return null;
+  return (
+    playbooks.flatMap((p) => p.details.skip.flatMap(quoted)).find((w) => says(lines, w)) ?? null
+  );
+}
+
+// ------------------------------------------------------------------------------------------------- the extension
+
+/** The most lines kept from under someone's name in a list: a headline, a bio, a kind of business. */
+export const FIND_LINES = 4;
+export const FIND_LINE_MOST = 300;
+/** The most people one ask for who to check next takes: a day's at most. */
+export const FINDS_NEXT_MOST = 40;
+
+/**
+ * How the extension's saves find people (`outreach.finds.save`): who liked or commented on a good post, what a search
+ * showed, a group's members. A good post's writer is found by the AI's check of the post itself.
+ */
+export const FIND_SAVE_HOWS = ['liked', 'commented', 'searched', 'member'] as const;
+export type FindSaveHow = (typeof FIND_SAVE_HOWS)[number];
+
+/** Someone as a post's people, a search's results or a group's members showed them. */
+export const FindIn = z.object({
+  profile: ProfileRef,
+  name: PersonName,
+  /** What the page showed under their name: a headline, a bio, a kind of business. */
+  lines: z.array(z.string().trim().min(1).max(FIND_LINE_MOST)).max(FIND_LINES).default([]),
+  /** What a commenter said, cut to fit: kept only until the AI's check reads it, or 14 days. */
+  said: z
+    .string()
+    .trim()
+    .min(1)
+    .max(4_000)
+    .transform((t) =>
+      t.length > FIND_SAID_MOST ? `${t.slice(0, FIND_SAID_MOST - 1).trimEnd()}…` : t,
+    )
+    .nullable()
+    .default(null),
+  /** Where a search's result or a group's member says they are: "Austin, TX". */
+  place: z.string().trim().min(1).max(FIND_PLACE_MOST).nullable().default(null),
+});
+export type FindIn = z.input<typeof FindIn>;
+
+export const FindsSaveInput = z
+  .object({
+    workspaceId: z.uuid(),
+    /** A network that checks people found (`foundChecksPerDay`): Instagram, LinkedIn or Alignable. */
+    platform: z.enum(PLATFORM_KEYS),
+    how: z.enum(FIND_SAVE_HOWS),
+    /** The good post whose likers or commenters these are (`outreach.posts.people_next`). */
+    postId: z.uuid().nullable().default(null),
+    /** The group whose members these are. */
+    group: GroupRef.nullable().default(null),
+    /** The kind of business a search went with (`outreach.finds.searches`). */
+    words: z.string().trim().min(1).max(FIND_WORDS_MOST).nullable().default(null),
+    /** The town a search looked in: none when it looked anywhere. */
+    place: z.string().trim().min(1).max(FIND_PLACE_MOST).nullable().default(null),
+    /** Everyone the page showed, once: none when it showed nobody, which still marks a post's people read. */
+    people: z.array(FindIn).max(FINDS_SAVE_MOST).default([]),
+  })
+  .refine((i) => (i.how === 'liked' || i.how === 'commented') === (i.postId !== null), {
+    error:
+      'Send the post whose people these are, and a post only for who liked or commented on it.',
+    path: ['postId'],
+  })
+  .refine((i) => i.how !== 'member' || i.group !== null, {
+    error: 'Say which group they’re in.',
+    path: ['group'],
+  });
+export type FindsSaveInput = z.input<typeof FindsSaveInput>;
+
+export const FindsSaveOutput = z.object({
+  /** New people kept to check. */
+  added: z.number().int().min(0),
+  /**
+   * People left out: the person, the post's writer, anyone known or reached, a customer, anyone left alone or skipped
+   * for where they are, and anyone new past the finds that may wait.
+   */
+  skipped: z.number().int().min(0),
+});
+export type FindsSaveOutput = z.output<typeof FindsSaveOutput>;
+
+export const PostsPeopleNextInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS),
+});
+export type PostsPeopleNextInput = z.input<typeof PostsPeopleNextInput>;
+
+export const PostsPeopleNextOutput = z.object({
+  /** The good posts whose likers and commenters to read next, in order, no more than today has room for. */
+  posts: z.array(
+    z.object({
+      postId: z.uuid(),
+      url: z.string(),
+      /** Who wrote it, left out of its people. */
+      name: z.string(),
+      profileUrl: z.string(),
+      /** The hashtag or phrase that found it. */
+      words: z.string().nullable(),
+      strong: z.boolean(),
+      comments: z.number().int().min(0).nullable(),
+      reactions: z.number().int().min(0).nullable(),
+    }),
+  ),
+  /** How many posts' people were read today, and how many a day are. */
+  today: z.number().int().min(0),
+  perDay: z.number().int().min(0),
+});
+export type PostsPeopleNextOutput = z.output<typeof PostsPeopleNextOutput>;
+
+export const FindsNextInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS),
+  /** How many it wants: at most a day's. */
+  most: z.number().int().min(1).max(FINDS_NEXT_MOST).default(FINDS_NEXT_MOST),
+});
+export type FindsNextInput = z.input<typeof FindsNextInput>;
+
+export const FindsNextOutput = z.object({
+  /** Who to check next, in order, no more than today has room for. */
+  people: z.array(
+    z.object({
+      profileId: z.uuid(),
+      name: z.string(),
+      url: z.string(),
+      how: z.enum(FIND_HOW_KEYS),
+      /** The hashtag, phrase or kind of business they were found with. */
+      words: z.string().nullable(),
+      /** The post they wrote, liked or commented on. */
+      postUrl: z.string().nullable(),
+    }),
+  ),
+  /** How many found people were checked today, and how many a day are now. */
+  today: z.number().int().min(0),
+  perDay: z.number().int().min(0),
+});
+export type FindsNextOutput = z.output<typeof FindsNextOutput>;
+
+export const FindsSearchesInput = z.object({
+  workspaceId: z.uuid(),
+  /** The network whose search of businesses goes with the playbooks' kinds of business: Alignable's. */
+  platform: z.enum(PLATFORM_KEYS).default('alignable'),
+});
+export type FindsSearchesInput = z.input<typeof FindsSearchesInput>;
+
+export const FindsSearchesOutput = z.object({
+  /**
+   * Today's searches, in turn: the kind of business, and whether its playbook works with clients online, so the search
+   * goes anywhere rather than the person's own town.
+   */
+  searches: z.array(z.object({ words: z.string(), anywhere: z.boolean() })),
+});
+export type FindsSearchesOutput = z.output<typeof FindsSearchesOutput>;

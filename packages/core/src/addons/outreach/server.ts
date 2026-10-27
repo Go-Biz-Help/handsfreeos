@@ -13,6 +13,7 @@ import { chatCommands, chatQueries } from './ops/chats';
 import { checkCommands, checkQueries } from './ops/checks';
 import { countryCommands, countryQueries } from './ops/countries';
 import { demoCommands } from './ops/demos';
+import { findCommands, findQueries } from './ops/finds';
 import { downloadCommands } from './ops/download';
 import { friendCommands, friendQueries } from './ops/friends';
 import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
@@ -68,6 +69,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...trackingCommands,
     ...partnerCommands,
     ...personMenuCommands,
+    ...findCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -97,5 +99,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...trackingQueries,
     ...partnerQueries,
     ...personMenuQueries,
+    ...findQueries,
   ],
 };

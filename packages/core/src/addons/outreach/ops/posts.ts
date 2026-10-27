@@ -30,6 +30,7 @@ import {
 import { posts, touches } from '../tables';
 import { keepGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
+import { findWriter } from './finds';
 import { playbooksInUse } from './friends';
 
 export const postsSave = defineAddonCommand(outreachAddon, {
@@ -161,7 +162,7 @@ export const postsSave = defineAddonCommand(outreachAddon, {
 export const postCheck = defineAddonCommand(outreachAddon, {
   name: 'outreach.post.check',
   description:
-    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, and whether its writer is asking now for what the business offers; or that it couldn’t be read.',
+    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, and whether its writer is asking now for what the business offers; or that it couldn’t be read. A good post’s writer on Instagram, LinkedIn or Alignable is found, for the AI’s check of them.',
   risk: 0,
   input: PostCheckInput,
   output: PostCheckOutput,
@@ -188,6 +189,9 @@ export const postCheck = defineAddonCommand(outreachAddon, {
       .update(posts)
       .set({ checkState: check, checkWhy: input.check?.why ?? null, strong, checkedAt: at })
       .where(eq(posts.id, post.id));
+    // A good post's writer, on a network that checks people found (decision 92), is found: the AI checks them from
+    // their own page before anything is done for them.
+    if (check === 'good') await findWriter(ctx, post, at);
     await ctx.emit({
       type: 'outreach.post.checked',
       entityType: 'workspace',

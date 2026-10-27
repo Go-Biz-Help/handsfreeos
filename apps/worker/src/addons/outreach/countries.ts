@@ -4,7 +4,7 @@
  * friends, writing a post or engaging with one, is worked out here: from the lines Facebook showed under their name
  * when one says where they live ("Lives in Austin, Texas"), seen, or only where they're from ("From Lagos, Nigeria"),
  * from; otherwise the AI guesses from their name, posts and groups, guessed. A From or a guess never skips anyone: they
- * wait for a look. Core holds the words and the reading (packages/core/src/addons/outreach/countries.ts) and
+ * wait for a look. Someone found by topic (decision 92) and in nothing else isn't guessed: the check of them reads it. Core holds the words and the reading (packages/core/src/addons/outreach/countries.ts) and
  * `outreach.countries.save` keeps it.
  *
  * - It runs only while the setting skips anyone: with Anywhere, nobody's country is needed.
@@ -72,7 +72,8 @@ export async function guessCountriesJob(ctx: AddonJobContext): Promise<JobResult
           where workspace_id = ${ws} and addon_id = ${ctx.manifest.id}`,
     );
     if (!countryRuleOn(outreachSettings(installed?.settings).countries)) return null;
-    // Anyone found, not worked out yet, and not waiting for a check, which reads it off their profile.
+    // Anyone found, not worked out yet, and not waiting for a check, which reads it off their profile. Someone found by
+    // topic and in nothing else waits for that check too (decision 92).
     return rows<{
       id: string;
       name: string;
@@ -94,6 +95,11 @@ export async function guessCountriesJob(ctx: AddonJobContext): Promise<JobResult
           where p.workspace_id = ${ws} and p.country_at is null and p.friendship <> 'self'
             and not exists (select 1 from addon_outreach.checks ch
               where ch.profile_id = p.id and ch.verdict = 'waiting')
+            and not (exists (select 1 from addon_outreach.finds fd where fd.profile_id = p.id)
+              and not exists (select 1 from addon_outreach.checks ch where ch.profile_id = p.id)
+              and not exists (select 1 from addon_outreach.group_people gp where gp.profile_id = p.id)
+              and not exists (select 1 from addon_outreach.friends f where f.profile_id = p.id)
+              and not exists (select 1 from addon_outreach.engagements e where e.profile_id = p.id))
           order by p.last_seen_at desc, p.id
           limit ${GUESS_RUN_MOST + 1}`,
     );

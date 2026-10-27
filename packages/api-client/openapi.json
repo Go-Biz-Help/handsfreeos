@@ -100012,7 +100012,7 @@
     "/v1/commands/outreach.check.look": {
       "post": {
         "operationId": "command_outreach_check_look",
-        "summary": "What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that Facebook showed someone else. Kept only until the AI has read it.",
+        "summary": "What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that the network showed someone else. Someone the person knows, or someone found by topic they don’t know yet, whose check counts on its own. Kept only until the AI has read it.",
         "tags": [
           "commands"
         ],
@@ -100147,7 +100147,7 @@
     "/v1/commands/outreach.checks.again": {
       "post": {
         "operationId": "command_outreach_checks_again",
-        "summary": "Puts everyone the person’s computer has checked back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then.",
+        "summary": "Puts everyone the person’s computer has checked among the people they know back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then. People found by topic they don’t know yet aren’t among them.",
         "tags": [
           "commands"
         ],
@@ -101803,6 +101803,260 @@
                     "tagged",
                     "because",
                     "addedPerson",
+                    "skipped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.finds.save": {
+      "post": {
+        "operationId": "command_outreach_finds_save",
+        "summary": "People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found (that post’s people are then read), the businesses a search of Alignable showed, or a group’s members. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.finds.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
+                  },
+                  "how": {
+                    "type": "string",
+                    "enum": [
+                      "liked",
+                      "commented",
+                      "searched",
+                      "member"
+                    ]
+                  },
+                  "postId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "group": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^\\d{1,30}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "slug": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9._-]{1,100}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "url": {
+                            "type": "string",
+                            "maxLength": 500
+                          },
+                          "name": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "slug",
+                          "url"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "words": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "place": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "people": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "profile": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "username": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "lines": {
+                          "default": [],
+                          "maxItems": 4,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        },
+                        "said": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 4000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "place": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "profile",
+                        "name"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "platform",
+                  "how"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "added": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "added",
                     "skipped"
                   ],
                   "additionalProperties": false
@@ -207388,6 +207642,345 @@
                     "dontPitch",
                     "neverContact",
                     "canTakeOff"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.posts.people_next": {
+      "post": {
+        "operationId": "query_outreach_posts_people_next",
+        "summary": "Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "platform"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "postId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "profileUrl": {
+                            "type": "string"
+                          },
+                          "words": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "strong": {
+                            "type": "boolean"
+                          },
+                          "comments": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "reactions": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "postId",
+                          "url",
+                          "name",
+                          "profileUrl",
+                          "words",
+                          "strong",
+                          "comments",
+                          "reactions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "today": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "perDay": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "posts",
+                    "today",
+                    "perDay"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.finds.next": {
+      "post": {
+        "operationId": "query_outreach_finds_next",
+        "summary": "Who of the people found by topic on a network the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: those who wrote a good post first, then who commented on one, liked one, are in a group and a search showed; a post asking for what the business offers first, then the newest. Only people found in the last two weeks, not checked yet (or not read a week ago), and still to reach; none while the good fits waiting for their like are 2 days of likes or more.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
+                  },
+                  "most": {
+                    "default": 40,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 40
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "platform"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "profileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "posted",
+                              "commented",
+                              "liked",
+                              "member",
+                              "searched"
+                            ]
+                          },
+                          "words": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "profileId",
+                          "name",
+                          "url",
+                          "how",
+                          "words",
+                          "postUrl"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "today": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "perDay": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "people",
+                    "today",
+                    "perDay"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.finds.searches": {
+      "post": {
+        "operationId": "query_outreach_finds_searches",
+        "summary": "The searches of a network’s businesses (Alignable’s) the person’s computer does today to find people by topic: the kinds of business the customers’ playbooks there say their clients run, 3 a day in turn, each with whether its playbook works with clients online, so it searches anywhere rather than the person’s own town. None until a playbook has kinds of business, nor while 3 days of checks of people found wait.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "alignable",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "searches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "words": {
+                            "type": "string"
+                          },
+                          "anywhere": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "words",
+                          "anywhere"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "searches"
                   ],
                   "additionalProperties": false
                 }

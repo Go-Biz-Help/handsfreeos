@@ -1,6 +1,7 @@
 /**
  * Social Outreach in the worker: group posts kept as worth a look are checked by the AI (the stand-in model here), a
- * batch at a time, and marked good or not with why. At the day's AI limit the rest wait, unchecked.
+ * batch at a time, and marked good or not with why. At the day's AI limit the rest wait, unchecked. A good post's
+ * writer on LinkedIn is found (decision 92), for the AI's check of them; a Facebook group's writer isn't.
  */
 import { randomUUID } from 'node:crypto';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
@@ -137,5 +138,55 @@ describe('checking group posts', () => {
           where workspace_id = ${ws} and kind = ${CHECK_POSTS_JOB} and status = 'pending'`,
     );
     expect(job?.later).toBe(true);
+  });
+});
+
+describe('finding good posts’ writers (decision 92)', () => {
+  it('finds a good LinkedIn post’s writer, and not a Facebook group post’s', async () => {
+    const s = testServices({ ai: { provider: scriptedAi() } });
+    const ws = await outreachBusiness(owner, 'Outreach Post Writers Co');
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: {
+        ...crm.details,
+        platforms: ['facebook', 'linkedin'],
+        postSearches: ['missed calls'],
+      },
+    });
+    const onLinkedIn = (n: number, text: string) => ({
+      url: `https://www.linkedin.com/feed/update/urn:li:activity:74000000000000000${n}/`,
+      author: {
+        id: null,
+        username: `made-up-${n}`,
+        url: `https://www.linkedin.com/in/made-up-${n}/`,
+      },
+      name: `Made Up Person ${n}`,
+      text,
+    });
+    await runAs(owner, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      group: null,
+      found: 'search',
+      words: 'missed calls',
+      posts: [
+        onLinkedIn(7, 'Can anyone recommend a way to stop missed calls?'),
+        onLinkedIn(8, 'Missed calls today. The crew finished early anyway.'),
+      ],
+    });
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      posts: [post(9, 'Can anyone recommend a CRM for my crew?')],
+    });
+    await drain(s, ws);
+    expect((await states(ws)).map((p) => p.check_state)).toEqual(['good', 'good', 'not']);
+    const found = await rows<{ name: string; how: string; words: string | null }>(
+      admin(),
+      sql`select p.name, f.how, f.words from addon_outreach.finds f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws}`,
+    );
+    expect(found).toEqual([{ name: 'Made Up Person 7', how: 'posted', words: 'missed calls' }]);
   });
 });

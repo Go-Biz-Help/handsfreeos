@@ -476,8 +476,8 @@ export const askMake = defineAddonCommand(outreachAddon, {
     // Research counts toward the day's checks (decision 46a): with none left, it ends at once, and they go first in
     // tomorrow's checks (`outreach.checks.next` finds this ask).
     if (task.kind === 'research') {
-      const { today, perDay } = await perDayFor(ctx, me, now, platform);
-      if (today >= perDay) {
+      const { checks: day } = await perDayFor(ctx, me, now, platform);
+      if (!day.room) {
         const [row] = await ctx.tx
           .insert(asks)
           .values({
@@ -492,7 +492,7 @@ export const askMake = defineAddonCommand(outreachAddon, {
             askedAt: at,
             startedAt: at,
             state: 'done',
-            line: RESEARCH_WORDS.tomorrow(task.name, perDay),
+            line: RESEARCH_WORDS.tomorrow(task.name, day.perDay),
             result: {
               drafts: [],
               kind: null,

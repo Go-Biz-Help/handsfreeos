@@ -6667,7 +6667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that Facebook showed someone else. Kept only until the AI has read it.
+         * What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that the network showed someone else. Someone the person knows, or someone found by topic they don’t know yet, whose check counts on its own. Kept only until the AI has read it.
          * @description Risk level 1. Requires outreach.use. Emits outreach.check.looked.
          */
         post: operations["command_outreach_check_look"];
@@ -6687,7 +6687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Puts everyone the person’s computer has checked back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then.
+         * Puts everyone the person’s computer has checked among the people they know back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then. People found by topic they don’t know yet aren’t among them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.checks.again.
          */
         post: operations["command_outreach_checks_again"];
@@ -6931,6 +6931,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.engaged.saved.
          */
         post: operations["command_outreach_engaged_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.finds.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found (that post’s people are then read), the businesses a search of Alignable showed, or a group’s members. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.finds.saved.
+         */
+        post: operations["command_outreach_finds_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18377,6 +18397,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.finds.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who of the people found by topic on a network the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: those who wrote a good post first, then who commented on one, liked one, are in a group and a search showed; a post asking for what the business offers first, then the newest. Only people found in the last two weeks, not checked yet (or not read a week ago), and still to reach; none while the good fits waiting for their like are 2 days of likes or more.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.finds.searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The searches of a network’s businesses (Alignable’s) the person’s computer does today to find people by topic: the kinds of business the customers’ playbooks there say their clients run, 3 a day in turn, each with whether its playbook works with clients online, so it searches anywhere rather than the person’s own town. None until a playbook has kinds of business, nor while 3 days of checks of people found wait.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_searches"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.follow_backs.next": {
         parameters: {
             query?: never;
@@ -18751,6 +18811,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_playbook_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.posts.people_next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_posts_people_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38619,6 +38699,67 @@ export interface operations {
                 content: {
                     "application/json": {
                         added: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_finds_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    group?: {
+                        id: string | null;
+                        /** @default null */
+                        name?: string | null;
+                        slug: string | null;
+                        url: string;
+                    } | null;
+                    /** @enum {string} */
+                    how: "liked" | "commented" | "searched" | "member";
+                    people?: {
+                        /** @default [] */
+                        lines?: string[];
+                        name: string;
+                        /** @default null */
+                        place?: string | null;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        said?: string | null;
+                    }[];
+                    /** @default null */
+                    place?: string | null;
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default null */
+                    postId?: string | null;
+                    /** @default null */
+                    words?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        skipped: number;
                     };
                 };
             };
@@ -71113,6 +71254,87 @@ export interface operations {
             };
         };
     };
+    query_outreach_finds_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 40 */
+                    most?: number;
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** @enum {string} */
+                            how: "posted" | "commented" | "liked" | "member" | "searched";
+                            name: string;
+                            postUrl: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            url: string;
+                            words: string | null;
+                        }[];
+                        perDay: number;
+                        today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_finds_searches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default alignable
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        searches: {
+                            anywhere: boolean;
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_follow_backs_next: {
         parameters: {
             query?: never;
@@ -72438,6 +72660,49 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_posts_people_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        perDay: number;
+                        posts: {
+                            comments: number | null;
+                            name: string;
+                            /** Format: uuid */
+                            postId: string;
+                            profileUrl: string;
+                            reactions: number | null;
+                            strong: boolean;
+                            url: string;
+                            words: string | null;
+                        }[];
+                        today: number;
                     };
                 };
             };

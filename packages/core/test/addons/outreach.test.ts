@@ -152,6 +152,10 @@ const NOT_THE_ASSISTANTS = new Set([
   'outreach.engaged.save',
   'outreach.partner.leads',
   'outreach.partner.look',
+  'outreach.posts.people_next',
+  'outreach.finds.save',
+  'outreach.finds.next',
+  'outreach.finds.searches',
   // The screens note which opener a copied first message was drafted with.
   'outreach.opener.use',
   // The worker.

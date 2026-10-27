@@ -568,3 +568,61 @@ describe('finding partners', () => {
     expect((await next(riley)).people.map((p) => p.name)).not.toContain('Gail Admin');
   });
 });
+
+describe('partners among people found by topic (decision 92)', () => {
+  let owner: TestUser;
+  let riley: TestUser;
+  let ws: string;
+  const names = async () =>
+    (
+      (await runAs(owner, ws, 'outreach.partners.next', { platform: 'alignable' })) as {
+        people: { name: string; kind: string }[];
+      }
+    ).people
+      .map((p) => `${p.name} (${p.kind})`)
+      .sort();
+
+  beforeAll(async () => {
+    owner = await createTestUser('outpa-found-owner', { fullName: 'Pat Owner' });
+    riley = await createTestUser('outpa-found-riley', { fullName: 'Riley Member' });
+    ws = await outreachBusiness(owner, 'Outreach Found Partners Co');
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: ws, userId: riley.id, role: 'member' });
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Partners',
+      template: null,
+      details: { ...partnerPlaybook, platforms: ['alignable'] },
+    });
+  }, 60_000);
+  afterAll(closeTestDbs);
+
+  it('leaves a business found by topic to its own check first', async () => {
+    const made = await rows<{ id: string; username: string }>(
+      admin(),
+      sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+          values (${ws}, 'alignable', 'lin-studio', 'https://www.alignable.com/austin-tx/lin-studio', 'Fay Lin'),
+            (${ws}, 'alignable', 'moore-signs', 'https://www.alignable.com/austin-tx/moore-signs', 'Gus Moore')
+          returning id, username`,
+    );
+    const fay = made.find((m) => m.username === 'lin-studio')!.id;
+    const gus = made.find((m) => m.username === 'moore-signs')!.id;
+    const find = (u: TestUser, profileId: string) =>
+      rows(
+        admin(),
+        sql`insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, words, found_at)
+            values (${ws}, ${u.id}, ${profileId}, 'alignable', 'searched', 'sign shop', now())`,
+      );
+    await find(owner, fay);
+    // A teammate's find is theirs: the owner still reads Gus.
+    await find(riley, gus);
+    expect(await names()).toEqual(['Gus Moore (business)']);
+    // Checked and not a customer: a partner after all, maybe.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, looked_at, checked_at, via)
+          values (${ws}, ${owner.id}, ${fay}, 'not', now() - interval '1 day', now() - interval '1 day', 'found')`,
+    );
+    expect(await names()).toEqual(['Fay Lin (business)', 'Gus Moore (business)']);
+  });
+});
