@@ -7199,6 +7199,35 @@
               "church",
               "other"
             ]
+          },
+          "affiliate": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "how": {
+                "default": "link",
+                "type": "string",
+                "enum": ["link", "code"]
+              },
+              "clickedAt": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["code"],
+            "additionalProperties": false
           }
         },
         "required": ["businessName"]
