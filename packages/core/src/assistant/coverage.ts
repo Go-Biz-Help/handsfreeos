@@ -244,7 +244,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'wallet.adjust': { warning: 'This changes their balance, and shows on their statement.' },
   'wallet.set_stage': { warning: 'This changes what happens when their balance runs out.' },
   'affiliates.save_settings': {
-    warning: 'This changes every affiliate’s share without one of their own, for payments from now on.',
+    warning:
+      'This changes every affiliate’s share without one of their own, for payments from now on.',
   },
   'affiliate.decide': { warning: 'They get an email saying what was decided.' },
   'affiliate.set_status': { warning: 'This changes whether their link credits new businesses.' },
