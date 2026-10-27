@@ -196,21 +196,24 @@ describe('each network’s groups (decision 92)', () => {
     ).toMatch(/Area: anywhere/);
   });
 
-  it('searches for groups with each word once, anywhere only for an online playbook where groups go by checks', () => {
+  it('searches for groups with each word once each way, anywhere only for an online playbook where groups go by checks', () => {
     const playbooks = [
       { details: { groupWords: ['roofers', '“Austin trades”'], worksOnline: false } },
       { details: { groupWords: ['bookkeeping', 'roofers'], worksOnline: true } },
+      { details: { groupWords: ['Roofers'], worksOnline: null } },
     ];
+    // A word a local playbook and an online one share is searched both ways: in town and anywhere.
     expect(groupSearchWords(playbooks, 'alignable')).toEqual([
       { words: 'roofers', anywhere: false },
       { words: 'Austin trades', anywhere: false },
       { words: 'bookkeeping', anywhere: true },
+      { words: 'roofers', anywhere: true },
     ]);
-    // Facebook's group search is as it was: never told to go anywhere.
-    expect(groupSearchWords(playbooks, 'facebook').map((w) => w.anywhere)).toEqual([
-      false,
-      false,
-      false,
+    // Facebook's group search is as it was: never told to go anywhere, so each word once.
+    expect(groupSearchWords(playbooks, 'facebook')).toEqual([
+      { words: 'roofers', anywhere: false },
+      { words: 'Austin trades', anywhere: false },
+      { words: 'bookkeeping', anywhere: false },
     ]);
   });
 });

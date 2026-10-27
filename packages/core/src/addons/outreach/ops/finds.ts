@@ -14,7 +14,7 @@
  *   are given out.
  * - **Each is checked by the AI from their own page** (`outreach.finds.next`, then `outreach.check.look` as for anyone):
  *   the network's found checks a day (`perDayFor`), and none while the good fits waiting for their like are 2 days of
- *   the network's likes or more.
+ *   the network's likes or more (`likesBehind`).
  */
 import { eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -25,9 +25,8 @@ import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { countryOfPlace, linesCountry, type CountryRule } from '../countries';
 import {
-  FIND_FRESH_DAYS,
+  eachSearchOnce,
   FIND_HOW_KEYS,
-  FIND_LIKES_BEHIND_DAYS,
   FindsNextInput,
   FindsNextOutput,
   FindsSaveInput,
@@ -47,16 +46,22 @@ import {
   FIND_WORDS_PER_DAY,
   ownWordsOn,
   type FindWordsPart,
+  type PlaybookDetails,
   type WordsPlatform,
 } from '../playbooks';
 import { dayNumber, inTurn, POST_FRESH_DAYS } from '../posts';
 import { posts, profiles } from '../tables';
 import { keepGroup } from './activity';
-import { limitsFor } from './automation';
-import { findsWaiting, findToCheck, myOwnProfile, perDayFor, stillToReach } from './checks';
+import {
+  findsWaiting,
+  findToCheck,
+  likesBehind,
+  myOwnProfile,
+  perDayFor,
+  stillToReach,
+} from './checks';
 import {
   countryFateSql,
-  countryLetsSql,
   countryRuleOf,
   inWorkspace,
   keepCountry,
@@ -66,7 +71,7 @@ import {
 } from './common';
 import { playbooksInUse } from './friends';
 import { findsByTopic } from './live';
-import { slowsNow, startOfToday, warningOf } from './tidy';
+import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
 const ago = (now: number, days: number) => new Date(now - days * DAY).toISOString();
@@ -376,34 +381,6 @@ export const postsPeopleNext = defineAddonQuery(outreachAddon, {
   },
 });
 
-/**
- * Whether the good fits found by topic who wait for their like, the warm-up before a request, are 2 days of the
- * network's likes or more (decision 92): no more are checked till Today catches up with them.
- */
-async function likesBehind(
-  ctx: Ctx,
-  me: string,
-  platform: Platform,
-  now: number,
-): Promise<boolean> {
-  const todayStart = await startOfToday(ctx, now);
-  const warned = slowsNow(await warningOf(ctx, me, platform, todayStart, now), now);
-  const likes = (await limitsFor(ctx, me, warned, now, platform)).like;
-  const [waiting] = await rows<{ n: number }>(
-    ctx.tx,
-    sql`select count(*)::int as n from addon_outreach.finds f
-        join addon_outreach.profiles p on p.id = f.profile_id
-        join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'
-        where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me} and f.platform = ${platform}
-          and f.found_at >= ${ago(now, FIND_FRESH_DAYS)}::timestamptz
-          and ${stillToReach(me)} and ${countryLetsSql(await countryRuleOf(ctx), 'p')}
-          and p.warm_up_missed_at is null
-          and not exists (select 1 from addon_outreach.touches t
-            where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like')`,
-  );
-  return (waiting?.n ?? 0) >= FIND_LIKES_BEHIND_DAYS * likes;
-}
-
 export const findsNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.finds.next',
   description:
@@ -456,6 +433,29 @@ export const findsNext = defineAddonQuery(outreachAddon, {
   },
 });
 
+/**
+ * The searches of a network's businesses (Alignable's) its playbooks give, before the day's turn: each kind of business
+ * with whether its own playbook works with clients online, so it searches anywhere rather than the person's town. A
+ * kind a local playbook and an online one share is searched both ways (`eachSearchOnce`).
+ */
+export function kindSearches(
+  playbooks: readonly {
+    readonly details: Partial<
+      Pick<PlaybookDetails, FindWordsPart | 'wordsWritten' | 'worksOnline'>
+    >;
+  }[],
+  platform: Platform,
+): { words: string; anywhere: boolean }[] {
+  return eachSearchOnce(
+    playbooks.flatMap((p) =>
+      (ownWordsOn(p.details, platform, 'businessKinds') ?? []).flatMap((kind) => {
+        const words = kind.replace(/\s+/g, ' ').trim();
+        return words ? [{ words, anywhere: p.details.worksOnline === true }] : [];
+      }),
+    ),
+  );
+}
+
 export const findsSearches = defineAddonQuery(outreachAddon, {
   name: 'outreach.finds.searches',
   description:
@@ -471,16 +471,7 @@ export const findsSearches = defineAddonQuery(outreachAddon, {
     if (part !== 'businessKinds' || NETWORKS[input.platform].foundChecksPerDay === null)
       return { searches: [] };
     if (await findsFull(ctx, me, input.platform, now)) return { searches: [] };
-    // Each kind once, with its own playbook's way of working: a local playbook and an online one each search theirs.
-    const seen = new Set<string>();
-    const pool = (await playbooksInUse(ctx, input.platform)).flatMap((p) =>
-      (ownWordsOn(p.details, input.platform, part) ?? []).flatMap((kind) => {
-        const words = kind.replace(/\s+/g, ' ').trim();
-        if (!words || seen.has(words.toLowerCase())) return [];
-        seen.add(words.toLowerCase());
-        return [{ words, anywhere: p.details.worksOnline === true }];
-      }),
-    );
+    const pool = kindSearches(await playbooksInUse(ctx, input.platform), input.platform);
     const perDay = FIND_WORDS_PER_DAY[input.platform as WordsPlatform];
     return { searches: inTurn(pool, perDay, dayNumber(now)) };
   },

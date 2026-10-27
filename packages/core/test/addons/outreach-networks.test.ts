@@ -925,8 +925,9 @@ describe('one person on two networks', () => {
 /**
  * LinkedIn's people found by topic (decision 92): a good post's writer reaches Today only after the AI's check of
  * them from their own page, liked on the post it found, then invited a day after; who reacted gets a post of their own
- * liked. A comment no longer stands in for the like. Anyone the old search pick warmed up already still gets their
- * invitation. Only a computer on 0.95.0 or later gets this list.
+ * liked. A comment no longer stands in for the like. Anyone the old search pick warmed up before the switch to
+ * finding by topic still gets their invitation; a like or comment since never counts. Only a computer on 0.95.0 or
+ * later gets this list.
  */
 describe('people found by topic on LinkedIn', () => {
   const POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000777/';
@@ -1184,6 +1185,77 @@ describe('people found by topic on LinkedIn', () => {
     expect(
       (await listOf(kim, 'linkedin')).filter((i) => i.kind === 'comment').map((i) => i.name),
     ).toEqual(expect.arrayContaining(['Avery North', 'Jules Park']));
+  });
+
+  it('never carries a writer whose only warm-up came after the switch to finding by topic', async () => {
+    const lou = await teammate('Lou Marsh');
+    await computerOn(lou, ws, '0.95.0');
+    const BEFORE_POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000782/';
+    const AFTER_POST = 'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000783/';
+    await runAs(lou, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      found: 'search',
+      posts: [
+        {
+          url: BEFORE_POST,
+          author: person('dale-moss-roofing'),
+          name: 'Dale Moss',
+          text: 'Owner of a small roofing company here. What CRM do you use for quotes?',
+        },
+        {
+          url: AFTER_POST,
+          author: person('noor-bright-painting'),
+          name: 'Noor Bright',
+          text: 'Owner of a painting company. Any CRM tips for a small team?',
+        },
+      ],
+    });
+    // Both called good before the switch: no find of either writer, and no check of them.
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'good'
+          where workspace_id = ${ws} and user_id = ${lou.id}`,
+    );
+    // Lou's computer first worked on 0.95.0 30 hours ago, and Lou has found nobody on LinkedIn yet.
+    const switchedAt = (at: string | null) =>
+      rows(
+        admin(),
+        sql`update addon_outreach.computers set found_by_topic_at = ${at}::timestamptz
+            where workspace_id = ${ws} and user_id = ${lou.id}`,
+      );
+    await switchedAt(new Date(Date.now() - 30 * 3_600_000).toISOString());
+    // Dale was warmed up with a comment before it; Noor's post had LinkedIn's comment on its own since, and a like.
+    await touched(lou, 'dale-moss-roofing', 'comment', 40, BEFORE_POST);
+    await touched(lou, 'noor-bright-painting', 'comment', 26, AFTER_POST);
+    await touched(lou, 'noor-bright-painting', 'like', 25);
+    const writers = async () =>
+      (await listOf(lou, 'linkedin'))
+        .filter((i) => ['Dale Moss', 'Noor Bright'].includes(i.name) && i.kind !== 'comment')
+        .map((i) => [i.name, i.kind]);
+    // Dale carries on to the invitation; Noor, never checked by the AI, gets nothing.
+    expect(await writers()).toEqual([['Dale Moss', 'friend_request']]);
+
+    // A computer removed since takes its time with it: Lou's first find on LinkedIn, 30 hours ago, still says when.
+    await switchedAt(null);
+    await rows(
+      admin(),
+      sql`with made as (
+            insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+            values (${ws}, 'linkedin', 'sasha-made-up-9', 'https://www.linkedin.com/in/sasha-made-up-9/',
+              'Sasha Madeup')
+            returning id)
+          insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, found_at, created_at)
+          select ${ws}, ${lou.id}, id, 'linkedin', 'liked', now() - interval '30 hours', now() - interval '30 hours'
+          from made`,
+    );
+    expect(await writers()).toEqual([['Dale Moss', 'friend_request']]);
+
+    // With no switch known at all, no warm-up carries anyone.
+    await rows(
+      admin(),
+      sql`delete from addon_outreach.finds where workspace_id = ${ws} and user_id = ${lou.id}`,
+    );
+    expect(await writers()).toEqual([]);
   });
 });
 

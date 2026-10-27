@@ -119,6 +119,29 @@ export async function findsByTopic(ctx: Ctx, me: string): Promise<boolean> {
   return foundByTopicOn(workingOf(await myComputers(ctx, me))?.version);
 }
 
+/**
+ * When the person switched to finding people by topic on a network (decision 92): the first beat of a computer of
+ * theirs working on a build that does (`found_by_topic_at`), or their first find there if that came sooner (a computer
+ * removed since takes its time with it). Null while neither is known. The old search pick carries on only with writers
+ * warmed up before it (./today.ts).
+ */
+export async function foundByTopicSince(
+  ctx: Ctx,
+  me: string,
+  platform: Platform,
+): Promise<Date | null> {
+  const ws = ctx.scope.workspaceId!;
+  const [since] = await rows<{ at: Date | string | null }>(
+    ctx.tx,
+    sql`select least(
+          (select min(c.found_by_topic_at) from addon_outreach.computers c
+            where c.workspace_id = ${ws} and c.user_id = ${me}),
+          (select min(f.created_at) from addon_outreach.finds f
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.platform = ${platform})) as at`,
+  );
+  return since?.at ? new Date(since.at) : null;
+}
+
 const shown = (c: Computer, working: Computer | null): ComputerShown => ({
   id: c.id,
   name: c.name,
@@ -260,6 +283,9 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
         nextAt,
         doing,
         ...(tell ? { toldAt: now } : {}),
+        // The first beat it works on a build that finds people by topic: the person's switch to it (decision 92).
+        foundByTopicAt:
+          row.foundByTopicAt ?? (isWorking && foundByTopicOn(row.version) ? at : null),
       })
       .where(eq(computers.id, row.id))
       .returning();

@@ -75,7 +75,7 @@ import {
   type Ctx,
 } from './common';
 import { knownCheck, myOwnProfile, stillToReach } from './checks';
-import { findsByTopic } from './live';
+import { findsByTopic, foundByTopicSince } from './live';
 import { playbooksInUse } from './friends';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
@@ -453,8 +453,8 @@ export const today = defineAddonQuery(outreachAddon, {
     // too, for the runner to do: enough for tomorrow's follows, as the groups' people's are.
     //
     // For a build that finds people by topic, this pick only carries on with writers it warmed up already (a like or a
-    // comment noted before they were found, their request not sent: decision 92's 11), so nobody half-way through a
-    // warm-up is dropped; nobody new comes from it, and it lists no likes.
+    // comment noted before the person switched to finding people by topic, their request not sent: decision 92's 11),
+    // so nobody half-way through a warm-up is dropped; nobody new comes from it, and it lists no likes.
     let searchRequests = 0;
     let searchLikes = 0;
     // Writers this pick warmed up, ready or not, for a build that finds people by topic: the found pick leaves them to
@@ -467,6 +467,7 @@ export const today = defineAddonQuery(outreachAddon, {
         ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes)
         : 0;
     if (playbooks.length && !requestsOff && (searchLeft || searchLikesLeft)) {
+      const switched = byTopic ? await foundByTopicSince(ctx, me, input.platform) : null;
       const searched = await rows<{
         id: string;
         name: string;
@@ -484,11 +485,11 @@ export const today = defineAddonQuery(outreachAddon, {
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind in ('like', 'comment')
                   and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
                   ${
-                    // For a build that finds people by topic, only a warm-up from before they were found counts: a
-                    // comment on a good post of theirs since (LinkedIn's on its own, or one OK'd) is no AI check.
+                    // For a build that finds people by topic, only a warm-up from before the person switched to it
+                    // counts (`foundByTopicSince`): a like or a comment since, found or not (LinkedIn's comment on its
+                    // own, or one OK'd), is no AI check. With no switch known yet, none does.
                     byTopic
-                      ? sql`and not exists (select 1 from addon_outreach.finds fd
-                          where fd.profile_id = p.id and fd.user_id = ${me} and fd.created_at <= t.at)`
+                      ? sql`and t.at < ${switched?.toISOString() ?? null}::timestamptz`
                       : sql``
                   }) as warmed_at
             from addon_outreach.posts po

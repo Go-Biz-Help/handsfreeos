@@ -19,10 +19,13 @@
 --        their own. A post keeps the hashtag or phrase that found it
 --        (`posts.words`) and when its people were read (`people_read_at`).
 --        A comment on Instagram and Alignable goes through `sends` like a
---        message, with its post (`sends.post_id`, kind `comment`).
+--        message, with its post (`sends.post_id`, kind `comment`). A
+--        computer keeps when it first worked on a build that finds people
+--        by topic (`computers.found_by_topic_at`): the old search pick
+--        carries on only with writers warmed up before then.
 --
--- Only adds: a new table, three columns and a kind more that `sends` takes, each empty until set. Groups need
--- nothing: their `platform` takes Alignable already, and a members page read with no leaders sets `admins_read_at`.
+-- Only adds: a new table, columns and a kind more that `sends` takes, each empty until set. Groups need nothing:
+-- their `platform` takes Alignable already, and a members page read with no leaders sets `admins_read_at`.
 -- =============================================================================
 
 create table addon_outreach.finds (
@@ -85,3 +88,7 @@ alter table addon_outreach.sends add constraint sends_kind_check
     'partner_ask', 'partner_follow_up', 'partner_details', 'partner_reply', 'comment'));
 alter table addon_outreach.sends
   add constraint sends_comment_post check ((kind = 'comment') = (post_id is not null));
+
+-- When a computer first worked on a build that finds people by topic (decision 92), as its heartbeat said: a like or
+-- comment noted since is no warm-up the old search pick gave, so it never carries a writer on to a request.
+alter table addon_outreach.computers add column found_by_topic_at timestamptz;

@@ -298,3 +298,20 @@ export const FindsSearchesOutput = z.object({
   searches: z.array(z.object({ words: z.string(), anywhere: z.boolean() })),
 });
 export type FindsSearchesOutput = z.output<typeof FindsSearchesOutput>;
+
+/**
+ * Each search once (decision 92's 3), for the searches of businesses and of groups: the same words searched the same
+ * way, in the person's town or anywhere, are one search, so a local playbook and an online one that share words each
+ * keep their own. The first one's words are kept as written.
+ */
+export function eachSearchOnce<T extends { readonly words: string; readonly anywhere: boolean }>(
+  searches: readonly T[],
+): T[] {
+  const seen = new Set<string>();
+  return searches.filter((s) => {
+    const key = `${s.words.toLowerCase()}|${s.anywhere}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
