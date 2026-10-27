@@ -38,16 +38,17 @@ import {
   type CountryRule,
   type MutualCountries,
 } from '../countries';
-import { FIND_FRESH_DAYS, type CheckVia } from '../finds';
+import { FIND_FRESH_DAYS, FIND_LIKES_BEHIND_DAYS, type CheckVia } from '../finds';
 import { limitNow } from '../limits';
 import { NETWORKS, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
 import { partnerReadsPerDay } from '../partners';
 import { checks, finds, profiles } from '../tables';
-import { automationOf } from './automation';
+import { automationOf, limitsFor } from './automation';
 import { findsByTopic } from './live';
 import {
   countryFateSql,
+  countryLetsSql,
   countryRuleOf,
   inPlay,
   inWorkspace,
@@ -184,6 +185,35 @@ export async function readToday(
   return { checks: done?.checks ?? 0, partners: done?.partners ?? 0, found: done?.found ?? 0 };
 }
 
+/**
+ * Whether the good fits found by topic who wait for their like, the warm-up before a request, are 2 days of the
+ * network's likes or more (decision 92): no more are checked till Today catches up with them, so none of the day's
+ * reads are held for them either.
+ */
+export async function likesBehind(
+  ctx: Ctx,
+  me: string,
+  platform: Platform,
+  now: number,
+): Promise<boolean> {
+  const todayStart = await startOfToday(ctx, now);
+  const warned = slowsNow(await warningOf(ctx, me, platform, todayStart, now), now);
+  const likes = (await limitsFor(ctx, me, warned, now, platform)).like;
+  const [waiting] = await rows<{ n: number }>(
+    ctx.tx,
+    sql`select count(*)::int as n from addon_outreach.finds f
+        join addon_outreach.profiles p on p.id = f.profile_id
+        join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'
+        where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me} and f.platform = ${platform}
+          and f.found_at >= ${new Date(now - FIND_FRESH_DAYS * DAY).toISOString()}::timestamptz
+          and ${stillToReach(me)} and ${countryLetsSql(await countryRuleOf(ctx), 'p')}
+          and p.warm_up_missed_at is null
+          and not exists (select 1 from addon_outreach.touches t
+            where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like')`,
+  );
+  return (waiting?.n ?? 0) >= FIND_LIKES_BEHIND_DAYS * likes;
+}
+
 /** The network's profiles read a day (`checksPerDay`), halved for a week after a warning there. */
 export const readsPerDay = (platform: Platform, slower: boolean) =>
   limitNow(Math.min(CHECKS_PER_DAY, NETWORKS[platform].checksPerDay), slower);
@@ -205,8 +235,9 @@ export interface DayReads {
  * - **Found** people (decision 92): the network's own a day (`foundChecksPerDay`), halved on training wheels there too
  *   and for a week after a warning, never below 1, beside the profiles read. Where they share them instead
  *   (`foundShareReads`, LinkedIn's settled 40), found people go first: up to their day's, inside the profiles read, the
- *   found checks still to come today hold their part (as many as wait, and only while the person's computer finds
- *   people by topic), and the checks and partner reads take what's left. The network's limit never grows.
+ *   found checks still to come today hold their part (as many as wait, only while the person's computer finds people
+ *   by topic, and never while likes are behind: `likesBehind`), and the checks and partner reads take what's left. The
+ *   network's limit never grows.
  */
 export async function perDayFor(
   ctx: Ctx,
@@ -231,7 +262,13 @@ export async function perDayFor(
     const room = Math.max(0, perDay - read.found);
     found = { today: read.found, perDay, room: shared ? Math.min(room, left) : room };
     // Held only for a computer that checks them (0.95.0 and later): an older build never does, so its reads stay whole.
-    if (shared && found.room && (await findsByTopic(ctx, me)))
+    // None while the good fits wait on their likes: no found checks run then (`outreach.finds.next`).
+    if (
+      shared &&
+      found.room &&
+      (await findsByTopic(ctx, me)) &&
+      !(await likesBehind(ctx, me, platform, now))
+    )
       held = Math.min(found.room, await findsWaiting(ctx, me, platform, now));
   }
   const free = left - held;

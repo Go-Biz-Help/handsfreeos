@@ -822,6 +822,11 @@ export const computers = addonOutreach.table(
     allowed: text('allowed').array().$type<Platform[]>(),
     nextAt: ts('next_at'),
     toldAt: ts('told_at'),
+    /**
+     * When it first worked on a build that finds people by topic (decision 92, ./ops/live.ts `foundByTopicSince`): the
+     * old search pick carries on only with writers warmed up before then.
+     */
+    foundByTopicAt: ts('found_by_topic_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

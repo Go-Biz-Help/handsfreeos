@@ -2243,7 +2243,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       three networks; Facebook keeps its word match. Reconnect, the Friends tab and Check everyone again go by who the
       person knows now, never by `via`.
     - **The warm-up is a like on every network, and a poster's is the post it found** (5a, 8a). On LinkedIn a comment
-      no longer stands in for it. Anyone the old pick already warmed up still gets their request.
+      no longer stands in for it. Anyone the old pick already warmed up still gets their request, as long as it was
+      before the person switched (`foundByTopicSince`: the first beat of a computer of theirs working on 0.95.0, kept
+      as `computers.found_by_topic_at`, or their first find on that network if sooner). A like or comment since never
+      counts, found or not.
     - **Comments on Instagram and Alignable** (6a, 10a) are drafted by the AI and go through `sends` (kind `comment`)
       into Waiting for you, with OK, change, skip and Approve all on the web and the phone. They wait for an OK while
       that network's training wheels are on, and under their own hold for the first 7 days of comments on that network

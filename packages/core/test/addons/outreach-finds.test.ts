@@ -17,11 +17,30 @@ import {
 } from '../../src/addons/outreach/automation';
 import { FIND_LIKES_BEHIND_DAYS, findsWaitingMost } from '../../src/addons/outreach/finds';
 import { NETWORKS } from '../../src/addons/outreach/networks';
+import { kindSearches } from '../../src/addons/outreach/ops/finds';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { computerOn, outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const crm = PLAYBOOK_TEMPLATES.crm_demos.details;
+
+describe('the searches of businesses', () => {
+  it('searches a kind a local playbook and an online one share both ways, each way once', () => {
+    const playbooks = [
+      { details: { businessKinds: ['property manager', 'plumber'], worksOnline: null } },
+      { details: { businessKinds: ['Property  manager', 'bookkeeper'], worksOnline: true } },
+      { details: { businessKinds: ['plumber', 'property manager'], worksOnline: false } },
+    ];
+    expect(kindSearches(playbooks, 'alignable')).toEqual([
+      { words: 'property manager', anywhere: false },
+      { words: 'plumber', anywhere: false },
+      { words: 'Property manager', anywhere: true },
+      { words: 'bookkeeper', anywhere: true },
+    ]);
+    // LinkedIn finds people through posts, not a search of businesses.
+    expect(kindSearches(playbooks, 'linkedin')).toEqual([]);
+  });
+});
 
 describe('people found by topic', () => {
   let owner: TestUser;
@@ -548,12 +567,29 @@ describe('people found by topic', () => {
     expect(await kept(lee)).toEqual([]);
   });
 
-  it('holds LinkedIn’s profiles read for found people only on a computer that checks them', async () => {
-    /** How many people `u` knows the day's checks have room for, with 35 found waiting and 40 connections to check. */
-    const room = async (name: string, version: string) => {
+  it('holds LinkedIn’s profiles read for found people only on a computer that checks them, and never while likes are behind', async () => {
+    /**
+     * How many people `u` knows the day's checks have room for, with 35 found waiting and 40 connections to check; with
+     * `behind`, as many good fits wait for their like as 2 days of likes.
+     */
+    const room = async (name: string, version: string, behind = false) => {
       const u = await teammate(name);
       await computerOn(u, ws, version);
       await madeUp(u, 'linkedin', 1, 35);
+      if (behind) {
+        const good = await madeUp(
+          u,
+          'linkedin',
+          36,
+          FIND_LIKES_BEHIND_DAYS * NETWORKS.linkedin.dailyLimits.like,
+        );
+        await rows(
+          admin(),
+          sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, looked_at, checked_at, via)
+              select ${ws}, ${u.id}, id, 'good', now() - interval '1 day', now() - interval '1 day', 'found'
+              from unnest(${`{${good.join(',')}}`}::uuid[]) id`,
+        );
+      }
       await runAs(u, ws, 'outreach.friends.save', {
         platform: 'linkedin',
         list: 'friends',
@@ -573,6 +609,8 @@ describe('people found by topic', () => {
     expect(await room('Toni Older', '0.94.0')).toBe(40);
     // 0.95.0 checks people found first: 30 held for those waiting, 10 left.
     expect(await room('Ari Newer', '0.95.0')).toBe(10);
+    // Likes behind: no found check runs today (`outreach.finds.next`), so none are held and all 40 are left.
+    expect(await room('Bo Behind', '0.95.0', true)).toBe(40);
   });
 
   it('checks 30 a day inside LinkedIn’s 40 profiles read, and 15 after a warning', async () => {

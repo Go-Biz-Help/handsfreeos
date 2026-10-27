@@ -17,6 +17,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { businessLimitsOn } from '../automation';
 import type { CheckVerdict } from '../checks';
+import { eachSearchOnce } from '../finds';
 import { bestFit, type FitPlaybook } from '../fit';
 import {
   GROUP_CHECK_AGAIN_DAYS,
@@ -202,8 +203,9 @@ export async function prospectsOf(
 const ago = (now: number, days: number) => new Date(now - days * DAY).toISOString();
 
 /**
- * The words to search a network for groups with, each once: the playbooks' words for groups, with whether that word's
- * playbook works with clients online (decision 92), so the search goes anywhere rather than the person's town. Only
+ * The words to search a network for groups with: the playbooks' words for groups, with whether that word's playbook
+ * works with clients online (decision 92), so the search goes anywhere rather than the person's town. Each once for
+ * each way (`eachSearchOnce`): a word a local playbook and an online one share is searched both ways. Anywhere only
  * where groups go by the AI's check of the people in them (`groupsByCheck`, Alignable's); Facebook's searches stay as
  * they were.
  */
@@ -211,14 +213,15 @@ export function groupSearchWords(
   playbooks: readonly { readonly details: Pick<PlaybookDetails, 'groupWords' | 'worksOnline'> }[],
   platform: Platform,
 ): { words: string; anywhere: boolean }[] {
-  const seen = new Set<string>();
-  return playbooks.flatMap((p) =>
-    p.details.groupWords.flatMap((w) => {
-      const words = w.replace(/[“”"]/g, '').trim();
-      if (!words || seen.has(words)) return [];
-      seen.add(words);
-      return [{ words, anywhere: groupsByCheck(platform) && p.details.worksOnline === true }];
-    }),
+  return eachSearchOnce(
+    playbooks.flatMap((p) =>
+      p.details.groupWords.flatMap((w) => {
+        const words = w.replace(/[“”"]/g, '').trim();
+        return words
+          ? [{ words, anywhere: groupsByCheck(platform) && p.details.worksOnline === true }]
+          : [];
+      }),
+    ),
   );
 }
 
