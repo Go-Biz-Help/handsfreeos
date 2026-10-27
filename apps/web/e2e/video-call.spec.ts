@@ -150,6 +150,7 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   await expect(customer.getByTestId('call-ended')).toBeVisible();
 
   // The appointment says who joined, once LiveKit has told the worker they left.
+  await page.bringToFront();
   const people = sheet.getByTestId('sheet-call-person');
   await expect(people).toHaveCount(2, { timeout: 30_000 });
   await expect(sheet.getByTestId('sheet-call-people')).toContainText('Maya Brooks');

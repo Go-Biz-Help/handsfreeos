@@ -475,7 +475,13 @@ function CallScreen({
                 <SmilePlus size={19} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" side="top" className="flex min-w-0 gap-1 p-1.5">
+            {/* Menus open outside the call's dark frame, so each says dark itself. */}
+            <DropdownMenuContent
+              align="center"
+              side="top"
+              className="flex min-w-0 gap-1 p-1.5"
+              data-theme="dark"
+            >
               {VIDEO_CALL_REACTIONS.map((emoji) => (
                 <DropdownMenuItem
                   key={emoji}
@@ -528,7 +534,7 @@ function CallScreen({
                   Leave
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top">
+              <DropdownMenuContent side="top" data-theme="dark">
                 <DropdownMenuItem onSelect={onLeave} data-testid="call-leave-only">
                   Leave the call
                 </DropdownMenuItem>
