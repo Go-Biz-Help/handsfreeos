@@ -1,15 +1,19 @@
 'use client';
 import {
+  contactFromSearch,
   localInstant,
   minutesToClock,
   parseClock,
   resolveTerms,
   type CalendarConfig,
+  type ContactStart,
   type LocationKind,
 } from '@hfos/core';
 import { AlertTriangle, CircleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { PersonDialog } from '@/components/crm/person-dialog';
+import { useCan } from '@/components/shell/workspace-shell';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field, Label } from '@/components/ui/field';
@@ -124,7 +128,8 @@ export interface AppointmentPrefill {
  * anyway"; another appointment at the same time never can. Times are the workspace's zone, labelled. Tell
  * (ticked by default) sends the customer a confirmation; the reminders follow the calendar's settings either
  * way. When the calendar lets staff repeat visits, Repeats books the same visit weekly, fortnightly or monthly,
- * and the dates that don't fit are listed rather than booked over.
+ * and the dates that don't fit are listed rather than booked over. A Customer search that finds nobody offers to
+ * add them: Add a person opens over this with what was typed, and the new contact comes back as the customer.
  */
 export function AppointmentDialog({
   workspaceId,
@@ -174,6 +179,9 @@ export function AppointmentDialog({
   const [full, setFull] = useState<{ message: string; times: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** A new contact being added from a Customer search that found nobody, started with what was typed. */
+  const [newContact, setNewContact] = useState<ContactStart | null>(null);
+  const canAddContact = useCan('records.write');
   const clientId = useRef(crypto.randomUUID());
   const textingReady = useTextingReady(workspaceId, open);
 
@@ -312,6 +320,11 @@ export function AppointmentDialog({
       setError(null);
       setFull(null);
     };
+  const pickCustomer = change((p: PickedCustomer | null) => {
+    setPerson(p);
+    setAddress('');
+    setPostalCode(null);
+  });
 
   /** Where the visit is, as the commands take it. */
   function location(): AppointmentLocationIn | undefined {
@@ -460,11 +473,10 @@ export function AppointmentDialog({
                   workspaceId={workspaceId}
                   value={person}
                   locked={lockCustomer}
-                  onChange={change((p: PickedCustomer | null) => {
-                    setPerson(p);
-                    setAddress('');
-                    setPostalCode(null);
-                  })}
+                  onChange={pickCustomer}
+                  onAddNew={
+                    canAddContact ? (typed) => setNewContact(contactFromSearch(typed)) : undefined
+                  }
                 />
               </div>
               <Field label="Calendar" htmlFor="appt-calendar" className="min-w-0">
@@ -722,6 +734,20 @@ export function AppointmentDialog({
           </Button>
         </div>
       </DialogContent>
+      {newContact ? (
+        <PersonDialog
+          workspaceId={workspaceId}
+          open
+          onOpenChange={(o) => {
+            if (!o) setNewContact(null);
+          }}
+          defaultName={newContact.name}
+          defaultPhone={newContact.phone}
+          defaultEmail={newContact.email}
+          onSaved={(id, fullName) => pickCustomer({ id, fullName })}
+          onChooseMatch={(match) => pickCustomer({ id: match.id, fullName: match.name })}
+        />
+      ) : null}
     </Dialog>
   );
 }

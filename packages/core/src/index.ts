@@ -35,6 +35,8 @@ export * from './crm/synced';
 export * from './crm/contact-points';
 export * from './crm/person-merge';
 export * from './crm/picked-contact';
+// A new contact started from a customer search that found nobody (New appointment, web and phone).
+export * from './crm/new-contact';
 // The search text a phone works out for itself: its pickers and its offline search.
 export * from './crm/search-text';
 // Fields a business invents, and the kinds of records and relationships it makes up (0101).

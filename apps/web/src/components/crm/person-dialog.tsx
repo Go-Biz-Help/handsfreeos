@@ -95,6 +95,10 @@ const addressOf = (f: Form) => ({
   ...(f.country ? { country: f.country } : {}),
 });
 
+/** The name as saved, for the toast and whoever goes on to use them. */
+const nameOf = (f: { firstName: string; lastName: string }) =>
+  [f.firstName, f.lastName].filter(Boolean).join(' ');
+
 const fromPerson = (p: PersonDetail): Form => ({
   firstName: p.firstName,
   lastName: p.lastName,
@@ -118,7 +122,7 @@ const fromPerson = (p: PersonDetail): Form => ({
 /** Add or edit a person. Warns about an existing match by phone or email before saving. */
 export function PersonDialog({
   workspaceId,
-  tags,
+  tags: given,
   open,
   onOpenChange,
   initial: latest,
@@ -127,9 +131,11 @@ export function PersonDialog({
   defaultEmail,
   defaultName,
   onSaved,
+  onChooseMatch,
 }: {
   workspaceId: string;
-  tags: Tag[];
+  /** The business's tags. Left out, the dialog loads them as it opens (a new contact from New appointment). */
+  tags?: Tag[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial?: PersonDetail;
@@ -139,7 +145,13 @@ export function PersonDialog({
   /** An address and name to start with (adding someone who emailed as a customer). */
   defaultEmail?: string;
   defaultName?: string;
-  onSaved?: (personId: string) => void;
+  /** With their name as saved, for a screen that goes on to use them (New appointment picks them). */
+  onSaved?: (personId: string, name: string) => void;
+  /**
+   * Choosing the person who already has the number or email, instead of adding someone new: New appointment books
+   * them. Left out, the warning offers to open them.
+   */
+  onChooseMatch?: (match: Match) => void;
 }) {
   // The record as the dialog opened on it, not as the page shows it now: see useOpenedWith.
   const initial = useOpenedWith(open, latest);
@@ -150,12 +162,15 @@ export function PersonDialog({
       : empty(defaultCompanyId, defaultPhone, defaultEmail, defaultName),
   );
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [loadedTags, setLoadedTags] = useState<Tag[]>([]);
+  const tags = given ?? loadedTags;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [listErrors, setListErrors] = useState<Record<string, string>>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(!!initial);
 
+  const loadTags = !given;
   useEffect(() => {
     if (!open) return;
     setForm(
@@ -179,7 +194,18 @@ export function PersonDialog({
         /* the company select just stays empty */
       }
     })();
-  }, [open, initial, defaultCompanyId, workspaceId]);
+    if (loadTags)
+      void (async () => {
+        try {
+          const out = unwrap(
+            await apiBrowser().POST('/v1/queries/tag.list', { body: { workspaceId } }),
+          );
+          setLoadedTags(out.tags);
+        } catch {
+          /* the tag picker just starts with none */
+        }
+      })();
+  }, [open, initial, defaultCompanyId, workspaceId, loadTags]);
 
   // Duplicate check while typing (debounced); a malformed phone is reported on save instead.
   useEffect(() => {
@@ -283,7 +309,7 @@ export function PersonDialog({
         );
         toast.success('Saved.');
         onOpenChange(false);
-        onSaved?.(initial.id);
+        onSaved?.(initial.id, nameOf(fields));
         router.refresh();
       } else {
         const out = unwrap(
@@ -291,9 +317,9 @@ export function PersonDialog({
             body: { workspaceId, ...fields, tagIds: form.tagIds, ignoreDuplicates },
           }),
         );
-        toast.success(`${[fields.firstName, fields.lastName].filter(Boolean).join(' ')} added.`);
+        toast.success(`${nameOf(fields)} added.`);
         onOpenChange(false);
-        if (onSaved) onSaved(out.personId);
+        if (onSaved) onSaved(out.personId, nameOf(fields));
         else router.push(`/app/w/${workspaceId}/customers/people/${out.personId}`);
         router.refresh();
       }
@@ -399,6 +425,14 @@ export function PersonDialog({
               kind="person"
               matches={matches}
               onSaveAnyway={initial ? undefined : () => void save(true)}
+              onChoose={
+                onChooseMatch
+                  ? (match) => {
+                      onOpenChange(false);
+                      onChooseMatch(match);
+                    }
+                  : undefined
+              }
               saving={busy}
             />
           ) : null}
