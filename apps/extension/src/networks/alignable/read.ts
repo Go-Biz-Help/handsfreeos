@@ -772,14 +772,14 @@ export interface GroupCard extends GroupLink {
   readonly members: number | null;
   /** In it (Joined, Leave), or not (its own Join, or asked and waiting); null when its card didn't say. */
   readonly joined: boolean | null;
+  /** Asked to join, and waiting. */
+  readonly asked: boolean;
   /** The line under its name: what it's about, or where. */
   readonly detail: string | null;
 }
 
 /** A group's own page (and its About and members pages): what it says of itself, and where the person stands. */
 export interface GroupPage extends GroupCard {
-  /** Asked to join, and waiting. */
-  readonly asked: boolean;
   /** Its own Join, to press. */
   readonly join: boolean;
   /** What its About says, a line a piece. */
@@ -908,6 +908,7 @@ export function groupCards(doc: Document, base: string): GroupCard[] {
       name,
       members: membersOn(card),
       joined: now.joined ? true : now.asked || now.join ? false : null,
+      asked: now.asked,
       detail: lines[0] ?? null,
     });
     if (found.length >= GROUPS_MOST) break;
@@ -915,12 +916,24 @@ export function groupCards(doc: Document, base: string): GroupCard[] {
   return found;
 }
 
+/** Links that make a part of the page someone's: their post, and their Connect or Message. */
+const SOMEONES_AT = [/^\/biz\/discussions\//i, CONNECT_AT, MESSAGE_AT, MESSAGE_NEW_AT] as const;
+
+/** Whether a part of the page is someone's: it links to a business or person, a post, or a Connect or Message. */
+const someonesIn = (root: ParentNode, base: string) =>
+  linksIn(root, base).some(
+    ({ url }) => memberBusiness(url) !== null || SOMEONES_AT.some((at) => at.test(url.pathname)),
+  );
+
 /**
- * A group's own controls on its page: never one in another group's card (one it suggests) nor in a post. A control
- * is the group's when the nearest part around it that links to any group links to this one alone, or none does.
+ * A group's own controls on its page: never one in another group's card (one it suggests), nor in a post or a
+ * person's row, whose Connect says Request Sent or Pending once asked, as a group's Join does. A control is the
+ * group's when the nearest part around it that links to a group or to someone links to this group alone, or none
+ * does. The part with the group's name (its h1) is its own, even with a leader's link in it.
  */
 function ownControls(main: Element, base: string, id: string): HTMLElement[] {
   const key = id.toLowerCase();
+  const name = main.querySelector('h1');
   return [...main.querySelectorAll<HTMLElement>(CONTROLS)].filter((control) => {
     if (inMenu(control) || control.closest(PART('discussion-comment'))) return false;
     for (
@@ -928,6 +941,8 @@ function ownControls(main: Element, base: string, id: string): HTMLElement[] {
       up && up !== main && steps < OWN_STEPS;
       up = up.parentElement, steps++
     ) {
+      // Someone's post or row, even one that links to this group ("Posted in").
+      if (!(name && up.contains(name)) && someonesIn(up, base)) return false;
       const groups = groupsIn(up, base);
       if (groups.size) return groups.size === 1 && groups.has(key);
     }

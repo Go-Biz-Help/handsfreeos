@@ -24,6 +24,7 @@ import { sameName } from '../facebook/people';
 import { hasWriting } from './actions';
 import { inNested, postOnPage, says, waitFor } from './auto';
 import { CONTROLS, mainOf, shownLines, yourName } from './dom';
+import { outlineNow } from './outline';
 import { peopleLinked, readPeople, rowLines, type LinkedPerson } from './people';
 import { commentWriter, newerComments, postBoxes, postIn, readPost, TEXT_BOX } from './posts';
 import type { Degree, ProfileRef } from './types';
@@ -363,6 +364,8 @@ export interface ReactorsRead {
   readonly people: PostPerson[];
   /** Whether its Dismiss closed the box again. */
   readonly closed: boolean;
+  /** The page's outline while a box that read nobody was still open, for the job's note of it (decision 74). */
+  readonly outline?: string;
 }
 
 /**
@@ -401,7 +404,16 @@ export async function readReactors(
           },
         ],
   );
-  return { count: true, opened: true, rows: rows.length, people, closed: await closeBox(box) };
+  // A box that read nobody: its outline taken while it's open, before its Dismiss closes it.
+  const outline = rows.length ? null : outlineNow(doc);
+  return {
+    count: true,
+    opened: true,
+    rows: rows.length,
+    people,
+    closed: await closeBox(box),
+    ...(outline === null ? {} : { outline }),
+  };
 }
 
 /**

@@ -102,12 +102,14 @@ function cardOf(group: Pick<WorkGroup, 'url' | 'name' | 'members'>): AlignableGr
 
 /**
  * The groups a page lists that the person is in. Their own groups page offers no Join, so each card there is theirs,
- * whether it says Joined or nothing. A page whose cards offer a Join (or are asked and waiting) lists others' groups
- * too, a guessed address that fell through to Alignable's groups, so only the cards that say Joined are kept there.
+ * whether it says Joined or nothing, but for one asked and waiting, which is left out on its own. A page with a card
+ * that offers a Join lists others' groups too, a guessed address that fell through to Alignable's groups, so only the
+ * cards that say Joined are kept there.
  */
 const theirGroups = (page: AlignablePage) => {
   const groups = page.found.groups;
-  return groups.some((g) => g.joined === false) ? groups.filter((g) => g.joined === true) : groups;
+  const others = groups.some((g) => g.joined === false && !g.asked);
+  return groups.filter((g) => (others ? g.joined === true : !g.asked));
 };
 
 /** Reads the person's own groups: their page for them, as far as it shows, at their addresses in turn. */
