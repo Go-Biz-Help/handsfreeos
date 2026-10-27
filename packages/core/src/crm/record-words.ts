@@ -211,6 +211,38 @@ export function archiveCardWords(
 }
 
 /**
+ * The tag that makes a customer a client whatever else is known of them (crm/clients.ts): Social Outreach's **Mark as
+ * client** puts it on (docs/outreach.md, decision 91). Compared without capitals, so a business's own "client" tag
+ * counts too.
+ */
+export const CLIENT_TAG = 'Client';
+
+/**
+ * Why someone is a client, in the order each is looked for (crm/clients.ts, `personIsClient` and
+ * `personClientCause`): a won lead, a job underway or done, a visit they came to, a plan they're on, a paid bill, or
+ * the Client tag.
+ */
+export const CLIENT_CAUSES = ['won', 'job', 'visit', 'plan', 'paid', 'tagged'] as const;
+export type ClientCause = (typeof CLIENT_CAUSES)[number];
+
+/**
+ * The causes Contacts counts: its Leads and Clients filter, and the Client badge in Contacts and Search. The Client
+ * tag counts too (Chris, 26 Oct 2026, decision 91, asked and built with its default). To count only what was done for
+ * them, take `'tagged'` out here: `clientRule` follows.
+ */
+export const CONTACTS_CLIENT_CAUSES: readonly ClientCause[] = CLIENT_CAUSES;
+
+/** Each cause in words, after "A client in Contacts: ". */
+export const CLIENT_CAUSE_WORDS: Readonly<Record<ClientCause, string>> = {
+  won: 'a lead of theirs was won',
+  job: 'a job for them is underway or done',
+  visit: 'they came to a visit',
+  plan: 'they’re on a plan',
+  paid: 'they paid a bill',
+  tagged: `they’re tagged ${CLIENT_TAG}`,
+};
+
+/**
  * The Contacts page: its name, and its filter between leads and clients. Who counts as a client is the list's to
  * work out (crm/clients.ts); `clientRule` says the same thing in words, so the two are changed together.
  */
@@ -223,6 +255,7 @@ export const CONTACTS_WORDS = {
   clients: 'Clients',
   lead: 'Lead',
   client: 'Client',
-  clientRule:
-    'Clients are people you’re working for, have worked for, or who have paid you: a won lead, a job underway or done, a visit they came to, a plan they’re on, or a paid bill. Everyone else is a lead.',
+  clientRule: `Clients are people you’re working for, have worked for, or who have paid you: a won lead, a job underway or done, a visit they came to, a plan they’re on, or a paid bill${
+    CONTACTS_CLIENT_CAUSES.includes('tagged') ? `, or they’re tagged ${CLIENT_TAG}` : ''
+  }. Everyone else is a lead.`,
 } as const;

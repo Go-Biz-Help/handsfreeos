@@ -132,6 +132,23 @@ describe('contacts', () => {
     expect(marcus.facts.lastContact?.kind).toBe('paid');
     expect(marcus.badges).toContain('client');
   });
+
+  it('badges someone tagged Client a client, in any capitals, until the tag comes off', async () => {
+    const badges = async () =>
+      groupOf(await everything(w, w.owner, 'jose garcia'), 'contacts')!.items[0]!.badges;
+    expect(await badges()).not.toContain('client');
+    const tag = await one(
+      sql`insert into app.tags (workspace_id, name) values (${w.wsId}, 'client') returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+          values (${w.wsId}, ${tag}, 'person', ${w.ids.jose})`,
+    );
+    expect(await badges()).toContain('client');
+    await rows(admin(), sql`delete from app.tags where id = ${tag}`);
+    expect(await badges()).not.toContain('client');
+  });
 });
 
 describe('companies and leads', () => {

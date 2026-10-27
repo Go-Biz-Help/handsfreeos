@@ -36,7 +36,7 @@ import { AskButton } from './asks';
 import { KeepChatButton } from './chat-keep';
 import { dayWords, Pager, SearchBox } from './friends-view';
 import { NetworkFilterControl, NetworkName } from './network-ui';
-import { PersonMenu } from './person-menu';
+import { PersonName } from './person-menu';
 import type { Asks, Chat, Chats } from './types';
 
 /** How Read my chats goes, under its button and in the empty lists. */
@@ -237,7 +237,21 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
     <li className="border-t border-border px-5 py-3" data-testid="chat">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
-          {c.personId ? (
+          {c.profileId ? (
+            // The name opens the person menu (decision 91); Don't pitch and Never contact are switched below.
+            <PersonName
+              workspaceId={workspaceId}
+              who={{
+                profileId: c.profileId,
+                name: c.name,
+                platform: c.platform,
+                threadKey: c.threadKey,
+                personId: c.personId,
+              }}
+              ownSwitches
+              className={cn('font-medium', c.personId && 'text-accent-text')}
+            />
+          ) : c.personId ? (
             <Link
               href={`/app/w/${workspaceId}/customers/people/${c.personId}`}
               className="font-medium text-accent-text hover:underline"
@@ -274,17 +288,11 @@ function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) 
         </div>
       </div>
       {/* Don't pitch and Never contact for who it's with, switched here as on a friend's row; the rest in the menu. */}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-text-2">
-        {c.profileId ? (
+      {c.profileId ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-text-2">
           <ChatMarks workspaceId={workspaceId} profileId={c.profileId} chat={c} />
-        ) : null}
-        <PersonMenu
-          workspaceId={workspaceId}
-          who={{ profileId: c.profileId, personId: c.personId, name: c.name }}
-          dontPitch={false}
-          neverContact={false}
-        />
-      </div>
+        </div>
+      ) : null}
       {c.summary ? (
         <p className="mt-1.5 text-[13px] text-text" data-testid="chat-summary">
           {c.summary}

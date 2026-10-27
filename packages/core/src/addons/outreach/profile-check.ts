@@ -339,6 +339,11 @@ export const ProfileCheck = z.object({
    * (`nameDraft` is the first); elsewhere their real first and last name. Empty when the name is right.
    */
   names: z.array(z.string().max(NAME_MOST)).max(3).optional(),
+  /**
+   * The AI said the name there isn't right, but none of its names met the network's standards (`nameProblem`): the
+   * name isn't called right with none to offer.
+   */
+  nameOff: z.boolean().optional(),
   /** Usernames to use, when the one there doesn't say it's them: newest first, each once, free or not when looked. */
   usernames: z.array(UsernameOption).max(USERNAMES_KEPT).optional(),
   /** How the whole profile comes across (decision 84); null from checks before it. */
@@ -389,6 +394,10 @@ const lookRules = (names: string, usernames: string | null) =>
 const realNames = (network: string) =>
   `names: when the name there isn’t the one people know them by (a nickname, a business name, emoji, or not the name on their other profiles), up to 3 names to use: their real first and last name, as ${network} asks for it, never business words. Otherwise none.`;
 
+/** Facebook's name standards, as `nameProblem` holds the names to them. */
+export const FACEBOOK_NAME_RULE =
+  'Facebook takes a first and a last name in letters only, with spaces, apostrophes, hyphens or dots between: never a bar, brackets, numbers or emoji.';
+
 /** Names and usernames are only ever the person's own (the owner, 23 Oct 2026: never "[First name]"). */
 const OWN_NAME_RULE =
   'Their own name is under <you>. Names and usernames use it as it is, never a word in square brackets: with no name there and none on the profile, write none.';
@@ -406,7 +415,7 @@ export const PROFILE_CHECK_SYSTEM = [
   'For each, say ok true or false, why in one short sentence, and when it isn’t ok, what to change in one short sentence. With nothing read for an item, it isn’t ok.',
   'Write three short bios to pick from, each at most 101 characters, from the main offer: what they do and for whom. Write a line for the cover, at most 8 words. Say up to three things to feature.',
   lookRules(
-    realNames('Facebook'),
+    `${realNames('Facebook')} ${FACEBOOK_NAME_RULE}`,
     'usernames: when the username in their address doesn’t say it’s them (numbers, an old nickname, something unrelated), up to 3 to use, from their name and what they do: letters, numbers and dots only, 5 to 50 characters. Otherwise none.',
   ),
   'Never invent results, numbers, names or reviews: where one is needed in a bio or a line, write it in square brackets, like [a result].',
@@ -873,6 +882,36 @@ export function usernameProblem(platform: Platform, value: string): string | nul
   return rules.test.test(v) ? null : rules.words;
 }
 
+/**
+ * A name in the parts a page with a box for each takes (Facebook's Accounts Center, LinkedIn's intro): its first word
+ * as the first name, the rest as the last, so the name shown is the one picked. Empty parts for none.
+ */
+export function splitName(name: string): { readonly first: string; readonly last: string } {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return { first: words[0] ?? '', last: words.slice(1).join(' ') };
+}
+
+/** What a name on Facebook is made of, by its name standards: letters, and spaces, apostrophes, hyphens and dots. */
+const FACEBOOK_NAME_CHARACTER = /^[\p{L}\p{M}\s'’.-]$/u;
+
+/**
+ * Why a name can't go in as the person's name on its network (decision 89): Facebook takes a real first and last name
+ * in letters only, never a symbol, a number or business words after a bar. Null when it can; elsewhere only its length
+ * is held (`profileEditWords`), as Instagram's name says what the person does.
+ */
+export function nameProblem(platform: Platform, name: string): string | null {
+  if (platform !== 'facebook') return null;
+  const v = name.trim().replace(/\s+/g, ' ');
+  if (!v) return 'Type a name first.';
+  const bad = [...v].find((c) => !FACEBOOK_NAME_CHARACTER.test(c));
+  // Show me more is on the web's Your profile, beside Name.
+  const fix = 'Pick another under Name with Show me more on the web, then put it in.';
+  if (bad) return `Facebook names use letters only, so take out “${bad}” from “${v}”. ${fix}`;
+  if (!splitName(v).last)
+    return `Facebook asks for a first and last name, and “${v}” is one name. ${fix}`;
+  return null;
+}
+
 /** A username as people see it on its network: “@casey.roofs”, “linkedin.com/in/casey-roofs”. */
 export const shownUsername = (platform: Platform, value: string): string =>
   `${USERNAME_RULES_ON[platform]?.shown ?? '@'}${value}`;
@@ -943,13 +982,19 @@ export function checkedProfileCheck(
   // The whole profile (decision 84): its look, and the names and usernames to use where those don't fit.
   const look = 'look' in answer && answer.look ? answer.look : null;
   const nameMost = platform === 'instagram' ? NAME_DRAFT_MOST : NAME_MOST;
-  const names = [
+  const offered = [
     ...new Set(
       ('names' in answer && answer.names ? answer.names : name ? [name] : [])
         .map((n) => unquote(sentence(n, 200)))
         .filter((n) => n && !hasBlank(n) && n.length <= nameMost && n !== read.name),
     ),
-  ].slice(0, platform === 'alignable' ? 0 : 3);
+  ];
+  // Facebook's only in letters, as its name standards take it (`nameProblem`).
+  const names = offered
+    .filter((n) => !nameProblem(platform, n))
+    .slice(0, platform === 'alignable' ? 0 : 3);
+  // With every one it offered held back for that, the name still isn't right.
+  const nameOff = !names.length && offered.some((n) => nameProblem(platform, n) !== null);
   const usernames = hasUsernameOn(platform)
     ? [
         ...new Set(
@@ -973,6 +1018,7 @@ export function checkedProfileCheck(
     coverLine,
     ...(coverLine ? { coverLines: [coverLine] } : {}),
     names,
+    ...(nameOff ? { nameOff } : {}),
     usernames,
     look: look
       ? {

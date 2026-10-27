@@ -14,6 +14,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { TodayListItem } from '../src/hfos/messages';
 import type { Hfos, Job } from '../src/jobs/job';
+import type { ReportNote } from '../src/jobs/report';
 
 const IG = 'https://www.instagram.com';
 const DANA = `${IG}/dana.reyes/`;
@@ -1081,6 +1082,44 @@ describe('Instagram’s growing (part 15)', () => {
         .map((a) => (a.input as { posts: { name: string }[] }).posts.map((p) => p.name)),
     ).toEqual([['quinn.plumbing']]);
     expect(end.line).toContain('Looked at 1 hashtag on Instagram and read 1 post');
+  });
+
+  it('looks at each page with its window in front, and notes a page with no posts and a post it couldn’t read, once each', async () => {
+    world.pages = (url) =>
+      ({
+        [`${IG}/explore/tags/austinplumbing/`]: {
+          html: `${MENU}<main><header><h1>#austinplumbing</h1></header>${grid(['C7aaaaaaa', 'C7bbbbbbb'])}</main>`,
+        },
+        // Neither post drew who posted it.
+        [`${IG}/p/C7aaaaaaa/`]: { html: `${MENU}<main role="main"><div></div></main>` },
+        [`${IG}/p/C7bbbbbbb/`]: { html: `${MENU}<main role="main"><div></div></main>` },
+        [`${IG}/explore/tags/roundrockplumbing/`]: {
+          html: `${MENU}<main><header><h1>#roundrockplumbing</h1></header></main>`,
+        },
+        [`${IG}/explore/tags/plumbing/`]: {
+          html: `${MENU}<main><header><h1>#plumbing</h1></header></main>`,
+        },
+      })[url] ?? null;
+    world.hfos['hfos-post-words'] = () => ({
+      words: ['plumbing'],
+      tags: ['austinplumbing', 'roundrockplumbing', 'plumbing'],
+      places: ['Austin', 'Round Rock'],
+    });
+    const report = vi.fn(async (_note?: ReportNote) => undefined);
+    const inFront = vi.fn(<T>(work: () => Promise<T>) => work());
+    const base = job();
+    const end = await runInstagramDaily('posts', {
+      ...base,
+      report,
+      tab: Object.assign(base.tab, { inFront }),
+    });
+    // Once a hashtag: theirs comes back between pages.
+    expect(inFront).toHaveBeenCalledTimes(3);
+    expect(report.mock.calls.map(([note]) => note?.job)).toEqual(['posts.post', 'posts.page']);
+    expect(report).toHaveBeenCalledWith(
+      expect.objectContaining({ note: 'No posts on the page.', outline: true }),
+    );
+    expect(end.line).toContain('Looked at 3 hashtags on Instagram and read 2 posts: 0 posts sent');
   });
 
   it('says what to add when the playbooks have nothing to make hashtags from', async () => {

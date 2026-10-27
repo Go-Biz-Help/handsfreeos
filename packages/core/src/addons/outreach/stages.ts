@@ -2,6 +2,9 @@
  * Stages, and the moment to pitch (docs/outreach.md, decision 47): where each person the person reached stands, worked
  * out each time from what HandsFreeOS knows, never kept as a column of its own:
  *
+ * - **Client**: a client in Contacts (decision 91: the Client tag, or what else Contacts counts, crm/clients.ts), or
+ *   kept under the same name as one on the same network. Outreach ends; their replies still come. No next step and no
+ *   moves: Not a client after all, in the person menu, takes the tag off.
  * - **Booked**: a demo through their link, or marked booked (./demos.ts).
  * - **Not a fit**: marked so by the person, or the AI's read of their chat said no (`not_interested`). "Not
  *   interested" ends outreach for good (the plan): nothing on Today reaches them again but a reply they're owed, until
@@ -28,6 +31,7 @@ export const STAGES = {
   ready: 'Ready to pitch',
   pitched: 'Pitched',
   booked: 'Booked',
+  client: 'Client',
   lost: 'Not a fit',
 } as const;
 export type Stage = keyof typeof STAGES;
@@ -38,7 +42,7 @@ export const STAGE_VIEWS = { all: 'All in play', ...STAGES } as const;
 export type StageView = keyof typeof STAGE_VIEWS;
 export const STAGE_VIEW_KEYS = Object.keys(STAGE_VIEWS) as [StageView, ...StageView[]];
 
-/** The order "All in play" lists them in: who to act on first. Not a fit is left out. */
+/** The order "All in play" lists them in: who to act on first. Clients and Not a fit are left out. */
 export const STAGE_ORDER: readonly Stage[] = [
   'ready',
   'talking',
@@ -76,6 +80,7 @@ export function marksFor(stage: Stage): StageMark[] {
     case 'lost':
       return ['open'];
     case 'booked':
+    case 'client':
       return [];
     default:
       return ['ready', 'pitched', 'lost'];
@@ -118,6 +123,8 @@ export const StagesOutput = z.object({
     ready: n,
     pitched: n,
     booked: n,
+    /** Clients (decision 91): left out of `all`, like Not a fit. */
+    client: n,
     lost: n,
   }),
   people: z.array(
@@ -176,11 +183,16 @@ export function markedWords(name: string, mark: StageMark): string {
 export const STAGE_WORDS = {
   title: 'Pipeline',
   about:
-    'Everyone you’ve reached, by where they stand. Worked out from what HandsFreeOS knows; mark someone ready to pitch, pitched or not a fit when you know better.',
+    'Everyone you’ve reached, by where they stand. Worked out from what HandsFreeOS knows, clients in Contacts too; mark someone ready to pitch, pitched or not a fit when you know better.',
   empty: {
     title: 'Nobody here yet',
     body: 'People you reach on Facebook, and the good fits found among your friends, show here by where they stand.',
   },
   lostNote: 'Not a fit ends outreach to them: nothing on Today reaches them again but a reply.',
+  /** Under the Client chip (decision 91). */
+  clientNote:
+    'A client gets no outreach: nothing on Today reaches them but a reply. To change that, choose Not a client after all in their menu.',
+  /** The web board's link to them, beside Not a fit's: "Clients 4". */
+  clients: 'Clients',
   aiSaid: 'The AI read it so',
 } as const;

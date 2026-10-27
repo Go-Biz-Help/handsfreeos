@@ -35,13 +35,16 @@ import {
 } from './asks';
 import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
 import { NetworkFilter, NetworkName } from './networks';
+import { PersonMenuScope, PersonName } from './person-menu';
 
 /**
  * Chats on the phone (decision 44): the person's Facebook chats the AI read, likely prospects first, with each one's
  * summary, tags and next step; by tag, searched by name, Show more for the next page. Each opens in Messenger, and in
  * Customers once it went in Contacts. **Read my chats** asks the person's computer to read them (decision 43,
  * ./asks.tsx). Every network's chats, each naming its network and opening in its messaging, or one network's; Read my
- * chats asks the network shown, Facebook's when the list is every network's. It needs signal.
+ * chats asks the network shown, Facebook's when the list is every network's. It needs signal. The name of who a chat
+ * is with, once they're kept as a profile, opens the person menu (./person-menu.tsx), without its Don't pitch and Never
+ * contact: the chat has its own switches.
  */
 
 export const chatViewOf = (show: string | undefined): ChatView =>
@@ -89,28 +92,35 @@ export function ChatsScreen({ show, tag, q }: { show?: string; tag?: string; q?:
   const actions = useAskActions(asks.data, asks.reload);
   useDoneReload(asks.data, answer.reload);
   return (
-    <ChatsBody
-      view={view}
-      onView={setView}
-      net={net}
-      onNet={setNet}
-      tag={theTag}
-      onTag={setTag}
-      search={search}
-      onSearch={setSearch}
-      chats={answer.data}
-      error={answer.error}
-      onRetry={answer.reload}
-      onMore={() => setPages((p) => p + 1)}
-      onCustomer={(personId) => openWebPath(`/app/w/${ws}/customers/people/${personId}`)}
+    <PersonMenuScope
+      workspaceId={ws}
       online={ctx.online}
-      onMark={async (profileId, marks) => {
-        await change('outreach.friend.set', { workspaceId: ws, profileId, ...marks });
-        answer.reload();
-      }}
-      asks={asks.data}
-      actions={actions}
-    />
+      writesContacts={ctx.writesContacts}
+      onChanged={answer.reload}
+    >
+      <ChatsBody
+        view={view}
+        onView={setView}
+        net={net}
+        onNet={setNet}
+        tag={theTag}
+        onTag={setTag}
+        search={search}
+        onSearch={setSearch}
+        chats={answer.data}
+        error={answer.error}
+        onRetry={answer.reload}
+        onMore={() => setPages((p) => p + 1)}
+        onCustomer={(personId) => openWebPath(`/app/w/${ws}/customers/people/${personId}`)}
+        online={ctx.online}
+        onMark={async (profileId, marks) => {
+          await change('outreach.friend.set', { workspaceId: ws, profileId, ...marks });
+          answer.reload();
+        }}
+        asks={asks.data}
+        actions={actions}
+      />
+    </PersonMenuScope>
   );
 }
 
@@ -223,7 +233,17 @@ export function ChatsBody({
               return (
                 <Card key={c.chatId} className="gap-1.5 px-4 py-3.5" testID="chats-item">
                   <View className="flex-row flex-wrap items-center gap-2">
-                    <Text className="text-[15px] font-semibold">{c.name}</Text>
+                    <PersonName
+                      who={{
+                        profileId: c.profileId,
+                        name: c.name,
+                        url: null,
+                        platform: c.platform,
+                        threadKey: c.threadKey,
+                        personId: c.personId,
+                      }}
+                      ownSwitches
+                    />
                     <NetworkName platform={c.platform} />
                     {c.personId ? (
                       <Badge variant="accent">
@@ -348,7 +368,7 @@ function ChatMarks({
           />
         </View>
       ))}
-      {!online ? <Note>{W.person.needsSignal}</Note> : null}
+      {!online ? <Note>{W.person.switchesNeedSignal}</Note> : null}
     </View>
   );
 }

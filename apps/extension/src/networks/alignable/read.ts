@@ -5,13 +5,14 @@
  * - **A search for businesses** (/biz/search): each result's owner and business, what kind and where, and its Connect
  *   (`react-connect-button`), all tied to Alignable's id for the business (`result_id`).
  * - **Your connections** (My Network): each `connection-row`, its business by id (/biz/businesses/<id>) and its
- *   Message (/biz/conversations?with_business_id=<id>).
+ *   Message (/biz/conversations?with_business_id=<id>, or from 0.94.0 Alignable's newer /biz/messages/new).
  * - **Posts:** on a group's page (a town's own group is /groups/<town-st>) and a discussion's, each with its author, its
  *   words, its likes and its Connect; a forum question's answers (`discussion-comment`), and whether its box to answer
  *   in is there (`discussion-comment-reply-form`).
  * - **A business's page** (/<town-st>/<business>): its names, its town, its Elevator Pitch, About Us, My Ideal Customer
- *   and its ideal partner (who they say they refer with: Find partners' best clue), its tags, and which of Connect,
- *   Recommend, Refer and Message it shows.
+ *   and its ideal partner (who they say they refer with: Find partners' best clue), its tags, which of Connect,
+ *   Recommend, Refer and Message it shows, and from the owner's report of 26 Oct 2026 (0.94.0) whether you're
+ *   connected: its own Remove Connection.
  * - **Messages:** the conversations down the side (`conversationInSidebar`), and the one open: who, its box and Send,
  *   and from the owner's Check of 21 Oct 2026 (0.83.0) its messages, each the person's or theirs, and who wrote last.
  *
@@ -110,9 +111,13 @@ export interface BusinessPage {
   readonly customer: Ideal | null;
   readonly partner: Ideal | null;
   readonly tags: readonly string[];
+  /** Its own Connect, by Alignable's id for it: you're not connected, nor asked. */
   readonly connect: boolean;
+  /** You're connected with them: their page shows their own Remove Connection (/biz/connections/<their id>). */
+  readonly connected: boolean;
   readonly recommend: boolean;
   readonly refer: boolean;
+  /** Its own Message: to its conversation by Alignable's id for it, or Alignable's newer one, beside its own buttons. */
   readonly message: boolean;
 }
 
@@ -228,20 +233,29 @@ export const linksIn = (root: ParentNode, base: string) =>
     return url ? [{ a, url }] : [];
   });
 
+/** Where a link leads that ties a business's page to its id, and the id it carries there. */
+type IdWay = (a: Element, url: URL) => string | null;
+const idAt =
+  (path: RegExp): IdWay =>
+  (_a, url) =>
+    path.test(url.pathname) ? idIn(url) : null;
+
 /**
- * The id a business's own page ties it to: its Refer's, its Recommend's, then its Connect's or Message's. Never the
- * first link with an id: its page links to other businesses too.
+ * The id a business's own page ties it to: its Refer's, its Recommend's, its Remove Connection's once you're
+ * connected, then its Connect's or Message's. Never the first link with an id: its page links to other businesses too.
  */
 export function idOfPage(root: ParentNode, base: string): string | null {
   const links = linksIn(root, base);
-  for (const path of [
-    /^\/forward_referral_card\//i,
-    /^\/biz\/recommendations\/new\/?$/i,
-    CONNECT_AT,
-    MESSAGE_AT,
-  ])
-    for (const { url } of links) {
-      const id = path.test(url.pathname) ? idIn(url) : null;
+  const ways: readonly IdWay[] = [
+    idAt(REFER_AT),
+    idAt(RECOMMEND_AT),
+    removeConnectionOf,
+    idAt(CONNECT_AT),
+    idAt(MESSAGE_AT),
+  ];
+  for (const way of ways)
+    for (const { a, url } of links) {
+      const id = way(a, url);
       if (id) return id;
     }
   return null;
@@ -261,6 +275,37 @@ const ownLink = (root: ParentNode, base: string, path: RegExp, id: string | null
 
 export const CONNECT_AT = /^\/biz\/connection_requests\//i;
 export const MESSAGE_AT = /^\/biz\/conversations\/?$/i;
+/**
+ * Alignable's newer Message (the owner's report of 26 Oct 2026, 0.94.0): /biz/messages/new?recipient_ids=…&to_user=…,
+ * to the person by their own id, never their business's. So it's a business's own only by where it sits
+ * (`ownNewMessage`); in a list's row, it's the row's.
+ */
+export const MESSAGE_NEW_AT = /^\/biz\/messages\/new\/?$/i;
+/** A business's Refer and Recommend, each carrying Alignable's id for it. */
+const REFER_AT = /^\/forward_referral_card\//i;
+const RECOMMEND_AT = /^\/biz\/recommendations\/new\/?$/i;
+/**
+ * Once you're connected, their page's own Remove Connection (the same report): a link to /biz/connections/<their id>,
+ * which says so. A link there that says anything else isn't taken for one.
+ */
+const CONNECTION_AT = /^\/biz\/connections\/([A-Za-z0-9_-]{1,64})\/?$/i;
+const REMOVE = /^remove connection$/i;
+
+/** The business a Remove Connection is for, by Alignable's id in its address; null for any other link. */
+export function removeConnectionOf(a: Element, url: URL): string | null {
+  const id = CONNECTION_AT.exec(url.pathname)?.[1] ?? null;
+  if (!id) return null;
+  return REMOVE.test(clean(a.textContent) || clean(a.getAttribute('aria-label'))) ? id : null;
+}
+
+/** A Message: to a business's conversation, or Alignable's newer one, to someone by their id. */
+const isMessage = (url: URL) =>
+  MESSAGE_AT.test(url.pathname) ||
+  (MESSAGE_NEW_AT.test(url.pathname) && !!url.searchParams.get('recipient_ids'));
+
+/** Whether a part of the page that's one business's alone (a list's row, a search's result) has its Message. */
+const hasMessage = (root: ParentNode, base: string) =>
+  linksIn(root, base).some(({ url }) => isMessage(url));
 
 /** The nearest part of the page holding all of these. */
 function around(elements: readonly Element[]): Element | null {
@@ -331,7 +376,7 @@ function searchResults(doc: Document, base: string): Business[] {
       connect:
         root.querySelector(PART('react-connect-button')) !== null ||
         hasLink(root, base, CONNECT_AT),
-      message: hasLink(root, base, MESSAGE_AT),
+      message: hasMessage(root, base),
     });
     if (found.length >= MOST) break;
   }
@@ -402,7 +447,7 @@ function connectionRows(doc: Document, base: string): Business[] {
           business: lines[1] ?? null,
           details: lines.slice(2),
           connect: hasLink(row, base, CONNECT_AT),
-          message: hasLink(row, base, MESSAGE_AT),
+          message: hasMessage(row, base),
         },
       ];
     });
@@ -539,6 +584,49 @@ function pitchOn(root: ParentNode): string | null {
   return (whole.length > short.length ? whole : short) || null;
 }
 
+/**
+ * Whose a link on a business's page is, by the business it names: theirs (`page`'s), another's, or nobody's. By
+ * Alignable's id when it carries one (a Refer, Recommend, Connect, Message or Remove Connection), else by the business's
+ * page it leads to, which is theirs only at their own address.
+ */
+function whoseLink(url: URL, page: ProfileRef): 'theirs' | 'other' | null {
+  const id = idIn(url) ?? CONNECTION_AT.exec(url.pathname)?.[1] ?? null;
+  if (id) return id === page.id ? 'theirs' : 'other';
+  const to = businessRef(url, null);
+  if (!to) return null;
+  return page.username !== null && to.username === page.username ? 'theirs' : 'other';
+}
+
+/** How far up from a Message its own buttons are looked for, however many boxes Alignable wraps them in. */
+const OWN_ROW_STEPS = 10;
+
+/**
+ * Whether a business's page has its own Message in Alignable's newer shape (`MESSAGE_NEW_AT`), which names nobody's
+ * business: only one whose nearest part of the page naming any business names theirs alone, as their header and their
+ * row of buttons do beside their own Refer, Recommend or Remove Connection. Never one in a part naming another business
+ * (a business it suggests, with its own Connect; a post or an answer by another), nor in an answer, nor one with no
+ * business named near it: then it's nobody's that can be told.
+ */
+function ownNewMessage(root: Element, base: string, page: ProfileRef): boolean {
+  if (!page.id) return false;
+  return linksIn(root, base).some(({ a, url }) => {
+    if (!MESSAGE_NEW_AT.test(url.pathname) || !url.searchParams.get('recipient_ids')) return false;
+    if (a.closest(PART('discussion-comment'))) return false;
+    for (
+      let up = a.parentElement, steps = 0;
+      up && root.contains(up) && steps < OWN_ROW_STEPS;
+      up = up.parentElement, steps++
+    ) {
+      const named = linksIn(up, base).flatMap(({ url: u }) => {
+        const whose = whoseLink(u, page);
+        return whose ? [whose] : [];
+      });
+      if (named.length) return named.every((whose) => whose === 'theirs');
+    }
+    return false;
+  });
+}
+
 export function businessPage(doc: Document, base: string): BusinessPage | null {
   const url = urlOf(base, base);
   if (!url) return null;
@@ -548,13 +636,14 @@ export function businessPage(doc: Document, base: string): BusinessPage | null {
   const name = clean(main.querySelector('h1[title]')?.textContent) || null;
   if (!name) return null;
   const id = idOfPage(main, base);
+  const profile = businessRef(url, id);
   const town = linksIn(main, base)
     .map(({ url: u }) => parts(u))
     .find((p) => p.length === 1 && TOWN.test(p[0]!))?.[0];
   return {
     name,
     title: clean(main.querySelector('h2[title]')?.textContent) || null,
-    profile: businessRef(url, id),
+    profile,
     town: town?.toLowerCase() ?? null,
     pitch: pitchOn(main),
     about: aboutUsOf(main),
@@ -570,9 +659,15 @@ export function businessPage(doc: Document, base: string): BusinessPage | null {
     ],
     // Its own Connect and Message, by its id. Its Connect goes once it's asked: its runner looks for that after pressing.
     connect: ownLink(main, base, CONNECT_AT, id),
-    recommend: hasLink(main, base, /^\/biz\/recommendations\/new\/?$/i),
-    refer: hasLink(main, base, /^\/forward_referral_card\//i),
-    message: ownLink(main, base, MESSAGE_AT, id),
+    // Connected already: its own Remove Connection, by its id (the owner's report, 26 Oct 2026). Never another's.
+    connected:
+      id !== null && linksIn(main, base).some(({ a, url: u }) => removeConnectionOf(a, u) === id),
+    recommend: hasLink(main, base, RECOMMEND_AT),
+    refer: hasLink(main, base, REFER_AT),
+    // Its Message by its id, or Alignable's newer one where it sits among its own buttons.
+    message:
+      ownLink(main, base, MESSAGE_AT, id) ||
+      (profile !== null && ownNewMessage(main, base, profile)),
   };
 }
 

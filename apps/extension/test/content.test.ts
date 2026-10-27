@@ -265,6 +265,7 @@ describe('a tab’s script, by its network', () => {
     expect(await profiles.ask({ type: 'hfos-username-page' })).toEqual({
       ok: true,
       url: 'https://accountscenter.facebook.com/profiles/100001234/username/',
+      profile: '100001234',
       warnings: [],
       asking: null,
     });
@@ -311,6 +312,49 @@ describe('a tab’s script, by its network', () => {
     });
     // Its warnings, read as Facebook asks the person for nothing there: none.
     expect(await username.ask({ type: 'hfos-account-warnings' })).toEqual({
+      ok: true,
+      warnings: [],
+      asking: null,
+    });
+  });
+
+  it('on Instagram, works on its own Accounts Center for the username and name, never Facebook’s', async () => {
+    const instagramOn: NetworkStates = { ...on, instagram: { on: true, allowed: true } };
+    const profiles = await tab(
+      'accounts-center-profiles-2026-10.html',
+      'https://accountscenter.instagram.com/profiles',
+      instagramOn,
+    );
+    expect(await profiles.ask({ type: 'hfos-username-page', username: 'casey.owner' })).toEqual({
+      ok: true,
+      url: 'https://accountscenter.instagram.com/profiles/17841400000000001/username/',
+      profile: '17841400000000001',
+      warnings: [],
+      asking: null,
+    });
+    // Only on the page of the profile the ask names: Facebook's number is never typed on here.
+    expect(
+      await profiles.ask({
+        type: 'hfos-write-center-name',
+        name: 'Casey Lee',
+        profile: '100001234',
+      }),
+    ).toEqual({ ok: false, error: 'Instagram didn’t open Accounts Center’s name page.' });
+    const name = await tab(
+      'accounts-center-instagram-name-2026-10.html',
+      'https://accountscenter.instagram.com/profiles/17841400000000001/name/',
+      instagramOn,
+    );
+    // Its name already: nothing typed, nothing pressed.
+    expect(
+      await name.ask({
+        type: 'hfos-write-center-name',
+        name: 'Casey',
+        profile: '17841400000000001',
+      }),
+    ).toMatchObject({ ok: true, result: 'already', steps: { nameBoxes: 1, typed: true } });
+    // Its help ("twice within 14 days") is no warning.
+    expect(await name.ask({ type: 'hfos-account-warnings' })).toEqual({
       ok: true,
       warnings: [],
       asking: null,

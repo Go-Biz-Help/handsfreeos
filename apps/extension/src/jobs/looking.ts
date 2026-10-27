@@ -32,16 +32,31 @@ import {
 } from '@hfos/core/addons/outreach/asks';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import {
+  cleanUsername,
   PROFILE_CHECK_WORDS as P,
   profileCheckWordsOn,
   type ProfileRead,
 } from '@hfos/core/addons/outreach/profile-check';
+import { partHowOn } from '@hfos/core/addons/outreach/profile-parts';
+import type { CenterPart } from '../networks/accounts-center/pages';
 import { townOf } from '../networks/alignable/site';
+import { clean } from '../networks/facebook/dom';
+import type { FormSteps } from '../networks/instagram/own-profile';
+import { instagramUrl, profileOf as instagramProfileOf } from '../networks/instagram/urls';
 import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
+import {
+  centerAllowed,
+  centerProfile,
+  chromeKeepsOff,
+  nameReviewWords,
+  putNameIn,
+  putUsernameIn,
+  unseenWords as centerUnseenWords,
+} from './accounts-center';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
-import { checkUsernames, putInByHand } from './profile-parts';
+import { checkUsernames, putInByHand, type ByHandPart } from './profile-parts';
 import { ownProfileNote } from './report';
 
 /** Reads the page in the job's window as the network's: anything else means it sent the window elsewhere. */
@@ -57,6 +72,8 @@ export const readOn =
     }
     return page as LookingRead;
   };
+
+const STOPPED: JobEnd = { line: 'Stopped.', warned: false, failed: true };
 
 const stoppedEnd = (job: Job): JobEnd | null =>
   job.stopped() ? { line: 'Stopped.', warned: false } : null;
@@ -514,11 +531,22 @@ async function ownRead(
   return answer.read;
 }
 
+/** What Read my profile found on Instagram: the account's page as read, its address, and the bio as its form keeps it. */
+interface InstagramSeen {
+  readonly read: ProfileRead;
+  readonly own: string;
+  readonly keptBio: string | null;
+}
+
 /**
  * Read my profile, on Instagram (decision 80): their account's own page from the menu's Profile, then its form, whose
- * bio is the bio as kept; both read, noted, and sent for the AI's check.
+ * bio is the bio as kept; both read, noted, and sent for the AI's check. `after` looks at what was read first (Put
+ * these in's parts, to be sure they show).
  */
-async function instagramProfileRead(job: Job): Promise<JobEnd> {
+async function instagramProfileRead(
+  job: Job,
+  after?: (seen: InstagramSeen) => Promise<void>,
+): Promise<JobEnd> {
   job.progress('Opening your Instagram profile…');
   const feed = await openForProfile(job, `${INSTAGRAM}/`);
   if (isEnd(feed)) return feed;
@@ -540,6 +568,7 @@ async function instagramProfileRead(job: Job): Promise<JobEnd> {
   const kept = await ownRead(job);
   if (isEnd(kept)) return kept;
   await job.report?.({ outline: true });
+  await after?.({ read, own: feed.own, keptBio: kept.bio ?? null });
   if (job.stopped()) return { line: 'Stopped.', warned: false };
   job.progress('Checking it with the AI…');
   valueOf(
@@ -552,9 +581,22 @@ async function instagramProfileRead(job: Job): Promise<JobEnd> {
   return { line: P.readDone, warned: false };
 }
 
+/** The username of the account an address on Instagram is, as written there; null for any other. */
+const usernameAt = (href: string | null): string | null => {
+  const url = href ? instagramUrl(href) : null;
+  return url ? (instagramProfileOf(url)?.username ?? null) : null;
+};
+
+/** Instagram's parts read back after Put these in, to be sure they show. */
+const INSTAGRAM_SHOWN = ['bio', 'username', 'name'] as const;
+type InstagramShown = (typeof INSTAGRAM_SHOWN)[number];
+
 /**
- * Put these in, on Instagram: the bio on its form, and its name, username and links, Accounts Center opened for the
- * person (decision 84); then the profile read again for a new check.
+ * Put these in, on Instagram (decision 89): the bio on its form (decision 80); then its username and name on
+ * Instagram's own Accounts Center, for the account signed in on instagram.com, each put in by itself, waited on while
+ * Instagram asks the person for something, or handed over (./accounts-center.ts), and both handed over while Chrome
+ * keeps the extension off that Accounts Center; its links in its phone app, said in words. Then the account read
+ * again for a new check: only what shows is said to be in, and nothing is when it wasn't read again.
  */
 async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   const bio = task.bio;
@@ -564,19 +606,149 @@ async function instagramProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     const put = await instagramBio(job, bio);
     if (put) return put;
   }
+  const done = new Set<ByHandPart>();
+  // What Instagram refused, in its words, by part; and a name it's looking at first.
+  const refused = new Map<CenterPart, string>();
+  let review = false;
+  const username = task.username ? cleanUsername(task.username) : null;
+  const name = task.name ? clean(task.name) : null;
+  const putUsername = username !== null && partHowOn('instagram', 'username') === 'auto';
+  const putName = name !== null && partHowOn('instagram', 'name') === 'auto';
+  if ((putUsername || putName) && !(await centerAllowed('instagram'))) {
+    // Chrome keeps the extension off Instagram's Accounts Center: the person changes them there, told how to let it
+    // on.
+    for (const [part, value] of [
+      ['username', putUsername ? username : null],
+      ['name', putName ? name : null],
+    ] as const) {
+      if (value === null) continue;
+      if (job.stopped()) return STOPPED;
+      const put = await chromeKeepsOff(job, 'instagram', part, value);
+      if (isEnd(put)) return put;
+      done.add(part);
+    }
+  } else if (putUsername || putName) {
+    if (job.stopped()) return STOPPED;
+    // The account they're signed in to, by Instagram's menu: whose row it is among Accounts Center's Profiles.
+    job.progress('Opening your Instagram profile…');
+    const feed = await openForProfile(job, `${INSTAGRAM}/`);
+    if (isEnd(feed)) return feed;
+    const was = usernameAt(feed.own);
+    if (!was)
+      return {
+        line: `Instagram didn’t show your own account. ${SIGNED_IN_INSTAGRAM}`,
+        warned: false,
+        failed: true,
+      };
+    job.progress('Opening Accounts Center’s profiles…');
+    const center = await centerProfile(job, 'instagram', putUsername ? 'username' : 'name', was);
+    if (isEnd(center)) return center;
+    // Instagram said "Try again later" of the username: nothing more is pressed there today.
+    let later = false;
+    if (putUsername) {
+      const put = await putUsernameIn(job, 'instagram', username, center);
+      if (isEnd(put)) return put;
+      if (put.refused) refused.set('username', put.refused);
+      later = put.later ?? false;
+      done.add('username');
+    }
+    if (putName && later) {
+      refused.set(
+        'name',
+        `Instagram said to try again later, so the extension didn’t go on to your name. Press Put these in again tomorrow to put “${name}” in.`,
+      );
+      done.add('name');
+    } else if (putName) {
+      if (job.stopped()) return STOPPED;
+      const put = await putNameIn(job, 'instagram', name, center);
+      if (isEnd(put)) return put;
+      if (put.refused) refused.set('name', put.refused);
+      review = put.review ?? false;
+      done.add('name');
+    }
+  }
   if (more) {
-    const byHand = await putInByHand(job, 'instagram', task);
+    const byHand = await putInByHand(job, 'instagram', task, done);
     if (byHand) return byHand;
   }
-  const checked = await instagramProfileRead(job);
+  // What went in but doesn't show on the account read after: never said to be in.
+  let unseen: InstagramShown[] = [];
+  // Whether the account was read again: stopped before, nothing is said to be in.
+  let looked = false;
+  const checked = await instagramProfileRead(job, async ({ read, own, keptBio }) => {
+    looked = true;
+    const at = usernameAt(own);
+    unseen = INSTAGRAM_SHOWN.filter((part) =>
+      part === 'bio'
+        ? bio !== null && clean(keptBio ?? read.bio) !== clean(bio)
+        : part === 'username'
+          ? username !== null &&
+            !refused.has('username') &&
+            (at === null || at.toLowerCase() !== username.toLowerCase())
+          : name !== null && !refused.has('name') && !review && clean(read.name) !== name,
+    );
+    if (unseen.length)
+      await job.report?.({
+        job: 'profile_edit.check',
+        note: `Not shown on the profile after it went in: ${unseen.map((p) => `the ${p}`).join(', ')}.`,
+        outline: true,
+      });
+  });
   if (checked.failed) return checked;
+  if (!looked) return checked.warned ? checked : STOPPED;
+  const shown = {
+    ...task,
+    bio: unseen.includes('bio') ? null : bio,
+    username: refused.has('username') || unseen.includes('username') ? null : task.username,
+    name: refused.has('name') || review || unseen.includes('name') ? null : task.name,
+  };
+  const anyIn = Boolean(shown.bio || shown.name || shown.username || shown.links.length);
+  const doneLine = !anyIn
+    ? null
+    : shown.bio && !hasNewProfileParts(shown)
+      ? P.editDone(shown.bio)
+      : profileEditDoneWords('instagram', shown);
+  const after = [
+    refused.get('username'),
+    refused.get('name'),
+    review && name ? nameReviewWords('instagram', name) : null,
+    ...unseen.map((part) =>
+      part === 'bio'
+        ? `Instagram hasn’t shown your new bio on your profile yet. Check it there, and if it isn’t, press Edit profile, write “${bio ?? ''}” under Bio, and press Submit.`
+        : centerUnseenWords('instagram', part, (part === 'name' ? name : username) ?? ''),
+    ),
+  ];
   return {
-    line: bio && !more ? P.editDone(bio) : profileEditDoneWords('instagram', task),
+    line: [doneLine, ...after].filter((l): l is string => Boolean(l)).join(' '),
     warned: false,
+    ...(refused.size || (!anyIn && !review) ? { failed: true } : {}),
   };
 }
 
-/** The bio on Instagram's form, or by the person when the form isn't as expected. Null once it's in. */
+/** What the person is asked to do with the bio on Instagram, by where it stopped on its form. */
+function instagramBioWords(bio: string, result: string, steps: FormSteps | undefined): string {
+  if (result === 'not_saved')
+    return `Instagram didn’t keep your new bio after Submit. On this page, check Bio says “${bio}”, and press Submit if it’s on. Then press Carry on.`;
+  if (steps?.typed)
+    return 'Your new bio is in its box on this page. Press Submit once Instagram turns it on, then press Carry on.';
+  if (steps?.box)
+    return `Put your new bio in: on this page, write “${bio}” under Bio, and press Submit. Then press Carry on.`;
+  return `Put your new bio in: on Instagram press Edit profile, write “${bio}” under Bio, and press Submit. Then press Carry on.`;
+}
+
+/** Where the bio stopped on Instagram's form, in the extension's own words, for the note. */
+function formMissing(result: string, steps: FormSteps | undefined): string {
+  if (!steps?.box) return 'no box for the bio on the form';
+  if (!steps.typed) return 'writing in the bio’s box didn’t take';
+  if (!steps.submits) return 'no Submit on the form';
+  if (!steps.submitOn) return 'Submit stayed off';
+  return result === 'not_saved' ? 'Submit didn’t keep it' : 'the form didn’t keep it';
+}
+
+/**
+ * The bio on Instagram's form, or by the person when the form isn't as expected: a warning there ends it first. Null
+ * once it's in, or they carried on.
+ */
 async function instagramBio(job: Job, bio: string): Promise<JobEnd | null> {
   job.progress('Opening your Instagram profile’s form…');
   const form = await openForProfile(job, INSTAGRAM_FORM);
@@ -584,23 +756,25 @@ async function instagramBio(job: Job, bio: string): Promise<JobEnd | null> {
   job.progress('Putting your new bio in…');
   const wrote = await job.tab.ask({ type: 'hfos-write-bio', bio });
   const result = wrote.ok && 'result' in wrote ? wrote.result : 'none';
-  if (result !== 'done') {
-    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
-    await job.report?.({
-      note: `The bio didn’t go in (${result === 'not_saved' ? 'Submit didn’t keep it' : 'no box for the bio, or no Submit'}).`,
-      outline: true,
-    });
-    if (!job.handOver)
-      return {
-        line: 'Instagram didn’t let the extension change your bio.',
-        warned: false,
-        failed: true,
-      };
-    const reply = await job.handOver(
-      `Put your new bio in: on Instagram press Edit profile, write “${bio}” under Bio, and press Submit. Then press Carry on.`,
-    );
-    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
-  }
+  if (result === 'done') return null;
+  const steps = wrote.ok && 'result' in wrote ? wrote.formSteps : undefined;
+  // Something wasn't as expected: a warning on the form ends it, nothing more pressed.
+  const warned = await warnedOn(job, await readOn('instagram')(job.tab));
+  if (warned) return warned;
+  if (!job.handOver)
+    return {
+      line: 'Instagram didn’t let the extension change your bio.',
+      warned: false,
+      failed: true,
+    };
+  // The person puts it in, and says when. The note of the page says which step.
+  const reply = await job.handOver(instagramBioWords(bio, result, steps), {
+    job: 'profile_edit.bio',
+    note: `Not done: ${formMissing(result, steps)}.`,
+    ...(steps ? { found: { ...steps } } : {}),
+    outline: true,
+  });
+  if (reply !== 'carry_on') return STOPPED;
   return null;
 }
 

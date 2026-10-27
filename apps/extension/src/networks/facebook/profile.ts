@@ -21,19 +21,23 @@ import {
   tabsIn,
   textLines,
 } from './dom';
-import { bestName, isNameLike } from './people';
+import { bestName, isNameLike, nameForms, sameName } from './people';
 import { readPosts } from './posts';
 import type { Named, PageAddress, Post, ProfilePage } from './types';
 import { facebookUrl, profileFromUrl, profileKey } from './urls';
 import { isFacebookLine, isFacebookText, parseCount, UI_WORDS } from './vocabulary';
 
-/** The buttons that say where you stand, strongest first. */
+/**
+ * The buttons that say where you stand, strongest first. From October 2026 Add friend's label has the person's name
+ * after it for screen readers ("Add Friend Jane Doe", the owner's problem reports of 26 Oct 2026); Cancel request's
+ * may too. The name, when there is one, is caught.
+ */
 const FRIENDSHIP: readonly (readonly [RegExp, ProfilePage['friendship']])[] = [
   [/^edit profile$/i, 'self'],
   [/^friends$/i, 'friends'],
-  [/^cancel request$/i, 'request_sent'],
-  [/^(respond|confirm|confirm request)$/i, 'request_received'],
-  [/^add friend$/i, 'not_friends'],
+  [/^cancel request(?:\s+(.+))?$/i, 'request_sent'],
+  [/^(?:respond|confirm|confirm request)$/i, 'request_received'],
+  [/^add friend(?:\s+(.+))?$/i, 'not_friends'],
 ];
 
 /** The cards on a profile that come after Intro: reading stops at the first of them. */
@@ -46,9 +50,27 @@ const NOT_INTRO = /\bmutual\b|^followed by\b/i;
 /** What the top's lines leave out: buttons (the name is one on 2026 profiles), headings and the tabs. */
 const NOT_TOP_TEXT = 'h1, h2, h3, [role="heading"], [role="button"], button, [role="tablist"]';
 
-function friendshipIn(labels: readonly string[]): ProfilePage['friendship'] {
+/**
+ * Whether a name after a button's words is this person's: their name whole, or without its nickname ("Jane Doe" on
+ * "Jane Doe (Janie)"'s profile), the same names the press looks for (./auto.ts's `withTheirName`). Never a name that
+ * only holds theirs or is held in it ("Dana Reyes Jr.", "Ana"). Any name will do while the profile's own isn't known.
+ */
+const theirs = (named: string, name: string | null): boolean =>
+  name === null || nameForms(name).some((form) => sameName(form, named));
+
+function friendshipIn(
+  labels: readonly string[],
+  name: string | null = null,
+): ProfilePage['friendship'] {
   for (const [pattern, friendship] of FRIENDSHIP)
-    if (labels.some((label) => pattern.test(label))) return friendship;
+    if (
+      labels.some((label) => {
+        const found = pattern.exec(label);
+        // "Add Friend Sam Lee" under People you may know says nothing about this person.
+        return found !== null && (!found[1] || theirs(found[1], name));
+      })
+    )
+      return friendship;
   return 'unknown';
 }
 
@@ -108,7 +130,7 @@ function topOf(root: Element, name: string | null): Element[] {
     const before: Element[] = [];
     for (let e = box.previousElementSibling; e; e = e.previousElementSibling) before.unshift(e);
     const isTop = (e: Element) =>
-      friendshipIn(buttonLabels(e)) !== 'unknown' ||
+      friendshipIn(buttonLabels(e), name) !== 'unknown' ||
       (name !== null && textLines(e, 30).some((line) => line.startsWith(name)));
     if (before.some(isTop)) return before;
   }
@@ -119,10 +141,10 @@ function topOf(root: Element, name: string | null): Element[] {
  * The box around the name that has one of the buttons above, for a profile without tabs. Buttons further down ("Add
  * friend" under People you may know) say nothing about this person.
  */
-function headerAround(name: Element, root: Element): Element | null {
-  let box: Element | null = name;
+function headerAround(around: Element, root: Element, name: string | null): Element | null {
+  let box: Element | null = around;
   for (let steps = 0; box && steps < 12; steps++) {
-    if (friendshipIn(buttonLabels(box)) !== 'unknown') return box;
+    if (friendshipIn(buttonLabels(box), name) !== 'unknown') return box;
     if (box === root) break;
     box = box.parentElement;
   }
@@ -275,10 +297,10 @@ export function readProfile(
   let top = topOf(root, name);
   if (top.length === 0) {
     const around = heading ?? (name ? nameElementIn(root, name) : null);
-    const header = around ? headerAround(around, root) : null;
+    const header = around ? headerAround(around, root, name) : null;
     top = header ? [header] : [];
   }
-  const fromButtons = friendshipIn(top.flatMap(buttonLabels));
+  const fromButtons = friendshipIn(top.flatMap(buttonLabels), name);
   const friendship = fromButtons === 'unknown' && editProfileLinkIn(root) ? 'self' : fromButtons;
   let mutualFriends: number | null = null;
   let followers: number | null = null;

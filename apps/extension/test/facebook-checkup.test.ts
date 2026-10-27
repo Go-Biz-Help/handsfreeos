@@ -10,7 +10,11 @@ import { runAsk } from '../src/asks/run';
 import { DOWNLOAD_PAGE } from '../src/networks/facebook/fetch';
 import { outlinePage } from '../src/networks/facebook/outline';
 import { ownEditorsOf, readOwnProfile } from '../src/networks/facebook/own-profile';
-import { ACCOUNTS_PROFILES, askingHere, onAccountsCenter } from '../src/networks/facebook/username';
+import {
+  ACCOUNTS_PROFILES,
+  askingHere,
+  onAccountsCenter,
+} from '../src/networks/accounts-center/username';
 import { readWarnings } from '../src/networks/facebook/warnings';
 import { readPage } from '../src/networks/facebook/page';
 import { classifyUrl } from '../src/networks/facebook/urls';

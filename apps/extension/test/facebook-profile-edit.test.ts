@@ -1,8 +1,9 @@
 /**
  * Put these in on Facebook (docs/outreach.md, decision 89): the bio by the About tab's editor, each new link on Contact
- * and basic info, and the username on Accounts Center's username page, each put in by itself on made-up pages whose
- * buttons behave as Facebook's usually do (test/fixtures/*-2026-10.html, nobody real), and each step it can't find
- * handed to the person. It never types a password or a code, and presses Done only once Facebook allows it.
+ * and basic info, and the username and the name on Accounts Center's username and name pages, each put in by itself on
+ * made-up pages whose buttons behave as Facebook's usually do (test/fixtures/*-2026-10.html, test/center-pages.ts,
+ * nobody real), and each step it can't find handed to the person. It never types a password or a code, and presses
+ * Review change and Done only once Facebook allows it. The name's own page is tested in ./accounts-center.test.ts.
  */
 import type { AskTask } from '@hfos/core/addons/outreach/asks';
 import { JSDOM } from 'jsdom';
@@ -16,29 +17,36 @@ import { readPage } from '../src/networks/facebook/page';
 import { classifyUrl } from '../src/networks/facebook/urls';
 import {
   ACCOUNTS_PROFILES,
-  askingHere,
   facebookProfileOn,
-  onAccountsCenter,
   profilesPage,
   usernameAddress,
   usernamePage,
   writeUsername,
-} from '../src/networks/facebook/username';
+} from '../src/networks/accounts-center/username';
+import { centerWork, type CenterAsk } from '../src/networks/accounts-center/work';
 import { readWarnings } from '../src/networks/facebook/warnings';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import type { ReportNote } from '../src/jobs/report';
+import {
+  dialogIn,
+  facebookNamePage,
+  FB_CENTER,
+  FB_NAME_PAGE,
+  type FacebookNamePlan,
+} from './center-pages';
 import { boxEverything, load } from './load';
 
-/** Facebook's own way, or the hand-over of builds before 0.93.0 (decision 84), when a test asks for it. */
-const how = vi.hoisted(() => ({ handedOver: false }));
+/**
+ * The newest build's way, or an older build's own copy of core when a test names one (decisions 84 and 89): what that
+ * build didn't yet put in by itself it hands over, as core says for its computer (`partHowFor`).
+ */
+const how = vi.hoisted(() => ({ build: null as string | null }));
 vi.mock('@hfos/core/addons/outreach/profile-parts', async (original) => {
   const real = await original<typeof Parts>();
   return {
     ...real,
     partHowOn: (...args: Parameters<typeof real.partHowOn>) =>
-      how.handedOver && args[0] === 'facebook' && (args[1] === 'links' || args[1] === 'username')
-        ? 'steps'
-        : real.partHowOn(...args),
+      how.build ? real.partHowFor(...args, how.build) : real.partHowOn(...args),
   };
 });
 
@@ -53,7 +61,7 @@ const CAL = 'https://cal.com/casey-owner';
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
   vi.useRealTimers();
-  how.handedOver = false;
+  how.build = null;
 });
 
 /** Runs a step with Facebook's waits skipped. */
@@ -65,15 +73,6 @@ async function quickly<T>(going: Promise<T>): Promise<T> {
 }
 
 const clean = (text: string | null | undefined) => (text ?? '').replace(/\s+/g, ' ').trim();
-
-/** A box over the page, with these insides. */
-function dialogIn(doc: Document, html: string): HTMLElement {
-  const box = doc.createElement('div');
-  box.setAttribute('role', 'dialog');
-  box.innerHTML = html;
-  doc.body.append(box);
-  return box;
-}
 
 describe('the pages each part is changed on', () => {
   it('knows Accounts Center’s username page, and goes nowhere else to type', () => {
@@ -448,6 +447,29 @@ describe('putting your username in', () => {
     expect(page.saved()).toBe('casey.roofs');
   });
 
+  it('never ticks or unticks Instagram’s username: with its offer on, nothing’s typed or pressed', async () => {
+    const page = usernamePageDoc();
+    page.doc
+      .getElementById('username-form')!
+      .insertAdjacentHTML(
+        'beforeend',
+        '<label><input type="checkbox" checked /> Also change your username on Instagram</label>',
+      );
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote).toMatchObject({ result: 'none', steps: { sync: true, typed: false } });
+    expect([page.box.value, page.pressed()]).toEqual(['casey.owner.7', 0]);
+  });
+
+  it('never presses Change username in a box that offers to change Instagram’s too', async () => {
+    const page = usernamePageDoc({
+      sure: { says: 'Change your username on Instagram too?', button: 'Change username' },
+    });
+    const wrote = await quickly(writeUsername(page.doc, 'casey.roofs'));
+    expect(wrote.result).toBe('not_saved');
+    expect(wrote.steps).toMatchObject({ pressed: true, confirmed: false, sync: true, over: false });
+    expect(page.saved()).toBeNull();
+  });
+
   it('never takes a box after Done it doesn’t know for saved, the page under it hidden or not', async () => {
     for (const hidesPage of [false, true]) {
       const page = usernamePageDoc({ sure: { button: 'Yes, change it', hidesPage } });
@@ -521,6 +543,33 @@ interface Plan {
   readonly warnedOnEditor?: boolean;
   /** No Edit by Bio on the editor. */
   readonly noBioEdit?: boolean;
+  /** How Facebook behaves on the name's page. */
+  readonly name?: FacebookNamePlan;
+  /** Facebook opens another profile's name page in its place. */
+  readonly nameElsewhere?: boolean;
+}
+
+/**
+ * The name and username Facebook shows on the made-up profile, put in place of the ones it had: its links to itself go
+ * by its username, as Facebook's do.
+ */
+function showOwn(doc: Document, name: string, username: string): void {
+  for (const link of doc.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href')!;
+    if (/^(https:\/\/www\.facebook\.com)?\/casey\.owner\.7(\/|\?|$)/.test(href))
+      link.setAttribute('href', href.replace('casey.owner.7', username));
+  }
+  if (name === 'Casey Owner') return;
+  const walker = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */);
+  for (let node = walker.nextNode(); node; node = walker.nextNode())
+    if (node.nodeValue?.includes('Casey Owner'))
+      node.nodeValue = node.nodeValue.replaceAll('Casey Owner', name);
+  for (const labelled of doc.querySelectorAll('[aria-label*="Casey Owner"]'))
+    labelled.setAttribute(
+      'aria-label',
+      labelled.getAttribute('aria-label')!.replaceAll('Casey Owner', name),
+    );
+  doc.title = doc.title.replaceAll('Casey Owner', name);
 }
 
 /** A Facebook tab over the made-up pages, each behaving as Facebook does, answering asks as the tab would. */
@@ -528,19 +577,26 @@ function fakeTab(plan: Plan = {}) {
   let doc: Document | null = null;
   let at = '';
   let username = 'casey.owner.7';
+  let name = 'Casey Owner';
   let bio = 'Dad, golfer, coffee. I help Columbus roofers book more inspections.';
   const added: string[] = [];
   const opened: string[] = [];
   const asked: string[] = [];
   let usernamePage_: ReturnType<typeof usernamePageDoc> | null = null;
+  let namePage: ReturnType<typeof facebookNamePage> | null = null;
+  /** What Facebook saved since the last page was drawn. */
+  const savedSince = () => {
+    username = usernamePage_?.saved() ?? username;
+    name = namePage?.saved() ?? name;
+  };
 
   let profilesAsked = plan.profilesPassword ?? false;
   const show = (url: string) => {
-    // What Facebook saved since the last page was drawn.
-    username = usernamePage_?.saved() ?? username;
+    savedSince();
     if (url === `${FB}/me`) {
       at = `${FB}/${username}`;
       doc = load(plan.own ?? 'own-profile-2026-10.html', at);
+      showOwn(doc, name, username);
       const line = [...doc.querySelectorAll('span[dir="auto"]')].find((s) =>
         clean(s.textContent).startsWith('Dad, golfer'),
       );
@@ -597,6 +653,11 @@ function fakeTab(plan: Plan = {}) {
         blocked: plan.blocked,
       });
       doc = usernamePage_.doc;
+    } else if (url === FB_NAME_PAGE) {
+      // Facebook may open another profile's name page in its place: the tab types nothing there.
+      at = plan.nameElsewhere ? `${FB_CENTER}/profiles/100009999/name/` : url;
+      namePage = facebookNamePage(plan.name, at);
+      doc = namePage.doc;
     } else if (url === ACCOUNTS_PROFILES) {
       at = url;
       doc = load('accounts-center-profiles-2026-10.html', at);
@@ -618,9 +679,7 @@ function fakeTab(plan: Plan = {}) {
     async ask(message: Record<string, unknown> & { readonly type: string }) {
       asked.push(message.type);
       const page = doc!;
-      // What Facebook saved since the page was drawn.
-      const savedName = usernamePage_?.saved();
-      if (savedName) username = savedName;
+      savedSince();
       switch (message.type) {
         case 'hfos-read':
           return { ok: true, result: readPage(page, at) };
@@ -645,25 +704,19 @@ function fakeTab(plan: Plan = {}) {
           return linksPage(at)
             ? { ok: true, ...(await writeLink(page, message.link as string)) }
             : { ok: false, error: 'Facebook didn’t open where your links are changed.' };
-        case 'hfos-write-username': {
-          if (!usernamePage(at) || message.profile !== '100001234')
-            return { ok: false, error: 'Facebook didn’t open Accounts Center’s username page.' };
-          const wrote = await writeUsername(page, message.username as string);
-          const name = usernamePage_?.saved();
-          if (name) username = name;
-          return { ok: true, ...wrote };
-        }
-        case 'hfos-username-page': {
-          if (!profilesPage(at))
-            return { ok: false, error: 'Facebook didn’t open Accounts Center’s Profiles.' };
-          const asking = askingHere(page);
-          return asking
-            ? { ok: true, url: null, warnings: [], asking }
-            : { ok: true, url: facebookProfileOn(page), warnings: readWarnings(page, at), asking };
-        }
+        case 'hfos-write-username':
+        case 'hfos-write-center-name':
+        case 'hfos-username-page':
         case 'hfos-account-warnings': {
-          const asking = onAccountsCenter(at) ? askingHere(page) : null;
-          return { ok: true, asking, warnings: asking ? [] : readWarnings(page, at) };
+          // As the tab answers them, on the page at its address.
+          vi.stubGlobal('location', new URL(at));
+          vi.stubGlobal('document', page);
+          try {
+            return await centerWork('facebook', message as unknown as CenterAsk, readWarnings);
+          } finally {
+            vi.unstubAllGlobals();
+            savedSince();
+          }
         }
         default:
           return { ok: false, error: `Not expected: ${message.type}` };
@@ -674,8 +727,9 @@ function fakeTab(plan: Plan = {}) {
     tab,
     opened,
     asked,
-    now: () => ({ username, bio, added: [...added] }),
+    now: () => ({ username, name, bio, added: [...added] }),
     passwordPage: () => usernamePage_,
+    namePage: () => namePage,
     /** Facebook sends the tab to one of its checkpoints. */
     checkpoint: () => {
       at = `${FB}/checkpoint/`;
@@ -695,7 +749,7 @@ const TASK: Extract<AskTask, { kind: 'profile_edit' }> = {
   kind: 'profile_edit',
   bio: 'I help Columbus roofers fill their calendars.',
   about: null,
-  name: 'Casey Owner | Roofs',
+  name: 'Casey Lee',
   username: 'casey.roofs',
   links: [CAL],
 };
@@ -730,20 +784,17 @@ async function putIn(
 }
 
 describe('Put these in, on Facebook', () => {
-  it('puts the bio, the link and the username in itself, and hands over only the name', async () => {
+  it('puts the bio, the link, the username and the name in itself, handing nothing over', async () => {
     const { end, said, opened, now, checked } = await putIn({});
-    expect(opened).toEqual([
-      `${FB}/me`,
-      EDITOR,
-      CONTACT,
-      USERNAME_PAGE,
-      ACCOUNTS_PROFILES,
-      `${FB}/me`,
-    ]);
-    expect(said).toHaveLength(1);
-    expect(said[0]!.says).toContain('Name. Put in “Casey Owner | Roofs”');
-    expect(now()).toEqual({ username: 'casey.roofs', bio: TASK.bio, added: [CAL] });
-    expect(checked).toHaveLength(1);
+    expect(opened).toEqual([`${FB}/me`, EDITOR, CONTACT, USERNAME_PAGE, FB_NAME_PAGE, `${FB}/me`]);
+    expect(said).toEqual([]);
+    expect(now()).toEqual({
+      username: 'casey.roofs',
+      name: 'Casey Lee',
+      bio: TASK.bio,
+      added: [CAL],
+    });
+    expect(checked).toEqual([expect.objectContaining({ name: 'Casey Lee' })]);
     expect(end).toEqual({ line: 'Your bio, name, username and links are in.', warned: false });
   });
 
@@ -940,8 +991,176 @@ describe('Put these in, on Facebook', () => {
     });
   });
 
+  it('puts the name in by itself on its own profile’s name page, and sees it on the profile after', async () => {
+    const { end, said, opened, namePage } = await putIn({ bio: null, username: null, links: [] });
+    expect(opened).toEqual([`${FB}/me`, FB_NAME_PAGE, `${FB}/me`]);
+    expect(said).toEqual([]);
+    expect(namePage()!.pressed()).toEqual({ review: 1, done: 1, sure: 0 });
+    expect(end).toEqual({ line: 'Your name is in.', warned: false });
+  });
+
+  it('sees the name in, whichever order Facebook shows it on the profile', async () => {
+    const { end, now } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { lastFirst: true } },
+    );
+    expect(now().name).toBe('Lee Casey');
+    expect(end).toEqual({ line: 'Your name is in.', warned: false });
+  });
+
+  it('finds the Facebook profile among Accounts Center’s once, for the username and the name both', async () => {
+    const { opened, end } = await putIn(
+      { bio: null, links: [] },
+      { own: 'own-profile.html', name: { leaves: true } },
+    );
+    expect(opened).toEqual([
+      `${FB}/me`,
+      ACCOUNTS_PROFILES,
+      USERNAME_PAGE,
+      FB_NAME_PAGE,
+      `${FB}/me`,
+    ]);
+    expect(end).toEqual({ line: 'Your name and username are in.', warned: false });
+  });
+
+  it('waits for the person to type the password Facebook asks for by Review change’s Done, never typing it', async () => {
+    const { end, said, now } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { password: 'review' } },
+      (_says, tab) => {
+        const page = tab.namePage()!;
+        expect(page.passwordBox()!.value).toBe('');
+        // The person types it and presses Done there: Facebook saves the name.
+        page.continued();
+        return 'carry_on';
+      },
+    );
+    expect(said.map((s) => s.says)).toEqual([
+      'Facebook wants your password to change your name. Type it in the Facebook window and press its button there (Continue or Done), then press Carry on.',
+    ]);
+    expect(said[0]!.note).toMatchObject({
+      job: 'profile_edit.name',
+      found: { password: true, reviewed: true, pressed: false },
+      note: 'Facebook asked for the password before the name changed.',
+    });
+    expect(now().name).toBe('Casey Lee');
+    expect(end).toEqual({ line: 'Your name is in.', warned: false });
+  });
+
+  it('sees the name in once the person saves it after the password, while Facebook then holds the next change', async () => {
+    const { end, said, now } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { password: 'review', holdsAfter: 'You can’t change your name right now.' } },
+      (_says, tab) => {
+        tab.namePage()!.continued();
+        return 'carry_on';
+      },
+    );
+    expect(said).toHaveLength(1);
+    expect(now().name).toBe('Casey Lee');
+    expect(end).toEqual({ line: 'Your name is in.', warned: false });
+  });
+
+  it('ends with Facebook’s words when it won’t change the name now, nothing typed', async () => {
+    const { end, said, namePage } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { saysFirst: 'You can’t change your name right now.' } },
+    );
+    expect(said).toEqual([]);
+    expect(namePage()!.boxes.last.value).toBe('Owner');
+    expect(end).toEqual({
+      line: 'Facebook won’t change your name right now (it says “You can’t change your name right now.”). Keep the name you have, and press Put these in again once Facebook lets you (it lets you change your name once in 60 days).',
+      warned: false,
+      failed: true,
+    });
+  });
+
+  it('ends with Facebook’s words when its name standards won’t take the name, Done never pressed', async () => {
+    const { end, namePage } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { refuses: { on: 'review', says: 'This name doesn’t follow our Name Standards.' } } },
+    );
+    expect(namePage()!.pressed().done).toBe(0);
+    expect(end).toEqual({
+      line: 'Facebook won’t take “Casey Lee” as your name (it says “This name doesn’t follow our Name Standards.”). Use your real first and last name, in letters only. Pick another under Name: in Social Outreach, go to Settings → Facebook and press Check your profile. Then press Put these in again.',
+      warned: false,
+      failed: true,
+    });
+  });
+
+  it('refuses a name Facebook wouldn’t take before opening its page', async () => {
+    const { end, opened } = await putIn({
+      bio: null,
+      username: null,
+      links: [],
+      name: 'Casey Owner | Roofs',
+    });
+    expect(opened).toEqual([`${FB}/me`, `${FB}/me`]);
+    expect(end).toEqual({
+      line: 'Facebook names use letters only, so take out “|” from “Casey Owner | Roofs”. Pick another under Name with Show me more on the web, then put it in.',
+      warned: false,
+      failed: true,
+    });
+  });
+
+  it('says a name Facebook looks at first is under review, never that it’s in', async () => {
+    const { end, now } = await putIn({ username: null, links: [] }, { name: { reviewing: true } });
+    expect(now().name).toBe('Casey Owner');
+    expect(end).toEqual({
+      line: `Your bio now says “${TASK.bio}”. Facebook is looking at your new name, “Casey Lee”, before it shows on your profile. There’s nothing to do now: check your profile again in a day or two.`,
+      warned: false,
+    });
+  });
+
+  it('hands over a box Facebook opened after the name’s Done that it doesn’t know, never saying the name is in', async () => {
+    const { said, end } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { sure: { button: 'Yes, change it' } } },
+    );
+    expect(said.map((s) => s.says)).toEqual([
+      'Facebook opened a box after Done. In the Facebook window, press its button to change your name to “Casey Lee”, then press Carry on.',
+    ]);
+    expect(said[0]!.note).toMatchObject({
+      job: 'profile_edit.name',
+      found: { pressed: true, over: true, saved: false },
+    });
+    expect(end).toEqual({
+      line: 'Facebook hasn’t shown your new name on your profile yet, and it may look at a new name first. Check it in Accounts Center: press Profiles, then your Facebook profile, then Name, and put “Casey Lee” in if it isn’t there.',
+      warned: false,
+      failed: true,
+    });
+  });
+
+  it('hands the name over, typing nothing, when Facebook opens another profile’s name page', async () => {
+    const { said, end, namePage } = await putIn(
+      { bio: null, username: null, links: [] },
+      { nameElsewhere: true },
+    );
+    expect(said.map((s) => s.says)).toEqual([
+      'In Accounts Center, press Profiles, then your Facebook profile, then Name. Put “Casey” in First name and “Lee” in Last name, leave Middle name empty, then press Review change, then Done (or Save changes). Facebook lets you change your name once in 60 days, and may look at a new one before it shows. Then press Carry on.',
+    ]);
+    expect(said[0]!.note).toMatchObject({
+      job: 'profile_edit.name',
+      note: 'Accounts Center’s name page didn’t open, so the name was handed to the person.',
+    });
+    expect(namePage()!.boxes.last.value).toBe('Owner');
+    expect(end).toMatchObject({ failed: true });
+  });
+
+  it('stops for the day on a Facebook block over the name page, nothing typed', async () => {
+    const { end, warned, namePage } = await putIn(
+      { bio: null, username: null, links: [] },
+      { name: { blocked: true } },
+    );
+    expect(warned).toEqual([
+      ['You’re temporarily blocked', 'It looks like you were going too fast. Try again later.'],
+    ]);
+    expect(end).toMatchObject({ warned: true });
+    expect(namePage()!.boxes.last.value).toBe('Owner');
+  });
+
   it('hands the username and links over as before where core says they’re the person’s (builds before 0.93.0)', async () => {
-    how.handedOver = true;
+    how.build = '0.92.0';
     const { said, opened, now } = await putIn({ bio: null, name: null });
     expect(opened).toEqual([`${FB}/me`, ACCOUNTS_PROFILES, `${FB}/me`, `${FB}/me`]);
     expect(said.map((s) => s.says)).toEqual([
@@ -949,5 +1168,24 @@ describe('Put these in, on Facebook', () => {
       expect.stringContaining('press Edit links on the Links card'),
     ]);
     expect(now()).toMatchObject({ username: 'casey.owner.7', added: [] });
+  });
+
+  it('puts the username and links in and hands the name over, as 0.93.0 did (builds before 0.94.0)', async () => {
+    how.build = '0.93.0';
+    const { said, opened, now, end } = await putIn({ bio: null });
+    expect(opened).toEqual([`${FB}/me`, CONTACT, USERNAME_PAGE, ACCOUNTS_PROFILES, `${FB}/me`]);
+    expect(said.map((s) => s.says)).toEqual([
+      expect.stringContaining('Name. Put “Casey” in First name and “Lee” in Last name'),
+    ]);
+    // The person carried on without changing it: only what shows is said to be in.
+    expect(now()).toMatchObject({ username: 'casey.roofs', name: 'Casey Owner', added: [CAL] });
+    expect(end.line).toMatch(
+      /^Your username and links are in\. Facebook hasn’t shown your new name/,
+    );
+    // 0.94.0 puts the name in itself too.
+    how.build = '0.94.0';
+    const newer = await putIn({ bio: null });
+    expect(newer.said).toEqual([]);
+    expect(newer.now()).toMatchObject({ username: 'casey.roofs', name: 'Casey Lee', added: [CAL] });
   });
 });
