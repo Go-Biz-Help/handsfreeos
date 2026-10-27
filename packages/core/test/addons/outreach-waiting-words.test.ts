@@ -15,6 +15,8 @@ import {
   bundlePushWords,
   commentTitle,
   eachPushWords,
+  forumAnswer,
+  forumAnswersLeftWords,
   messagesTitle,
   messengerChatUrl,
   moreWords,
@@ -332,5 +334,15 @@ describe('the words', () => {
     expect(
       oneByOneWords({ handedOver: false, needsYou: 'a forum answer always waits for your OK' }),
     ).toBe('It waits for you on its own: a forum answer always waits for your OK.');
+    // Approve all leaves forum answers, and says why beside it.
+    expect(
+      forumAnswer({ kind: 'comment', needsYou: 'a forum answer always waits for your OK' }),
+    ).toBe(true);
+    expect(forumAnswer({ kind: 'comment', needsYou: null })).toBe(false);
+    expect(forumAnswer({ kind: 'reply', needsYou: 'they sound upset' })).toBe(false);
+    expect(forumAnswersLeftWords(1)).toBe(
+      'Approve all leaves the forum answer: an answer to a post asking for what you offer always waits for an OK of its own.',
+    );
+    expect(forumAnswersLeftWords(2)).toMatch(/^Approve all leaves the 2 forum answers: /);
   });
 });

@@ -175,9 +175,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Accept invitations from people who fit a playbook',
         'The rest wait for you.',
       ],
+      // Since decision 92 it also reads who reacted to and commented on the good posts, and checks them.
       collect: [
         'Once a day, first: check invitations, find posts and read my chats',
-        'These fill the list it works from. It checks your connections for good fits too.',
+        'These fill the list it works from. It searches posts with your playbooks’ words, reads who reacted to and commented on the good ones, and checks those people and your connections for good fits, inside its 40 profile reads a day.',
       ],
       joinGroups: [
         'Join good groups when my groups run low',
@@ -218,7 +219,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       ],
       collect: [
         'Once a day, first: save my newest followers, and read my messages and notifications',
-        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your area’s hashtags for posts and who wrote them, and looks for partners with Instagram’s search, too.',
+        'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your playbooks’ hashtags for posts, reads who liked and commented on the good ones and checks them for good fits, and looks for partners with Instagram’s search, too.',
       ],
       joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [
@@ -254,9 +255,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Accept connection requests from people who fit a playbook',
         'The rest wait for you.',
       ],
+      // Since decision 92 it also searches for businesses like the person's clients, and reads their groups.
       collect: [
-        'Once a day, first: check connection requests, and read my messages and my town’s posts',
-        'These fill the list it works from. It checks your connections for good fits, and looks for partners, too.',
+        'Once a day, first: check connection requests, read my messages and my town’s posts, search for businesses like your clients, and read my groups',
+        'These fill the list it works from. It checks your connections, and the businesses it finds, for good fits, and looks for partners, too.',
       ],
       // Shown since decision 92: Alignable's groups go through the same pipeline as Facebook's.
       joinGroups: [

@@ -1,4 +1,6 @@
+import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { MESSAGE_MOST } from '@hfos/core/addons/outreach/limits';
+import { COMMENT_HOLD_WORDS, COMMENT_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
 import { waitingOfCopy } from '@hfos/core/addons/outreach/views/waiting';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
@@ -16,7 +18,8 @@ import { id, ME, sendRow, TZ } from './mocks';
  * Waiting for you on the phone (decision 44): the person's messages come from the phone's own copy, so they read and
  * OK, change, skip and Approve all with no signal, each queued with what the screen shows written into the copy at
  * once. The steps and friend requests come from HandsFreeOS, and with no signal the screen says so. Each card's name
- * opens the person menu (decision 91), and each card keeps its own Open button.
+ * opens the person menu (decision 91), and each card keeps its own Open button. Comments on good posts (decision 92)
+ * wait among the messages, their posts above them with signal, and Approve all leaves a forum answer, saying why.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useLocalSearchParams: () => ({}) }));
@@ -200,6 +203,111 @@ describe('Waiting for you on the phone', () => {
     expect(screen.getByTestId('waiting-change-problem').props.children).toMatch(
       /^Keep a message under 2,000 characters/,
     );
+  });
+
+  it('lists comments among the messages, each under its post, and Approve all leaves a forum answer', async () => {
+    const opened = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const postUrl = 'https://www.instagram.com/p/CxAveryBakes1/';
+    const phone = waitingOfCopy(
+      [
+        sendRow(1, { name: 'Dana Reyes' }),
+        sendRow(2, {
+          kind: 'comment',
+          name: 'Avery Cole',
+          profile_url: 'https://www.instagram.com/avery.cole.bakes/',
+          text: 'Those loaves look perfect. How long do you proof them?',
+        }),
+        sendRow(3, {
+          kind: 'comment',
+          name: 'Pike Roofing',
+          profile_url: 'https://www.alignable.com/austin-tx/pike-roofing',
+          needs_you: COMMENT_NEEDS_YOU.answer,
+        }),
+      ],
+      ME,
+    );
+    const h = handlers();
+    await render(
+      <WaitingBody
+        phone={phone}
+        server={{
+          ...SERVER,
+          posts: new Map([[id(2), { post: 'Fresh sourdough out of the oven…', postUrl }]]),
+        }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        {...h}
+      />,
+    );
+    const messages = screen.getByTestId('waiting-message');
+    expect(within(messages).getByText(/^Messages and comments to OK/)).toBeTruthy();
+    // The comments' hold, and why Approve all leaves the forum answer, under the heading.
+    expect(within(messages).getByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeTruthy();
+    expect(within(messages).getByText(/Approve all leaves the forum answer: /)).toBeTruthy();
+    expect(screen.getAllByTestId('waiting-send')).toHaveLength(1);
+
+    const [avery, pike] = screen.getAllByTestId('waiting-comment');
+    expect(within(avery!).getByTestId('waiting-comment-title').props.children).toBe(
+      'Comment on Avery Cole’s post',
+    );
+    expect(within(avery!).getByTestId('waiting-comment-post').props.children).toBe(
+      'Fresh sourdough out of the oven…',
+    );
+    expect(within(avery!).getByText('Your comment')).toBeTruthy();
+    await fireEvent.press(within(avery!).getByText(TOUCHED_POSTS_WORDS.openPost));
+    expect(opened).toHaveBeenCalledWith(postUrl);
+    // The forum answer waits on its own, and says so; its post isn't known, so none shows.
+    expect(
+      within(pike!).getByText(`It waits for you on its own: ${COMMENT_NEEDS_YOU.answer}.`),
+    ).toBeTruthy();
+    expect(within(pike!).queryByTestId('waiting-comment-post')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('waiting-approve-all'));
+    expect(h.onOkAll).toHaveBeenCalledWith([{ sendId: id(1) }, { sendId: id(2) }]);
+    expect(screen.getByText('Approve all 2')).toBeTruthy();
+
+    await fireEvent.press(within(avery!).getByTestId('waiting-ok'));
+    expect(h.onOk).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sendId: id(2), kind: 'comment' }),
+    );
+    await fireEvent.press(within(avery!).getByTestId('waiting-change'));
+    expect(
+      within(screen.getByTestId('waiting-change-sheet')).getByText('Comment on Avery Cole’s post'),
+    ).toBeTruthy();
+    opened.mockRestore();
+  });
+
+  it('shows a comment with no signal, without its post', async () => {
+    const phone = waitingOfCopy(
+      [
+        sendRow(2, {
+          kind: 'comment',
+          name: 'Avery Cole',
+          profile_url: 'https://www.instagram.com/avery.cole.bakes/',
+        }),
+      ],
+      ME,
+    );
+    await render(
+      <WaitingBody
+        phone={phone}
+        server={null}
+        serverError={null}
+        online={false}
+        timeZone={TZ}
+        now={NOW}
+        {...handlers()}
+      />,
+    );
+    const comment = screen.getByTestId('waiting-comment');
+    expect(within(comment).getByTestId('waiting-comment-title').props.children).toBe(
+      'Comment on Avery Cole’s post',
+    );
+    expect(within(comment).queryByTestId('waiting-comment-post')).toBeNull();
+    // With no signal the hold isn't known, so nothing says it.
+    expect(screen.queryByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeNull();
   });
 
   it('shows the steps and friend requests HandsFreeOS has, with signal, and how the person hears of it', async () => {

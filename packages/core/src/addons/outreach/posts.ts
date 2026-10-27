@@ -447,16 +447,24 @@ const HASHTAG_MOST = 40;
 const PLACES_MOST = 5;
 
 /**
- * A hashtag of some words, without its #, as people tag them: "Round Rock" and "plumbing" make "roundrockplumbing".
- * Null when what's left is too short or too long to be one anybody tags, or has no letter.
+ * What's left of some words as a hashtag's letters, as they're typed (decision 92: the playbook builder cleans a hashtag
+ * as it's written): "#Austin Plumbing!" is "austinplumbing". It may be too short or too long to be one yet
+ * (`hashtagOf` says).
  */
-export function hashtagOf(...words: readonly string[]): string | null {
-  const tag = words
+export const hashtagLetters = (...words: readonly string[]): string =>
+  words
     .join('')
     .normalize('NFKD')
     .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}_]/gu, '');
+
+/**
+ * A hashtag of some words, without its #, as people tag them: "Round Rock" and "plumbing" make "roundrockplumbing".
+ * Null when what's left is too short or too long to be one anybody tags, or has no letter.
+ */
+export function hashtagOf(...words: readonly string[]): string | null {
+  const tag = hashtagLetters(...words);
   return tag.length >= 3 && tag.length <= HASHTAG_MOST && /\p{L}/u.test(tag) ? tag : null;
 }
 

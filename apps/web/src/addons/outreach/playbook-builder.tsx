@@ -5,6 +5,12 @@
  * tags and says what happens next. A new playbook walks every step; one being changed opens on the last, where each
  * part has its own Change. It's checked as it's written by the same rules the server holds (`PlaybookDetails`), so a
  * step with a problem on it doesn't carry on.
+ *
+ * Where to look has each network's own words on a customers' playbook (decision 92), each shown while its network is
+ * ticked: the hashtags Instagram looks at (cleaned as they're typed), the words LinkedIn's post search goes with, and
+ * the kinds of business Alignable searches for, with whether the business works with these clients online. The AI
+ * writes each list once; a save sends one only when the person changed it, so a builder left open never puts an empty
+ * list back over what the AI wrote meanwhile, and never says what the AI has written (`wordsWritten`, the server's).
  */
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
@@ -19,7 +25,10 @@ import {
   ANSWER_NEXTS,
   answerNextLabel,
   blankPlaybook,
+  FIND_WORDS_PARTS,
+  FIND_WORDS_PER_DAY,
   forPartners,
+  hasWordsOn,
   nextQuestionId,
   followUpGapsFor,
   PACE_LIMITS,
@@ -32,12 +41,15 @@ import {
   PLAYBOOK_SUGGESTIONS,
   PLAYBOOK_TEMPLATES,
   PlaybookDetails,
+  WORDS_PLATFORM_KEYS,
   type PlaybookAnswer,
   type PlaybookGoal,
   type PlaybookQuestion,
   type PlaybookStep,
   type PlaybookTemplateKey,
+  type WordsPlatform,
 } from '@hfos/core/addons/outreach/playbooks';
+import { hashtagLetters, hashtagOf } from '@hfos/core/addons/outreach/posts';
 import {
   scriptMinutes,
   VIDEO_LIMITS,
@@ -109,8 +121,8 @@ interface Draft {
   platforms: PlaybookDetails['platforms'];
   groupWords: string[];
   /**
-   * Each network's own words and whether it works online (data version 8), as saved: the AI's help reads them. A save
-   * leaves them out, so the server keeps what the AI wrote.
+   * Each network's own words and whether it works online (data version 8, decision 92). A save sends each only when the
+   * person changed it (`FIND_PARTS`), so the server keeps what the AI wrote meanwhile.
    */
   hashtags: string[];
   postSearches: string[];
@@ -170,6 +182,9 @@ const LIST_KEYS = [
   'signs',
   'skip',
   'groupWords',
+  'hashtags',
+  'postSearches',
+  'businessKinds',
   'tags',
   'avoid',
   'openerStyles',
@@ -193,8 +208,32 @@ const withTyping = (d: Draft, typing: Typing): Draft =>
       : out;
   }, d);
 
-/** What's saved: empty words as none, the steps in the order they're taken, and blank messages left out. */
-const toDetails = (d: Draft): PlaybookDetails => ({
+/**
+ * Each network's own words, and whether it works online (decision 92): a save sends one only when the person changed it
+ * and it shows (`hasWordsOn`), so a builder left open never puts back what the AI wrote since it opened. Left out, the
+ * server keeps what's saved.
+ */
+const FIND_PARTS = ['hashtags', 'postSearches', 'businessKinds', 'worksOnline'] as const;
+type FindPart = (typeof FIND_PARTS)[number];
+/** The network whose part it is: the works-online switch is Alignable's, as its search goes by it. */
+const FIND_PART_ON: Readonly<Record<FindPart, WordsPlatform>> = {
+  hashtags: 'instagram',
+  postSearches: 'linkedin',
+  businessKinds: 'alignable',
+  worksOnline: 'alignable',
+};
+
+/** The parts of `FIND_PARTS` the person changed from where the builder started, on a network that shows them. */
+const changedFindParts = (d: Draft, start: Draft): FindPart[] =>
+  FIND_PARTS.filter(
+    (k) => hasWordsOn(d, FIND_PART_ON[k]) && JSON.stringify(d[k]) !== JSON.stringify(start[k]),
+  );
+
+/**
+ * What's saved: empty words as none, the steps in the order they're taken, and blank messages left out. Each network's
+ * own words go only as `sent` says (all of them for checking it); what the AI has written never does.
+ */
+const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDetails => ({
   goal: d.goal,
   offer: orNull(d.offer),
   link: orNull(d.link),
@@ -211,6 +250,10 @@ const toDetails = (d: Draft): PlaybookDetails => ({
   area: orNull(d.area),
   platforms: d.platforms,
   groupWords: d.groupWords,
+  ...(sent.includes('hashtags') ? { hashtags: d.hashtags } : {}),
+  ...(sent.includes('postSearches') ? { postSearches: d.postSearches } : {}),
+  ...(sent.includes('businessKinds') ? { businessKinds: d.businessKinds } : {}),
+  ...(sent.includes('worksOnline') ? { worksOnline: d.worksOnline } : {}),
   steps: PLAYBOOK_STEP_KEYS.filter((s) => d.steps.includes(s)),
   pace: d.pace,
   tone: orNull(d.tone),
@@ -338,7 +381,7 @@ const STEPS: readonly Step[] = [
     part: 'Where to look',
     title: 'Where do you find them?',
     blurb: 'The networks it works on, and words to search for to find these people there.',
-    fields: ['platforms', 'groupWords'],
+    fields: ['platforms', 'groupWords', ...FIND_PARTS],
   },
   {
     key: 'steps',
@@ -445,6 +488,8 @@ export function PlaybookBuilder({
     return d.offer || !mainOffer?.outcome ? d : { ...d, offer: mainOffer.outcome };
   });
   const [draft, setDraft] = useState(start);
+  /** The networks whose words the AI has written, as saved: the server's alone, and never sent back. */
+  const written = (playbook?.details as PlaybookDetails | undefined)?.wordsWritten ?? [];
   const opened = playbook && openAt ? STEPS.findIndex((s) => s.key === openAt) : -1;
   const [at, setAt] = useState(opened >= 0 ? opened : playbook ? REVIEW : 0);
   /** Reached from the last step's Change: carrying on goes back there. */
@@ -491,13 +536,23 @@ export function PlaybookBuilder({
   }, [dirty]);
 
   const issues = useMemo<Issue[]>(() => {
-    const checked = PlaybookDetails.safeParse(toDetails(withTyping(draft, typing)));
-    return checked.success
+    const kept = withTyping(draft, typing);
+    const checked = PlaybookDetails.safeParse(toDetails(kept));
+    const found = checked.success
       ? []
       : checked.error.issues.map((i) => ({
           path: i.path.map(String).join('.'),
           message: i.message,
         }));
+    // A hashtag is one people tag, as the server makes it on a save.
+    const tags = kept.hashtags.flatMap((t, i) =>
+      hashtagOf(t) === t ? [] : [{ path: `hashtags.${i}`, message: W.findWords.hashtagBad(t) }],
+    );
+    // A network's own words that don't show (its network unticked, or a partner playbook) aren't sent: nothing to fix.
+    const hidden = FIND_PARTS.filter((k) => !hasWordsOn(kept, FIND_PART_ON[k]));
+    return [...found, ...tags].filter(
+      (i) => !hidden.some((k) => i.path === k || i.path.startsWith(`${k}.`)),
+    );
   }, [draft, typing]);
   const nameIssue = taken ?? (draft.name.trim() ? null : 'Give the playbook a name.');
   const problems = (s: Step) =>
@@ -651,13 +706,14 @@ export function PlaybookBuilder({
   const save = async () => {
     setBusy(true);
     try {
+      const kept = withTyping(draft, typing);
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.playbook.save', {
           body: {
             workspaceId,
             ...(playbook ? { playbookId: playbook.id } : { template }),
             name: draft.name.trim(),
-            details: toDetails(withTyping(draft, typing)),
+            details: toDetails(kept, changedFindParts(kept, start)),
           },
         }),
       );
@@ -1037,6 +1093,58 @@ export function PlaybookBuilder({
             error={issueIn('groupWords')}
           />
           {listHelp('groupWords')}
+          {/* Each network's own words, while it's ticked, on a customers' playbook (decision 92). */}
+          {WORDS_PLATFORM_KEYS.filter((p) => hasWordsOn(draft, p)).map((p) => {
+            const part = FIND_WORDS_PARTS[p];
+            const tags = part === 'hashtags';
+            const emptied = !draft[part].length && written.includes(p);
+            return (
+              <div key={p} className="space-y-3" data-testid={`playbook-words-${p}`}>
+                <div>
+                  <ListField
+                    id={`pb-${part}`}
+                    {...typed(part)}
+                    label={playbookSectionTitle(part, draft)}
+                    hint={[
+                      emptied
+                        ? W.findWords.none[p]
+                        : written.includes(p)
+                          ? W.findWords.written(FIND_WORDS_PER_DAY[p])
+                          : W.findWords.notYet,
+                      ...(tags ? [W.findWords.hashtagHint] : []),
+                    ].join(' ')}
+                    items={draft[part]}
+                    onChange={(v) => set(part, v)}
+                    limits={PLAYBOOK_LIMITS[part]}
+                    error={issueIn(part)}
+                    // A hashtag is cleaned as it's typed: "#Austin Plumbing!" is austinplumbing.
+                    {...(tags ? HASHTAG_LINES : {})}
+                    testId={`playbook-${part}`}
+                  />
+                  {listHelp(part)}
+                </div>
+                {p === 'alignable' ? (
+                  <div className="flex items-start justify-between gap-3 rounded-card border border-border bg-card p-3.5">
+                    <div>
+                      <div className="text-[14px] font-medium">{W.worksOnline.label}</div>
+                      <div
+                        className="text-[13px] text-text-2"
+                        data-testid="playbook-works-online-says"
+                      >
+                        {draft.worksOnline ? W.worksOnline.yes : W.worksOnline.no}
+                      </div>
+                    </div>
+                    <Switch
+                      checked={draft.worksOnline === true}
+                      onChange={(v) => set('worksOnline', v)}
+                      label={W.worksOnline.label}
+                      testId="playbook-works-online"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       );
       break;
@@ -1311,7 +1419,7 @@ export function PlaybookBuilder({
                       {s.part}
                     </h3>
                     <div className="mt-1 text-[14px]">
-                      <Summary part={s.key} draft={draft} />
+                      <Summary part={s.key} draft={draft} written={written} />
                     </div>
                     {wrong ? (
                       <p className="mt-1.5 text-[13px] text-danger-text" role="alert">
@@ -1706,7 +1814,16 @@ const Missing = ({ children }: { children: ReactNode }) => (
   <span className="text-text-3">{children}</span>
 );
 
-function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode {
+function Summary({
+  part,
+  draft: d,
+  written,
+}: {
+  part: StepKey;
+  draft: Draft;
+  /** The networks whose words the AI has written: an empty list of theirs looks at nothing. */
+  written: readonly WordsPlatform[];
+}): ReactNode {
   const listed = (items: readonly string[], none: string) =>
     items.length ? items.join(' · ') : <Missing>{none}</Missing>;
   switch (part) {
@@ -1760,6 +1877,24 @@ function Summary({ part, draft: d }: { part: StepKey; draft: Draft }): ReactNode
           )}
           {d.groupWords.length ? (
             <div className="text-[13px] text-text-2">Groups about {d.groupWords.join(' · ')}</div>
+          ) : null}
+          {WORDS_PLATFORM_KEYS.filter((p) => hasWordsOn(d, p)).map((p) => {
+            const part = FIND_WORDS_PARTS[p];
+            const lines = part === 'hashtags' ? d[part].map((t) => `#${t}`) : d[part];
+            // An empty list the AI hasn't written yet says nothing: its words are on their way.
+            if (!lines.length && !written.includes(p)) return null;
+            return (
+              <div key={p} className="text-[13px] text-text-2" data-testid={`review-words-${p}`}>
+                {lines.length
+                  ? `${playbookSectionTitle(part, d)}: ${lines.join(' · ')}`
+                  : W.findWords.none[p]}
+              </div>
+            );
+          })}
+          {hasWordsOn(d, 'alignable') && d.worksOnline !== null ? (
+            <div className="text-[13px] text-text-2">
+              {d.worksOnline ? W.worksOnline.yes : W.worksOnline.no}
+            </div>
           ) : null}
         </>
       );
@@ -2295,6 +2430,26 @@ function MessageList({
   );
 }
 
+/** How a list's lines are typed and shown, where they're more than words: a hashtag's. */
+interface LineRules {
+  /** What's typed, as the line it makes, as it's typed. */
+  clean?: (text: string) => string;
+  /** Why a line typed can't be added, or null when it can. */
+  refuse?: (text: string) => string | null;
+  /** A line as it shows. */
+  shown?: (item: string) => string;
+}
+
+/**
+ * A hashtag's lines (decision 92): cleaned as typed ("#Austin Plumbing!" is austinplumbing), refused when that makes no
+ * hashtag anyone tags, and shown with their #.
+ */
+const HASHTAG_LINES: LineRules = {
+  clean: (text) => hashtagLetters(text),
+  refuse: (text) => (hashtagOf(text) ? null : W.findWords.hashtagBad(text)),
+  shown: (item) => `#${item}`,
+};
+
 /** A list of short lines: each a chip to take out, a box to add one, and ideas to tap. */
 function ListField({
   id,
@@ -2308,6 +2463,9 @@ function ListField({
   text,
   onText,
   error,
+  clean,
+  refuse,
+  shown = (item) => item,
   testId,
 }: {
   id: string;
@@ -2324,15 +2482,18 @@ function ListField({
   onText: (text: string) => void;
   error?: string;
   testId?: string;
-}) {
+} & LineRules) {
   const [said, setSaid] = useState<string | null>(null);
   const has = (v: string) => items.some((x) => x.toLowerCase() === v.toLowerCase());
   const full = items.length >= max;
   const add = (v: string) => {
-    const t = v.trim();
+    // An idea tapped is cleaned as one typed is.
+    const t = (clean ? clean(v) : v).trim();
     if (!t) return;
-    if (has(t)) return setSaid(`“${t}” is there already.`);
+    if (has(t)) return setSaid(`“${shown(t)}” is there already.`);
     if (full) return setSaid(`That’s ${max}, the most it takes.`);
+    const no = refuse?.(t);
+    if (no) return setSaid(no);
     onChange([...items, t]);
     onText('');
     setSaid(null);
@@ -2347,10 +2508,10 @@ function ListField({
               key={`${i}-${item}`}
               className="inline-flex min-h-7 items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2.5 pr-1 text-[13px] text-accent-text"
             >
-              {item}
+              {shown(item)}
               <button
                 type="button"
-                aria-label={`Take out “${item}”`}
+                aria-label={`Take out “${shown(item)}”`}
                 onClick={() => onChange(items.filter((_, j) => j !== i))}
                 className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full hover:bg-card"
               >
@@ -2368,7 +2529,7 @@ function ListField({
           disabled={full}
           placeholder={full ? `That’s ${max}, the most it takes.` : placeholder}
           onChange={(e) => {
-            onText(e.target.value);
+            onText(clean ? clean(e.target.value) : e.target.value);
             setSaid(null);
           }}
           onKeyDown={(e) => {

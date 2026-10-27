@@ -4,6 +4,7 @@ import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
+import { COMMENT_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -25,8 +26,9 @@ import { id, TZ, WS } from './mocks';
 /**
  * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
  * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
- * asking for what the business offers first, each name opening the person menu, the Pipeline's Client stage, and a
- * playbook changed a part at a time on what's there now. Settings have their own file (./settings.test.tsx).
+ * asking for what the business offers first, comments drafted to wait on Instagram and Alignable (decision 92), each
+ * name opening the person menu, the Pipeline's Client stage, and a playbook changed a part at a time on what's there
+ * now. Settings have their own file (./settings.test.tsx).
  */
 
 jest.mock('expo-router', () => ({
@@ -202,6 +204,71 @@ describe('Today on the phone', () => {
     const comments = screen.getByTestId('today-comment');
     expect(within(comments).getByText('Comment on a post · 1')).toBeTruthy();
     expect(within(comments).queryByText('Lee Park')).toBeNull();
+  });
+
+  it('shows a comment drafted to wait with OK and Skip, and no Not for me beside them', async () => {
+    const drafted = (n: number, name: string, needsYou: string | null): TodayItem => ({
+      ...post(n, name, false),
+      profileUrl: `https://www.instagram.com/made.up.${n}/`,
+      postUrl: `https://www.instagram.com/p/MadeUp${n}/`,
+      post: 'New roof on a craftsman in Hyde Park this week.',
+      why: ['Posted under #austinroofing'],
+      send: {
+        sendId: id(60 + n),
+        state: 'waiting',
+        text: 'That ridge line came out clean. How long did the tear-off take?',
+        handedOver: false,
+        needsYou,
+      },
+    });
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [drafted(1, 'Sam Ortiz', null), drafted(2, 'Rowan Hale', COMMENT_NEEDS_YOU.answer)],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+    };
+    const onOk = jest.fn();
+    const onSkip = jest.fn();
+    await render(
+      <TodayBody
+        platform="instagram"
+        today={today}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={onOk}
+        onSkip={onSkip}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const [sam, rowan] = screen.getAllByTestId('today-item');
+    expect(within(sam!).getByText('Posted under #austinroofing')).toBeTruthy();
+    expect(within(sam!).getByText('New roof on a craftsman in Hyde Park this week.')).toBeTruthy();
+    expect(
+      within(sam!).getByText(
+        'I’d post this comment. Change it if you like; your changes teach the AI.',
+      ),
+    ).toBeTruthy();
+    // Skipping a comment puts its post aside, so there's no Not for me beside it.
+    expect(within(sam!).queryByTestId('today-not-for-me')).toBeNull();
+    expect(within(sam!).queryByTestId('today-send-alone')).toBeNull();
+    await fireEvent.press(within(sam!).getByTestId('today-ok'));
+    expect(onOk).toHaveBeenCalledWith(id(61));
+    await fireEvent.press(within(sam!).getByTestId('today-skip'));
+    expect(onSkip).toHaveBeenCalledWith(id(61));
+    // A forum answer says it waits for an OK of its own.
+    expect(within(rowan!).getByTestId('today-send-alone').props.children).toBe(
+      `It waits for you on its own: ${COMMENT_NEEDS_YOU.answer}.`,
+    );
   });
 
   it('shows today’s helpful post, OKs it for the computer, or puts it aside', async () => {
