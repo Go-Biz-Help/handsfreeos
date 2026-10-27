@@ -816,7 +816,7 @@ describe('the coach in the call', () => {
   };
 
   beforeAll(async () => {
-    const b = await booking('15:00');
+    const b = await booking('09:00');
     appointmentId = b.appointmentId;
     attendeeId = b.attendeeId;
     callId = (await runSystem(videoCallOpen, { workspaceId: t.wsId, appointmentId }, t.scope))
