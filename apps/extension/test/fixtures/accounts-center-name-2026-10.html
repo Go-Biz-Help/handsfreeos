@@ -1,0 +1,61 @@
+<!doctype html>
+<!--
+  Accounts Center's name page for the signed-in person's Facebook profile
+  (accountscenter.facebook.com/profiles/<number>/name/), as Facebook usually draws it in October 2026. Made up,
+  nobody real: Casey Owner, Facebook profile 100001234, the same made-up person as own-profile-2026-10.html and
+  accounts-center-username-2026-10.html. Built from Meta's usual words for this page, not yet from a page outline of
+  it (decision 89).
+
+  - First name, Middle name and Last name, each named by its label, with the page's own help under them: how often a
+    name can change, and Facebook's advice on its name standards.
+  - Review change is off until a name changes. What Review change shows (how the name is shown, and Done), what Facebook
+    says of a name, and what Done does are added by each test.
+-->
+<html lang="en">
+  <head>
+    <title>Name | Accounts Center</title>
+  </head>
+  <body>
+    <div role="banner">
+      <a href="https://www.facebook.com/" aria-label="Facebook"
+        ><svg aria-label="Facebook"></svg
+      ></a>
+      <span>Accounts Center</span>
+    </div>
+    <div role="navigation">
+      <a href="/profiles/"><span>Profiles</span></a>
+      <a href="/personal_info/"><span>Personal details</span></a>
+      <a href="/password_and_security/"><span>Password and security</span></a>
+    </div>
+    <div role="main">
+      <div role="dialog" aria-label="Name" id="panel">
+        <div role="button" aria-label="Back"><svg aria-hidden="true"></svg></div>
+        <h2><span>Name</span></h2>
+        <form id="name-form">
+          <div>
+            <label for="n1"><span>First name</span></label>
+            <input id="n1" type="text" value="Casey" />
+          </div>
+          <div>
+            <label for="n2"><span>Middle name</span></label>
+            <input id="n2" type="text" value="" />
+          </div>
+          <div>
+            <label for="n3"><span>Last name</span></label>
+            <input id="n3" type="text" value="Owner" />
+          </div>
+          <div>
+            <span>If you change your name on Facebook, you can’t change it again for 60 days.</span>
+          </div>
+          <div>
+            <span
+              >Don’t add any unusual capitalization, punctuation, characters or random words.</span
+            >
+          </div>
+          <div role="status" id="said"></div>
+        </form>
+        <div role="button" id="review" aria-disabled="true"><span>Review change</span></div>
+      </div>
+    </div>
+  </body>
+</html>

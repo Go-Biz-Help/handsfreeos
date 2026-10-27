@@ -14,7 +14,9 @@ import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import type { BioResult } from '../facebook/own-profile';
 import type { ReplySighting } from '../facebook/replies';
+import type { FormSteps } from '../instagram/own-profile';
 import type { ProfileRef } from '../facebook/types';
+import type { CenterNetwork } from '../accounts-center/pages';
 import type { Noticer } from '../kit';
 import type { StepTry, TryStep } from '../tries';
 
@@ -83,6 +85,12 @@ export interface LookingSite {
   readonly hosts: readonly string[];
   /** The host its addresses are made whole on. */
   readonly host: string;
+  /**
+   * Its own Accounts Center, where its tab changes the person's own username and name for Put these in (decision 89):
+   * Instagram's, at accountscenter.instagram.com (../accounts-center/). Its tab may go there and answers its asks there,
+   * but the pages aren't its own: nothing the person does there is noted.
+   */
+  readonly accountsCenter?: CenterNetwork;
   /** A link on its pages as a whole address on its host, or null when it leads anywhere else. */
   readonly url: (href: string, base?: string) => URL | null;
   /** What kind of page an address is. */
@@ -120,6 +128,11 @@ export interface LookingSite {
   readonly ownProfile?: {
     readonly read: (doc: Document, href: string) => ProfileRead;
     readonly writeBio?: (doc: Document, bio: string) => Promise<BioResult>;
+    /** The bio put in with each step said, for the job's note (Instagram's form, from 0.94.0). */
+    readonly writeBioSteps?: (
+      doc: Document,
+      bio: string,
+    ) => Promise<{ readonly result: BioResult; readonly steps: FormSteps }>;
     readonly writeAbout?: (doc: Document, about: string) => Promise<AboutResult>;
     readonly putCode?: (doc: Document, code: string) => Promise<CodeResult>;
   };

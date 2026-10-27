@@ -131,10 +131,12 @@ const ONLINE_COMMANDS = [
   'outreach.ask.reply',
   'outreach.ask.cancel',
   'outreach.ask.code',
-  // The person menu on Today (decision 44): Add to Contacts, Demo booked and Don't pitch.
+  // The person menu on Today (decision 44): Add to Contacts, Demo booked and Don't pitch; and on any name, Mark as
+  // client and Not a client after all (decision 91).
   'outreach.profile.contact',
   'outreach.demo.mark',
   'outreach.friend.set',
+  'outreach.client.set',
   // Where someone stands, from the Pipeline screen (decision 47), and on the Partners list (decision 81).
   'outreach.stage.mark',
   'outreach.partner.mark',
@@ -256,6 +258,8 @@ const QUERIES = [
   'outreach.asks',
   // Add to Contacts' customers with the same name, offered first.
   'outreach.lookup',
+  // Where someone stands as their person menu opens (decision 91): in Contacts, a client, on Don't pitch.
+  'outreach.profile.marks',
   // Whether the person has set Social Outreach up: until then the phone says to do it on a computer (decision 45).
   'outreach.setup',
   // The Pipeline screen: everyone the person reached, by where they stand (decision 47).

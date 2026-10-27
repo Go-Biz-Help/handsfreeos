@@ -674,8 +674,14 @@ function ProfilePart({
   testId: string;
 }) {
   useLiveRefresh(['outreach_setup', 'outreach_ask'], 800);
+  const router = useRouter();
   const [readiness, setReadiness] = useState(start);
   useEffect(() => setReadiness(start), [start]);
+  // A refresh already on its way from before a tick would put it back as it was; one after it brings the tick.
+  const changed = (next: Readiness) => {
+    setReadiness(next);
+    router.refresh();
+  };
   const [open, setOpen] = useState(false);
   const P = profileWordsOn(platform);
   const live = readiness.offer?.version ?? null;
@@ -704,7 +710,7 @@ function ProfilePart({
         asks={asks}
         open={open}
         onClose={() => setOpen(false)}
-        onChange={setReadiness}
+        onChange={changed}
       />
     </Part>
   );

@@ -127,10 +127,11 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 - **Stages, and the moment to pitch** (decision 47, `stages.ts`, `ops/stages.ts`, the web's `pipeline-view.tsx`, the
   phone's `pipeline.tsx`): the **Pipeline** tab, after Today, on the web and the phone, has everyone the person
   reached (a step noted, a chat with words, a good fit or might fit from the checks, a demo, or a mark) by where they
-  stand, worked out each time (`outreach.stages`): booked, not a fit, pitched, ready to pitch, talking (they wrote),
-  friends, warming up (a like, a comment or a friend request), or found; **All in play** lists the ready first, then
-  talking, pitched, friends, warming up, found and booked, each with why, the AI's next step and the latest either
-  way. The AI's read of a chat now also says whether it's time to offer (`pitch`: ready, not yet, or not interested,
+  stand, worked out each time (`outreach.stages`): a client (decision 91), booked, not a fit, pitched, ready to
+  pitch, talking (they wrote), friends, warming up (a like, a comment or a friend request), or found; **All in play**
+  lists the ready first, then talking, pitched, friends, warming up, found and booked, each with why, the AI's next
+  step and the latest either way. Clients are left out of All in play, as Not a fit is: the **Client** chip lists
+  them. The AI's read of a chat now also says whether it's time to offer (`pitch`: ready, not yet, or not interested,
   with why in a line), from the playbook's offer and its conversation's questions. Ready, they go on Today as
   **Pitch**: drafts that answer where the chat left off and offer it with the person's demo link, which the worker
   adds when the AI left it out; copying one, or a pitch the extension sends, moves them on to pitched. A "no" marks
@@ -214,7 +215,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   sends: the extension notes the step, which takes it off the list. Each person kept as a profile has a menu, here
   (on the web and the phone) and on the Friends tab, the Chats tab and Waiting for you (`person-menu.tsx`): **Add to Contacts** (customers with the
   same name offered first, **It’s them** or **Add as new**; `outreach.profile.contact`), or **In Contacts** once they
-  are; **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
+  are; **Mark as client** or **Not a client after all** (decision 91); **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
   requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
@@ -446,8 +447,13 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   things need the person in one line under Next up, with a link to Needs you, and the number is on its icon. **Your computer needs you** (an ask with a step handed to the person, below, with **Carry on**, **Skip** and
   **Stop**); **Replies handed over to you** (each waits for an OK of its own); **Messages to OK**, with **Approve all**,
   which leaves a reply handed over or one to someone who needs the person; **Steps it needs you for**, a step the
-  extension couldn't do there and then (a button or box it couldn't find, a different page, Facebook not taking it, a
-  message that didn't go), with **I did it** and **Let it go**; and **Friend requests to decide**, those from the last
+  extension couldn't do there and then (a button or box it couldn't find, a different page, the network not taking
+  it, a message that didn't go), with **I did it** and **Let it go**, each marked with its profile's network
+  (`platform`) and said in that network's words ("Send … a connection request yourself" on Alignable, "Follow …
+  yourself" on Instagram, `needTitle`), the person's name the button that opens the person menu (their page on that
+  network first, decision 91), beside **Open on <network>** (`needUrlOf`: the link given when it's on their network,
+  the post or the chat, else their page there, so every step links; one kept with none, as every network's but
+  Facebook's were before 26 October 2026, opens their page when it's read); and **Friend requests to decide**, those from the last
   two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**. Each tab's label
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
@@ -508,8 +514,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   then, and is never queued: saving settings (someone's, `outreach.automation.save`, and the business's,
   `addon.save_settings`), ending training wheels (`outreach.wheels.end`), writing or archiving a playbook
   (`outreach.playbook.save`, `.archive`), asking the computer, Carry on, Skip and Stop (`outreach.ask.make`, `.reply`,
-  `.cancel`), and the person menu's Add to Contacts, Demo booked and Don't pitch (`outreach.profile.contact`,
-  `outreach.demo.mark`, `outreach.friend.set`). The words the web and the phone
+  `.cancel`), and the person menu's Add to Contacts, Mark as client, Demo booked, Don't pitch and Never contact
+  (`outreach.profile.contact`, `outreach.client.set`, `outreach.demo.mark`, `outreach.friend.set`, with where they
+  stand from `outreach.profile.marks`; its Open items work with none). The words the web and the phone
   both say are core's `words.ts` (`OUTREACH_WORDS`), which the web reads too: its Settings, Waiting for you, Today
   and Live tabs, its Settings pages and the Add-ons page's link to them, the person menu (`OUTREACH_WORDS.person`,
   `sameNamePeople`), and its tabs' names and the labels its Playbooks, Groups and Chats tabs share with the phone. The web's step-by-step playbook builder keeps its own questions, which the phone doesn't ask. The helpers that write phone rows (`addon_phone_upsert` and the seals) run only as their owner: nobody
@@ -654,18 +661,20 @@ Operations, all through the kernel:
 | `outreach.chat.keep`                                  | `outreach.use`    | Save to their card: one of the person's own chats on the Chats tab onto the customer's Social card; refused until they say who (`outreach_chat_who`)                                                                                                                                                                                |
 | `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, who in Contacts has a name, and Keep and Don't pitch (Add to Contacts' same-name check; no longer used by the extension)                                                                                                                                                              |
 | `outreach.profile.contact`                            | `outreach.use`    | Add to Contacts: a profile kept here becomes a customer (source Facebook), or is tied to the one named                                                                                                                                                                                                                              |
+| `outreach.client.set`                                 | `outreach.use`    | Mark as client, or Not a client after all: the Client tag on their customer in Contacts (added first when they aren't there), and anyone's outreach to them waiting skipped; needs `records.write` too                                                                                                                              |
+| `outreach.profile.marks`                              | `outreach.use`    | Where someone stands as their person menu opens: in Contacts, a client and why, a partner, a demo booked, on Don't pitch or Never contact and who put them on, and whether the person may take them off                                                                                                                             |
 | `outreach.person`                                     | `outreach.use`    | A customer's profiles and chats, for the Social card                                                                                                                                                                                                                                                                                |
 | `outreach.touch.save`                                 | `outreach.use`    | A step the person took on Facebook, as the extension saw it: to whom, and the group they came from                                                                                                                                                                                                                                  |
 | `outreach.activity.posts`                             | `outreach.use`    | The posts liked and commented on over a stretch, the latest first, with what the extension's own said; everyone's for owners, admins. Not them: `outreach_activity_everyone`                                                                                                                                                        |
 | `outreach.activity`                                   | `outreach.use`    | The panel's numbers over a stretch, with demos, by group and person; everyone's for owners, admins                                                                                                                                                                                                                                  |
 | `outreach.friend.note`                                | `outreach.use`    | The person confirmed or deleted a friend request on Facebook                                                                                                                                                                                                                                                                        |
-| `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time                                                                                                                                                                                                                                               |
-| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own), or Don't pitch or Never contact (the business's), for someone; Never contact skips the messages waiting for them                                                                                                                                                                                           |
+| `outreach.friends.save`                               | `outreach.use`    | The person's friends list or requests, as far as the page loaded, up to 500 at a time; a friend on it now clears the person's need to send them a request                                                                                                                                                                           |
+| `outreach.friend.set`                                 | `outreach.use`    | Keep (the person's own), or Don't pitch or Never contact (the business's), for someone; Don't pitch skips the outreach waiting for them (a reply stays), Never contact every message waiting                                                                                                                                        |
 | `outreach.friends`                                    | `outreach.use`    | The Friends tab: the counts, and a page of one list searched by name, the requests by fit, the good fits with the AI's check; and how far checking has come                                                                                                                                                                         |
 | `outreach.checks.next`                                | `outreach.use`    | Who the person's computer checks next for a good fit, in order, no more than today has room for                                                                                                                                                                                                                                     |
 | `outreach.check.look`                                 | `outreach.use`    | What someone's profile and business page said as the computer read it, for the AI; or that Facebook showed someone else                                                                                                                                                                                                             |
 | `outreach.check.save`                                 | the worker        | What the AI made of them: good, might fit or not, the playbook, why, who they are and a first step; the lines go                                                                                                                                                                                                                    |
-| `outreach.stages`                                     | `outreach.use`    | The Pipeline: everyone the person reached by where they stand, counted by stage, one stage or all in play, by name                                                                                                                                                                                                                  |
+| `outreach.stages`                                     | `outreach.use`    | The Pipeline: everyone the person reached by where they stand, counted by stage, one stage or all in play (never clients or not a fit), by name                                                                                                                                                                                     |
 | `outreach.stage.mark`                                 | `outreach.use`    | Ready to pitch, pitched, not a fit, or back in play, for someone the person reached                                                                                                                                                                                                                                                 |
 | `outreach.download.save`                              | `outreach.use`    | A part of Facebook's download file as the browser read it; the last matches names and puts it in                                                                                                                                                                                                                                    |
 | `outreach.chats.collect`                              | `outreach.use`    | Up to 10 chats read live in Messenger: their latest messages join what's kept, for the AI to read                                                                                                                                                                                                                                   |
@@ -922,7 +931,10 @@ showing what's going on and prompting, the app and the phone live too, and answe
     on the phone. The owner confirmed (10 October) that **Approve all** leaves out replies handed over and messages to
     someone who needs the person: each waits for an OK of its own. The list in the extension's panel is replaced by
     decision 72: the list is on the web and the phone only, and the extension keeps the number on its icon, the
-    pop-ups (which open it in HandsFreeOS) and a line in its panel saying how many things wait there.
+    pop-ups (which open it in HandsFreeOS) and a line in its panel saying how many things wait there. Every step
+    handed over links to the person's page on its own network, so they can click it and do the step (the owner,
+    2026-10-26, after an Alignable connection request showed as Facebook's with no link): it's marked with that
+    network and said in its words, its push for each says the network, and a link on another network is never kept.
 43. **The extension goes bare bones:** signing in, what it's doing, Waiting for you, Start and Stop. Anything else is
     in the app; what needs the browser is started there and done by the extension. More can be added later. Built
     (settings part 4): the panel keeps signing in with the business picker, **Right now** (what it's doing, the next step, why
@@ -1607,9 +1619,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       partner check; businesses alone, as it has no creators (`PARTNER_SEARCH_KINDS_ON`). On Today's list it does the
       warm-ups (a look at their business page and a like on a recent post of theirs, or the look alone when there's
       none) and the connection requests (their page's own Connect, by Alignable's id for the business, then their
-      page again to see it went). It sends messages once OK'd, typed only into that conversation's box. **Comments
-      and forum answers stay by hand:** each waits for the person's OK, as it's public writing (the plan's question
-      9), so `comment` isn't in its `runs.auto`, and Sending's choices say so. **Recommendations stay by hand only.**
+      page again to see it went; from extension 0.94.0, never to a business whose page shows its own Remove
+      Connection, `/biz/connections/<their id>`: that's "you’re connected already", kept as one of the person's
+      connections with `outreach.friends.save`, never handed to them). It sends messages once OK'd, typed only into
+      that conversation's box. **Comments and forum answers stay by hand:** each waits for the person's OK, as it's
+      public writing (the plan's question 9), so `comment` isn't in its `runs.auto`, and Sending's choices say so.
+      **Recommendations stay by hand only.**
       Withdrawing old requests stays the person's too: no reader of the requests they've sent is built, as their
       markup isn't known, so nothing works out which to withdraw. A reply is drafted from what HandsFreeOS knows: from
       0.84.0, their conversation as the day's Read my chats last brought it in.
@@ -1720,7 +1735,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Instagram:** its own list (a photo, a name that says what you do, the bio, the link, highlights and posts).
         The extension reads the account's own page and its form, and puts the bio in on the form, or hands that to the
         person. The AI writes a name for the person to put in, as Instagram changes names only in its app or Accounts
-        Center.
+        Center (from extension 0.94.0 it goes in by itself there, decision 89).
       - **Alignable:** its own list, ticked by the person for now. Check Alignable opens the profile's pages and its
         edit form, so its reader and writer get built from what it sends. 0.63.0 reads the profile (About Us, the
         ideal customer and partner, the services) and opens its editors; the AI's check and the writer follow.
@@ -1822,11 +1837,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Every part** (`PARTS_ON`, profile-parts.ts): beside the bio, the About and the checklist, the username, the
       name and the links, each as it is and as written, with who does it (`PART_HOW_ON`): the person's computer puts
       it in (`auto`: the bio, the About, LinkedIn's name in its intro's box, and from decision 89 Facebook's username
-      and links), opens the page where it's changed and hands the step over with what to paste (`steps`: names in
-      Accounts Center on Facebook and Instagram, Instagram's username there too, LinkedIn's address and links;
-      Facebook's username and links were here until decision 89), says it's only in the network's app (`app`:
-      Instagram's links), or it's theirs to do (`tip`). **Put these in** is their OK for the ones ticked, one
-      `profile_edit` (name, username and links from extension 0.87.0, `PROFILE_PARTS_SINCE`).
+      and links from extension 0.93.0, and its name and Instagram's username and name from 0.94.0), opens the page
+      where it's changed and hands the step over with what to paste (`steps`: LinkedIn's address and links; names and
+      usernames in Accounts Center on Facebook and Instagram, and Facebook's links, were here until decision 89), says
+      it's only in the network's app (`app`: Instagram's links), or it's theirs to do (`tip`). **Put these in** is
+      their OK for the ones ticked, one `profile_edit` (name, username and links from extension 0.87.0,
+      `PROFILE_PARTS_SINCE`).
     - **Pictures:** "leave rule". The extension still never changes a picture (decision 64). The AI judges the photo,
       and the cover is made from its line, drawn in the app at the network's size (`COVER_SIZE_ON`) to download; the
       steps say where to put each in.
@@ -1982,14 +1998,20 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       pace together, matching Results' "By network", where every network's messages count toward the one goal.
       Built.
 
-89. **Your bio, username and links, put in for you on Facebook** (Chris, 26 Oct 2026: "the social outreach add on
-    should be able to change my facebook bio but it's asking me to do it", "it should also be able to change my
-    facebook username", "should also be able to add or change links", and "should be able to change usernames as
-    well. I changed it here", with a link to Accounts Center's username page for his Facebook profile). Changes
-    decision 84's split on Facebook. From extension 0.93.0 **Put these in** has the person's computer put the bio, the
-    username and the links in itself (`PART_HOW_ON.facebook`: `bio`, `username` and `links` are `auto`). Their name
-    stays theirs to put in, in Accounts Center, and Instagram stays as it was: he's being asked about those apart.
-    Pictures stay theirs (decision 64).
+89. **Your bio, name, username and links, put in for you on Facebook, and your username and name on Instagram**
+    (Chris, 26 Oct 2026: "the social outreach add on should be able to change my facebook bio but it's asking me to
+    do it", "it should also be able to change my facebook username", "should also be able to add or change links",
+    and "should be able to change usernames as well. I changed it here", with a link to Accounts Center's username
+    page for his Facebook profile). Changes decision 84's split on Facebook and Instagram. From extension 0.93.0
+    **Put these in** has the person's computer put the bio, the username and the links in itself
+    (`PART_HOW_ON.facebook`: `bio`, `username` and `links` are `auto`). Asked the same day "1. Your name too? 2.
+    Instagram's username, name and bio too? 3. May I read the extension's page-layout reports?", he answered "1a 2a
+    3a": yes to all. So from extension 0.94.0 the name goes in by itself too (`PART_HOW_ON.facebook.name`), and so do
+    Instagram's username and name (`PART_HOW_ON.instagram`: `username` and `name` are `auto`; its bio already was, and
+    its links stay in its phone app, `app`). 0.93.0 shipped the bio, the username and the links alone, so decision 90
+    could go out without waiting for the rest. The problem reports' page outlines of his own pages may be read to
+    build from, for their structure only (tags, roles, and Facebook's and Instagram's own words), never copied into the
+    repo. Pictures stay theirs (decision 64).
     - **The bio:** October 2026's profile has no Edit bio (decision 84, extension 0.90.0), so the extension follows
       Edit profile's link to the About tab's editor. There it finds the bio's own Edit by Facebook's words (Edit bio,
       Add bio, or the Bio row's own Edit: the first button after the title "Bio", with at most one line of words
@@ -2001,38 +2023,78 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       yet, it presses Facebook's add for a website, types the address, presses Save and checks it shows. Links are
       only added: one already there stays, as `linksToAdd` leaves it out.
     - **The username:** on Accounts Center's username page for their Facebook profile (the profile's number from Edit
-      profile's link; without it, Profiles, then the Facebook one), and only that profile's page, never Instagram's,
-      the Username box is cleared and the new one typed. Done is pressed only once Facebook allows it, and after it
-      Facebook's Change username or Confirm, once, only in the box on top and only when that box has nowhere to type;
-      a box after Done it doesn't know is handed to the person. Then their profile is read again for its new
-      address. It still asks first (decision 84). A password or code box, or Facebook's "Confirm it's you" with ways
-      to pick, waits for the person: they answer it there and press Continue, then Carry on in HandsFreeOS. The
-      extension never types a password or a code, and reads no warning on Accounts Center while Facebook asks for
-      one, as that isn't decision 25's warning; any other warning there stops it before anything else is read. When
-      Facebook says the username isn't available or can't change yet, the ask ends saying so, and what to do: pick
-      another under Settings → Facebook, or try again in a few days. Nothing is guessed.
+      profile's link; without it, Profiles, then the Facebook one), and only that profile's page, never Instagram's, the
+      Username box is cleared and the new one typed. Done is pressed only once Facebook allows it, and after it
+      Facebook's Change username or Confirm, once, only in the box on top and only when that box has nowhere to type; a
+      box after Done it doesn't know is handed to the person, and from 0.94.0 so is an offer to change the Instagram
+      profile's too (ticked on the page, or in a box after Done). Then their profile is read again for its new address.
+      It still asks first (decision 84). A password or code box, or Facebook's "Confirm it's you" with ways to pick,
+      waits for the person: they answer it there and press Continue, then Carry on in HandsFreeOS. The extension never
+      types a password or a code, and reads no warning on Accounts Center while Facebook asks for one, as that isn't
+      decision 25's warning; any other warning there stops it before anything else is read. When Facebook says the
+      username isn't available or can't change yet, the ask ends saying so, and what to do: pick another under
+      Settings → Facebook, or try again in a few days. Nothing is guessed.
+    - **The name** (answer 1a, from extension 0.94.0): on Accounts Center's name page for their Facebook profile
+      (`/profiles/<number>/name/`, found as the username's is, and only that profile's page, never Instagram's). The
+      name goes in as its boxes take it, each found by its label: the first word in First name, the rest in Last name,
+      and Middle name left empty (`splitName`), so the name shown is the one picked. It presses Review change once
+      Facebook allows it, keeps the order the name is shown in as it is, and presses Done (or Save changes) only once
+      Facebook allows it, then its Change name or Confirm on the same terms as the username's. The same waits as the
+      username's: a password, a code or "Confirm it's you" waits for the person, never typed. A box after Done it
+      doesn't know, or an offer to change the Instagram profile's name too (ticked on the page, or in a box after Done),
+      is handed over. When Facebook refuses the name (its name standards, a change too recent, "You can't change your
+      name right now", "try again in N days"), the ask ends saying so, and what to do; once the name is saved, or the
+      boxes hold it already, Facebook's word on the next change isn't a refusal. Then their profile is read again
+      for the new name, in whichever order Facebook shows it; one Facebook is still looking at isn't said to be in. A
+      name Facebook wouldn't take is refused before it's asked (`nameProblem`: a first and last name, in letters, with
+      spaces, apostrophes, hyphens or dots between; rule `outreach_profile_edit_refused`), and the AI's names for
+      Facebook are held to it too: it's told the standards, a Name whose names all fail them isn't called right
+      (`nameOff`), and Show me more says so, and what to change, rather than to try again (rule
+      `outreach_name_not_taken`). Facebook lets a name change once in 60 days, which the words say. Put these in is the
+      person's OK, as for the bio (decision 80); only a username asks first.
+    - **Instagram's username and name** (answer 2a, from extension 0.94.0) go in the same way, on Accounts Center's
+      username and name pages for their Instagram profile, never Facebook's, in Instagram's own window: Instagram's
+      Accounts Center (`https://accountscenter.instagram.com/*`) joined the extension's host permissions in 0.94.0,
+      granted with nothing asked when the build is reloaded. It isn't counted in whether Chrome lets the extension on
+      Instagram, so someone who keeps the extension to some sites still has Instagram on; while Chrome keeps it off that
+      Accounts Center, the username and name are handed over, saying to allow it under the extension's Site access. Its
+      profile is only the Profiles row that says Instagram and shows the account signed in on instagram.com, never
+      another Instagram row, and a username is typed only while the Username box holds that account's username or the
+      new one. Its name is one Name box. Done is pressed only once Instagram allows it, with the same waits (Instagram's
+      "Verify your account" among them) and the same box after Done, and Instagram's own refusals (a username taken or
+      not allowed, a name changed twice in 14 days) end the ask saying so and what to do, never read as an Instagram
+      warning; one that says "Try again later" leaves the name for another day. Instagram's own "Try Again Later" box,
+      saying nothing of a username or a name, is its warning there as on its own pages (decision 25), and stops it for
+      the day. Then their Instagram profile is read again: the new username in its address, the new name on it; stopped
+      before that, nothing is said to be in. When the extension can't tell which row under Profiles is theirs, the step
+      is handed over, saying which account to press there and what to put in. Its bio goes in on its Edit profile form,
+      as since 0.62.0, and from 0.94.0 is said to be in only once the form shows it after Submit; its links stay in its
+      phone app.
     - **Only what shows is said to be in.** The profile is read again at the end, and a part that went in but doesn't
-      show there yet (the bio, a link, the new username in its address) is left out of "… is in." The end names it,
-      with where to check it.
-    - **Found by Facebook's words, never guessed.** A step it can't find is handed to the person, saying where to
-      press on the page it's on (Carry on), and its problem report carries that page's outline. Each stops on a
-      Facebook warning (decision 25), and acts only for an ask the person made in HandsFreeOS: Put these in is their
+      show there yet (the bio, a link, the new name, the new username in its address) is left out of "… is in." The
+      end names it, with where to check it.
+    - **Found by the network's words, never guessed.** A step it can't find is handed to the person, saying where to
+      press on the page it's on (Carry on), and its problem report carries that page's outline. Each stops on the
+      network's warning (decision 25), and acts only for an ask the person made in HandsFreeOS: Put these in is their
       OK, as their profile is public (decision 80). It presses only what the extension's README lists under
       "Pressing on your own profile only for Put these in" and the Accounts Center rule: the bio's Edit and its box's
-      Save, Add a website and its box's Save, and Done by Username with Facebook's Change username or Confirm after it.
-      It never presses Add a social link, and never removes or changes a link that's there.
+      Save, Add a website and its box's Save, Done by Username with the network's Change username or Confirm after
+      it, and Review change and Done (or Save changes) by the name, with Change name or Confirm after it; never a box
+      that offers to change the other network's profile too. It never presses Add a social link, and never removes
+      or changes a link that's there.
     - **Check Facebook tries them** up to their last press, never pressing it (decision 77): the bio by its new path,
       the add for a link and its box, and the Username box and Done, a word typed in each and theirs put back. Each
       page's outline is sent, so the owner's first Check tunes them from his own pages.
     - **An older extension hands them over as before.** Each build carries its own copy of core, so one before 0.93.0
-      opens Accounts Center or the profile and hands the step over. The screens say so for its computer
-      (`PART_AUTO_SINCE_ON`, `partHowFor`): Facebook's username and links read **You put it in** until it's updated.
-      No new refusal: `PROFILE_PARTS_SINCE` stays 0.87.0. On the Live tab Facebook's `profile_edit` is now **Update
-      your profile**, as on LinkedIn and Instagram, since it's more than the bio.
+      opens Accounts Center or the profile and hands Facebook's username and links over, and one before 0.94.0
+      Facebook's name and Instagram's username and name. The screens say so for its computer (`PART_AUTO_SINCE_ON`,
+      `partHowFor`): each of those reads **You put it in** until it's updated. No new refusal for an older build:
+      `PROFILE_PARTS_SINCE` stays 0.87.0. On the Live tab Facebook's `profile_edit` is now **Update your profile**, as
+      on LinkedIn and Instagram, since it's more than the bio.
 
     Built from the outline of his own profile (made up in the extension's `test/fixtures/own-profile-2026-10.html`).
-    The About tab's editor, Contact and basic info and Accounts Center's username page follow Facebook's usual words,
-    not yet tried on his account.
+    The About tab's editor, Contact and basic info, and Accounts Center's username and name pages on Facebook and
+    Instagram follow Meta's usual words, not yet tried on his account.
 
 90. **Start my day doesn't wait on your profile, and says what it does wait on** (Chris, 26 Oct 2026, with a picture
     of the setup's Start your day on Facebook, its Start greyed out under "2 things left to change on your Facebook
@@ -2055,7 +2117,57 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       `allowed`), and an owner or admin is sent to Social Outreach → Settings → General where a member is told to ask
       one. There's still no refusal for no computer, outside working hours or limits reached: the day starts and
       waits, and Today's and Live's lines already say why.
-    - **The extension's panel** follows: its Get ready counts only what holds the day, with the profile as advice.
+    - **The extension's panel** follows from extension 0.94.0: its Get ready counts only what holds the day, with the
+      profile as advice (`holdingCount`, `adviceLeft`), and once nothing does, Start my day shows with what's left of
+      the profile beside it. 0.93.0's panel still counted the profile in Get ready's number, and showed nothing of it
+      beside Start my day.
+
+91. **Tap a name for everything about them, and mark people as clients** (Chris, 26 Oct 2026: "i should be able to
+    click their names and select dont contact, don't pitch, etc" and "also should be able to mark people as clients",
+    after his earlier "it should provide a link to their profile so i can just click it and request"). Builds on the
+    person menu (decision 44) and the links to someone's page on their own network.
+    - **Every name opens the person menu**, on Today, Waiting for you, the Pipeline, the Friends and Chats tabs and the
+      phone's screens alike (`personMenuItems` in `person-menu.ts`): **Open on Facebook** (their page on their
+      network, `openPageWords`) first, **Open in Messenger** second when their chat is known, then the Pipeline's
+      moves on its board, **Add to Contacts** or **In Contacts**, **Mark as client**, **Demo booked**, **Don't pitch**
+      and **Never contact**, each as where they stand says (`outreach.profile.marks`, asked as it opens). The Open
+      items work with no signal; the rest need it. A card's own Open button stays. A partner gets no Client or Demo
+      booked, and a row with its own Don't pitch and Never contact switches (the Friends tab) keeps them there.
+    - **A client is core's rule, worked out and never kept** (owner question 1, built with its default: yes). Core's
+      `personIsClient` (`crm/clients.ts`) counts a customer tagged **Client**, in any capitals, beside a won lead, a
+      job underway or done, a visit they came to, a plan and a paid bill, so Contacts' Leads and Clients, its Client
+      badge and Search's agree; `CONTACTS_CLIENT_CAUSES` takes the tag out again in one place. Social Outreach counts
+      anyone Contacts counts (`OUTREACH_CLIENT_CAUSES`; `['tagged']` goes by the tag alone), on every profile of that
+      customer on any network, and any profile kept under the same name on the same network, as Don't pitch's twins
+      are (decision 51).
+    - **Mark as client** (`outreach.client.set`; Social Outreach and Add and edit customers) adds them to Contacts
+      when they aren't there (same-named customers offered first, as Add to Contacts does), puts the Client tag on
+      their customer through core's `record.set_tags` (the business's own tag of that name, or one made once), and
+      skips anyone's outreach to them waiting for an OK, or OK'd and not sent: first messages, Reconnect, pitches,
+      videos, follow-ups and check-ins (`CLIENT_SKIPPED_KINDS`). Replies and a partner's messages stay. It puts nobody
+      on Don't pitch or Never contact, and changes no demo, mark, chat, friend or partner. Without Add and edit
+      customers it's refused (`outreach_client_needs_contacts`), saying to ask an owner.
+    - **A client gets replies, never outreach.** Today leaves them out of every outreach step (`inPlay`); a reply
+      they're owed still shows, and their fitting friend request is still confirmed (`openToMe`:
+      saying yes is no pitch, as for a partner in decision 81). The worker drafts their replies as replies, with no
+      demo or video link, and their yes never turns into a pitch. `outreach.send.queue` refuses outreach to them
+      (`outreach_client`), saying why they're one and what to change.
+    - **The Pipeline's Client stage** comes ahead of Booked and Not a fit, with why ("A client in Contacts: they paid
+      a bill", or "Same name as a client in Contacts"), no next step and no moves. It's left out of All in play and
+      its count (`counts.client` beside it), with a Client chip on both apps and a "Clients N" link beside Not a fit's
+      on the web's board.
+    - **Not a client after all** takes only the Client tag off; what was skipped stays skipped. When Contacts still
+      counts them a client for another reason (`because`), the menu says that reason instead of offering the switch,
+      and where to change it.
+    - **Don't pitch skips outreach waiting too** (owner question 2: yes). Putting someone on Don't pitch now skips
+      anyone's outreach to them waiting for an OK, as Mark as client does, never a reply. Never contact still skips
+      every message. Taking someone off either list stays with whoever put them on, or an owner or admin
+      (`mayTakeOff`); the menu says who put them on to everyone else.
+    - **An accepted request clears the need to send it.** When the person's friends (or connections) list shows
+      someone, their own handed-over friend request to them is done (`outreach.friends.save`, which tells
+      `outreach.need.cleared`), however it was sent; a need noted after that look stays.
+
+    No migration: the tag is core's, and the rest is worked out each time.
 
 ## Rules worth knowing before changing anything
 
@@ -2161,8 +2273,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   ticked and where things stand before pressing, and that it says Add friend after; anything else is handed to the
   person. It presses a button under their name, never a link or tab, and Unfriend and Confirm only in Facebook's box
   on top. For **Put these in** (decision 89) it presses only on the person's own profile, its About tab's editor and
-  Contact and basic info, and Accounts Center's username page for their Facebook profile, and types only the new bio,
-  links and username there: never a password or a code, for which it waits for the person.
+  Contact and basic info, Instagram's Edit profile form, and Accounts Center's username and name pages for their own
+  Facebook and Instagram profiles, and types only the new bio, links, username and name there: never a password or a
+  code, for which it waits for the person. It never ticks, unticks or presses an offer to change the other network's
+  profile too.
 - **On its own, it does only what's on the person's list for today, and only the kinds they let it**
   (`autoKinds`, the list's `auto`). The list holds no more than today's limits have room for, so the runner never
   passes them; it checks each profile is the one listed and where things stand before pressing and after, passes
@@ -2237,7 +2351,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   - **The network is on every row, by its name, never a logo** (Chris): the pipeline, friends, chats and Results'
     people (`platform` on each row of `outreach.stages`, `outreach.friends`, `outreach.chats` and
     `outreach.activity`), and Needs you's items, from their link (`networkOfWaiting`), so the phone's copy of the
-    messages needs nothing more. The pipeline, friends and chats narrow to one network (their input's `platform`,
+    messages needs nothing more; a step handed over says its profile's own (`platform` on each need), never one
+    guessed from its link, and links only there. The pipeline, friends and chats narrow to one network (their input's `platform`,
     counts too; every network's when left out).
   - **Results add "By network"** beside "By playbook" and "By offer version" (`outreach.tracking`'s `byNetwork`):
     one goal for every network, each network's share of the first messages. `private.outreach_numbers_by_network` gives each
@@ -2414,12 +2529,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `partial` (the phone's Approve all, any build), passes over them, and one named among others is refused
   (`outreach_send_one_by_one`); only one named alone, without `partial`, is OK'd.
 - **A need is a step the extension couldn't do there and then** (`needs`, `openNeed`): a button or box it couldn't
-  find, a different page, Facebook not taking it, or a message that didn't go (`outreach.send.done`, which hands it
+  find, a different page, the network not taking it, or a message that didn't go (`outreach.send.done`, which hands it
   over itself). Never what changed on Facebook meanwhile ("Facebook says…"), no post to like, the AI, or a closed
   window. One open per step and person (or post, for a comment); noted again, it's seen again with the newest why. The
   step noted later, by anyone and however it was done, clears it (`clearNeeds`; a comment's by its post, or by the
   profile with no post kept or the same link), unless the extension couldn't do it again after that moment, and then
-  **I did it** says so. Only a Facebook link is kept. Its `seen_at` is when it couldn't (kept offline); it begins to
+  **I did it** says so. Its link is kept only on the profile's own network (`needUrlOf`): the link given when it's
+  there, else the comment's post, else their page there. One on another network is never kept, and one kept with none
+  is read as their page (the owner, 26 Oct 2026, decision 42). Its `seen_at` is when it couldn't (kept offline); it begins to
   wait (`created_at`) when it reaches HandsFreeOS. **Let it go** keeps the same step quiet for a week (`NEED_QUIET_DAYS`); it's shown for a
   week from the last time it couldn't (`NEED_SHOWN_DAYS`), and back after that is new again. The runner still tries
   the step another day. A confirm need hides once the request is answered on Facebook, and a friend request need once
@@ -2492,8 +2609,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **Friends are each person's own; Don't pitch is the business's.** Where someone's own Facebook stands with a
   person (friends, request sent, asked to be friends, request deleted, not friends) is kept per user in `friends`,
   with when it started; so is Keep. The Don't pitch list is the business's and says who added each person and when.
-  Only they, or someone with `outreach.manage`, take a person off (`outreach_dont_pitch_not_yours`). Customers tagged
-  **Friend or family** in Contacts count as on it.
+  Only they, or someone with `outreach.manage`, take a person off (`mayTakeOff`, `outreach_dont_pitch_not_yours`).
+  Customers tagged **Friend or family** in Contacts count as on it. Putting someone on it skips anyone's outreach to
+  them waiting for an OK, or OK'd and not sent (`CLIENT_SKIPPED_KINDS`: first messages, Reconnect, pitches, videos,
+  follow-ups and check-ins), never a reply or a partner's message (decision 91).
 - **Don't pitch covers a person kept twice** (decision 51). Facebook shows one person by number in one place and by
   username in another, so the same person can be kept as two profiles. A profile kept under the same name on the same
   network as one on the list, or tagged Friend or family, is never pitched either (`neverTwins` and `pitchable` in
@@ -2507,12 +2626,31 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   another: `inPlay` leaves them out of every pick on Today but a reply they're owed (`reachedElsewhere`).
 - **Never contact goes further than Don't pitch** (`contactable`): a profile on it, kept under its name on its
   network, or on its customer, is left out of everything `pitchable` leaves out, and also of what Don't pitch still allows: friend
-  requests to decide, a reply's push, a message drafted or waiting, and Contacts from a chat. A new place that reaches
+  requests to decide, a reply's push, a reply or a partner's message drafted or waiting, and Contacts from a chat. A new place that reaches
   people, or tells the person about someone, filters with `contactable` when Don't pitch alone would let them
   through.
 - **Don't pitch refuses the step, not the person.** A step the extension notes to someone on the list is refused
   (`outreach_dont_pitch`) with what to change, so it's never counted as outreach. Saving their profile or a chat
   still works.
+- **A client is core’s, worked out (a Client tag or Contacts’ own records); it ends outreach, not replies** (decision
+  91). Core's `personIsClient` (`crm/clients.ts`) is the one rule: a customer tagged **Client** in any capitals, or
+  with a won lead, a job underway or done, a visit they came to, a plan or a paid bill. Social Outreach reads it once
+  a query (`clientPeople`, `clientNames` and `isClient` in `ops/common.ts`), never keeps it: every profile on that
+  customer, on any network, and any kept under the same name on the same network. `inPlay` leaves clients out of
+  every pick on Today; a reply they're owed stays, and so does a request to confirm (`openToMe`).
+  The worker drafts no link or video for them and never turns their yes into a pitch, and `outreach.send.queue`
+  refuses outreach to them (`outreach_client`). Marking one is a tag in Contacts, so it needs `records.write` beside
+  `outreach.use` (`outreach_client_needs_contacts`) and goes through core's `record.set_tags`, never `record_tags`
+  directly; Not a client after all takes only that tag off, and what was skipped stays skipped. Two switches, one
+  place each: `CONTACTS_CLIENT_CAUSES` in `crm/record-words.ts` (the tag in Contacts) and `OUTREACH_CLIENT_CAUSES` in
+  `ops/common.ts` (Contacts' own reasons in Social Outreach). A new place that reaches people with outreach filters
+  with `inPlay`, or `isClient`.
+- **The name opens the person menu; their page is its first item and the card’s Open button stays** (decision 91).
+  The web and the phone draw it from `personMenuItems` (`person-menu.ts`), never a list of their own: their page,
+  their chat when it's known, the Pipeline's moves on its board, Contacts, Client, Demo booked, Don't pitch and Never
+  contact, as where they stand says (`outreach.profile.marks`, asked as the menu opens). The Open items work with no
+  signal; the rest wait for it and for where they stand. A new action on a person goes in `personMenuItems`, its
+  words in `OUTREACH_WORDS.person`.
 - **Newer news wins.** A list saved or an answer noted never undoes what was seen later (`seen_at`), and a deleted
   request stays deleted when a later list just doesn't show them. Confirm makes them a friend; Delete keeps the
   request as deleted. Saving a list adds nobody to Contacts.
@@ -2552,13 +2690,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   **Reconnect** takes only `good` ones, never anyone not pitched, and never someone written to either way in the last
   month or on the list already; it counts against the first messages, as Say hi does.
 - **A stage is worked out, never kept** (`ops/stages.ts`, `staged`): from the steps noted, friends, the latest chat,
-  replies seen, the checks, demos and the marks in `stages`, in this order: booked, not a fit, pitched, ready, talking,
-  friends, warming up, found. `stages` keeps only what can't be worked out, one row a person and profile: a mark
+  replies seen, the checks, demos and the marks in `stages`, in this order: client, booked, not a fit, pitched, ready,
+  talking, friends, warming up, found. A client (decision 91) is one in Contacts, or kept under a client's name on the
+  same network (`isClient`): no next step and no moves, and left out of All in play and its count, as Not a fit is. `stages` keeps only what can't be worked out, one row a person and profile: a mark
   (`ready` or `lost`, by the person or the AI, with when and why) and when the pitch went. The person's mark wins over
   the AI's; the AI's not a fit goes with its next read that isn't a no; **Back in play** clears the mark and the pitch.
-  Row security keeps each person to their own rows (`stages_own`). **Not a fit ends outreach** (`inPlay` in
-  `ops/common.ts`): Today's confirms, friend requests, likes, first messages, reconnects, pitches, follow-ups and
-  comments leave them out; a reply they're owed stays. A pitch shows until it goes (`pitched_at`: a pitch the extension
+  Row security keeps each person to their own rows (`stages_own`). **Not a fit ends outreach** (`openToMe` in
+  `ops/common.ts`, which `inPlay` builds on): Today's confirms, friend requests, likes, first messages, reconnects,
+  pitches, follow-ups and comments leave them out; a reply they're owed stays. A client is out of all of them but the
+  confirm too (`inPlay` is `openToMe` and not `isClient`). A pitch shows until it goes (`pitched_at`: a pitch the extension
   sent, `outreach.send.done`, or one copied on the web, which marks it), or the person writes to them after the chat's
   latest message or the mark.
 - **A group's check is the business's; an ask to join is the person's own** (decision 48). The About lines, rules and
@@ -2708,14 +2848,12 @@ in Chrome"), and the two commands can be retired; Add to Contacts is `outreach.p
 `outreach.chat.keep`.
 
 From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
-the profile's read, and putting in its bio, username and links (decisions 64 and 89), follow page outlines, not yet
-tried on the owner's account; the phone OKs messages and changes the video's link, but the samples and the script are
-written on the web; and yeses were first kept with step 6 (`stages.positive_at`), so weeks before it count none, and
-people pitched before it have no offer version.
+the profile's read, and putting in its bio, name, username and links (decisions 64 and 89), follow page outlines, not
+yet tried on the owner's account; the phone OKs messages and changes the video's link, but the samples and the script
+are written on the web; and yeses were first kept with step 6 (`stages.positive_at`), so weeks before it count none,
+and people pitched before it have no offer version.
 
-On Facebook, a link already on the profile is never changed or taken away, only new ones added, and the name is still
-handed over in Accounts Center (decision 89). Instagram's username and name are handed over as before, until the
-owner says how he wants them.
+On Facebook, a link already on the profile is never changed or taken away, only new ones added (decision 89).
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
 came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,

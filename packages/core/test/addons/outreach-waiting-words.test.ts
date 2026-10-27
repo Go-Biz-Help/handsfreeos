@@ -4,6 +4,8 @@
  * person, the icon's number, and which messages wait for an OK of their own.
  */
 import { describe, expect, it } from 'vitest';
+import { networkOfWaiting } from '../../src/addons/outreach/network-words';
+import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
 import {
   approveAllCount,
   approveAllWords,
@@ -15,7 +17,10 @@ import {
   messengerChatUrl,
   moreWords,
   needClearedWords,
+  needPageOf,
   needTitle,
+  needTitleAround,
+  needUrlOf,
   needWhyWords,
   newestNudgeAt,
   NO_KINDS,
@@ -122,6 +127,18 @@ describe('the words', () => {
       title: 'Dana Reyes: the extension needs you',
       body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
     });
+    // With its network, as HandsFreeOS's pushes say it.
+    expect(
+      eachPushWords(
+        'need',
+        'Lane Landscaping Co',
+        'couldn’t find Connect on their page',
+        'alignable',
+      ),
+    ).toEqual({
+      title: 'Lane Landscaping Co: the extension needs you on Alignable',
+      body: 'Couldn’t find Connect on their page. Do it yourself, or let it go, on Today.',
+    });
   });
 
   it('count Approve all the same everywhere, and say how a list is cut short', () => {
@@ -153,16 +170,106 @@ describe('the words', () => {
     expect(messengerChatUrl(null)).toBeNull();
   });
 
-  it('say what each need asks of the person', () => {
-    expect(needTitle('confirm', 'Dana Reyes')).toBe(
+  it('say what each need asks of the person, in its network’s words', () => {
+    expect(needTitle('confirm', 'Dana Reyes', 'facebook')).toBe(
       'Confirm or delete Dana Reyes’s friend request yourself',
     );
-    expect(needTitle('friend_request', 'Dana Reyes')).toBe(
+    expect(needTitle('friend_request', 'Dana Reyes', 'facebook')).toBe(
       'Send Dana Reyes a friend request yourself',
     );
-    expect(needTitle('warm_up', 'Dana Reyes')).toBe('Like a post of Dana Reyes’s yourself');
-    expect(needTitle('comment', 'Dana Reyes')).toBe('Comment on Dana Reyes’s post yourself');
-    expect(needTitle('message', 'Dana Reyes')).toBe('Send Dana Reyes the message yourself');
+    expect(needTitle('warm_up', 'Dana Reyes', 'facebook')).toBe(
+      'Like a post of Dana Reyes’s yourself',
+    );
+    expect(needTitle('comment', 'Dana Reyes', 'facebook')).toBe(
+      'Comment on Dana Reyes’s post yourself',
+    );
+    expect(needTitle('message', 'Dana Reyes', 'facebook')).toBe(
+      'Send Dana Reyes the message yourself',
+    );
+    // Asking to connect, and saying yes, are each network's own.
+    expect(needTitle('friend_request', 'Sam Ortiz', 'linkedin')).toBe(
+      'Send Sam Ortiz an invitation to connect yourself',
+    );
+    expect(needTitle('confirm', 'Sam Ortiz', 'linkedin')).toBe(
+      'Accept or ignore Sam Ortiz’s invitation to connect yourself',
+    );
+    expect(needTitle('friend_request', 'Jules Park', 'instagram')).toBe(
+      'Follow Jules Park yourself',
+    );
+    expect(needTitle('confirm', 'Jules Park', 'instagram')).toBe(
+      'Confirm or delete Jules Park’s follow request yourself',
+    );
+    expect(needTitle('friend_request', 'Lane Landscaping Co', 'alignable')).toBe(
+      'Send Lane Landscaping Co a connection request yourself',
+    );
+    expect(needTitle('confirm', 'Lane Landscaping Co', 'alignable')).toBe(
+      'Accept Lane Landscaping Co’s connection request yourself',
+    );
+    expect(needTitle('warm_up', 'Lane Landscaping Co', 'alignable')).toBe(
+      'Like a post of Lane Landscaping Co’s yourself',
+    );
+    // Only Facebook has friends.
+    for (const p of PLATFORM_KEYS.filter((p) => p !== 'facebook'))
+      for (const step of ['confirm', 'friend_request', 'warm_up', 'comment', 'message'] as const)
+        expect(needTitle(step, 'Sam Ortiz', p)).not.toMatch(/friend/i);
+    // Either side of the name, for a screen to link it.
+    expect(needTitleAround('friend_request', 'alignable')).toEqual([
+      'Send ',
+      ' a connection request yourself',
+    ]);
+  });
+
+  it('link each need on its own network: what was given there, else their page there', () => {
+    const page = 'https://www.alignable.com/springfield-il/lane-landscaping-co';
+    // The owner's: Alignable couldn't find Connect, and the extension's link was kept as none.
+    expect(needUrlOf('alignable', null, page)).toBe(page);
+    expect(needUrlOf('alignable', `  ${page}/  `, page)).toBe(`${page}/`);
+    // A link on another network, or none the add-on knows, opens their page instead.
+    expect(needUrlOf('alignable', 'https://www.facebook.com/messages/t/4001', page)).toBe(page);
+    expect(needUrlOf('facebook', 'https://example.com/ivy', 'https://www.facebook.com/ivy.3')).toBe(
+      'https://www.facebook.com/ivy.3',
+    );
+    // A comment's post, on the network, before their page.
+    const post = 'https://www.linkedin.com/feed/update/urn:li:activity:7001/';
+    expect(needUrlOf('linkedin', null, post, 'https://www.linkedin.com/in/sam-ortiz/')).toBe(post);
+    expect(needUrlOf('facebook', `https://www.facebook.com/${'x'.repeat(500)}`)).toBeNull();
+    expect(needUrlOf('instagram', null, undefined)).toBeNull();
+  });
+
+  it('give the person menu a need’s link only when it’s their page, never a post or a chat', () => {
+    const page = 'https://www.alignable.com/springfield-il/lane-landscaping-co';
+    const post = '00000000-0000-4000-8000-000000000009';
+    expect(needPageOf({ url: page, postId: null, step: 'friend_request' })).toBe(page);
+    expect(needPageOf({ url: page, postId: null, step: 'confirm' })).toBe(page);
+    // A comment's or a like's link is the post; a message's may be the chat.
+    expect(
+      needPageOf({
+        url: 'https://www.linkedin.com/feed/update/urn:li:activity:7001/',
+        postId: post,
+        step: 'comment',
+      }),
+    ).toBeNull();
+    expect(
+      needPageOf({
+        url: 'https://www.facebook.com/messages/t/4001',
+        postId: null,
+        step: 'message',
+      }),
+    ).toBeNull();
+    // An address on a site the add-on doesn't know, or none.
+    expect(
+      needPageOf({ url: 'https://example.com/riley', postId: null, step: 'friend_request' }),
+    ).toBeNull();
+    expect(needPageOf({ url: null, postId: null, step: 'friend_request' })).toBeNull();
+  });
+
+  it('mark each need with its profile’s network, by its link only from an older server', () => {
+    const need = (platform: (typeof PLATFORM_KEYS)[number] | undefined, url: string | null) =>
+      networkOfWaiting({ kind: 'need', need: { platform, url } });
+    expect(need('alignable', null)).toBe('alignable');
+    expect(need('alignable', 'https://www.facebook.com/messages/t/4001')).toBe('alignable');
+    expect(need(undefined, 'https://www.linkedin.com/in/sam-ortiz/')).toBe('linkedin');
+    expect(need(undefined, null)).toBe('facebook');
   });
 
   it('count what waits, and what pushes tell of', () => {

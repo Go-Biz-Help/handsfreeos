@@ -23,8 +23,10 @@ import {
   type Stage,
   type StageView,
 } from '../stages';
+import type { ClientCause } from '../person-menu';
 import { profiles, stages } from '../tables';
-import { inWorkspace, pitchable, type Ctx } from './common';
+import { OUTREACH_WORDS } from '../words';
+import { clientCauseOf, inWorkspace, isClient, pitchable, type Ctx } from './common';
 import { noteSent, offerVersionFor, restartConversation } from './conversation';
 import type { CheckVerdict } from '../checks';
 
@@ -128,7 +130,8 @@ function staged(ctx: Ctx, me: string, which: SQL) {
         exists (select 1 from addon_outreach.demos d
           where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null) as booked,
         exists (select 1 from addon_outreach.demos d where d.profile_id = p.id and d.user_id = ${me}
-          and d.how = 'marked' and d.undone_at is null) as marked_booked
+          and d.how = 'marked' and d.undone_at is null) as marked_booked,
+        ${isClient('p')} as client
       from reached x
       join addon_outreach.profiles p on p.id = x.id
       left join app.people pp on pp.id = p.person_id
@@ -145,6 +148,7 @@ function staged(ctx: Ctx, me: string, which: SQL) {
     )
     select facts.*,
       case
+        when client then 'client'
         when booked then 'booked'
         when mark = 'lost' then 'lost'
         when pitched_at is not null then 'pitched'
@@ -185,6 +189,8 @@ type StagedRow = {
   readonly marked_booked: boolean;
   readonly stage: Stage;
   readonly last_at: Date | string | null;
+  /** Why a client is one (decision 91), read for the page listed only: null for a twin of one. */
+  readonly client_cause?: ClientCause | null;
 };
 
 const iso = (at: Date | string | null) => (at === null ? null : new Date(at).toISOString());
@@ -202,6 +208,8 @@ export function stageWhy(r: StagedRow, now: number): string[] {
   const words = NETWORKS[r.platform].words;
   const fits = r.verdict === 'good' || r.verdict === 'maybe' ? (r.check_why ?? []) : [];
   switch (r.stage) {
+    case 'client':
+      return [OUTREACH_WORDS.person.clientLine(r.client_cause ?? null)];
     case 'booked':
       return ['Booked a demo'];
     case 'lost':
@@ -327,13 +335,13 @@ export const stageMark = defineAddonCommand(outreachAddon, {
 export const stagesList = defineAddonQuery(outreachAddon, {
   name: 'outreach.stages',
   description:
-    'The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.',
+    'The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, a client in Contacts, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play (never clients or not a fit), searched by name.',
   input: StagesInput,
   output: StagesOutput,
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_pipeline',
-    keywords: ['pipeline', 'stages', 'pitched', 'warming up', 'booked', 'not a fit'],
+    keywords: ['pipeline', 'stages', 'pitched', 'warming up', 'booked', 'clients', 'not a fit'],
   },
   scope: inWorkspace,
   async handler(ctx, input) {
@@ -354,14 +362,17 @@ export const stagesList = defineAddonQuery(outreachAddon, {
       ready: 0,
       pitched: 0,
       booked: 0,
+      client: 0,
       lost: 0,
     };
+    // All in play leaves out clients (decision 91) and Not a fit: outreach to them has ended.
+    const ended: readonly Stage[] = ['client', 'lost'];
     for (const c of counted) {
       counts[c.stage] = c.n;
-      if (c.stage !== 'lost') counts.all += c.n;
+      if (!ended.includes(c.stage)) counts.all += c.n;
     }
     const view: StageView = input.view;
-    const shown = sql`${view === 'all' ? sql`s.stage <> 'lost'` : sql`s.stage = ${view}`}
+    const shown = sql`${view === 'all' ? sql`s.stage not in ('client', 'lost')` : sql`s.stage = ${view}`}
       and ${input.search ? sql`position(${input.search.toLowerCase()} in lower(s.name)) > 0` : sql`true`}`;
     const [total] = await rows<{ n: number }>(
       ctx.tx,
@@ -372,7 +383,8 @@ export const stagesList = defineAddonQuery(outreachAddon, {
     const order = `{${STAGE_ORDER.join(',')}}`;
     const listed = await rows<StagedRow>(
       ctx.tx,
-      sql`select s.* from (${all}) s where ${shown}
+      sql`select s.*, case when s.stage = 'client' then ${clientCauseOf('s')} end as client_cause
+          from (${all}) s where ${shown}
           order by array_position(${order}::text[], s.stage), s.last_at desc nulls last, s.profile_id
           limit ${STAGES_PAGE} offset ${(page - 1) * STAGES_PAGE}`,
     );
@@ -386,7 +398,10 @@ export const stagesList = defineAddonQuery(outreachAddon, {
         platform: r.platform,
         stage: r.stage,
         why: stageWhy(r, now),
-        nextStep: r.stage === 'lost' || r.stage === 'booked' ? null : (r.chat_step ?? r.check_step),
+        nextStep:
+          r.stage === 'lost' || r.stage === 'booked' || r.stage === 'client'
+            ? null
+            : (r.chat_step ?? r.check_step),
         lastAt: iso(r.last_at),
         threadKey: r.thread_key,
         marked: r.marked_by === 'person',

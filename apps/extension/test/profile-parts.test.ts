@@ -1,7 +1,8 @@
 /**
  * The rest of the person's own profile (docs/outreach.md, decision 84): whether anyone's at a username's address, as
- * each network's page says it; the name, username and links handed to the person with the page where each is changed
- * opened (Instagram's links only in its app); and usernames checked in turn, what was found kept on their check.
+ * each network's page says it; the name, username and links handed to the person where a job didn't put them in, with
+ * the page where each is changed opened where core says it's theirs (Instagram's links only in its app); and usernames
+ * checked in turn, what was found kept on their check.
  */
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -76,7 +77,7 @@ const task = (more: Partial<{ name: string; username: string; links: string[] }>
 });
 
 describe('the name, username and links, put in by the person', () => {
-  it('opens Accounts Center for each on Instagram, and says the links are in its app', async () => {
+  it('says the links are in Instagram’s app, and its name and username in words where they weren’t put in', async () => {
     const { job, opened, said } = fakeJob();
     const end = await putInByHand(
       job,
@@ -84,10 +85,8 @@ describe('the name, username and links, put in by the person', () => {
       task({ name: 'Casey | Roofs', username: 'casey.roofs', links: ['https://cal.com/c'] }),
     );
     expect(end).toBeNull();
-    expect(opened).toEqual([
-      'https://accountscenter.instagram.com/profiles',
-      'https://accountscenter.instagram.com/profiles',
-    ]);
+    // From 0.94.0 they go in by themselves (decision 89): no page opened for one that didn't.
+    expect(opened).toEqual([]);
     expect(said).toHaveLength(3);
     expect(said[0]).toContain('Name. Put in “Casey | Roofs”');
     expect(said[1]).toContain('Username. Put in “casey.roofs”');
@@ -125,7 +124,7 @@ describe('a part core says goes in by itself, not put in', () => {
     ]);
   });
 
-  it('passes over the parts the job put in itself, and opens Accounts Center for the name', async () => {
+  it('passes over the parts the job put in itself, and says the name’s boxes for one it didn’t', async () => {
     const { job, opened, said } = fakeJob();
     await putInByHand(
       job,
@@ -133,9 +132,21 @@ describe('a part core says goes in by itself, not put in', () => {
       task({ name: 'Casey Lee', username: 'casey.lee', links: ['https://cal.com/c'] }),
       new Set(['username', 'links']),
     );
-    expect(opened).toEqual(['https://accountscenter.facebook.com/profiles']);
+    expect(opened).toEqual([]);
     expect(said).toHaveLength(1);
-    expect(said[0]).toContain('Name. Put in “Casey Lee”');
+    expect(said[0]).toContain(
+      'Put “Casey” in First name and “Lee” in Last name, leave Middle name empty',
+    );
+  });
+
+  it('passes over every part Facebook’s and Instagram’s jobs put in themselves', async () => {
+    const { job, opened, said } = fakeJob();
+    const all = task({ name: 'Casey Lee', username: 'casey.lee', links: ['https://cal.com/c'] });
+    await putInByHand(job, 'facebook', all, new Set(['name', 'username', 'links']));
+    await putInByHand(job, 'instagram', all, new Set(['name', 'username']));
+    expect(opened).toEqual([]);
+    // Only Instagram's links, which are its app's.
+    expect(said).toEqual([expect.stringContaining('In the Instagram app')]);
   });
 });
 

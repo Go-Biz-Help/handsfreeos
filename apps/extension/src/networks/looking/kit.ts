@@ -4,7 +4,9 @@
  * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
  * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
  * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's), and, on Instagram, who wrote
- * back in its chats.
+ * back in its chats. Where its site has its own Accounts Center (Instagram's, decision 89), its tab may go there too,
+ * and answers Put these in's asks for the username and the name there (../accounts-center/work.ts); those pages aren't
+ * its own (`owns`), so nothing done there is noted.
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
@@ -23,6 +25,8 @@ import type {
   TryAsk,
   UnfollowAnswer,
 } from '../../messages';
+import { centerUrl } from '../accounts-center/pages';
+import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { isWholeAddress, type Kit } from '../kit';
 import { outlineLooking, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
@@ -51,6 +55,10 @@ async function ownProfile(site: LookingSite, ask: OwnProfileAsk): Promise<OwnPro
     return own.writeAbout
       ? { ok: true, result: await own.writeAbout(document, ask.about) }
       : { ok: false, error: `${site.name} has no About to put in.` };
+  if (own.writeBioSteps) {
+    const { result, steps } = await own.writeBioSteps(document, ask.bio);
+    return { ok: true, result, formSteps: steps };
+  }
   if (!own.writeBio)
     return { ok: false, error: `The extension doesn’t put your ${site.name} bio in yet.` };
   return { ok: true, result: await own.writeBio(document, ask.bio) };
@@ -122,6 +130,12 @@ async function onItsOwn(
 
 const OWN_PROFILE_ASKS = new Set(['hfos-own-profile', 'hfos-write-bio', 'hfos-write-about']);
 
+/** An address on the site's own Accounts Center, made whole: its tab may go there, and nowhere else of Meta's. */
+function centerWorkUrl(site: LookingSite, href: string): string | null {
+  const at = site.accountsCenter ? centerUrl(href) : null;
+  return at && at.network === site.accountsCenter ? at.url.href : null;
+}
+
 export function lookingKit(site: LookingSite): Kit {
   return {
     platform: site.platform,
@@ -130,7 +144,7 @@ export function lookingKit(site: LookingSite): Kit {
     registered: true,
     startsOn: false,
     owns: (href) => isWholeAddress(href) && site.url(href) !== null,
-    workUrl: (href) => site.url(href)?.toString() ?? null,
+    workUrl: (href) => site.url(href)?.toString() ?? centerWorkUrl(site, href),
     kindOf: (href) => {
       const url = site.url(href);
       return url ? site.kindOf(url) : 'other';
@@ -145,20 +159,24 @@ export function lookingKit(site: LookingSite): Kit {
     noticer: () => site.noticer?.() ?? { click: () => null, enter: () => null },
     outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
     work: (ask) =>
-      ask.type === 'hfos-try'
-        ? look(site, ask as TryAsk)
-        : OWN_PROFILE_ASKS.has(ask.type)
-          ? ownProfile(site, ask as OwnProfileAsk)
-          : ask.type === 'hfos-put-code'
-            ? putCode(site, ask as CodeAsk)
-            : ask.type === 'hfos-scroll-list' ||
-                ask.type === 'hfos-show-all' ||
-                ask.type === 'hfos-open-chat'
-              ? browse(site, ask as Parameters<typeof browse>[1])
-              : ask.type === 'hfos-unfollow'
-                ? unfollowHere(site)
-                : ON_ITS_OWN_ASKS.has(ask.type)
-                  ? onItsOwn(site, ask as OnItsOwnAsk)
-                  : null,
+      site.accountsCenter && CENTER_ASKS.has(ask.type)
+        ? centerWork(site.accountsCenter, ask as CenterAsk, (doc, href) =>
+            readWarnings(doc, href, site),
+          )
+        : ask.type === 'hfos-try'
+          ? look(site, ask as TryAsk)
+          : OWN_PROFILE_ASKS.has(ask.type)
+            ? ownProfile(site, ask as OwnProfileAsk)
+            : ask.type === 'hfos-put-code'
+              ? putCode(site, ask as CodeAsk)
+              : ask.type === 'hfos-scroll-list' ||
+                  ask.type === 'hfos-show-all' ||
+                  ask.type === 'hfos-open-chat'
+                ? browse(site, ask as Parameters<typeof browse>[1])
+                : ask.type === 'hfos-unfollow'
+                  ? unfollowHere(site)
+                  : ON_ITS_OWN_ASKS.has(ask.type)
+                    ? onItsOwn(site, ask as OnItsOwnAsk)
+                    : null,
   };
 }

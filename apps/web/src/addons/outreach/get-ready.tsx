@@ -290,9 +290,9 @@ export function GetReadyCard({
           asks={asks}
           onChange={(next) => {
             setReadiness(next);
-            // Ready now, or the profile's advice done: Today's list comes back, or the card goes.
-            if (next.ready && (!readiness.ready || !adviceLeft(next.items).length))
-              router.refresh();
+            // The page catches up: Today's list comes back once ready, or the card goes once the advice is done, and a
+            // refresh already on its way from before this change can't put the card back as it was.
+            router.refresh();
           }}
         />
       </div>

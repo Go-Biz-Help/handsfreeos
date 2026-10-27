@@ -6677,6 +6677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.client.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark someone the person reached as a client: they’re added to Contacts if they aren’t there (or tied to the customer named), the Client tag goes on their customer, and anyone’s outreach messages to them waiting for an OK are skipped; nothing on Today reaches them again but a reply. Or take the Client tag off again (Not a client after all); Contacts may still count them a client for another reason, which is said.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.client.marked, outreach.send.skipped, outreach.profile.saved.
+         */
+        post: operations["command_outreach_client_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.computer.remove": {
         parameters: {
             query?: never;
@@ -6947,7 +6967,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.
+         * Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message, and their outreach waiting for an OK is skipped) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.
          * @description Risk level 1. Requires outreach.use. Emits outreach.friend.marked, outreach.send.skipped.
          */
         post: operations["command_outreach_friend_set"];
@@ -6968,7 +6988,7 @@ export interface paths {
         put?: never;
         /**
          * Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, the friend requests they’ve got, or the ones they’ve sent. Adds nobody to Contacts.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved, outreach.need.cleared.
          */
         post: operations["command_outreach_friends_save"];
         delete?: never;
@@ -7267,7 +7287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The browser extension couldn’t do a step on the person’s list for today on Facebook (a button or box it couldn’t find, a different page, Facebook not taking it): it’s handed to the person in Waiting for you, to do themselves or let go. The same step again is the same one; one let go lately keeps nothing.
+         * The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.
          * @description Risk level 0. Requires outreach.use. Emits outreach.need.noted. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_need_note"];
@@ -7647,7 +7667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead.
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
          */
         post: operations["command_outreach_send_queue"];
@@ -18597,6 +18617,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.profile.marks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_profile_marks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.profiles": {
         parameters: {
             query?: never;
@@ -18687,7 +18727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.
+         * The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, a client in Contacts, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play (never clients or not a fit), searched by name.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_stages"];
@@ -18707,7 +18747,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit is reached but with a reply.
+         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
@@ -37879,6 +37919,46 @@ export interface operations {
             };
         };
     };
+    command_outreach_client_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    client: boolean;
+                    personId?: string | null;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addedPerson: boolean;
+                        because: ("won" | "job" | "visit" | "plan" | "paid" | "tagged") | null;
+                        client: boolean;
+                        personId: string | null;
+                        /** Format: uuid */
+                        profileId: string;
+                        skipped: number;
+                        tagged: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_computer_remove: {
         parameters: {
             query?: never;
@@ -39261,6 +39341,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -39460,6 +39541,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -40280,6 +40362,7 @@ export interface operations {
                             work: ("same" | "other" | "none") | null;
                         } | null;
                         nameDraft?: string | null;
+                        nameOff?: boolean;
                         names?: string[];
                         notes?: {
                             about?: string[];
@@ -40474,6 +40557,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -40672,6 +40756,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -40876,6 +40961,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -41317,7 +41403,7 @@ export interface operations {
                         /** Format: uuid */
                         profileId: string;
                         /** @enum {string} */
-                        stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "lost";
+                        stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
                     };
                 };
             };
@@ -71900,6 +71986,63 @@ export interface operations {
             };
         };
     };
+    query_outreach_profile_marks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canTakeOff: {
+                            dontPitch: boolean;
+                            neverContact: boolean;
+                        };
+                        client: {
+                            because: ("won" | "job" | "visit" | "plan" | "paid" | "tagged") | null;
+                            on: boolean;
+                            tagged: boolean;
+                        };
+                        demoBooked: boolean;
+                        dontPitch: {
+                            at: string | null;
+                            by: string | null;
+                            tagged: boolean;
+                        } | null;
+                        name: string;
+                        neverContact: {
+                            at: string | null;
+                            by: string | null;
+                        } | null;
+                        partner: boolean;
+                        personId: string | null;
+                        /** @enum {string} */
+                        platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        /** Format: uuid */
+                        profileId: string;
+                        url: string;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_profiles: {
         parameters: {
             query?: never;
@@ -72003,6 +72146,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72099,6 +72243,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72195,6 +72340,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72291,6 +72437,7 @@ export interface operations {
                                     work: ("same" | "other" | "none") | null;
                                 } | null;
                                 nameDraft?: string | null;
+                                nameOff?: boolean;
                                 names?: string[];
                                 notes?: {
                                     about?: string[];
@@ -72493,6 +72640,7 @@ export interface operations {
                                 work: ("same" | "other" | "none") | null;
                             } | null;
                             nameDraft?: string | null;
+                            nameOff?: boolean;
                             names?: string[];
                             notes?: {
                                 about?: string[];
@@ -72706,7 +72854,7 @@ export interface operations {
                      * @default all
                      * @enum {string}
                      */
-                    view?: "all" | "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "lost";
+                    view?: "all" | "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -72723,6 +72871,7 @@ export interface operations {
                         counts: {
                             all: number;
                             booked: number;
+                            client: number;
                             found: number;
                             friends: number;
                             lost: number;
@@ -72754,7 +72903,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "lost";
+                            stage: "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
                             threadKey: string | null;
                             url: string;
                             why: string[];
@@ -73194,6 +73343,8 @@ export interface operations {
                                 name: string;
                                 /** Format: uuid */
                                 needId: string;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
                                 postId: string | null;
                                 /** Format: uuid */
                                 profileId: string;

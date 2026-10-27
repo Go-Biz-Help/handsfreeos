@@ -1,7 +1,7 @@
 /**
  * Facebook's editors on the person's own profile and in Accounts Center (docs/outreach.md, decision 89): what putting
  * their bio, a link and their username in share, for a **Put these in** they pressed in HandsFreeOS (./own-profile.ts,
- * ./links.ts, ./username.ts), and Check Facebook's tries of each (./tries.ts).
+ * ./links.ts, ../accounts-center/username.ts), and Check Facebook's tries of each (./tries.ts).
  *
  * - **By Facebook's words, never guessed.** A control is pressed only when it says what it does (Edit bio, Add a
  *   website); a box is written in only when it's the one box that press opened; Save only when it's the one by that
@@ -293,8 +293,9 @@ export function editorMissing(part: 'bio' | 'links', steps: EditorSteps): string
 }
 
 /**
- * Facebook's words on its profile's editors and Accounts Center's username page, which the page outline (./outline.ts)
- * shows rather than hides, so an outline of a step it couldn't find says what the buttons there are called. Lower-case.
+ * Facebook's words on its profile's editors and Accounts Center's username and name pages, which the page outline
+ * (./outline.ts) shows rather than hides, so an outline of a step it couldn't find says what the buttons there are
+ * called. Lower-case.
  */
 export const PROFILE_EDIT_WORDS: ReadonlySet<string> = new Set([
   'edit profile',
@@ -345,4 +346,19 @@ export const PROFILE_EDIT_WORDS: ReadonlySet<string> = new Set([
   'username updated',
   'changes saved',
   'try again later',
+  // Accounts Center's name page (decision 89, from 0.94.0): its boxes, its steps' buttons, and the offer to change the
+  // other network's name too.
+  'name',
+  'first name',
+  'middle name',
+  'middle name (optional)',
+  'last name',
+  'surname',
+  'review change',
+  'review changes',
+  'save changes',
+  'change name',
+  'name updated',
+  'facebook',
+  'instagram',
 ]);

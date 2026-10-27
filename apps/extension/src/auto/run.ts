@@ -47,7 +47,13 @@ import {
 } from '@hfos/core/addons/outreach/like-pick';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
-import { AUTO_PLANS, MESSAGE_PATH, samePerson, type AutoJob } from '../networks/facebook/auto';
+import {
+  AUTO_PLANS,
+  MESSAGE_PATH,
+  samePerson,
+  withTheirName,
+  type AutoJob,
+} from '../networks/facebook/auto';
 import { linesOf, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
@@ -301,7 +307,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (friendship === plan.after) return { done: false, line: `${item.name}: done already` };
   if (friendship !== plan.before)
     return { done: false, line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}` };
-  if (!(await pressPath(plan.path)))
+  if (!(await pressPath(withTheirName(plan.path, [opened.page.profile!.name, item.name]))))
     return {
       done: false,
       line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”`,

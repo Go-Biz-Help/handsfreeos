@@ -85,6 +85,8 @@ describe('the AI’s read of the moment', () => {
     expect(marksFor('ready')).toEqual(['pitched', 'lost']);
     expect(marksFor('lost')).toEqual(['open']);
     expect(marksFor('booked')).toEqual([]);
+    // A client's only move is Not a client after all, in their menu (decision 91).
+    expect(marksFor('client')).toEqual([]);
   });
 });
 

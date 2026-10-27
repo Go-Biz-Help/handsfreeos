@@ -7,6 +7,7 @@
  * step it can't find, it hands to the person: Carry on once they've done it, or Skip that person.
  */
 import { TIDY_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
+import { withTheirName } from '../networks/facebook/auto';
 import { FRIENDSHIP_WORDS, TIDY_PLANS, sameProfile, type TidyJob } from '../networks/facebook/tidy';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
@@ -120,7 +121,7 @@ async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcom
     return 'skipped';
   }
 
-  const went = await byPath(job, who.name, plan.path);
+  const went = await byPath(job, who.name, withTheirName(plan.path, [page.profile.name, who.name]));
   if (went === 'stop' || job.stopped()) return 'stopped';
   if (went === 'skip') return 'skipped';
   await sure(job, plan.then);

@@ -1,13 +1,14 @@
 /**
  * Contacts' filter between leads and clients: a client has a won lead, a job underway or done, a visit they came to,
- * a plan they're on, or a paid bill; everyone else is a lead. A company is a client through a lead of its own that was
- * won, or through one of its people.
+ * a plan they're on, or a paid bill, or is tagged Client (any capitals, decision 91 of docs/outreach.md); everyone else
+ * is a lead. A company is a client through a lead of its own that was won, or through one of its people.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import { personClientCause } from '../src/crm/clients';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kernel/types';
 import {
@@ -22,6 +23,9 @@ import {
   personCreate,
   personList,
   pipelineList,
+  recordAddTag,
+  recordRemoveTag,
+  tagCreate,
 } from '../src/server';
 
 const api = () => testDbs().api.db;
@@ -110,6 +114,16 @@ beforeAll(async () => {
     owner,
   );
 
+  // Tagged Client, in the business's own capitals: Tia is a client for that alone, and Pat, who paid, too.
+  ids.clientTag = (await run(tagCreate, { workspaceId: wsId, name: 'CLIENT' }, owner)).tagId;
+  ids.tia = await person('Tia');
+  for (const personId of [ids.tia, ids.pat])
+    await run(
+      recordAddTag,
+      { workspaceId: wsId, recordType: 'person', recordId: personId, tagId: ids.clientTag },
+      owner,
+    );
+
   // Companies: one through a client of its, one through a won lead of its own, and one still a lead.
   ids.acme = (
     await run(companyCreate, { workspaceId: wsId, name: 'Acme Standing' }, owner)
@@ -145,6 +159,7 @@ describe('leads and clients', () => {
       Lena: false,
       Otto: false,
       Pat: true,
+      Tia: true,
       Wes: true,
     });
     const clients = await ask(
@@ -152,7 +167,7 @@ describe('leads and clients', () => {
       { workspaceId: wsId, q: 'standing', standing: 'client' },
       owner,
     );
-    expect(names(clients.items)).toEqual(['Ann', 'Jo', 'Pat', 'Wes']);
+    expect(names(clients.items)).toEqual(['Ann', 'Jo', 'Pat', 'Tia', 'Wes']);
     const leads = await ask(
       personList,
       { workspaceId: wsId, q: 'standing', standing: 'lead' },
@@ -168,8 +183,62 @@ describe('leads and clients', () => {
       { workspaceId: wsId, standing: 'client', limit: 2, cursor: first.nextCursor! },
       owner,
     );
-    expect(names([...first.items, ...second.items])).toEqual(['Ann', 'Jo', 'Pat', 'Wes']);
-    expect(second.nextCursor).toBeNull();
+    const third = await ask(
+      personList,
+      { workspaceId: wsId, standing: 'client', limit: 2, cursor: second.nextCursor! },
+      owner,
+    );
+    expect(names([...first.items, ...second.items, ...third.items])).toEqual([
+      'Ann',
+      'Jo',
+      'Pat',
+      'Tia',
+      'Wes',
+    ]);
+    expect(third.nextCursor).toBeNull();
+  });
+
+  it('makes someone tagged Client a client until the tag comes off', async () => {
+    const standing = async () =>
+      Object.fromEntries(
+        (await ask(personList, { workspaceId: wsId, q: 'standing' }, owner)).items.map((p) => [
+          p.firstName,
+          p.client,
+        ]),
+      );
+    expect((await standing()).Tia).toBe(true);
+    await run(
+      recordRemoveTag,
+      { workspaceId: wsId, recordType: 'person', recordId: ids.tia, tagId: ids.clientTag },
+      owner,
+    );
+    expect((await standing()).Tia).toBe(false);
+    const leads = await ask(
+      personList,
+      { workspaceId: wsId, q: 'standing', standing: 'lead' },
+      owner,
+    );
+    expect(names(leads.items)).toContain('Tia');
+    await run(
+      recordAddTag,
+      { workspaceId: wsId, recordType: 'person', recordId: ids.tia, tagId: ids.clientTag },
+      owner,
+    );
+    expect((await standing()).Tia).toBe(true);
+  });
+
+  it('names the first reason someone is a client: a paid bill before the tag', async () => {
+    const cause = async (personId: string | undefined) =>
+      (
+        await rows<{ cause: string | null }>(
+          admin(),
+          sql`select ${personClientCause('p')} as cause from app.people p where p.id = ${personId}`,
+        )
+      )[0]?.cause;
+    expect(await cause(ids.pat)).toBe('paid');
+    expect(await cause(ids.tia)).toBe('tagged');
+    expect(await cause(ids.wes)).toBe('won');
+    expect(await cause(ids.lena)).toBeNull();
   });
 
   it('makes a company a client through its people or a won lead of its own', async () => {
