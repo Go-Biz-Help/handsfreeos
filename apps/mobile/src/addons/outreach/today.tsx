@@ -43,12 +43,13 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { okSend, skipPost, skipSend } from './actions';
 import { ChatBubbles } from './chat-bubbles';
 import { NeedsSignal, Note, openOutside, Part, useOutreachAnswer, useOutreachContext } from './kit';
-import { PersonMenu } from './person-menu';
+import { PersonName } from './person-menu';
 
 /**
  * Today on the phone (decision 44): the person's list for today, kind by kind, what the extension does on its own,
- * and each message it drafted, to OK or skip; each person's menu (Add to Contacts, Demo booked, Don't pitch, as the
- * web's); for owners and admins, who is on training wheels, with End now. Drafting
+ * and each message it drafted, to OK or skip; each person's name opens their menu (./person-menu.tsx: their page,
+ * Contacts, Mark as client, Demo booked, Don't pitch and more, as the web's) where a `PersonMenuScope` is around the
+ * list, as on Today's tab (./hub.tsx); for owners and admins, who is on training wheels, with End now. Drafting
  * a message, copying an opener and the AI's drafts stay on the computer, beside Facebook. It needs signal.
  *
  * The list is one network's (`outreach.today`'s `platform`), in its words: "Send an invitation to connect" on
@@ -136,9 +137,6 @@ export function useTodayProps(
     error: today.error,
     wheels: ctx.manages ? wheels.data : null,
     onRetry: today.reload,
-    menu: (item) => (
-      <PersonMenu workspaceId={ws} who={item} online={ctx.online} onChanged={today.reload} />
-    ),
     onOk: async (sendId) => {
       try {
         await okSend(ws, sendId);
@@ -191,7 +189,6 @@ export function TodayBody({
   error,
   wheels,
   onRetry,
-  menu,
   onOk,
   onSkip,
   onNotForMe,
@@ -208,8 +205,6 @@ export function TodayBody({
   error: string | null;
   wheels: WheelsListOutput | null;
   onRetry: () => void;
-  /** Each item's person menu (./person-menu.tsx): Add to Contacts, Demo booked, Don't pitch. */
-  menu?: (item: TodayItem) => React.ReactNode;
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
@@ -266,7 +261,6 @@ export function TodayBody({
               key={`${item.postId ?? i}:${i}`}
               platform={platform}
               item={item}
-              menu={menu}
               onOk={onOk}
               onSkip={onSkip}
               onNotForMe={onNotForMe}
@@ -281,7 +275,6 @@ export function TodayBody({
             platform={platform}
             kind={kind}
             today={list}
-            menu={menu}
             onOk={onOk}
             onSkip={onSkip}
             onNotForMe={onNotForMe}
@@ -357,7 +350,6 @@ function KindPart({
   platform,
   kind,
   today,
-  menu,
   onOk,
   onSkip,
   onNotForMe,
@@ -365,7 +357,6 @@ function KindPart({
   platform: Platform;
   kind: TodayKind;
   today: TodayOutput;
-  menu?: (item: TodayItem) => React.ReactNode;
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
@@ -383,7 +374,6 @@ function KindPart({
           key={`${item.profileId ?? item.postId ?? i}:${i}`}
           platform={platform}
           item={item}
-          menu={menu}
           onOk={onOk}
           onSkip={onSkip}
           onNotForMe={onNotForMe}
@@ -397,7 +387,6 @@ function ItemCard({
   platform,
   item,
   step,
-  menu,
   onOk,
   onSkip,
   onNotForMe,
@@ -406,7 +395,6 @@ function ItemCard({
   item: TodayItem;
   /** The step, where the part isn't one kind's: a partner's. */
   step?: string;
-  menu?: (item: TodayItem) => React.ReactNode;
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
@@ -416,16 +404,24 @@ function ItemCard({
   const page = onPost ? (item.postUrl ?? item.profileUrl) : (chat ?? item.profileUrl);
   return (
     <Card className="gap-2 px-4 py-3.5" testID="today-item">
-      <View className="flex-row items-center gap-2">
-        <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
-          <Text className="text-[15px] font-semibold">{item.name}</Text>
-          {item.playbookName ? (
-            <Badge variant="gray">
-              <Text>{item.playbookName}</Text>
-            </Badge>
-          ) : null}
-        </View>
-        {menu?.(item)}
+      <View className="flex-row flex-wrap items-center gap-2">
+        {/* A partner's name stays words: partners have their own list and marks (decision 81). */}
+        <PersonName
+          who={{
+            profileId: item.partnerId ? null : item.profileId,
+            name: item.name,
+            url: item.profileUrl,
+            platform,
+            threadKey: item.threadKey,
+            personId: item.personId,
+            demoBooked: item.demoBooked,
+          }}
+        />
+        {item.playbookName ? (
+          <Badge variant="gray">
+            <Text>{item.playbookName}</Text>
+          </Badge>
+        ) : null}
       </View>
       {step ? <Note testID="today-step">{step}</Note> : null}
       {item.why.length ? <Note>{item.why.join(' · ')}</Note> : null}

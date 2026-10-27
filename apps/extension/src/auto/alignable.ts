@@ -18,7 +18,8 @@
  * - **Then Alignable's list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own
  *   (`auto`): a look at their business page and a like on a recent post of theirs when the page shows one, or the
  *   look alone when it doesn't (warm-up); a connection request with their page's own Connect, the business checked by
- *   Alignable's id first; and the messages: drafted after a look-up of their page, and sent once OK'd in Alignable's
+ *   Alignable's id first, never to one their page shows they're connected with already (0.94.0), who's kept as a
+ *   connection instead; and the messages: drafted after a look-up of their page, and sent once OK'd in Alignable's
  *   messages, typing only into that conversation's box. Comments and forum answers wait for the person's OK each time
  *   (they post them, and the extension notes them), and Recommend is only ever theirs. Requests they got are left for
  *   them to accept, and old requests to withdraw are theirs too: no reader of the ones they've sent is built.
@@ -44,6 +45,7 @@ import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { alignableListSave } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { readAlignableChats } from '../jobs/alignable/chats';
@@ -370,13 +372,30 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
 }
 
 /**
+ * Someone their page shows they're connected with, kept in HandsFreeOS as one of their Alignable connections, as Save
+ * my connections keeps them (a list of one, as Instagram's follow-backs are): Today then never offers the request
+ * again. If HandsFreeOS can't keep it now, the next save of their connections does.
+ */
+async function keepConnection(item: TodayListItem, profile: ProfileRef, businessId: string) {
+  const built = alignableListSave([{ name: item.name, profile }], 'friends', businessId);
+  if (!built.ok) return;
+  for (const input of built.input) await answer({ type: 'hfos-save-friends', input });
+}
+
+/**
  * A connection request, with their business page's own Connect: a link that makes the request at once, carrying
- * Alignable's id for their business, which is checked first. Their page is opened again after, to see it went.
+ * Alignable's id for their business, which is checked first. Their page is opened again after, to see it went. A
+ * business their page shows they're connected with already (its own Remove Connection, 0.94.0) is passed over, and
+ * kept as a connection.
  */
 async function connect(item: TodayListItem, businessId: string): Promise<Outcome> {
   const opened = await openBusiness(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const shown = opened.page.found.business!;
+  if (shown.connected) {
+    await keepConnection(item, opened.noted, businessId);
+    return { done: false, line: `${item.name}: you’re connected already` };
+  }
   if (!opened.noted.id)
     return {
       done: false,
@@ -404,7 +423,10 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   const after = page.found.business;
-  if (page.signedOut || !after || !isTheirs(after, opened.want) || after.connect)
+  // It went once their own Connect is gone, or their page shows you're connected now (its Remove Connection).
+  const taken =
+    after !== null && isTheirs(after, opened.want) && (after.connected || !after.connect);
+  if (page.signedOut || !taken)
     return { done: false, line: `${item.name}: Alignable didn’t take the request`, need: true };
   await takeNote(
     {

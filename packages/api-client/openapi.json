@@ -83555,7 +83555,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.friends.saved.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.friends.saved, outreach.need.cleared.",
         "requestBody": {
           "required": true,
           "content": {
@@ -83706,7 +83706,7 @@
     "/v1/commands/outreach.friend.set": {
       "post": {
         "operationId": "command_outreach_friend_set",
-        "summary": "Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.",
+        "summary": "Keep a friend (never suggested for unfriending), or put someone on the business’s Don’t pitch list (never a friend request, like, comment or message, and their outreach waiting for an OK is skipped) or its Never contact list (nothing at all: not even a reply, and their friend requests never confirmed), or take them off.",
         "tags": [
           "commands"
         ],
@@ -87086,7 +87086,7 @@
     "/v1/commands/outreach.send.queue": {
       "post": {
         "operationId": "command_outreach_send_queue",
-        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead.",
+        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
         "tags": [
           "commands"
         ],
@@ -88719,7 +88719,7 @@
     "/v1/commands/outreach.need.note": {
       "post": {
         "operationId": "command_outreach_need_note",
-        "summary": "The browser extension couldn’t do a step on the person’s list for today on Facebook (a button or box it couldn’t find, a different page, Facebook not taking it): it’s handed to the person in Waiting for you, to do themselves or let go. The same step again is the same one; one let go lately keeps nothing.",
+        "summary": "The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.",
         "tags": [
           "commands"
         ],
@@ -92925,6 +92925,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -94113,6 +94116,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -95164,6 +95170,9 @@
                         "maxLength": 100
                       }
                     },
+                    "nameOff": {
+                      "type": "boolean"
+                    },
                     "usernames": {
                       "maxItems": 12,
                       "type": "array",
@@ -95999,6 +96008,9 @@
                                 "type": "string",
                                 "maxLength": 100
                               }
+                            },
+                            "nameOff": {
+                              "type": "boolean"
                             },
                             "usernames": {
                               "maxItems": 12,
@@ -97194,6 +97206,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -98382,6 +98397,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -99453,6 +99471,7 @@
                         "ready",
                         "pitched",
                         "booked",
+                        "client",
                         "lost"
                       ]
                     }
@@ -100854,6 +100873,131 @@
                   },
                   "required": [
                     "stage"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.client.set": {
+      "post": {
+        "operationId": "command_outreach_client_set",
+        "summary": "Mark someone the person reached as a client: they’re added to Contacts if they aren’t there (or tied to the customer named), the Client tag goes on their customer, and anyone’s outreach messages to them waiting for an OK are skipped; nothing on Today reaches them again but a reply. Or take the Client tag off again (Not a client after all); Contacts may still count them a client for another reason, which is said.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.client.marked, outreach.send.skipped, outreach.profile.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "client": {
+                    "type": "boolean"
+                  },
+                  "personId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "client"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "personId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "client": {
+                      "type": "boolean"
+                    },
+                    "tagged": {
+                      "type": "boolean"
+                    },
+                    "because": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "won",
+                            "job",
+                            "visit",
+                            "plan",
+                            "paid",
+                            "tagged"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "addedPerson": {
+                      "type": "boolean"
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "personId",
+                    "client",
+                    "tagged",
+                    "because",
+                    "addedPerson",
+                    "skipped"
                   ],
                   "additionalProperties": false
                 }
@@ -193135,7 +193279,7 @@
     "/v1/queries/outreach.today": {
       "post": {
         "operationId": "query_outreach_today",
-        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit is reached but with a reply.",
+        "summary": "The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.",
         "tags": [
           "queries"
         ],
@@ -198258,6 +198402,15 @@
                                       }
                                     ]
                                   },
+                                  "platform": {
+                                    "type": "string",
+                                    "enum": [
+                                      "facebook",
+                                      "linkedin",
+                                      "instagram",
+                                      "alignable"
+                                    ]
+                                  },
                                   "name": {
                                     "type": "string"
                                   },
@@ -198294,6 +198447,7 @@
                                   "profileId",
                                   "postId",
                                   "sendId",
+                                  "platform",
                                   "name",
                                   "url",
                                   "why",
@@ -199912,6 +200066,9 @@
                                 "maxLength": 100
                               }
                             },
+                            "nameOff": {
+                              "type": "boolean"
+                            },
                             "usernames": {
                               "maxItems": 12,
                               "type": "array",
@@ -200935,6 +201092,9 @@
                                     "maxLength": 100
                                   }
                                 },
+                                "nameOff": {
+                                  "type": "boolean"
+                                },
                                 "usernames": {
                                   "maxItems": 12,
                                   "type": "array",
@@ -201582,6 +201742,9 @@
                                     "type": "string",
                                     "maxLength": 100
                                   }
+                                },
+                                "nameOff": {
+                                  "type": "boolean"
                                 },
                                 "usernames": {
                                   "maxItems": 12,
@@ -202231,6 +202394,9 @@
                                     "maxLength": 100
                                   }
                                 },
+                                "nameOff": {
+                                  "type": "boolean"
+                                },
                                 "usernames": {
                                   "maxItems": 12,
                                   "type": "array",
@@ -202878,6 +203044,9 @@
                                     "type": "string",
                                     "maxLength": 100
                                   }
+                                },
+                                "nameOff": {
+                                  "type": "boolean"
                                 },
                                 "usernames": {
                                   "maxItems": 12,
@@ -203515,7 +203684,7 @@
     "/v1/queries/outreach.stages": {
       "post": {
         "operationId": "query_outreach_stages",
-        "summary": "The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play, searched by name.",
+        "summary": "The person’s pipeline: everyone they reached, on every network or one, by where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, a client in Contacts, not a fit), with why, the AI’s next step and the latest either way; counted by stage, one stage or everyone still in play (never clients or not a fit), searched by name.",
         "tags": [
           "queries"
         ],
@@ -203544,6 +203713,7 @@
                       "ready",
                       "pitched",
                       "booked",
+                      "client",
                       "lost"
                     ]
                   },
@@ -203625,6 +203795,11 @@
                           "minimum": 0,
                           "maximum": 9007199254740991
                         },
+                        "client": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
                         "lost": {
                           "type": "integer",
                           "minimum": 0,
@@ -203640,6 +203815,7 @@
                         "ready",
                         "pitched",
                         "booked",
+                        "client",
                         "lost"
                       ],
                       "additionalProperties": false
@@ -203692,6 +203868,7 @@
                               "ready",
                               "pitched",
                               "booked",
+                              "client",
                               "lost"
                             ]
                           },
@@ -205563,6 +205740,233 @@
                     "counts",
                     "partners",
                     "more"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.profile.marks": {
+      "post": {
+        "operationId": "query_outreach_profile_marks",
+        "summary": "Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string",
+                      "enum": [
+                        "facebook",
+                        "linkedin",
+                        "instagram",
+                        "alignable"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "personId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "partner": {
+                      "type": "boolean"
+                    },
+                    "demoBooked": {
+                      "type": "boolean"
+                    },
+                    "client": {
+                      "type": "object",
+                      "properties": {
+                        "on": {
+                          "type": "boolean"
+                        },
+                        "tagged": {
+                          "type": "boolean"
+                        },
+                        "because": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "won",
+                                "job",
+                                "visit",
+                                "plan",
+                                "paid",
+                                "tagged"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "on",
+                        "tagged",
+                        "because"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "dontPitch": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "by": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "tagged": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "by",
+                            "at",
+                            "tagged"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "neverContact": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "by": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "at": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "by",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "canTakeOff": {
+                      "type": "object",
+                      "properties": {
+                        "dontPitch": {
+                          "type": "boolean"
+                        },
+                        "neverContact": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "dontPitch",
+                        "neverContact"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "name",
+                    "platform",
+                    "url",
+                    "personId",
+                    "partner",
+                    "demoBooked",
+                    "client",
+                    "dontPitch",
+                    "neverContact",
+                    "canTakeOff"
                   ],
                   "additionalProperties": false
                 }

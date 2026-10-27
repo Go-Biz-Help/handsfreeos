@@ -57,7 +57,7 @@ import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
 import { NetworkFilterControl } from './network-ui';
-import { PersonMenu } from './person-menu';
+import { PersonName } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
 import { useAct } from './use-act';
@@ -581,16 +581,20 @@ function FriendRow({
       {/* The switches sit on the name's line; they say whether someone's kept or not pitched. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 text-[13.5px]">
-          {f.personId ? (
-            <Link
-              href={`/app/w/${workspaceId}/customers/people/${f.personId}`}
-              className="font-medium text-accent-text hover:underline"
-            >
-              {f.name}
-            </Link>
-          ) : (
-            <span className="font-medium">{f.name}</span>
-          )}
+          {/* The name opens the person menu (decision 91): their page, Contacts, Client and Demo booked; Don't pitch
+              and Never contact have their switches here. */}
+          <PersonName
+            workspaceId={workspaceId}
+            who={{
+              profileId: f.profileId,
+              name: f.name,
+              platform: f.platform,
+              url: f.url,
+              personId: f.personId,
+            }}
+            ownSwitches
+            className={cn('font-medium', f.personId && 'text-accent-text')}
+          />
           <a
             href={f.url}
             target="_blank"
@@ -644,8 +648,6 @@ function FriendRow({
             />
             Never contact
           </span>
-          {/* Add to Contacts and Demo booked; Don't pitch and Never contact have their switches here. */}
-          <PersonMenu workspaceId={workspaceId} who={f} dontPitch={false} neverContact={false} />
         </div>
       </div>
       {(f.check && (show === 'fits' || f.check.verdict === 'good')) || f.fit || state ? (

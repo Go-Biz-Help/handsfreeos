@@ -13,8 +13,8 @@
  * - **Links:** on Contact and basic info, Add a website opens its box; a word written in it and taken out again; its
  *   Save found, never pressed; closed again with its Cancel (./links.ts).
  * - **Username:** on Accounts Center's username page, the box named Username; a word written in it to see what Facebook
- *   says, and their own put back; Done found, never pressed (./username.ts). With a password box there, nothing's
- *   written.
+ *   says, and their own put back; Done found, never pressed (../accounts-center/username.ts). With a password box
+ *   there, nothing's written.
  * - **Posting:** a group's Write something… opens the composer, with a box to write in and its Post; it's closed again,
  *   nothing written (./compose.ts).
  * - **Commenting:** on a post's own page, the post's box to comment in; a word written in it, the button that sends it
@@ -44,6 +44,7 @@ import {
   messageBoxes,
   sendButton,
   theirPosts,
+  withTheirName,
 } from './auto';
 import { composer, POST, startButton } from './compose';
 import { clean, labelOf } from './dom';
@@ -67,7 +68,7 @@ import {
   verdictOf,
   type Asking,
   type UsernameVerdict,
-} from './username';
+} from '../accounts-center/username';
 import { readWarnings } from './warnings';
 import { missingOf, TRY_WORD, untried, went, type StepTry, type TryStep } from '../tries';
 
@@ -129,8 +130,10 @@ export function outlineNow(doc: Document): string {
 }
 
 /** Where things stand on the profile the page shows, as the profile reader says. */
+const profileOn = (doc: Document, href: string): ProfilePage =>
+  readProfile(mainOf(doc), classifyUrl(href), href, doc.title).profile;
 const friendshipOn = (doc: Document, href: string): ProfilePage['friendship'] =>
-  readProfile(mainOf(doc), classifyUrl(href), href, doc.title).profile.friendship;
+  profileOn(doc, href).friendship;
 
 /** Why a step isn't tried on someone, by where things stand with them. */
 const STANDING: Readonly<Record<ProfilePage['friendship'], string>> = {
@@ -520,10 +523,11 @@ export async function tryComment(doc: Document): Promise<StepTry> {
 
 /** A friend request, on the profile of someone they aren't friends with: Add friend found, never pressed. */
 export function tryRequest(doc: Document, href: string): StepTry {
-  const standing = friendshipOn(doc, href);
+  const profile = profileOn(doc, href);
+  const standing = profile.friendship;
   if (standing !== 'not_friends' && standing !== 'unknown')
     return untried('request', STANDING[standing]);
-  const add = findStep(doc, AUTO_PLANS.friend_request.path[0]!);
+  const add = findStep(doc, withTheirName(AUTO_PLANS.friend_request.path, [profile.name])[0]!);
   return went(
     'request',
     { addFriend: Boolean(add), standingKnown: standing !== 'unknown' },
@@ -688,7 +692,8 @@ export function tryConfirm(doc: Document, href: string): StepTry {
 
 /** Cancelling, on the profile of someone they sent a request to: Cancel request found, never pressed. */
 export function tryCancel(doc: Document, href: string): StepTry {
-  const standing = friendshipOn(doc, href);
+  const profile = profileOn(doc, href);
+  const standing = profile.friendship;
   if (standing !== 'request_sent' && standing !== 'unknown')
     return untried(
       'cancel',
@@ -698,7 +703,7 @@ export function tryCancel(doc: Document, href: string): StepTry {
           ? 'your friend request to them isn’t waiting any more'
           : STANDING[standing],
     );
-  const cancel = findStep(doc, TIDY_PLANS.cancel_request.path[0]!);
+  const cancel = findStep(doc, withTheirName(TIDY_PLANS.cancel_request.path, [profile.name])[0]!);
   return went(
     'cancel',
     { cancel: Boolean(cancel), standingKnown: standing !== 'unknown' },

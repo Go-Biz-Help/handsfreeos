@@ -22,7 +22,12 @@ import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
 import { REPORTED_STATES, standDownWords, stateTone } from '@hfos/core/addons/outreach/live';
-import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import {
+  adviceLeft,
+  blocksStart,
+  holdingCount,
+  READY_WORDS,
+} from '@hfos/core/addons/outreach/readiness';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { outreachPath, type OutreachTab } from '@hfos/core/addons/outreach/setup';
 import { AUTO_STATE_KEY, isState } from '../auto/plan';
@@ -219,28 +224,38 @@ export function preDayView(state: AutoStatus['state']): Child {
   );
 }
 
+/** What's under the profile while it's left: that the day doesn't wait on it (decision 90). */
+const adviceNote = (holding: number): string =>
+  holding ? READY_WORDS.profileNoHold : READY_WORDS.profileLater;
+
 /**
- * Get ready (decision 63): until the person is ready, Next up is what's left before the extension reaches anyone,
- * each item ticked as it's done, and where to finish it. What only reads still goes meanwhile.
+ * Get ready (decisions 63 and 90): until the person is ready, Next up is what's left before the extension reaches
+ * anyone, each item ticked as it's done, and where to finish it. Only what holds the day is counted; the profile is
+ * advice, shown with what's left of it and that the day doesn't wait on it. What only reads still goes meanwhile.
  */
 function readyView(now: AutoStatus): Child[] {
   const ready = now.ready;
   if (!ready || ready.ready) return [];
-  const left = ready.items.filter((i) => i.state !== 'done').length;
+  const { done, of } = holdingCount(ready.items);
+  const holding = of - done;
   const url = hfosUrl(now, 'today');
   return [
     h('p', { class: 'overline' }, W.rightNow),
     h('p', { class: 'next-title' }, READY_WORDS.title),
-    h('p', { class: 'muted' }, READY_WORDS.cardHint(left)),
+    h('p', { class: 'muted' }, READY_WORDS.cardHint(holding)),
     h(
       'ol',
       { class: 'pre-day', 'aria-label': READY_WORDS.title, 'data-testid': 'panel-ready' },
       ...ready.items.map((i) => {
-        const done = i.state === 'done';
+        const finished = i.state === 'done';
+        const advice = !finished && !blocksStart(i.item);
         return h(
           'li',
-          { class: done ? 'done' : 'next' },
-          h('span', { class: 'tick', 'aria-hidden': 'true' }, done ? '✓' : '○'),
+          {
+            class: finished ? 'done' : advice ? 'next advice' : 'next',
+            'data-testid': `panel-ready-${i.item}`,
+          },
+          h('span', { class: 'tick', 'aria-hidden': 'true' }, finished ? '✓' : '○'),
           h(
             'span',
             {},
@@ -248,11 +263,40 @@ function readyView(now: AutoStatus): Child[] {
             h('span', { class: 'sr-only' }, `: ${READY_WORDS.states[i.state]}`),
           ),
           i.left ? h('span', { class: 'progress' }, i.left) : null,
+          advice ? h('span', { class: 'progress advice-note' }, adviceNote(holding)) : null,
         );
       }),
     ),
     url ? h('div', { class: 'actions' }, hfosLink(READY_WORDS.panelGo, url)) : null,
     h('p', { class: 'muted' }, READY_WORDS.panelStill),
+  ];
+}
+
+/**
+ * The profile left once Get ready no longer holds the day, or the day's started (decision 90): advice beside a Start
+ * that works, with what's left of it, that it can be finished later, and where.
+ */
+function adviceView(now: AutoStatus): Child[] {
+  const items = now.ready?.items ?? [];
+  const left = adviceLeft(items);
+  if (!left.length) return [];
+  const { done, of } = holdingCount(items);
+  const url = hfosUrl(now, 'today');
+  return [
+    h(
+      'div',
+      { class: 'advice', 'data-testid': 'panel-advice' },
+      ...left.map((i) =>
+        h(
+          'p',
+          {},
+          h('strong', {}, READY_WORDS.items[i.item].label),
+          i.left ? ` · ${i.left}` : null,
+        ),
+      ),
+      h('p', { class: 'muted' }, adviceNote(of - done)),
+      url ? h('p', {}, hfosLink(READY_WORDS.items[left[0]!.item].go, url)) : null,
+    ),
   ];
 }
 
@@ -311,6 +355,7 @@ function stateView(now: AutoStatus): Child[] {
                 ghost: !going,
               }),
         ),
+    ...adviceView(now),
   ];
 }
 

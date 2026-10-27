@@ -1,3 +1,4 @@
+import { holds } from '@hfos/core';
 import type { SettingsPart } from '@hfos/core/addons/outreach/settings-parts';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as Linking from 'expo-linking';
@@ -106,12 +107,15 @@ export interface OutreachContext {
   readonly manages: boolean;
   /** Whether they may make someone a partner, which promises the business's money (`partners.manage`). */
   readonly makesPartners: boolean;
+  /** Whether they may add and edit customers (`records.write`): the person menu's Add to Contacts and Mark as client. */
+  readonly writesContacts: boolean;
   readonly online: boolean;
 }
 
 export function useOutreachContext(): OutreachContext {
   const { business, me } = useBusiness();
-  const { permissions } = useGrants();
+  const grants = useGrants();
+  const { permissions } = grants;
   const { online } = useNetwork();
   return React.useMemo(
     () => ({
@@ -120,9 +124,10 @@ export function useOutreachContext(): OutreachContext {
       timeZone: business.timezone || 'UTC',
       manages: permissions?.includes(OUTREACH_MANAGE) ?? false,
       makesPartners: permissions?.includes('partners.manage') ?? false,
+      writesContacts: holds(grants, 'records.write'),
       online,
     }),
-    [business.id, business.timezone, me.user.id, permissions, online],
+    [business.id, business.timezone, me.user.id, permissions, grants, online],
   );
 }
 

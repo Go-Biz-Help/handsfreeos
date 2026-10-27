@@ -22,6 +22,7 @@ import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
 import { partnerCommands, partnerQueries } from './ops/partners';
+import { personMenuCommands, personMenuQueries } from './ops/person-menu';
 import { playbookCommands, playbookQueries } from './ops/playbooks';
 import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
@@ -66,6 +67,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...countryCommands,
     ...trackingCommands,
     ...partnerCommands,
+    ...personMenuCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -94,5 +96,6 @@ export const outreachAddonServer: AddonServerModule = {
     ...countryQueries,
     ...trackingQueries,
     ...partnerQueries,
+    ...personMenuQueries,
   ],
 };

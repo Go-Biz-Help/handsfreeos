@@ -173,24 +173,26 @@ describe('Instagram’s own account, read and its bio put in', () => {
   }, 15_000);
 });
 
-/** A tab on Instagram opening the pages above, reading and writing as its tab does. */
+/** A tab on Instagram opening the pages above, reading and writing as its tab does; the form keeps what it saved. */
 function instagramTab(pages: Record<string, string>) {
   const kit = KITS.instagram;
   let doc: Document | null = null;
   let at = '';
   const opened: string[] = [];
+  let kept: string | null = null;
   const tab = {
     async open(url: string) {
       if (!pages[url]) throw new Error(`Not expected: ${url}`);
       opened.push(url);
       at = url;
       doc = new JSDOM(pages[url], { url }).window.document;
+      const bio = doc.querySelector('textarea');
+      if (bio && kept !== null) bio.value = kept;
       // The form's Submit, as Instagram's: off again once it's kept what changed.
-      doc
-        .querySelector('form [role="button"]')
-        ?.addEventListener('click', (event) =>
-          (event.currentTarget as Element).setAttribute('aria-disabled', 'true'),
-        );
+      doc.querySelector('form [role="button"]')?.addEventListener('click', (event) => {
+        (event.currentTarget as Element).setAttribute('aria-disabled', 'true');
+        kept = bio?.value ?? kept;
+      });
       doc.execCommand = (command: string, _ui?: boolean, text?: string) => {
         const box = doc!.querySelector('textarea');
         if (command !== 'insertText' || !box) return false;

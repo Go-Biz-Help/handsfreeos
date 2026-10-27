@@ -54,6 +54,8 @@ export type TabPlace = 'view' | 'quiet' | 'window';
 
 export class WorkTab {
   private id: number | null = null;
+  /** While `inFront` runs: a window it opens then opens in front. */
+  private front = false;
   private readonly place: TabPlace;
   private readonly kit: Kit;
 
@@ -96,8 +98,13 @@ export class WorkTab {
       }
     }
     if (this.place === 'window') {
-      // Beside the person's, not in front of it: they keep working while it does.
-      const made = await chrome.windows.create({ url, focused: false, width: 1100, height: 900 });
+      // Beside the person's, not in front of it, so they keep working while it does; unless it's to be in front.
+      const made = await chrome.windows.create({
+        url,
+        focused: this.front,
+        width: 1100,
+        height: 900,
+      });
       this.id = made?.tabs?.[0]?.id ?? null;
       if (this.id === null) throw new Error('Chrome didn’t open the window.');
       return this.loaded(this.id);
@@ -129,20 +136,30 @@ export class WorkTab {
   }
 
   /**
-   * Brings its window to the front while `work` runs, then puts back the window the person had in front. Some pages
-   * draw only what's on screen, and Chrome draws nothing in a window hidden behind another: LinkedIn's profile drew
-   * nothing below Activity in one (the owner's test, 16 Oct 2026). A tab in the person's window is left as it is.
+   * Brings its window to the front while `work` runs, opening it in front when it isn't open yet, then puts back the
+   * window the person had in front: only while its own is still in front, as a person who went on to another window
+   * keeps it. Some pages draw only what's on screen, and Chrome draws nothing in a window hidden behind another:
+   * LinkedIn's profile drew nothing below Activity in one (the owner's test, 16 Oct 2026). A tab in the person's window
+   * is left as it is.
    */
   async inFront<T>(work: () => Promise<T>): Promise<T> {
-    const id = this.id;
-    if (id === null || this.place !== 'window') return work();
+    if (this.place !== 'window' || this.front) return work();
     const theirs = await chrome.windows.getLastFocused().catch(() => null);
+    this.front = true;
     await this.focus();
     try {
       return await work();
     } finally {
-      const tab = await chrome.tabs.get(id).catch(() => null);
-      if (theirs?.id !== undefined && theirs.id !== tab?.windowId)
+      this.front = false;
+      const tab = this.id === null ? null : await chrome.tabs.get(this.id).catch(() => null);
+      const now = await chrome.windows.getLastFocused().catch(() => null);
+      if (
+        theirs?.id !== undefined &&
+        tab?.windowId !== undefined &&
+        theirs.id !== tab.windowId &&
+        now?.id === tab.windowId &&
+        now.focused !== false
+      )
         await chrome.windows.update(theirs.id, { focused: true }).catch(() => undefined);
     }
   }

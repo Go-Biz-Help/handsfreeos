@@ -8,8 +8,11 @@
  *   kept, which the page may cut. It presses nothing.
  * - **Putting the bio in:** on the form, the bio's box (named Bio, or Instagram's own `pepBio`), written in as typing
  *   does once the form has drawn itself around the focus (the owner's Check Instagram, 0.60.0: a value set by hand
- *   showed Post but didn't stay), then the form's **Submit**, and the box saying it after. Anything it doesn't expect
- *   and it stops and says so; the job hands the step to the person.
+ *   showed Post but didn't stay), then the form's **Submit** once Instagram turns it on, and the box saying it after:
+ *   kept on Instagram's "Profile saved.", or with Submit off again a moment and the bio still in its box. Anything it
+ *   doesn't expect and it stops and says which step (`FormSteps`); the job hands the step to the person, and reads the
+ *   form again after to be sure (../../jobs/looking.ts). The look on the form (./site.ts) finds the box and Submit the
+ *   same way (`bioBoxOf`, `submitsOf`).
  *
  * Drawn from the owner's outline of his own account (17 Oct 2026): the name, the counts, a link and Threads in the
  * header, Edit profile and View archive under it, a "New" highlight, and Posts, Saved and Tagged. His Check of 21 Oct
@@ -148,8 +151,8 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
   };
 }
 
-/** The bio's box on the form: named Bio, or Instagram's own. */
-function bioBoxOf(doc: Document): HTMLTextAreaElement | null {
+/** The bio's box on the form: named Bio, or Instagram's own. The look (./site.ts) finds it the same way. */
+export function bioBoxOf(doc: Document): HTMLTextAreaElement | null {
   const main = mainOf(doc);
   const named = boxesSaying(main, BIO).find(
     (box): box is HTMLTextAreaElement => box.tagName === 'TEXTAREA',
@@ -158,6 +161,10 @@ function bioBoxOf(doc: Document): HTMLTextAreaElement | null {
     named ?? main.querySelector<HTMLTextAreaElement>('textarea#pepBio, textarea[name="biography"]')
   );
 }
+
+/** The form's Submits in sight, on or not yet. The look (./site.ts) counts them the same way. */
+export const submitsOf = (doc: Document): HTMLElement[] =>
+  controlsSaying(mainOf(doc), SUBMIT, true);
 
 /**
  * Writes in a box as typing does, in place of what's there; a value set by hand only where that can't be done. Typing
@@ -175,16 +182,62 @@ function writeIn(doc: Document, box: HTMLTextAreaElement, text: string): void {
 }
 
 /**
- * Puts the bio in on the form: the bio's box written in place of what was there, its Submit pressed, and the box
- * saying the bio after. `none` when the box or Submit isn't there, or the words didn't take; `not_saved` when Submit
- * didn't keep them.
+ * What putting the bio in on the form found, step by step, for the job's note of the page (decision 74): never a word
+ * anyone wrote, only yes or no and counts.
  */
-export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
+export interface FormSteps {
+  /** The bio's box on the form, and whether the bio took in it. */
+  readonly box: boolean;
+  readonly typed: boolean;
+  /** How many Submits in sight, and whether one came on once the bio was in. */
+  readonly submits: number;
+  readonly submitOn: boolean;
+  readonly pressed: boolean;
+  /** Instagram said "Profile saved." after Submit. */
+  readonly said: boolean;
+  /** Kept: said so, or Submit off again a moment with the bio still in its box. */
+  readonly kept: boolean;
+}
+
+export const NO_FORM_STEPS: FormSteps = {
+  box: false,
+  typed: false,
+  submits: 0,
+  submitOn: false,
+  pressed: false,
+  said: false,
+  kept: false,
+};
+
+/** How long Submit is waited for to come on once the bio's in: Instagram turns it on a moment after the words change. */
+const SUBMIT_ON_MS = 3_000;
+/** How long Submit stays off, the bio still in its box, before it's taken as kept with no word from Instagram. */
+const KEPT_SETTLED_MS = 1_500;
+const KEPT_MS = 8_000;
+
+/** Whether a control is off: gone, or turned off. */
+const off = (control: HTMLElement): boolean =>
+  !control.isConnected ||
+  control.getAttribute('aria-disabled') === 'true' ||
+  control.hasAttribute('disabled');
+
+/**
+ * Puts the bio in on the form: the bio's box written in place of what was there, Submit pressed once Instagram turns
+ * it on, and the box saying the bio after. `none` when the box or Submit isn't there or doesn't come on, or the words
+ * didn't take; `not_saved` when Submit didn't keep them. Each step said for the job's note.
+ */
+export async function writeBioSteps(
+  doc: Document,
+  bio: string,
+): Promise<{ readonly result: BioResult; readonly steps: FormSteps }> {
   const wanted = clean(bio);
+  let steps: FormSteps = NO_FORM_STEPS;
   let box = bioBoxOf(doc);
-  if (!box) return 'none';
+  if (!box) return { result: 'none', steps: { ...steps, submits: submitsOf(doc).length } };
+  steps = { ...steps, box: true };
   // In already: Instagram keeps Submit off with nothing changed.
-  if (clean(box.value) === wanted) return 'done';
+  if (clean(box.value) === wanted)
+    return { result: 'done', steps: { ...steps, typed: true, kept: true } };
   // Instagram redraws the form once its box has the focus, and may again as it's written in, so the box is found
   // again after each (Check Instagram's comment box, 0.62.0).
   box.focus();
@@ -192,20 +245,41 @@ export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
   box = bioBoxOf(doc) ?? box;
   writeIn(doc, box, bio);
   const typed = await waitFor(() => (clean(bioBoxOf(doc)?.value) === wanted ? true : null), 2_000);
-  if (!typed) return 'none';
-  const submit = controlsSaying(mainOf(doc), SUBMIT, true).find((control) => shown(control));
-  if (!submit) return 'none';
+  steps = { ...steps, typed: typed === true };
+  if (!typed) return { result: 'none', steps: { ...steps, submits: submitsOf(doc).length } };
+  // Submit, once Instagram turns it on for what changed.
+  const submit = await waitFor(
+    () => submitsOf(doc).find((control) => shown(control)),
+    SUBMIT_ON_MS,
+  );
+  steps = { ...steps, submits: submitsOf(doc).length, submitOn: submit !== null };
+  if (!submit) return { result: 'none', steps };
   submit.click();
-  // Kept once Instagram says so, or Submit is off again (nothing left to keep), with the bio still in the box.
+  steps = { ...steps, pressed: true };
+  // Kept once Instagram says so, or Submit is off a moment (nothing left to keep), with the bio still in the box.
+  let offSince: number | null = null;
+  const started = Date.now();
   const kept = await waitFor(() => {
     const now = bioBoxOf(doc);
-    const off =
-      !submit.isConnected ||
-      submit.getAttribute('aria-disabled') === 'true' ||
-      submit.hasAttribute('disabled');
-    const said = SAVED.test(clean(doc.body.textContent));
-    return now && clean(now.value) === wanted && (said || off) ? true : null;
-  }, 8_000);
+    const holds = now !== null && clean(now.value) === wanted;
+    if (holds && SAVED.test(clean(doc.body.textContent))) {
+      steps = { ...steps, said: true };
+      return true;
+    }
+    const at = Date.now() - started;
+    if (!holds || !off(submit)) offSince = null;
+    else offSince ??= at;
+    return offSince !== null && at - offSince >= KEPT_SETTLED_MS ? true : null;
+  }, KEPT_MS);
+  steps = { ...steps, kept: kept === true };
   const last = bioBoxOf(doc);
-  return kept ? 'done' : last && writingIn(last) ? 'not_saved' : 'none';
+  return {
+    result: kept ? 'done' : last && writingIn(last) ? 'not_saved' : 'none',
+    steps,
+  };
+}
+
+/** Puts the bio in on the form, as `writeBioSteps` does: how it went. */
+export async function writeBio(doc: Document, bio: string): Promise<BioResult> {
+  return (await writeBioSteps(doc, bio)).result;
 }

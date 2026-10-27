@@ -499,7 +499,10 @@ export const NETWORK_WORDS = {
 type Waited =
   | { readonly kind: 'ask'; readonly ask: { readonly platform?: Platform } }
   | { readonly kind: 'reply' | 'message'; readonly send: { readonly profileUrl: string | null } }
-  | { readonly kind: 'need'; readonly need: { readonly url: string | null } }
+  | {
+      readonly kind: 'need';
+      readonly need: { readonly platform?: Platform; readonly url: string | null };
+    }
   | { readonly kind: 'request'; readonly request: { readonly url: string } };
 
 /** The network something waiting for the person is on: Needs you marks each with its own (Chris). */
@@ -507,8 +510,9 @@ export function networkOfWaiting(item: Waited): Platform {
   switch (item.kind) {
     case 'ask':
       return item.ask.platform ?? PLATFORM_KEYS[0];
+    // Its profile's network, which HandsFreeOS sends with it; by its link only from a server before it did.
     case 'need':
-      return networkOfUrl(item.need.url);
+      return item.need.platform ?? networkOfUrl(item.need.url);
     case 'request':
       return networkOfUrl(item.request.url);
     default:

@@ -14,7 +14,10 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   the owner's day against the daily limits.
  * - The friends tab lists the friends and requests the extension saved and the answers it noted, finds one by name,
  *   keeps a friend, and puts someone on the Don't pitch list, after which a step to them isn't counted.
- * - Anyone kept as a profile has a menu on the Friends tab, as on Today: Add to Contacts and Demo booked.
+ * - Anyone kept as a profile has a menu on their name on the Friends tab, as on Today: Add to Contacts and Demo booked.
+ * - A name in Waiting for you opens the same menu, their page first (decision 91). Mark as client adds them to
+ *   Contacts tagged Client, skips the message waiting for them, and moves them to the Pipeline's Client stage, off the
+ *   board; Not a client after all takes the tag off.
  * - Facebook's download file, read in the browser, says since when they've been friends, when a request was sent,
  *   and the latest message with each person; a chat from it goes onto the customer's card from the Chats tab.
  * - The groups tab scores the groups the extension saved, and Today waits for a group's admins before it suggests
@@ -402,14 +405,21 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
     'true',
   );
 
-  // Anyone kept as a profile has the person menu, here as on Today: Add to Contacts, and Demo booked.
+  // Anyone kept as a profile has the person menu on their name, here as on Today: Add to Contacts, and Demo booked.
+  // Don't pitch and Never contact are the row's own switches, so the menu leaves them out.
   const parker = people.filter({ hasText: 'Parker Reed' });
+  const parkerPage = await parker.getByTestId('network-name').getAttribute('href');
+  expect(parkerPage).toContain('100007000000012');
   await parker.getByTestId('person-menu').click();
+  await expect(page.getByTestId('person-open-page')).toHaveAttribute('href', parkerPage!);
+  await expect(page.getByTestId('person-dont-pitch')).toHaveCount(0);
   await page.getByTestId('person-add-contact').click();
   await expect(page.getByText('Parker Reed is in Contacts now.')).toBeVisible();
-  await expect(parker.getByRole('link', { name: 'Parker Reed' })).toBeVisible();
   await parker.getByTestId('person-menu').click();
-  await expect(page.getByTestId('person-in-contacts')).toBeVisible();
+  await expect(page.getByTestId('person-in-contacts')).toHaveAttribute(
+    'href',
+    new RegExp(`/app/w/${workspaceId}/customers/people/[0-9a-f-]{36}$`),
+  );
   await page.getByTestId('person-demo-mark').click();
   await expect(page.getByText('Marked: Parker Reed booked a demo.')).toBeVisible();
 
@@ -465,6 +475,134 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
   );
   await expect(people).toHaveCount(10);
   await expect(page.getByTestId('friends-pages')).toHaveCount(0);
+});
+
+test('a name opens the person menu, their page first; Mark as client ends outreach to them, and Not a client after all takes it back', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const { email } = await signUpAndConfirm(page, 'outreach-client');
+  const workspaceId = await createBusiness(page, { name: 'Birch Hollow Landscaping' });
+  await turnOnOutreach(page, email, workspaceId);
+
+  // Two made-up friends of the owner's whose posts they liked, and a first message to one, drafted and waiting.
+  const { token } = await signInOwner(email);
+  const fb = 'https://www.facebook.com';
+  const profileOf = (id: string) => ({ id, username: null, url: `${fb}/profile.php?id=${id}` });
+  const rowan = { id: '100011000000001', name: 'Rowan Ellis' };
+  const sage = { id: '100011000000002', name: 'Sage Moreno' };
+  await api(token, 'commands', 'outreach.friends.save', {
+    workspaceId,
+    platform: 'facebook',
+    list: 'friends',
+    people: [rowan, sage].map((p) => ({
+      profile: profileOf(p.id),
+      name: p.name,
+      mutualFriends: null,
+    })),
+  });
+  const group = {
+    id: null,
+    slug: 'birch.hollow.neighbors',
+    url: `${fb}/groups/birch.hollow.neighbors/`,
+    name: null,
+  };
+  for (const [i, p] of [rowan, sage].entries())
+    await api(token, 'commands', 'outreach.touch.save', {
+      workspaceId,
+      platform: 'facebook',
+      kind: 'like',
+      profile: profileOf(p.id),
+      name: p.name,
+      group,
+      postUrl: `${fb}/groups/birch.hollow.neighbors/posts/111122223333444${i}/`,
+      threadKey: null,
+      replying: null,
+    });
+  const { people } = await api<{ people: { profileId: string; name: string }[] }>(
+    token,
+    'queries',
+    'outreach.friends',
+    { workspaceId },
+  );
+  const rowanId = people.find((p) => p.name === rowan.name)?.profileId;
+  expect(rowanId).toBeTruthy();
+  await api(token, 'commands', 'outreach.send.queue', {
+    workspaceId,
+    profileId: rowanId,
+    kind: 'opener',
+    text: 'Hi Rowan! How is the spring rush treating you?',
+  });
+
+  // Waiting for you: the name is a button that opens the person menu, and the card keeps its own Open.
+  await page.goto(`/app/w/${workspaceId}/a/outreach`);
+  const card = page
+    .getByTestId('waiting-message')
+    .getByTestId('waiting-item')
+    .filter({ hasText: rowan.name });
+  await expect(card).toHaveCount(1);
+  await expect(card.getByTestId('waiting-send-open')).toHaveAttribute('href', new RegExp(rowan.id));
+  const name = card.getByRole('button', { name: rowan.name, exact: true });
+  await expect(name).toHaveAttribute('data-testid', 'person-menu');
+  await expect(name).toHaveAttribute('aria-haspopup', 'menu');
+  await name.click();
+  const menu = page.getByTestId('person-menu-items');
+  const first = menu.getByRole('menuitem').first();
+  await expect(first).toHaveAttribute('data-testid', 'person-open-page');
+  await expect(first).toHaveText('Open on Facebook');
+  await expect(first).toHaveAttribute('href', new RegExp(rowan.id));
+  await expect(first).toHaveAttribute('target', '_blank');
+  await expect(menu.getByTestId('person-add-contact')).toHaveText('Add to Contacts');
+  await expect(menu.getByTestId('person-dont-pitch')).toHaveText('Don’t pitch');
+  await expect(menu.getByTestId('person-never-contact')).toHaveText('Never contact');
+
+  // Mark as client: nobody in Contacts has the name, so Rowan is added there, tagged Client, and the message waiting
+  // for them is skipped, so the card leaves.
+  await expect(menu.getByTestId('person-client')).toHaveText('Mark as client');
+  await menu.getByTestId('person-client').click();
+  await expect(
+    page.getByText(
+      'Rowan Ellis is a client now. Nobody here sends them outreach, and their replies still come to Waiting for you.',
+    ),
+  ).toBeVisible();
+  await expect(card).toHaveCount(0);
+
+  // Contacts lists them under Clients, with the Client tag.
+  await page.goto(`/app/w/${workspaceId}/customers?show=clients`);
+  const contact = page.getByTestId('people-table').getByRole('row').filter({ hasText: rowan.name });
+  await expect(contact).toHaveCount(1);
+  await expect(contact.getByRole('cell').filter({ hasText: /^Client$/ })).toHaveCount(1);
+
+  // The Pipeline: clients are left off the board, with a link to them beside Not a fit's, and have a stage of their
+  // own with why, and no moves.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=pipeline`);
+  await expect(page.getByTestId('pipeline-board')).toContainText(sage.name);
+  await expect(page.getByTestId('pipeline-board')).not.toContainText(rowan.name);
+  await expect(page.getByTestId('pipeline-show-client')).toContainText(/Client\s*1/);
+  await page.getByTestId('pipeline-clients').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=pipeline&show=client$`));
+  await expect(page.getByTestId('pipeline-note')).toContainText('A client gets no outreach');
+  const listed = page.getByTestId('pipeline-person').filter({ hasText: rowan.name });
+  await expect(listed.getByTestId('pipeline-stage')).toHaveText('Client');
+  await expect(listed.getByTestId('pipeline-why')).toContainText(
+    'A client in Contacts: they’re tagged Client',
+  );
+
+  // Enter on the focused name opens the menu too. Not a client after all takes the tag off.
+  await listed.getByTestId('person-menu').focus();
+  await page.keyboard.press('Enter');
+  await expect(menu.getByTestId('person-open-page')).toBeVisible();
+  await expect(menu.getByTestId('person-move-to')).toHaveCount(0);
+  await expect(menu.getByTestId('person-in-contacts')).toBeVisible();
+  await expect(menu.getByTestId('person-client')).toHaveText('Not a client after all');
+  await menu.getByTestId('person-client').click();
+  await expect(
+    page.getByText(
+      'Rowan Ellis isn’t a client any more. Messages skipped when you marked them stay skipped.',
+    ),
+  ).toBeVisible();
+  await expect(listed).toHaveCount(0);
+  await expect(page.getByTestId('pipeline-show-client')).toContainText(/Client\s*0/);
 });
 
 test('the friends tab brings in Facebook’s download file: since when they’ve been friends, when a request went, and the latest message', async ({
@@ -564,7 +702,9 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
     }
     await expect(sky).toContainText('On their card', { timeout: 2_000 });
   }).toPass({ timeout: 45_000 });
-  await sky.getByRole('link', { name: 'Sky Patel' }).click();
+  // Their name opens the person menu, whose In Contacts goes to their card.
+  await sky.getByTestId('person-menu').click();
+  await page.getByTestId('person-in-contacts').click();
   await expect(page.getByTestId('outreach-panel')).toContainText('Made-up words');
 });
 

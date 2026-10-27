@@ -10,7 +10,7 @@
  *
  * For a reply, the AI also reads their answer to the person's last step (yes, a question, not now, no), which is kept
  * for their conversation (`outreach.answer.note`); a yes is drafted as the next step instead, Send the video or Send
- * the link, and said so (`kind`). It also says whether a reply is simple (decision 27), never for someone who needs the
+ * the link, and said so (`kind`), but never for a client in Contacts (decision 91), whose drafts carry no link. It also says whether a reply is simple (decision 27), never for someone who needs the
  * person (`replyNeedsYou`). Nothing else is saved or sent here: the person copies the one they like, or the extension
  * hands it to `outreach.send.queue`.
  */
@@ -21,7 +21,7 @@ import {
   stepAfterYes,
   type ConversationStep,
 } from '@hfos/core/addons/outreach/conversation';
-import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
+import { FOR_CUSTOMERS, isClient } from '@hfos/core/addons/outreach/ops/common';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
@@ -145,9 +145,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             intro: string[];
             mutual_friends: number | null;
             group: string | null;
+            client: boolean;
           }>(
             tx,
-            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group
+            // A client in Contacts (decision 91) gets replies only: no link, no video, and a yes isn't a pitch.
+            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
@@ -305,18 +307,22 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         opener: drafted,
         simple: false,
       };
+    // A client in Contacts (decision 91): written to as a client, never pitched.
+    const client = found.profile?.client ?? false;
     // The playbook's link, as the person's demo link for them (decision 24).
     const profileId = input.profileId ?? found.chat?.profile_id ?? found.post?.profile_id ?? null;
-    const link =
-      playbook && profileId
+    const link = client
+      ? null
+      : playbook && profileId
         ? demoLink(playbook.details.link, demoRef(ctx.userId, profileId))
         : (playbook?.details.link ?? null);
     // The short video (decision 66): this playbook's, else the first in use with one, as Today picks it.
-    const videoLink =
-      playbook?.details.videoLink ??
-      [...playbooks].sort((a, b) => a.name.localeCompare(b.name)).find((p) => p.details.videoLink)
-        ?.details.videoLink ??
-      null;
+    const videoLink = client
+      ? null
+      : (playbook?.details.videoLink ??
+        [...playbooks].sort((a, b) => a.name.localeCompare(b.name)).find((p) => p.details.videoLink)
+          ?.details.videoLink ??
+        null);
     const recent = found.chat?.recent ?? [];
     const conversation = found.conversation
       ? {
@@ -408,8 +414,9 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           ctx.actor,
           ctx.meta,
         );
+        // A client's yes is kept, and answered as a reply: no video or link follows it.
         const next =
-          answer === 'yes' && found.conversation
+          answer === 'yes' && found.conversation && !client
             ? stepAfterYes(found.conversation.step, videoLink !== null)
             : null;
         if (next) {

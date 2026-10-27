@@ -10,6 +10,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
+import { chatUrlOn } from '../network-words';
 import type { Platform } from '../networks';
 import type { DraftOpener } from '../openers';
 import {
@@ -32,11 +33,22 @@ import {
   type Send,
 } from '../sends';
 import { PARTNER_WORDS } from '../partners';
+import { isClientSkipped, type ClientCause } from '../person-menu';
+import { OUTREACH_WORDS } from '../words';
 import { fileChats, openerUses, playbooks, profiles, sends } from '../tables';
 import { isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
 import { noteSent, offerVersionFor } from './conversation';
-import { chatKey, contactable, inWorkspace, recentOf, type ChatRef, type Ctx } from './common';
+import {
+  chatKey,
+  clientCauseOf,
+  contactable,
+  inWorkspace,
+  isClient,
+  recentOf,
+  type ChatRef,
+  type Ctx,
+} from './common';
 import { openNeed } from './needs';
 import { notePartnerSent } from './partners';
 import { notePitched } from './stages';
@@ -96,7 +108,7 @@ export const mine = (ctx: Ctx, me: string) =>
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
-    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead.',
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
   risk: 0,
   input: SendQueueInput,
   output: SendQueueOutput,
@@ -118,9 +130,20 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       );
     const [had] = await open();
     if (had) return had;
-    const [profile] = await rows<{ id: string; name: string; platform: Platform; off: boolean }>(
+    const outreach = isClientSkipped(input.kind);
+    const [profile] = await rows<{
+      id: string;
+      name: string;
+      platform: Platform;
+      off: boolean;
+      client: boolean;
+      client_cause: ClientCause | null;
+    }>(
       ctx.tx,
-      sql`select p.id, p.name, p.platform, not ${contactable('p')} as off from addon_outreach.profiles p
+      sql`select p.id, p.name, p.platform, not ${contactable('p')} as off,
+            ${outreach ? isClient('p') : sql`false`} as client,
+            ${outreach ? clientCauseOf('p') : sql`null`} as client_cause
+          from addon_outreach.profiles p
           where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
     );
     if (!profile)
@@ -133,6 +156,14 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         'outreach_never_contact',
         422,
         `${profile.name} is on the Never contact list, so no message goes to them. To write to them, take them off it in Social Outreach → People → Friends.`,
+      );
+    // A client gets no outreach (decision 91), only replies, and a partner's messages stay: Today never lists them, so
+    // this holds whatever drafted it.
+    if (profile.client)
+      throw HfosError.rule(
+        'outreach_client',
+        422,
+        OUTREACH_WORDS.person.clientNoOutreach(profile.name, profile.client_cause),
       );
     const [chat] = input.chatId
       ? await ctx.tx
@@ -433,7 +464,7 @@ export const sendDone = defineAddonCommand(outreachAddon, {
     // One that didn't go is the person's to send: it waits in Waiting for you with its words.
     if (!input.sent) {
       const [to] = await ctx.tx
-        .select({ name: profiles.name, url: profiles.url })
+        .select({ name: profiles.name, url: profiles.url, platform: profiles.platform })
         .from(profiles)
         .where(eq(profiles.id, row.profileId));
       if (to)
@@ -443,11 +474,11 @@ export const sendDone = defineAddonCommand(outreachAddon, {
           {
             step: 'message',
             profileId: row.profileId,
+            profile: { platform: to.platform, url: to.url },
             sendId: row.id,
             name: to.name,
-            url: row.threadKey
-              ? `https://www.facebook.com/messages/t/${encodeURIComponent(row.threadKey)}`
-              : to.url,
+            // Their chat on their own network, else their page there.
+            url: chatUrlOn(to.platform, row.threadKey),
             why: input.why || 'it didn’t go',
           },
           at,

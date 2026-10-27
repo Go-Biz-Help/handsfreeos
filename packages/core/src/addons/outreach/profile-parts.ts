@@ -7,8 +7,8 @@
  *   and as the AI wrote it, and how it goes in (`PART_HOW_ON`): the person's computer puts it in (`auto`), opens the
  *   page where it's changed and hands the step over with what to paste (`steps`), it's only in the network's phone
  *   app (`app`), or it's theirs to do (`tip`): pictures stay theirs, as decision 64 keeps. Facebook's username and
- *   links go in by themselves from extension 0.93.0 (decision 89); an older build still hands them over
- *   (`partHowFor`).
+ *   links go in by themselves from extension 0.93.0, and its name and Instagram's username and name from 0.94.0
+ *   (decision 89); an older build still hands them over (`partHowFor`).
  * - **Links**, worked out here rather than written by the AI (`linksToAdd`): the booking link of a playbook running
  *   there, the business's website, and the person's own other profiles as their checks read them, never one guessed. A
  *   profile that doesn't yet read as them is held back.
@@ -30,13 +30,16 @@ import {
   BIO_MOST_ON,
   cleanUsername,
   EARLIER_KEPT,
+  FACEBOOK_NAME_RULE,
   hasBlank,
   MATCH_PARTS,
   NAME_DRAFT_MOST,
   NAME_MOST,
+  nameProblem,
   PROFILE_ITEMS_ON,
   PROFILE_NOTE_MOST,
   PROFILE_NOTES_KEPT,
+  splitName,
   USERNAME_RULES_ON,
   USERNAMES_KEPT,
   usernameProblem,
@@ -97,12 +100,14 @@ export type PartHow = (typeof PART_HOWS)[number];
 export const PART_HOW_ON: Readonly<
   Record<Platform, Readonly<Partial<Record<ProfilePart, PartHow>>>>
 > = {
-  // Its username and links go in by themselves from extension 0.93.0 (decision 89); its name stays the person's to put
-  // in, in Accounts Center.
-  facebook: { bio: 'auto', links: 'auto', username: 'auto', name: 'steps' },
+  // Its links and username go in by themselves from extension 0.93.0, and its name from 0.94.0 (decision 89; the owner,
+  // 26 Oct 2026, "1a 2a 3a"): the username and the name on Accounts Center's pages for their Facebook profile.
+  facebook: { bio: 'auto', links: 'auto', username: 'auto', name: 'auto' },
   // Its name is in the same box as its headline, Edit intro.
   linkedin: { bio: 'auto', about: 'auto', links: 'steps', username: 'steps', name: 'auto' },
-  instagram: { bio: 'auto', links: 'app', username: 'steps', name: 'steps' },
+  // Its username and name go in by themselves from 0.94.0, on Accounts Center's pages for their Instagram profile
+  // (decision 89). Its links are only in its phone app.
+  instagram: { bio: 'auto', links: 'app', username: 'auto', name: 'auto' },
   alignable: { about: 'auto' },
 };
 export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
@@ -115,7 +120,8 @@ export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
 export const PART_AUTO_SINCE_ON: Readonly<
   Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
 > = {
-  facebook: { links: '0.93.0', username: '0.93.0' },
+  facebook: { links: '0.93.0', username: '0.93.0', name: '0.94.0' },
+  instagram: { username: '0.94.0', name: '0.94.0' },
 };
 
 /**
@@ -211,8 +217,14 @@ export function partStepsWords(
   const put = v ? ` Put in “${v}”,` : '';
   if (part === 'picture' || part === 'cover') return PICTURE_STEPS_ON[platform];
   switch (`${platform}:${part}`) {
-    case 'facebook:name':
-      return `In Accounts Center, press Profiles, then your Facebook profile, then Name.${put} then Review change and Save. Facebook may look at a new name before it shows.`;
+    case 'facebook:name': {
+      const { first, last } = splitName(v);
+      const boxes =
+        first && last
+          ? ` Put “${first}” in First name and “${last}” in Last name, leave Middle name empty,`
+          : put || ' Change it,';
+      return `In Accounts Center, press Profiles, then your Facebook profile, then Name.${boxes} then press Review change, then Done (or Save changes). Facebook lets you change your name once in 60 days, and may look at a new one before it shows.`;
+    }
     case 'facebook:username':
       return `In Accounts Center, press Profiles, then your Facebook profile, then Username.${put} then Done.`;
     case 'facebook:links':
@@ -235,8 +247,9 @@ export function partStepsWords(
 }
 
 /**
- * The page a part's step opens, for `steps` (Accounts Center for names and usernames on Facebook and Instagram). An
- * older build still opens Facebook's username and links here (decision 89).
+ * The page a part's step opens, for `steps` (Accounts Center for names and usernames on Facebook and Instagram). The
+ * newest build puts these in itself (decision 89, `PART_AUTO_SINCE_ON`); a build before that still opens them here,
+ * and the newest build's own hand-overs say where with `partStepsWords`.
  */
 export const PART_PAGE_ON: Readonly<
   Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
@@ -409,11 +422,15 @@ export const linkName = (l: LinkToAdd): string =>
 export const firstUsername = (check: ProfileCheck | null): UsernameOption | null =>
   check?.usernames?.find((u) => u.free !== false) ?? null;
 
+/** What to do when the AI said the name isn't right but wrote none the network takes (`ProfileCheck.nameOff`). */
+const nameOffFix = (platform: Platform): string =>
+  `${PLATFORMS[platform]} asks for your real first and last name, in letters only. Press Show me more for one, or make sure Full name in Settings → Account is yours and press Check your profile again.`;
+
 /**
  * Every part of a network's profile as the screen lists it (decision 84), from its latest check and what's known of
  * the person's other profiles. With no check yet, each part is listed with nothing read. Who does each goes by the
- * build of the person's computer, when it's known (`partHowFor`): an older one hands Facebook's username and links
- * over.
+ * build of the person's computer, when it's known (`partHowFor`): one before 0.93.0 hands Facebook's username and
+ * links over, and one before 0.94.0 Facebook's name and Instagram's username and name.
  */
 export function profileParts(
   platform: Platform,
@@ -448,12 +465,16 @@ export function profileParts(
         };
       case 'name': {
         const names = check?.names ?? (check?.nameDraft ? [check.nameDraft] : []);
+        // Never right when the AI said it isn't, though none of its names met the network's standards.
+        const off = check?.nameOff === true;
         return {
           ...base,
-          ok: scored ? scored.ok : check !== null && !unlike.has('name') && names.length === 0,
+          ok: scored
+            ? scored.ok
+            : check !== null && !off && !unlike.has('name') && names.length === 0,
           now: seen?.name ?? null,
           next: names,
-          fix: scored?.fix ?? null,
+          fix: scored?.fix ?? (off ? nameOffFix(platform) : null),
         };
       }
       case 'username': {
@@ -589,7 +610,10 @@ const MORE_RULES: Readonly<Record<WritePart, (platform: Platform) => string>> = 
   name: (p) =>
     p === 'instagram'
       ? 'name: each at most 64 characters, their first name, a bar, then what they do for whom and where, like “Dana | Booked jobs for Austin roofers”.'
-      : `name: their real first and last name, as ${NETWORKS[p].name} asks for it, never business words.`,
+      : [
+          `name: their real first and last name, as ${NETWORKS[p].name} asks for it, never business words.`,
+          ...(p === 'facebook' ? [FACEBOOK_NAME_RULE] : []),
+        ].join(' '),
   username: (p) => `username: ${usernameRuleWords(p)} From their name and what they do.`,
   cover: () => 'cover line: at most 8 words, the result they get people, not a sales pitch.',
   about: (p) =>
@@ -698,7 +722,11 @@ export function checkedMore(
       case 'bio':
         return o.length <= BIO_MOST_ON[platform];
       case 'name':
-        return !hasBlank(o) && o.length <= (platform === 'instagram' ? NAME_DRAFT_MOST : NAME_MOST);
+        return (
+          !hasBlank(o) &&
+          o.length <= (platform === 'instagram' ? NAME_DRAFT_MOST : NAME_MOST) &&
+          nameProblem(platform, o) === null
+        );
       case 'username':
         return usernameProblem(platform, o) === null;
       case 'cover':
@@ -721,6 +749,29 @@ export function checkedMore(
     out.push(o);
   }
   return out.slice(0, MORE_COUNT[part]);
+}
+
+/** The chips that ask for more than a name, which Facebook's name standards don't take. */
+const MORE_THAN_A_NAME: readonly string[] = ['Add what I do', 'Add my town'];
+
+/**
+ * Why Show me more has no names, when what the AI wrote is only names the network won't take (`nameProblem`): the first
+ * of them, and what to change. Null when that isn't why.
+ */
+export function moreNamesRefused(
+  platform: Platform,
+  options: readonly string[],
+  chips: readonly string[],
+): string | null {
+  const refused = options
+    .map(unquote)
+    .find((o) => o && !hasBlank(o) && nameProblem(platform, o) !== null);
+  if (!refused) return null;
+  const off = chips.filter((c) => MORE_THAN_A_NAME.includes(c));
+  const fix = off.length
+    ? `Take off ${off.join(' and ')}, then press Show me more again.`
+    : 'Tell it you want your first and last name, then press Show me more again.';
+  return `${PLATFORMS[platform]} takes only a real first and last name in letters, and what the AI wrote wasn’t one (“${refused}”). ${fix}`;
 }
 
 const keep = (list: readonly string[], most: number) =>

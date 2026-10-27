@@ -13,7 +13,8 @@
  *   list of people or of groups; on the profiles of people they ticked, Cancel request or Unfriend; once they let the
  *   extension work on its own (src/auto/run.ts), Add friend, Confirm and Like on the profiles of people on their list
  *   for today, the comment the AI drafted, and the messages they OK'd; Join group and its questions (decision 48); a
- *   helpful post; and their own profile's bio and links, and in Accounts Center their username (decision 89).
+ *   helpful post; and their own profile's bio and links, and in Facebook's Accounts Center their username and name
+ *   (decision 89).
  * - On LinkedIn (src/networks/linkedin/work.ts), only what they asked from HandsFreeOS: scrolling their connections,
  *   invitations, a search's results and messaging's list, and opening a conversation from it; their own profile's
  *   headline; and, on Sent invitations, withdrawing the ones they ticked.
@@ -22,7 +23,8 @@
  *   (src/auto/alignable.ts), a like on a post of theirs, their own Connect, and the messages they OK'd, typed only
  *   into that conversation's box (src/networks/alignable/auto.ts).
  * - On Instagram (src/networks/looking/kit.ts, from its site): scrolling their followers' box and their chats' list,
- *   opening a chat by its row, unfollowing the ones they ticked, their own bio; and, once they let it work on its own
+ *   opening a chat by its row, unfollowing the ones they ticked, their own bio, and on Instagram's own Accounts Center
+ *   their username and name (decision 89); and, once they let it work on its own
  *   (src/auto/instagram.ts), a like on a post of theirs, Follow and Message on their account, and the messages they
  *   OK'd, typed only into that chat's box (src/networks/instagram/auto.ts).
  *

@@ -60,7 +60,9 @@ import {
   countryRuleOf,
   inPlay,
   inWorkspace,
+  isClient,
   notNever,
+  openToMe,
   pitchable,
   recentOf,
   type Ctx,
@@ -137,7 +139,8 @@ export const requestFit = (playbooks: readonly FitPlaybook[], p: RequestGot): Fi
  * The requests the person got that Today lists as **Confirm their request** (decision 30): with a playbook in use,
  * from people who are pitched and fit one well, the best first, as many as Today lists of a kind; the rest of the good
  * fits on a later day. Waiting for you (./waiting.ts) lists the requests lately that aren't good fits for this, as the
- * person's to decide. A partner's is confirmed like anyone's (decision 81): saying yes to a request is no pitch.
+ * person's to decide. A partner's is confirmed like anyone's (decision 81), and so is a client's (decision 91): saying
+ * yes to a request is no pitch (`openToMe`, not `inPlay`).
  */
 export async function requestsToConfirm(
   ctx: Ctx,
@@ -156,7 +159,7 @@ export async function requestsToConfirm(
         join addon_outreach.profiles p on p.id = f.profile_id
         left join addon_outreach.groups g on g.id = p.group_id
         where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-          and f.state = 'request_received' and ${notNever('p')} and ${inPlay(me, 'p')} and ${lets}
+          and f.state = 'request_received' and ${notNever('p')} and ${openToMe(me, 'p')} and ${lets}
         order by f.since desc limit ${CANDIDATES_MOST}`,
   );
   return asked
@@ -169,7 +172,7 @@ export async function requestsToConfirm(
 export const today = defineAddonQuery(outreachAddon, {
   name: 'outreach.today',
   description:
-    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit is reached but with a reply.',
+    'The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.',
   input: TodayInput,
   output: TodayOutput,
   permission: 'outreach.use',
@@ -815,7 +818,8 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
             left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
             ${latestChat('p')}
-            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')} and ${lets}
+            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
+              and not ${isClient('p')} and ${lets}
               and (c.pitch = 'ready' or s.mark = 'ready'
                 or (f.answer = 'yes' and f.stopped_at is null
                   and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))
@@ -978,7 +982,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
     // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
-    // follow-up starts a conversation; and those who wrote last, lately.
+    // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone.
     const chats = await rows<{
       id: string;
       name: string;
@@ -996,8 +1000,8 @@ export const today = defineAddonQuery(outreachAddon, {
           from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
           where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
             and c.platform = ${input.platform}
-            and (p.id is null or (${pitchable('p')} and ${inPlay(me, 'p')}
-              and (not c.last_from_me or ${lets})))
+            and (p.id is null or (${pitchable('p')} and ${openToMe(me, 'p')}
+              and (not c.last_from_me or (${lets} and not ${isClient('p')}))))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.firstGap)}::timestamptz
                   and not exists (select 1 from addon_outreach.follow_ups f

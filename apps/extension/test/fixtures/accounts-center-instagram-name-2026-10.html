@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  Instagram's own Accounts Center's name page for the signed-in person's Instagram profile
+  (accountscenter.instagram.com/profiles/<number>/name/), as Meta usually draws it in October 2026. Made up, nobody
+  real: the Instagram account casey.owner, profile 17841400000000001, whose name is Casey. Built from Meta's usual
+  words for this page, not yet from a page outline of it (decision 89).
+
+  - One Name box, named by its label, with the page's own help under it: how often a name can change.
+  - Done is off until the name changes. What Instagram says of a name, and what Done does, are added by each test.
+-->
+<html lang="en">
+  <head>
+    <title>Name | Accounts Center</title>
+  </head>
+  <body>
+    <div role="banner">
+      <a href="https://www.instagram.com/" aria-label="Instagram"
+        ><svg aria-label="Instagram"></svg
+      ></a>
+      <span>Accounts Center</span>
+    </div>
+    <div role="navigation">
+      <a href="/profiles/"><span>Profiles</span></a>
+      <a href="/personal_info/"><span>Personal details</span></a>
+      <a href="/password_and_security/"><span>Password and security</span></a>
+    </div>
+    <div role="main">
+      <div role="dialog" aria-label="Name" id="panel">
+        <div role="button" aria-label="Back"><svg aria-hidden="true"></svg></div>
+        <h2><span>Name</span></h2>
+        <form id="name-form">
+          <label for="n1"><span>Name</span></label>
+          <input id="n1" type="text" value="Casey" />
+          <div><span>You can only change your name twice within 14 days.</span></div>
+          <div role="status" id="said"></div>
+        </form>
+        <div role="button" id="done" aria-disabled="true"><span>Done</span></div>
+      </div>
+    </div>
+  </body>
+</html>

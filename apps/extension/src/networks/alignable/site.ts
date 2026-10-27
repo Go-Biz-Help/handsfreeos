@@ -589,7 +589,8 @@ const WARNINGS: readonly RegExp[] = [
 ];
 
 const CONNECT = /^(connect|add connection|connect with)\b/i;
-const CONNECTED = /^(connected|request sent|pending|invitation sent)$/i;
+/** What shows in place of Connect once they're asked or connected: from 0.94.0 a connection's Remove Connection too. */
+const CONNECTED = /^(connected|request sent|pending|invitation sent|remove connection)$/i;
 const MESSAGE = /^(message|send message|send a message|new message)$/i;
 const RECOMMEND = /^recommend\b/i;
 const RECOMMENDED = /^recommended$/i;

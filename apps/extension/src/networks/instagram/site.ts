@@ -32,12 +32,13 @@ import type { LookingSite } from '../looking/site';
 import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { instagramNoticer } from './actions';
 import { followThem, likeTheirPost, openTheirChat, theirPosts, writeMessage } from './auto';
-import { readOwnProfile, writeBio } from './own-profile';
+import { bioBoxOf, readOwnProfile, submitsOf, writeBio, writeBioSteps } from './own-profile';
 import { readInstagram } from './read';
 import { openChat, openFollowers, scrollList } from './browse';
 import { readReplies } from './replies';
 import { unfollow } from './unfollow';
 import { HOST, instagramUrl, kindOf, partsOf, postOf, profileOf } from './urls';
+import { INSTAGRAM_WARNINGS } from './warnings';
 
 /** Instagram's own words on its pages, as the outline keeps them. */
 const WORDS = new Set(
@@ -193,6 +194,20 @@ const WORDS = new Set(
     'Audio call',
     'Video call',
     'View profile',
+    // Its Accounts Center, where Put these in changes the username and the name (decision 89).
+    'Accounts Center',
+    'Profiles',
+    'Personal details',
+    'Password and security',
+    'Username',
+    'Name',
+    'Done',
+    'Back',
+    'Cancel',
+    'Continue',
+    'Confirm',
+    'Change username',
+    'Change name',
   ].map((w) => w.toLowerCase()),
 );
 
@@ -239,19 +254,6 @@ const PATH_WORDS = new Set([
   'c',
 ]);
 
-/** Instagram's warnings, as its pages word them. */
-const WARNINGS: readonly RegExp[] = [
-  /\baction blocked\b/i,
-  /\btry again later\b/i,
-  /\bwe restrict certain activity\b/i,
-  /\bwe limit how often\b/i,
-  /\byour account (has been|was|is) (temporarily )?(locked|restricted|suspended|disabled)\b/i,
-  /\bwe suspect automated behavior\b/i,
-  /\b(confirm|verify) (it['’]s you|your identity|your account)\b/i,
-  /\bhelp us confirm\b/i,
-  /\bsuspicious (login|activity)\b/i,
-];
-
 const FOLLOW = /^(follow|follow back)$/i;
 const FOLLOWING = /^(following|requested|unfollow)$/i;
 const MESSAGE = /^message$/i;
@@ -261,8 +263,6 @@ const POST = /^post$/i;
 /** A chat's box to write in, as Message opens it. */
 const CHAT_BOX = /^(message|write a message)/i;
 const CLOSE_CHAT = /^(close|close chat|minimi[sz]e|minimi[sz]e chat)$/i;
-const BIO = /^bio$|^biography$|^pepbio$/i;
-const SUBMIT = /^(submit|save)$/i;
 
 /** The profile's own header: its name, its counts and its buttons. */
 const headerOf = (doc: Document): ParentNode => mainOf(doc).querySelector('header') ?? mainOf(doc);
@@ -305,7 +305,9 @@ async function closeChat(box: HTMLElement): Promise<boolean> {
 export const INSTAGRAM: LookingSite = {
   platform: 'instagram',
   name: 'Instagram',
-  hosts: ['https://www.instagram.com/*'],
+  // Its own Accounts Center too, where its tab changes the person's username and name (decision 89, from 0.94.0).
+  hosts: ['https://www.instagram.com/*', 'https://accountscenter.instagram.com/*'],
+  accountsCenter: 'instagram',
   // Its own readers (part 10): a profile, the person's followers, a post, a hashtag's and a place's posts, notifications,
   // messages and a chat, each counted in Check's notes so the next Check shows what they find on the real pages.
   readFound: readInstagram,
@@ -339,7 +341,7 @@ export const INSTAGRAM: LookingSite = {
   postOf,
   pathWords: PATH_WORDS,
   words: WORDS,
-  warnings: WARNINGS,
+  warnings: INSTAGRAM_WARNINGS,
   warnedAt: (url) =>
     partsOf(url)[0]?.toLowerCase() === 'challenge'
       ? 'Instagram is asking you to confirm it’s you before you go on.'
@@ -362,17 +364,16 @@ export const INSTAGRAM: LookingSite = {
     return null;
   },
   // Their own account, read for the AI's check, and the bio put in on its form (decision 80).
-  ownProfile: { read: readOwnProfile, writeBio },
+  ownProfile: { read: readOwnProfile, writeBio, writeBioSteps },
   looks: {
     // On their own profile's form: the bio's box and its Submit, neither written in nor pressed.
     bio: {
       on: ['edit-profile'],
+      // Found as Put these in finds them (./own-profile.ts), so the look and the bio's writer never disagree.
       look: (doc) => {
         const main = mainOf(doc);
-        const box =
-          boxesSaying(main, BIO)[0] ??
-          main.querySelector<HTMLElement>('textarea#pepBio, textarea[name="biography"]');
-        const submit = controlsSaying(main, SUBMIT, true);
+        const box = bioBoxOf(doc);
+        const submit = submitsOf(doc);
         return went(
           'bio',
           { box: Boolean(box), submit: submit.length },

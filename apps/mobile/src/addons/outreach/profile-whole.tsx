@@ -121,7 +121,8 @@ export function ProfileRestList({
         : null,
     [loaded.data, check, platform],
   );
-  // Who does each goes by the person's computer's build: an older one hands Facebook's username and links over.
+  // Who does each goes by the person's computer's build: one before 0.93.0 hands Facebook's username and links over,
+  // and one before 0.94.0 Facebook's name and Instagram's username and name (decision 89).
   const rows = known
     ? profileParts(platform, known, asks?.computer?.version).filter(
         (r) => ['username', 'name', 'links'].includes(r.part) && r.how !== 'tip',

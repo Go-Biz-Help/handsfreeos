@@ -31,6 +31,7 @@ import {
 } from '@hfos/core/addons/outreach/profile-check';
 import {
   checkedMore,
+  moreNamesRefused,
   noteOf,
   PROFILE_MORE_MAX_TOKENS,
   PROFILE_MORE_SCHEMA,
@@ -192,6 +193,7 @@ export const profileMore: AddonWorkerAction<ProfileMoreInput> = {
       );
     const note = noteOf(input.chips, input.note);
     const before = partWritten(check, input.part);
+    let wrote: string[];
     let options: string[];
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
@@ -216,10 +218,17 @@ export const profileMore: AddonWorkerAction<ProfileMoreInput> = {
         maxTokens: PROFILE_MORE_MAX_TOKENS,
         usage: { source: 'addon' as const, addonId: ctx.manifest.id },
       });
-      options = checkedMore(input.platform, input.part, value.options, before);
+      wrote = value.options;
+      options = checkedMore(input.platform, input.part, wrote, before);
     } catch (e) {
       throw aiFailure(e);
     }
+    // Only names the network won't take (Facebook's name standards): what to change, not to try again later.
+    const refused =
+      !options.length && input.part === 'name'
+        ? moreNamesRefused(input.platform, wrote, input.chips)
+        : null;
+    if (refused) throw HfosError.rule('outreach_name_not_taken', 422, refused);
     if (!options.length)
       throw HfosError.rule(
         'ai_failed',

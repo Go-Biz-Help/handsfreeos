@@ -47,6 +47,7 @@ import {
 import type { LiveBody } from './live';
 import { StartRefusedNote, useLiveProps } from './live';
 import { useNetworksOn } from './networks';
+import { PersonMenuScope } from './person-menu';
 import { GetReadyCard, useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
 import { useWaitingProps, WaitingBody } from './waiting';
@@ -66,6 +67,9 @@ import { useWaitingProps, WaitingBody } from './waiting';
  * below is its own (`outreach.today` with its `platform`). Pressing a network's name shows its list. Get ready is the
  * network shown's, and each other row's Start my day waits on its own readiness (its own playbook counts), with its
  * own words beside it.
+ *
+ * Every name under Needs you and on the list opens the person menu (decision 91, ./person-menu.tsx); a change there
+ * reloads both, so a card that should leave does.
  */
 export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) {
   const ctx = useOutreachContext();
@@ -90,6 +94,12 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
     `setup:${ctx.workspaceId}`,
     W.title,
   );
+  const reloadWaiting = waiting.onRetry;
+  const reloadToday = today.onRetry;
+  const reloadBoth = React.useCallback(() => {
+    reloadWaiting();
+    reloadToday();
+  }, [reloadWaiting, reloadToday]);
   const phone = waiting.phone;
   const shownOnce = React.useMemo(
     () => new Set([...phone.replies, ...phone.messages].map((s) => s.sendId)),
@@ -123,15 +133,22 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
         />
       ))}
       <GetReadyCard {...ready} />
-      <Part
-        title={count ? `${W.needsYou} · ${count.toLocaleString('en-US')}` : W.needsYou}
-        testID="today-needs-you"
+      <PersonMenuScope
+        workspaceId={ctx.workspaceId}
+        online={ctx.online}
+        writesContacts={ctx.writesContacts}
+        onChanged={reloadBoth}
       >
-        <WaitingBody {...waiting} embedded />
-      </Part>
-      <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
-        <TodayBody {...today} embedded hideSends={shownOnce} />
-      </Part>
+        <Part
+          title={count ? `${W.needsYou} · ${count.toLocaleString('en-US')}` : W.needsYou}
+          testID="today-needs-you"
+        >
+          <WaitingBody {...waiting} embedded />
+        </Part>
+        <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
+          <TodayBody {...today} embedded hideSends={shownOnce} />
+        </Part>
+      </PersonMenuScope>
       {askableOn(net, 'posts') && !runsOnItsOwn(net) ? <FindPosts platform={net} /> : null}
     </OutreachFrame>
   );

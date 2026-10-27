@@ -7,8 +7,10 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
+import { CLIENT_CAUSE_WORDS, CLIENT_TAG, type ClientCause } from '../../crm/record-words';
 import { clockWords } from './live';
 import type { PushMode } from './automation';
+import { DONT_PITCH_TAG } from './limits';
 import { READ_CHATS_WORDS } from './asks';
 import type { ChatView } from './chat-read';
 import type { GroupView } from './groups';
@@ -300,6 +302,8 @@ export const OUTREACH_WORDS = {
       body: 'Check the spelling and look again.',
     },
     openFacebook: 'Facebook',
+    /** Under the list with no signal: each row's switch waits for it, and its Facebook button doesn't. */
+    needsSignal: 'Taking someone off Never contact needs signal. Opening their page works now.',
   },
   /** The Settings menu's parts under More; General and the networks are `SETTINGS_WORDS`' (decision 73). */
   settingsParts: {
@@ -344,21 +348,76 @@ export const OUTREACH_WORDS = {
     along: 'Along the way',
   },
 
-  // ---- Someone kept as a profile: the person menu, on Today, Friends, Chats and Waiting for you ----
+  // ---- Someone kept as a profile: the person menu on their name (decision 91), wherever the app shows them ----
   person: {
     menu: (name: string) => `More for ${name}`,
-    /** The People tab's moves to another stage, first in the menu. */
+    /** What pressing the name does, for a screen reader (the name itself is the button's label). */
+    nameHint: 'Opens their page, Contacts, Client, Don’t pitch and more',
+    /** While the menu asks where they stand (`outreach.profile.marks`). */
+    loading: 'Checking where they stand…',
+    /** The People tab's moves to another stage, in the menu after opening their page. */
     moveTo: 'Move to',
     addToContacts: 'Add to Contacts',
     inContacts: 'In Contacts',
+    /** Mark as client (`outreach.client.set`): the Client tag on them in Contacts, and no more outreach. */
+    markClient: 'Mark as client',
+    notClient: 'Not a client after all',
+    /**
+     * Why they're a client, where the menu can't take it back: "A client in Contacts: they paid a bill"; with no cause
+     * of their own, a profile kept under the same name as a client on the same network.
+     */
+    clientLine: (cause: ClientCause | null) =>
+      cause
+        ? `A client in Contacts: ${CLIENT_CAUSE_WORDS[cause]}`
+        : 'Same name as a client in Contacts',
+    clientDone: (name: string) =>
+      `${name} is a client now. Nobody here sends them outreach, and their replies still come to Waiting for you.`,
+    clientOff: (name: string) =>
+      `${name} isn’t a client any more. Messages skipped when you marked them stay skipped.`,
+    /**
+     * Not a client after all, when they're still one: for Contacts' own reason, or, with none of their own, for the
+     * same name on this network as a client in Contacts (`clientSetWords` in ./person-menu.ts picks).
+     */
+    clientStill: (name: string, cause: ClientCause | null) =>
+      cause
+        ? `The ${CLIENT_TAG} tag is off ${name}, but Contacts still counts them a client: ${CLIENT_CAUSE_WORDS[cause]}. To change that, open them in Contacts.`
+        : `The ${CLIENT_TAG} tag is off ${name}, but they have the same name on this network as a client in Contacts, so Social Outreach still leaves them alone. To change that, open that client in Contacts.`,
+    /** The refusal when the person can't add and edit customers (`outreach_client_needs_contacts`). */
+    clientNeedsContacts: (name: string) =>
+      `Marking ${name} a client tags them in Contacts, and you can’t add and edit customers in this business. Ask an owner of this business to mark them, or to turn on Add and edit customers for you.`,
+    /**
+     * The refusal of an outreach message to a client (`outreach_client`), by why they're one: the Client tag (take it
+     * off in their menu), Contacts' own reason, or the same name as a client on the same network.
+     */
+    clientNoOutreach: (name: string, cause: ClientCause | null) =>
+      `${name} is a client, so Social Outreach doesn’t send them outreach. Their replies still come to Waiting for you. ${
+        cause === 'tagged'
+          ? 'To reach out again, choose Not a client after all in their menu.'
+          : cause
+            ? `Contacts counts them a client because ${CLIENT_CAUSE_WORDS[cause]}: to reach out again, change that in Contacts.`
+            : 'They have the same name on this network as a client in Contacts, so they’re left alone as the same person.'
+      }`,
     demoBooked: 'Demo booked',
     notDemo: 'Not a demo after all',
     dontPitch: 'Don’t pitch',
+    notDontPitch: 'Take off Don’t pitch',
     neverContact: 'Never contact',
     notNeverContact: 'Take off Never contact',
-    /** The phone's menu with no signal. */
-    needsSignal:
-      'Adding to Contacts, Demo booked, Don’t pitch and Never contact need signal. Try again when you’re back online.',
+    /** Who put them on a list, where only they or an owner or admin can take them off: "Riley Member put them on Never contact". */
+    putOnBy: (list: string, by: string | null) => (by ? `${by} put them on ${list}` : `On ${list}`),
+    /** Never pitched for their tag in Contacts, which only Contacts takes off. */
+    taggedFamily: `Tagged ${DONT_PITCH_TAG} in Contacts, so never pitched`,
+    /**
+     * The menu with no signal, by what it can open now: their page, their chat, or nothing, when the list doesn't know
+     * their page and where they stand can't be asked (`personMenuOfflineWords` in ./person-menu.ts picks).
+     */
+    needsSignal: (opens: 'page' | 'chat' | null) =>
+      `Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. ${
+        opens ? `Opening their ${opens} works now.` : 'Try again when you’re back online.'
+      }`,
+    /** Under a chat's own Don't pitch and Never contact switches with no signal. */
+    switchesNeedSignal:
+      'Don’t pitch and Never contact need signal. Try again when you’re back online.',
     added: (name: string) => `${name} is in Contacts now.`,
     already: (name: string) => `${name} was in Contacts already.`,
     tied: (name: string) => `${name} is tied to them in Contacts now.`,

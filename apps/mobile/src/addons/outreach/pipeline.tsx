@@ -29,14 +29,15 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { OutreachFrame } from './frame';
 import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
 import { NetworkFilter, NetworkName } from './networks';
-import { PersonMenu } from './person-menu';
+import { PersonMenuScope, PersonName } from './person-menu';
 
 /**
  * The pipeline on the phone (decision 47), as the web's Pipeline tab: everyone the person reached on Facebook by where
  * they stand, everyone still in play first or one stage at a time, searched by name, Show more for the next page. Each
  * opens in Messenger or on Facebook, and has the marks the web has: ready to pitch, pitched, not a fit, back in play
- * (`outreach.stage.mark`), and the person menu. Every network's people, each naming its network, or one network's.
- * It needs signal.
+ * (`outreach.stage.mark`); their name opens the person menu (./person-menu.tsx). Every network's people, each naming
+ * its network, or one network's. A client in Contacts (decision 91) shows as **Client**, with no moves. It needs
+ * signal.
  */
 
 export const stageViewOf = (show: string | undefined): StageView =>
@@ -92,27 +93,34 @@ export function PipelineScreen({ show, q }: { show?: string; q?: string }) {
     }
   };
   return (
-    <PipelineBody
-      view={view}
-      onView={setView}
-      net={net}
-      onNet={setNet}
-      search={search}
-      onSearch={setSearch}
-      pipeline={answer.data}
-      error={answer.error}
-      onRetry={answer.reload}
-      onMore={() => setPages((p) => p + 1)}
-      busy={busy}
-      onMark={(p, m) => void mark(p.profileId, p.name, m)}
-      menu={(p) => (
-        <PersonMenu workspaceId={ws} who={p} online={ctx.online} onChanged={answer.reload} />
-      )}
-    />
+    <PersonMenuScope
+      workspaceId={ws}
+      online={ctx.online}
+      writesContacts={ctx.writesContacts}
+      onChanged={answer.reload}
+    >
+      <PipelineBody
+        view={view}
+        onView={setView}
+        net={net}
+        onNet={setNet}
+        search={search}
+        onSearch={setSearch}
+        pipeline={answer.data}
+        error={answer.error}
+        onRetry={answer.reload}
+        onMore={() => setPages((p) => p + 1)}
+        busy={busy}
+        onMark={(p, m) => void mark(p.profileId, p.name, m)}
+      />
+    </PersonMenuScope>
   );
 }
 
 type Person = StagesOutput['people'][number];
+
+/** A stage's badge where it isn't the accent's: a client in Contacts is good news, Not a fit is grey. */
+const STAGE_BADGE: Partial<Record<Person['stage'], 'ok' | 'gray'>> = { client: 'ok', lost: 'gray' };
 
 export function PipelineBody({
   view,
@@ -127,7 +135,6 @@ export function PipelineBody({
   onMore,
   busy = null,
   onMark,
-  menu,
 }: {
   view: StageView;
   onView: (v: StageView) => void;
@@ -142,11 +149,16 @@ export function PipelineBody({
   onMore: () => void;
   busy?: string | null;
   onMark: (p: Person, m: StageMark) => void;
-  menu?: (p: Person) => React.ReactNode;
 }) {
   return (
     <OutreachFrame tab="people" people="pipeline" testID="outreach-pipeline">
-      <Note>{view === 'lost' ? STAGE_WORDS.lostNote : STAGE_WORDS.about}</Note>
+      <Note>
+        {view === 'lost'
+          ? STAGE_WORDS.lostNote
+          : view === 'client'
+            ? STAGE_WORDS.clientNote
+            : STAGE_WORDS.about}
+      </Note>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-1.5">
           {STAGE_VIEW_KEYS.map((k) => (
@@ -175,15 +187,22 @@ export function PipelineBody({
           <>
             {pipeline.people.map((p) => (
               <Card key={p.profileId} className="gap-1.5 px-4 py-3.5" testID="pipeline-person">
-                <View className="flex-row items-center gap-2">
-                  <View className="min-w-0 flex-1 flex-row flex-wrap items-center gap-2">
-                    <Text className="text-[15px] font-semibold">{p.name}</Text>
-                    <NetworkName platform={p.platform} />
-                    <Badge variant={p.stage === 'lost' ? 'gray' : 'accent'}>
-                      <Text>{STAGES[p.stage]}</Text>
-                    </Badge>
-                  </View>
-                  {menu?.(p)}
+                <View className="flex-row flex-wrap items-center gap-2">
+                  <PersonName
+                    who={{
+                      profileId: p.profileId,
+                      name: p.name,
+                      url: p.url,
+                      platform: p.platform,
+                      threadKey: p.threadKey,
+                      personId: p.personId,
+                      demoBooked: p.demoBooked,
+                    }}
+                  />
+                  <NetworkName platform={p.platform} />
+                  <Badge variant={STAGE_BADGE[p.stage] ?? 'accent'} testID="pipeline-stage">
+                    <Text>{STAGES[p.stage]}</Text>
+                  </Badge>
                 </View>
                 {p.why.length ? <Note>{p.why.join(' · ')}</Note> : null}
                 {p.nextStep ? <Note>{`${W.nextStepLabel}: ${p.nextStep}`}</Note> : null}

@@ -10,6 +10,7 @@ import { AskShown } from './asks';
 import { clipLine } from './live';
 import { PUSH_MODE_KEYS, WheelsState, WorkingHours } from './automation';
 import { FIT_LEVEL_KEYS } from './fit';
+import { PLATFORM_KEYS } from './networks';
 import { Send } from './sends';
 import {
   NEED_CLEARS,
@@ -37,7 +38,12 @@ export const WaitingNeed = z.object({
   profileId: z.uuid(),
   postId: z.uuid().nullable(),
   sendId: z.uuid().nullable(),
-  /** Who, and where to do it: their profile, or the post. */
+  /** The network it's on: their profile's. Its words and its link are that network's. */
+  platform: z.enum(PLATFORM_KEYS),
+  /**
+   * Who, and where to do it, on their network: the post, the chat, or else their page there (`needUrlOf`). Null only
+   * for one whose profile has no address on its network.
+   */
   name: z.string(),
   url: z.string().nullable(),
   /** Why it couldn't, in the extension's words. */
@@ -105,6 +111,7 @@ export const NeedNoteInput = z.object({
   profileId: z.uuid(),
   postId: z.uuid().nullable().default(null),
   name: z.string().trim().min(1).max(200),
+  /** Where to do it: kept when it's on their profile's network, else their page there is, never refused. */
   url: z.string().trim().max(500).nullable().default(null),
   /** Why, in the extension's words: cut short, never refused. */
   why: z

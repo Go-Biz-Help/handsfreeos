@@ -744,8 +744,19 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
         search: searchInstagram,
       });
     case 'posts':
+      // A page with no posts, or a post it couldn't read, is noted with its outline (decision 74).
       return lookAtTagsAndPlaces(
-        job,
+        {
+          ...job,
+          report:
+            job.report ??
+            reporter(job.tab, job.hfos, {
+              businessId: job.businessId,
+              platform: PLATFORM,
+              askId: null,
+              job: 'posts',
+            }),
+        },
         valueOf(
           await job.hfos({
             type: 'hfos-post-words',

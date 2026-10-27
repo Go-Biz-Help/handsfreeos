@@ -23,10 +23,11 @@ import {
   readTheirPosts,
   MESSAGE_PATH,
   sameRef,
+  withTheirName,
   writeComment,
   writeMessage,
 } from '../src/networks/facebook/auto';
-import { doPath, doStep, type FetchStep } from '../src/networks/facebook/fetch';
+import { doPath, doStep, findStep, type FetchStep } from '../src/networks/facebook/fetch';
 import { readPage } from '../src/networks/facebook/page';
 import { load } from './load';
 
@@ -243,6 +244,75 @@ describe('pressing on a profile', () => {
     expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.before);
     walk(doc, AUTO_PLANS.friend_request.path, AUTO_PLANS.friend_request.then);
     expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.after);
+  });
+
+  it('sends one when Add friend’s label has their name after it, never under someone else’s', () => {
+    // From October 2026: "Add Friend Dana Reyes" for screen readers, "Add friend" to see.
+    const doc = load('profile-2026.html', URL);
+    const name = readPage(doc, URL).profile!.name!;
+    const button = standing(doc);
+    const label = (aria: string, words: string) => {
+      button.setAttribute('aria-label', aria);
+      [...button.querySelectorAll('span')].at(-1)!.textContent = words;
+    };
+    label('Add Friend Sam Lee', 'Add friend');
+    expect(readPage(doc, URL).profile?.friendship).toBe('unknown');
+    label(`Add Friend ${name}`, 'Add friend');
+    button.addEventListener('click', () => label(`Cancel request ${name}`, 'Cancel request'));
+    expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.before);
+    expect(() => walk(doc, AUTO_PLANS.friend_request.path, [])).toThrow(/Add friend/);
+    walk(
+      doc,
+      withTheirName(AUTO_PLANS.friend_request.path, [name, null]),
+      AUTO_PLANS.friend_request.then,
+    );
+    expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.after);
+  });
+
+  it('takes their name whole or without its nickname, never a name that only holds theirs or is held in it', () => {
+    const doc = load('profile-2026.html', URL);
+    const button = standing(doc);
+    const label = (aria: string) => {
+      button.setAttribute('aria-label', aria);
+      [...button.querySelectorAll('span')].at(-1)!.textContent = 'Add friend';
+    };
+    const friendship = () => readPage(doc, URL).profile?.friendship;
+    // Dana Reyes's: a relative's, or names inside hers, are someone else's.
+    for (const other of ['Dana Reyes Jr.', 'Ana', 'Dana', 'Reyes']) {
+      label(`Add Friend ${other}`);
+      expect(friendship()).toBe('unknown');
+      expect(
+        findStep(doc, withTheirName(AUTO_PLANS.friend_request.path, ['Dana Reyes'])[0]!),
+      ).toBeNull();
+    }
+    // Shown with a nickname, and labelled without it.
+    doc.title = '(3) Dana Reyes (Dee) | Facebook';
+    doc.querySelector('[role="main"] span[dir="auto"] > [role="button"] > span')!.textContent =
+      'Dana Reyes (Dee)';
+    expect(readPage(doc, URL).profile?.name).toBe('Dana Reyes (Dee)');
+    label('Add Friend Dana Reyes');
+    expect(friendship()).toBe('not_friends');
+    expect(
+      findStep(doc, withTheirName(AUTO_PLANS.friend_request.path, ['Dana Reyes (Dee)'])[0]!),
+    ).toBe(button);
+  });
+
+  it('presses their own Add friend before a plain one under People you may know', () => {
+    const doc = load('profile-2026.html', URL);
+    const button = standing(doc);
+    button.setAttribute('aria-label', 'Add Friend Dana Reyes');
+    [...button.querySelectorAll('span')].at(-1)!.textContent = 'Add friend';
+    const theirs = doc.createElement('div');
+    theirs.setAttribute('role', 'button');
+    theirs.textContent = 'Add friend';
+    doc.querySelector('[role="main"]')!.append(theirs);
+    let pressed = '';
+    button.addEventListener('click', () => (pressed = 'hers'));
+    theirs.addEventListener('click', () => (pressed = 'someone else’s'));
+    expect(
+      'at' in doPath(doc, withTheirName(AUTO_PLANS.friend_request.path, ['Dana Reyes']), 0),
+    ).toBe(true);
+    expect(pressed).toBe('hers');
   });
 
   it('confirms a request through Respond’s menu, and the profile reads as friends after', () => {

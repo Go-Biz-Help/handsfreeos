@@ -725,6 +725,8 @@ export const PARTNER_WORDS = {
     'People who could send you customers, from your Partners list. Each message to them waits for your OK, one at a time.',
   /** Why a partner's message waits for its own OK (../sends.ts `needsYou`). */
   needsYou: 'it’s a message to a partner',
+  /** Under the list with no signal: the marks wait for it, and each row's Open button doesn't. */
+  needsSignal: 'Marking partners needs signal. Opening their page works now.',
   /** Why a partner's step is on Today, in a line. */
   todayWhy: (kind: PartnerKind, audience: string | null) =>
     audience ? `${PARTNER_KINDS[kind]}: ${audience}` : PARTNER_KINDS[kind],
