@@ -15,7 +15,7 @@
 import { COMMENT_BOX, hasWriting, MESSAGE_BOX, REPLY_BOX, SEND, WRITING } from './actions';
 import { conversationWith, isConversation, readChat } from './chat';
 import { clean, inTopBar, isAfter, labelOf, textWithEmoji } from './dom';
-import { shown, stepOnPage, type FetchStep } from './fetch';
+import { findStep, shown, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
 import { COMMENT, LIKE, postBoxes, readPost } from './posts';
 import type { TidyPlan } from './tidy';
@@ -450,8 +450,8 @@ const linkedIn = (links: Iterable<Element>) => peopleLinked(links, FACEBOOK);
  * key HandsFreeOS keeps too, by number or by username. Else, only for a window that opened on their profile's
  * Message (`fresh`), `name`: the header links to them by the other kind of key, or to nobody, with one of the names
  * Facebook showed for them (on its links, else its heading, else its messages' label), and nothing else in the window
- * outside its messages and its box links to someone else. Null when it shows neither, or its box's own label names
- * someone else.
+ * outside its messages and its part to write in links to someone else. Null when it shows neither, or its box's own
+ * label names someone else.
  */
 function windowProof(
   box: Element,
@@ -476,23 +476,52 @@ function windowProof(
       ? linked.map((person) => person.name)
       : [heading ?? (messages ? conversationWith(messages) : null)];
   if (!shownAs.every((name) => name !== null && namedAs(name, names))) return null;
+  const composer = composerOf(chatWindow, close, box, messages);
   const elsewhere = linkedIn(
     [...chatWindow.querySelectorAll('a[href]')].filter(
-      (link) => !messages?.contains(link) && !box.contains(link),
+      (link) => !messages?.contains(link) && !composer.contains(link),
     ),
   );
   return elsewhere.some((person) => sameByKey(person.profile, them) === false) ? null : 'name';
 }
 
 /**
- * The chats open on a page just before the extension pressed their profile's Message (`openMessage`): the boxes to
- * write in then, and every name their windows showed. Facebook keeps the windows of earlier chats open from page to
- * page, and any of them may be someone else's with their name.
+ * A chat window's part to write in: the widest box around its box to write in that holds neither its Close chat nor
+ * its messages. What's typed is there, and the preview Facebook draws of a link typed (a business's own Page, say).
+ */
+function composerOf(
+  chatWindow: Element,
+  close: Element,
+  box: Element,
+  messages: Element | null,
+): Element {
+  let composer = box;
+  for (
+    let up = box.parentElement;
+    up && up !== chatWindow && !up.contains(close) && !(messages && up.contains(messages));
+    up = up.parentElement
+  )
+    composer = up;
+  return composer;
+}
+
+/**
+ * The chats open on a page as the extension pressed their profile's Message (`openMessage`): the boxes to write in
+ * then, and every name their windows showed. Facebook keeps the windows of earlier chats open from page to page, and
+ * any of them may be someone else's with their name.
  */
 export interface ChatsBefore {
   readonly doc: Document;
   readonly boxes: ReadonlySet<Element>;
   readonly names: readonly string[];
+  /**
+   * Where the cursor went first after Message was pressed, in a box to write in that wasn't open before: the chat
+   * Message opened, as Facebook puts the cursor in it. A window that pops up for a message coming in doesn't take it.
+   * Null till it goes there.
+   */
+  readonly cursor: () => Element | null;
+  /** The box the message's last text went into, for its next one. */
+  sentIn: HTMLElement | null;
 }
 
 /** The names a chat window shows: on its links, its headings, its messages' label and its box's label. */
@@ -524,31 +553,68 @@ function windowAround(close: Element, main: Element): Element {
   return chatWindow;
 }
 
-/** The chats open over the page now: noted just before their profile's Message is pressed. */
+/** The chats open over the page now: noted as their profile's Message is pressed. */
 export function chatsOpen(doc: Document): ChatsBefore {
   const main = mainOf(doc);
   const names = new Set<string>();
   for (const close of closesIn(doc.body))
     if (!main.contains(close))
       for (const name of namesIn(windowAround(close, main))) names.add(name);
-  return { doc, boxes: new Set(doc.querySelectorAll(WRITING)), names: [...names] };
+  return {
+    doc,
+    boxes: new Set(doc.querySelectorAll(WRITING)),
+    names: [...names],
+    cursor: () => null,
+    sentIn: null,
+  };
 }
 
 /**
- * Presses Message on their profile, once the chats open before it are noted: whether it could, and those chats, for
+ * Watches, from just before Message is pressed, for where the cursor goes first in a place to write that's in none
+ * of the boxes open before: there, once it goes. Chrome may not say the cursor moved while the window isn't in front,
+ * so where it is is looked at too, each time it's asked, till it's gone somewhere.
+ */
+function cursorAfter(doc: Document, open: ReadonlySet<Element>): () => Element | null {
+  let first: Element | null = null;
+  function take(at: Element | null): void {
+    if (first || typeof at?.closest !== 'function' || !at.closest(WRITING)) return;
+    if ([...open].some((box) => box.contains(at))) return;
+    first = at;
+    doc.removeEventListener('focusin', went, true);
+  }
+  function went(event: Event): void {
+    take(event.target as Element | null);
+  }
+  doc.addEventListener('focusin', went, true);
+  return () => {
+    take(doc.activeElement);
+    return first;
+  };
+}
+
+/** How often their profile's Message is looked for again while Facebook draws it. */
+const LOOK_AGAIN_MS = 300;
+
+/**
+ * Presses Message on their profile, noting the chats open just then, in the same moment (one drawn while Message was
+ * looked for was open before it), and watching where the cursor goes after: whether it could, and those chats, for
  * `writeMessage`. A window open before it is theirs only by a link to them by key, never by a name.
  */
 export async function openMessage(
   doc: Document,
 ): Promise<{ readonly pressed: boolean; readonly before: ChatsBefore }> {
-  const before = chatsOpen(doc);
-  const { result } = await stepOnPage(doc, {
-    type: 'hfos-fetch-path',
-    steps: MESSAGE_PATH,
-    from: 0,
-    waitMs: MESSAGE_WAIT_MS,
-  });
-  return { pressed: result === 'done', before };
+  const until = Date.now() + MESSAGE_WAIT_MS;
+  for (;;) {
+    const message = findStep(doc, MESSAGE_PATH[0]!) as HTMLElement | null;
+    if (message) {
+      const before = chatsOpen(doc);
+      const cursor = cursorAfter(doc, before.boxes);
+      message.click();
+      return { pressed: true, before: { ...before, cursor } };
+    }
+    if (Date.now() >= until) return { pressed: false, before: chatsOpen(doc) };
+    await pause(LOOK_AGAIN_MS);
+  }
 }
 
 /**
@@ -557,7 +623,8 @@ export async function openMessage(
  * that links to them by key, else the one that shows it's theirs by name: Facebook keeps the windows of earlier chats
  * open from page to page, and a new one may draw its box after them, or before. A chat counts by name only with the
  * chats open before their profile's Message was pressed (`before`, on this page), only when it opened on it, and only
- * when none open before showed their name. Null when there's none, or more than one: never another box.
+ * when none open before showed their name; a window, only when it's where the cursor went first after the press, as
+ * one popping up for a message coming in isn't. Null when there's none, or more than one: never another box.
  */
 export function messageBoxFor(
   doc: Document,
@@ -580,9 +647,16 @@ export function messageBoxFor(
     if (own.length !== 1 || !boxAgrees(own[0]!, [...names, chat.name])) return null;
     return chatIsThem(chat.profile, chat.name, them, names, fresh(own[0]!)) ? own[0]! : null;
   }
+  const opened = (box: Element) => {
+    const cursor = pressed?.cursor() ?? null;
+    return cursor !== null && box.contains(cursor);
+  };
   const proofs = messageBoxes(doc)
     .filter((box) => !main.contains(box))
-    .map((box) => ({ box, proof: windowProof(box, main, them, names, fresh(box)) }));
+    .map((box) => ({
+      box,
+      proof: windowProof(box, main, them, names, fresh(box) && opened(box)),
+    }));
   // A link to them by key outweighs a name.
   const keyed = proofs.filter(({ proof }) => proof === 'key');
   if (keyed.length > 0) return keyed.length === 1 ? keyed[0]!.box : null;
@@ -603,10 +677,11 @@ export interface MessageWrote {
 /**
  * Writes a message in their chat, and sends it (decisions 26 and 27): waits a few seconds for their chat's box, types
  * it there, presses the button that sends it (or Enter), and waits for the box to empty. It waits the whole time for a
- * chat that links to them by key, and takes one by name only after. A box with writing in it already is left alone:
- * the person may be writing there. Nothing is typed unless the focus is in their box, and nothing is sent unless,
- * once typed, it's still their chat's box and no other box took the writing; else what was typed is taken out again,
- * of every box it went in (`not_theirs`), and where it can't be, that's said (`left`).
+ * chat that links to them by key, and takes one by name only after, unless the message's text before went into that
+ * same box. A box with writing in it already is left alone: the person may be writing there. Nothing is typed unless
+ * the focus is in their box, and nothing is sent unless, once typed, it's still their chat's box and no other box took
+ * the writing; else what was typed is taken out again, of every box it went in (`not_theirs`), and where it can't be,
+ * that's said (`left`).
  */
 export async function writeMessage(
   doc: Document,
@@ -620,14 +695,17 @@ export async function writeMessage(
   const here = () => doc.location?.href ?? href;
   const byKey = () => messageBoxFor(doc, here(), them, names);
   const theirs = () => messageBoxFor(doc, here(), them, names, before);
-  let box = byKey();
+  const last = before?.doc === doc ? before.sentIn : null;
+  let box = byKey() ?? (last && theirs() === last ? last : null);
   for (let wait = 0; !box && wait < 10; wait++) {
     await pause(500);
     box = byKey();
   }
   box ??= theirs();
   if (!box) return { result: 'none' };
-  return typeAndSend(doc, box, text, theirs);
+  const wrote = await typeAndSend(doc, box, text, theirs);
+  if (wrote.result === 'done' && before?.doc === doc) before.sentIn = box;
+  return wrote;
 }
 
 /** Whether the focus is in a box: on it, or on something inside it. */
@@ -643,6 +721,9 @@ function takeOut(doc: Document, box: HTMLElement): boolean {
   }
   return !hasWriting(box);
 }
+
+/** Writing without its spaces and line breaks, as a box may keep a text's lines apart. */
+const squash = (text: string) => clean(text).replace(/\s/g, '');
 
 /** The part of a box's text from one place to another, as a range on the page. */
 function rangeIn(box: Element, from: number, to: number): Range | null {
@@ -718,19 +799,27 @@ async function typeAndSend(
   doc.execCommand('insertText', false, text);
   await pause(800);
   if (theirs) {
+    // A box drawn while it typed (another chat's window opening, with what the person wrote there before) took the
+    // writing only when what was typed is in it.
+    const typed = squash(text);
+    const tookIt = (other: Element) => {
+      const was = before.get(other);
+      return was ? textWithEmoji(other) !== was.said : squash(textWithEmoji(other)).includes(typed);
+    };
     const elsewhere = [...doc.querySelectorAll<HTMLElement>(WRITING)].filter(
-      (other) =>
-        other !== box &&
-        !other.contains(box) &&
-        !box.contains(other) &&
-        textWithEmoji(other) !== (before.get(other)?.said ?? ''),
+      (other) => other !== box && !other.contains(box) && !box.contains(other) && tookIt(other),
     );
     if (elsewhere.length > 0 || (hasWriting(box) && theirs() !== box)) {
-      // Taken out of every box it went in; one with the person's own writing keeps theirs. One it can't be is said.
+      // Taken out of every box it went in; one with the person's own writing keeps theirs. One it can't be is said,
+      // as is one drawn while it typed that holds more than what was typed: never wiped.
       let left: { readonly with: string | null } | undefined;
       for (const other of [...elsewhere, ...(hasWriting(box) ? [box] : [])]) {
         const was = before.get(other);
-        const out = was?.said ? takeOutTyped(doc, other, was.text) : takeOut(doc, other);
+        const out = !was
+          ? squash(textWithEmoji(other)) === typed && takeOut(doc, other)
+          : was.said
+            ? takeOutTyped(doc, other, was.text)
+            : takeOut(doc, other);
         if (!out) left ??= { with: WRITES_TO.exec(boxLabel(other))?.[1] ?? null };
       }
       return { result: 'not_theirs', ...(left ? { left } : {}) };

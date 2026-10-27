@@ -164,6 +164,9 @@ const { NETWORKS_KEY } = await import('../src/networks/on');
 const { INSTAGRAM_STATE_KEY } = await import('../src/auto/plan');
 const { WARNED_KEY } = await import('../src/hfos/warned');
 const { beforeDayDoing, beforeDayLine } = await import('../src/auto/lists');
+const { chatBoxFor } = await import('../src/networks/instagram/auto');
+const { readInstagram } = await import('../src/networks/instagram/read');
+const { JSDOM } = await import('jsdom');
 
 const store = new Map<string, unknown>();
 const alarms = new Map<string, number>();
@@ -863,6 +866,39 @@ describe('a message on Instagram', () => {
         opens ? [{ to: 'Dana Reyes', text: 'Glad to help, Dana.\n\nWant the details?' }] : [],
       );
       expect(group!.textContent).toBe('');
+    }
+  });
+
+  it('never types into a group chat on its own page, kept as theirs, though only their picture in it links to anyone', async () => {
+    // The chat kept for Dana (it was read as hers) is the group's, on its page; her own chat there sends.
+    const own = (chat: string) =>
+      `${MENU}<main>${chat.replace('<div role="dialog">', '<div>')}</main>`;
+    for (const chat of [BOOK_CLUB, DANAS]) {
+      world.pages = (url) => (url === DANA_CHAT ? { html: own(chat) } : null);
+      const sent: { to: string; text: string }[] = [];
+      world.behave = (doc) => sendsOwn(doc, sent);
+      world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+      const outcome = await doWork(
+        { do: 'send', item: approved({ send: { ...approved().send!, text: 'Just for you.' } }) },
+        ME.businessId,
+        true,
+      );
+      if (chat === DANAS) {
+        expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+        expect(sent).toEqual([{ to: 'Dana Reyes', text: 'Just for you.' }]);
+        continue;
+      }
+      expect(outcome).toEqual({
+        done: false,
+        line: 'Dana Reyes: Instagram showed a different chat',
+      });
+      expect(sent).toEqual([]);
+      // Nor is it read as hers, for Read my chats to keep, or typed into should the tab be there.
+      const doc = new JSDOM(own(chat), { url: DANA_CHAT }).window.document;
+      expect(readInstagram(doc, DANA_CHAT).chat?.with).toBeNull();
+      expect(
+        chatBoxFor(doc, DANA_CHAT, { id: null, username: 'dana.reyes', url: DANA }),
+      ).toBeNull();
     }
   });
 

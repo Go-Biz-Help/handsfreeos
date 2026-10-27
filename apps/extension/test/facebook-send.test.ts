@@ -212,9 +212,9 @@ function messenger(sent: Sent[], name = 'Dana Reyes'): Document {
 }
 
 /**
- * Dana's profile (at her username, unless `at` says otherwise), whose Message opens her chat window (or nothing, or
- * takes the tab to her chat in Messenger), with Riley's left open over it (or not), and another Dana Reyes's, linking
- * to nobody (or not).
+ * Dana's profile (at her username, unless `at` says otherwise), whose Message opens her chat window with the cursor in
+ * its box, as Facebook's does (or nothing, or takes the tab to her chat in Messenger), with Riley's left open over it
+ * (or not), and another Dana Reyes's, linking to nobody (or not).
  */
 function danaProfile(
   sent: Sent[],
@@ -238,8 +238,10 @@ function danaProfile(
   doc.querySelector('[role="button"][aria-label="Message"]')!.addEventListener('click', () => {
     if (o.opens === 'messenger') world.doc = messenger(sent);
     if (o.opens !== true) return;
-    layer.append(chatWindow(doc, 'Dana Reyes', '/dana.reyes.12/'));
+    const hers = chatWindow(doc, 'Dana Reyes', '/dana.reyes.12/');
+    layer.append(hers);
     sends(doc, sent);
+    hers.querySelector<HTMLElement>('[role="textbox"]')!.focus();
   });
   return doc;
 }
@@ -348,6 +350,33 @@ describe('sending a message on Facebook', () => {
         thread: { id: THREAD_KEY },
       });
     }
+  });
+
+  it('sends in Messenger when their profile’s Message takes the tab there and the chat draws a while after', async () => {
+    // Kept by username; Messenger shows its address at once, and draws the chat, linking to her by number, 3 seconds on.
+    const sent: Sent[] = [];
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = danaProfile(sent, { opens: false, rileyOpen: true });
+      doc.querySelector('[role="button"][aria-label="Message"]')!.addEventListener('click', () => {
+        const chat = messenger(sent);
+        const main = chat.querySelector('[role="main"]')!;
+        const drawn = [...main.childNodes];
+        main.replaceChildren();
+        setTimeout(() => main.append(...drawn), 3_000);
+        world.doc = chat;
+      });
+      return doc;
+    };
+    expect(await send(approved({ kind: 'opener', threadKey: null }))).toEqual({
+      done: true,
+      line: 'Sent Dana Reyes a message',
+    });
+    expect(sent).toEqual([{ to: 'Message Dana Reyes', text: 'Glad to help, Dana.' }]);
+    expect(noted()).toMatchObject({
+      to: { profile: { id: THREAD_KEY, username: 'dana.reyes.12' } },
+      thread: { id: THREAD_KEY },
+    });
   });
 
   it('sends nothing when their profile’s Message takes the tab to a chat with someone else’s name', async () => {

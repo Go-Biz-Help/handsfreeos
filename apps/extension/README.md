@@ -1275,7 +1275,8 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   sends nothing when there's none (`messageBoxFor`): a chat that links to a profile counts only by a key HandsFreeOS
   keeps too, their number or their username, never by a name someone else may share; a small chat window goes by its
   own header, the part around its **Close chat**, and one that links to nobody by the name Facebook showed for them,
-  only when it opened as their **Message** was pressed and no chat open before showed a name that may be theirs.
+  only when it opened as their **Message** was pressed, Facebook put the cursor in its box then (a window that pops up
+  for a message coming in doesn't take it), and no chat open as it was pressed showed a name that may be theirs.
   Messenger's chat links by number, so for someone kept by username it opens their profile's **Message** instead,
   and when that takes the tab to their chat in Messenger, it takes their number from it once it shows their name.
   Just before sending it checks again that the box is still theirs and no other box took the writing, and if not

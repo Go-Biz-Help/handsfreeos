@@ -129,6 +129,9 @@ export const AUTO_ALARM = 'hfos-auto';
 
 /** While Facebook draws what a press opened. */
 const SETTLE_MS = 1_500;
+/** Messenger's page after Message, read again this often, this many times at most, till its chat shows who it's with. */
+const CHAT_LOOK_MS = 500;
+const CHAT_LOOKS = 8;
 /** How long a button is looked for; the box asking to be sure, less. */
 const WAIT_MS = 8_000;
 const WAIT_OPTIONAL_MS = 3_000;
@@ -696,7 +699,12 @@ async function openChat(
       outcome: { done: false, line: `${item.name}: couldn’t find “Message” on their profile` },
     };
   await pause(SETTLE_MS);
-  const page = await read();
+  let page = await read();
+  // On Messenger's page, the chat may draw a while after its address shows: read again till it shows who it's with.
+  for (let look = 0; page.kind === 'chat' && !page.chat?.profile && look < CHAT_LOOKS; look++) {
+    await pause(CHAT_LOOK_MS);
+    page = await read();
+  }
   const stop = await warnedOn(page, businessId);
   if (stop) return { outcome: { stop } };
   const name = opened.page.profile!.name;

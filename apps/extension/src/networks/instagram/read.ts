@@ -901,12 +901,16 @@ export function chatOn(doc: Document, base: string, own: string | null): ChatOpe
     );
   const rows = outer('[role="row"]');
   const messages = rows.length ? rows : outer('[role="article"]');
-  // Who it's with: the one account other than the person's own its page links to (its header, View profile, their
-  // picture beside their messages), never one a message shares a post of.
+  const box = main.querySelector(
+    '[role="textbox"], [contenteditable="true"], textarea[placeholder], textarea[aria-label]',
+  );
+  const writeIn = box && !inList(box) ? box : null;
+  // Who it's with: the one account other than the person's own its header links to, never one its messages do: a
+  // post one shares, or the picture beside a run of someone's, which in a group chat may be any of its people.
   const accounts = new Map<string, Account>();
   for (const { a, url } of linksIn(main, base)) {
     const account = profileOf(url);
-    if (!account || inList(a) || a.closest('[role="article"]')) continue;
+    if (!account || inList(a) || withMessages(a, main, writeIn)) continue;
     if (account.username.toLowerCase() !== own?.toLowerCase())
       accounts.set(account.username.toLowerCase(), account);
   }
@@ -923,9 +927,6 @@ export function chatOn(doc: Document, base: string, own: string | null): ChatOpe
     clean(header?.textContent) ||
     them?.username ||
     null;
-  const box = main.querySelector(
-    '[role="textbox"], [contenteditable="true"], textarea[placeholder], textarea[aria-label]',
-  );
   // Which side a message sits on is against the conversation itself: the part around its messages and its box, never
   // the list of chats beside it.
   const conversation =
@@ -949,6 +950,25 @@ export function chatOn(doc: Document, base: string, own: string | null): ChatOpe
     box: box !== null,
     request: says(main, ACCEPT),
   };
+}
+
+/** A chat's messages: Instagram's rows, or in its newer layout, its articles. */
+const MESSAGE_PARTS = '[role="row"], [role="article"]';
+
+/**
+ * Whether a link on a chat's own page sits with its messages: in one, or in a part around some short of the main
+ * column that doesn't hold the box to write in, as a run of someone's messages is, with their picture beside it, and
+ * the list of them is. The chat's header, beside the list, is in none; with no box to tell them apart, every part
+ * around messages counts.
+ */
+function withMessages(link: Element, main: Element, box: Element | null): boolean {
+  for (let up: Element | null = link; up && up !== main; up = up.parentElement)
+    if (
+      up.matches(MESSAGE_PARTS) ||
+      (!(box && up.contains(box)) && up.querySelector(MESSAGE_PARTS) !== null)
+    )
+      return true;
+  return false;
 }
 
 /** The nearest part of the page holding all of these, when there are any. */
