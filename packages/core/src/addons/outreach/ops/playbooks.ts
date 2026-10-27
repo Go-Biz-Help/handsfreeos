@@ -1,6 +1,8 @@
 /**
  * Social Outreach's playbooks (docs/outreach.md): everyone using the add-on reads them, and owners and admins
- * (`outreach.manage`) write them. A playbook is archived rather than deleted, and can come back.
+ * (`outreach.manage`) write them. A playbook is archived rather than deleted, and can come back. The AI writes each
+ * network's own words on a customers' playbook once (`outreach.playbook.words`, decision 92), never over the
+ * person's.
  */
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
@@ -12,7 +14,10 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import {
   blankPlaybook,
+  FIND_WORDS_PARTS,
+  forPartners,
   Playbook as PlaybookOut,
+  PlaybookDetails as PlaybookDetailsSchema,
   followUpGapsFor,
   paceOf,
   PLAYBOOK_KEPT_KEYS,
@@ -28,6 +33,7 @@ import {
 } from '../playbooks';
 import { hashtagOf } from '../posts';
 import { playbooks } from '../tables';
+import { cleanFindWords, PlaybookWordsInput, PlaybookWordsOutput, wordsDue } from '../topics';
 import { inWorkspace, type Ctx } from './common';
 
 const playbookOut = (p: typeof playbooks.$inferSelect): z.input<typeof PlaybookOut> => ({
@@ -254,5 +260,77 @@ export const playbookArchive = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const playbookCommands = [playbookSave, playbookArchive] as const;
+export const playbookWords = defineAddonCommand(outreachAddon, {
+  name: 'outreach.playbook.words',
+  description:
+    'Worker: the AI’s words for each network a customers’ playbook runs on: hashtags to look at on Instagram, phrases to search LinkedIn’s posts with, and kinds of business to search for on Alignable, with whether the business works with these clients online. A list is filled only while it’s empty and the AI hasn’t written it before, so the person’s own words, and a list they emptied, stay as they are; works online only while nobody has said.',
+  risk: 0,
+  input: PlaybookWordsInput,
+  output: PlaybookWordsOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  // Never `outreach.playbook.saved`: that is what asks for the words, so the AI's writing can't ask again.
+  emits: ['outreach.playbook.words_written'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [was] = await ctx.tx
+      .select()
+      .from(playbooks)
+      .where(and(eq(playbooks.id, input.playbookId), eq(playbooks.workspaceId, ws)))
+      .for('update');
+    if (!was)
+      throw HfosError.notFound(
+        'That playbook isn’t there anymore. Refresh the page to see the ones there are.',
+      );
+    const read = PlaybookDetailsSchema.safeParse(upgradePlaybookDetails(was.details));
+    // One that doesn't read as a playbook now is left for the person to save again.
+    if (!read.success) return { written: [], worksOnline: null };
+    const d = read.data;
+    if (forPartners(d))
+      throw HfosError.rule(
+        'outreach_playbook_partner_words',
+        409,
+        `“${was.name}” is a partner playbook, so it has no hashtags, post searches or kinds of business of its own: its partner searches go with its words for groups.`,
+      );
+    const unchanged = { written: [], worksOnline: d.worksOnline ?? null };
+    if (was.archivedAt) return unchanged;
+    // Only a list still empty that the AI hasn't written, on a network the playbook runs on.
+    const written: WordsPlatform[] = [];
+    const lists: Partial<Record<(typeof FIND_WORDS_PARTS)[WordsPlatform], string[]>> = {};
+    for (const platform of wordsDue(d).networks) {
+      const part = FIND_WORDS_PARTS[platform];
+      const lines = cleanFindWords(platform, input[part] ?? []);
+      if (!lines.length) continue;
+      lists[part] = lines;
+      written.push(platform);
+    }
+    const online =
+      (d.worksOnline ?? null) === null && input.worksOnline !== undefined
+        ? input.worksOnline
+        : null;
+    if (!written.length && online === null) return unchanged;
+    const details: PlaybookDetails = {
+      ...d,
+      ...lists,
+      worksOnline: online ?? d.worksOnline ?? null,
+      wordsWritten: WORDS_PLATFORM_KEYS.filter(
+        (p) => (d.wordsWritten ?? []).includes(p) || written.includes(p),
+      ),
+    };
+    await ctx.tx
+      .update(playbooks)
+      .set({ details, updatedAt: changeMoment(ctx.meta) })
+      .where(eq(playbooks.id, was.id));
+    await ctx.emit({
+      type: 'outreach.playbook.words_written',
+      entityType: 'outreach_playbook',
+      entityId: was.id,
+      payload: { name: was.name, written, worksOnline: online },
+    });
+    return { written, worksOnline: details.worksOnline ?? null };
+  },
+});
+
+export const playbookCommands = [playbookSave, playbookArchive, playbookWords] as const;
 export const playbookQueries = [playbookList] as const;

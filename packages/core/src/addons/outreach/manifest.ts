@@ -80,6 +80,7 @@ export const outreachAddon = defineAddon({
     emits: [
       'outreach.playbook.saved',
       'outreach.playbook.archived',
+      'outreach.playbook.words_written',
       'outreach.profile.saved',
       'outreach.chat.saved',
       'outreach.touch.saved',
@@ -162,7 +163,8 @@ export const outreachAddon = defineAddon({
     // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
     // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
     // older one (decision 70, ./tracking.ts). Someone who could partner, read off their profile, waits for the AI's
-    // partner check (decision 81, ./partners.ts).
+    // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on and the day started have the AI
+    // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -188,6 +190,7 @@ export const outreachAddon = defineAddon({
       'outreach.automation.saved',
       'main_offer.published',
       'outreach.partner.looked',
+      'outreach.playbook.saved',
     ],
   },
   jobs: [
@@ -204,6 +207,7 @@ export const outreachAddon = defineAddon({
     'outreach.day_report',
     'outreach.review',
     'outreach.check_partners',
+    'outreach.write_words',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your

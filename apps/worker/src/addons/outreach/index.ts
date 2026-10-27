@@ -51,6 +51,7 @@ import {
   reviewJob,
 } from './tracking';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
+import { WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
 /**
  * What the extension sends also arms the morning push and the weekly report, for a business that had the add-on on
@@ -154,9 +155,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.ask.ended': askSettled,
     'outreach.ask.cancelled': askSettled,
     // Starting the day, or saving one's settings, arms the day's report; a new main offer tells whoever OK'd their
-    // messages against an older one (./tracking.ts).
-    'outreach.day.started': armDayReportFor,
-    'outreach.automation.saved': armDayReportFor,
+    // messages against an older one (./tracking.ts). A playbook saved, a network turned on and the day started (a
+    // safety net) have the AI write each network's own words for a customers' playbook with none (./words.ts).
+    'outreach.day.started': both(armDayReportFor, wordsWanted),
+    'outreach.automation.saved': both(armDayReportFor, wordsWanted),
+    'outreach.playbook.saved': wordsWanted,
     'main_offer.published': offerPublished,
     // Someone who could partner, read off their profile, waits for the AI's partner check (./partners.ts).
     'outreach.partner.looked': partnerLooked,
@@ -180,6 +183,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [GUESS_COUNTRIES_JOB]: guessCountriesJob,
     [DAY_REPORT_JOB]: dayReportJob,
     [REVIEW_JOB]: reviewJob,
+    [WRITE_WORDS_JOB]: writeWordsJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

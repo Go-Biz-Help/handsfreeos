@@ -173,6 +173,7 @@ const NOT_THE_ASSISTANTS = new Set([
   'outreach.partner.save',
   'outreach.partner.answer',
   'outreach.partner.call',
+  'outreach.playbook.words',
 ]);
 
 describe('playbooks', () => {
