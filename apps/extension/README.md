@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.94.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.94.1), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -860,7 +860,11 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   (Chris: Connect, or Connect under More, then **Send without a note**; a box that asks for more, like their email, is
   left for you); a comment in the post's own box with the AI's draft; and the messages, drafted after a look-up of
   their profile and their company's page, and sent once OK'd in LinkedIn messaging, in their conversation or the window
-  their profile's **Message** opens, typing only into that conversation's box (`src/networks/linkedin/auto.ts`).
+  their profile's **Message** opens, typing only into that conversation's box (`src/networks/linkedin/auto.ts`). From
+  0.94.1 a window over the page is theirs only when everyone its header, the part around its own **Close**, links to
+  outside its messages is them (a window whose Close it can't tell is nobody's), a conversation in messaging only
+  when it links to them the way HandsFreeOS keeps them or their profile shows them (else their profile's
+  **Message** opens it), and it checks the box is still theirs just before sending.
   Invitations they sent you are left for you to accept, and old invitations are withdrawn only when you tick them
   (your ask).
 - **At LinkedIn's pace:** 2 to 6 minutes between steps, inside LinkedIn's limits, which HandsFreeOS keeps (its list
@@ -948,7 +952,9 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
   come; or the look alone when it can't see a post (a private account); a follow a day after, with their account's own
   Follow, after which it reads their account again to see it says Following (or Requested, for a private account); and
   the messages, drafted after a look-up of their account and sent once OK'd in their chat, by its id when it's kept,
-  else from their account's Message, typed only into that chat's own box (`src/networks/instagram/auto.ts`). The one
+  else from their account's Message, typed only into that chat's own box (`src/networks/instagram/auto.ts`); from
+  0.94.1 a chat over the page is theirs only by its own link to them outside its messages, never the page's, and it
+  checks the box is still theirs just before sending. The one
   message to someone's Requests goes as one text, never split. Comments wait for your OK each time, and you post them;
   unfollowing is only ever the ones you tick; follow requests from private accounts are yours to confirm.
 - **At Instagram's pace:** 3 to 8 minutes between steps, slower than LinkedIn's, inside Instagram's low limits, which
@@ -1264,7 +1270,18 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   script doesn't notice them; the runner notes each one itself, marked `auto`. It sends a message only once
   HandsFreeOS says it's OK'd (`outreach.send.*`, `workLeft`): it drafts it with the AI after looking the person up in
   its own window, queues it, and sends what's OK'd in their chat in Messenger, or the chat window their profile's
-  **Message** opens, typing only into that chat's box and leaving one with writing in it alone (`writeMessage`). When
+  **Message** opens, typing only into that chat's box and leaving one with writing in it alone (`writeMessage`). From
+  0.94.1 it types only into a chat that shows it's with them, never a window left open from the person before, and
+  sends nothing when there's none (`messageBoxFor`): a chat that links to a profile counts only by a key HandsFreeOS
+  keeps too, their number or their username, never by a name someone else may share; a small chat window goes by its
+  own header, the part around its **Close chat**, and one that links to nobody by the name Facebook showed for them,
+  only when it opened as their **Message** was pressed, Facebook put the cursor in its box then (a window that pops up
+  for a message coming in doesn't take it), and no chat open as it was pressed showed a name that may be theirs.
+  Messenger's chat links by number, so for someone kept by username it opens their profile's **Message** instead,
+  and when that takes the tab to their chat in Messenger, it takes their number from it once it shows their name.
+  Just before sending it checks again that the box is still theirs and no other box took the writing, and if not
+  takes the writing out of every box it went in and sends nothing (`not_theirs`); writing it can't take out of a box
+  that held the person's own is named in its line, for them to delete. When
   the person sends a few short texts (their voice, on to start), each part between blank lines goes as its own text, a
   few seconds apart, as long as typing it takes (`messageParts`, `partPauseMs`); once one has gone the message counts
   as sent, and its line says if a later one didn't. A message it couldn't send is reported as not sent, with why, and
@@ -1273,7 +1290,8 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   answered, and a yes comes back drafted as the next step, the video or the link, and is queued as that. A reply's
   draft says whether the AI found it simple, which with **Replies** (b) lets it go by itself; HandsFreeOS decides
   (`goesAsItIs`), and holds back any reply to someone who needs the person.
-  `test/auto.test.ts` walks a made-up profile, post, chat and chat window.
+  `test/auto.test.ts` walks a made-up profile, post, chat and chat window, and `test/facebook-send.test.ts` the
+  runner's sending, from Messenger or their profile's **Message**.
 - **A warning stops the day.** The extension keeps the day's warnings itself (`hfos.warned`), so the runner and the
   asks on Facebook refuse to start, or stop, even when HandsFreeOS can't be reached.
 - **Asks one at a time on each network, from HandsFreeOS only.** Only the computer that works takes one, and only the

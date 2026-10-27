@@ -841,7 +841,10 @@ than a store extension, and for more features, and answered the questions the sa
     (c) it drafts the day's messages first thing, before the other steps; with (a) after them. With (b), once the
     training wheels are off, a first message or follow-up goes as it is. What's OK'd, the extension sends in
     Messenger, in the chat when HandsFreeOS knows it, else from their profile's **Message**, at a person's pace, and
-    notes it as its own; one it couldn't send says why and leaves the list for the day.
+    notes it as its own; one it couldn't send says why and leaves the list for the day. From extension 0.94.1 it
+    types a message only into a chat the page shows is with them, never into another chat window left open from the
+    person before, and sends nothing when it can't tell: a chat that links to a profile counts only by their number or
+    username, never by a name someone else may share. LinkedIn's and Instagram's sending goes the same way.
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
     rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Built: the
     AI says whether each reply it drafts is simple; with (b) a simple one goes as it is, with (c) every one does, and

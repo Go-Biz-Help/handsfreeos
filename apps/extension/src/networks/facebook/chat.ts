@@ -68,6 +68,10 @@ export function measuredSide(element: Element, conversation: Element): Side | nu
 export const isConversation = (element: Element) =>
   CONVERSATION.test(clean(element.getAttribute('aria-label')));
 
+/** Who a chat's messages are with, as their label says: "Messages in conversation with Jane Doe" is Jane Doe. */
+export const conversationWith = (element: Element): string | null =>
+  CONVERSATION.exec(clean(element.getAttribute('aria-label')))?.[1] ?? null;
+
 /** The box that holds the messages: the one labelled as the conversation, else the chat's grid. */
 function conversationIn(scope: Element): Element {
   for (const element of scope.querySelectorAll('[aria-label]')) {
