@@ -150,27 +150,56 @@ export function openTheirChat(doc: Document, href: string, them: ProfileRef): bo
   return true;
 }
 
+/** Where a chat's messages are: who they link to (a shared post's author, an account sent) isn't who it's with. */
+const MESSAGES = '[role="row"], [role="article"], [role="grid"], [role="log"]';
+/** The label Instagram puts on a chat's messages: "Messages in conversation with Dana Reyes". */
+const CONVERSATION = /^(messages in )?conversation (with|titled)\b/i;
+/** Where a person writes. */
+const WRITING = 'textarea, input[type="text"], [role="textbox"], [contenteditable="true"]';
+
+const isConversation = (element: Element) =>
+  CONVERSATION.test(element.getAttribute('aria-label')?.trim() ?? '');
+
+/** Whether a link sits in a chat's messages, within a part of the page. */
+function inMessages(link: Element, part: Element): boolean {
+  for (let up: Element | null = link; up && up !== part; up = up.parentElement)
+    if (up.matches(MESSAGES) || isConversation(up)) return true;
+  return false;
+}
+
 /**
- * The account a chat opened over a page is with: the nearest part around its box that links to an account, when it
- * links to exactly one other than the person's own.
+ * The account a chat opened over a page is with: the one other than the person's own that the nearest part around its
+ * box links to outside the chat's messages, as its header does. Never the main column or past it, a part with a
+ * second box to write in or a second chat's messages, or past the chat's own dialog: past those, the links are the
+ * page's or another chat's. Null when it links to nobody there, or to more than one.
  */
 function withAround(box: Element, doc: Document, href: string): string | null {
   const own = ownOf(doc, href)?.toLowerCase();
-  for (let up = box.parentElement, n = 0; up && n < 20; up = up.parentElement, n++) {
+  const main = mainOf(doc);
+  for (let up = box.parentElement; up && !up.contains(main); up = up.parentElement) {
+    if (
+      up.querySelectorAll(WRITING).length > 1 ||
+      [...up.querySelectorAll('[aria-label]')].filter(isConversation).length > 1
+    )
+      return null;
+    const part = up;
     const accounts = new Set(
-      linksIn(up, href)
+      linksIn(part, href)
+        .filter(({ a }) => !inMessages(a, part))
         .map(({ url }) => profileOf(url)?.username.toLowerCase())
         .filter((u): u is string => !!u && u !== own),
     );
     if (accounts.size > 1) return null;
     if (accounts.size === 1) return [...accounts][0]!;
+    if (part.matches('[role="dialog"], dialog')) return null;
   }
   return null;
 }
 
 /**
  * The box to write to them in: on their chat's own page (/direct/t/<id>/), when it's with them, its own box; else, in
- * a chat opened over their account, the one box whose chat is with them.
+ * a chat opened over their account, outside the page's main column, the one box whose chat is with them. A chat left
+ * open from someone else is never theirs.
  */
 export function chatBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const page = instagramUrl(href);
@@ -180,22 +209,43 @@ export function chatBoxFor(doc: Document, href: string, them: ProfileRef): HTMLE
     const boxes = boxesSaying(mainOf(doc), CHAT_BOX);
     return boxes.length === 1 ? boxes[0]! : null;
   }
-  const theirs = boxesSaying(doc, CHAT_BOX).filter((box) =>
-    isThem(withAround(box, doc, href), them),
+  const main = mainOf(doc);
+  const theirs = boxesSaying(doc, CHAT_BOX).filter(
+    (box) => !main.contains(box) && isThem(withAround(box, doc, href), them),
   );
   return theirs.length === 1 ? theirs[0]! : null;
 }
 
-/** The box's own Send: the nearest part around it that holds one. */
+/** The box's own Send: the nearest part around it that holds one, never past one with another box to write in. */
 function sendFor(box: Element): HTMLElement | null {
   for (let up = box.parentElement, n = 0; up && n < 6; up = up.parentElement, n++) {
+    if (up.querySelectorAll(WRITING).length > 1) return null;
     const send = controlsSaying(up, SEND).find((c) => visible(c));
     if (send) return send;
   }
   return null;
 }
 
-/** Writes a message to them in their chat and sends it, waiting a little for its box to show. */
+/** Whether the focus is in a box: on it, or on something inside it. */
+const focusIn = (box: Element) => {
+  const focused = box.ownerDocument.activeElement;
+  return focused !== null && box.contains(focused);
+};
+
+/** Takes what was typed out of a box that was empty before, only with the focus in it. */
+function takeOut(box: HTMLElement): void {
+  box.focus();
+  if (!focusIn(box)) return;
+  if (box instanceof box.ownerDocument.defaultView!.HTMLTextAreaElement) box.select();
+  else box.ownerDocument.getSelection()?.selectAllChildren(box);
+  box.ownerDocument.execCommand('delete', false);
+}
+
+/**
+ * Writes a message to them in their chat and sends it, waiting a little for its box to show. Nothing is typed unless
+ * the focus is in their box, and nothing is sent unless, once typed, it's still their chat's box; else what was typed
+ * is taken out again (`not_theirs`).
+ */
 export async function writeMessage(
   doc: Document,
   href: string,
@@ -203,15 +253,21 @@ export async function writeMessage(
   them: ProfileRef,
 ): Promise<AutoResult> {
   // A chat opened over the page moves the tab nowhere; one on its own page has its own address.
-  const box = await waitFor(() => chatBoxFor(doc, doc.location?.href ?? href, them), WENT_MS);
+  const theirs = () => chatBoxFor(doc, doc.location?.href ?? href, them);
+  const box = await waitFor(theirs, WENT_MS);
   if (!box) return 'none';
   // Something written there already is the person's: left alone.
   if (writingIn(box)) return 'not_sent';
   box.focus();
   box.click();
   await pause(300);
+  if (!focusIn(box)) return 'not_theirs';
   doc.execCommand('insertText', false, text);
   await pause(800);
+  if (writingIn(box) && theirs() !== box) {
+    takeOut(box);
+    return 'not_theirs';
+  }
   if (!writingIn(box)) return 'not_sent';
   const send = await waitFor(() => sendFor(box), 2_000);
   if (!send) return 'none';

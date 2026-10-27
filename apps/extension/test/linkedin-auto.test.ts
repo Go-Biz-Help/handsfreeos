@@ -328,6 +328,57 @@ describe('writing a message only in the conversation with them', () => {
     expect(sent).toEqual([]);
   });
 
+  it('never writes in the last person’s window, though its messages link to them or it links to nobody', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    // Dana's window, still open as Sam's is opened: one of her messages links to Sam.
+    const shared = load('linkedin-chat-window.html', `${LI}/feed/`);
+    const sentShared = typing(shared);
+    shared
+      .querySelector('p[dir="ltr"]')!
+      .insertAdjacentHTML('beforeend', ` <a href="${LI}/in/sam-lee-77/">Sam Lee</a>`);
+    const writing = writeMessage(shared, `${LI}/feed/`, 'Hi Sam', sam);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await writing).toBe('none');
+    expect(sentShared).toEqual([]);
+    // Dana's window links to nobody, and Sam's has drawn its header beside it, but not its box yet.
+    const unlinked = load('linkedin-chat-window.html', `${LI}/feed/`);
+    const sentUnlinked = typing(unlinked);
+    for (const link of unlinked.querySelectorAll('aside a')) link.replaceWith(...link.childNodes);
+    unlinked
+      .querySelector('aside')!
+      .insertAdjacentHTML(
+        'beforeend',
+        `<div><h2><a href="${LI}/in/sam-lee-77/">Sam Lee</a></h2></div>`,
+      );
+    const again = writeMessage(unlinked, `${LI}/feed/`, 'Hi Sam', sam);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await again).toBe('none');
+    expect(sentUnlinked).toEqual([]);
+    expect(unlinked.querySelector('[role="textbox"]')!.textContent?.trim()).toBe('');
+  });
+
+  it('sends nothing, and takes the writing out, when the focus isn’t in their box or the window changes as it’s typed', async () => {
+    for (const trouble of ['focus', 'header'] as const) {
+      const doc = load('linkedin-chat-window.html', `${LI}/feed/`);
+      const sent = typing(doc);
+      const box = doc.querySelector<HTMLElement>('[role="textbox"]')!;
+      const type = doc.execCommand;
+      if (trouble === 'focus') box.focus = () => undefined;
+      else
+        doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+          const typed = type.call(doc, command, ui, text);
+          if (command === 'insertText')
+            doc.querySelector('h2 a')!.setAttribute('href', `${LI}/in/sam-lee-77/`);
+          return typed;
+        };
+      expect(await writeMessage(doc, `${LI}/feed/`, 'Glad to help, Dana.', dana)).toBe(
+        'not_theirs',
+      );
+      expect(sent).toEqual([]);
+      expect(box.textContent?.trim()).toBe('');
+    }
+  });
+
   it('presses Message on their profile', () => {
     const doc = load('linkedin-profile.html', DANA);
     let pressed = false;

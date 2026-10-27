@@ -82,10 +82,17 @@ export type AutoAsk =
     }
   | { readonly type: 'hfos-comment'; readonly text: string }
   /**
-   * On LinkedIn and Alignable, `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts,
-   * src/networks/alignable/auto.ts).
+   * `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts, src/networks/alignable/auto.ts,
+   * src/networks/instagram/auto.ts). On Facebook (src/networks/facebook/auto.ts) `names` does too, for a chat that
+   * names them without a link to their profile: the name Facebook showed for them, on the chat or the profile the
+   * runner checked. Facebook types nothing for an ask without `profile`.
    */
-  | { readonly type: 'hfos-message'; readonly text: string; readonly profile?: ProfileRef };
+  | {
+      readonly type: 'hfos-message';
+      readonly text: string;
+      readonly profile?: ProfileRef;
+      readonly names?: readonly string[];
+    };
 
 /**
  * LinkedIn's runner's own steps besides those (src/networks/linkedin/auto.ts): Connect on their profile without a

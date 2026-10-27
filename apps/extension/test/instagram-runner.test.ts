@@ -686,6 +686,127 @@ describe('a message on Instagram', () => {
     ).toMatchObject({ sent: false, why: 'Instagram showed a different chat' });
   });
 
+  /** A chat over the page, as Message opens one: its header, linking to `href` or only naming them, and its own box and Send. */
+  const chatOver = (name: string, href: string | null, messages = '') => `<div role="dialog">
+      <div>${href ? `<a href="${href}"><span>${name}</span></a>` : `<span>${name}</span>`}</div>
+      <div aria-label="Messages in conversation with ${name}">${messages}</div>
+      <div><div role="textbox" contenteditable="true" aria-label="Message" data-to="${name}"></div>
+        <div role="button">Send</div></div></div>`;
+  /** Their account's tabs, each linking to them. */
+  const TABS = `<div><a href="/dana.reyes/">Posts</a><a href="/dana.reyes/reels/">Reels</a>
+    <a href="/dana.reyes/tagged/">Tagged</a></div>`;
+
+  /** Typing goes into the box with the focus; each chat's Send sends what's in its own box, to whom it's with. */
+  function sendsOwn(doc: Document, sent: { to: string; text: string }[]): void {
+    doc.execCommand = (command: string, _u?: boolean, text?: string) => {
+      const box = doc.activeElement?.closest('[role="textbox"]');
+      if (box) box.textContent = command === 'insertText' ? (text ?? '') : '';
+      return !!box;
+    };
+    for (const box of doc.querySelectorAll('[data-to]:not([data-sends])')) {
+      box.setAttribute('data-sends', '');
+      box.parentElement!.querySelector('[role="button"]')!.addEventListener('click', () => {
+        sent.push({ to: box.getAttribute('data-to')!, text: box.textContent ?? '' });
+        box.textContent = '';
+      });
+    }
+  }
+
+  /** Sends Dana's opener from her account's Message, with time passed for Instagram's waits. */
+  async function sendFromAccount() {
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork(
+        { do: 'send', item: approved({ kind: 'opener', threadKey: null }) },
+        ME.businessId,
+        false,
+      );
+      await vi.advanceTimersByTimeAsync(20_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  // Instagram may keep the chat with the last person open over the next one's account.
+  for (const where of ['beforeend', 'afterbegin'] as const)
+    it(`types only into their chat, the last person’s still open over their account (theirs ${where === 'beforeend' ? 'after' : 'before'} it)`, async () => {
+      world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+      const sent: { to: string; text: string }[] = [];
+      let left: Element | null = null;
+      world.behave = (doc) => {
+        doc.querySelector('main')!.insertAdjacentHTML('beforeend', TABS);
+        doc.body.insertAdjacentHTML('beforeend', chatOver('Riley Quinn', '/riley.quinn/'));
+        left = doc.querySelector('[data-to="Riley Quinn"]');
+        sendsOwn(doc, sent);
+        doc.querySelector('#message')!.addEventListener('click', () => {
+          doc.body.insertAdjacentHTML(where, chatOver('Dana Reyes', '/dana.reyes/'));
+          sendsOwn(doc, sent);
+        });
+      };
+      expect(await sendFromAccount()).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+      expect(sent).toEqual([
+        { to: 'Dana Reyes', text: 'Glad to help, Dana.\n\nWant the details?' },
+      ]);
+      expect(left!.textContent).toBe('');
+    });
+
+  it('never types into a chat left open from someone else, though it names nobody or its messages link to them', async () => {
+    for (const leftOpen of [
+      chatOver('Riley Quinn', null),
+      chatOver(
+        'Riley Quinn',
+        '/riley.quinn/',
+        '<div role="row"><a href="/dana.reyes/">dana.reyes</a></div>',
+      ),
+    ]) {
+      world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+      const sent: { to: string; text: string }[] = [];
+      let left: Element | null = null;
+      // Message opens nothing new: the last person's chat is all there is.
+      world.behave = (doc) => {
+        doc.querySelector('main')!.insertAdjacentHTML('beforeend', TABS);
+        doc.body.insertAdjacentHTML('beforeend', leftOpen);
+        left = doc.querySelector('[data-to="Riley Quinn"]');
+        sendsOwn(doc, sent);
+      };
+      expect(await sendFromAccount()).toEqual({
+        done: false,
+        line: 'Dana Reyes: couldn’t find the box to write in',
+      });
+      expect(sent).toEqual([]);
+      expect(left!.textContent).toBe('');
+    }
+  });
+
+  it('sends nothing, and takes the writing out, when the focus isn’t in their box or the chat changes as it’s typed', async () => {
+    for (const trouble of ['focus', 'header'] as const) {
+      world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+      const sent: { to: string; text: string }[] = [];
+      let theirs: Element | null = null;
+      world.behave = (doc) => {
+        doc.querySelector('#message')!.addEventListener('click', () => {
+          doc.body.insertAdjacentHTML('beforeend', chatOver('Dana Reyes', '/dana.reyes/'));
+          theirs = doc.querySelector('[data-to="Dana Reyes"]');
+          sendsOwn(doc, sent);
+          const typing = doc.execCommand;
+          if (trouble === 'focus') (theirs as HTMLElement).focus = () => undefined;
+          else
+            doc.execCommand = (command: string, ui?: boolean, text?: string) => {
+              const typed = typing.call(doc, command, ui, text);
+              if (command === 'insertText')
+                doc.querySelector('a[href="/dana.reyes/"]')!.setAttribute('href', '/morgan.hale/');
+              return typed;
+            };
+        });
+      };
+      expect(await sendFromAccount()).toMatchObject({ done: false });
+      expect(sent).toEqual([]);
+      expect(theirs!.textContent).toBe('');
+    }
+  });
+
   it('drafts one after looking their account up, and leaves it to wait for their OK', async () => {
     world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
     world.hfos['hfos-draft'] = () => ({

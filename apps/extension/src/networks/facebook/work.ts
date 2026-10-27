@@ -8,7 +8,8 @@
  * - In Messenger, for Read my chats, a chat opened from the list beside it, and that list scrolled for more; a group's
  *   feed, a list of people and a list of groups scrolled for more (./browse.ts).
  * - Working on its own (../../auto/run.ts): Add friend, Confirm and Like on the profiles of people on their list for
- *   today, the comment the AI drafted on a post on their list, and a message they OK'd (./auto.ts).
+ *   today, the comment the AI drafted on a post on their list, and a message they OK'd, only in a chat with them
+ *   (./auto.ts).
  * - A good group: Join group, and its questions answered with the AI's answers (./join.ts, decision 48).
  * - A helpful post put up on a group's page, and who engaged with one of theirs (./compose.ts, decision 50).
  * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64); for Put
@@ -107,7 +108,18 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
   if (ask.type === 'hfos-message') {
     if (kind !== 'chat' && kind !== 'profile')
       return { ok: false, error: 'Facebook didn’t open a chat with them.' };
-    return { ok: true, result: await writeMessage(document, ask.text) };
+    // Never typed into a chat that isn't checked as theirs: the ask says whose it is, by their profile, and by the
+    // names Facebook showed for them, for a chat that links to nobody.
+    const names = (ask.names ?? []).filter((name) => name.trim() !== '');
+    if (!ask.profile)
+      return {
+        ok: false,
+        error: 'The extension wasn’t told who the message is for, so nothing was sent.',
+      };
+    return {
+      ok: true,
+      result: await writeMessage(document, location.href, ask.text, ask.profile, names),
+    };
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
   return { ok: true, result: await writeComment(document, ask.text) };

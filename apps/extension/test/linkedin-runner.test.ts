@@ -403,6 +403,21 @@ describe('what it does on LinkedIn’s list', () => {
     ]);
   });
 
+  /** Dana's follow-up, OK'd, to go in her conversation. */
+  const approvedSend = (more: Partial<TodayListItem> = {}) =>
+    item({
+      kind: 'follow_up',
+      threadKey: THREAD_KEY,
+      send: {
+        sendId: '5e6f7081-92a3-4b4c-8d5e-6f708192a3b4',
+        state: 'approved',
+        text: 'Glad to help, Dana.',
+        handedOver: false,
+        needsYou: null,
+      },
+      ...more,
+    });
+
   it('sends a message OK’d in their conversation, and says it went', async () => {
     world.pages = () => ({ fixture: 'linkedin-chat.html' });
     let typed: Element | null = null;
@@ -425,17 +440,8 @@ describe('what it does on LinkedIn’s list', () => {
     const outcome = await doWork(
       {
         do: 'send',
-        item: item({
-          kind: 'follow_up',
-          threadKey: THREAD_KEY,
-          send: {
-            sendId: '5e6f7081-92a3-4b4c-8d5e-6f708192a3b4',
-            state: 'approved',
-            text: 'Glad to help, Dana.',
-            handedOver: false,
-            needsYou: null,
-          },
-        }),
+        // Kept by her member id, as her conversation links to her.
+        item: approvedSend({ profileUrl: `${LI}/in/ACoAAFakeDanaReyes123/` }),
       },
       ME.businessId,
       false,
@@ -451,6 +457,40 @@ describe('what it does on LinkedIn’s list', () => {
     ).toMatchObject({
       sent: true,
     });
+  });
+
+  it('sends one through their profile’s Message when their conversation links to them in a way that can’t tell them from a namesake', async () => {
+    // Kept by the name in her profile's address; her conversation links to her by member id only.
+    world.pages = (url) =>
+      url === DANA ? { fixture: 'linkedin-profile.html' } : { fixture: 'linkedin-chat.html' };
+    const sent: string[] = [];
+    world.behave = (doc, url) => {
+      if (url !== DANA) return;
+      // Message opens her conversation in a window over her profile.
+      const window = load('linkedin-chat-window.html', DANA).querySelector('aside')!;
+      doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        const aside = doc.importNode(window, true);
+        doc.body.append(aside);
+        const box = aside.querySelector('[role="textbox"]')!;
+        doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+          if (doc.activeElement === box) box.textContent = text ?? '';
+          return true;
+        };
+        aside.querySelector('button[type="submit"]')!.addEventListener('click', () => {
+          sent.push(box.textContent ?? '');
+          box.textContent = '';
+        });
+      });
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork({ do: 'send', item: approvedSend() }, ME.businessId, false);
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([
+      `${LI}/messaging/thread/${encodeURIComponent(THREAD_KEY)}/`,
+      DANA,
+    ]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
   });
 
   it('stops for the day on a LinkedIn warning, and notes it as LinkedIn’s', async () => {

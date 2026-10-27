@@ -50,6 +50,7 @@ import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import {
   AUTO_PLANS,
   MESSAGE_PATH,
+  sameByKey,
   samePerson,
   withTheirName,
   type AutoJob,
@@ -645,12 +646,22 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
   };
 }
 
-/** Opens the chat with them: theirs in Messenger when it's known, else their profile's Message. */
+/**
+ * Opens the chat with them: theirs in Messenger when it's known, else their profile's Message. With the name Facebook
+ * showed for them, on the chat or their profile, checked as theirs. To send in (`sending`), a chat in Messenger counts
+ * only when it links to them by a key HandsFreeOS keeps too, by number or by username: by its name alone it could be
+ * someone else's with the same name, so their profile's Message opens their chat instead.
+ */
 async function openChat(
   item: TodayListItem,
   businessId: string,
+  sending = false,
 ): Promise<
-  | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
+  | {
+      readonly profile: ProfileRef;
+      readonly thread: ThreadRef | null;
+      readonly name: string | null;
+    }
   | { readonly outcome: Outcome }
 > {
   const want = profileOf(item.profileUrl);
@@ -661,14 +672,12 @@ async function openChat(
     const stop = await warnedOn(page, businessId);
     if (stop) return { outcome: { stop } };
     const chat = page.chat;
-    const them =
-      chat?.profile && want
-        ? samePerson(chat.profile, chat.name, want, item.name)
-        : chat?.name != null && sameName(chat.name, item.name);
+    const keyed = sameByKey(chat?.profile ?? null, want);
+    const them = keyed ?? (chat?.name != null && sameName(chat.name, item.name));
     const profile = want ?? chat?.profile ?? null;
     if (!chat || !them || !profile)
       return { outcome: { done: false, line: `${item.name}: Messenger showed a different chat` } };
-    return { profile, thread: chat.thread };
+    if (keyed || !sending) return { profile, thread: chat.thread, name: chat.name };
   }
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened;
@@ -677,7 +686,7 @@ async function openChat(
       outcome: { done: false, line: `${item.name}: couldn’t find “Message” on their profile` },
     };
   await pause(SETTLE_MS);
-  return { profile: opened.noted, thread: null };
+  return { profile: opened.noted, thread: null, name: opened.page.profile!.name };
 }
 
 /** Says how a send went in HandsFreeOS. One the person skipped meanwhile went anyway: nothing more to say. */
@@ -714,22 +723,27 @@ async function sendMessage(
     );
     return { done: false, line };
   };
-  const chat = await openChat(item, businessId);
+  const chat = await openChat(item, businessId, true);
   if ('outcome' in chat) return 'stop' in chat.outcome ? chat.outcome : failed(chat.outcome.line);
   const parts = messageParts(send.text, split);
+  // Whose chat it goes in: the tab types only into one it shows is with them, by their profile, or by the name
+  // Facebook showed for them where a chat links to nobody.
+  const names = chat.name ? [chat.name] : [];
   // Once a text has gone, the message has: the rest is said, not tried again.
   let partly: string | null = null;
   for (const [i, part] of parts.entries()) {
     // The next text a few seconds after, as long as typing it takes.
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    const wrote = await tab.ask({ type: 'hfos-message', text: part });
+    const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile, names });
     const why = !wrote.ok
       ? wrote.error
       : wrote.result === 'none'
-        ? 'couldn’t find the box to write in'
-        : wrote.result !== 'done'
-          ? 'Facebook didn’t take the message'
-          : null;
+        ? `couldn’t find a chat open with them${i === 0 ? ', so nothing was sent' : ''}`
+        : wrote.result === 'not_theirs'
+          ? `its typing didn’t stay in their chat, so it took it out${i === 0 ? ' and sent nothing' : ''}`
+          : wrote.result !== 'done'
+            ? 'Facebook didn’t take the message'
+            : null;
     if (why === null) continue;
     if (i === 0) return failed(`${item.name}: ${why}`);
     partly = `Sent ${item.name} ${i} of ${parts.length} texts, then: ${why}`;
@@ -791,7 +805,8 @@ const doing = (work: Work) =>
 const doneAs = (work: Work): DoneKind =>
   work.do === 'step' ? stepKind(work.item.kind) : work.do === 'draft' ? 'drafted' : 'sent';
 
-function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+/** Does a piece of work: a step on the list, a draft, or a send. */
+export function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
   if (work.do === 'draft') return draftMessage(work.item, businessId);
   if (work.do === 'send') return sendMessage(work.item, businessId, split);
   return doItem(work.item, businessId);
