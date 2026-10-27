@@ -12,13 +12,17 @@
  *   stops saying the AI is on. What it heard is forgotten by the command that turned them off.
  * - **"AI notes on"** shows in the call while the listener is in it: it says so in the room's metadata as it
  *   joins (`markAi`).
+ * - **The coach** (coach.ts): with the worker's services, what it hears goes to the add-ons that listen, for someone
+ *   on the team in the call they're on for. AI notes off forgets their coaching too; leaving otherwise doesn't end it.
  */
 import { executeCommand, HfosError, videoCallHeard, videoCallRoom } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import type { LiveFanoutDeps } from '../addons/live-fanout';
 import { noteSpeech, speechMinutes } from '../money/speech-usage';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import type { SpeechServices } from '../voice-agent/speech';
+import { CallCoach } from './coach';
 import { CallHearing, type HeardLine, type JoinRoom, type ListenerRoom } from './hearing';
 import type { VideoCallProvider } from './provider';
 
@@ -29,6 +33,8 @@ export interface ListenerDeps {
   readonly video: VideoCallProvider;
   readonly join: JoinRoom;
   readonly now?: () => number;
+  /** The worker's services, for the add-ons that listen (the coach). Without them, nobody is coached. */
+  readonly coach?: LiveFanoutDeps;
 }
 
 /** The calls one listener hears at once, at most: more wait for a pass with room. */
@@ -48,6 +54,7 @@ interface Heard {
   readonly scope: TenantScope;
   readonly hearing: CallHearing;
   readonly room: ListenerRoom;
+  readonly coach: CallCoach | null;
 }
 
 export interface Listener {
@@ -75,7 +82,25 @@ export function createListener(deps: ListenerDeps): Listener {
     await h.room.leave().catch(() => undefined);
     await h.hearing.stop();
     if (why === 'off') await deps.video.markAi(videoCallRoom(callId), false).catch(() => undefined);
+    // The coaching is forgotten only when the AI notes went off; otherwise it's carried on or finished elsewhere.
+    if (h.coach && why === 'off' && !(await aiNotesOn(h.scope, callId))) await h.coach.forget();
+    else await h.coach?.pause();
     deps.log.info({ callId, why }, 'stopped hearing a video call');
+  }
+
+  /** Whether the call's AI notes are on now; on, when it can't tell. */
+  async function aiNotesOn(scope: TenantScope, callId: string): Promise<boolean> {
+    try {
+      const [c] = await asWorker(deps.db, scope, (tx) =>
+        rows<{ ai_notes: boolean }>(
+          tx,
+          sql`select ai_notes from app.video_calls where id = ${callId}`,
+        ),
+      );
+      return c?.ai_notes ?? true;
+    } catch {
+      return true;
+    }
   }
 
   async function join(callId: string, scope: TenantScope): Promise<void> {
@@ -86,11 +111,14 @@ export function createListener(deps: ListenerDeps): Listener {
     if (!there.people) return void notBefore.set(callId, now() + EMPTY_WAIT_MS);
     // Set once the room is joined; nothing is heard before then.
     let inRoom: ListenerRoom | null = null;
+    const log = deps.log.child({ callId });
+    const coach = deps.coach ? new CallCoach(deps.coach, scope, callId, log, now) : null;
     const hearing = new CallHearing(callId, {
       speech: deps.speech,
-      log: deps.log.child({ callId }),
+      log,
       now,
       keep: (lines) => keep(scope, callId, lines),
+      onLine: (line) => coach?.heard(line),
       bill: (seconds) =>
         noteSpeech(deps, scope, [
           {
@@ -111,7 +139,7 @@ export function createListener(deps: ListenerDeps): Listener {
         void leave(callId, 'gone');
       },
     });
-    heard.set(callId, { scope, hearing, room: inRoom });
+    heard.set(callId, { scope, hearing, room: inRoom, coach });
     await deps.video
       .markAi(room, true)
       .catch((e: unknown) =>
@@ -121,6 +149,7 @@ export function createListener(deps: ListenerDeps): Listener {
         ),
       );
     deps.log.info({ callId }, 'hearing a video call');
+    await coach?.check();
   }
 
   /** Lines into the call's keeping. A refusal (the call is gone) drops them; anything else is tried again. */
@@ -188,7 +217,9 @@ export function createListener(deps: ListenerDeps): Listener {
     async tick() {
       await Promise.all(
         [...heard.entries()].map(async ([callId, h]) => {
-          if (!(await h.hearing.tick())) await leave(callId, 'alone');
+          if (!(await h.hearing.tick())) return leave(callId, 'alone');
+          // Nobody coached yet: someone who is may have come in.
+          await h.coach?.check();
         }),
       );
     },

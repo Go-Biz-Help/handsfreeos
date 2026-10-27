@@ -1,6 +1,6 @@
 /**
  * Handing what's heard live to the add-ons that listen (`liveCalls`, like Sales Coach): a phone call
- * (telephony/live.ts) or a Zoom meeting (meetings/live.ts). Each add-on hears the start, every finished line and the
+ * (telephony/live.ts), a Zoom meeting (meetings/live.ts) or a HandsFreeOS video call (video-calls/coach.ts). Each add-on hears the start, every finished line and the
  * end, in order, as the system acting for it, so its commands are refused the moment it's turned off. An add-on that
  * fails a line is logged and hears the next one; nothing it does holds up what's being heard.
  */
@@ -10,7 +10,7 @@ import type { Logger } from 'pino';
 import { workerMeta, type TenantScope, type WorkerServices } from '../services';
 import { addonScope } from './context';
 import { ADDON_WORKER_MODULES } from './modules';
-import type { AddonWorkerModule, LiveCall, LiveLine } from './types';
+import type { AddonWorkerModule, LiveCall, LiveEnd, LiveLine } from './types';
 
 export interface LiveFanoutDeps extends WorkerServices {
   readonly modules?: readonly AddonWorkerModule[];
@@ -90,11 +90,11 @@ export class LiveFanout {
     return this.each('line', (hooks, ctx) => hooks.onLine(ctx, this.call, line, all));
   }
 
-  /** It ended: everything that was said. */
-  end(all: readonly LiveLine[]): Promise<void> {
+  /** It ended: everything that was said, and how it ended. */
+  end(all: readonly LiveLine[], how: LiveEnd = {}): Promise<void> {
     return this.each(
       'end',
-      (hooks, ctx) => hooks.onEnd?.(ctx, this.call, all) ?? Promise.resolve(),
+      (hooks, ctx) => hooks.onEnd?.(ctx, this.call, all, how) ?? Promise.resolve(),
     );
   }
 }

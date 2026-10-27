@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -6,8 +6,9 @@ join from their own Join link in any browser, with no app and no sign-up; the te
 carries the video and sound.
 
 Part 1, the call itself on the web, is built, and so is part 2, the AI hearing it: captions, "AI notes on", the
-transcript on the appointment and today's After the call. The Sales Coach in the call, the phone app and calls that
-aren't for an appointment come next ("The owner's decisions" and "Not yet" below). Support turns calls on per
+transcript on the appointment and today's After the call. So is part 3, the Sales Coach in the call: its cards beside
+the video, and its write-up and score after. The phone app and calls that aren't for an appointment come next ("The
+owner's decisions" and "Not yet" below). Support turns calls on per
 business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
@@ -33,6 +34,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The listener                                | `apps/worker/src/media.ts` (the `media` process in `fly.toml`), `video-calls/listener.ts`                        |
 | Hearing each person, captions, lines        | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                     |
 | The transcript, once a stretch is over      | `video_call.keep_words` (core), queued by `onVideoCallEnded` in `apps/worker/src/video-calls/handlers.ts`        |
+| The coach in the call                       | `apps/worker/src/video-calls/coach.ts` (`CallCoach`, `finishCoaching`); `video_call.coach` (core)                |
+| The coach's cards beside the video          | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), placed by `call-room.tsx`          |
 
 ## How a call goes
 
@@ -56,7 +59,10 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
    that call. The worker's listener joins unseen and hears each person's microphone on its own. Each person's sound
    goes to Deepgram only while they talk. The words go to everyone as captions (CC) and are kept as lines, each with
    who said it. Everyone sees **AI notes on**.
-7. **After.** The appointment lists who joined and for how long, a customer's attendance is marked from whether they
+7. **The coach** (part 3), in a business with AI Sales Coach, for someone on the team it's on for. What the listener
+   hears goes to it line by line, as a Zoom meeting's transcript does. Its cards show beside the video, or over the
+   top of it on a phone, and the call is written up and scored once it's over.
+8. **After.** The appointment lists who joined and for how long, a customer's attendance is marked from whether they
    were really in, and everyone's minutes go on the business's balance as one line, `video.minute`. A minute after
    the call ends, what the AI heard becomes the appointment's transcript. Today's After the call starts from it, as
    with Zoom: the summary, tasks, a follow-up email and record changes, each waiting for a person.
@@ -158,6 +164,32 @@ joining by phone, team-only meetings.
   (`whereLine`), and on the page before joining, for the customer and for anyone on the call's link. Joining is
   agreeing (decision 9).
 
+### The coach in the call (part 3)
+
+- **Each stretch of the call is a live meeting** (`app.live_meetings`, provider `handsfree`, the stretch's LiveKit
+  room id as its meeting id) of the one person on the team it's coached for. Add-ons that listen (`liveCalls`) hear
+  it as they hear a Zoom meeting, so the coach needs nothing of its own for our calls. Nobody claims it: the call
+  knows who's in it.
+- **Who's coached:** the first person on the team in the call that an add-on listens for (`liveListenersFor`), the
+  host first, then whoever joined first. `video_call.coach` makes the live meeting only while the call is live, its
+  AI notes are on and that person is in it. The customer is the one in the call, else the call's, else the
+  appointment's first. While nobody in the call is coached, the listener asks again every 15 seconds.
+- **The listener hands each line to the coach** as it's finished, the team's people on the team's side and everyone
+  else on the customer's. Lines heard before it began (a rep who joined late, a listener that restarted) come first,
+  from the lines kept so far.
+- **The media process has the worker's services** (`services-env.ts`), so the coach thinks, bills and pushes there
+  as it does on a phone call.
+- **AI notes off forgets the coaching too.** The listener leaves, and the add-ons hear the end with nothing to keep
+  (`forgotten`): the coach's call is stopped with no lines, its cards (which quote the customer) are deleted, and
+  nothing is written up.
+- **Leaving otherwise doesn't end it.** A listener that leaves (alone, a deploy, another listener took over) leaves
+  the live meeting live, and the next listener carries on with the same one. When the stretch is over, the job that
+  keeps its words (`video_call.keep_words`) first finishes any coaching still live from the lines kept, so the
+  write-up has everything that was said.
+- **The cards beside the video** are the add-ons' `call.panels` slot, the same one above the phone's call bar. The
+  call's page sits outside the business's pages, so it brings the business's add-ons, the person's permissions and
+  the live updates along itself (`call-coach.tsx`). Only the team sees it.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -171,7 +203,6 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
 
 ## Not yet
 
-- The Sales Coach in the call (part 3): the listener's lines will reach it as Zoom meetings' do.
 - The phone app's call screen (part 4). Until then the team's Join on the phone opens the call in the browser.
 - Calls that aren't for an appointment (part 5).
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.

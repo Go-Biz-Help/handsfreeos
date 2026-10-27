@@ -101,7 +101,11 @@ export function query<I extends z.ZodType, O extends z.ZodType>(
   return executeQuery(api(), q, input, actorOf(w.owner), meta());
 }
 
-export async function makeWorld(label: string): Promise<World> {
+export async function makeWorld(
+  label: string,
+  /** The model the worker thinks with (default: none). */
+  opts: { readonly ai?: TestServices['ai'] } = {},
+): Promise<World> {
   const owner = await createTestUser(`${label}-dale`, { fullName: 'Dale Owner' });
   const { output } = await executeCommand(
     api(),
@@ -110,7 +114,7 @@ export async function makeWorld(label: string): Promise<World> {
     actorOf(owner),
     meta(),
   );
-  const s = testServices();
+  const s = testServices(opts);
   const app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
