@@ -219,6 +219,7 @@ export const outreachAddon = defineAddon({
     'engagements',
     'file_chats',
     'file_people',
+    'finds',
     'follow_ups',
     'friend_ends',
     'friends',
