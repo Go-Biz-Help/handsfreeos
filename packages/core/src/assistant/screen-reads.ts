@@ -93,6 +93,8 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'extension_sign_in.pending': 'the browser extension signing in',
   'founding.checkout_status': 'paying for a founding seat, which is the person’s own card',
   'founding.claim_preview': 'the signed-out page a founding seat is claimed on',
+  'founding.counts':
+    'the plan page a new business pays on, before it is set up and has an Assistant',
   'file.fingerprints': 'the upload box telling a file it already has',
   'bin.preview': 'what a delete would take, and the AI never deletes',
   'outreach.lookup': 'what the browser extension reads off a network',
