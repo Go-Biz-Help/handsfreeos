@@ -215,6 +215,11 @@ export const WorkspaceSummary = z.object({
    * reads it for Get help and the tour; `onboarding.status` says the same.
    */
   gettingStarted: z.boolean(),
+  /**
+   * The business still has to pick a founding spot and pay for it before it is used (20261027012700): it was made
+   * while spots were on sale and holds no plan. The web sends its people to the plan page, and the phone to the web.
+   */
+  needsPlan: z.boolean(),
 });
 export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 

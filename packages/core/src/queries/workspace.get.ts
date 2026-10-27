@@ -1,4 +1,5 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { invitations, organizations, workspaceMemberships, workspaces } from '@hfos/db/schema';
 import { ADDON_CATALOG } from '../addons/catalog';
 import { currentCapabilityIds } from '../addons/capabilities';
@@ -41,6 +42,11 @@ export const workspaceGet = defineQuery({
       );
     const addons = await loadActiveAddons(ctx.tx, input.workspaceId);
     const permissions = [...(ctx.scope.workspacePermissions ?? [])];
+    // Whether it still has to pick a founding spot and pay (20261027012700), asked of the database like account.me.
+    const [plan] = await rows<{ needs_plan: boolean }>(
+      ctx.tx,
+      sql`select private.workspace_needs_plan(${input.workspaceId}::uuid) as needs_plan`,
+    );
     return {
       workspace: {
         id: row.ws.id,
@@ -56,6 +62,7 @@ export const workspaceGet = defineQuery({
         settings: row.ws.settings,
         gettingStarted: !businessOnboardingOf(row.ws.settings as Record<string, unknown> | null)
           .turnedOff,
+        needsPlan: plan?.needs_plan ?? false,
         inboxPerPerson:
           (
             (row.ws.settings as Record<string, unknown> | null)?.['inbox'] as

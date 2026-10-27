@@ -11,14 +11,9 @@ import { ProductMock } from '@/components/product-mock';
 import { TrustLadderVisual } from '@/components/visuals';
 import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import { homeFaqs } from '@/content/faqs';
-import { foundingContent, plan, urls } from '@/content/site';
+import { signUpFor, spotPrices, urls } from '@/content/site';
 import { FoundingStrip } from '@/components/founding-counter';
-import {
-  currentFoundingOffer,
-  foundingCounts,
-  monthlyOnSale,
-  type FoundingCount,
-} from '@/lib/founding';
+import { foundingCounts, foundingSpotsOnSale, hasRoom, type FoundingSpot } from '@/lib/founding';
 
 /*
  * The headline is a small puzzle on purpose: "the CRM that doesn't want you to use it" makes somebody
@@ -30,17 +25,18 @@ import {
  * The headline is the highest-leverage line on the page; change one thing at a time.
  */
 
-/** The seat counts are live, so the home page is rebuilt at most once a minute rather than at deploy. */
+/** The spot counts are live, so the home page is rebuilt at most once a minute rather than at deploy. */
 export const revalidate = 60;
 
 export default async function HomePage() {
   const counts = await foundingCounts();
+  const spots = foundingSpotsOnSale(counts);
   return (
     <>
       <FoundingStrip counts={counts} />
       <OrganizationJsonLd />
       <WebSiteJsonLd />
-      <SoftwareApplicationJsonLd monthlyOnSale={monthlyOnSale(counts)} />
+      <SoftwareApplicationJsonLd spots={spots} />
       <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
       <Hero />
       <WhatThatMeans />
@@ -50,7 +46,7 @@ export default async function HomePage() {
       <ConnectedAccounts />
       <InYourPocket />
       <WhyDifferent />
-      <PlansStrip counts={counts} />
+      <SpotsStrip spots={spots} />
       <Questions />
       <FinalCta />
     </>
@@ -87,16 +83,19 @@ function Hero() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button href={urls.signUp} size="lg">
-                Start free
+                Sign up
               </Button>
               <Button href="/#how" size="lg" variant="secondary">
                 See how it works
               </Button>
             </div>
 
-            {/* FUD reducers sit directly under the button, and every one of them is true today. */}
+            {/*
+             * FUD reducers sit directly under the button, and every one of them is true today. The price is one of
+             * them: signing up goes straight on to picking a spot and paying, and nobody should meet that cold.
+             */}
             <ul className="text-text-2 mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              {['No card to start', 'Keep the number you have', 'Cancel whenever'].map((item) => (
+              {[spotPrices, 'Keep the number you have', 'Stop it renewing any time'].map((item) => (
                 <li key={item} className="flex items-center gap-1.5">
                   <Check className="text-success" />
                   {item}
@@ -503,72 +502,56 @@ function InYourPocket() {
 }
 
 /**
- * One plan, and the founding seats beside it when there are any. The counts come from the page's own fetch
- * and are passed down rather than fetched here, so the home page makes one request rather than three.
+ * The founding spots on sale, each with its live count. The spots come from the page's own fetch and are passed
+ * down rather than fetched here, so the home page makes one request rather than three.
  */
-function PlansStrip({ counts }: { counts: readonly FoundingCount[] | null }) {
-  // The same two facts the pricing page reads, from the same fetch: which founding offer is current, and
-  // whether the monthly plan has gone on sale beside it.
-  const count = currentFoundingOffer(counts);
-  const offer = count ? foundingContent(count.offerId) : null;
-  const monthly = monthlyOnSale(counts);
-  // Nothing to show is possible only if the database has every offer in draft — then there is nothing for sale.
-  if (!monthly && !count) return null;
+function SpotsStrip({ spots }: { spots: readonly FoundingSpot[] }) {
+  // Nothing on sale at all: nothing to show, and the pricing page says so.
+  if (spots.length === 0) return null;
   return (
     <Section className="bg-card-2 border-border border-y">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        {monthly ? (
-          <SectionHeading sub="One plan, every feature in it, and texts and calls billed for what you use.">
-            Priced against the one job a month it saves you.
-          </SectionHeading>
-        ) : (
-          <SectionHeading sub="A few businesses get it before it goes on sale — for nothing, or for one payment. The count is live.">
-            Founding seats are open.
-          </SectionHeading>
-        )}
+        <SectionHeading sub="First come, first served: sign up, pick a spot and pay. One plan, every feature in it, and texts and calls billed for what you use. The counts are live.">
+          Founding spots are open.
+        </SectionHeading>
         <Button href="/pricing" variant="secondary" size="lg" className="shrink-0">
           See what is in it
         </Button>
       </div>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
-        {/* No live count means no card: the home page never advertises a seat the database has not confirmed. */}
-        {count && offer ? (
-          <Link
-            href="/founding"
-            className={`bg-card rounded-[var(--radius-card)] p-5 transition-colors ${
-              monthly
-                ? 'border-border hover:border-border-strong border'
-                : 'border-accent hover:border-accent-hover border-2'
-            }`}
-          >
-            <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-              {offer.name}
-            </p>
-            <p className="mt-2 text-3xl font-bold">{offer.priceLabel}</p>
-            <p className="text-text-2 mt-2 text-base">
-              {count.remaining > 0
-                ? `${count.remaining} of ${count.seatCap} left`
-                : `All ${count.seatCap} taken — waitlist open`}
-            </p>
-          </Link>
-        ) : null}
-
-        {monthly ? (
-          <Link
-            href="/pricing"
-            className="bg-card border-accent hover:border-accent-hover rounded-[var(--radius-card)] border-2 p-5 transition-colors"
-          >
-            <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-              {plan.name}
-            </p>
-            <p className="mt-2 text-3xl font-bold">
-              ${plan.price}
-              <span className="text-text-3 text-base font-normal"> /month</span>
-            </p>
-            <p className="text-text-2 mt-2 text-base">{plan.blurb}</p>
-          </Link>
-        ) : null}
+        {spots.map((spot) => {
+          const { content, count } = spot;
+          const room = hasRoom(spot);
+          return (
+            <Link
+              key={content.id}
+              // A full spot has nothing to sign up for: the pricing page says which one still has room.
+              href={room ? signUpFor(content) : '/pricing'}
+              className={`bg-card rounded-[var(--radius-card)] p-5 transition-colors ${
+                room && content.plan === 'yearly'
+                  ? 'border-accent hover:border-accent-hover border-2'
+                  : 'border-border hover:border-border-strong border'
+              }`}
+            >
+              <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
+                {content.name}
+              </p>
+              <p className="mt-2 text-3xl font-bold">
+                {content.priceLabel}
+                <span className="text-text-3 text-base font-normal"> {content.per}</span>
+              </p>
+              <p className="text-text-2 mt-2 text-base">
+                {/* No live count means no number: the home page never prints one the database hasn't given. */}
+                {count === null || !count.showCounter
+                  ? content.blurb
+                  : count.remaining > 0
+                    ? `${count.remaining.toLocaleString('en-US')} of ${count.seatCap.toLocaleString('en-US')} spots left`
+                    : `All ${count.seatCap.toLocaleString('en-US')} taken`}
+              </p>
+            </Link>
+          );
+        })}
       </div>
     </Section>
   );
@@ -602,11 +585,11 @@ function FinalCta() {
         </h2>
         <p className="text-text-2 mt-5 text-lg">
           Set it up this week, watch every reply before it goes out, and let go of the ones it gets
-          right. Start free — there is nothing to cancel if it is not for you.
+          right. Founding spots are first come, first served.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <Button href={urls.signUp} size="lg">
-            Start free
+            Sign up
           </Button>
           <Button href="/support" size="lg" variant="secondary">
             Ask us a question first

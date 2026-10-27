@@ -587,6 +587,7 @@ describe('registry', () => {
       'founding.waitlist',
       'founding.claim',
       'founding.start_checkout',
+      'founding.buy',
       'founding.record_checkout_opened',
       'founding.record_checkout_paid',
       'founding.record_checkout_closed',

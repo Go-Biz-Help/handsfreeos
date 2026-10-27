@@ -53,7 +53,7 @@ export function SiteHeader() {
           <Link href={urls.signIn} className="text-text-2 hover:text-text text-base">
             Sign in
           </Link>
-          <Button href={urls.signUp}>Start free</Button>
+          <Button href={urls.signUp}>Sign up</Button>
         </div>
 
         <button
@@ -94,7 +94,7 @@ export function SiteHeader() {
               Sign in
             </Link>
             <Button href={urls.signUp} className="mt-2" size="lg">
-              Start free
+              Sign up
             </Button>
           </Container>
         </div>

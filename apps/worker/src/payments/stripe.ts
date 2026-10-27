@@ -880,7 +880,7 @@ export function createStripePayments(opts: {
        * Stripe Checkout in our own account. Cards only: a card answers there and then, so `completed` with
        * `payment_status: paid` is the money in, and there is no bank transfer settling days later under a seat
        * that looks paid. The page lasts Stripe's default day, and the seat's reservation is stretched to outlast
-       * it (0093).
+       * it (0093), unless `expiresAt` closes it sooner (a spot a business buys itself is held for an hour).
        */
       async createCheckout(input) {
         const metadata = cleanMetadata({
@@ -914,6 +914,9 @@ export function createStripePayments(opts: {
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,
             client_reference_id: input.checkoutId,
+            ...(input.expiresAt
+              ? { expires_at: Math.floor(new Date(input.expiresAt).getTime() / 1000) }
+              : {}),
             ...(input.customerEmail ? { customer_email: input.customerEmail } : {}),
             // A customer in our account from the first payment: the receipt goes to them, and whatever they are
             // billed later starts from somebody Stripe already knows.

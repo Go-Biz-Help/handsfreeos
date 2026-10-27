@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { webSignInProviders } from '@/lib/auth/providers';
 import { opinlyVisitor } from '@/lib/auth/visitor';
+import { wantedPlan } from '@/lib/founding-plan';
 import { safeNext } from '@/lib/utils';
 import { SignUpForm } from './sign-up-form';
 
@@ -23,7 +24,10 @@ export default async function SignUpPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const next = safeNext(typeof params.next === 'string' ? params.next : null, FIRST_STOP);
+  // The website's buttons say which founding spot they're for (`?plan=yearly|monthly`): it rides along to the plan page.
+  const plan = wantedPlan(params.plan);
+  const first = plan ? `${FIRST_STOP}?plan=${plan}` : FIRST_STOP;
+  const next = safeNext(typeof params.next === 'string' ? params.next : null, first);
   const providers = await webSignInProviders();
   return (
     <>

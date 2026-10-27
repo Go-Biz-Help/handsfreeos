@@ -15,6 +15,9 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 >
 > **Since then:** the $497 checkout is built (`20261003000500`), and the $497 seat is paid **by the year**, renewed
 > on its own (§1.2, `20261027009500`). Any business on **Admin → Businesses** can be given a seat from its own page.
+>
+> **Since 2026-10-27:** nobody applies. Spots are first come, first served: a business signs up, picks $497 a year or
+> $97 a month, and pays before it sets up (§1.3, `20261027012700`).
 
 ---
 
@@ -23,9 +26,9 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 | Question               | Decision                                                                                                                                                                                                                          |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | What is a spot?        | One **business — an `app.organizations` row**. Caps count organizations.                                                                                                                                                          |
-| When is it consumed?   | **When you approve or give it.** A free seat is on the business's workspace at once and stays until you revoke it (§1.1). No self-serve claiming.                                                                                 |
+| When is it consumed?   | **When you approve or give it.** A free seat is on the business's workspace at once and stays until you revoke it (§1.1). A paid spot is **bought by the business itself** since 2026-10-27 (§1.3).                               |
 | When it sells out      | Waitlist, and the next offer down is shown as the alternative.                                                                                                                                                                    |
-| The monthly plan       | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499.                                                                                         |
+| The monthly plan       | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499. Since 2026-10-27 it is 1,000 founding spots (§1.3).                                     |
 | Revoking a spot        | **14-day grace**, warned in-app and by email, then the workspace converts to $97/month. The spot returns to the pool the moment you revoke, not when the grace ends.                                                              |
 | The $497               | **Stripe Checkout, in the app**, on the HandsFreeOS platform account.                                                                                                                                                             |
 | The website shows      | **Exact remaining count** and a progress bar. No countdown clock — quantity only.                                                                                                                                                 |
@@ -67,7 +70,37 @@ The owner's call: the Founding Customer seat is **$497 a year**, not $497 once.
 | ----------------------------- | ----------------- | ---------- | -------------------------------------- |
 | `founding_partner` — Phase 1  | 25 organizations  | $0 forever | $10 credit, card before it runs out    |
 | `founding_lifetime` — Phase 2 | 100 organizations | $497/year  | Card at checkout, kept for the renewal |
-| `monthly` — the fallback      | uncapped          | $97/month  | Card at checkout                       |
+| `monthly` — Founding Monthly  | 1,000 (§1.3)      | $97/month  | Card at checkout, kept for each month  |
+
+### 1.3 First come, first served (decided 2026-10-27)
+
+The owner's words: "There is none of that [applying]. Now it's just first come first serve. They sign up and pay the
+$497 a year 100 spots or $97 a month 1000 spots." Then, picked from three ways to do it: **pay right after sign-up.**
+Migration `20261027012700`.
+
+- **A new business pays before it sets up.** A business made while any open offer has a price is marked
+  `app.organizations.needs_plan`. Until one of its workspaces holds a plan that is on, the web app sends it to
+  `/onboarding/<workspace>/plan`, where an owner picks $497 a year or $97 a month and pays on Stripe's page
+  (`founding.buy`). Setup carries on from there. Pricing links pass `?plan=yearly` or `?plan=monthly` through sign-up,
+  so the plan page starts on the spot they clicked.
+- **Businesses that existed before are left alone.** Nothing marks them, so nothing changes for them. A plan that ends
+  (stopped renewing) asks a marked business again.
+- **The spot is held for an hour, not fourteen days,** because it waits on a card, not on a person reading an email.
+  Picking the other spot before paying gives the first back. If the first page is paid anyway, the money wins and the
+  spot is taken; a business that pays twice keeps one spot and the second payment is flagged for a refund.
+- **Monthly is a capped founding offer now:** 1,000 spots, its own counter, named Founding Monthly. Its card is kept
+  and charged each month by the sweep that renews the yearly spots (§1.2). It no longer waits for 25 yearly spots to
+  sell. The migration opens it only where Founding Customer is open (the hosted database), so a local stack and CI ask
+  nobody to pay.
+- **The phone app never sells.** An unpaid business shows "Finish setting up on the web", with no price and no link
+  (App Store rule 3.1.3(f)).
+- **No more applications.** The website's buttons go straight to sign-up, and `/founding` redirects to `/pricing`.
+  Staff still give free seats (§1.1), and a given seat lets a marked business in for free. The applications already
+  in stay on `/admin/founding`, and the worker's signed-out apply route still answers, though nothing sends to it.
+- **A second business** made in the same account is not asked to pay yet; the pricing page says each business needs
+  a spot of its own.
+- **The apps hold the gate, not the API.** An unpaid business's commands aren't refused; the web and phone apps just
+  don't open it.
 
 ---
 
@@ -530,4 +563,6 @@ Each step is committable and leaves the tree green.
 6. ✅ `/admin/founding`.
 7. ✅ The website: one $97 plan, live counters, `/founding`, rewritten FAQs.
 8. ✅ The $497 checkout (`20261003000500`), and since 2026-10-19 its yearly renewal (`20261027009500`, §1.2; `20261027009600` switches the offer).
-9. ⬜ The six emails (§11.4), and the nightly sweeps that expire a reservation and end a grace.
+9. ✅ First come, first served (`20261027012700`, §1.3): 1,000 monthly spots, a business buys its own spot right
+   after sign-up, and the website has no application.
+10. ⬜ The six emails (§11.4), and the nightly sweeps that expire a reservation and end a grace.

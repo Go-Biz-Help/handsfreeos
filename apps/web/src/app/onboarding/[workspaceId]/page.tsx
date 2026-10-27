@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { SetupPage } from '@/components/onboarding-setup/frame';
 import { OnboardingQuickSetup } from '@/components/onboarding-setup/quick-setup';
 import { apiServer, getMe } from '@/lib/api/server';
+import { foundingPlanHref } from '@/lib/founding-plan';
 import { loadOnboardingSetup } from '@/lib/onboarding-setup/load';
 
 export const metadata: Metadata = { title: 'Set up your business' };
@@ -13,7 +14,8 @@ export const metadata: Metadata = { title: 'Set up your business' };
  * business is made, and where Getting started's Home card points until it's finished. `?at=` is the screen it's on,
  * kept as it moves on, so a page loaded again opens there; coming back from Stripe or Square adds `?payments=`, and
  * `?part=owner` is the owner finishing their part of what their agency set up. Only someone who sets the business up
- * comes here; anyone else goes to Home.
+ * comes here; anyone else goes to Home. A business made while founding spots are on sale picks one and pays first
+ * (20261027012700).
  */
 export default async function OnboardingSetupPage({
   params,
@@ -28,6 +30,7 @@ export default async function OnboardingSetupPage({
   const me = await getMe();
   const ws = me.workspaces.find((w) => w.id === workspaceId);
   if (!ws) notFound();
+  if (ws.needsPlan) redirect(foundingPlanHref(workspaceId));
   if (!can(ws.permissions, 'workspace.update')) redirect(home);
   const query = await searchParams;
   const one = (key: string) => (typeof query[key] === 'string' ? query[key] : null);

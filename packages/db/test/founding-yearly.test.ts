@@ -22,10 +22,16 @@ import {
   type TestUser,
 } from './harness';
 
-afterAll(closeAll);
-
 const admin = dbs.admin.db;
 const YEARLY = 'test_yearly_seat';
+
+// Off sale afterwards: an open paid offer makes every business made after it pick a plan first (20261027012700).
+afterAll(async () => {
+  await admin.execute(
+    sql`update platform.founding_offers set status = 'closed' where id in (${YEARLY}) and status = 'open'`,
+  );
+  await closeAll();
+});
 
 let owner: TestUser;
 let member: TestUser;
@@ -306,7 +312,7 @@ describe('a refused renewal, paid with another card', () => {
       as(owner)((tx) =>
         rows<{ renewal: boolean; seat_active: boolean; billing: string }>(
           tx,
-          sql`select * from private.founding_checkout_state(${first!.checkout_id}::uuid)`,
+          sql`select * from private.founding_checkout_status(${first!.checkout_id}::uuid)`,
         ),
       );
     expect((await view())[0]).toMatchObject({

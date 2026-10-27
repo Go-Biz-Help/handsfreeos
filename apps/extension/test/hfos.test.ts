@@ -440,6 +440,7 @@ describe('outreachBusinesses', () => {
       permissions,
       addons,
       gettingStarted: false,
+      needsPlan: false,
     });
     expect(
       outreachBusinesses([

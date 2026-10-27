@@ -355,10 +355,7 @@ function OfferCard({
   onStatus: (status: 'draft' | 'open' | 'closed') => void;
 }) {
   const [cap, setCap] = useState(String(offer.seatCap));
-  const { monthly, pct, opens, opened, replaced, paid, yearly, action } = foundingOfferCard(
-    offer,
-    offers,
-  );
+  const { pct, opens, opened, replaced, paid, renews, action } = foundingOfferCard(offer, offers);
 
   return (
     <Card className="p-4">
@@ -367,22 +364,15 @@ function OfferCard({
         <span className="text-[13px] text-text-3">{foundingOfferPriceLine(offer)}</span>
       </div>
 
-      {monthly ? (
-        // No seats and no cap: this card is the switch for whether the website sells the plan.
-        <p className="mt-3 text-[13px] text-text-2">{FOUNDING_WORDS.monthlyNote}</p>
-      ) : (
-        <>
-          <p className="mt-3 text-2xl font-semibold">
-            {offer.remaining}
-            <span className="text-base font-normal text-text-3">
-              {FOUNDING_WORDS.ofLeft(offer.seatCap)}
-            </span>
-          </p>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-card-2">
-            <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-          </div>
-        </>
-      )}
+      <p className="mt-3 text-2xl font-semibold">
+        {offer.remaining}
+        <span className="text-base font-normal text-text-3">
+          {FOUNDING_WORDS.ofLeft(offer.seatCap)}
+        </span>
+      </p>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-card-2">
+        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+      </div>
 
       {opens ? (
         <p className="mt-3 text-[13px] text-text-2">{opens}</p>
@@ -394,32 +384,28 @@ function OfferCard({
 
       {paid ? <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.paidNote}</p> : null}
 
-      {yearly ? <p className="mt-2 text-[13px] text-text-3">{FOUNDING_WORDS.yearlyNote}</p> : null}
+      {renews ? <p className="mt-2 text-[13px] text-text-3">{renews}</p> : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-2">
-        {monthly ? null : (
-          <>
-            <Field label={FOUNDING_WORDS.seats} htmlFor={`cap-${offer.offerId}`} className="w-24">
-              <Input
-                id={`cap-${offer.offerId}`}
-                value={cap}
-                inputMode="numeric"
-                onChange={(e) => setCap(e.target.value)}
-              />
-            </Field>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={busy === `cap:${offer.offerId}` || cap === String(offer.seatCap)}
-              onClick={() => {
-                const n = Number(cap);
-                if (Number.isInteger(n) && n >= 0) onCap(n);
-              }}
-            >
-              {FOUNDING_WORDS.save}
-            </Button>
-          </>
-        )}
+        <Field label={FOUNDING_WORDS.seats} htmlFor={`cap-${offer.offerId}`} className="w-24">
+          <Input
+            id={`cap-${offer.offerId}`}
+            value={cap}
+            inputMode="numeric"
+            onChange={(e) => setCap(e.target.value)}
+          />
+        </Field>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy === `cap:${offer.offerId}` || cap === String(offer.seatCap)}
+          onClick={() => {
+            const n = Number(cap);
+            if (Number.isInteger(n) && n >= 0) onCap(n);
+          }}
+        >
+          {FOUNDING_WORDS.save}
+        </Button>
         <Button
           size="sm"
           variant="secondary"
@@ -429,9 +415,7 @@ function OfferCard({
           {action.label}
         </Button>
       </div>
-      {monthly ? null : (
-        <p className="mt-2 text-[12px] text-text-3">{FOUNDING_WORDS.capHint(offer.claimed)}</p>
-      )}
+      <p className="mt-2 text-[12px] text-text-3">{FOUNDING_WORDS.capHint(offer.claimed)}</p>
     </Card>
   );
 }

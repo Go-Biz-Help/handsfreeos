@@ -644,16 +644,18 @@ export function rcsRenewalFailedEmail(input: {
   return { subject, text, html };
 }
 
-/** A yearly founding seat renewed (20261027009500): another year at the founding price. */
+/** A founding spot renewed (20261027009500, 20261027012700): another month or year at the founding price. */
 export function foundingRenewedEmail(input: {
   business: string;
   offer: string;
   paid: string;
   until: string;
   link: string;
+  /** What one payment pays for: a monthly spot (20261027012700) or a yearly one. */
+  period: 'month' | 'year';
 }): EmailContent {
-  const subject = `Your ${input.offer} seat is renewed for ${input.business}`;
-  const line = `We charged ${input.paid} for another year of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing any time in Settings → Usage & balance.`;
+  const subject = `Your ${input.offer} spot is renewed for ${input.business}`;
+  const line = `We charged ${input.paid} for another ${input.period} of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing any time in Settings → Usage & balance.`;
   const text = `${line}\n\nSee it in Settings: ${input.link}`;
   const html = shell(
     para(escapeHtml(line)) +
@@ -663,18 +665,22 @@ export function foundingRenewedEmail(input: {
   return { subject, text, html };
 }
 
-/** The card refused a yearly founding seat's renewal (20261027009500): pay it with another card; the seat stays on. */
+/**
+ * The card refused a founding spot's renewal, monthly or yearly (20261027009500, 20261027012700): pay it with another
+ * card; the spot stays on.
+ */
 export function foundingRenewalFailedEmail(input: {
   business: string;
   offer: string;
   amount: string;
   reason: string;
   link: string;
+  period: 'month' | 'year';
 }): EmailContent {
   const subject = `Your ${input.offer} renewal for ${input.business} didn’t go through`;
   const lines = [
-    `We couldn’t take the yearly ${input.amount} for your founding seat: ${input.reason}`,
-    'Your seat stays on meanwhile. Pay it with another card in Settings → Usage & balance to keep your founding price; that card is the one charged next year.',
+    `We couldn’t take the ${input.period === 'month' ? 'monthly' : 'yearly'} ${input.amount} for your founding spot: ${input.reason}`,
+    `Your spot stays on meanwhile. Pay it with another card in Settings → Usage & balance to keep your founding price; that card is the one charged next ${input.period}.`,
   ];
   const text = `${lines.join('\n\n')}\n\nPay it in Settings: ${input.link}`;
   const html = shell(

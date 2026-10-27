@@ -1332,7 +1332,7 @@ export function createFakePayments(opts: {
             idempotencyKey: input.idempotencyKey,
             status: 'open',
             paymentRef: null,
-            expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+            expiresAt: input.expiresAt ?? new Date(Date.now() + 86_400_000).toISOString(),
             lines: (input.lines ?? []).map((l) => ({ name: l.name, amountCents: l.amountCents })),
             metadata: { ...input.metadata },
             saveCard: !!input.saveCard,

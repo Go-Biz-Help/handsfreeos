@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
       { source: '/privacy-policy', destination: '/privacy', permanent: true },
       { source: '/terms-of-service', destination: '/terms', permanent: true },
       { source: '/contact', destination: '/support', permanent: true },
+      // Founding spots are bought, not applied for (20261027012700): the application page is gone.
+      { source: '/founding', destination: '/pricing', permanent: true },
       // The product lives on its own subdomain; a stray link here should still land somewhere useful.
       { source: '/login', destination: 'https://app.handsfreeos.com/sign-in', permanent: false },
       { source: '/sign-in', destination: 'https://app.handsfreeos.com/sign-in', permanent: false },

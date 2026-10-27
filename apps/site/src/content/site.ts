@@ -1,7 +1,7 @@
 /**
- * Everything about the company, the product's addresses and the plans, in one file.
+ * Everything about the company, the product's addresses and the prices, in one file.
  *
- * Change a price or a line here and the pricing page, the home page's plan strip and the FAQ
+ * Change a price or a line here and the pricing page, the home page's spots strip and the FAQ
  * all follow.
  */
 
@@ -42,12 +42,13 @@ export const urls = {
 } as const;
 
 /**
- * The plan.
+ * The plan: what every founding spot buys.
  *
  * **One plan, and everything is in it.** Three tiers were three conversations to have before somebody could
  * buy: which one am I, what am I missing, will I have to move later. A business with four people and a
  * business with twenty need the same software, and charging the second one more for the same thing is a
- * conversation nobody enjoys. So: one price, every feature, as many people as work there.
+ * conversation nobody enjoys. So: one plan, every feature, as many people as work there, paid by the year or
+ * by the month (`foundingSpots`).
  *
  * What is *not* in it is usage — texts, calls, numbers and AI — because that is what actually costs us money
  * and it varies tenfold between a quiet plumber and a busy clinic. Folding it in would mean charging the
@@ -56,7 +57,6 @@ export const urls = {
 export const plan = {
   id: 'handsfreeos',
   name: 'HandsFreeOS',
-  price: 97,
   blurb: 'Everything HandsFreeOS does, for one business.',
   seats: 'As many people as work there. No per-person charge.',
   includes: [
@@ -77,70 +77,62 @@ export const plan = {
 } as const;
 
 /**
- * The founding offers.
+ * The founding spots: how a business buys HandsFreeOS (20261027012700). First come, first served — they sign up,
+ * pick a spot and pay, straight after making their business. Nobody applies.
  *
- * These are the *marketing* copy for two rows that live in `platform.founding_offers`. The **numbers** —
- * how many seats, how many are left — never come from here: they are read live from the database, because a
- * page that says "7 left" while the database says none is worse than a page that says nothing. `id` is what
- * ties the two together, and it has to match the row.
+ * These are the *marketing* copy for two rows that live in `platform.founding_offers`. The **numbers** — how
+ * many spots, how many are left — never come from here: they are read live from the database, because a page
+ * that says "7 left" while the database says none is worse than a page that says nothing. `id` is what ties
+ * the two together, and it has to match the row. `plan` is what the app's sign-up is told to pick to start
+ * with (`?plan=`), so a visitor who pressed the monthly one finds the monthly one picked.
  */
-export const foundingOffers = [
-  {
-    id: 'founding_partner',
-    name: 'Founding Partner',
-    price: 0,
-    priceLabel: 'Free, for life',
-    blurb: 'For twenty-five businesses who will tell us the truth about what is missing.',
-    includes: [
-      'Everything in HandsFreeOS, free for as long as it exists',
-      'We set it up with you, in a group of five, so you are never the only one going first',
-      '$10 of texts, calls and AI to start with',
-      'A say in what gets built next, because you are the reason we know',
-    ],
-    asks: [
-      'Let it run your real business, not a trial account',
-      'Tell us when it gets something wrong, and every time you had to step in on something it should have handled — that is the whole trade',
-      'Let us write up what it did for you, if it does anything worth writing up',
-    ],
-    // What /founding says while this is the offer on sale.
-    headline: 'Twenty-five founding partners.',
-    sub: 'Not a beta, and not a discount. Twenty-five real businesses letting it do the real work — answering, booking, chasing — and telling us what is wrong, for as long as HandsFreeOS exists.',
-    afterwards:
-      'When these are gone, a yearly seat opens on its own: $497 a year, a hundred of them.',
-    softwareLine: 'The software is free for life. The phone company is not.',
-  },
+export const foundingSpots = [
   {
     id: 'founding_lifetime',
+    plan: 'yearly',
     name: 'Founding Customer',
     price: 497,
-    priceLabel: '$497 a year',
+    priceLabel: '$497',
+    per: 'a year',
     blurb: 'One payment a year for all of HandsFreeOS.',
     includes: [
-      'Everything in HandsFreeOS, for $497 a year, with no monthly bill',
-      'Every feature we add to the core product, at no extra cost',
+      'Everything in HandsFreeOS, with no monthly bill',
       'About five months of the monthly price, for the whole year',
+      'Every feature we add to the core product, at no extra cost',
       'Renews each year on its own, and you can stop it any time',
     ],
-    asks: [],
-    headline: 'A hundred founding customers.',
-    sub: 'The free seats are gone. The next hundred businesses pay $497 a year for a CRM that does the work for them — about five months of the monthly price, for the whole year.',
-    afterwards: 'Partway through these, HandsFreeOS also goes on sale month to month, at $97.',
-    softwareLine: 'The software is one payment a year. The phone company is not.',
+  },
+  {
+    id: 'monthly',
+    plan: 'monthly',
+    name: 'Founding Monthly',
+    price: 97,
+    priceLabel: '$97',
+    per: 'a month',
+    blurb: 'All of HandsFreeOS, month to month.',
+    includes: [
+      'Everything in HandsFreeOS, paid a month at a time',
+      'Every feature we add to the core product, at no extra cost',
+      'Renews each month on its own, and you can stop it any time',
+    ],
   },
 ] as const;
 
-export type FoundingOfferContent = (typeof foundingOffers)[number];
+export type FoundingSpotContent = (typeof foundingSpots)[number];
 
-/** The page copy for an offer the database names, or the first offer's when it names one this file lacks. */
-export const foundingContent = (offerId: string | null | undefined): FoundingOfferContent =>
-  foundingOffers.find((o) => o.id === offerId) ?? foundingOffers[0];
+/** The app's sign-up, told which spot to pick to start with. */
+export const signUpFor = (spot: FoundingSpotContent): string => `${urls.signUp}?plan=${spot.plan}`;
+
+/** "$497 a year or $97 a month": both prices, in the order above. */
+export const spotPrices = foundingSpots.map((s) => `${s.priceLabel} ${s.per}`).join(' or ');
 
 /**
- * What sits on top of every offer here, founding ones included: texts, calls, numbers and AI, billed for
- * what you use. Saying it in the same breath as "free for life" is the point — a founding partner who finds
- * out about it afterwards has been misled, however technically accurate the page was.
+ * What sits on top of every spot: texts, calls, numbers and AI, billed for what you use. Saying it in the same
+ * breath as the price is the point — somebody who finds out about it afterwards has been misled, however
+ * technically accurate the page was.
  */
 export const usageNote =
-  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $30–$60 a month. This is the same on every offer, founding seats included — it is what the phone companies charge us, passed through.';
+  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $30–$60 a month. This is the same on both founding spots — it is what the phone companies charge us, passed through.';
 
-export const annualNote = 'Pay for the year and get two months free.';
+/** What the pages say when no spot has room, or none is on sale. The app's plan page says much the same. */
+export const noSpotsNote = `No founding spots are open right now. Email ${company.supportEmail} and we’ll tell you when more open.`;

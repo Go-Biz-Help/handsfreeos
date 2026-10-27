@@ -1,5 +1,6 @@
 import type { Faq } from '@/content/faqs';
-import { company, plan, urls } from '@/content/site';
+import { company, urls } from '@/content/site';
+import { hasRoom, type FoundingSpot } from '@/lib/founding';
 
 /**
  * Structured data, in JSON-LD.
@@ -79,12 +80,15 @@ export function WebSiteJsonLd() {
   );
 }
 
-/** What the product is, and what it costs. The offers come from the same file as the pricing page. */
 /**
- * `monthlyOnSale`: whether the plan can be bought yet. Until it goes on sale (0092) the Offer is left out — a price
- * in a search result for a plan nobody can sign up to is an ad for something that does not exist yet.
+ * What the product is, and what it costs. The offer comes from the same file as the pricing page, and only while
+ * the database has it on sale with room (`spots`): a price in a search result for something nobody can buy is an
+ * ad for something that does not exist.
  */
-export function SoftwareApplicationJsonLd({ monthlyOnSale }: { monthlyOnSale: boolean }) {
+export function SoftwareApplicationJsonLd({ spots }: { spots: readonly FoundingSpot[] }) {
+  // The monthly spot, as the one Offer: the hundred yearly spots can sell out long before a search result forgets
+  // them, and a thousand monthly ones last.
+  const monthly = spots.find((s) => s.content.plan === 'monthly' && hasRoom(s)) ?? null;
   return (
     <JsonLd
       data={{
@@ -108,15 +112,12 @@ export function SoftwareApplicationJsonLd({ monthlyOnSale }: { monthlyOnSale: bo
           'Automatic follow-up workflows',
           'iPhone and Android app that works offline',
         ],
-        // One plan, so one Offer, and only once it is on sale. The founding seats are deliberately never
-        // listed: a capped offer that sells out would leave a search result advertising something nobody can
-        // buy, for as long as Google remembers it.
-        ...(monthlyOnSale
+        ...(monthly
           ? {
               offers: {
                 '@type': 'Offer',
-                name: plan.name,
-                price: String(plan.price),
+                name: monthly.content.name,
+                price: String(monthly.content.price),
                 priceCurrency: 'USD',
                 category: 'subscription',
                 url: `${urls.site}/pricing`,

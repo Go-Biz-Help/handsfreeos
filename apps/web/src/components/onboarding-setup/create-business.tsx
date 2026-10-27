@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { publicEnv } from '@/lib/env';
 import { onboardingSetupActions } from '@/lib/onboarding-setup/actions';
+import { foundingPlanHref } from '@/lib/founding-plan';
 import { onboardingSetupHref } from '@/lib/onboarding-setup/data';
 import { BusinessScreen } from './business';
 import { SetupCard } from './frame';
@@ -44,7 +45,12 @@ const PROGRESS = onboardingSetupProgress('business', STARTING, {
   chat: false,
 });
 
-export function CreateBusiness() {
+export function CreateBusiness({
+  plan = null,
+}: {
+  /** The founding spot the website's button was for (20261027012700): the plan page comes next, starting on it. */
+  plan?: 'yearly' | 'monthly' | null;
+} = {}) {
   const router = useRouter();
   const [business, setBusiness] = useState<OnboardingSetupBusinessDraft>(
     NEW_ONBOARDING_SETUP_BUSINESS,
@@ -90,8 +96,12 @@ export function CreateBusiness() {
         answers: STARTING,
         business: saved,
       });
-      // On to the next screen, named in the address, so it doesn't say "Carry on where you left off".
-      router.replace(onboardingSetupHref(workspaceId, 'goal'));
+      // On to the next screen, named in the address, so it doesn't say "Carry on where you left off". A business that
+      // has to pick a founding spot first is sent on to it from there, or straight to it with the website's pick (its
+      // page goes on to the setup when there's nothing to pick).
+      router.replace(
+        plan ? foundingPlanHref(workspaceId, plan) : onboardingSetupHref(workspaceId, 'goal'),
+      );
       router.refresh();
     } catch (e) {
       setProblems(e instanceof ApiError ? onboardingSetupProblemsOf(e.details) : {});

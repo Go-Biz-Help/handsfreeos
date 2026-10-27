@@ -15,7 +15,7 @@ import {
   WorkflowVisual,
 } from '@/components/visuals';
 import { featureSections, foundations } from '@/content/features';
-import { urls } from '@/content/site';
+import { spotPrices, urls } from '@/content/site';
 
 export const metadata: Metadata = {
   title: 'What it does: AI answering, CRM and invoicing',
@@ -62,7 +62,7 @@ export default function FeaturesPage() {
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Button href={urls.signUp} size="lg">
-            Start free
+            Sign up
           </Button>
           <Button href="/pricing" size="lg" variant="secondary">
             See pricing
@@ -146,12 +146,12 @@ export default function FeaturesPage() {
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold sm:text-4xl">All of that is on one plan.</h2>
           <p className="text-text-2 mt-5 text-lg">
-            One price, every feature on this page, and as many people as work there. Nothing is held
-            back for a bigger plan, because there is no bigger plan.
+            Every feature on this page, and as many people as work there, for {spotPrices}. Nothing
+            is held back for a bigger plan, because there is no bigger plan.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button href={urls.signUp} size="lg">
-              Start free
+              Sign up
             </Button>
             <Button href="/pricing" size="lg" variant="secondary">
               See what it costs

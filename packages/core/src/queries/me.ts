@@ -47,13 +47,15 @@ export const me = defineQuery({
       permissions: string[];
       addons: string[];
       getting_started: boolean;
+      needs_plan: boolean;
     }>(
       ctx.tx,
       // The businesses this person works in. Support staff can see every business's name (M13), so the
       // filter is written here rather than left to the read rules: this list is "yours", not "visible".
       sql`select w.id, w.organization_id, o.name as organization_name, w.name, w.slug, w.timezone, w.industry, private.effective_workspace_role(w.id)::text as role,
             private.my_permissions(w.id) as permissions, private.active_addons(w.id) as addons,
-            (w.settings -> 'onboarding' -> 'turnedOff') is null as getting_started
+            (w.settings -> 'onboarding' -> 'turnedOff') is null as getting_started,
+            private.workspace_needs_plan(w.id) as needs_plan
           from app.workspaces w join app.organizations o on o.id = w.organization_id
           where private.effective_workspace_role(w.id) is not null
           order by o.name, w.name`,
@@ -80,6 +82,7 @@ export const me = defineQuery({
         permissions: w.permissions,
         addons: w.addons,
         gettingStarted: w.getting_started,
+        needsPlan: w.needs_plan,
       })),
       // What the Assistant panels read before the first question (the same answer the worker enforces).
       assistantConsent: assistantConsentOf(user.settings),

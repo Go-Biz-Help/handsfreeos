@@ -31,6 +31,10 @@
  * the worker charges it when the year is up (`founding.record_renewal`). A refused card is not tried again: the
  * business pays that year with another card (`founding.pay_renewal`), and the seat stays on meanwhile. A business
  * may stop it renewing (`founding.set_renewing`), and the seat goes back when the year it paid for is over.
+ *
+ * **First come, first served** (20261027012700). Nobody applies any more: a business that signs up buys its own spot
+ * (`founding.buy`), $497 a year or $97 a month, before it sets up. The monthly spot renews each month the way the
+ * yearly one renews each year. Applying, approving and claim links stay for what was already under way.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, isNull, sql as dsql } from 'drizzle-orm';
@@ -46,11 +50,13 @@ import {
 } from '@hfos/db/schema';
 import { formatUtcDate } from '../crm/format';
 import { HfosError } from '../errors';
+import { foundingPriceWords } from '../support/founding-words';
 import { defineCommand } from '../kernel/define';
 import {
   FoundingApplicationOutput,
   FoundingApproveInput,
   FoundingApproveOutput,
+  FoundingBuyInput,
   FoundingCheckoutRecordOutput,
   FoundingClaimInput,
   FoundingClaimOutput,
@@ -98,12 +104,7 @@ export const hashClaimToken = (token: string): Buffer =>
  * a shrug.
  */
 function asRefusal(err: unknown): never {
-  // Drizzle wraps the driver's error, so the database's own words are on the innermost cause — the same walk
-  // the kernel's translateDbError makes. Reading only the outer error missed every one of them.
-  let pg: unknown = err;
-  while (pg instanceof Error && pg.cause instanceof Error) pg = pg.cause;
-  const detail = (pg as { detail?: string })?.detail ?? '';
-  const constraint = (pg as { constraint_name?: string })?.constraint_name ?? '';
+  const { detail, constraint } = refusalOf(err);
   if (detail === 'founding_offer_full')
     throw HfosError.rule(
       'founding_offer_full',
@@ -200,7 +201,7 @@ function asRefusal(err: unknown): never {
       404,
       'That business isn’t there anymore. Refresh and try again.',
     );
-  if (constraint === 'founding_grants_one_live_per_org')
+  if (constraint === 'founding_grants_one_live_per_org' || detail === 'founding_org_has_a_seat')
     throw HfosError.rule(
       'founding_org_has_a_seat',
       409,
@@ -208,6 +209,73 @@ function asRefusal(err: unknown): never {
     );
   throw err;
 }
+
+/**
+ * The database's `detail` and constraint on a refusal. Drizzle wraps the driver's error, so they are on the innermost
+ * cause — the same walk the kernel's translateDbError makes. Reading only the outer error missed every one of them.
+ */
+function refusalOf(err: unknown): { detail: string; constraint: string } {
+  let pg: unknown = err;
+  while (pg instanceof Error && pg.cause instanceof Error) pg = pg.cause;
+  return {
+    detail: (pg as { detail?: string })?.detail ?? '',
+    constraint: (pg as { constraint_name?: string })?.constraint_name ?? '',
+  };
+}
+
+/**
+ * A buyer's refusals (`founding.buy`), in words for somebody picking a plan rather than for staff: the offer by its
+ * price, and what to do instead. Anything else is `asRefusal`'s.
+ */
+const asBuyRefusal =
+  (found: OfferRow) =>
+  (err: unknown): never => {
+    const { detail, constraint } = refusalOf(err);
+    const plan = foundingPriceWords(found.priceCents, billingOf(found));
+    if (detail === 'founding_offer_full')
+      throw HfosError.rule(
+        'founding_offer_full',
+        409,
+        `Every spot at ${plan} was just taken. Refresh to see what’s left.`,
+      );
+    if (detail === 'founding_offer_closed')
+      throw HfosError.rule(
+        'founding_offer_closed',
+        409,
+        `Spots at ${plan} aren’t on sale right now. Refresh to see the ones that are.`,
+      );
+    if (detail === 'founding_offer_missing')
+      throw HfosError.rule(
+        'founding_offer_missing',
+        404,
+        'That plan isn’t on sale. Refresh to see the ones that are.',
+      );
+    if (detail === 'founding_offer_not_for_sale')
+      throw HfosError.rule(
+        'founding_offer_not_for_sale',
+        409,
+        'That plan can’t be bought. Pick one with a price.',
+      );
+    if (detail === 'founding_buy_not_yours')
+      throw HfosError.rule(
+        'founding_buy_not_yours',
+        403,
+        'Only somebody who manages money for this business can pick its plan. Ask an owner of the business.',
+      );
+    if (constraint === 'founding_grants_one_live_per_org' || detail === 'founding_org_has_a_seat')
+      throw HfosError.rule(
+        'founding_org_has_a_seat',
+        409,
+        'This business already has its founding spot, so there’s nothing to buy. Refresh to carry on.',
+      );
+    if (detail === 'founding_checkout_elsewhere')
+      throw HfosError.rule(
+        'founding_checkout_elsewhere',
+        409,
+        'You started paying for this spot on another of your businesses. Finish paying there, or start again here in an hour, when that payment page has closed.',
+      );
+    return asRefusal(err);
+  };
 
 type OfferRow = typeof foundingOffers.$inferSelect;
 
@@ -228,6 +296,14 @@ async function remainingOn(ctx: CommandContext, id: string): Promise<number> {
   return Number(row?.remaining ?? 0);
 }
 
+/** How an offer is paid, in the app's words: a seat paid each year is still billed `once` in the table. */
+const billingOf = (o: OfferRow): 'once' | 'yearly' | 'monthly' =>
+  o.paidYearly ? 'yearly' : (o.billing as 'once' | 'monthly');
+
+/** The plan a spot puts a workspace on: free, monthly, or the founding seat (yearly, or once). */
+const planOf = (o: OfferRow): 'founding_free' | 'founding_lifetime' | 'monthly' =>
+  o.priceCents === 0 ? 'founding_free' : o.billing === 'monthly' ? 'monthly' : 'founding_lifetime';
+
 const offerOut = (o: OfferRow, claimed: number) => ({
   offerId: o.id,
   name: o.name,
@@ -237,7 +313,7 @@ const offerOut = (o: OfferRow, claimed: number) => ({
   remaining: Math.max(o.seatCap - claimed, 0),
   priceCents: o.priceCents,
   // A seat paid each year is still billed `once` in the table; the app calls it `yearly` (20261027009500).
-  billing: o.paidYearly ? ('yearly' as const) : o.billing,
+  billing: billingOf(o),
   opensAfterOfferId: o.opensAfterOfferId,
   opensAfterCount: o.opensAfterCount,
   openedAt: o.openedAt?.toISOString() ?? null,
@@ -341,7 +417,7 @@ async function turnOn(
   },
 ): Promise<{
   grantId: string;
-  plan: 'founding_free' | 'founding_lifetime';
+  plan: 'founding_free' | 'founding_lifetime' | 'monthly';
   creditedCents: number;
 }> {
   const by = ctx.actor.type === 'human' ? ctx.actor.userId : null;
@@ -422,9 +498,10 @@ async function turnOn(
     grantId = made.id;
   }
 
-  const plan = found.priceCents === 0 ? ('founding_free' as const) : ('founding_lifetime' as const);
+  const plan = planOf(found);
   // A workspace that already had a plan is moved onto the founding one, as private.founding_activate does. A seat
-  // staff give is a gift, even a yearly one: no year, no price and no card, so nothing ever renews or is charged.
+  // staff give is a gift, even a yearly or monthly one: no date, no price and no card, so nothing ever renews or is
+  // charged.
   await ctx.tx
     .insert(workspacePlans)
     .values({
@@ -786,6 +863,62 @@ export const foundingStartCheckout = defineCommand({
   },
 });
 
+export const foundingBuy = defineCommand({
+  name: 'founding.buy',
+  description:
+    'Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer before paying gives the first hold back.',
+  risk: 3,
+  input: FoundingBuyInput,
+  output: FoundingStartCheckoutOutput,
+  // Whoever manages what the business pays us: the people on Settings → Usage & balance.
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['founding.checkout_requested'],
+  async handler(ctx, input) {
+    // Read for its words only. Whether there is a spot is the database's to say, under the cap's lock.
+    const [found] = await ctx.tx
+      .select()
+      .from(foundingOffers)
+      .where(eq(foundingOffers.id, input.offerId));
+    if (!found || found.status === 'draft')
+      throw HfosError.rule(
+        'founding_offer_missing',
+        404,
+        'That plan isn’t on sale. Refresh to see the ones that are.',
+      );
+    // In one function (20261027012700), because nobody in a business can read the founding tables: it checks
+    // money.manage for itself, holds the spot under the cap's lock, and starts the payment, or finds the one under way.
+    const [started] = await rows<{
+      checkout_id: string;
+      grant_id: string;
+      status: 'pending' | 'open';
+      session_url: string | null;
+      created: boolean;
+    }>(
+      ctx.tx,
+      sql`select * from private.founding_buy(${input.workspaceId}::uuid, ${input.offerId})`,
+    ).catch(asBuyRefusal(found));
+    if (!started) throw HfosError.internal();
+
+    // The same page a claim link's payment gets, made by the same job.
+    if (started.created)
+      await ctx.emit({
+        type: 'founding.checkout_requested',
+        entityType: 'founding_checkout',
+        entityId: started.checkout_id,
+        payload: { checkoutId: started.checkout_id, offerId: found.id, bought: true },
+        after: { status: 'pending', offer: found.name },
+      });
+
+    return {
+      checkoutId: started.checkout_id,
+      status: started.status,
+      url: started.session_url,
+      created: started.created,
+    };
+  },
+});
+
 /**
  * The worker's three writes. Each is one function in 0093 that only moves a checkout forward, so Stripe sending
  * an event twice — which it does — is answered `unchanged` or `already` rather than done again.
@@ -816,7 +949,7 @@ export const foundingRecordCheckoutOpened = defineCommand({
 export const foundingRecordCheckoutPaid = defineCommand({
   name: 'founding.record_checkout_paid',
   description:
-    'Worker: Stripe says a founding seat was paid for. The seat goes active on its workspace, with its plan and its credit (and, paid by the year, the card for next year); a refused renewal paid with another card moves the year on. A payment that finds no seat to turn on is kept and flagged for staff.',
+    'Worker: Stripe says a founding seat was paid for. The seat goes active on its workspace, with its plan and its credit (and, paid by the month or the year, the card for the next one); a refused renewal paid with another card moves the month or year on. A payment that finds no seat to turn on is kept and flagged for staff.',
   risk: 3,
   input: FoundingRecordCheckoutPaidInput,
   output: FoundingCheckoutRecordOutput,
@@ -829,7 +962,7 @@ export const foundingRecordCheckoutPaid = defineCommand({
       outcome: 'activated' | 'renewed' | 'already' | 'no_seat';
       grant_id: string;
       offer_id: string;
-      plan: 'founding_free' | 'founding_lifetime' | null;
+      plan: 'founding_free' | 'founding_lifetime' | 'monthly' | null;
     }>(
       ctx.tx,
       sql`select * from private.founding_checkout_paid(${input.checkoutId}::uuid, ${input.sessionRef},
@@ -911,9 +1044,9 @@ export const foundingRecordCheckoutClosed = defineCommand({
   },
 });
 
-// ---------- the yearly renewal ----------
+// ---------- the renewal: each year, or each month ----------
 
-/** "Oct 19, 2027": a renewal is a year away, so it needs its year. */
+/** "Oct 19, 2027": a renewal can be a year away, so it needs its year. */
 const day = formatUtcDate;
 
 async function paidThroughOf(ctx: CommandContext, workspaceId: string): Promise<Date | null> {
@@ -927,7 +1060,7 @@ async function paidThroughOf(ctx: CommandContext, workspaceId: string): Promise<
 export const foundingSetRenewing = defineCommand({
   name: 'founding.set_renewing',
   description:
-    'Stop this business’s founding seat renewing each year, or start it again while the year is still paid for. Stopped, the seat stays until the year paid for is over, then goes back.',
+    'Stop this business’s founding seat renewing each month or year, or start it again while that is still paid for. Stopped, the seat stays until the month or year paid for is over, then goes back.',
   risk: 3,
   input: FoundingSetRenewingInput,
   output: FoundingSetRenewingOutput,
@@ -967,7 +1100,7 @@ export const foundingSetRenewing = defineCommand({
 export const foundingPayRenewal = defineCommand({
   name: 'founding.pay_renewal',
   description:
-    'Pay the founding seat’s yearly renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.',
+    'Pay the founding seat’s renewal with another card, after the card on file refused it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. The new card is the one charged from then on.',
   risk: 3,
   input: FoundingPayRenewalInput,
   output: FoundingStartCheckoutOutput,
@@ -1006,7 +1139,7 @@ export const foundingPayRenewal = defineCommand({
 export const foundingRecordRenewal = defineCommand({
   name: 'founding.record_renewal',
   description:
-    'Worker: what the yearly charge for a founding seat did. Renewed moves the paid year on; a refused card is written down for the business to pay with another card, and nothing is charged again until it does. The seat stays on either way.',
+    'Worker: what the monthly or yearly charge for a founding seat did. Renewed moves the paid month or year on; a refused card is written down for the business to pay with another card, and nothing is charged again until it does. The seat stays on either way.',
   risk: 3,
   input: FoundingRecordRenewalInput,
   output: FoundingRecordRenewalOutput,
@@ -1036,11 +1169,15 @@ export const foundingRecordRenewal = defineCommand({
       return { grantId: input.grantId, outcome: 'already' as const };
 
     if (input.outcome === 'renewed') {
-      // A year on in the database's own arithmetic, the same as a renewal paid on a page of its own.
+      // A month or a year on, by the seat's offer, in the database's own arithmetic: the same as a renewal paid on a
+      // page of its own (20261027012700).
       const [moved] = await rows<{ current_period_end: Date | string }>(
         ctx.tx,
         sql`update app.workspace_plans
-               set current_period_end = current_period_end + interval '1 year',
+               set current_period_end = current_period_end + coalesce(
+                     private.founding_period((select g.offer_id from platform.founding_grants g
+                                               where g.id = ${input.grantId}::uuid)),
+                     interval '1 year'),
                    renewal_count = renewal_count + 1, renewal_problem = null, renewal_failed_at = null,
                    status = 'active'
              where workspace_id = ${workspaceId}::uuid
@@ -1341,6 +1478,7 @@ export const foundingCommands = [
   foundingWaitlist,
   foundingClaim,
   foundingStartCheckout,
+  foundingBuy,
   foundingRecordCheckoutOpened,
   foundingRecordCheckoutPaid,
   foundingRecordCheckoutClosed,

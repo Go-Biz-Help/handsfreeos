@@ -3,6 +3,7 @@ import * as React from 'react';
 
 import { AskFromNotification } from '@/components/changes/ask-from-notification';
 import { OpenBusiness } from '@/components/copy/copy-gate';
+import { FinishOnTheWeb } from '@/components/founding/finish-on-web';
 import { CallSheetHost } from '@/components/inbox/call-sheet';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { BusinessSwitcher } from '@/components/shell/business-switcher';
@@ -57,25 +58,37 @@ function Business({ userId }: { userId: string }) {
 
   // Not one of this person's businesses (removed, or a link from someone else's): open theirs instead.
   if (!me || !business || !value) return <Redirect href="/app" />;
+  // Made while founding spots are on sale, and not paid for yet: it's finished on the web (20261027012700). Support
+  // viewing as a teammate sees it as it is.
+  const unpaid = business.needsPlan === true && !view;
 
   return (
     <BusinessProvider value={value}>
-      <OpenBusiness businessId={business.id} />
-      {view ? <KeepViewFresh view={view} /> : null}
-      <Stack
-        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors[theme].bg } }}
-      >
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="ask" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="search" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="ai-test" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="ai-setup" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="setup" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
-      </Stack>
-      <AskFromNotification />
-      <CallSheetHost />
+      {unpaid ? (
+        <FinishOnTheWeb />
+      ) : (
+        <>
+          <OpenBusiness businessId={business.id} />
+          {view ? <KeepViewFresh view={view} /> : null}
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors[theme].bg },
+            }}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="ask" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="search" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="ai-test" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="ai-setup" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="setup" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
+          </Stack>
+          <AskFromNotification />
+          <CallSheetHost />
+        </>
+      )}
       <BusinessSwitcher
         open={switcher}
         onClose={() => setSwitcher(false)}

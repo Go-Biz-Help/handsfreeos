@@ -9898,18 +9898,50 @@ put a credit on its balance; Silent is gone.
 
 ## Founding seats
 
-The founding offers are the first businesses on HandsFreeOS: twenty-five free seats, then a hundred at $497 a
-year, and partway through those the $97 monthly plan goes on sale beside them. The sequence moves on by itself —
-the $497 seats open the moment the last free one goes — and the website follows it. Everything here happens
-in **Admin** → **Founding**.
+The founding offers are the first businesses on HandsFreeOS. The free seats came first and were given by hand.
+Since 2026-10-27 the rest are **first come, first served**: a business signs up, picks a spot and pays for it by
+card before it sets up, at $497 a year (Founding Customer, 100 spots) or $97 a month (Founding Monthly, 1,000
+spots). Nobody applies. The website reads the counts live. Everything here happens in **Admin** → **Founding**.
 
 Founding needs the migrations `20261003000100_a_seat_at_the_founding_table.sql`,
 `20261003000200_one_offer_opens_the_next.sql`, `20261003000500_paying_for_a_seat.sql`,
-`20261027009500_a_founding_seat_by_the_year.sql` and `20261027009600_the_497_seat_goes_yearly.sql`. See "Apply
-new migrations". The last one switches the $497 offer to yearly: apply it only after the code that knows "yearly"
-is deployed, or the API refuses to show the founding page.
+`20261027009500_a_founding_seat_by_the_year.sql`, `20261027009600_the_497_seat_goes_yearly.sql` and
+`20261027012700_founding_spots_first_come.sql`. See "Apply new migrations". `20261027009600` switches the $497
+offer to yearly: apply it only after the code that knows "yearly" is deployed, or the API refuses to show the
+founding page. `20261027012700` opens the 1,000 monthly spots beside the $497 ones, and from then on every new
+business is asked to pay, so merge its pull request straight after it is live: a business made in between is sent
+to pay too, once the new app is up.
+
+### How a business buys a spot
+
+The owner's call on 2026-10-27, replacing applications:
+
+1. They press **Sign up** on the website. The button under a spot carries it, so the next steps start on that
+   spot.
+2. They make their account and their business. A business made while a paid spot is on sale has to pay before
+   it sets up: the web app shows **Pick your founding spot** instead of setup, and **Sign out** is the only way
+   out.
+3. An owner picks $497 a year or $97 a month and presses **Pay**. The spot is held for them for an hour while
+   they pay on Stripe's page, which keeps the card. **Seats out** says "paying now".
+4. When Stripe says the money is in, the spot is on and they carry on setting up. A monthly spot is charged again
+   each month and a yearly one each year, by the sweep in "The yearly renewal" below.
+
+- **On the phone app,** a business that hasn't paid shows "Finish setting up on the web", with no price and no
+  link: the App Store and Google Play don't allow selling outside their own payments in an app.
+- **Somebody who isn't an owner** sees that an owner has to pick the spot.
+- **Picking the other spot before paying** gives the first hold back. If they pay the first page anyway, the
+  payment wins and they get that spot.
+- **Paying on both pages** keeps one spot. The second payment shows in red under its row in **Seats given back**:
+  "Paid, but this business already has a founding spot. Refund this payment." Refund it in the Stripe dashboard.
+- **When every spot is taken,** the page says so and gives the support address. Nobody else gets in until there is
+  room: raise a cap on the offer's card, or give them a seat.
+- **Businesses made before 2026-10-27 are never asked to pay,** and a seat you give lets any business in free.
+- **A second business** made from inside a paid account is not asked to pay yet.
 
 ### Approving somebody
+
+Nobody applies any more (see above). This is for the applications that came in before 2026-10-27, which still show
+under **Waiting on you**.
 
 1. Ask them to sign up to HandsFreeOS first, with the email they applied with. A seat belongs to a business, and
    there has to be one to give it to.

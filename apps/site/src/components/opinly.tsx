@@ -2,9 +2,10 @@ import Script from 'next/script';
 import { urls } from '@/content/site';
 
 /**
- * Opinly's pixel: which campaign, post or link brought somebody here, and whether they went on to apply for a
- * founding seat (`founding-form.tsx` sends that as a `generate_lead`). Page views, clicks and route changes it
- * counts by itself. Like Matomo, it loads only on the live site, so `next dev` and Vercel previews count nothing.
+ * Opinly's pixel: which campaign, post or link brought somebody here, and whether they went on to sign up and pay for
+ * a founding spot (the worker reports those, joined to this visit by `signup-link-visitor.tsx`). Page views, clicks
+ * and route changes it counts by itself. Like Matomo, it loads only on the live site, so `next dev` and Vercel
+ * previews count nothing.
  *
  * The key is Opinly's publishable one. It can only write events — it reads nothing and reaches nothing else — so it
  * is made to sit in public HTML, and it lives here rather than in the environment this site keeps empty. `/privacy`
