@@ -245,6 +245,12 @@ extension's page-layout reports?":
   ("connected already, or asked") instead of being handed to you as "couldn’t find Connect", but only Remove
   Connection keeps them as a connection. It never takes the Connect or Message of a business their page suggests for
   theirs (`src/networks/alignable/read.ts`, `src/auto/alignable.ts`).
+- **Facebook: Add friend is pressed again** (the owner's problem reports of 26 Oct 2026). Facebook now labels a
+  profile's Add friend for screen readers with the person's name after it ("Add Friend Jane Doe"), so every friend
+  request on its own was passed over as "couldn’t find Add friend". The profile reader takes Add friend and Cancel
+  request with the person's own name after them, never another's (People you may know), and the runner and **Check
+  Facebook** press Add friend by its words or by its words and their name (`withTheirName` in
+  `src/networks/facebook/auto.ts`).
 - **A problem report stays within the 40 things core keeps** (`PROBLEM_FOUND_MOST`), where an Alignable business's
   page with posts and answers on it found 41 to 43 and was refused: past it, the lists with none are named in one,
   then each list's parts are folded into those some of its rows lacked, then lists' counts go, always the same way,

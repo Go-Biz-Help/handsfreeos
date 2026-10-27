@@ -44,6 +44,7 @@ import {
   messageBoxes,
   sendButton,
   theirPosts,
+  withTheirName,
 } from './auto';
 import { composer, POST, startButton } from './compose';
 import { clean, labelOf } from './dom';
@@ -129,8 +130,10 @@ export function outlineNow(doc: Document): string {
 }
 
 /** Where things stand on the profile the page shows, as the profile reader says. */
+const profileOn = (doc: Document, href: string): ProfilePage =>
+  readProfile(mainOf(doc), classifyUrl(href), href, doc.title).profile;
 const friendshipOn = (doc: Document, href: string): ProfilePage['friendship'] =>
-  readProfile(mainOf(doc), classifyUrl(href), href, doc.title).profile.friendship;
+  profileOn(doc, href).friendship;
 
 /** Why a step isn't tried on someone, by where things stand with them. */
 const STANDING: Readonly<Record<ProfilePage['friendship'], string>> = {
@@ -520,10 +523,11 @@ export async function tryComment(doc: Document): Promise<StepTry> {
 
 /** A friend request, on the profile of someone they aren't friends with: Add friend found, never pressed. */
 export function tryRequest(doc: Document, href: string): StepTry {
-  const standing = friendshipOn(doc, href);
+  const profile = profileOn(doc, href);
+  const standing = profile.friendship;
   if (standing !== 'not_friends' && standing !== 'unknown')
     return untried('request', STANDING[standing]);
-  const add = findStep(doc, AUTO_PLANS.friend_request.path[0]!);
+  const add = findStep(doc, withTheirName(AUTO_PLANS.friend_request.path, [profile.name])[0]!);
   return went(
     'request',
     { addFriend: Boolean(add), standingKnown: standing !== 'unknown' },

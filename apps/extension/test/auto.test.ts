@@ -23,6 +23,7 @@ import {
   readTheirPosts,
   MESSAGE_PATH,
   sameRef,
+  withTheirName,
   writeComment,
   writeMessage,
 } from '../src/networks/facebook/auto';
@@ -242,6 +243,29 @@ describe('pressing on a profile', () => {
     button.addEventListener('click', () => relabel(button, 'Cancel request'));
     expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.before);
     walk(doc, AUTO_PLANS.friend_request.path, AUTO_PLANS.friend_request.then);
+    expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.after);
+  });
+
+  it('sends one when Add friend’s label has their name after it, never under someone else’s', () => {
+    // From October 2026: "Add Friend Dana Reyes" for screen readers, "Add friend" to see.
+    const doc = load('profile-2026.html', URL);
+    const name = readPage(doc, URL).profile!.name!;
+    const button = standing(doc);
+    const label = (aria: string, words: string) => {
+      button.setAttribute('aria-label', aria);
+      [...button.querySelectorAll('span')].at(-1)!.textContent = words;
+    };
+    label('Add Friend Sam Lee', 'Add friend');
+    expect(readPage(doc, URL).profile?.friendship).toBe('unknown');
+    label(`Add Friend ${name}`, 'Add friend');
+    button.addEventListener('click', () => label(`Cancel request ${name}`, 'Cancel request'));
+    expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.before);
+    expect(() => walk(doc, AUTO_PLANS.friend_request.path, [])).toThrow(/Add friend/);
+    walk(
+      doc,
+      withTheirName(AUTO_PLANS.friend_request.path, [name, null]),
+      AUTO_PLANS.friend_request.then,
+    );
     expect(readPage(doc, URL).profile?.friendship).toBe(AUTO_PLANS.friend_request.after);
   });
 

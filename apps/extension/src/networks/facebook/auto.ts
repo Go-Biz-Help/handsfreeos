@@ -69,6 +69,29 @@ export const AUTO_PLANS: Readonly<Record<AutoJob, AutoPlan>> = {
   },
 };
 
+/**
+ * A profile's steps with the person's name after their words too: from October 2026 Add friend's label has it for
+ * screen readers ("Add Friend Jane Doe", the owner's problem reports of 26 Oct 2026), and an exact step missed it.
+ * Only their own name, never one under People you may know.
+ */
+export function withTheirName(
+  steps: readonly FetchStep[],
+  names: readonly (string | null)[],
+): FetchStep[] {
+  const known = [...new Set(names.flatMap((name) => (name && clean(name) ? [clean(name)] : [])))];
+  return steps.map((step) =>
+    step.action === 'press'
+      ? {
+          ...step,
+          words: [
+            ...step.words,
+            ...step.words.flatMap((word) => known.map((name) => `${word} ${name}`)),
+          ],
+        }
+      : step,
+  );
+}
+
 /** On someone's profile, Message opens a chat with them: a small window over the page, or Messenger. */
 export const MESSAGE_PATH: readonly FetchStep[] = [
   press(['Message'], 'Press “Message” under their name.', { exact: true }),
