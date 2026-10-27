@@ -24,7 +24,8 @@
 --          whether they were really in it, on one-on-one visits too.
 --
 -- Only widens: new tables, a column nothing reads yet, one more rate card key,
--- and the attendance close taking in calls it skipped before.
+-- one more webhook provider, and the attendance close taking in calls it
+-- skipped before.
 -- =============================================================================
 
 -- ---------- the switch support turns on ----------
@@ -171,6 +172,9 @@ create table app.video_call_people (
   joined_at timestamptz,
   last_joined_at timestamptz,
   left_at timestamptz,
+  -- LiveKit's id for the connection they're in the call on now: a second phone or a reload is a new connection that
+  -- takes over, and the old one's leaving is then no leaving at all.
+  participant_sid text check (participant_sid is null or length(participant_sid) <= 100),
   -- How long they've been in it altogether.
   seconds integer not null default 0 check (seconds >= 0),
   created_at timestamptz not null default now(),
@@ -263,8 +267,10 @@ create policy video_call_people_insert on app.video_call_people for insert to au
   with check (private.has_permission(workspace_id, 'appointments.write')
     and video_call_id in (select c.id from app.video_calls c)
     and kind = 'team' and user_id = (select auth.uid()) and state = 'admitted'
+    and (admitted_by is null or admitted_by = (select auth.uid()))
     and attendee_id is null and person_id is null and knock_key_hash is null
-    and joined_at is null and last_joined_at is null and left_at is null and seconds = 0);
+    and joined_at is null and last_joined_at is null and left_at is null and participant_sid is null
+    and seconds = 0);
 create policy video_call_people_update on app.video_call_people for update to authenticated
   using (private.has_permission(workspace_id, 'appointments.write')
     and video_call_id in (select c.id from app.video_calls c)
@@ -290,6 +296,14 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function private.video_call_lookup(uuid) from public;
 grant execute on function private.video_call_lookup(uuid) to service_actor;
+
+-- ---------- LiveKit's webhooks are stored like everybody else's ----------
+-- Who came into a call and left it, and the room closing: kept, then worked through in order with retries.
+alter table app.webhook_deliveries
+  drop constraint webhook_deliveries_provider_check,
+  add constraint webhook_deliveries_provider_check
+    check (provider in ('twilio', 'postmark', 'microsoft', 'google', 'fake', 'workflow', 'stripe', 'square', 'addon',
+      'meta', 'livekit'));
 
 -- ---------- the card ----------
 -- Mirrors core's USAGE_KEYS; packages/db/test/parity.test.ts asserts the two lists are identical.

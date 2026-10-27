@@ -227,30 +227,45 @@ describe('a customer on their own link', () => {
         { workspaceId: t.wsId, callId, personId: priyaRow, roomSid: 'RM_first', at: at(t0, 0) },
         t.scope,
       ),
-    ).toEqual({ changed: true });
+    ).toEqual({ changed: true, kick: false });
     expect(await call(callId)).toMatchObject({ state: 'live', room_sid: 'RM_first' });
     expect(await enter()).toMatchObject({ status: 'in', personId: customerRow });
   });
 
   it('counts them as joined once they’re really in the call', async () => {
-    await runSystem(
-      videoCallJoined,
-      { workspaceId: t.wsId, callId, personId: customerRow, roomSid: 'RM_first', at: at(t0, 60) },
-      t.scope,
-    );
+    const presence = (participantSid: string, seconds: number) => ({
+      workspaceId: t.wsId,
+      callId,
+      personId: customerRow,
+      roomSid: 'RM_first',
+      participantSid,
+      at: at(t0, seconds),
+    });
+    expect(await runSystem(videoCallJoined, presence('PA_ana_1', 60), t.scope)).toEqual({
+      changed: true,
+      kick: false,
+    });
     const [seat] = await rows<{ joined_at: Date | null }>(
       admin(),
       sql`select joined_at from app.appointment_attendees where id = ${booked.attendeeId}`,
     );
     expect(seat!.joined_at).not.toBeNull();
     // A repeated report changes nothing.
-    expect(
-      await runSystem(
-        videoCallJoined,
-        { workspaceId: t.wsId, callId, personId: customerRow, roomSid: 'RM_first', at: at(t0, 61) },
-        t.scope,
-      ),
-    ).toEqual({ changed: false });
+    expect(await runSystem(videoCallJoined, presence('PA_ana_1', 61), t.scope)).toEqual({
+      changed: false,
+      kick: false,
+    });
+    // She reloads the page: the new connection takes over, and the old one going is no leaving.
+    expect(await runSystem(videoCallJoined, presence('PA_ana_2', 90), t.scope)).toEqual({
+      changed: false,
+      kick: false,
+    });
+    expect(await runSystem(videoCallLeft, presence('PA_ana_1', 91), t.scope)).toEqual({
+      changed: false,
+      seconds: 0,
+    });
+    expect(await person(customerRow)).toMatchObject({ state: 'in', seconds: 0 });
+    expect(await events('video_call.person_joined', callId)).toHaveLength(2);
     const got = await ask(videoCallGet, { workspaceId: t.wsId, callId }, t.owner);
     expect(got.people.map((p) => [p.kind, p.state, p.connected])).toEqual([
       ['customer', 'in', true],
@@ -335,29 +350,30 @@ describe('a customer on their own link', () => {
       409,
     );
     // LiveKit reports them gone: still taken out.
-    await runSystem(
-      videoCallLeft,
-      { workspaceId: t.wsId, callId, personId: customerRow, roomSid: 'RM_first', at: at(t0, 360) },
-      t.scope,
-    );
+    const presence = (participantSid: string, seconds: number) => ({
+      workspaceId: t.wsId,
+      callId,
+      personId: customerRow,
+      roomSid: 'RM_first',
+      participantSid,
+      at: at(t0, seconds),
+    });
+    await runSystem(videoCallLeft, presence('PA_ana_2', 360), t.scope);
     expect(await person(customerRow)).toMatchObject({ state: 'removed', seconds: 300 });
-    await expect(
+    // Her old ticket gets her nowhere: the worker takes her straight out again.
+    expect(await runSystem(videoCallJoined, presence('PA_ana_3', 365), t.scope)).toEqual({
+      changed: false,
+      kick: true,
+    });
+    const enter = (more: { ask?: boolean; knockKeyHash?: string } = {}) =>
       runSystem(
         videoCallEnter,
-        { workspaceId: t.wsId, attendeeId: booked.attendeeId, name: 'Ana Customer' },
+        { workspaceId: t.wsId, attendeeId: booked.attendeeId, name: 'Ana Customer', ...more },
         t.scope,
-      ),
-    ).rejects.toBeInstanceOf(HfosError);
-    const back = await runSystem(
-      videoCallEnter,
-      {
-        workspaceId: t.wsId,
-        attendeeId: booked.attendeeId,
-        name: 'Ana Customer',
-        knockKeyHash: knockKey(),
-      },
-      t.scope,
-    );
+      );
+    expect(await enter()).toMatchObject({ status: 'removed', personId: customerRow });
+    await expectHfos(() => enter({ ask: true }), 'validation', 400);
+    const back = await enter({ ask: true, knockKeyHash: knockKey() });
     expect(back.status).toBe('knocking');
     expect(await person(back.personId!)).toMatchObject({
       kind: 'guest',
@@ -394,6 +410,15 @@ describe('a customer on their own link', () => {
     // Priya starts it again: a new room, its own stretch.
     const again = await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya);
     expect(again.call.state).toBe('open');
+    // The first room's closing, told late, doesn't end the call she's starting.
+    expect(
+      await runSystem(
+        videoCallFinished,
+        { workspaceId: t.wsId, callId, roomSid: 'RM_first', at: at(t0, 990) },
+        t.scope,
+      ),
+    ).toEqual({ changed: false, seconds: 0 });
+    expect((await call(callId)).state).toBe('open');
     await runSystem(
       videoCallJoined,
       { workspaceId: t.wsId, callId, personId: priyaRow, roomSid: 'RM_second', at: at(t0, 1000) },

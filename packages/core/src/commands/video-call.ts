@@ -250,10 +250,11 @@ export const videoCallOpen = defineCommand({
 
 const EnterOutput = z.object({
   /**
-   * in: given a ticket now. waiting: nobody from the team is in yet. knocking: asked to be let in (they're already in
-   * on another phone, or were taken out). full: no room.
+   * in: given a ticket now (a second phone or a reload takes over from the first). waiting: nobody from the team is
+   * in yet. removed: the team took them out, and they haven't asked to come back. knocking: they asked to come back,
+   * and wait to be let in. full: no room.
    */
-  status: z.enum(['in', 'waiting', 'knocking', 'full']),
+  status: z.enum(['in', 'waiting', 'removed', 'knocking', 'full']),
   callId: uuid,
   /** Their identity in the room: the row's id. A knock's is the guest row's; nobody's when it's full. */
   personId: uuid.nullable(),
@@ -275,7 +276,8 @@ export const videoCallEnter = defineCommand({
     workspaceId: uuid,
     attendeeId: uuid,
     name: z.string().trim().min(1).max(120),
-    /** A new key's hash, kept only if this has to become a knock (they're already in on another phone). */
+    /** Taken out by the team, they pressed Ask to come back in: this asks to be let in, with this key's hash. */
+    ask: z.boolean().default(false),
     knockKeyHash: z
       .string()
       .regex(/^[0-9a-f]{64}$/)
@@ -329,8 +331,9 @@ export const videoCallEnter = defineCommand({
       host,
     });
 
-    // Already in on another phone, or taken out by the team: this one asks to be let in.
-    if (mine && (connected(mine) || mine.state === 'removed')) {
+    // Taken out by the team: they come back only by asking to be let in, like anyone else.
+    if (mine?.state === 'removed') {
+      if (!input.ask) return say('removed', mine);
       if (!input.knockKeyHash)
         throw HfosError.validation(
           [{ path: 'knockKeyHash', message: 'Required.' }],
@@ -498,15 +501,26 @@ const PresenceInput = z.object({
   personId: uuid,
   /** LiveKit's id for the room as it runs now. */
   roomSid: z.string().trim().min(1).max(100).nullable().default(null),
+  /** LiveKit's id for this connection: a reload or a second phone is a new one, which takes over. */
+  participantSid: z.string().trim().min(1).max(100).nullable().default(null),
   at: isoDateTime.optional(),
 });
+
+/** Someone LiveKit let in with a ticket they shouldn't use any more: the worker takes them out again. */
+const kickedFrom = (call: CallRow, p: PersonRow | undefined) =>
+  !p ||
+  p.state === 'removed' ||
+  p.state === 'turned_away' ||
+  // A call that was ended starts again only for the team.
+  (call.state === 'ended' && p.kind !== 'team');
 
 export const videoCallJoined = defineCommand({
   name: 'video_call.joined',
   description: 'Worker: LiveKit says someone came into a video call.',
   risk: 0,
   input: PresenceInput,
-  output: z.object({ changed: z.boolean() }),
+  /** kick: they came in on a ticket they shouldn't use any more (taken out, or the call was ended): take them out. */
+  output: z.object({ changed: z.boolean(), kick: z.boolean() }),
   permission: null,
   actors: ['system'],
   scope: inWorkspace,
@@ -519,7 +533,11 @@ export const videoCallJoined = defineCommand({
       .from(videoCallPeople)
       .where(and(eq(videoCallPeople.id, input.personId), eq(videoCallPeople.videoCallId, call.id)))
       .for('update');
-    if (!p) return { changed: false };
+    if (kickedFrom(call, p)) return { changed: false, kick: true };
+    const person = p!;
+    // The same connection told twice.
+    if (input.participantSid && person.participantSid === input.participantSid)
+      return { changed: false, kick: false };
     if (call.state !== 'live') {
       await ctx.tx
         .update(videoCalls)
@@ -542,41 +560,48 @@ export const videoCallJoined = defineCommand({
         .set({ roomSid: input.roomSid })
         .where(eq(videoCalls.id, call.id));
     }
-    if (connected(p)) return { changed: false };
+    // A reload or a second phone: the new connection takes over, and their time in the call carries on.
+    if (connected(person)) {
+      await ctx.tx
+        .update(videoCallPeople)
+        .set({ participantSid: input.participantSid })
+        .where(eq(videoCallPeople.id, person.id));
+      return { changed: false, kick: false };
+    }
     await ctx.tx
       .update(videoCallPeople)
       .set({
-        // Someone taken out stays taken out, however LiveKit reports their way out.
-        state: p.state === 'removed' ? 'removed' : 'in',
-        joinedAt: p.joinedAt ?? at,
+        state: 'in',
+        joinedAt: person.joinedAt ?? at,
         lastJoinedAt: at,
+        participantSid: input.participantSid,
       })
-      .where(eq(videoCallPeople.id, p.id));
+      .where(eq(videoCallPeople.id, person.id));
     await ctx.emit({
       type: 'video_call.person_joined',
       entityType: 'video_call',
       entityId: call.id,
       payload: {
         appointmentId: call.appointmentId,
-        personRowId: p.id,
-        kind: p.kind,
-        userId: p.userId,
-        personId: p.personId,
-        attendeeId: p.attendeeId,
+        personRowId: person.id,
+        kind: person.kind,
+        userId: person.userId,
+        personId: person.personId,
+        attendeeId: person.attendeeId,
       },
-      after: { name: p.name },
+      after: { name: person.name },
     });
     // A customer really came into the call: that's joining, for attendance and workflows.
-    if (p.kind === 'customer' && p.attendeeId)
+    if (person.kind === 'customer' && person.attendeeId)
       await executeCommandWithin(ctx, attendeeSetAttendance, {
         workspaceId: ctx.scope.workspaceId!,
-        attendeeId: p.attendeeId,
+        attendeeId: person.attendeeId,
         attendance: 'joined',
       }).catch((e: unknown) => {
         // A cancelled booking has no attendance to mark; they were still in the call.
         if (!(e instanceof HfosError && e.rule === 'booking_cancelled')) throw e;
       });
-    return { changed: true };
+    return { changed: true, kick: false };
   },
 });
 
@@ -599,6 +624,9 @@ export const videoCallLeft = defineCommand({
       .where(and(eq(videoCallPeople.id, input.personId), eq(videoCallPeople.videoCallId, call.id)))
       .for('update');
     if (!p || !connected(p)) return { changed: false, seconds: 0 };
+    // An old connection a reload or a second phone took over from: they're still in the call.
+    if (input.participantSid && p.participantSid && p.participantSid !== input.participantSid)
+      return { changed: false, seconds: 0 };
     const stay = Math.max(0, Math.round((at.getTime() - p.lastJoinedAt!.getTime()) / 1000));
     const [row] = await ctx.tx
       .update(videoCallPeople)
@@ -606,6 +634,7 @@ export const videoCallLeft = defineCommand({
         state: p.state === 'in' ? 'left' : p.state,
         leftAt: at,
         seconds: p.seconds + stay,
+        participantSid: null,
       })
       .where(eq(videoCallPeople.id, p.id))
       .returning();
@@ -646,16 +675,20 @@ export const videoCallFinished = defineCommand({
   emits: ['video_call.ended'],
   async handler(ctx, input) {
     const call = await lockCall(ctx, input.callId);
-    // A room already over, or a stretch that has been followed by a new one: nothing more to close.
-    if (input.roomSid && call.roomSid && call.roomSid !== input.roomSid)
-      return { changed: false, seconds: 0 };
+    // Late news of a room already closed, or of one before the call started again: nothing more to close.
+    if (input.roomSid && call.roomSid !== input.roomSid) return { changed: false, seconds: 0 };
     const at = input.at ? new Date(input.at) : new Date();
     const list = await peopleOf(ctx.tx, call.id);
     for (const p of list.filter(connected)) {
       const stay = Math.max(0, Math.round((at.getTime() - p.lastJoinedAt!.getTime()) / 1000));
       await ctx.tx
         .update(videoCallPeople)
-        .set({ state: p.state === 'in' ? 'left' : p.state, leftAt: at, seconds: p.seconds + stay })
+        .set({
+          state: p.state === 'in' ? 'left' : p.state,
+          leftAt: at,
+          seconds: p.seconds + stay,
+          participantSid: null,
+        })
         .where(eq(videoCallPeople.id, p.id));
     }
     // Let in but never came: they can ask again.

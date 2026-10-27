@@ -2794,6 +2794,7 @@ export const videoCallPeople = app.table('video_call_people', {
   joinedAt: ts('joined_at'),
   lastJoinedAt: ts('last_joined_at'),
   leftAt: ts('left_at'),
+  participantSid: text('participant_sid'),
   seconds: integer('seconds').notNull().default(0),
   ...timestamps(),
 });
