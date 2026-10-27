@@ -74,6 +74,12 @@ export interface AddonServerModule {
   readonly manifest: AddonManifest;
   readonly commands?: readonly CommandDef[];
   readonly queries?: readonly QueryDef[];
+  /**
+   * A person's operations the Assistant never runs, by name, and why: what the add-on's browser extension sends in,
+   * a code that never goes through the AI, deleting for good. Every other operation a person runs declares `ai`
+   * (the owner's rule, 2026-10-26 and 2026-10-27; `addonAssistantIssues` holds every add-on to it).
+   */
+  readonly notForTheAssistant?: Readonly<Record<string, string>>;
 }
 
 /**

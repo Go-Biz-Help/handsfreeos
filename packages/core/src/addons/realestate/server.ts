@@ -130,4 +130,11 @@ export const realestateAddonServer: AddonServerModule = {
     // Search everything: never a route, run only inside core's search.
     ...searchEverythingQueries,
   ],
+  // Everything else a person does is a tool: exceptions, waives, ending or archiving a deal, the final commission, the
+  // team and the duty list too, each with a person's OK (the owner's decision, 2026-10-26, docs/realestate.md).
+  notForTheAssistant: {
+    'realestate.open_house.sign_in':
+      'A visitor signing in at an open house on the host’s phone: theirs, not the agent’s.',
+    'realestate.lockbox.save': 'A lockbox’s code never goes through the AI.',
+  },
 };

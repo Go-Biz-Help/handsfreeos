@@ -507,10 +507,11 @@ didn't offer, and the business's ids always go on after the model's arguments. A
 OK is rehearsed first through the kernel (`rehearseCommand`, rolled back whole), so a card its rules would refuse is
 never drawn: the model gets the refusal and says why. A card refused at Confirm says first that nothing was changed.
 **The Assistant can do whatever the
-person can** (the owner's decision, 2026-10-26): every operation a person runs on an add-on's screens declares `ai`,
-and only what its browser extension or worker sends in doesn't, nor what the add-on's own rules keep from it (each
-add-on's catalogue test holds it to that: Social Outreach's, Real Estate's and Sales Coach's); so does every worker
-action a person presses (its own test holds those). Look-ups
+person can** (the owner's decision, 2026-10-26): every operation a person runs declares `ai`, or is on its server
+module's `notForTheAssistant` with why (what its browser extension sends in, what the add-on's own rules keep from it,
+deleting for good). `addonAssistantIssues` holds every add-on to that, a new one from the generator too; a client's
+portal, the public pages, the worker's own work and an answer to a search are never a person's to run, so never
+tools. So does every worker action a person presses (its own test holds those). Look-ups
 the model asks for together run at the same time; changes run one at a time, in order. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only

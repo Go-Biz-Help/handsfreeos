@@ -6947,7 +6947,7 @@ When the test fails on a new command, pick one, in this order:
 
 1. **It's a plain change:** add it to `SCREEN_ACTIONS`. Give it a `warning` when it costs money or can't be taken back (risk 4 must have one). Give it `offeredTo` when the command's own permission isn't one the Assistant can check: an agency's (`org.*`) goes on `workspace.update`, and one anybody may run goes on `assistant.use`.
 2. **It needs a better card or more care:** give it a tool of its own in `apps/worker/src/assistant`, writing the command's name out in full. The test finds it by that name.
-3. **The Assistant must never do it:** add it to `NEVER_FOR_THE_ASSISTANT` with the reason. That covers deleting for good, signing in, paying on Stripe's page, uploading a file and anything only the app does by itself.
+3. **The Assistant must never do it:** add it to `NEVER_FOR_THE_ASSISTANT` with the reason. That covers deleting for good, signing in, paying on Stripe's page, uploading a file and anything only the app does by itself. An add-on's go on its own server module's `notForTheAssistant` instead (docs/addon-architecture.md).
 4. **It can't yet:** add it to `ASSISTANT_NOT_YET`, under its page, with why.
 
 When it fails on a new setting row, add the row to `SETTING_TOOLS` (the tool, the field in its input, and the value when it's one choice of several; the test checks the tool takes it) or to `SETTINGS_NEVER` with the reason.

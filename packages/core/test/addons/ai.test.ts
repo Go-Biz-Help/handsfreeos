@@ -12,6 +12,7 @@ import {
   AI_TOOL_NAME,
   ADDON_SERVER_MODULES,
   addonAiIssues,
+  addonAssistantIssues,
   addonAiToolByName,
   addonAiTools,
   addonDirectory,
@@ -392,8 +393,31 @@ describe('the rules every add-on module is held to', () => {
     ]);
   });
 
+  it('prints what a person does that the Assistant isn’t given, and isn’t kept from with why', () => {
+    expect(addonAssistantIssues(MODULES)).toEqual([
+      'fxprop.unit.list is something a person does: give it `ai`, or add it to notForTheAssistant with why',
+    ]);
+    const listed: AddonServerModule = {
+      ...PROP,
+      notForTheAssistant: {
+        'fxprop.unit.list': 'A list only the screen draws.',
+        'fxprop.note.add': 'Changed its mind.',
+        'fxprop.unit.gone': 'Taken out last week.',
+        'fxprop.lease.end': ' ',
+      },
+    };
+    expect(addonAssistantIssues([listed, RENT])).toEqual([
+      'fxprop.note.add declares `ai` and is on notForTheAssistant: keep one',
+      'fxprop.lease.end declares `ai` and is on notForTheAssistant: keep one',
+      "notForTheAssistant names fxprop.unit.gone, which fxprop doesn't have",
+      'fxprop.lease.end is on notForTheAssistant without a why',
+    ]);
+  });
+
   it('holds for every add-on that ships', () => {
     expect(addonAiIssues(ADDON_SERVER_MODULES)).toEqual([]);
+    // The Assistant does whatever the person can (the owner, 2026-10-26): a new add-on's too.
+    expect(addonAssistantIssues(ADDON_SERVER_MODULES)).toEqual([]);
     expect(addonModuleIssues({ commands, queries }, ADDON_SERVER_MODULES)).toEqual([]);
   });
 });

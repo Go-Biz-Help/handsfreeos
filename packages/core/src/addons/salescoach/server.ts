@@ -22,4 +22,7 @@ export const salescoachAddonServer: AddonServerModule = {
     ...learningQueries,
     ...trendQueries,
   ],
+  notForTheAssistant: {
+    'salescoach.call.delete': 'Deleting a coached call is for good, and risk 4 (2026-10-16).',
+  },
 };
