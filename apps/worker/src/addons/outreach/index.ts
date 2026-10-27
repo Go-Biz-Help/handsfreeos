@@ -107,7 +107,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // 2: a playbook's questions have answers, and it has a pace. 3: a niche, its problem and proof, and something
     // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
     // link. 5: the video's script. 6: the kinds of partner a partner playbook looks for. 7: a playbook runs on its own
-    // networks, a customers' one saved before on Facebook and LinkedIn, as it ran. Reading upgrades an older one too
+    // networks, a customers' one saved before on Facebook and LinkedIn, as it ran. 8: each network's own words, works
+    // online, and the networks whose words the AI wrote, empty. Reading upgrades an older one too
     // (outreach.playbook.list), so these only tidy what a reinstall brings back.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
@@ -115,6 +116,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     5: upgradePlaybooks,
     6: upgradePlaybooks,
     7: upgradePlaybooks,
+    8: upgradePlaybooks,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report

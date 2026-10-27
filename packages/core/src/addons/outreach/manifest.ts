@@ -17,15 +17,17 @@ export const outreachAddon = defineAddon({
   description:
     'A browser extension works beside you on Facebook: it saves the people you find and your chats with them to Contacts, and your playbooks say who you’re looking for, how you sound and which of your tags to use.',
   category: 'sales',
-  version: '0.10.0',
+  version: '0.11.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
   // (apps/worker/src/addons/outreach/index.ts, `dataMigrations`). 2: a playbook's questions have answers, and it
   // has a pace. 3: a playbook has a niche inside the main offer, its problem and proof, and something useful to send.
   // 4: a playbook's follow-ups are 5 to 7, each with its quiet days (no longer one number), and it has a video link.
   // 5: a playbook has its short video's script. 6: a partner playbook says which kinds of partner it looks for.
   // 7: a playbook runs on its own networks only; a customers' playbook saved before gets Facebook and LinkedIn, as it
-  // ran on both.
-  dataVersion: 7,
+  // ran on both. 8: a playbook has each network's own words (hashtags on Instagram, LinkedIn's post searches, kinds of
+  // business on Alignable), whether it works with clients online, and which networks' words the AI wrote; empty on one
+  // saved before.
+  dataVersion: 8,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.

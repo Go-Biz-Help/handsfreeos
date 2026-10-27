@@ -18,7 +18,7 @@ import { OutreachMoreRow } from '../more';
 import { isSetUp, WebOnlyBody } from '../page';
 import { PersonMenuScope } from '../person-menu';
 import { PipelineBody } from '../pipeline';
-import { mergeSection, PlaybookBody, sectionWords } from '../playbook';
+import { mergeSection, PlaybookBody, sectionsOf, sectionWords } from '../playbook';
 import { TodayBody } from '../today';
 import { id, TZ, WS } from './mocks';
 
@@ -949,6 +949,30 @@ describe('A playbook on the phone', () => {
     );
     expect(scripted).toContain('https://www.loom.com/share/abc123');
     expect(scripted).toContain('1 · Who it’s for, and the problem\nSay who.\nShow: You');
+  });
+
+  it('shows each network’s own words on a customers’ playbook that runs there, and what an emptied list means', () => {
+    const details = {
+      ...PLAYBOOK.details,
+      platforms: ['facebook' as const, 'instagram' as const, 'alignable' as const],
+      hashtags: ['austinroofing', 'hailrepair'],
+      businessKinds: [],
+      wordsWritten: ['instagram' as const, 'alignable' as const],
+      worksOnline: true,
+    };
+    expect(sectionsOf(details)).toEqual(
+      expect.arrayContaining(['hashtags', 'businessKinds', 'worksOnline']),
+    );
+    expect(sectionsOf(details)).not.toContain('postSearches');
+    expect(sectionsOf({ ...details, goal: 'partner' })).not.toContain('hashtags');
+    expect(sectionWords(details, 'hashtags')).toBe('#austinroofing\n#hailrepair');
+    expect(sectionWords(details, 'businessKinds')).toBe(
+      'Alignable won’t search for businesses for this playbook.',
+    );
+    expect(sectionWords({ ...details, wordsWritten: [] }, 'businessKinds')).toBe('Nothing yet.');
+    expect(sectionWords(details, 'worksOnline')).toBe(
+      'You work with clients online, so Alignable searches anywhere.',
+    );
   });
 
   it('lets owners and admins change a part, and says what’s wrong when it can’t be saved', async () => {

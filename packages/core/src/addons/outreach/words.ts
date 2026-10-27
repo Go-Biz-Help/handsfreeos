@@ -14,7 +14,7 @@ import { DONT_PITCH_TAG } from './limits';
 import { READ_CHATS_WORDS } from './asks';
 import type { ChatView } from './chat-read';
 import type { GroupView } from './groups';
-import { forPartners, type PlaybookDetails } from './playbooks';
+import { forPartners, type PlaybookDetails, type WordsPlatform } from './playbooks';
 
 /** An empty list's title and what fills it. */
 interface Empty {
@@ -573,6 +573,33 @@ export const OUTREACH_WORDS = {
     avoid: 'Words to avoid',
     disclaimer: 'Disclaimer',
     tags: 'Tags',
+    // Each network's own words on a customers' playbook (data version 8, decision 92), shown while it runs there.
+    hashtags: 'Hashtags on Instagram',
+    postSearches: 'Words to search LinkedIn’s posts with',
+    businessKinds: 'Kinds of business to search for on Alignable',
+    worksOnline: 'Clients online',
+  },
+  /**
+   * Each network's own words on a customers' playbook (decision 92): written by the AI once, from who it's for and
+   * their problem, and the person's to change. An emptied list means that network looks at nothing for it.
+   */
+  findWords: {
+    written: (perDay: number) =>
+      `The AI wrote these from who it’s for and their problem. Change any; it looks at ${perDay} a day, in turn.`,
+    notYet:
+      'The AI writes these once, from who it’s for and their problem. Add your own meanwhile.',
+    none: {
+      instagram: 'Instagram won’t look at hashtags for this playbook.',
+      linkedin: 'LinkedIn won’t search posts for this playbook.',
+      alignable: 'Alignable won’t search for businesses for this playbook.',
+    } satisfies Record<WordsPlatform, string>,
+    hashtagHint: 'Like austinroofing. Each is cleaned as people tag it: no #, no spaces.',
+  },
+  /** Whether the business works with a playbook's clients online (decision 92): where Alignable searches. */
+  worksOnline: {
+    label: 'You work with clients online',
+    yes: 'You work with clients online, so Alignable searches anywhere.',
+    no: 'You work with clients near you, so Alignable searches your own town.',
   },
   /**
    * On a partner playbook its words for groups find partners too (stage 4 of the partners plan): the computer searches

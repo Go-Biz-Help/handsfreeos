@@ -23,7 +23,10 @@ import {
   renumberQuestions,
   type PlaybookDetails,
   upgradePlaybookDetails,
+  WORDS_PLATFORM_KEYS,
+  type WordsPlatform,
 } from '../playbooks';
+import { hashtagOf } from '../posts';
 import { playbooks } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
@@ -50,9 +53,17 @@ async function loadPlaybook(ctx: Ctx, playbookId: string) {
   return p;
 }
 
+/** The networks whose words the AI has written, as saved (data version 8): the server's alone to change. */
+export function wordsWrittenOf(stored: unknown): WordsPlatform[] {
+  const was = (upgradePlaybookDetails(stored) ?? {}) as Record<string, unknown>;
+  const written = Array.isArray(was['wordsWritten']) ? (was['wordsWritten'] as unknown[]) : [];
+  return WORDS_PLATFORM_KEYS.filter((p) => written.includes(p));
+}
+
 /**
- * The parts data versions 3 and 4 added, as a save leaves them: one it leaves out keeps what's saved (or starts
- * empty), so a phone built before them never wipes them. The pace's follow-ups too.
+ * The parts data versions 3 to 8 added, as a save leaves them: one it leaves out keeps what's saved (or starts
+ * empty), so a phone built before them never wipes them. The pace's follow-ups too. Which networks' words the AI has
+ * written is never the save's to say: it keeps what's saved (`outreach.playbook.words` changes it).
  */
 function keptParts(details: PlaybookDetails, stored: unknown): PlaybookDetails {
   const was = (upgradePlaybookDetails(stored) ?? {}) as Record<string, unknown>;
@@ -71,7 +82,32 @@ function keptParts(details: PlaybookDetails, stored: unknown): PlaybookDetails {
         ? wasPace.followUpGaps
         : followUpGapsFor(followUps)),
   };
-  return { ...details, ...kept, pace: { ...pace, followUpGaps: [...pace.followUpGaps] } };
+  return {
+    ...details,
+    ...kept,
+    wordsWritten: wordsWrittenOf(stored),
+    pace: { ...pace, followUpGaps: [...pace.followUpGaps] },
+  };
+}
+
+/**
+ * A playbook's hashtags as people tag them (data version 8), each once: "#Austin Plumbing!" is austinplumbing. One
+ * that makes no hashtag is refused, saying which.
+ */
+function cleanHashtags(details: PlaybookDetails): PlaybookDetails {
+  if (!details.hashtags) return details;
+  const tags: string[] = [];
+  for (const line of details.hashtags) {
+    const tag = hashtagOf(line);
+    if (!tag)
+      throw HfosError.rule(
+        'outreach_playbook_hashtag',
+        422,
+        `“${line}” isn’t a hashtag anyone tags. Write a hashtag as people tag it, like austinroofing, under Hashtags on Instagram.`,
+      );
+    if (!tags.includes(tag)) tags.push(tag);
+  }
+  return { ...details, hashtags: tags };
 }
 
 /** Two playbooks in use never share a name. */
@@ -133,8 +169,11 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
   async handler(ctx, input) {
     const me = userIdOf(ctx.actor);
     const at = changeMoment(ctx.meta);
-    // Its questions keep short names however often they come and go.
-    const details = { ...input.details, questions: renumberQuestions(input.details.questions) };
+    // Its questions keep short names however often they come and go, and its hashtags are as people tag them.
+    const details = cleanHashtags({
+      ...input.details,
+      questions: renumberQuestions(input.details.questions),
+    });
     const saved = await namedOnce(input.name, async () => {
       if (input.playbookId) {
         const was = await loadPlaybook(ctx, input.playbookId);

@@ -1,7 +1,8 @@
 /**
  * Social Outreach in the worker (docs/outreach.md): data version 2 brings a playbook saved before its questions had
  * answers, and before it had a pace, into today's shape when a reinstall brings it back; version 3 gives one saved
- * before it had a niche, problem, proof and something useful to send those, empty. Run as the worker runs it.
+ * before it had a niche, problem, proof and something useful to send those, empty; version 8 gives one each network's
+ * own words, empty, nothing said of working online, and nothing written by the AI. Run as the worker runs it.
  */
 import { PlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -25,7 +26,7 @@ beforeAll(async () => {
 
 afterAll(closeTestDbs);
 
-describe('Social Outreach’s data versions 2 to 7', () => {
+describe('Social Outreach’s data versions 2 to 8', () => {
   it('gives an older playbook’s questions answers, a pace, follow-ups and empty newer parts, and leaves today’s alone', async () => {
     const before = {
       goal: 'demo',
@@ -58,6 +59,11 @@ describe('Social Outreach’s data versions 2 to 7', () => {
       videoScript: null,
       partnerKinds: ['group_admin', 'creator', 'business'],
       onItsNetworks: true,
+      hashtags: ['austinroofing'],
+      postSearches: [],
+      businessKinds: [],
+      worksOnline: false,
+      wordsWritten: ['instagram'],
     });
     // A partner playbook saved before version 7 kept to its own networks already (decision 81).
     const partners = { ...before, goal: 'partner' };
@@ -70,7 +76,7 @@ describe('Social Outreach’s data versions 2 to 7', () => {
           returning id`,
     );
 
-    for (const v of [2, 3, 4, 5, 6, 7]) {
+    for (const v of [2, 3, 4, 5, 6, 7, 8]) {
       const step = outreachAddonWorker.dataMigrations![v]!;
       await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
         step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
@@ -98,10 +104,18 @@ describe('Social Outreach’s data versions 2 to 7', () => {
       // It ran on every network that worked before version 7, and runs on those now.
       platforms: ['facebook', 'linkedin'],
       onItsNetworks: true,
+      // Each network's own words, for the AI to write once (decision 92).
+      hashtags: [],
+      postSearches: [],
+      businessKinds: [],
+      worksOnline: null,
+      wordsWritten: [],
     });
     expect(PlaybookDetails.parse(got(partner!.id).details)).toMatchObject({
       platforms: ['facebook'],
       onItsNetworks: true,
+      hashtags: [],
+      wordsWritten: [],
     });
     expect(got(current!.id)).toMatchObject({ details: today, updated: false });
   });

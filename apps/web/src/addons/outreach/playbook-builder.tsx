@@ -108,6 +108,14 @@ interface Draft {
   area: string;
   platforms: PlaybookDetails['platforms'];
   groupWords: string[];
+  /**
+   * Each network's own words and whether it works online (data version 8), as saved: the AI's help reads them. A save
+   * leaves them out, so the server keeps what the AI wrote.
+   */
+  hashtags: string[];
+  postSearches: string[];
+  businessKinds: string[];
+  worksOnline: boolean | null;
   steps: PlaybookStep[];
   pace: PlaybookDetails['pace'];
   tone: string;
@@ -138,6 +146,10 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   area: d.area ?? '',
   platforms: d.platforms,
   groupWords: d.groupWords,
+  hashtags: d.hashtags ?? [],
+  postSearches: d.postSearches ?? [],
+  businessKinds: d.businessKinds ?? [],
+  worksOnline: d.worksOnline ?? null,
   steps: d.steps,
   pace: d.pace,
   tone: d.tone ?? '',
@@ -529,6 +541,10 @@ export function PlaybookBuilder({
       signs: d.signs,
       skip: d.skip,
       groupWords: d.groupWords,
+      hashtags: d.hashtags,
+      postSearches: d.postSearches,
+      businessKinds: d.businessKinds,
+      worksOnline: d.worksOnline,
       tags: d.tags,
       samples: d.samples.filter((m) => m.trim()),
       openerStyles: d.openerStyles,

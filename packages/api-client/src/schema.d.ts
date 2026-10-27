@@ -40058,10 +40058,12 @@ export interface operations {
                             area: string | null;
                             audience: string | null;
                             avoid: string[];
+                            businessKinds?: string[];
                             disclaimer: string | null;
                             /** @enum {string} */
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
+                            hashtags?: string[];
                             link: string | null;
                             niche?: string | null;
                             offer: string | null;
@@ -40079,6 +40081,7 @@ export interface operations {
                             };
                             partnerKinds?: ("group_admin" | "creator" | "business")[];
                             platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            postSearches?: string[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -40110,6 +40113,8 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
+                            wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                            worksOnline?: boolean | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -40136,10 +40141,12 @@ export interface operations {
                         area: string | null;
                         audience: string | null;
                         avoid: string[];
+                        businessKinds?: string[];
                         disclaimer: string | null;
                         /** @enum {string} */
                         goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                         groupWords: string[];
+                        hashtags?: string[];
                         link: string | null;
                         niche?: string | null;
                         offer: string | null;
@@ -40157,6 +40164,7 @@ export interface operations {
                         };
                         partnerKinds?: ("group_admin" | "creator" | "business")[];
                         platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                        postSearches?: string[];
                         problem?: string | null;
                         proof?: string[];
                         questions: {
@@ -40188,6 +40196,8 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
+                        wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                        worksOnline?: boolean | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -40213,10 +40223,12 @@ export interface operations {
                             area: string | null;
                             audience: string | null;
                             avoid: string[];
+                            businessKinds?: string[];
                             disclaimer: string | null;
                             /** @enum {string} */
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
+                            hashtags?: string[];
                             link: string | null;
                             niche?: string | null;
                             offer: string | null;
@@ -40234,6 +40246,7 @@ export interface operations {
                             };
                             partnerKinds?: ("group_admin" | "creator" | "business")[];
                             platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            postSearches?: string[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -40265,6 +40278,8 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
+                            wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                            worksOnline?: boolean | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -72344,10 +72359,12 @@ export interface operations {
                                 area: string | null;
                                 audience: string | null;
                                 avoid: string[];
+                                businessKinds?: string[];
                                 disclaimer: string | null;
                                 /** @enum {string} */
                                 goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                                 groupWords: string[];
+                                hashtags?: string[];
                                 link: string | null;
                                 niche?: string | null;
                                 offer: string | null;
@@ -72365,6 +72382,7 @@ export interface operations {
                                 };
                                 partnerKinds?: ("group_admin" | "creator" | "business")[];
                                 platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                                postSearches?: string[];
                                 problem?: string | null;
                                 proof?: string[];
                                 questions: {
@@ -72396,6 +72414,8 @@ export interface operations {
                                     }[];
                                     version: number | null;
                                 } | null;
+                                wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                                worksOnline?: boolean | null;
                             };
                             /** Format: uuid */
                             id: string;
