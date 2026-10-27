@@ -12,13 +12,16 @@ import {
   type DepositTerms,
   type LocationKind,
   type Reminder,
+  type VideoProvider,
   type WeeklyHours,
+  VIDEO_CALL_WORDS,
 } from '@hfos/core';
 import { ArrowDown, ArrowUp, Info, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { SetRow } from '@/components/settings/set-row';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -434,8 +437,6 @@ function TeamModule({ draft, patch, catalogs, people, territories }: ModuleProps
 const LENGTHS = [15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300, 360, 480];
 const STEPS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
-type VideoChoice = 'none' | 'google_meet' | 'zoom';
-
 function ServicesModule({ draft, patch, services, resources, workspaceId }: ModuleProps) {
   const mode = draft.services.mode;
   const items = draft.services.items;
@@ -444,6 +445,7 @@ function ServicesModule({ draft, patch, services, resources, workspaceId }: Modu
   const resourceName = (id: string) => resources.find((r) => r.id === id)?.name ?? 'a resource';
   // A service can have its own video link and recording, used when the booking is online.
   const online = draft.locations.options.find((o) => o.kind === 'virtual');
+  const { videoCalls } = useWorkspaceShell();
   return (
     <>
       <Heading
@@ -486,7 +488,7 @@ function ServicesModule({ draft, patch, services, resources, workspaceId }: Modu
                 const item = items.find((i) => i.serviceId === s.id);
                 const on = !!item;
                 const own = item?.overrides ?? {};
-                const setOwn = (next: { video?: VideoChoice; record?: boolean }) =>
+                const setOwn = (next: { video?: VideoProvider; record?: boolean }) =>
                   patch({
                     services: {
                       items: items.map((i) =>
@@ -534,7 +536,7 @@ function ServicesModule({ draft, patch, services, resources, workspaceId }: Modu
                           aria-label={`Video link for ${s.name}`}
                           value={own.video ?? ''}
                           onChange={(e) => {
-                            const v = e.target.value as VideoChoice | '';
+                            const v = e.target.value as VideoProvider | '';
                             setOwn({
                               video: v === '' ? undefined : v,
                               ...(v === 'none' ? { record: undefined } : {}),
@@ -545,6 +547,11 @@ function ServicesModule({ draft, patch, services, resources, workspaceId }: Modu
                           <option value="none">Online: no video link</option>
                           <option value="google_meet">Online: a Google Meet link</option>
                           <option value="zoom">Online: a Zoom link</option>
+                          {videoCalls || own.video === 'handsfree' ? (
+                            <option value="handsfree">
+                              Online: a {VIDEO_CALL_WORDS.placeOption}
+                            </option>
+                          ) : null}
                         </Select>
                         {video === 'zoom' || video === 'google_meet' ? (
                           <Checkbox
@@ -750,6 +757,15 @@ const KINDS: LocationKind[] = ['customer_address', 'business', 'virtual', 'phone
 function LocationsModule({ draft, patch }: ModuleProps) {
   const options = draft.locations.options;
   const set = (next: typeof options) => patch({ locations: { options: [...next] } });
+  const { videoCalls } = useWorkspaceShell();
+  // A new Online place makes HandsFreeOS video calls while the business has them (the owner's 4a).
+  const placeOf = (kind: LocationKind) => ({
+    kind,
+    address: null,
+    meetingUrl: null,
+    video: kind === 'virtual' && videoCalls ? ('handsfree' as const) : ('none' as const),
+    record: false,
+  });
   return (
     <>
       <Heading title="Locations" description="Where appointments happen." />
@@ -767,19 +783,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
               aria-label={`Place ${i + 1}`}
               value={o.kind}
               onChange={(e) =>
-                set(
-                  options.map((x, j) =>
-                    j === i
-                      ? {
-                          kind: e.target.value as LocationKind,
-                          address: null,
-                          meetingUrl: null,
-                          video: 'none' as const,
-                          record: false,
-                        }
-                      : x,
-                  ),
-                )
+                set(options.map((x, j) => (j === i ? placeOf(e.target.value as LocationKind) : x)))
               }
             >
               {KINDS.map((k) => (
@@ -811,9 +815,9 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                         j === i
                           ? {
                               ...x,
-                              video: e.target.value as 'none' | 'google_meet' | 'zoom',
+                              video: e.target.value as VideoProvider,
                               meetingUrl: null,
-                              // Only Zoom records.
+                              // Only Zoom and Google Meet record, for now.
                               record:
                                 e.target.value === 'zoom' || e.target.value === 'google_meet'
                                   ? x.record
@@ -827,6 +831,9 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                   <option value="none">Use my link</option>
                   <option value="google_meet">Make a Google Meet link</option>
                   <option value="zoom">Make a Zoom link</option>
+                  {videoCalls || o.video === 'handsfree' ? (
+                    <option value="handsfree">{VIDEO_CALL_WORDS.placeOption}</option>
+                  ) : null}
                 </Select>
                 {o.video === 'zoom' || o.video === 'google_meet' ? (
                   <label className="flex w-full items-center gap-2 text-xs text-text-2">
@@ -847,7 +854,18 @@ function LocationsModule({ draft, patch }: ModuleProps) {
                       : 'The host needs Google Workspace, Allow Meet transcripts on their Google calendar, and transcripts started in the call (or on by default).'}
                   </label>
                 ) : null}
-                {o.video !== 'none' ? (
+                {o.video === 'handsfree' ? (
+                  <span
+                    className={
+                      videoCalls
+                        ? 'min-w-[200px] flex-1 text-xs text-text-3'
+                        : 'min-w-[200px] flex-1 text-xs text-warning-text'
+                    }
+                    data-testid="handsfree-place"
+                  >
+                    {videoCalls ? VIDEO_CALL_WORDS.placeHelp : VIDEO_CALL_WORDS.placeOff}
+                  </span>
+                ) : o.video !== 'none' ? (
                   <span className="min-w-[200px] flex-1 text-xs text-text-3">
                     Each appointment gets its own link, made in the host’s{' '}
                     {o.video === 'zoom' ? 'Zoom account' : 'Google Calendar'}. They connect it in
@@ -884,6 +902,11 @@ function LocationsModule({ draft, patch }: ModuleProps) {
             >
               <Trash2 className="h-4 w-4" strokeWidth={1.5} />
             </Button>
+            {o.kind === 'virtual' && o.video === 'none' && !o.meetingUrl && videoCalls ? (
+              <span className="w-full text-xs text-text-3" data-testid="no-link-makes-call">
+                {VIDEO_CALL_WORDS.noLinkMakesCall}
+              </span>
+            ) : null}
           </div>
         ))}
         {options.length < 10 ? (
@@ -894,17 +917,7 @@ function LocationsModule({ draft, patch }: ModuleProps) {
               aria-label="Add a place"
               value=""
               onChange={(e) =>
-                e.target.value &&
-                set([
-                  ...options,
-                  {
-                    kind: e.target.value as LocationKind,
-                    address: null,
-                    meetingUrl: null,
-                    video: 'none' as const,
-                    record: false,
-                  },
-                ])
+                e.target.value && set([...options, placeOf(e.target.value as LocationKind)])
               }
             >
               <option value="">Add a place</option>

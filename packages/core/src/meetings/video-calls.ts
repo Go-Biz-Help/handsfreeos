@@ -140,6 +140,9 @@ export const VIDEO_CALL_WORDS = {
     'A video call in HandsFreeOS: nothing to set up. Customers join from their own link in any browser, and your team from the appointment.',
   /** Under an Online place with no link, while video calls are on: what customers get. */
   noLinkMakesCall: 'No link here, so each appointment gets a HandsFreeOS video call.',
+  /** The Online place's choice while the business has video calls off (support turned them off since). */
+  placeOff:
+    'HandsFreeOS video calls aren’t on for this business, so these appointments get no video link. Pick another choice, or ask HandsFreeOS support to turn them on.',
   join: 'Join',
   joinCall: 'Join video call',
   waitingFor: (host: string | null) =>

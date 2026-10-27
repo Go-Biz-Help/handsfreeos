@@ -65,6 +65,8 @@ export default async function WorkspaceLayout({
         workspaceId={workspaceId}
         addons={current.addons}
         permissions={current.permissions}
+        // Only a hint as well: without it the Online place doesn't offer them, but one already chosen still shows.
+        videoCalls={workspace?.workspace.videoCalls ?? false}
       >
         <UnreadProvider workspaceId={workspaceId}>
           {/* The urgent count on Home, in the sidebar and the phone's bottom bar. */}
