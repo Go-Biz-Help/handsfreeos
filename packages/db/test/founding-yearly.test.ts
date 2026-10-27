@@ -312,7 +312,7 @@ describe('a refused renewal, paid with another card', () => {
       as(owner)((tx) =>
         rows<{ renewal: boolean; seat_active: boolean; billing: string }>(
           tx,
-          sql`select * from private.founding_checkout_state(${first!.checkout_id}::uuid)`,
+          sql`select * from private.founding_checkout_status(${first!.checkout_id}::uuid)`,
         ),
       );
     expect((await view())[0]).toMatchObject({

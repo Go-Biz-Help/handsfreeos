@@ -401,12 +401,11 @@ grant execute on function private.founding_buy(uuid, text) to authenticated;
 -- ---------- the page somebody comes back to ----------
 /**
  * 20261027009500's `private.founding_checkout_state`, saying at the end whether the business bought the spot itself:
- * then the page sends it on to set up, or back to pick a plan, rather than to a claim link it never had. Dropped and
- * made again in one go, because its answer grew; the code running before this reads its columns by name.
+ * then the page sends it on to set up, or back to pick a plan, rather than to a claim link it never had. A new name
+ * rather than a new shape, so nothing is dropped: the code running before this keeps calling the old one, which a
+ * later migration removes.
  */
-drop function private.founding_checkout_state(uuid);
-
-create function private.founding_checkout_state(p_checkout uuid)
+create function private.founding_checkout_status(p_checkout uuid)
 returns table (
   checkout_id uuid,
   workspace_id uuid,
@@ -438,8 +437,8 @@ language sql stable security definer set search_path = '' as $$
   where c.id = p_checkout and private.has_permission(c.workspace_id, 'workspace.update')
 $$;
 
-revoke all on function private.founding_checkout_state(uuid) from public;
-grant execute on function private.founding_checkout_state(uuid) to authenticated;
+revoke all on function private.founding_checkout_status(uuid) from public;
+grant execute on function private.founding_checkout_status(uuid) to authenticated;
 
 -- ---------- who has to pay ----------
 alter table app.organizations

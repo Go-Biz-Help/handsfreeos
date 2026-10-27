@@ -270,7 +270,7 @@ describe('paying for it', () => {
         rows<{ self_serve: boolean; billing: string; seat_active: boolean }>(
           tx,
           sql`select self_serve, billing, seat_active
-              from private.founding_checkout_state(${out.checkout_id}::uuid)`,
+              from private.founding_checkout_status(${out.checkout_id}::uuid)`,
         ),
       ).then(([row]) => row!);
     expect(await state()).toMatchObject({

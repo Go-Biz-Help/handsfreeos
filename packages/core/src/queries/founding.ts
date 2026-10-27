@@ -515,7 +515,7 @@ export const foundingCheckoutStatus = defineQuery({
       billing: 'once' | 'yearly' | 'monthly';
       paid_through: Date | string | null;
       self_serve: boolean;
-    }>(ctx.tx, sql`select * from private.founding_checkout_state(${input.checkoutId}::uuid)`);
+    }>(ctx.tx, sql`select * from private.founding_checkout_status(${input.checkoutId}::uuid)`);
     if (!c)
       throw HfosError.notFound(
         'We can’t find that payment. Sign in with the account that started it, or ask us for a new link.',
