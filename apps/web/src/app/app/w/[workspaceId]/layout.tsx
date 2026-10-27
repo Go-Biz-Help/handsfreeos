@@ -1,4 +1,5 @@
 import { can, managesAnAgency } from '@hfos/core';
+import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
@@ -16,6 +17,7 @@ import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
 import { WorkspaceShellProvider } from '@/components/shell/workspace-shell';
 import { apiServer, getMe, getWorkspaceShell, unwrap } from '@/lib/api/server';
+import { foundingPlanHref } from '@/lib/founding-plan';
 import { guideOf } from '@/lib/guide';
 import { CallProvider } from '@/lib/calls/call-provider';
 import { AttentionSummaryProvider } from '@/lib/realtime/attention-summary';
@@ -57,6 +59,9 @@ export default async function WorkspaceLayout({
         .then(unwrap)
         .catch(() => null),
     ]);
+  // A business made while founding spots are on sale picks one and pays before anything in it opens (20261027012700).
+  // Its own people only: support looking in, and anyone viewing as a teammate, see it as it is.
+  if (current.needsPlan && !viewingAs && !teammateView) redirect(foundingPlanHref(workspaceId));
   const staff = platform?.staff?.role ?? null;
   return (
     <LiveProvider workspaceId={workspaceId}>

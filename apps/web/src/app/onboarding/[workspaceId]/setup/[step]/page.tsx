@@ -20,6 +20,7 @@ import { loadMigrations, setupMoveOf } from '@/lib/agency/migrations';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 import type { OnboardingStatus } from '@/lib/api/types';
+import { foundingPlanHref } from '@/lib/founding-plan';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 import { loadWebsiteScan } from '@/lib/knowledge';
 import { setupHref } from '@/lib/setup';
@@ -67,6 +68,8 @@ export default async function SetupStepPage({
   const me = await getMe();
   const ws = me.workspaces.find((w) => w.id === workspaceId);
   if (!ws || !can(ws.permissions, 'workspace.update')) redirect(home);
+  // A spot first, then the setup (20261027012700).
+  if (ws.needsPlan) redirect(foundingPlanHref(workspaceId));
   const status = unwrapPage(
     await api.POST('/v1/queries/onboarding.status', { body: { workspaceId } }),
   );

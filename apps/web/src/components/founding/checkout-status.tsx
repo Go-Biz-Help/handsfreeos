@@ -1,20 +1,22 @@
 'use client';
 
 /**
- * Where a founding seat's payment has got to (0093), for the person paying.
+ * Where a founding spot's payment has got to (0093), for the person paying.
  *
  * Two jobs. On the way out it waits for the worker to make Stripe's page and then sends them there. On the way
- * back it waits for **Stripe's own event** to turn the seat on — being sent back to this page proves nothing,
+ * back it waits for **Stripe's own event** to turn the spot on — being sent back to this page proves nothing,
  * since anybody can type its address, so the page only ever reads what the database says.
  *
- * A yearly seat's refused renewal, paid with another card from Settings → Usage & balance, comes through here too:
- * then "done" is the year having moved on.
+ * A refused renewal, paid with another card from Settings → Usage & balance, comes through here too: then "done" is
+ * the month or year having moved on. A spot the business bought itself from the plan page (20261027012700) goes on
+ * to the setup when it's done, and back to the plan page when it didn't go through.
  */
 import { CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ButtonLink } from '@/components/ui/button';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { Ok } from '@/lib/api/types';
+import { foundingPlanHref } from '@/lib/founding-plan';
 import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 
 type Status = Ok<'/v1/queries/founding.checkout_status'>;
@@ -106,6 +108,10 @@ export function CheckoutStatus({
   const spinner = (
     <Loader2 className="h-[18px] w-[18px] flex-none animate-spin" strokeWidth={1.5} />
   );
+  const period = s.billing === 'monthly' ? 'month' : 'year';
+  const remember = () => {
+    document.cookie = `${WORKSPACE_COOKIE}=${s.workspaceId}; path=/; max-age=31536000; samesite=lax`;
+  };
   const clock = <Clock className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />;
 
   if (s.seatActive)
@@ -117,48 +123,74 @@ export function CheckoutStatus({
           icon={<CheckCircle2 className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />}
         >
           {s.renewal
-            ? `Paid: your ${s.offerName} seat is renewed through ${longDay(s.paidThrough)}. This card is the one charged next year.`
-            : s.billing === 'yearly'
-              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each year on this card; you can stop that any time in Settings → Usage & balance.`
+            ? `Paid: your ${s.offerName} spot is renewed through ${longDay(s.paidThrough)}. This card is the one charged next ${period}.`
+            : s.billing === 'yearly' || s.billing === 'monthly'
+              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Usage & balance.`
               : `Paid, and it’s yours: ${s.offerName}, for as long as HandsFreeOS exists.`}{' '}
           A receipt is on its way from Stripe.
         </Note>
-        <ButtonLink
-          href={`/app/w/${s.workspaceId}`}
-          variant="primary"
-          size="lg"
-          className="mt-5 w-full"
-          onClick={() => {
-            document.cookie = `${WORKSPACE_COOKIE}=${s.workspaceId}; path=/; max-age=31536000; samesite=lax`;
-          }}
-        >
-          Open your workspace
-        </ButtonLink>
+        {s.selfServe ? (
+          <ButtonLink
+            href={`/onboarding/${s.workspaceId}`}
+            variant="primary"
+            size="lg"
+            className="mt-5 w-full"
+            data-testid="checkout-set-up"
+            onClick={remember}
+          >
+            Carry on setting up
+          </ButtonLink>
+        ) : (
+          <ButtonLink
+            href={`/app/w/${s.workspaceId}`}
+            variant="primary"
+            size="lg"
+            className="mt-5 w-full"
+            onClick={remember}
+          >
+            Open your workspace
+          </ButtonLink>
+        )}
       </>
     );
 
   if (s.status === 'paid')
     return s.problem ? (
       <Note tone="warn" testId="checkout-stranded" icon={clock}>
-        Your payment went through, but we couldn’t turn the seat on by ourselves. We’ve been told
+        Your payment went through, but we couldn’t turn the spot on by ourselves. We’ve been told
         and will sort it out with you — you won’t be charged again.
       </Note>
     ) : (
       <Note tone="wait" testId="checkout-finishing" icon={spinner}>
         {s.renewal
-          ? 'Payment received. Renewing your seat…'
-          : 'Payment received. Turning your seat on…'}
+          ? 'Payment received. Renewing your spot…'
+          : 'Payment received. Turning your spot on…'}
       </Note>
     );
 
   if (s.status === 'expired' || s.status === 'failed')
     return (
-      <Note tone="warn" testId={`checkout-${s.status}`} icon={clock}>
-        {s.problem || 'This payment didn’t go through, and nothing was taken.'}{' '}
-        {s.renewal
-          ? 'Press Pay with another card in Settings → Usage & balance to try again. Your seat stays on meanwhile.'
-          : 'Open your claim link again to start over.'}
-      </Note>
+      <>
+        <Note tone="warn" testId={`checkout-${s.status}`} icon={clock}>
+          {s.problem || 'This payment didn’t go through, and nothing was taken.'}{' '}
+          {s.renewal
+            ? 'Press Pay with another card in Settings → Usage & balance to try again. Your spot stays on meanwhile.'
+            : s.selfServe
+              ? 'Pick your spot again to start over.'
+              : 'Open your claim link again to start over.'}
+        </Note>
+        {s.selfServe && !s.renewal ? (
+          <ButtonLink
+            href={foundingPlanHref(s.workspaceId)}
+            variant="primary"
+            size="lg"
+            className="mt-5 w-full"
+            data-testid="checkout-pick-again"
+          >
+            Pick your spot
+          </ButtonLink>
+        ) : null}
+      </>
     );
 
   if (asked >= PATIENCE)
@@ -188,11 +220,26 @@ export function CheckoutStatus({
       <>
         <Note tone="warn" testId="checkout-cancelled" icon={clock}>
           You didn’t finish paying, and nothing was taken.{' '}
-          {s.renewal ? 'Your seat stays on meanwhile.' : 'Your seat is still held for you.'}
+          {s.renewal
+            ? 'Your spot stays on meanwhile.'
+            : s.selfServe
+              ? 'Your spot is held for you for an hour.'
+              : 'Your seat is still held for you.'}
         </Note>
         {s.url ? (
           <ButtonLink href={s.url} variant="primary" size="lg" className="mt-5 w-full">
             Go back to paying
+          </ButtonLink>
+        ) : null}
+        {s.selfServe && !s.renewal ? (
+          <ButtonLink
+            href={foundingPlanHref(s.workspaceId)}
+            variant="secondary"
+            size="lg"
+            className="mt-2.5 w-full"
+            data-testid="checkout-pick-other"
+          >
+            Pick a different spot
           </ButtonLink>
         ) : null}
       </>
