@@ -121,7 +121,7 @@ describe('a video call with a customer, any time', () => {
       sent_by: t.priya.id,
       subject: expect.stringMatching(/^Video call with /),
     });
-    const key = new RegExp(`${ORIGIN}/j/([0-9A-Za-z]{32})\\b`).exec(m!.body)?.[1];
+    const key = /https:\/\/book\.example\.com\/j\/([0-9A-Za-z]{32})\b/.exec(m!.body)?.[1];
     expect(key).toBeDefined();
 
     const c = await callRow(callId);
