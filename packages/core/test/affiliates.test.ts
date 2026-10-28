@@ -1,6 +1,8 @@
 /**
  * The affiliate program, part 1 (20261027014000), through the command pipeline: applying, staff deciding and setting
- * shares, and a business made through an affiliate's link being credited to them as it's made, and only then.
+ * shares, and a business made through an affiliate's link being credited to them as it's made, and only then. And
+ * part 2's reading (20261027014200): what they've earned, on their own page and staff's. The earning itself is
+ * apps/worker/test/founding-checkout.test.ts, where the payments happen.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -352,5 +354,86 @@ describe('clicks', () => {
     await click();
     const mine = await ask(affiliateMine, {}, dana);
     expect(mine.affiliate).toMatchObject({ clicks30: 2, clicksAll: 2 });
+  });
+});
+
+describe('what they earn', () => {
+  it('shows on their own page and staff’s: sign-ups, paying businesses by name, earned, waiting and ready', async () => {
+    const affiliateId = await approved(dana, codeFor('earn'));
+    const made = () =>
+      run(
+        organizationCreate,
+        {
+          businessName: `Paying Plumbing ${randomUUID().slice(0, 4)}`,
+          affiliate: { code: codeFor('earn') },
+        },
+        buyer,
+      );
+    const paying = await made();
+    await made();
+    const pay = async (cents: number, daysAgo: number) => {
+      const [p] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into platform.plan_payments
+              (organization_id, workspace_id, how, payment_ref, amount_cents, period_from, paid_at)
+            values (${paying.organizationId}, ${paying.workspaceId}, 'checkout', ${`pi_${randomUUID()}`},
+              ${cents}, now() - make_interval(days => ${daysAgo}), now() - make_interval(days => ${daysAgo}))
+            returning id`,
+      );
+      return p!.id;
+    };
+    const commission = (paymentId: string, kind: string, cents: number, payableDays: number) =>
+      admin().execute(
+        sql`insert into platform.affiliate_commissions
+              (affiliate_id, organization_id, payment_id, refund_id, kind, base_cents, rate_bp, amount_cents,
+               earned_at, payable_at)
+            values (${affiliateId}, ${paying.organizationId}, ${paymentId},
+              ${kind === 'earned' ? null : sql`(select id from platform.plan_refunds where payment_id = ${paymentId})`},
+              ${kind}, 9700, 4000, ${cents}, now(), now() + make_interval(days => ${payableDays}))`,
+      );
+    // Paid 40 days ago, so ready; paid today, so waiting; then part of today's refunded.
+    const old = await pay(9700, 40);
+    await commission(old, 'earned', 3880, -10);
+    const fresh = await pay(9700, 0);
+    await commission(fresh, 'earned', 3880, 30);
+    await admin().execute(
+      sql`insert into platform.plan_refunds (payment_id, refund_ref, amount_cents, status, refunded_at)
+          values (${fresh}, ${`re_${randomUUID()}`}, 2500, 'succeeded', now())`,
+    );
+    await commission(fresh, 'taken_back', -1000, 30);
+
+    const mine = (await ask(affiliateMine, {}, dana)).affiliate!;
+    expect(mine.signUps).toBe(2);
+    expect(mine.payingBusinesses).toEqual([
+      expect.objectContaining({
+        name: expect.stringContaining('Paying Plumbing'),
+        earnedCents: 6760,
+      }),
+    ]);
+    expect(mine.earnings).toEqual({
+      earnedCents: 6760,
+      waitingCents: 2880,
+      readyCents: 3880,
+      paidCents: 0,
+    });
+    // Somebody else's page shows none of it.
+    await apply(riley, codeFor('none'));
+    const theirs = (await ask(affiliateMine, {}, riley)).affiliate!;
+    expect(theirs).toMatchObject({ signUps: 0, payingBusinesses: [] });
+    expect(theirs.earnings.earnedCents).toBe(0);
+
+    const page = await ask(platformAffiliate, { affiliateId }, staff);
+    expect(page.affiliate.earnedCents).toBe(6760);
+    expect(page.earnings).toEqual(mine.earnings);
+    expect(page.commissions.map((c) => [c.kind, c.amountCents])).toEqual(
+      expect.arrayContaining([
+        ['earned', 3880],
+        ['earned', 3880],
+        ['taken_back', -1000],
+      ]),
+    );
+    expect(
+      page.businesses.find((b) => b.organizationId === paying.organizationId)?.earnedCents,
+    ).toBe(6760);
   });
 });

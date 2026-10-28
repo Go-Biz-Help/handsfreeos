@@ -10061,11 +10061,19 @@ needed for this. **The worker refuses to start with a test key (`sk_test_…`) i
    **Workbench** → **Webhooks**), and add a destination.
 2. Choose **Your account**, not **Connected accounts**. These events happen in HandsFreeOS's own account; the
    Connect endpoint drops anything that isn't a business's.
-3. Select these four events, and no others:
+3. Select these seven events, and no others:
    - `checkout.session.completed`
    - `checkout.session.expired`
    - `checkout.session.async_payment_succeeded`
    - `checkout.session.async_payment_failed`
+   - `refund.created`
+   - `refund.updated`
+   - `refund.failed`
+
+   The three refund events tell us when somebody gave a plan payment back in Stripe's dashboard, so the affiliate
+   who sent that business has their share of it taken back (`HANDSFREEOS_AFFILIATES_IMPLEMENTATION_PLAN.md`). A
+   refund of anything else in our account, like an RCS request's, is heard and dropped.
+
 4. Set the API version to the one the worker pins (`API_VERSION` in `apps/worker/src/payments/stripe.ts`,
    today `2026-08-26.dahlia`).
 5. Choose **Webhook endpoint**, and use this address:
@@ -10088,6 +10096,12 @@ needed for this. **The worker refuses to start with a test key (`sk_test_…`) i
 You should see `STRIPE_PLATFORM_WEBHOOK_SECRET` in `fly secrets list --app handsfreeos-worker`, and the worker
 restart. Until it is there, pressing **Pay** tells the person that paying online isn't switched on yet and
 keeps their seat held — the worker will not make a page nobody would hear back from.
+
+**Adding the refund events to a destination made before 28 Oct 2026.** It sends only the four checkout events. In
+**live** mode, go to **Developers** → **Webhooks** (or **Workbench** → **Webhooks**), open the destination whose
+address ends `/webhooks/stripe/platform`, press **Edit destination**, tick `refund.created`, `refund.updated` and
+`refund.failed` beside the four already ticked, and save. The address and the signing secret stay the same, so
+nothing changes on the worker. Until they're added, a refund doesn't take an affiliate's share back.
 
 ### The yearly renewal
 

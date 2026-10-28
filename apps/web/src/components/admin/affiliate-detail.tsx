@@ -3,20 +3,26 @@
 /**
  * One affiliate on Admin → Affiliates (20261027014000): where they stand, their share, their link, the businesses
  * they sent and their link's clicks a day. Pausing and ending ask first, since each changes what their link does.
+ * And what they've earned (20261027014200): waiting and ready, what each business earned them, and each share earned
+ * or taken back by a refund.
  */
 import {
   AFFILIATE_ADMIN_WORDS,
+  AFFILIATE_CLOSED_BUSINESS,
+  AFFILIATE_COMMISSION_WORDS,
   AFFILIATE_HOW_WORDS,
   AFFILIATE_STATUS_WORDS,
   affiliateLink,
   affiliatePercentToBp,
   affiliateRateWords,
+  money,
 } from '@hfos/core';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AFFILIATE_BADGE } from '@/components/admin/affiliates-page';
 import { whenWords } from '@/components/admin/ticket-bits';
+import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CopyField } from '@/components/ui/copy-field';
@@ -205,6 +211,11 @@ export function AffiliateDetail({ page }: { page: Page }) {
         </section>
       </div>
 
+      <section className="mt-5" data-testid="affiliate-earned">
+        <h2 className="mb-2 text-sm font-semibold">{W.earnings}</h2>
+        <AffiliateEarningsTiles earnings={page.earnings} />
+      </section>
+
       {a.pitch || a.links ? (
         <section className="mt-5 rounded-card border border-border bg-card p-4">
           {a.pitch ? (
@@ -243,9 +254,10 @@ export function AffiliateDetail({ page }: { page: Page }) {
                   ) : (
                     <span className="min-w-0 truncate font-medium">{b.name}</span>
                   )}
-                  <span className="flex-none text-text-3">
+                  <span className="flex-none text-right text-text-3">
                     {W.credited(AFFILIATE_HOW_WORDS[b.how], whenWords(b.referredAt))}
                     {b.markedByName ? `, ${W.markedBy(b.markedByName)}` : ''}
+                    {b.earnedCents ? ` · ${W.businessEarned(money(b.earnedCents))}` : ''}
                   </span>
                 </li>
               ))}
@@ -274,6 +286,36 @@ export function AffiliateDetail({ page }: { page: Page }) {
           )}
         </section>
       </div>
+
+      <section className="mt-5 rounded-card border border-border bg-card p-4">
+        <h2 className="text-sm font-semibold">{W.shares}</h2>
+        {page.commissions.length === 0 ? (
+          <p className="mt-2 text-[13px] text-text-3">{W.noShares}</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-2 text-[13px]" data-testid="affiliate-shares">
+            {page.commissions.map((c) => (
+              <li key={c.commissionId} className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 text-text-2">
+                  {AFFILIATE_COMMISSION_WORDS[c.kind](
+                    c.businessName ?? AFFILIATE_CLOSED_BUSINESS,
+                    money(c.baseCents),
+                    affiliateRateWords(c.rateBp),
+                  )}
+                  <span className="text-text-3">
+                    {' '}
+                    · {whenWords(c.earnedAt)}, {W.payable(whenWords(c.payableAt))}
+                  </span>
+                </span>
+                <span
+                  className={`flex-none font-medium tabular-nums ${c.amountCents < 0 ? 'text-danger-text' : ''}`}
+                >
+                  {money(c.amountCents)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <Dialog open={asking !== null} onOpenChange={(o) => (o ? null : setAsking(null))}>
         <DialogContent

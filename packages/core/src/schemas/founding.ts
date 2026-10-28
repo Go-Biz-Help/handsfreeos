@@ -310,6 +310,30 @@ export const FoundingRecordRenewalOutput = z.strictObject({
   outcome: z.enum(['recorded', 'already', 'unchanged']),
 });
 
+// ---------- a refund ----------
+
+/** What Stripe says about a refund of a plan payment, each time it changes (20261027014200). */
+export const FoundingRecordRefundInput = z.strictObject({
+  workspaceId: uuid,
+  /** The `pi_…` it was made against. */
+  paymentRef: z.string().trim().min(1).max(255),
+  /** Stripe's `re_…`. */
+  refundRef: z.string().trim().min(1).max(255),
+  amountCents: z.int().min(1),
+  status: z.enum(['pending', 'succeeded', 'failed', 'canceled']),
+  /** When it was made. */
+  refundedAt: z.iso.datetime(),
+});
+
+export const FoundingRecordRefundOutput = z.strictObject({
+  refundId: uuid.nullable(),
+  /**
+   * `recorded`: kept, or moved on. `unchanged`: heard before, or a step back (a refund that failed doesn't go through
+   * again). `ignored`: not a plan payment kept here, such as a texting fee's.
+   */
+  outcome: z.enum(['recorded', 'unchanged', 'ignored']),
+});
+
 // ---------- taking a seat back ----------
 
 export const FoundingRevokeInput = z.strictObject({

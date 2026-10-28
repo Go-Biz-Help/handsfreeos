@@ -48,6 +48,7 @@ import {
   workspacePlans,
   workspaces,
 } from '@hfos/db/schema';
+import { giveBackOnRefund, notePlanPayment, takeBackOnRefund } from '../affiliates/earn';
 import { formatUtcDate } from '../crm/format';
 import { HfosError } from '../errors';
 import { foundingPriceWords } from '../support/founding-words';
@@ -66,6 +67,8 @@ import {
   FoundingRecordCheckoutClosedInput,
   FoundingRecordCheckoutOpenedInput,
   FoundingRecordCheckoutPaidInput,
+  FoundingRecordRefundInput,
+  FoundingRecordRefundOutput,
   FoundingRecordRenewalInput,
   FoundingRecordRenewalOutput,
   FoundingPayRenewalInput,
@@ -1016,9 +1019,43 @@ export const foundingRecordCheckoutPaid = defineCommand({
         entityId: input.checkoutId,
         payload: { grantId: done.grant_id, offerId: done.offer_id, paymentRef: input.paymentRef },
       });
+    if (done.outcome !== 'no_seat') await keepCheckoutPayment(ctx, input.checkoutId);
     return { checkoutId: input.checkoutId, outcome: done.outcome };
   },
 });
+
+/**
+ * A paid checkout's payment, kept for refunds and its affiliate's share (20261027014200). A first payment pays for the
+ * month or year starting now; a renewal paid on a page of its own, for the one it was opened for.
+ */
+async function keepCheckoutPayment(ctx: CommandContext, checkoutId: string): Promise<void> {
+  const [paid] = await rows<{
+    organization_id: string;
+    workspace_id: string;
+    offer_id: string;
+    payment_ref: string | null;
+    paid_cents: number | null;
+    paid_at: Date | string;
+    renewal_for: Date | string | null;
+  }>(
+    ctx.tx,
+    sql`select organization_id, workspace_id, offer_id, payment_ref, paid_cents, paid_at, renewal_for
+        from platform.founding_checkouts where id = ${checkoutId}::uuid and status = 'paid'`,
+  );
+  if (!paid) return;
+  const paidAt = new Date(paid.paid_at);
+  await notePlanPayment(ctx, {
+    organizationId: paid.organization_id,
+    workspaceId: paid.workspace_id,
+    offerId: paid.offer_id,
+    how: paid.renewal_for ? 'renewal_page' : 'checkout',
+    checkoutId,
+    paymentRef: paid.payment_ref,
+    amountCents: paid.paid_cents ?? 0,
+    periodFrom: paid.renewal_for ? new Date(paid.renewal_for) : paidAt,
+    paidAt,
+  });
+}
 
 export const foundingRecordCheckoutClosed = defineCommand({
   name: 'founding.record_checkout_closed',
@@ -1156,10 +1193,12 @@ export const foundingRecordRenewal = defineCommand({
       renewal_failed_at: Date | string | null;
       renewal_count: number;
       price_cents: number;
+      offer_id: string | null;
     }>(
       ctx.tx,
-      sql`select grant_id, current_period_end, renewal_failed_at, renewal_count, price_cents
-          from app.workspace_plans where workspace_id = ${workspaceId}::uuid for update`,
+      sql`select p.grant_id, p.current_period_end, p.renewal_failed_at, p.renewal_count, p.price_cents,
+                 (select g.offer_id from platform.founding_grants g where g.id = p.grant_id) as offer_id
+          from app.workspace_plans p where p.workspace_id = ${workspaceId}::uuid for update of p`,
     );
     if (!plan || plan.grant_id !== input.grantId || !plan.current_period_end)
       return { grantId: input.grantId, outcome: 'unchanged' as const };
@@ -1199,6 +1238,18 @@ export const foundingRecordRenewal = defineCommand({
           until: day(next),
         },
       });
+      // Kept for refunds and its affiliate's share: it pays for the month or year from the old paid-through date.
+      await notePlanPayment(ctx, {
+        organizationId: ctx.scope.organizationId!,
+        workspaceId,
+        offerId: plan.offer_id,
+        how: 'renewal',
+        checkoutId: null,
+        paymentRef: input.paymentRef,
+        amountCents: input.paidCents ?? plan.price_cents,
+        periodFrom: paidThrough,
+        paidAt: new Date(),
+      });
       return { grantId: input.grantId, outcome: 'recorded' as const };
     }
 
@@ -1217,6 +1268,76 @@ export const foundingRecordRenewal = defineCommand({
       after: { renewal: 'refused', reason: problem.slice(0, 200) },
     });
     return { grantId: input.grantId, outcome: 'recorded' as const };
+  },
+});
+
+// ---------- a refund ----------
+
+/** Where a refund may go from where it is: a pending one anywhere, one that went through only to failed. */
+const REFUND_NEXT: Record<string, readonly string[]> = {
+  pending: ['succeeded', 'failed', 'canceled'],
+  succeeded: ['failed'],
+  failed: [],
+  canceled: [],
+};
+
+export const foundingRecordRefund = defineCommand({
+  name: 'founding.record_refund',
+  description:
+    'Worker: Stripe says a plan payment was refunded, or what became of the refund. One that goes through takes back the affiliate’s share of it; one the bank turns down afterwards gives it back.',
+  risk: 3,
+  input: FoundingRecordRefundInput,
+  output: FoundingRecordRefundOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['founding.refund_recorded'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
+    const [payment] = await rows<{ id: string }>(
+      ctx.tx,
+      sql`select id from platform.plan_payments
+          where payment_ref = ${input.paymentRef} and workspace_id = ${workspaceId}::uuid`,
+    );
+    if (!payment) return { refundId: null, outcome: 'ignored' as const };
+    // Locked, so the same refund's events arriving together are taken one after the other.
+    const [was] = await rows<{ id: string; status: string; payment_id: string }>(
+      ctx.tx,
+      sql`select id, status, payment_id from platform.plan_refunds
+          where refund_ref = ${input.refundRef} for update`,
+    );
+    if (was && was.payment_id !== payment.id)
+      return { refundId: null, outcome: 'ignored' as const };
+    if (was && !REFUND_NEXT[was.status]?.includes(input.status))
+      return { refundId: was.id, outcome: 'unchanged' as const };
+    const [row] = await rows<{ id: string }>(
+      ctx.tx,
+      was
+        ? sql`update platform.plan_refunds set status = ${input.status}, amount_cents = ${input.amountCents}
+              where id = ${was.id} returning id`
+        : sql`insert into platform.plan_refunds (payment_id, refund_ref, amount_cents, status, refunded_at)
+              values (${payment.id}, ${input.refundRef}, ${input.amountCents}, ${input.status},
+                ${input.refundedAt}::timestamptz)
+              on conflict (refund_ref) do nothing
+              returning id`,
+    );
+    if (!row) return { refundId: null, outcome: 'unchanged' as const };
+    if (input.status === 'succeeded') await takeBackOnRefund(ctx, row.id);
+    else if (was?.status === 'succeeded') await giveBackOnRefund(ctx, row.id);
+    await ctx.emit({
+      type: 'founding.refund_recorded',
+      entityType: 'workspace_plan',
+      entityId: workspaceId,
+      payload: {
+        refundRef: input.refundRef,
+        paymentRef: input.paymentRef,
+        amountCents: input.amountCents,
+        status: input.status,
+      },
+      before: was ? { refund: was.status } : null,
+      after: { refund: input.status, amount: `${(input.amountCents / 100).toFixed(2)}` },
+    });
+    return { refundId: row.id, outcome: 'recorded' as const };
   },
 });
 
@@ -1485,6 +1606,7 @@ export const foundingCommands = [
   foundingSetRenewing,
   foundingPayRenewal,
   foundingRecordRenewal,
+  foundingRecordRefund,
   foundingRevoke,
   foundingRestore,
   foundingSetCap,

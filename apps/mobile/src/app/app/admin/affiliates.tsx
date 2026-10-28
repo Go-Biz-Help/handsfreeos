@@ -5,6 +5,7 @@ import {
   affiliatePercentToBp,
   affiliateRateWords,
   deskCountHeading,
+  money,
 } from '@hfos/core';
 import * as React from 'react';
 import { Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
@@ -44,8 +45,8 @@ const BADGE: Readonly<Record<Affiliate['status'], 'pending' | 'ok' | 'gray'>> = 
  * every affiliate. For support admins (`platform.affiliates.manage`).
  *
  * Approving turns their link on and emails it to them; turning down asks first, since it emails them too. Tapping an
- * affiliate opens their share, Pause and End. Their link code and the businesses they sent are on the web's page for
- * them, where there's room for the list.
+ * affiliate opens their share, Pause and End. Each row says what they've earned (20261027014200); their link code, the
+ * businesses they sent and each share earned are on the web's page for them, where there's room for the lists.
  */
 export default function Affiliates() {
   const can = useDeskCan('platform.affiliates.manage');
@@ -256,6 +257,7 @@ function AffiliatesDesk() {
                     {affiliateRateWords(a.rateBp)}
                     {a.ownRateBp !== null ? ` (${W.ownShare.toLowerCase()})` : ''} ·{' '}
                     {W.businessCount(a.businesses)}
+                    {a.earnedCents ? ` · ${W.businessEarned(money(a.earnedCents))}` : ''}
                   </Text>
                   <Text className="text-[13px] text-text-3">
                     {W.clicks(a.clicks30, a.clicksAll)}

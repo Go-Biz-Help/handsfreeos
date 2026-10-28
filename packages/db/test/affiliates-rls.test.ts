@@ -5,6 +5,8 @@
  *   2. Which businesses an affiliate sent is staff's alone, and a business is credited as it's made, by its maker,
  *      or never: not an older business, not somebody else's, and not to the maker's own link.
  *   3. Clicks are counted by the worker alone; the share everyone gets is read by anyone and changed by staff.
+ *   4. What businesses paid us, and refunds, are staff's (20261027014200). An affiliate reads their own commissions,
+ *      and the names of the businesses that earned them, never anybody else's; nobody but the worker writes one.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
@@ -188,5 +190,102 @@ describe('clicks and the share', () => {
       ),
     );
     expect(byStaff).toHaveLength(1);
+  });
+});
+
+describe('what an affiliate earns', () => {
+  let orgId: string;
+  let paymentId: string;
+
+  beforeAll(async () => {
+    ({ orgId } = await bootstrapOrganization(maker, 'Paying Co', 'Paying Co'));
+    const [p] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`insert into platform.plan_payments (organization_id, how, payment_ref, amount_cents, period_from, paid_at)
+          values (${orgId}, 'checkout', ${`pi_rls_${uniq()}`}, 9700, now(), now()) returning id`,
+    );
+    paymentId = p!.id;
+    await dbs.admin.db.execute(
+      sql`insert into platform.affiliate_commissions
+            (affiliate_id, organization_id, payment_id, kind, base_cents, rate_bp, amount_cents, earned_at, payable_at)
+          values (${sellerId}, ${orgId}, ${paymentId}, 'earned', 9700, 4000, 3880, now(), now() + interval '30 days')`,
+    );
+  });
+
+  it('the affiliate reads their own commissions and the business’s name; nobody else does', async () => {
+    const mine = await as(seller)((tx) =>
+      rows<{ amount_cents: string }>(
+        tx,
+        sql`select amount_cents::text from platform.affiliate_commissions where payment_id = ${paymentId}`,
+      ),
+    );
+    expect(mine).toEqual([{ amount_cents: '3880' }]);
+    const named = await as(seller)((tx) =>
+      rows<{ name: string; earned_cents: string }>(
+        tx,
+        sql`select name, earned_cents::text from private.affiliate_my_businesses()
+            where organization_id = ${orgId}`,
+      ),
+    );
+    expect(named).toEqual([{ name: 'Paying Co', earned_cents: '3880' }]);
+    for (const u of [maker, other]) {
+      expect(
+        await as(u)((tx) =>
+          rows(
+            tx,
+            sql`select 1 from platform.affiliate_commissions where payment_id = ${paymentId}`,
+          ),
+        ),
+      ).toEqual([]);
+      expect(
+        await as(u)((tx) => rows(tx, sql`select * from private.affiliate_my_businesses()`)),
+      ).toEqual([]);
+    }
+    expect(
+      await as(staff)((tx) =>
+        rows(tx, sql`select 1 from platform.affiliate_commissions where payment_id = ${paymentId}`),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('what a business paid us, and its refunds, are staff’s alone', async () => {
+    const seen = (u: TestUser) =>
+      as(u)((tx) => rows(tx, sql`select 1 from platform.plan_payments where id = ${paymentId}`));
+    expect(await seen(maker)).toEqual([]);
+    expect(await seen(seller)).toEqual([]);
+    expect(await seen(staff)).toHaveLength(1);
+  });
+
+  it('nobody but the worker writes one, staff included', async () => {
+    for (const u of [seller, staff]) {
+      const e = await expectPgError(() =>
+        as(u)((tx) =>
+          tx.execute(
+            sql`insert into platform.affiliate_commissions
+                  (affiliate_id, organization_id, payment_id, kind, base_cents, rate_bp, amount_cents, earned_at,
+                   payable_at)
+                values (${sellerId}, ${orgId}, ${paymentId}, 'given_back', 9700, 4000, 100, now(), now())`,
+          ),
+        ),
+      );
+      expect(e.code).toBe('42501');
+      const changed = await expectPgError(() =>
+        as(u)((tx) =>
+          tx.execute(
+            sql`update platform.affiliate_commissions set amount_cents = 9700 where payment_id = ${paymentId}`,
+          ),
+        ),
+      );
+      expect(changed.code).toBe('42501');
+    }
+    const e = await expectPgError(() =>
+      as(staff)((tx) =>
+        tx.execute(
+          sql`insert into platform.plan_refunds (payment_id, refund_ref, amount_cents, status, refunded_at)
+              values (${paymentId}, ${`re_rls_${uniq()}`}, 100, 'succeeded', now())`,
+        ),
+      ),
+    );
+    expect(e.code).toBe('42501');
   });
 });

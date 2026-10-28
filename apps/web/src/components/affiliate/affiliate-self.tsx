@@ -2,18 +2,22 @@
 
 /**
  * The person's own affiliate page (20261027014000). Somebody who hasn't applied, or may apply again, sees what the
- * program pays and the form. An application waiting can still be changed. Once approved, it's their link, their share
- * and their link's clicks; part 3 adds the businesses they sent and what they've earned.
+ * program pays and the form. An application waiting can still be changed. Once approved, it's their link, their share,
+ * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200). A
+ * paused or ended affiliate still sees what they earned.
  */
 import {
+  AFFILIATE_CLOSED_BUSINESS,
   AFFILIATE_MINE_WORDS,
   AFFILIATE_PAGE_WORDS as W,
   affiliateLink,
   affiliateRateWords,
+  money,
 } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CopyField } from '@/components/ui/copy-field';
@@ -52,6 +56,10 @@ export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
       )}
 
       {a?.status === 'approved' ? <Approved affiliate={a} /> : null}
+      {a &&
+      (a.status === 'approved' || a.earnings.earnedCents !== 0 || a.payingBusinesses.length) ? (
+        <Earned affiliate={a} />
+      ) : null}
       {!a || mayApplyAgain ? (
         <ApplyForm affiliate={null} name={a?.name ?? name} code={a?.code ?? ''} />
       ) : null}
@@ -86,6 +94,46 @@ function Approved({ affiliate: a }: { affiliate: Affiliate }) {
       <div>
         <h2 className="text-sm font-semibold">{W.clicks}</h2>
         <p className="mt-1 text-[14px] text-text-2">{W.clicksLine(a.clicks30, a.clicksAll)}</p>
+      </div>
+      <div>
+        <h2 className="text-sm font-semibold">{W.signUps}</h2>
+        <p className="mt-1 text-[14px] text-text-2" data-testid="affiliate-sign-ups">
+          {W.signUpsLine(a.signUps, a.payingBusinesses.length)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** What they've earned, and the businesses that earned it, by name. */
+function Earned({ affiliate: a }: { affiliate: Affiliate }) {
+  return (
+    <div className="mt-7 flex flex-col gap-5">
+      <div>
+        <h2 className="mb-2 text-sm font-semibold">{W.earnings}</h2>
+        <AffiliateEarningsTiles earnings={a.earnings} />
+      </div>
+      <div>
+        <h2 className="text-sm font-semibold">{W.payingBusinesses}</h2>
+        {a.payingBusinesses.length === 0 ? (
+          <p className="mt-1 text-[14px] text-text-2">{W.noPaying}</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-2 text-[14px]" data-testid="affiliate-paying">
+            {a.payingBusinesses.map((b, i) => (
+              <li
+                key={`${b.name ?? ''}-${i}`}
+                className="flex items-baseline justify-between gap-2"
+              >
+                <span className="min-w-0 truncate font-medium">
+                  {b.name ?? AFFILIATE_CLOSED_BUSINESS}
+                </span>
+                <span className="flex-none text-text-3">
+                  {W.payingLine(money(b.earnedCents), b.firstPaidAt ? day(b.firstPaidAt) : null)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

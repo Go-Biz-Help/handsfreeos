@@ -598,6 +598,7 @@ describe('registry', () => {
       'founding.set_renewing',
       'founding.pay_renewal',
       'founding.record_renewal',
+      'founding.record_refund',
       'founding.revoke',
       'founding.restore',
       'founding.set_cap',

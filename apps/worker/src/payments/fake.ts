@@ -53,7 +53,7 @@ import {
   type SubscriptionState,
   type CheckoutInput,
 } from './provider';
-import { readStripeCheckoutEvent } from './stripe';
+import { readStripeCheckoutEvent, readStripeRefundEvent } from './stripe';
 
 /** Not secrets: the stand-in signs with these and the verifier checks with the same ones. */
 export const FAKE_STRIPE_WEBHOOK_SECRET = 'whsec_local_development_only';
@@ -241,7 +241,8 @@ export interface FakePayments {
   settleDispute(providerPaymentId: string, outcome: 'won' | 'lost'): Promise<FakeCharge | null>;
   /**
    * The business gives money back in the provider's own dashboard, never asking HandsFreeOS: the refund's events,
-   * posted to our endpoint. A pending one settles later with `settleRefund`.
+   * posted to our endpoint. A pending one settles later with `settleRefund`. A payment made to us (a plan's) is
+   * refunded the same way, and its events go to our own account's endpoint.
    */
   dashboardRefund(
     providerPaymentId: string,
@@ -459,6 +460,22 @@ export function createFakePayments(opts: {
    * `account` on it, and signed with that destination's own secret.
    */
   async function sendCheckout(type: string, page: FakeCheckout): Promise<void> {
+    await sendPlatform(type, {
+      id: page.sessionRef,
+      object: 'checkout.session',
+      client_reference_id: page.checkoutId,
+      metadata: { ...page.metadata, [`${page.kind}_id`]: page.checkoutId },
+      customer: page.customerRef,
+      status: page.status,
+      payment_status: page.status === 'complete' ? 'paid' : 'unpaid',
+      payment_intent: page.paymentRef,
+      amount_total: page.amountCents,
+      currency: 'usd',
+    });
+  }
+
+  /** Any event about our own account, posted and signed the way that destination's are. */
+  async function sendPlatform(type: string, object: Record<string, unknown>): Promise<void> {
     const url = `${opts.publicUrl}/webhooks/stripe/platform`;
     const eventId = nextId('evt');
     const body = JSON.stringify({
@@ -466,20 +483,7 @@ export function createFakePayments(opts: {
       object: 'event',
       type,
       created: Math.floor(Date.now() / 1000),
-      data: {
-        object: {
-          id: page.sessionRef,
-          object: 'checkout.session',
-          client_reference_id: page.checkoutId,
-          metadata: { ...page.metadata, [`${page.kind}_id`]: page.checkoutId },
-          customer: page.customerRef,
-          status: page.status,
-          payment_status: page.status === 'complete' ? 'paid' : 'unpaid',
-          payment_intent: page.paymentRef,
-          amount_total: page.amountCents,
-          currency: 'usd',
-        },
-      },
+      data: { object },
     });
     const headers = signStripePlatform(body);
     const post: FakeWebhookPost = {
@@ -547,6 +551,18 @@ export function createFakePayments(opts: {
    * Charge and not the refund; Square's carry the refund under `object.refund`.
    */
   async function sendRefund(c: FakeCharge, row: FakeRefund, type: string): Promise<void> {
+    // A refund of a payment to us comes to our own account's destination, as Stripe's would.
+    if (c.provider === 'stripe' && c.accountId === PLATFORM_ACCOUNT.externalAccountId) {
+      await sendPlatform(type, {
+        id: row.id,
+        object: 'refund',
+        payment_intent: c.id,
+        amount: row.amountCents,
+        status: row.status,
+        created: Math.floor(Date.now() / 1000),
+      });
+      return;
+    }
     if (c.provider === 'stripe') {
       await send('stripe', type, c.accountId, {
         id: row.id,
@@ -1366,6 +1382,7 @@ export function createFakePayments(opts: {
             return header.includes(`v1=${expected}`);
           },
           checkout: readStripeCheckoutEvent,
+          refund: readStripeRefundEvent,
         },
       },
 

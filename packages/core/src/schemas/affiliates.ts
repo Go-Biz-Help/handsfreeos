@@ -90,6 +90,28 @@ export const AffiliateApplyOutput = z.strictObject({
   created: z.boolean(),
 });
 
+/**
+ * What an affiliate has earned (20261027014200), less what refunds took back. Each share waits 30 days for refunds
+ * (decision 8), then is ready for the next monthly payout.
+ */
+export const AffiliateEarnings = z.strictObject({
+  earnedCents: z.int(),
+  /** Still in its 30 days. */
+  waitingCents: z.int(),
+  /** Past its 30 days and not paid yet. */
+  readyCents: z.int(),
+  /** Paid out to them. Payouts come in part 4, so nothing yet. */
+  paidCents: z.int(),
+});
+
+/** A business that earned an affiliate something, as their own page shows it: the name, and nothing else of it. */
+export const AffiliatePayingBusiness = z.strictObject({
+  /** Null once the business closed its account for good. */
+  name: z.string().nullable(),
+  firstPaidAt: isoDateTime.nullable(),
+  earnedCents: z.int(),
+});
+
 /** The signed-in person's own affiliate standing, for their page. Null when they haven't applied. */
 export const AffiliateMineInput = z.strictObject({});
 export const AffiliateMine = z.strictObject({
@@ -108,6 +130,11 @@ export const AffiliateMine = z.strictObject({
   /** Clicks on their link: the last 30 days, and ever. */
   clicks30: z.int(),
   clicksAll: z.int(),
+  /** Businesses credited to them, paying or not. */
+  signUps: z.int(),
+  /** The ones that paid, newest first. */
+  payingBusinesses: z.array(AffiliatePayingBusiness),
+  earnings: AffiliateEarnings,
 });
 export const AffiliateMineOutput = z.strictObject({
   affiliate: AffiliateMine.nullable(),
@@ -159,6 +186,8 @@ export const AffiliateRow = z.strictObject({
   clicksAll: z.int(),
   /** Businesses credited to them. */
   businesses: z.int(),
+  /** Everything they've earned, less what refunds took back. */
+  earnedCents: z.int(),
 });
 
 export const AffiliateOutput = z.strictObject({ affiliate: AffiliateRow });
@@ -183,12 +212,35 @@ export const AffiliateBusiness = z.strictObject({
   clickedAt: isoDateTime.nullable(),
   referredAt: isoDateTime,
   markedByName: z.string().nullable(),
+  /** What it has earned them, less refunds. */
+  earnedCents: z.int(),
+});
+
+export const affiliateCommissionKind = z.enum(['earned', 'taken_back', 'given_back']);
+export type AffiliateCommissionKind = z.infer<typeof affiliateCommissionKind>;
+
+/** One share earned, taken back by a refund, or given back when the refund failed. */
+export const AffiliateCommission = z.strictObject({
+  commissionId: uuid,
+  kind: affiliateCommissionKind,
+  /** The business it's from; null once it closed its account for good. */
+  businessName: z.string().nullable(),
+  /** What was paid, or refunded, and the share it was worked out at. */
+  baseCents: z.int(),
+  rateBp: z.int(),
+  /** Negative when taken back. */
+  amountCents: z.int(),
+  earnedAt: isoDateTime,
+  payableAt: isoDateTime,
 });
 
 export const PlatformAffiliateInput = z.strictObject({ affiliateId: uuid });
 export const PlatformAffiliateOutput = z.strictObject({
   affiliate: AffiliateRow,
   businesses: z.array(AffiliateBusiness),
+  earnings: AffiliateEarnings,
+  /** The last 100, newest first. */
+  commissions: z.array(AffiliateCommission),
   /** Their link's clicks a day, the last 30 days that had any, newest first. */
   clicks: z.array(z.strictObject({ day: z.iso.date(), clicks: z.int() })),
 });
