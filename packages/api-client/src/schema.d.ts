@@ -77213,6 +77213,7 @@ export interface operations {
                         };
                         payouts: {
                             account: {
+                                country: string;
                                 detailsSubmitted: boolean;
                                 needsMore: boolean;
                                 ready: boolean;

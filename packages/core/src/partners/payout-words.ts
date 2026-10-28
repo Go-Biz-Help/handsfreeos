@@ -96,7 +96,8 @@ export const PAYOUT_WORDS = {
   totals: {
     owed: 'Your partners',
     accountFees: 'Stripe’s account fee ($2 for each partner paid)',
-    payoutFees: 'Stripe’s payout fee (0.25% + 25¢ for each)',
+    payoutFees:
+      'Stripe’s payout fee (0.25% + 25¢ for each, and 0.25% more to a bank outside the US)',
     taxForms: `Stripe’s tax form fee (${money(TAX_FORM_FEE_CENTS)} for each partner’s 1099)`,
     cardFee: 'Card fee (2.9% + 30¢)',
     charge: 'Charged to your card',
@@ -154,6 +155,8 @@ export const PAYOUT_WORDS = {
     needsMore:
       'Stripe needs a few more details from them before it can pay them. They finish it on their page.',
     ready: 'Payouts go to their bank through Stripe.',
+    /** Where their bank is (decision 118). */
+    bank: (where: string) => `Their bank is ${where}.`,
     empty: 'Nothing paid to them yet.',
   },
 
@@ -198,8 +201,15 @@ export const PAYOUT_WORDS = {
     about: (business: string) =>
       `${business} pays you through Stripe once a month, for shares at least 30 days old. You give your bank and tax details to Stripe, never to us or to ${business}.`,
     setUp: 'Set up payouts',
-    setUpHint:
-      'It takes a few minutes on Stripe’s own page. Have your bank details and Social Security number to hand.',
+    setUpHint: (country: string) =>
+      country === 'US'
+        ? 'It takes a few minutes on Stripe’s own page. Have your bank details and Social Security number to hand.'
+        : 'It takes a few minutes on Stripe’s own page. Have your bank details and an ID to hand.',
+    /** Where their bank is, picked before Stripe's form opens (decision 118). */
+    country: 'Where’s your bank?',
+    countryHint: (business: string) =>
+      `Stripe pays banks in the US, Canada, the UK, Switzerland and the European Economic Area. If yours is somewhere else, ask ${business} how they’ll pay you.`,
+    abroad: 'Stripe pays it into your bank in your own currency.',
     finish: 'Finish with Stripe',
     finishHint: 'Stripe needs a few more details before it can pay you.',
     ready: 'You’re set up. Payouts go to your bank through Stripe.',

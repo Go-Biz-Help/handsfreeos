@@ -139,7 +139,7 @@ describe('the payout loose ends', () => {
 
   const accountRefOf = (partnerId: string) => `acct_${partnerId.replace(/-/g, '').slice(0, 16)}`;
 
-  const bank = (partnerId: string) =>
+  const bank = (partnerId: string, country = 'US') =>
     runSystem(
       partnerPayoutRecordAccount,
       {
@@ -152,6 +152,7 @@ describe('the payout loose ends', () => {
         transfersActive: true,
         disabledReason: null,
         due: [],
+        country,
       },
       t.scope,
     );
@@ -300,6 +301,15 @@ describe('the payout loose ends', () => {
     expect(await due('2027-01-01')).toEqual([
       { accountRef: accountRefOf(pia), partnerId: pia, taxYear: 2026, paidCents: 200_000 },
     ]);
+    // A bank outside the US gets no 1099 (decision 118).
+    const banked = (country: string) =>
+      rows(
+        admin(),
+        sql`update app.partner_payout_accounts set country = ${country} where partner_id = ${pia}`,
+      );
+    await banked('CA');
+    expect(await due('2027-01-01')).toEqual([]);
+    await banked('US');
     // Not before the year ends, and never on a test payout.
     expect(await due('2026-12-01')).toEqual([]);
     expect(await due('2027-01-01', false)).toEqual([]);
@@ -338,12 +348,14 @@ describe('the payout loose ends', () => {
   });
 
   it('give back a line held for a partner deleted for good, and only theirs', async () => {
+    // Dee's bank is in Canada: Stripe's payout fee has its cross-border 0.25% on top (decision 118).
     const dee = await partner('Dee');
-    await bank(dee);
+    await bank(dee, 'CA');
     await earn(dee, 100_000);
     const apr = await build('2027-04-01');
     await charge(apr.payoutId!, 1, 'succeeded');
     const [line] = (await linesOf(apr.payoutId!)).filter((l) => l.partner_id === dee);
+    expect(line).toMatchObject({ amount_cents: 10_000, payout_fee_cents: 75 });
     await send(line!.id, 'held');
 
     // A partner still kept is never given back.

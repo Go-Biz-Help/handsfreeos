@@ -1812,7 +1812,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     customer. A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
     paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe, with
     Stripe's fees the business's and $25 the smallest payout unless the business sets a lower one; US partners
-    first (the plan's decisions 16 to 18). Each partner has their own page. Alignable's referral swap stays beside
+    first (the plan's decisions 16 to 18), then the countries the business reaches (decision 118). Each partner has their own page. Alignable's referral swap stays beside
     the commission. Social Outreach finds and asks; partners, commissions and payouts are core's, as money is: **Make
     partner** on the Partners list takes Manage partners (`partners.manage`), since it promises the business's money,
     and makes the contact a partner in core too (`partner.add`), with a link of their own. Group admins and moderators are still never approached
@@ -2749,6 +2749,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         never describes who a home or a neighborhood suits (fair housing: "family-friendly", "safe neighborhood" and
         the like are in its words to avoid); the coaching one leaves alone anyone in a crisis or asking for medical
         help. No migration: a playbook's template is plain text.
+
+118.  **Partners from the countries you reach** (Chris, 28 Oct 2026, "all of your picks": 26a). "Partners come from
+      the same countries you reach (Settings, Countries)." Before, finding partners left the country setting out, and
+      payouts were for US partners only (the partners plan's decision 18, "later").
+      - **The partner check says where they live,** as the customer checks do (`PARTNER_SCHEMA`'s `country`,
+        `otherCountry`, `countrySure` and `countryWhy`), and `outreach.partner.save` keeps it on their profile the
+        same way (`lookedCountry`). Without an answer, what their page says is kept (`linesCountry`).
+      - **Who's read:** `outreach.partners.next` leaves out anyone the setting skips (`countryFateSql` is `skip`).
+        Someone whose country isn't known yet is read, and the check is the look. **Who's warmed up and asked** on
+        Today: only someone the setting lets through (`countryLetsSql`). A partner's reply, and someone who said yes,
+        is answered wherever they are.
+      - **Paying them:** Stripe pays a US platform's Express accounts in the US, Canada, the UK, the EEA and
+        Switzerland (`PAYOUT_COUNTRIES`; Iceland's accounts only take Stripe's recipient agreement, which can't be paid
+        across borders, so it's left out). Before Stripe's form opens, the partner's page asks **Where's your bank?**
+        and their account is made there (`partner_payout_accounts.country`, migration 20261027017500, additive). Until
+        Stripe's form is done they can pick another (a new account takes the old one's place); after, the country
+        stays, since Stripe can't move an account. A country Stripe can't pay is told so, with who to ask.
+      - **Stripe's fee for a bank outside the US** is 0.25% more on that payout (`CROSS_BORDER_FEE_BP`), on the
+        payout fee's own line as the rest is the business's (decision 16 of the partners plan). Stripe pays them in
+        their own currency. **No 1099** for an account outside the US (`taxFormsDue`), and no tax form fee.
+      - **The business sees where their bank is** on the partner's page, web and phone ("Their bank is in Canada.").
+      - **Affiliates** (HandsFreeOS's own sellers) stay in the US: not part of this pick.
 
 ## Rules worth knowing before changing anything
 

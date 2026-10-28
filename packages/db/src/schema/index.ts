@@ -4442,6 +4442,8 @@ export const partnerPayoutAccounts = app.table('partner_payout_accounts', {
     .array()
     .notNull()
     .default(sql`'{}'::text[]`),
+  /** Where their bank is (20261027017500): the Express account's country, US for every one made before. */
+  country: text('country').notNull().default('US'),
   ...timestamps(),
 });
 

@@ -139,6 +139,8 @@ export const PartnerPayoutAccountOut = z.object({
   detailsSubmitted: z.boolean(),
   /** Stripe needs something more from them. */
   needsMore: z.boolean(),
+  /** Where their bank is (decision 118): a two-letter code, US for every account made before it. */
+  country: z.string().length(2),
 });
 
 /** A partner's payouts, on their page under Settings → Partners (`partner.get`). */
@@ -209,6 +211,11 @@ export const PartnerPayoutRecordAccountInput = z.strictObject({
   transfersActive: z.boolean(),
   disabledReason: z.string().trim().max(200).nullable(),
   due: z.array(z.string().trim().min(1).max(200)).max(200),
+  /** The account's country, where their bank is (decision 118). Left out, it's a US one, as every one was before. */
+  country: z
+    .string()
+    .regex(/^[A-Z]{2}$/)
+    .default('US'),
 });
 export const PartnerPayoutRecordAccountOutput = z.object({
   accountId: uuid,

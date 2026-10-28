@@ -155,6 +155,8 @@ export async function registerAffiliateRoutes(app: FastifyInstance, deps: HttpDe
       if (!accountRef) {
         const made = await platform.payouts.create({
           email: me.email ?? actor.email,
+          // Affiliates are paid in the US only (the affiliates plan); partners may be elsewhere (decision 118).
+          country: 'US',
           metadata: { affiliate_id: me.id },
           // Two presses at once make one account.
           idempotencyKey: `affiliate-payout-account:${me.id}`,

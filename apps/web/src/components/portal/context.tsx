@@ -38,6 +38,8 @@ export interface Portal {
   /** A partner's bank at Stripe (partners stage 3): Stripe's form or page to go to, or whether it's ready. */
   readonly partnerPayouts: (
     action: 'start' | 'check' | 'stripe',
+    /** Where their bank is, for `start` (decision 118). */
+    country?: string,
   ) => Promise<{ url?: string; ready?: boolean }>;
 }
 

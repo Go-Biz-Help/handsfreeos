@@ -12,6 +12,7 @@ import {
   PARTNERS_WORDS as W,
   payoutLineWords,
   PAYOUT_WORDS as P,
+  payoutCountryIn,
   rateWords,
   type PartnerStatus,
 } from '@hfos/core';
@@ -306,7 +307,9 @@ export function PartnerDetail({
       <Section
         title={P.partner.title}
         description={
-          account?.ready ? P.partner.ready : account ? P.partner.needsMore : P.partner.noAccount
+          account
+            ? `${account.ready ? P.partner.ready : P.partner.needsMore} ${P.partner.bank(payoutCountryIn(account.country))}`
+            : P.partner.noAccount
         }
         icon={Banknote}
         testId="partner-payouts-of-partner"

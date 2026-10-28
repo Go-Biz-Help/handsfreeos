@@ -551,6 +551,8 @@ export interface PayoutAccountState {
   readonly disabledReason: string | null;
   /** What Stripe still needs from them, by its own field names. */
   readonly due: readonly string[];
+  /** Where their bank is, the account's country (decision 118): two capital letters. */
+  readonly country: string;
 }
 
 /**
@@ -589,6 +591,8 @@ export interface PayoutAccounts {
   /** One account for a partner, made the first time they set up payouts. */
   create(input: {
     readonly email: string | null;
+    /** Where their bank is: one of `PAYOUT_COUNTRIES`, which Stripe can pay from our US platform. */
+    readonly country: string;
     readonly metadata: Readonly<Record<string, string>>;
     readonly idempotencyKey: string;
   }): Promise<PayoutAccountState>;

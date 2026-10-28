@@ -10,6 +10,7 @@ import {
   formatDate,
   money,
   PARTNER_PAGE_WORDS as W,
+  PAYOUT_COUNTRIES,
   PAYOUT_WORDS,
   payoutMonthWords,
   rateWords,
@@ -54,6 +55,7 @@ interface PortalPartner {
         readonly ready: boolean;
         readonly detailsSubmitted: boolean;
         readonly needsMore: boolean;
+        readonly country: string;
       } | null;
       readonly lines: readonly {
         readonly lineId: string;
@@ -224,10 +226,12 @@ function GettingPaid({
 }) {
   const { partnerPayouts } = usePortal();
   const [busy, setBusy] = useState<'start' | 'stripe' | null>(null);
-  const go = async (action: 'start' | 'stripe') => {
+  // Where their bank is: asked until Stripe's form is done, since an account can't move country after (decision 118).
+  const [country, setCountry] = useState(payouts.account?.country ?? 'US');
+  const go = async (action: 'start' | 'stripe', where?: string) => {
     setBusy(action);
     try {
-      const out = await partnerPayouts(action);
+      const out = await partnerPayouts(action, where);
       if (out.url) window.location.assign(out.url);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -275,11 +279,36 @@ function GettingPaid({
             </div>
           ) : (
             <div className="mt-3 space-y-2">
-              <p className="text-[13px] text-text-2">{a ? G.finishHint : G.setUpHint}</p>
+              {a?.detailsSubmitted ? null : (
+                <div className="space-y-1">
+                  <label htmlFor="portal-partner-country" className="text-[13px] font-medium">
+                    {G.country}
+                  </label>
+                  <select
+                    id="portal-partner-country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    disabled={busy !== null}
+                    data-testid="portal-partner-country"
+                    className="h-10 w-full rounded-control border border-border bg-card px-2 text-[14px]"
+                  >
+                    {Object.entries(PAYOUT_COUNTRIES).map(([code, name]) => (
+                      <option key={code} value={code}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[12px] text-text-2">
+                    {G.countryHint(business)}
+                    {country === 'US' ? null : ` ${G.abroad}`}
+                  </p>
+                </div>
+              )}
+              <p className="text-[13px] text-text-2">{a ? G.finishHint : G.setUpHint(country)}</p>
               <Button
                 className="w-full"
                 disabled={busy !== null}
-                onClick={() => void go('start')}
+                onClick={() => void go('start', a?.detailsSubmitted ? undefined : country)}
                 data-testid="portal-partner-set-up"
               >
                 {a ? G.finish : G.setUp}

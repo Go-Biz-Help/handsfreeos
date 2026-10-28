@@ -181,6 +181,8 @@ export interface FakeCheckout {
 export interface FakePayoutAccount {
   readonly accountRef: string;
   readonly email: string | null;
+  /** Where their bank is (decision 118). */
+  readonly country: string;
   readonly metadata: Readonly<Record<string, string>>;
   readonly idempotencyKey: string;
   detailsSubmitted: boolean;
@@ -726,6 +728,7 @@ export function createFakePayments(opts: {
     id: a.accountRef,
     object: 'account',
     type: 'express',
+    country: a.country,
     details_submitted: a.detailsSubmitted,
     payouts_enabled: a.payoutsEnabled,
     capabilities: { transfers: a.transfersActive ? 'active' : 'inactive' },
@@ -744,6 +747,7 @@ export function createFakePayments(opts: {
     transfersActive: a.transfersActive,
     disabledReason: a.disabledReason,
     due: [...a.due],
+    country: a.country,
   });
 
   /** Books the payment where it landed, and tells us about it the way the provider would. */
@@ -1142,13 +1146,19 @@ export function createFakePayments(opts: {
             const a: FakePayoutAccount = {
               accountRef: nextId('acct_fake'),
               email: input.email,
+              country: input.country,
               metadata: { ...input.metadata },
               idempotencyKey: input.idempotencyKey,
               detailsSubmitted: false,
               payoutsEnabled: false,
               transfersActive: false,
               disabledReason: 'requirements.past_due',
-              due: ['external_account', 'individual.ssn_last_4', 'tos_acceptance.date'],
+              // A US account asks for the last four of their SSN; elsewhere Stripe asks for an ID instead.
+              due: [
+                'external_account',
+                input.country === 'US' ? 'individual.ssn_last_4' : 'individual.id_number',
+                'tos_acceptance.date',
+              ],
             };
             payoutAccounts.set(a.accountRef, a);
             return payoutState(a);

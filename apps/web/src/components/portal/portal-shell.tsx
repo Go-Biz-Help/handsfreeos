@@ -118,7 +118,7 @@ export function PortalShell({ token, children }: { token: string; children: Reac
         const f = await portalFileUrl(bearer, fileId);
         window.open(f.url, '_blank', 'noopener');
       },
-      partnerPayouts: (action) => portalPartnerPayouts(token, bearer, action),
+      partnerPayouts: (action, country) => portalPartnerPayouts(token, bearer, action, country),
     };
   }, [state, token, enter]);
 

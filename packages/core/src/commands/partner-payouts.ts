@@ -136,6 +136,9 @@ export async function taxFormsDue(
         from app.partner_payout_lines l join app.partner_payouts p on p.id = l.payout_id
         where l.workspace_id = ${workspaceId} and l.status = 'paid' and p.livemode
           and l.paid_at >= '2026-01-01T00:00:00Z'::timestamptz and l.paid_at < ${yearStarts}::timestamptz
+          -- A 1099 is for a US partner only (decision 118): never for a bank outside the US.
+          and not exists (select 1 from app.partner_payout_accounts a
+            where a.account_ref = l.account_ref and a.country <> 'US')
           and not exists (select 1 from app.partner_tax_forms f
             where f.workspace_id = l.workspace_id and f.account_ref = l.account_ref
               and f.tax_year = extract(year from l.paid_at at time zone 'UTC')::int)
@@ -307,14 +310,14 @@ export const partnerPayoutRecordAccount = defineCommand({
     const [row] = await rows<{ id: string }>(
       ctx.tx,
       sql`insert into app.partner_payout_accounts (workspace_id, partner_id, account_ref, livemode,
-            details_submitted, payouts_enabled, transfers_active, disabled_reason, due)
+            details_submitted, payouts_enabled, transfers_active, disabled_reason, due, country)
           values (${ws}, ${input.partnerId}, ${input.accountRef}, ${input.livemode}, ${input.detailsSubmitted},
             ${input.payoutsEnabled}, ${input.transfersActive}, ${input.disabledReason},
-            array(select jsonb_array_elements_text(${JSON.stringify(input.due)}::jsonb)))
+            array(select jsonb_array_elements_text(${JSON.stringify(input.due)}::jsonb)), ${input.country})
           on conflict (partner_id) do update set account_ref = excluded.account_ref,
             livemode = excluded.livemode, details_submitted = excluded.details_submitted,
             payouts_enabled = excluded.payouts_enabled, transfers_active = excluded.transfers_active,
-            disabled_reason = excluded.disabled_reason, due = excluded.due
+            disabled_reason = excluded.disabled_reason, due = excluded.due, country = excluded.country
           returning id`,
     );
     const ready = input.payoutsEnabled && input.transfersActive;
@@ -378,10 +381,12 @@ export const partnerPayoutBuild = defineCommand({
       amount_cents: string | number;
       account_ref: string | null;
       ready: boolean;
+      abroad: boolean;
     }>(
       ctx.tx,
       sql`select c.id, c.partner_id, c.amount_cents, a.account_ref,
-            coalesce(a.payouts_enabled and a.transfers_active and a.livemode = ${input.livemode}, false) as ready
+            coalesce(a.payouts_enabled and a.transfers_active and a.livemode = ${input.livemode}, false) as ready,
+            coalesce(a.country <> 'US', false) as abroad
           from app.partner_commissions c
           left join app.partner_payout_accounts a on a.partner_id = c.partner_id
           where c.workspace_id = ${ws} and c.payable_at <= now() and c.test = ${!input.livemode}
@@ -390,13 +395,20 @@ export const partnerPayoutBuild = defineCommand({
     );
     const byPartner = new Map<
       string,
-      { owedCents: number; accountRef: string | null; ready: boolean; ids: string[] }
+      {
+        owedCents: number;
+        accountRef: string | null;
+        ready: boolean;
+        abroad: boolean;
+        ids: string[];
+      }
     >();
     for (const c of owed) {
       const p = byPartner.get(c.partner_id) ?? {
         owedCents: 0,
         accountRef: c.account_ref,
         ready: c.ready,
+        abroad: c.abroad,
         ids: [],
       };
       p.owedCents += Number(c.amount_cents);
@@ -415,8 +427,12 @@ export const partnerPayoutBuild = defineCommand({
 
     // Stripe's fees for the partners' 1099s of a year that ended ride on the first payout after it.
     const forms = await taxFormsDue(ctx, ws, input.month, input.livemode);
+    // A bank outside the US costs Stripe's cross-border fee on top (decision 118).
     const totals = payoutTotals(
-      plan.paid.map((p) => p.owedCents),
+      plan.paid.map((p) => ({
+        amountCents: p.owedCents,
+        abroad: byPartner.get(p.partnerId)!.abroad,
+      })),
       forms.length,
     );
     const [payout] = await rows<{ id: string }>(

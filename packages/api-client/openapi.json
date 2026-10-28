@@ -146765,12 +146765,18 @@
                                 },
                                 "needsMore": {
                                   "type": "boolean"
+                                },
+                                "country": {
+                                  "type": "string",
+                                  "minLength": 2,
+                                  "maxLength": 2
                                 }
                               },
                               "required": [
                                 "ready",
                                 "detailsSubmitted",
-                                "needsMore"
+                                "needsMore",
+                                "country"
                               ],
                               "additionalProperties": false
                             },

@@ -305,6 +305,76 @@ describe('paying partners', () => {
     });
   });
 
+  it('makes their account in the country their bank is in, and lets them change it until Stripe’s form is done', async () => {
+    // Nothing owed, so the month's payout below is Pia's alone.
+    const { personId } = await run(w, personCreate, {
+      ...ws(),
+      firstName: 'Noor',
+      lastName: 'Partner',
+      email: `noor-${randomUUID().slice(0, 6)}@example.com`,
+      ignoreDuplicates: true,
+    });
+    const { partnerId } = await run(w, partnerAdd, { ...ws(), personId });
+    const { bearer, token } = await signIn(personId);
+    const payouts = (body: Record<string, unknown>) =>
+      call(`/public/portal/${token}/partner/payouts`, body, bearer);
+    const theirs = () =>
+      fake()
+        .payoutAccounts()
+        .filter((a) => a.metadata['partner_id'] === partnerId);
+    const kept = async () =>
+      (
+        await rows<{ account_ref: string; country: string }>(
+          admin(),
+          sql`select account_ref, country from app.partner_payout_accounts where partner_id = ${partnerId}`,
+        )
+      )[0];
+
+    // A country Stripe can't pay from here is told so, and nothing is made.
+    const brazil = await payouts({ action: 'start', country: 'BR' });
+    expect(brazil.statusCode, brazil.body).toBe(422);
+    expect((brazil.json() as { error: { rule: string; message: string } }).error).toMatchObject({
+      rule: 'partner_payouts_country',
+      message: expect.stringContaining('Brazil'),
+    });
+    expect(theirs()).toHaveLength(0);
+
+    const canada = await payouts({ action: 'start', country: 'ca' });
+    expect(canada.statusCode, canada.body).toBe(200);
+    expect(theirs().map((a) => a.country)).toEqual(['CA']);
+    expect((await kept())?.country).toBe('CA');
+    // Pressed again with no country, it's the account they have.
+    await payouts({ action: 'start' });
+    expect(theirs()).toHaveLength(1);
+
+    // Their bank is in the UK after all: a new account there takes the Canadian one's place.
+    await payouts({ action: 'start', country: 'GB' });
+    expect(theirs().map((a) => a.country)).toEqual(['CA', 'GB']);
+    const uk = theirs()[1]!;
+    expect(await kept()).toEqual({ account_ref: uk.accountRef, country: 'GB' });
+
+    // Once Stripe's form is done, the country stays.
+    const form = new URL(((await payouts({ action: 'start' })).json() as { url: string }).url);
+    expect(form.searchParams.get('account')).toBe(uk.accountRef);
+    await w.app.inject({
+      method: 'POST',
+      url: '/payments/fake/express',
+      payload: {
+        account: uk.accountRef,
+        return: form.searchParams.get('return'),
+        decision: 'ready',
+      },
+    });
+    await drain(w);
+    const moved = await payouts({ action: 'start', country: 'DE' });
+    expect(moved.statusCode, moved.body).toBe(409);
+    expect((moved.json() as { error: { rule: string } }).error.rule).toBe(
+      'partner_payouts_country_set',
+    );
+    expect(theirs()).toHaveLength(2);
+    expect((await kept())?.country).toBe('GB');
+  });
+
   it('charges the card each month for what’s owed and Stripe’s fees, and pays the partner from that charge', async () => {
     const before = fake().platformCharges().length;
     await plan();

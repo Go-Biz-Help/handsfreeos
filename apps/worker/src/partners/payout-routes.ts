@@ -8,13 +8,20 @@
  *   address bar, and keeps the card (`partner.payout_record_card`). A card of its own, beside the wallet's, on the
  *   same Stripe customer: what it agreed to be charged for is partner payouts.
  * - **`partnerPayoutsAction`**, behind `POST /public/portal/:token/partner/payouts` (http/portal.ts): a partner
- *   setting up their bank. `start` makes their Express account the first time and opens Stripe's form for it;
- *   `check`, on their way back, reads it from Stripe and keeps what it says; `stripe` opens their Stripe page.
+ *   setting up their bank. `start` makes their Express account the first time, in the country they say their bank
+ *   is in (decision 118), and opens Stripe's form for it; `check`, on their way back, reads it from Stripe and keeps
+ *   what it says; `stripe` opens their Stripe page.
  *
  * Where Stripe sends them back is built here, from the business's own settings page or the partner's own portal
  * link, never taken from the request: a return address a caller could set is an open redirect.
  */
-import { executeCommand, HfosError, partnerPayoutRecordCard } from '@hfos/core/server';
+import {
+  executeCommand,
+  HfosError,
+  PAYOUT_COUNTRY_KEYS,
+  partnerPayoutRecordCard,
+  payoutCountryIn,
+} from '@hfos/core/server';
 import { asCustomer, asWorker, rows, sql } from '@hfos/db/client';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
@@ -31,7 +38,19 @@ export const PayoutCardInput = z.object({
   sessionRef: z.string().trim().min(1).max(200).optional(),
 });
 
-export const PartnerPayoutsBody = z.object({ action: z.enum(['start', 'check', 'stripe']) });
+export const PartnerPayoutsBody = z.object({
+  action: z.enum(['start', 'check', 'stripe']),
+  /**
+   * Where their bank is, for `start` (decision 118): one of the countries Stripe pays from our US platform. Left out,
+   * the country of the account they already have, or the US.
+   */
+  country: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2}$/)
+    .optional(),
+});
 
 const meta = () => ({ correlationId: randomUUID(), causationId: null, channel: 'web' as const });
 
@@ -178,6 +197,7 @@ export async function partnerPayoutsAction(
   session: PartnerSession,
   token: string,
   action: z.output<typeof PartnerPayoutsBody>['action'],
+  asked: string | null = null,
 ): Promise<{ url: string } | { ready: boolean }> {
   const { scope } = session;
   // Their own partner record, and whether the business pays partners here yet, as their portal reads them.
@@ -195,11 +215,12 @@ export async function partnerPayoutsAction(
     rows<{
       account_ref: string | null;
       details_submitted: boolean | null;
+      country: string | null;
       email: string | null;
       business: string;
     }>(
       tx,
-      sql`select a.account_ref, a.details_submitted, pp.email::text as email, w.name as business
+      sql`select a.account_ref, a.details_submitted, a.country, pp.email::text as email, w.name as business
           from app.partners pa
           join app.people pp on pp.id = pa.person_id
           join app.workspaces w on w.id = pa.workspace_id
@@ -229,13 +250,33 @@ export async function partnerPayoutsAction(
       return { url: (await platform.payouts.loginLink(row.account_ref)).url };
     }
 
+    // Where their bank is: what they picked, else the account they have, else the US.
+    const country = (action === 'start' && asked) || row.country || 'US';
+    if (!(PAYOUT_COUNTRY_KEYS as readonly string[]).includes(country))
+      throw HfosError.rule(
+        'partner_payouts_country',
+        422,
+        `Stripe can’t pay a bank ${payoutCountryIn(country)} from ${row.business} yet. It pays banks in the US, Canada, the UK, Switzerland and the European Economic Area. Ask ${row.business} how they’ll pay you.`,
+      );
     let accountRef = row.account_ref;
+    if (accountRef && country !== row.country) {
+      // An account is made in one country, and Stripe can't move it. Until its form is finished it holds nothing,
+      // so a new one in the right country takes its place; after that, the country stays.
+      if (row.details_submitted)
+        throw HfosError.rule(
+          'partner_payouts_country_set',
+          409,
+          `Your payouts are set up for a bank ${payoutCountryIn(row.country ?? 'US')}, and Stripe can’t move an account to another country. Ask ${row.business} how they’ll pay you ${payoutCountryIn(country)}.`,
+        );
+      accountRef = null;
+    }
     if (!accountRef) {
       const made = await platform.payouts.create({
         email: row.email,
+        country,
         metadata: { workspace_id: scope.workspaceId, partner_id: me.id },
-        // Two presses at once make one account.
-        idempotencyKey: `partner-payout-account:${me.id}`,
+        // Two presses at once make one account, and a US one keeps the key it always had.
+        idempotencyKey: `partner-payout-account:${me.id}${country === 'US' ? '' : `:${country}`}`,
       });
       await recordPayoutAccount(deps.httpDb, scope, me.id, made);
       accountRef = made.accountRef;
