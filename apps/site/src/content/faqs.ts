@@ -49,6 +49,10 @@ export const homeFaqs: readonly Faq[] = [
     a: 'Every business is set up differently, so this one is worth talking through before you start — tell us how your number works today and we will tell you what your options are. Whichever way it goes, calls still ring your actual cell phone: this is not a system that makes you answer calls in an app.',
   },
   {
+    q: 'We’re a bigger crew. Will it keep up?',
+    a: 'It is built for crews of 1 to 20 who want the customer side handled: calls, texts, booking, quotes, invoices and the follow-ups. It doesn’t do inventory or job costing. If you need those, tell us how you run things and we’ll tell you straight whether it fits, even if the answer is no.',
+  },
+  {
     q: 'Can my crew use it out in the field?',
     a: 'If they can text, they can use it. That is what the phone app is for: everything works with no signal and catches up later, photos and notes attach to the job, and payment links go out from the driveway. There is no charge per person, so everyone can have it.',
   },

@@ -57,10 +57,14 @@ import {
  * against it, each on a different angle, one at a time:
  *   1. "Stop losing jobs to whoever answers first."            (the fear of losing work)
  *   2. "Cancel ten apps. Keep the one that does the work."     (the money)
- *   3. "The CRM that doesn't want you to use it."              (the previous headline)
+ *   3. "You can't answer the phone and do the job at the same time." (the owners' own words)
+ *   4. "The CRM that doesn't want you to use it."              (the previous headline)
  *
  * There are no customers yet, so nothing here quotes one. Trust comes from what can be checked: the competitors'
- * prices, each linked; the AI asking first; and the 30-day money back.
+ * prices, each linked; the AI asking first; and the 30-day money back. The wording leans on the owner's
+ * voice-of-customer research of 28 October 2026 (public posts by service-business owners): "fills itself in",
+ * "no add-on to unlock the basics", "never be the bill collector", "gets out of the way". Those posts are for
+ * language only; never put one on the site as a testimonial.
  *
  * The page is meant to feel like the product: calm, with things happening on their own. So it shows rather than
  * tells — the conversation in the hero plays itself, the bills cross themselves off, the lead you lost arrives at
@@ -196,10 +200,10 @@ function TheProblem() {
             You didn&rsquo;t start a business to answer texts at 11pm.
           </h2>
           <p className="text-on-night-2 mt-6 max-w-2xl text-lg sm:text-xl">
-            You&rsquo;re good at the work. It&rsquo;s everything around it that wears you down. The
-            call you missed on a roof. The quote you meant to send on Tuesday. The invoice
-            that&rsquo;s 30 days late. Then at night, after the kids are down, you catch up on all
-            of it, in a pile of apps that don&rsquo;t talk to each other.
+            You can&rsquo;t answer the phone and do the job at the same time, and the job comes
+            first. That&rsquo;s why you&rsquo;re good. So the call you missed on a roof, the quote
+            you meant to send on Tuesday and the invoice that&rsquo;s 30 days late all wait for
+            tonight, after the kids are down, in a pile of apps that don&rsquo;t talk to each other.
           </p>
         </div>
         <Reveal>
@@ -308,7 +312,8 @@ function TheBill() {
             Stop paying for ten apps to run one business.
           </SectionHeading>
           <p className="text-text mt-6 max-w-2xl text-lg font-semibold sm:text-xl">
-            And no charge per person. Hire your next tech and your bill stays the same.
+            No charge per person, and no add-on to unlock the basics. Hire your next tech and your
+            bill stays the same.
           </p>
           <Button href="/pricing" variant="secondary" size="lg" className="mt-9" arrow>
             See what one plan includes
@@ -398,12 +403,12 @@ function Outcomes() {
     {
       icon: Icons.card,
       title: 'Keep more of what you make',
-      body: 'One bill instead of ten. Invoices chase themselves until they’re paid, into your own Stripe or Square, and we never take a cut. Maintenance plans bill every month without anyone sending an invoice.',
+      body: 'Invoices chase themselves, politely and on schedule, so you never have to be the bill collector. The money goes into your own Stripe or Square, and we never take a cut. One bill instead of ten, and maintenance plans bill every month on their own.',
     },
     {
       icon: Icons.clock,
       title: 'Get your evenings back',
-      body: 'Every text, call, booking and payment lands on the customer’s record by itself. Home is a short list of what needs you, money first. The rest is handled, and it tells you what it did.',
+      body: 'The customer’s record fills itself in: every text, call, booking and payment lands on it as it happens, so nobody types it up after work. Home is a short list of what needs you, money first. The rest is handled, and it tells you what it did.',
     },
     {
       icon: Icons.shield,
@@ -449,7 +454,7 @@ function Trust() {
       <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16">
         <div>
           <Eyebrow>Why you can trust it</Eyebrow>
-          <SectionHeading sub="Most AI tools give you a switch: off, or loose on your customers. This one starts by writing every reply and waiting for your tap. When a kind of reply has earned enough of your OKs, it sends those on its own. You can take that back any time.">
+          <SectionHeading sub="It handles the straightforward work fast, and gets out of the way the moment a person is needed. It starts by writing every reply and waiting for your tap. When a kind of reply has earned enough of your OKs, it sends those on its own. You can take that back any time.">
             It asks before it acts. Until you tell it it doesn&rsquo;t have to.
           </SectionHeading>
           <ul className="mt-10 grid max-w-2xl gap-4">
@@ -502,7 +507,7 @@ function HowItWorks() {
   return (
     <Section id="how" className="border-border border-t">
       <Eyebrow>How it works</Eyebrow>
-      <SectionHeading sub="No consultant, no setup fee, no settings pages to learn. You answer questions in plain English, and it sets itself up.">
+      <SectionHeading sub="No consultant, no setup fee, and no training for your crew. You answer questions in plain English, and it sets itself up.">
         Up and running this week. Not this quarter.
       </SectionHeading>
 
@@ -722,7 +727,8 @@ function InYourPocket() {
           </h2>
           <p className="text-text-2 mt-6 text-lg">
             iPhone and Android, working with no signal at all — in a basement, in a crawlspace, an
-            hour out of town — and catching up the moment the bars come back.
+            hour out of town. Nothing you type disappears when the bars do: it catches up the moment
+            they come back.
           </p>
           <Button href="/app" variant="secondary" size="lg" className="mt-8" arrow>
             See the phone app
@@ -766,7 +772,7 @@ function Guarantee() {
     },
     {
       title: 'Your customers stay yours',
-      body: 'Export your customers, conversations and files whenever you like.',
+      body: 'Export your customers, conversations and files whenever you like. Leaving is a thing you can actually do.',
     },
     {
       title: 'Your money never touches ours',
