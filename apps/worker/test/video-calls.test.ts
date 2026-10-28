@@ -23,6 +23,7 @@
  *     summary, and stops opening a day after it was sent.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
+import type { AiProvider } from '@hfos/ai';
 import {
   calendarAvailability,
   callSuggestionList,
@@ -47,6 +48,7 @@ import { closeTestDbs, createTestUser, signInTestUser, testDbs } from '@hfos/db/
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { scriptedAi } from '../src/ai/scripted';
 import { passThroughBotCheck } from '../src/booking/bot-check';
 import { whereLine } from '../src/booking/messages';
 import { loadBooking } from '../src/booking/visit';
@@ -1022,6 +1024,19 @@ describe('a call with a customer that isn’t for an appointment (part 5)', () =
       payload: JSON.stringify(body),
     });
 
+  /**
+   * The worker thinks with the scripted AI while `f` runs, so After the call is written; the rest of this file has
+   * no AI, as a business with none would.
+   */
+  const withScriptedAi = async <T>(f: () => Promise<T>): Promise<T> => {
+    const ai = w.s.ai as { provider: AiProvider | null };
+    ai.provider = scriptedAi();
+    try {
+      return await f();
+    } finally {
+      ai.provider = null;
+    }
+  };
   const lineOf = async (callId: string) =>
     (
       await rows<{ id: string; body: string | null; meta: Record<string, unknown> }>(
@@ -1113,15 +1128,14 @@ describe('a call with a customer that isn’t for an appointment (part 5)', () =
     await drain(w);
     const line = await lineOf(out.callId);
     expect(line?.meta).toMatchObject({ videoCallId: out.callId, durationSeconds: 5 * 60 });
-    await runDue(w, [`video_call.keep_words:${roomSid}`]);
+    await withScriptedAi(() => runDue(w, [`video_call.keep_words:${roomSid}`]));
     const [kept] = await rows<{ id: string; video_call_id: string | null }>(
       admin(),
       sql`select id, video_call_id from app.appointment_transcripts where video_call_id = ${out.callId}`,
     );
     expect(kept?.video_call_id).toBe(out.callId);
     // After the call starts from it, as from an appointment's, and its summary goes on the line.
-    expect(await jobRow(`appointment.call_review:${kept!.id}`)).toBeDefined();
-    await drain(w);
+    expect(await jobRow(`appointment.call_review:${kept!.id}`)).toMatchObject({ status: 'done' });
     const review = await query(w, callSuggestionList, {
       workspaceId: w.workspaceId,
       videoCallId: out.callId,
