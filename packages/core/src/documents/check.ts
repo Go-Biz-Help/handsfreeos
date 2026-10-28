@@ -2,6 +2,7 @@
  * What stops a template going out, and whether what someone filled in will do. Browser-safe: the editor shows the
  * same problems the server refuses with, and the signing page checks a field the way `document.sign` will.
  */
+import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import {
   DOCUMENT_FIELD_LABELS,
@@ -44,7 +45,8 @@ export function documentTemplateIssues(
 /** A field's name in a refusal: its label, else its kind. */
 export const fieldName = (f: DocumentField): string => f.label || DOCUMENT_FIELD_LABELS[f.type];
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** An email as a person's own is checked when it's saved on them, so what a signer gives can fill theirs in. */
+const EMAIL = z.email().max(254);
 
 /** Whether a value says nothing: no words, an unticked box. */
 export function valueIsEmpty(v: DocumentValue | null | undefined): boolean {
@@ -77,7 +79,9 @@ export function valueProblem(
   const text = v.text.trim();
   switch (field.type) {
     case 'email':
-      return EMAIL.test(text) ? null : `${name} needs a whole email address, like pat@example.com.`;
+      return EMAIL.safeParse(text).success
+        ? null
+        : `${name} needs a whole email address, like pat@example.com.`;
     case 'phone':
       return normalizePhone(text)
         ? null

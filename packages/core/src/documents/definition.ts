@@ -41,8 +41,13 @@ function randomChars(count: number, random?: () => number): string {
     for (let i = 0; i < count; i++) out += ALPHABET[Math.floor(random() * ALPHABET.length)];
     return out;
   }
-  const bytes = crypto.getRandomValues(new Uint8Array(count));
-  for (const b of bytes) out += ALPHABET[b % ALPHABET.length];
+  // Bytes from 252 up are thrown away, so each of the 36 characters is as likely as the next.
+  const fair = 256 - (256 % ALPHABET.length);
+  while (out.length < count) {
+    for (const b of crypto.getRandomValues(new Uint8Array(count))) {
+      if (b < fair && out.length < count) out += ALPHABET[b % ALPHABET.length];
+    }
+  }
   return out;
 }
 /** A new field's id: `f_` and 8 letters or digits. */

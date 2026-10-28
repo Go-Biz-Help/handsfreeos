@@ -296,7 +296,14 @@ export function fillValue(field: DocumentField, c: DocumentFillContext): Documen
     case 'text':
       return {
         kind: 'text',
-        text: field.type === 'long_text' ? text : text.replace(/\s*\n\s*/g, ', '),
+        text:
+          field.type === 'long_text'
+            ? text
+            : text
+                .split('\n')
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .join(', '),
       };
     case 'date':
       return /^\d{4}-\d{2}-\d{2}$/.test(text) ? { kind: 'date', date: text } : null;
