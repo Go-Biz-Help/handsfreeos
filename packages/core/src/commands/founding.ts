@@ -231,9 +231,11 @@ function refusalOf(err: unknown): { detail: string; constraint: string } {
  * price, and what to do instead. Anything else is `asRefusal`'s.
  */
 const asBuyRefusal =
-  (found: OfferRow) =>
+  (found: OfferRow, code: string | null) =>
   (err: unknown): never => {
     const { detail, constraint } = refusalOf(err);
+    const badCode = code ? codeRefusal(detail, code) : null;
+    if (badCode) throw badCode;
     const plan = foundingPriceWords(found.priceCents, billingOf(found));
     if (detail === 'founding_offer_full')
       throw HfosError.rule(
@@ -279,6 +281,33 @@ const asBuyRefusal =
       );
     return asRefusal(err);
   };
+
+/**
+ * A discount or trial code the plan page can't use (20261027014300, `private.affiliate_code_terms`), in words for
+ * the person who typed it. Null for any other refusal.
+ */
+export function codeRefusal(detail: string, code: string): HfosError | null {
+  const typed = code.trim().toLowerCase();
+  if (detail === 'affiliate_code_unknown')
+    return HfosError.rule(
+      'affiliate_code_unknown',
+      409,
+      `There’s no code “${typed}”, or it has been turned off. Check the spelling, or take it off to pay the full price.`,
+    );
+  if (detail === 'affiliate_code_other_plan')
+    return HfosError.rule(
+      'affiliate_code_other_plan',
+      409,
+      `The code “${typed}” isn’t for this plan. Pick the plan it’s for, or take it off.`,
+    );
+  if (detail === 'affiliate_code_own')
+    return HfosError.rule(
+      'affiliate_code_own',
+      409,
+      `“${typed}” is your own affiliate code, and nobody uses their own. Take it off to pay the full price.`,
+    );
+  return null;
+}
 
 type OfferRow = typeof foundingOffers.$inferSelect;
 
@@ -869,7 +898,7 @@ export const foundingStartCheckout = defineCommand({
 export const foundingBuy = defineCommand({
   name: 'founding.buy',
   description:
-    'Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer before paying gives the first hold back.',
+    'Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A discount or trial code takes its discount off, or makes the page a free trial that only keeps the card; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.',
   risk: 3,
   input: FoundingBuyInput,
   output: FoundingStartCheckoutOutput,
@@ -899,8 +928,9 @@ export const foundingBuy = defineCommand({
       created: boolean;
     }>(
       ctx.tx,
-      sql`select * from private.founding_buy(${input.workspaceId}::uuid, ${input.offerId})`,
-    ).catch(asBuyRefusal(found));
+      sql`select * from private.founding_buy(${input.workspaceId}::uuid, ${input.offerId},
+            ${input.code || null}::text)`,
+    ).catch(asBuyRefusal(found, input.code));
     if (!started) throw HfosError.internal();
 
     // The same page a claim link's payment gets, made by the same job.
@@ -910,7 +940,7 @@ export const foundingBuy = defineCommand({
         entityType: 'founding_checkout',
         entityId: started.checkout_id,
         payload: { checkoutId: started.checkout_id, offerId: found.id, bought: true },
-        after: { status: 'pending', offer: found.name },
+        after: { status: 'pending', offer: found.name, code: input.code || null },
       });
 
     return {
@@ -1192,11 +1222,13 @@ export const foundingRecordRenewal = defineCommand({
       current_period_end: Date | string | null;
       renewal_failed_at: Date | string | null;
       renewal_count: number;
-      price_cents: number;
+      charge_cents: number;
       offer_id: string | null;
     }>(
       ctx.tx,
-      sql`select p.grant_id, p.current_period_end, p.renewal_failed_at, p.renewal_count, p.price_cents,
+      // What this month or year costs: the price, less a code's discount while it lasts (20261027014300).
+      sql`select p.grant_id, p.current_period_end, p.renewal_failed_at, p.renewal_count,
+                 private.founding_charge_cents(p.workspace_id) as charge_cents,
                  (select g.offer_id from platform.founding_grants g where g.id = p.grant_id) as offer_id
           from app.workspace_plans p where p.workspace_id = ${workspaceId}::uuid for update of p`,
     );
@@ -1234,7 +1266,7 @@ export const foundingRecordRenewal = defineCommand({
           withAnotherCard: false,
         },
         after: {
-          paid: `${((input.paidCents ?? plan.price_cents) / 100).toFixed(2)}`,
+          paid: `${((input.paidCents ?? plan.charge_cents) / 100).toFixed(2)}`,
           until: day(next),
         },
       });
@@ -1246,7 +1278,7 @@ export const foundingRecordRenewal = defineCommand({
         how: 'renewal',
         checkoutId: null,
         paymentRef: input.paymentRef,
-        amountCents: input.paidCents ?? plan.price_cents,
+        amountCents: input.paidCents ?? plan.charge_cents,
         periodFrom: paidThrough,
         paidAt: new Date(),
       });
@@ -1264,7 +1296,7 @@ export const foundingRecordRenewal = defineCommand({
       type: 'founding.renewal_failed',
       entityType: 'founding_grant',
       entityId: input.grantId,
-      payload: { problem, paidThrough: paidThrough.toISOString(), amountCents: plan.price_cents },
+      payload: { problem, paidThrough: paidThrough.toISOString(), amountCents: plan.charge_cents },
       after: { renewal: 'refused', reason: problem.slice(0, 200) },
     });
     return { grantId: input.grantId, outcome: 'recorded' as const };

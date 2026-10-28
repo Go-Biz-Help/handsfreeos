@@ -121,6 +121,7 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'invitation.preview': 'the signed-out page an invitation opens',
   'extension_sign_in.pending': 'the browser extension signing in',
   'founding.checkout_status': 'paying for a founding seat, which is the person’s own card',
+  'founding.code_preview': 'a code typed on the plan page, before paying on the person’s own card',
   'founding.claim_preview': 'the signed-out page a founding seat is claimed on',
   'founding.counts':
     'the plan page a new business pays on, before it is set up and has an Assistant',

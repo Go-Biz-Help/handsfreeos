@@ -92,7 +92,7 @@ type Bought = {
 
 const buy = (ws: string, offer: string, who: TestUser = owner) =>
   as(who)((tx) =>
-    rows<Bought>(tx, sql`select * from private.founding_buy(${ws}::uuid, ${offer})`),
+    rows<Bought>(tx, sql`select * from private.founding_buy(${ws}::uuid, ${offer}, null)`),
   ).then(([row]) => row!);
 
 const paid = (checkoutId: string, ws: string, org: string, cents: number) =>

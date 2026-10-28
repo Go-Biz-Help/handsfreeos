@@ -517,6 +517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/affiliate.make_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make one of your own discount or trial codes, as an approved affiliate: a percent or dollars off each payment, for some months or for good, a free trial of 7, 14 or 30 days, or a trial then a discount, up to your limit. It has its own link that fills it in on the plan page. A code is never changed: turn it off and make another.
+         * @description Risk level 1. Emits platform.affiliate_code_made.
+         */
+        post: operations["command_affiliate_make_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/affiliate.set_business": {
         parameters: {
             query?: never;
@@ -551,6 +571,26 @@ export interface paths {
          * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_changed.
          */
         post: operations["command_affiliate_set_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_max_discount": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give one affiliate their own limit on what their codes take off, up to 90%, or put them back on everyone’s. It counts at once, on codes already made too, but never on what a business already bought.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_max_discount_changed.
+         */
+        post: operations["command_affiliate_set_max_discount"];
         delete?: never;
         options?: never;
         head?: never;
@@ -597,6 +637,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/affiliate.turn_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn one of your own codes off, so it stops working on the plan page, or back on. Businesses that already used it keep what they bought.
+         * @description Risk level 1. Emits platform.affiliate_code_turned_on, platform.affiliate_code_turned_off.
+         */
+        post: operations["command_affiliate_turn_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliates.make_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a discount or trial code for an affiliate, up to their limit, or a house code for HandsFreeOS’s own promotions (no affiliate, up to 90% off, earning nobody a share).
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_made.
+         */
+        post: operations["command_affiliates_make_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/affiliates.save_settings": {
         parameters: {
             query?: never;
@@ -607,10 +687,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Set the share every affiliate earns of each plan payment, unless they have their own. It counts for payments from now on.
+         * Set the share every affiliate earns of each plan payment, and the most any affiliate’s code may take off, unless they have their own. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought.
          * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_settings_saved.
          */
         post: operations["command_affiliates_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliates.turn_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn any code off, an affiliate’s or a house code, or back on. An affiliate can’t turn back on a code staff turned off. Businesses that already used it keep what they bought.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_turned_on, platform.affiliate_code_turned_off.
+         */
+        post: operations["command_affiliates_turn_code"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3647,7 +3747,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer before paying gives the first hold back.
+         * Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A discount or trial code takes its discount off, or makes the page a free trial that only keeps the card; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.
          * @description Risk level 3. Requires money.manage. Emits founding.checkout_requested.
          */
         post: operations["command_founding_buy"];
@@ -15947,7 +16047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, and what you’ve earned.
+         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, and your discount and trial codes with the most they may take off.
          * @description Any signed-in user.
          */
         post: operations["query_affiliate_mine"];
@@ -17311,6 +17411,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_founding_claim_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/founding.code_preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a discount or trial code takes off each founding plan on sale, before paying: the full price, what comes off each payment and for how many months, and any free trial. Refused for a code that isn’t one or is turned off.
+         * @description Requires money.manage.
+         */
+        post: operations["query_founding_code_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19527,7 +19647,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.
+         * One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.
          * @description Requires platform.affiliates.manage.
          */
         post: operations["query_platform_affiliate"];
@@ -19567,7 +19687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.
+         * The affiliate program for Admin → Affiliates: the share everyone earns and the most a code takes off, the house codes, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.
          * @description Requires platform.affiliates.manage.
          */
         post: operations["query_platform_affiliates"];
@@ -22992,7 +23112,9 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -23000,6 +23122,60 @@ export interface operations {
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
                             /** Format: uuid */
                             userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_make_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    amountOffCents?: number | null;
+                    code: string;
+                    /** @default null */
+                    discountMonths?: number | null;
+                    /** @default null */
+                    offerId?: string | null;
+                    /** @default null */
+                    percentOffBp?: number | null;
+                    /** @default null */
+                    trialDays?: (7 | 14 | 30) | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: {
+                            affiliateId: string | null;
+                            amountOffCents: number | null;
+                            code: string;
+                            /** Format: uuid */
+                            codeId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            discountMonths: number | null;
+                            offByStaff: boolean;
+                            offerId: string | null;
+                            paidUses: number;
+                            percentOffBp: number | null;
+                            /** @enum {string} */
+                            status: "on" | "off";
+                            trialDays: number | null;
                         };
                     };
                 };
@@ -23088,7 +23264,63 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_max_discount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    maxDiscountBp: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            earnedCents: number;
+                            email: string;
+                            links: string;
+                            maxDiscountBp: number;
+                            name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -23140,7 +23372,9 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -23193,7 +23427,9 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -23201,6 +23437,107 @@ export interface operations {
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
                             /** Format: uuid */
                             userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_turn_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    codeId: string;
+                    on: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: {
+                            affiliateId: string | null;
+                            amountOffCents: number | null;
+                            code: string;
+                            /** Format: uuid */
+                            codeId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            discountMonths: number | null;
+                            offByStaff: boolean;
+                            offerId: string | null;
+                            paidUses: number;
+                            percentOffBp: number | null;
+                            /** @enum {string} */
+                            status: "on" | "off";
+                            trialDays: number | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliates_make_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    affiliateId: string | null;
+                    /** @default null */
+                    amountOffCents?: number | null;
+                    code: string;
+                    /** @default null */
+                    discountMonths?: number | null;
+                    /** @default null */
+                    offerId?: string | null;
+                    /** @default null */
+                    percentOffBp?: number | null;
+                    /** @default null */
+                    trialDays?: (7 | 14 | 30) | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: {
+                            affiliateId: string | null;
+                            amountOffCents: number | null;
+                            code: string;
+                            /** Format: uuid */
+                            codeId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            discountMonths: number | null;
+                            offByStaff: boolean;
+                            offerId: string | null;
+                            paidUses: number;
+                            percentOffBp: number | null;
+                            /** @enum {string} */
+                            status: "on" | "off";
+                            trialDays: number | null;
                         };
                     };
                 };
@@ -23217,6 +23554,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    maxDiscountBp?: number;
                     rateBp: number;
                 };
             };
@@ -23229,7 +23567,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        maxDiscountBp: number;
                         rateBp: number;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliates_turn_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    codeId: string;
+                    on: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: {
+                            affiliateId: string | null;
+                            amountOffCents: number | null;
+                            code: string;
+                            /** Format: uuid */
+                            codeId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            discountMonths: number | null;
+                            offByStaff: boolean;
+                            offerId: string | null;
+                            paidUses: number;
+                            percentOffBp: number | null;
+                            /** @enum {string} */
+                            status: "on" | "off";
+                            trialDays: number | null;
+                        };
                     };
                 };
             };
@@ -30531,6 +30916,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default null */
+                    code?: string | null;
                     offerId: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -59279,6 +59666,23 @@ export interface operations {
                             clicks30: number;
                             clicksAll: number;
                             code: string;
+                            codes: {
+                                affiliateId: string | null;
+                                amountOffCents: number | null;
+                                code: string;
+                                /** Format: uuid */
+                                codeId: string;
+                                /** Format: date-time */
+                                createdAt: string;
+                                discountMonths: number | null;
+                                offByStaff: boolean;
+                                offerId: string | null;
+                                paidUses: number;
+                                percentOffBp: number | null;
+                                /** @enum {string} */
+                                status: "on" | "off";
+                                trialDays: number | null;
+                            }[];
                             decidedAt: string | null;
                             earnings: {
                                 earnedCents: number;
@@ -59287,6 +59691,7 @@ export interface operations {
                                 waitingCents: number;
                             };
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
                             payingBusinesses: {
                                 earnedCents: number;
@@ -59300,6 +59705,13 @@ export interface operations {
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
                         } | null;
                         defaultRateBp: number;
+                        plans: {
+                            /** @enum {string} */
+                            billing: "once" | "yearly" | "monthly";
+                            name: string;
+                            offerId: string;
+                            priceCents: number;
+                        }[];
                     };
                 };
             };
@@ -65678,6 +66090,44 @@ export interface operations {
             };
         };
     };
+    query_founding_code_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: string;
+                        offers: {
+                            applies: boolean;
+                            discountCents: number;
+                            discountMonths: number | null;
+                            fullCents: number;
+                            offerId: string;
+                            trialDays: number | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_founding_counts: {
         parameters: {
             query?: never;
@@ -65744,6 +66194,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         graceEndsAt: string | null;
+                        nextChargeCents: number;
                         offerName: string | null;
                         paidThrough: string | null;
                         plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
@@ -65751,6 +66202,7 @@ export interface operations {
                         renewalProblem: string | null;
                         renewing: boolean;
                         status: ("active" | "grace" | "past_due" | "canceled") | null;
+                        trialEndsAt: string | null;
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -76075,7 +76527,9 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -76102,6 +76556,23 @@ export interface operations {
                             /** Format: date */
                             day: string;
                         }[];
+                        codes: {
+                            affiliateId: string | null;
+                            amountOffCents: number | null;
+                            code: string;
+                            /** Format: uuid */
+                            codeId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            discountMonths: number | null;
+                            offByStaff: boolean;
+                            offerId: string | null;
+                            paidUses: number;
+                            percentOffBp: number | null;
+                            /** @enum {string} */
+                            status: "on" | "off";
+                            trialDays: number | null;
+                        }[];
                         commissions: {
                             amountCents: number;
                             baseCents: number;
@@ -76122,6 +76593,13 @@ export interface operations {
                             readyCents: number;
                             waitingCents: number;
                         };
+                        plans: {
+                            /** @enum {string} */
+                            billing: "once" | "yearly" | "monthly";
+                            name: string;
+                            offerId: string;
+                            priceCents: number;
+                        }[];
                     };
                 };
             };
@@ -76213,7 +76691,9 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -76236,7 +76716,9 @@ export interface operations {
                             earnedCents: number;
                             email: string;
                             links: string;
+                            maxDiscountBp: number;
                             name: string;
+                            ownMaxDiscountBp: number | null;
                             ownRateBp: number | null;
                             pitch: string;
                             rateBp: number;
@@ -76245,7 +76727,32 @@ export interface operations {
                             /** Format: uuid */
                             userId: string;
                         }[];
+                        houseCodes: {
+                            affiliateId: string | null;
+                            amountOffCents: number | null;
+                            code: string;
+                            /** Format: uuid */
+                            codeId: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            discountMonths: number | null;
+                            offByStaff: boolean;
+                            offerId: string | null;
+                            paidUses: number;
+                            percentOffBp: number | null;
+                            /** @enum {string} */
+                            status: "on" | "off";
+                            trialDays: number | null;
+                        }[];
+                        plans: {
+                            /** @enum {string} */
+                            billing: "once" | "yearly" | "monthly";
+                            name: string;
+                            offerId: string;
+                            priceCents: number;
+                        }[];
                         settings: {
+                            maxDiscountBp: number;
                             rateBp: number;
                         };
                     };

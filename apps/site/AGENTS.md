@@ -18,7 +18,9 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
 - **`src/proxy.ts` is for affiliate links only** (`handsfreeos.com/?ref=<code>`, see `src/lib/affiliate.ts`):
   it keeps the code in a cookie for 90 days, tells the worker about the click, and sends the visitor on to
   the same page without `?ref=`. `SignupLinkVisitor` adds the code to sign-up links, as it does Opinly's id.
-  Its matcher only lets through requests that have `?ref=`, so every other page is untouched.
+  A discount or trial code's link (`?code=<code>`) is kept the same way, with no click, and goes to sign-up
+  as `?code=` for the plan page to fill in. Its matcher only lets through requests that have `?ref=` or
+  `?code=`, so every other page is untouched.
 - **The design tokens are copied from `apps/web/src/app/globals.css`** so the site and the app look
   like one product. If the accent colour changes there, change it here.
 - **Three pages exist because somebody reviews them**, and their wording is not decoration:

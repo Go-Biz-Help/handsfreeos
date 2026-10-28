@@ -1,10 +1,13 @@
 /**
- * An affiliate's link, `handsfreeos.com/?ref=<code>` (20261027014000). Browser-safe: the proxy and the sign-up
- * links both read it.
+ * An affiliate's link, `handsfreeos.com/?ref=<code>` (20261027014000), and a discount or trial code's,
+ * `handsfreeos.com/?code=<code>` (20261027014300). Browser-safe: the proxy and the sign-up links both read it.
  *
  * The proxy keeps the code in a cookie for {@link REF_DAYS} days, with when it was clicked, and takes `?ref=` off the
  * address so a page is shared and indexed at one address. The last link clicked wins. Sign-up links then carry it
  * to the app as `?ref=` and `?ref_at=`, which keeps it on the new account until it makes its business.
+ *
+ * A code's link is kept the same way, in a cookie of its own, and goes to sign-up as `?code=`, where the new account
+ * keeps it for the plan page to fill in. Whether it is a code is the app's to say; it counts no click.
  */
 
 /** The link's own word. Matches `AFFILIATE_REF_PARAM` in `@hfos/core`. */
@@ -37,3 +40,7 @@ export function readRef(value: string | null | undefined, now = Date.now()): Ref
   if (now - at > REF_DAYS * 86_400_000) return null;
   return { code, clickedAt: new Date(at) };
 }
+
+/** A code's link word. Matches `AFFILIATE_CODE_PARAM` in `@hfos/core`. */
+export const CODE_PARAM = 'code';
+export const CODE_COOKIE = 'hfos_code';

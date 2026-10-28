@@ -2,12 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { webSignInProviders } from '@/lib/auth/providers';
-import { affiliateTrail, opinlyVisitor } from '@/lib/auth/visitor';
+import { affiliateTrail, discountCode, opinlyVisitor } from '@/lib/auth/visitor';
 import { wantedPlan } from '@/lib/founding-plan';
 import { safeNext } from '@/lib/utils';
 import { SignUpForm } from './sign-up-form';
 
-// The canonical drops `?next=` and the site's `?oa=` and `?ref=`, so search engines see one sign-up page.
+// The canonical drops `?next=` and the site's `?oa=`, `?ref=` and `?code=`, so search engines see one sign-up page.
 export const metadata: Metadata = {
   title: 'Create your account',
   description:
@@ -36,6 +36,7 @@ export default async function SignUpPage({
           next={next}
           visitor={opinlyVisitor(params.oa)}
           affiliate={affiliateTrail(params.ref, params.ref_at)}
+          code={discountCode(params.code)}
           google={providers.google}
         />
       </Card>

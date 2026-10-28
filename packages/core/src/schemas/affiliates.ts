@@ -7,6 +7,7 @@
  */
 import { z } from 'zod';
 import { displayName, isoDateTime, uuid } from './common';
+import { offerBilling } from './founding';
 
 export const AFFILIATE_STATUSES = [
   'applied',
@@ -64,11 +65,118 @@ export const affiliateCode = z
     message: 'That word is kept for HandsFreeOS. Pick another link code, like your name.',
   });
 
+/**
+ * A discount or trial code (20261027014300): typed in any case, kept lowercase, the same shape as a link code. A kept
+ * word is refused here too.
+ */
+export const affiliateDiscountCode = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, 'A code is at least 3 letters or digits.')
+  .max(24, 'A code is at most 24 letters or digits.')
+  .regex(
+    /^[a-z0-9][a-z0-9-]*[a-z0-9]$/,
+    'Use letters, digits and dashes, starting and ending with a letter or digit.',
+  )
+  .refine((c) => !RESERVED_AFFILIATE_CODES.includes(c), {
+    message: 'That word is kept for HandsFreeOS. Pick another code.',
+  });
+
+/** The most a code takes off, in basis points: 5000 is 50%. Never past 90%, so a charge is never nothing. */
+export const affiliateMaxDiscountBp = z
+  .int()
+  .min(100, 'The limit is at least 1% off.')
+  .max(9000, 'The limit can’t be more than 90% off.');
+
 /** A share in basis points: 4000 is 40%. */
 export const affiliateRateBp = z
   .int()
   .min(1, 'A share is at least 0.01%.')
   .max(10_000, 'A share can’t be more than 100%.');
+
+// ---------- codes (20261027014300) ----------
+
+/** What a code gives: a percent or dollars off, for some months or for good, a trial, or a trial then a discount. */
+const codeTerms = {
+  code: affiliateDiscountCode,
+  /** The plan it's for, or null for any plan. */
+  offerId: z.string().trim().min(1).max(60).nullable().default(null),
+  percentOffBp: z.int().min(1).max(9000).nullable().default(null),
+  amountOffCents: z.int().min(1).max(1_000_000).nullable().default(null),
+  /** How many months the discount lasts; null for good. */
+  discountMonths: z.int().min(1).max(36).nullable().default(null),
+  trialDays: z
+    .union([z.literal(7), z.literal(14), z.literal(30)])
+    .nullable()
+    .default(null),
+};
+
+type CodeGives = {
+  percentOffBp: number | null;
+  amountOffCents: number | null;
+  trialDays: number | null;
+};
+/** A percent or dollars off, not both. */
+const notBoth = (v: CodeGives) => v.percentOffBp === null || v.amountOffCents === null;
+/** A discount, a trial, or both. */
+const something = (v: CodeGives) =>
+  v.percentOffBp !== null || v.amountOffCents !== null || v.trialDays !== null;
+
+/** An affiliate makes one of their own. */
+export const AffiliateMakeCodeInput = z
+  .strictObject(codeTerms)
+  .refine(notBoth, {
+    message: 'Pick a percent or dollars off, not both.',
+    path: ['amountOffCents'],
+  })
+  .refine(something, { message: 'Pick a discount, a free trial, or both.', path: ['trialDays'] });
+/** Staff make one for an affiliate, or a house code with `affiliateId` null. */
+export const AffiliatesMakeCodeInput = z
+  .strictObject({ affiliateId: uuid.nullable(), ...codeTerms })
+  .refine(notBoth, {
+    message: 'Pick a percent or dollars off, not both.',
+    path: ['amountOffCents'],
+  })
+  .refine(something, { message: 'Pick a discount, a free trial, or both.', path: ['trialDays'] });
+
+export const AffiliateTurnCodeInput = z.strictObject({ codeId: uuid, on: z.boolean() });
+
+/** One affiliate's own limit, or null for everyone's. */
+export const AffiliateSetMaxDiscountInput = z.strictObject({
+  affiliateId: uuid,
+  maxDiscountBp: affiliateMaxDiscountBp.nullable(),
+});
+
+export const AffiliateCodeRow = z.strictObject({
+  codeId: uuid,
+  /** Null for a house code. */
+  affiliateId: uuid.nullable(),
+  code: z.string(),
+  offerId: z.string().nullable(),
+  percentOffBp: z.int().nullable(),
+  amountOffCents: z.int().nullable(),
+  discountMonths: z.int().nullable(),
+  trialDays: z.int().nullable(),
+  status: z.enum(['on', 'off']),
+  /** Staff turned it off; only staff turn it back on. */
+  offByStaff: z.boolean(),
+  /** Businesses that bought their plan with it. */
+  paidUses: z.int(),
+  createdAt: isoDateTime,
+});
+
+export type AffiliateCodeRow = z.infer<typeof AffiliateCodeRow>;
+
+export const AffiliateCodeOutput = z.strictObject({ code: AffiliateCodeRow });
+
+/** A plan a code can be for, for the form that makes one. */
+export const AffiliateCodePlan = z.strictObject({
+  offerId: z.string(),
+  name: z.string(),
+  priceCents: z.int(),
+  billing: offerBilling,
+});
 
 // ---------- applying (the person themselves) ----------
 
@@ -130,6 +238,10 @@ export const AffiliateMine = z.strictObject({
   /** Clicks on their link: the last 30 days, and ever. */
   clicks30: z.int(),
   clicksAll: z.int(),
+  /** Their codes, newest first. */
+  codes: z.array(AffiliateCodeRow),
+  /** The most their codes may take off now: their own limit or everyone's. */
+  maxDiscountBp: z.int(),
   /** Businesses credited to them, paying or not. */
   signUps: z.int(),
   /** The ones that paid, newest first. */
@@ -140,12 +252,21 @@ export const AffiliateMineOutput = z.strictObject({
   affiliate: AffiliateMine.nullable(),
   /** Everyone's share, for the page that asks them to apply. */
   defaultRateBp: z.int(),
+  /** The plans on sale, for making a code. */
+  plans: z.array(AffiliateCodePlan),
 });
 
 // ---------- staff: the program ----------
 
-export const AffiliatesSaveSettingsInput = z.strictObject({ rateBp: affiliateRateBp });
-export const AffiliatesSettingsOutput = z.strictObject({ rateBp: z.int() });
+export const AffiliatesSaveSettingsInput = z.strictObject({
+  rateBp: affiliateRateBp,
+  /** The most any affiliate's code takes off (decision 19). Left out, it stays as it is. */
+  maxDiscountBp: affiliateMaxDiscountBp.optional(),
+});
+export const AffiliatesSettingsOutput = z.strictObject({
+  rateBp: z.int(),
+  maxDiscountBp: z.int(),
+});
 
 export const AffiliateDecideInput = z.strictObject({
   affiliateId: uuid,
@@ -188,6 +309,9 @@ export const AffiliateRow = z.strictObject({
   businesses: z.int(),
   /** Everything they've earned, less what refunds took back. */
   earnedCents: z.int(),
+  /** Their own limit on codes, or null for everyone's; and the limit that counts now. */
+  ownMaxDiscountBp: z.int().nullable(),
+  maxDiscountBp: z.int(),
 });
 
 export const AffiliateOutput = z.strictObject({ affiliate: AffiliateRow });
@@ -197,6 +321,10 @@ export const PlatformAffiliatesInput = z.strictObject({
 });
 export const PlatformAffiliatesOutput = z.strictObject({
   settings: AffiliatesSettingsOutput,
+  /** Codes that belong to no affiliate, newest first. */
+  houseCodes: z.array(AffiliateCodeRow),
+  /** The plans on sale, for making a code. */
+  plans: z.array(AffiliateCodePlan),
   /** Waiting for a decision, oldest first. */
   applications: z.array(AffiliateRow),
   /** Everyone decided: approved, paused, ended and turned down, newest first. */
@@ -241,6 +369,9 @@ export const PlatformAffiliateOutput = z.strictObject({
   earnings: AffiliateEarnings,
   /** The last 100, newest first. */
   commissions: z.array(AffiliateCommission),
+  /** Their codes, newest first, and the plans a code can be for. */
+  codes: z.array(AffiliateCodeRow),
+  plans: z.array(AffiliateCodePlan),
   /** Their link's clicks a day, the last 30 days that had any, newest first. */
   clicks: z.array(z.strictObject({ day: z.iso.date(), clicks: z.int() })),
 });

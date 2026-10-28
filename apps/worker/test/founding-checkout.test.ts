@@ -11,7 +11,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
   executeCommand,
+  executeQuery,
   foundingBuy,
+  foundingMine,
   foundingPayRenewal,
   foundingSetRenewing,
   foundingStartCheckout,
@@ -125,6 +127,29 @@ describe('Stripe Checkout, in our own account', () => {
       checkoutInput.checkoutId,
     );
     expect(form.get('customer_email')).toBe('dana@example.com');
+  });
+
+  it('makes a free trial’s page in setup mode: it keeps the card and charges nothing', async () => {
+    const { provider, calls } = stripeWatching({ clientId: null });
+    await provider.platform.createCheckout({
+      ...checkoutInput,
+      amountCents: 7_760,
+      productName: 'HandsFreeOS — Founding Monthly: 14 days free',
+      description: 'Nothing is charged today.',
+      saveCard: true,
+      setupOnly: true,
+    });
+    const form = new URLSearchParams(calls[0]!.body);
+    expect(form.get('mode')).toBe('setup');
+    expect(form.get('currency')).toBe('usd');
+    expect(form.get('customer_creation')).toBe('always');
+    expect(form.get('setup_intent_data[metadata][founding_checkout_id]')).toBe(
+      checkoutInput.checkoutId,
+    );
+    expect(form.get('custom_text[submit][message]')).toBe('Nothing is charged today.');
+    // Nothing to pay: no lines, and nothing for a payment.
+    expect([...form.keys()].some((k) => k.startsWith('line_items'))).toBe(false);
+    expect([...form.keys()].some((k) => k.startsWith('payment_intent_data'))).toBe(false);
   });
 
   it("verifies our own account's events with their own secret, and nothing else", () => {
@@ -920,6 +945,247 @@ describe('what the affiliate who sent the business earns', () => {
           where p.payment_ref = ${page.paymentRef}`,
     );
     expect(kept).toEqual({ status: 'succeeded', amount_cents: 49_700 });
+  });
+});
+
+// ---------- a discount or trial code (20261027014300) ----------
+
+describe('a spot bought with a code', () => {
+  let affiliateId: string;
+  let seq = 0;
+
+  const newAffiliate = async (name: string) => {
+    const them = await createTestUser(`founding-code-${randomUUID().slice(0, 8)}`);
+    const [a] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into platform.affiliates (user_id, code, status, name)
+          values (${them.id}::uuid, ${`aff-${randomUUID().slice(0, 8)}`}, 'approved', ${name})
+          returning id`,
+    );
+    return a!.id;
+  };
+
+  beforeEach(async () => {
+    await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${MONTHLY}`);
+    await admin().execute(sql`delete from platform.founding_grants where offer_id = ${MONTHLY}`);
+    await admin().execute(
+      sql`delete from platform.plan_payments where organization_id = ${organizationId}::uuid`,
+    );
+    await admin().execute(
+      sql`delete from platform.affiliate_referrals where organization_id = ${organizationId}::uuid`,
+    );
+    await admin().execute(
+      sql`insert into platform.founding_offers
+            (id, name, seat_cap, price_cents, status, billing, starting_credit_cents, show_counter)
+          values (${MONTHLY}, 'Founding Monthly', 1000, 9700, 'open', 'monthly', 0, true)
+          on conflict (id) do update set status = 'open', price_cents = 9700, billing = 'monthly'`,
+    );
+    affiliateId = await newAffiliate('Cody Coder');
+  });
+
+  /** A code of the affiliate's for the monthly plan: what it takes off, how long, and any trial. */
+  const makeCode = async (bp: number | null, months: number | null, trial: number | null) => {
+    const code = `code-${process.pid}-${++seq}-${randomUUID().slice(0, 4)}`;
+    await admin().execute(
+      sql`insert into platform.affiliate_codes (affiliate_id, code, offer_id, percent_off_bp, discount_months, trial_days)
+          values (${affiliateId}::uuid, ${code}, ${MONTHLY}, ${bp}::integer, ${months}::integer, ${trial}::integer)`,
+    );
+    return code;
+  };
+  const buyWith = async (code: string) => {
+    const { output } = await executeCommand(
+      api(),
+      foundingBuy,
+      { workspaceId, offerId: MONTHLY, code },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    return s.payments.fake.checkouts().find((p) => p.checkoutId === output.checkoutId)!;
+  };
+  const planNow = async () => {
+    const [p] = await rows<{
+      plan: string;
+      status: string;
+      price_cents: number;
+      discount_cents: number;
+      discount_until: string | null;
+      trial_ends_at: string | null;
+      current_period_end: string | null;
+      stripe_card_id: string | null;
+      renewal_count: number;
+      grant_id: string;
+    }>(
+      admin(),
+      sql`select plan::text as plan, status::text as status, price_cents, discount_cents,
+            discount_until::text as discount_until, trial_ends_at::text as trial_ends_at,
+            current_period_end::text as current_period_end, stripe_card_id, renewal_count, grant_id
+          from app.workspace_plans where workspace_id = ${workspaceId}`,
+    );
+    return p!;
+  };
+  const daysFromNow = (iso: string | null) => (new Date(iso!).getTime() - Date.now()) / 86_400_000;
+  const sweep = async () => {
+    await admin().execute(
+      sql`update app.workspace_plans set current_period_end = now() - interval '1 minute'
+          where workspace_id = ${workspaceId}`,
+    );
+    await planFoundingRenewals({
+      ...s,
+      job: { payload: {} },
+      scope: {},
+      attempt: 1,
+      now: Date.now(),
+    } as unknown as JobContext);
+    await drain();
+  };
+  const commissionsOf = (id: string) =>
+    rows<{ kind: string; amount_cents: string; base_cents: string }>(
+      admin(),
+      sql`select kind, amount_cents::text, base_cents::text from platform.affiliate_commissions
+          where affiliate_id = ${id}::uuid order by created_at`,
+    );
+  const creditedTo = async () =>
+    (
+      await rows<{ affiliate_id: string; how: string }>(
+        admin(),
+        sql`select affiliate_id::text, how from platform.affiliate_referrals
+            where organization_id = ${organizationId}::uuid`,
+      )
+    )[0] ?? null;
+  const usesOf = async (code: string) =>
+    (
+      await rows<{ paid_uses: number }>(
+        admin(),
+        sql`select paid_uses from platform.affiliate_codes where code = ${code}`,
+      )
+    )[0]!.paid_uses;
+
+  it('a free trial keeps the card and charges nothing; the trial’s end charges the discount, and its end the full price', async () => {
+    const code = await makeCode(2000, 2, 14);
+    const page = await buyWith(code);
+    expect(page).toMatchObject({ setupOnly: true, saveCard: true, amountCents: 7_760 });
+    expect(page.productName).toContain('14 days free');
+    expect(page.description).toContain('Nothing is charged today');
+    expect(page.description).toContain('$77.60 a month for the first 2 months, then $97 a month');
+
+    const charged = s.payments.fake.platformCharges().length;
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+    const trial = await planNow();
+    expect(trial).toMatchObject({
+      plan: 'monthly',
+      status: 'active',
+      price_cents: 9_700,
+      discount_cents: 1_940,
+      stripe_card_id: page.cardRef,
+      renewal_count: 0,
+    });
+    expect(trial.stripe_card_id).toBeTruthy();
+    expect(daysFromNow(trial.trial_ends_at)).toBeGreaterThan(13.9);
+    expect(daysFromNow(trial.trial_ends_at)).toBeLessThan(14.1);
+    expect(trial.current_period_end).toBe(trial.trial_ends_at);
+    // Two months of discount, counted from the first payment, when the trial ends.
+    expect(daysFromNow(trial.discount_until)).toBeGreaterThan(14 + 58);
+    expect(daysFromNow(trial.discount_until)).toBeLessThan(14 + 63);
+
+    // The code's affiliate sent the business, though nothing is paid yet, so nothing is earned yet.
+    expect(await creditedTo()).toEqual({ affiliate_id: affiliateId, how: 'code' });
+    expect(await usesOf(code)).toBe(1);
+    expect(await commissionsOf(affiliateId)).toEqual([]);
+    // What the business's Settings say: the trial, and what it'll be charged when it ends.
+    const mine = await executeQuery(api(), foundingMine, { workspaceId }, actor(owner), meta());
+    expect(mine.nextChargeCents).toBe(7_760);
+    expect(daysFromNow(mine.trialEndsAt)).toBeGreaterThan(13.9);
+
+    // The trial ends: the sweep charges the discounted price, and the affiliate earns their share of what was paid.
+    await sweep();
+    expect(
+      s.payments.fake
+        .platformCharges()
+        .slice(charged)
+        .map((c) => [c.amountCents, c.status]),
+    ).toEqual([[7_760, 'succeeded']]);
+    expect(await commissionsOf(affiliateId)).toEqual([
+      { kind: 'earned', amount_cents: '3104', base_cents: '7760' },
+    ]);
+    const after = await executeQuery(api(), foundingMine, { workspaceId }, actor(owner), meta());
+    expect(after.trialEndsAt).toBeNull();
+
+    // Past the discount's months, the full price.
+    await admin().execute(
+      sql`update app.workspace_plans set discount_until = now() - interval '1 hour'
+          where workspace_id = ${workspaceId}`,
+    );
+    await sweep();
+    expect(
+      s.payments.fake
+        .platformCharges()
+        .slice(charged)
+        .map((c) => c.amountCents),
+    ).toEqual([7_760, 9_700]);
+  });
+
+  it('a discount comes off the first page and every month; a business somebody already sent stays theirs', async () => {
+    const sentBy = await newAffiliate('Lee Linker');
+    await admin().execute(
+      sql`insert into platform.affiliate_referrals (organization_id, affiliate_id, how, referred_at)
+          values (${organizationId}::uuid, ${sentBy}::uuid, 'link', now() - interval '1 day')`,
+    );
+    const code = await makeCode(1000, null, null);
+    const page = await buyWith(code);
+    expect(page).toMatchObject({ setupOnly: false, amountCents: 8_730 });
+    expect(page.productName).toContain('the first month');
+    expect(page.description).toContain('$87.30 a month');
+    const charged = s.payments.fake.platformCharges().length;
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    expect(await planNow()).toMatchObject({
+      price_cents: 9_700,
+      discount_cents: 970,
+      discount_until: null,
+      trial_ends_at: null,
+    });
+    expect(await creditedTo()).toEqual({ affiliate_id: sentBy, how: 'link' });
+    expect(await usesOf(code)).toBe(1);
+    // The discount is shared: the share is of what was paid.
+    expect(await commissionsOf(sentBy)).toEqual([
+      { kind: 'earned', amount_cents: '3492', base_cents: '8730' },
+    ]);
+    expect(await commissionsOf(affiliateId)).toEqual([]);
+    // For good: the next month is discounted too.
+    await sweep();
+    expect(
+      s.payments.fake
+        .platformCharges()
+        .slice(charged)
+        .map((c) => c.amountCents),
+    ).toEqual([8_730, 8_730]);
+  });
+
+  it('stopping it renewing during the trial gives the spot back when the trial ends, and charges nothing', async () => {
+    const page = await buyWith(await makeCode(null, null, 7));
+    expect(page).toMatchObject({ setupOnly: true, amountCents: 9_700 });
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    const { grant_id } = await planNow();
+    await executeCommand(
+      api(),
+      foundingSetRenewing,
+      { workspaceId, renewing: false },
+      actor(owner),
+      meta(),
+    );
+    const charged = s.payments.fake.platformCharges().length;
+    await sweep();
+    expect(s.payments.fake.platformCharges()).toHaveLength(charged);
+    const [g] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from platform.founding_grants where id = ${grant_id}::uuid`,
+    );
+    expect(g!.status).toBe('revoked');
+    expect((await planNow()).status).toBe('canceled');
   });
 });
 

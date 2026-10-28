@@ -245,18 +245,31 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'wallet.set_stage': { warning: 'This changes what happens when their balance runs out.' },
   'affiliates.save_settings': {
     warning:
-      'This changes every affiliate’s share without one of their own, for payments from now on.',
+      'This changes every affiliate’s share and code limit without one of their own: the share for payments from now on, the limit at once.',
   },
   'affiliate.decide': { warning: 'They get an email saying what was decided.' },
   'affiliate.set_status': { warning: 'This changes whether their link credits new businesses.' },
   'affiliate.set_rate': { warning: 'This changes their share, for payments from now on.' },
   'affiliate.set_code': { warning: 'Their old link stops working at once.' },
   'affiliate.set_business': {},
+  'affiliate.set_max_discount': {
+    warning: 'This changes the most their codes take off, at once, on codes already made too.',
+  },
+  'affiliates.make_code': {
+    warning: 'It works on the plan page at once, for anyone who has it.',
+  },
+  'affiliates.turn_code': {},
   // ---- Selling HandsFreeOS (/affiliate): anyone signed in ----
   'affiliate.apply': {
     offeredTo: 'assistant.use',
     warning: 'It goes to HandsFreeOS to decide, and says you live in the US.',
   },
+  'affiliate.make_code': {
+    offeredTo: 'assistant.use',
+    warning:
+      'It works on the plan page at once, for anyone who has it, and can’t be changed, only turned off.',
+  },
+  'affiliate.turn_code': { offeredTo: 'assistant.use' },
 };
 
 /**

@@ -3,10 +3,11 @@
 /**
  * The person's own affiliate page (20261027014000). Somebody who hasn't applied, or may apply again, sees what the
  * program pays and the form. An application waiting can still be changed. Once approved, it's their link, their share,
- * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200). A
- * paused or ended affiliate still sees what they earned.
+ * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200), and
+ * their discount and trial codes (20261027014300). A paused or ended affiliate still sees what they earned.
  */
 import {
+  AFFILIATE_CODE_WORDS,
   AFFILIATE_CLOSED_BUSINESS,
   AFFILIATE_MINE_WORDS,
   AFFILIATE_PAGE_WORDS as W,
@@ -17,6 +18,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { AffiliateCodeList, MakeCodeForm } from '@/components/affiliate/affiliate-codes';
 import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -56,6 +58,9 @@ export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
       )}
 
       {a?.status === 'approved' ? <Approved affiliate={a} /> : null}
+      {a?.status === 'approved' || a?.codes.length ? (
+        <Codes affiliate={a} plans={mine.plans} />
+      ) : null}
       {a &&
       (a.status === 'approved' || a.earnings.earnedCents !== 0 || a.payingBusinesses.length) ? (
         <Earned affiliate={a} />
@@ -101,6 +106,61 @@ function Approved({ affiliate: a }: { affiliate: Affiliate }) {
           {W.signUpsLine(a.signUps, a.payingBusinesses.length)}
         </p>
       </div>
+    </div>
+  );
+}
+
+/** Their discount and trial codes: made while approved, turned off and on any time. */
+function Codes({ affiliate: a, plans }: { affiliate: Affiliate; plans: Mine['plans'] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const approved = a.status === 'approved';
+  return (
+    <div className="mt-7">
+      <h2 className="text-sm font-semibold">{AFFILIATE_CODE_WORDS.codes}</h2>
+      {approved ? (
+        <p className="mt-1 text-[14px] text-text-2">
+          {AFFILIATE_CODE_WORDS.intro(affiliateRateWords(a.maxDiscountBp))}
+        </p>
+      ) : null}
+      <AffiliateCodeList
+        codes={a.codes}
+        plans={plans}
+        busy={busy}
+        onTurn={async (c, on) => {
+          setBusy(true);
+          try {
+            unwrap(
+              await apiBrowser().POST('/v1/commands/affiliate.turn_code', {
+                body: { codeId: c.codeId, on },
+              }),
+            );
+            router.refresh();
+          } catch (e) {
+            toast.error(errorMessage(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {approved ? (
+        <details
+          className="mt-4 rounded-menu border border-border p-3"
+          data-testid="affiliate-new-code"
+        >
+          <summary className="cursor-pointer text-[14px] font-medium">
+            {AFFILIATE_CODE_WORDS.make}
+          </summary>
+          <MakeCodeForm
+            plans={plans}
+            maxDiscountBp={a.maxDiscountBp}
+            onMake={async (body) => {
+              unwrap(await apiBrowser().POST('/v1/commands/affiliate.make_code', { body }));
+              router.refresh();
+            }}
+          />
+        </details>
+      ) : null}
     </div>
   );
 }

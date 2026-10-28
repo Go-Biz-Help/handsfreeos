@@ -7,6 +7,9 @@
  *   3. Clicks are counted by the worker alone; the share everyone gets is read by anyone and changed by staff.
  *   4. What businesses paid us, and refunds, are staff's (20261027014200). An affiliate reads their own commissions,
  *      and the names of the businesses that earned them, never anybody else's; nobody but the worker writes one.
+ *   5. Codes (20261027014300): an approved affiliate makes their own, up to their limit, and reads only their own;
+ *      nobody writes one directly, a code staff turned off stays off until staff turn it on, and what a code takes
+ *      off is held to the limit again when it's used. Nobody uses their own.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
@@ -287,5 +290,182 @@ describe('what an affiliate earns', () => {
       ),
     );
     expect(e.code).toBe('42501');
+  });
+});
+
+describe('codes', () => {
+  const MONTHLY = 'test_code_rls_monthly';
+  const ONCE = 'test_code_rls_once';
+  const make = (
+    u: TestUser,
+    c: string,
+    terms: {
+      affiliate?: string | null;
+      offer?: string | null;
+      bp?: number | null;
+      cents?: number | null;
+      trial?: number | null;
+    } = {},
+  ) =>
+    as(u)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`select private.affiliate_make_code(
+              ${terms.affiliate === undefined ? sellerId : terms.affiliate}::uuid, ${c},
+              ${terms.offer === undefined ? MONTHLY : terms.offer}::text,
+              ${terms.bp === undefined ? 2000 : terms.bp}::integer, ${terms.cents ?? null}::integer, null::integer,
+              ${terms.trial ?? null}::integer) as id`,
+      ),
+    ).then((r) => r[0]!.id);
+  const turn = (u: TestUser, id: string, on: boolean) =>
+    as(u)((tx) =>
+      rows<{ changed: boolean }>(
+        tx,
+        sql`select changed from private.affiliate_turn_code(${id}::uuid, ${on})`,
+      ),
+    ).then((r) => r[0]!.changed);
+  const preview = (u: TestUser, ws: string, c: string) =>
+    as(u)((tx) =>
+      rows<{ offer_id: string; refusal: string | null; discount_cents: number }>(
+        tx,
+        sql`select offer_id, refusal, discount_cents from private.affiliate_code_preview(${c}, ${ws}::uuid)
+            where offer_id in (${MONTHLY}, ${ONCE}) order by offer_id`,
+      ),
+    );
+  let codeId: string;
+  const theCode = `c-${uniq()}`.slice(0, 20);
+
+  beforeAll(async () => {
+    await dbs.admin.db.execute(
+      sql`update platform.affiliates set status = 'approved', max_discount_bp = null where id = ${sellerId}`,
+    );
+    // Off sale, so no business made by these tests is asked to pay; a code is made for any plan not in draft.
+    await dbs.admin.db.execute(
+      sql`insert into platform.founding_offers
+            (id, name, seat_cap, price_cents, status, billing, paid_yearly, starting_credit_cents, show_counter, sort)
+          values (${MONTHLY}, 'Code monthly', 3, 9700, 'closed', 'monthly', false, 0, true, 961),
+                 (${ONCE}, 'Code once', 3, 49700, 'closed', 'once', false, 0, true, 962)
+          on conflict (id) do update set status = 'closed', price_cents = excluded.price_cents`,
+    );
+    codeId = await make(seller, theCode.toUpperCase());
+  });
+
+  afterAll(async () => {
+    await dbs.admin.db.execute(
+      sql`delete from platform.affiliate_codes where affiliate_id = ${sellerId}`,
+    );
+    await dbs.admin.db.execute(
+      sql`delete from platform.founding_offers where id in (${MONTHLY}, ${ONCE})`,
+    );
+  });
+
+  it('an affiliate reads their own codes, staff read them all, and nobody else reads any', async () => {
+    const seen = (u: TestUser) =>
+      as(u)((tx) =>
+        rows<{ code: string }>(
+          tx,
+          sql`select code from platform.affiliate_codes where id = ${codeId}`,
+        ),
+      );
+    expect(await seen(seller)).toEqual([{ code: theCode }]);
+    expect(await seen(staff)).toEqual([{ code: theCode }]);
+    expect(await seen(other)).toEqual([]);
+    expect(await seen(maker)).toEqual([]);
+  });
+
+  it('nobody writes a code directly, staff included', async () => {
+    for (const u of [seller, staff]) {
+      const e = await expectPgError(() =>
+        as(u)((tx) =>
+          tx.execute(
+            sql`insert into platform.affiliate_codes (affiliate_id, code, percent_off_bp)
+                values (${sellerId}, ${`d-${uniq()}`.slice(0, 20)}, 9000)`,
+          ),
+        ),
+      );
+      expect(e.code).toBe('42501');
+      const changed = await expectPgError(() =>
+        as(u)((tx) =>
+          tx.execute(
+            sql`update platform.affiliate_codes set percent_off_bp = 9000 where id = ${codeId}`,
+          ),
+        ),
+      );
+      expect(changed.code).toBe('42501');
+    }
+  });
+
+  it('makes one only for their own row, never a house code, and only up to the limit', async () => {
+    const refused = async (u: TestUser, terms: Parameters<typeof make>[2]) =>
+      (await expectPgError(() => make(u, `r-${uniq()}`.slice(0, 20), terms))).detail;
+    expect(await refused(other, {})).toBe('affiliate_code_not_yours');
+    expect(await refused(seller, { affiliate: null })).toBe('affiliate_code_not_yours');
+    expect(await refused(seller, { bp: 5001 })).toBe('affiliate_code_over_limit');
+    // Dollars: at most half the cheapest plan it's for.
+    expect(await refused(seller, { bp: null, cents: 4851 })).toBe('affiliate_code_over_limit');
+    expect(await make(seller, `ok-${uniq()}`.slice(0, 20), { bp: null, cents: 4850 })).toBeTruthy();
+    // A trial needs a plan paid by the month or the year.
+    expect(await refused(seller, { offer: ONCE, bp: null, trial: 14 })).toBe(
+      'affiliate_code_no_plan',
+    );
+    expect(await refused(seller, { offer: 'no-such-plan' })).toBe('affiliate_code_no_plan');
+    expect((await expectPgError(() => make(seller, theCode))).detail).toBe('affiliate_code_taken');
+    // Staff make a house code, up to 90%.
+    expect(
+      await make(staff, `h-${uniq()}`.slice(0, 20), { affiliate: null, bp: 9000 }),
+    ).toBeTruthy();
+    await dbs.admin.db.execute(
+      sql`delete from platform.affiliate_codes where affiliate_id is null and created_by = ${staff.id}`,
+    );
+  });
+
+  it('a code staff turned off stays off until staff turn it on; nobody else turns it', async () => {
+    expect((await expectPgError(() => turn(other, codeId, false))).detail).toBe(
+      'affiliate_code_not_yours',
+    );
+    expect(await turn(seller, codeId, false)).toBe(true);
+    expect(await turn(seller, codeId, true)).toBe(true);
+    expect(await turn(staff, codeId, false)).toBe(true);
+    expect((await expectPgError(() => turn(seller, codeId, true))).detail).toBe(
+      'affiliate_code_off_by_staff',
+    );
+    expect(await turn(seller, codeId, false)).toBe(false);
+    expect(await turn(staff, codeId, true)).toBe(true);
+  });
+
+  it('what a code takes off is held to the limit as it stands, and works for nobody while its affiliate is paused', async () => {
+    const { wsId } = await bootstrapOrganization(maker, 'Code Co', 'Code Co');
+    expect(await preview(maker, wsId, theCode)).toEqual([
+      { offer_id: MONTHLY, refusal: null, discount_cents: 1940 },
+      { offer_id: ONCE, refusal: 'affiliate_code_other_plan', discount_cents: 0 },
+    ]);
+    await dbs.admin.db.execute(
+      sql`update platform.affiliates set max_discount_bp = 1000 where id = ${sellerId}`,
+    );
+    expect((await preview(maker, wsId, theCode))[0]!.discount_cents).toBe(970);
+    await dbs.admin.db.execute(
+      sql`update platform.affiliates set max_discount_bp = null, status = 'paused' where id = ${sellerId}`,
+    );
+    expect((await preview(maker, wsId, theCode))[0]!.refusal).toBe('affiliate_code_unknown');
+    await dbs.admin.db.execute(
+      sql`update platform.affiliates set status = 'approved' where id = ${sellerId}`,
+    );
+
+    // Only somebody who may buy the business's spot asks.
+    expect((await expectPgError(() => preview(other, wsId, theCode))).detail).toBe(
+      'founding_buy_not_yours',
+    );
+    // Nobody reads a code's terms, and its affiliate, around the preview.
+    const e = await expectPgError(() =>
+      as(maker)((tx) =>
+        tx.execute(sql`select * from private.affiliate_code_terms(${theCode}, ${MONTHLY}, null)`),
+      ),
+    );
+    expect(e.code).toBe('42501');
+  });
+
+  it('nobody uses their own code', async () => {
+    const { wsId } = await bootstrapOrganization(seller, 'Seller Own Co', 'Seller Own Co');
+    expect((await preview(seller, wsId, theCode))[0]!.refusal).toBe('affiliate_code_own');
   });
 });

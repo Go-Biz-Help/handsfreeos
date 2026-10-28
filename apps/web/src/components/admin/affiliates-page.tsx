@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Admin → Affiliates (20261027014000): the share everyone earns, the applications waiting, and every affiliate.
+ * Admin → Affiliates (20261027014000): the share everyone earns and the most a code takes off (20261027014300), the
+ * house codes, the applications waiting, and every affiliate.
  *
  * Approving turns their link on and emails them it; turning down asks first, since it emails them too. Everything
  * else about one affiliate (their own share, pausing, ending, their link code and the businesses they sent) is on
@@ -9,6 +10,7 @@
  */
 import {
   AFFILIATE_ADMIN_WORDS,
+  AFFILIATE_CODE_WORDS,
   AFFILIATE_STATUS_WORDS,
   affiliateLink,
   affiliatePercentToBp,
@@ -19,6 +21,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { whenWords } from '@/components/admin/ticket-bits';
+import { AffiliateCodeList, MakeCodeForm } from '@/components/affiliate/affiliate-codes';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -45,6 +48,7 @@ export function AffiliatesPage({ program }: { program: Program }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rate, setRate] = useState(String(program.settings.rateBp / 100));
+  const [limit, setLimit] = useState(String(program.settings.maxDiscountBp / 100));
   const [turningDown, setTurningDown] = useState<Affiliate | null>(null);
 
   const run = async (what: string, fn: () => Promise<unknown>) => {
@@ -71,12 +75,17 @@ export function AffiliatesPage({ program }: { program: Program }) {
       ),
     );
 
-  const saveRate = () => {
+  const saveSettings = () => {
     const rateBp = affiliatePercentToBp(rate);
     if (rateBp === null) return setError(W.percentProblem);
+    const maxDiscountBp = affiliatePercentToBp(limit);
+    if (maxDiscountBp === null || maxDiscountBp < 100 || maxDiscountBp > 9000)
+      return setError(AFFILIATE_CODE_WORDS.limitProblem);
     void run('rate', async () =>
       unwrap(
-        await apiBrowser().POST('/v1/commands/affiliates.save_settings', { body: { rateBp } }),
+        await apiBrowser().POST('/v1/commands/affiliates.save_settings', {
+          body: { rateBp, maxDiscountBp },
+        }),
       ),
     );
   };
@@ -100,15 +109,73 @@ export function AffiliatesPage({ program }: { program: Program }) {
               data-testid="affiliate-rate"
             />
           </Field>
+          <Field label={AFFILIATE_CODE_WORDS.limit} htmlFor="affiliate-limit" className="w-44">
+            <Input
+              id="affiliate-limit"
+              inputMode="decimal"
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              data-testid="affiliate-limit"
+            />
+          </Field>
           <Button
             variant="secondary"
-            onClick={saveRate}
-            disabled={busy === 'rate' || affiliatePercentToBp(rate) === program.settings.rateBp}
+            onClick={saveSettings}
+            disabled={
+              busy === 'rate' ||
+              (affiliatePercentToBp(rate) === program.settings.rateBp &&
+                affiliatePercentToBp(limit) === program.settings.maxDiscountBp)
+            }
             data-testid="affiliate-rate-save"
           >
             {W.save}
           </Button>
         </div>
+        <p className="mt-2 max-w-[560px] text-[12.5px] text-text-3">
+          {AFFILIATE_CODE_WORDS.limitHelp}
+        </p>
+      </section>
+
+      <section
+        className="mt-5 rounded-card border border-border bg-card p-4"
+        data-testid="house-codes"
+      >
+        <h2 className="text-sm font-semibold">{AFFILIATE_CODE_WORDS.houseCodes}</h2>
+        <p className="mt-1 max-w-[560px] text-[13px] text-text-3">
+          {AFFILIATE_CODE_WORDS.houseHelp}
+        </p>
+        <AffiliateCodeList
+          codes={program.houseCodes}
+          plans={program.plans}
+          busy={busy !== null}
+          asStaff
+          onTurn={(c, on) =>
+            void run(`code:${c.codeId}`, async () =>
+              unwrap(
+                await apiBrowser().POST('/v1/commands/affiliates.turn_code', {
+                  body: { codeId: c.codeId, on },
+                }),
+              ),
+            )
+          }
+        />
+        <details className="mt-4 rounded-menu border border-border p-3">
+          <summary className="cursor-pointer text-[14px] font-medium">
+            {AFFILIATE_CODE_WORDS.make}
+          </summary>
+          <MakeCodeForm
+            plans={program.plans}
+            maxDiscountBp={9000}
+            onMake={async (code) => {
+              unwrap(
+                await apiBrowser().POST('/v1/commands/affiliates.make_code', {
+                  body: { affiliateId: null, ...code },
+                }),
+              );
+              router.refresh();
+            }}
+          />
+        </details>
       </section>
 
       <h2 className="mt-8 text-base font-semibold">

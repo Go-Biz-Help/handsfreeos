@@ -32,19 +32,22 @@ function GoogleG() {
 
 /**
  * Continue with Google, on the sign-in and sign-up pages once Google is turned on in Supabase. It signs in, or makes
- * the account the first time. `visitor` is the website's Opinly visitor id from a sign-up link, and `affiliate` the
- * affiliate link they came by (`lib/auth/visitor.ts`): each kept on a new account by the callback, as the email sign-up
- * keeps them.
+ * the account the first time. `visitor` is the website's Opinly visitor id from a sign-up link, `affiliate` the
+ * affiliate link they came by and `code` a discount or trial code's link (`lib/auth/visitor.ts`): each kept on a new
+ * account by the callback, as the email sign-up keeps them. The code goes as `promo`, since the callback's `code` is
+ * Google's.
  */
 export function GoogleButton({
   next,
   visitor,
   affiliate,
+  code,
   label = 'Continue with Google',
 }: {
   next?: string;
   visitor?: string;
   affiliate?: AffiliateTrail;
+  code?: string;
   label?: string;
 }) {
   const [busy, setBusy] = useState(false);
@@ -63,6 +66,7 @@ export function GoogleButton({
           back.set('ref', affiliate.ref);
           back.set('ref_at', affiliate.refAt);
         }
+        if (code) back.set('promo', code);
         const redirectTo = `${window.location.origin}/auth/callback?${back}`;
         const { data, error } = await supabaseBrowser().auth.signInWithOAuth({
           provider: 'google',

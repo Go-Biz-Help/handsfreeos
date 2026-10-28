@@ -4,11 +4,13 @@
  * One affiliate on Admin → Affiliates (20261027014000): where they stand, their share, their link, the businesses
  * they sent and their link's clicks a day. Pausing and ending ask first, since each changes what their link does.
  * And what they've earned (20261027014200): waiting and ready, what each business earned them, and each share earned
- * or taken back by a refund.
+ * or taken back by a refund. And their codes (20261027014300): made for them, turned off or on, and their own limit on
+ * what a code takes off.
  */
 import {
   AFFILIATE_ADMIN_WORDS,
   AFFILIATE_CLOSED_BUSINESS,
+  AFFILIATE_CODE_WORDS,
   AFFILIATE_COMMISSION_WORDS,
   AFFILIATE_HOW_WORDS,
   AFFILIATE_STATUS_WORDS,
@@ -22,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AFFILIATE_BADGE } from '@/components/admin/affiliates-page';
 import { whenWords } from '@/components/admin/ticket-bits';
+import { AffiliateCodeList, MakeCodeForm } from '@/components/affiliate/affiliate-codes';
 import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +47,9 @@ export function AffiliateDetail({ page }: { page: Page }) {
   const [asking, setAsking] = useState<'paused' | 'ended' | null>(null);
   const [rate, setRate] = useState(a.ownRateBp === null ? '' : String(a.ownRateBp / 100));
   const [code, setCode] = useState(a.code);
+  const [limit, setLimit] = useState(
+    a.ownMaxDiscountBp === null ? '' : String(a.ownMaxDiscountBp / 100),
+  );
 
   const run = async (what: string, fn: () => Promise<unknown>) => {
     setBusy(what);
@@ -74,6 +80,15 @@ export function AffiliateDetail({ page }: { page: Page }) {
       unwrap(
         await apiBrowser().POST('/v1/commands/affiliate.set_rate', {
           body: { affiliateId: a.affiliateId, rateBp },
+        }),
+      ),
+    );
+
+  const saveLimit = (maxDiscountBp: number | null) =>
+    run('limit', async () =>
+      unwrap(
+        await apiBrowser().POST('/v1/commands/affiliate.set_max_discount', {
+          body: { affiliateId: a.affiliateId, maxDiscountBp },
         }),
       ),
     );
@@ -210,6 +225,89 @@ export function AffiliateDetail({ page }: { page: Page }) {
           ) : null}
         </section>
       </div>
+
+      <section
+        className="mt-5 rounded-card border border-border bg-card p-4"
+        data-testid="affiliate-staff-codes"
+      >
+        <h2 className="text-sm font-semibold">{AFFILIATE_CODE_WORDS.staffCodes}</h2>
+        <p className="mt-1 text-[13px] text-text-2" data-testid="affiliate-limit">
+          {a.ownMaxDiscountBp === null
+            ? `${AFFILIATE_CODE_WORDS.limit}: ${AFFILIATE_CODE_WORDS.everyonesLimit(affiliateRateWords(a.maxDiscountBp))}`
+            : `${AFFILIATE_CODE_WORDS.ownLimit}: ${affiliateRateWords(a.ownMaxDiscountBp)}`}
+        </p>
+        <div className="mt-3 flex items-end gap-2">
+          <Field
+            label={AFFILIATE_CODE_WORDS.setOwnLimit}
+            htmlFor="affiliate-own-limit"
+            className="w-44"
+          >
+            <Input
+              id="affiliate-own-limit"
+              inputMode="decimal"
+              placeholder={String(a.maxDiscountBp / 100)}
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              data-testid="affiliate-own-limit"
+            />
+          </Field>
+          <Button
+            variant="secondary"
+            disabled={busy !== null}
+            onClick={() => {
+              const bp = affiliatePercentToBp(limit);
+              if (bp === null || bp < 100 || bp > 9000)
+                return setError(AFFILIATE_CODE_WORDS.limitProblem);
+              void saveLimit(bp);
+            }}
+          >
+            {W.save}
+          </Button>
+          {a.ownMaxDiscountBp !== null ? (
+            <Button
+              variant="ghost"
+              disabled={busy !== null}
+              onClick={() => void saveLimit(null).then((ok) => ok && setLimit(''))}
+            >
+              {AFFILIATE_CODE_WORDS.useEveryones}
+            </Button>
+          ) : null}
+        </div>
+        <AffiliateCodeList
+          codes={page.codes}
+          plans={page.plans}
+          busy={busy !== null}
+          asStaff
+          onTurn={(c, on) =>
+            void run(`code:${c.codeId}`, async () =>
+              unwrap(
+                await apiBrowser().POST('/v1/commands/affiliates.turn_code', {
+                  body: { codeId: c.codeId, on },
+                }),
+              ),
+            )
+          }
+        />
+        {a.status === 'approved' ? (
+          <details className="mt-4 rounded-menu border border-border p-3">
+            <summary className="cursor-pointer text-[14px] font-medium">
+              {AFFILIATE_CODE_WORDS.make}
+            </summary>
+            <MakeCodeForm
+              plans={page.plans}
+              maxDiscountBp={a.maxDiscountBp}
+              onMake={async (made) => {
+                unwrap(
+                  await apiBrowser().POST('/v1/commands/affiliates.make_code', {
+                    body: { affiliateId: a.affiliateId, ...made },
+                  }),
+                );
+                router.refresh();
+              }}
+            />
+          </details>
+        ) : null}
+      </section>
 
       <section className="mt-5" data-testid="affiliate-earned">
         <h2 className="mb-2 text-sm font-semibold">{W.earnings}</h2>
