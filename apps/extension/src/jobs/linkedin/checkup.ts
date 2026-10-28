@@ -9,7 +9,8 @@
  * HandsFreeOS with what it found
  * (../report.ts), the outline kept when a step doesn't work, so everything that doesn't is found in one go; the end's
  * line names the steps that don't, and those it found nothing to try on. Its window stays in front while it works,
- * as Chrome draws nothing in a window hidden behind another, and then the person's own comes back. It stops on any
+ * as Chrome draws nothing in a window hidden behind another (put another over it, and it comes back in front for its
+ * next page or step), and then the person's own comes back. It stops on any
  * LinkedIn warning.
  */
 import type { LinkedInRead } from '../../networks';

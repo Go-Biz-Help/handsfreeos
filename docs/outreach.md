@@ -2278,8 +2278,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     Built in one pull request, in this order: the migration, the playbook's data version 8, the words writer, the kit
     and Alignable's groups by network, finds and found checks, Today, comments through `sends`, then the extension
     (0.95.0) and the screens. Instagram's Likes box, LinkedIn's newer reactions box, every Alignable group page, the
-    person's groups and Alignable's search for groups are read from guessed markup till the owner's next Check
-    Instagram, Check LinkedIn and Check Alignable.
+    person's groups and Alignable's search for groups were read from guessed markup till Chris's Check Instagram,
+    Check LinkedIn and Check Alignable of 28 Oct 2026, which found them working but for one: LinkedIn's box of who
+    reacted opened and drew nobody, as another window had gone over the Check's and LinkedIn draws its rows only on
+    screen. From 0.95.1 a Check's window comes back in front for its next page or step when another goes over it, and
+    LinkedIn's Who reacted reads each post with its window in front; a box that drew nobody is closed again, and noted
+    with whether its window was behind another.
 
 93. **Two people with the same name are two chats** (Chris, 28 Oct 2026, "build it first", on the list of what was
     left). A chat read in the person's browser joins the chat kept with its number. Failing that, it joins one kept

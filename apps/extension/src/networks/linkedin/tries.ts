@@ -44,7 +44,16 @@ import {
   waitFor,
   WRITING,
 } from './auto';
-import { closeBox, composer, reactionsBox, reactionsCount, reactorRows, startOf } from './compose';
+import {
+  closeBox,
+  composer,
+  hiddenNow,
+  reactionsBox,
+  reactionsCount,
+  reactionsOpened,
+  reactorRows,
+  startOf,
+} from './compose';
 import { LINKEDIN_FILE_PLANS, PREPARING } from './data';
 import { CONTROLS, controlsIn, mainOf, placesOf, wordsOf } from './dom';
 import { readChat } from './chat';
@@ -429,17 +438,23 @@ export async function tryReactors(doc: Document, href: string): Promise<StepTry>
   count.click();
   const box = await waitFor(() => reactionsBox(doc, href));
   if (!box) {
-    const other = [...doc.querySelectorAll(OVER_THE_PAGE)].filter((b) => shown(b)).pop();
+    const other =
+      reactionsOpened(doc) ??
+      [...doc.querySelectorAll(OVER_THE_PAGE)].filter((b) => shown(b)).pop();
     const outline = outlineNow(doc);
+    // LinkedIn draws the box's rows only once Chrome shows its window.
+    const hidden = Boolean(other) && hiddenNow(doc);
     if (other) await closeBox(other);
     return {
       ...went(
         'reactors',
-        { count: true, box: false, other: Boolean(other) },
+        { count: true, box: false, other: Boolean(other), ...(hidden ? { shown: false } : {}) },
         [
-          other
-            ? 'the box its reactions count opened shows nobody'
-            : 'its reactions count opened no box of who reacted',
+          hidden
+            ? 'the box its reactions count opened drew nobody, as its window was behind another'
+            : other
+              ? 'the box its reactions count opened shows nobody'
+              : 'its reactions count opened no box of who reacted',
         ],
         other ? namesIn(other) : [],
       ),

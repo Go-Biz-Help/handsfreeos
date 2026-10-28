@@ -12,8 +12,8 @@
  * - **A good post's people** (docs/outreach.md, decision 92): on someone else's post its search found, who commented
  *   and who reacted, each with the line under their name and how far they are, for the AI's check of their own
  *   profile. Never the person, the post's writer (`skip`) or a 1st-degree connection. The reactions box is read as far
- *   as it first shows (about 25 rows), never scrolled, and closed with its Dismiss; "Load more comments" is never
- *   pressed.
+ *   as it first shows (about 25 rows), never scrolled, and closed with its Dismiss, as is one that drew nobody (in a
+ *   window hidden behind another, LinkedIn draws no row); "Load more comments" is never pressed.
  *
  * Like the readers, it goes by what a person sees (words, labels, links, page order), never LinkedIn's class names.
  */
@@ -306,6 +306,31 @@ export function reactionsBox(doc: Document, href: string): Element | null {
   );
 }
 
+/** A reactions box's tab for each kind, or the column its rows go in (LinkedIn's newer box). */
+const REACTION_TABS = '[role="tablist"], [role="tab"], nav button, [data-testid="lazy-column"]';
+
+/**
+ * The box over the page its reactions count opened, whether or not it drew anyone yet: no box to write in, a tab for
+ * each kind of reaction (or the column its rows go in) and its own Dismiss, so a warning over the page is never taken
+ * for it. LinkedIn's newer box (the owner's Check, 28 Oct 2026) draws its rows only once Chrome shows the window.
+ */
+export function reactionsOpened(doc: Document): Element | null {
+  return (
+    [...doc.querySelectorAll(OVER_THE_PAGE)]
+      .filter(shown)
+      .reverse()
+      .find(
+        (box) =>
+          !box.querySelector(WRITING) &&
+          Boolean(box.querySelector(REACTION_TABS)) &&
+          [...box.querySelectorAll(CONTROLS)].some((c) => says(c, CLOSE)),
+      ) ?? null
+  );
+}
+
+/** Whether Chrome is drawing the page: in a window hidden behind another, it draws nothing new. */
+export const hiddenNow = (doc: Document) => doc.visibilityState === 'hidden';
+
 /** A post's reactions count, which opens who reacted: a button that says it, or in the newer layout a link. */
 export function reactionsCount(post: Element): HTMLElement | null {
   return (
@@ -334,7 +359,12 @@ export async function readReactions(doc: Document, href: string): Promise<Engage
   if (!count) return [];
   count.click();
   const box = await waitFor(() => reactionsBox(doc, href));
-  if (!box) return [];
+  if (!box) {
+    // It opened and drew nobody: closed again, not left over the page.
+    const opened = reactionsOpened(doc);
+    if (opened) await closeBox(opened);
+    return [];
+  }
   const you = yourName(doc);
   const found = peopleLinked(box.querySelectorAll('a[href]'), href).flatMap((p) =>
     p.name && !(you && sameName(p.name, you))
@@ -366,6 +396,8 @@ export interface ReactorsRead {
   readonly closed: boolean;
   /** The page's outline while a box that read nobody was still open, for the job's note of it (decision 74). */
   readonly outline?: string;
+  /** A box that read nobody while Chrome drew nothing, its window hidden behind another. */
+  readonly hidden?: true;
 }
 
 /**
@@ -383,7 +415,21 @@ export async function readReactors(
   if (!count) return { count: false, opened: false, rows: 0, people: [], closed: true };
   count.click();
   const box = await waitFor(() => reactionsBox(doc, href));
-  if (!box) return { count: true, opened: false, rows: 0, people: [], closed: true };
+  if (!box) {
+    // Opened and drew nobody (in a hidden window, LinkedIn draws no row): its outline, then closed again.
+    const opened = reactionsOpened(doc);
+    if (!opened) return { count: true, opened: false, rows: 0, people: [], closed: true };
+    const outline = outlineNow(doc);
+    return {
+      count: true,
+      opened: true,
+      rows: 0,
+      people: [],
+      closed: await closeBox(opened),
+      outline,
+      ...(hiddenNow(doc) ? { hidden: true as const } : {}),
+    };
+  }
   const rows = reactorRows(box, href);
   const you = yourName(doc);
   const skip = options.skip ?? [];
@@ -413,6 +459,7 @@ export async function readReactors(
     people,
     closed: await closeBox(box),
     ...(outline === null ? {} : { outline }),
+    ...(outline !== null && hiddenNow(doc) ? { hidden: true as const } : {}),
   };
 }
 

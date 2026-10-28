@@ -58,6 +58,8 @@ export class WorkTab {
   private id: number | null = null;
   /** While `inFront` runs: a window it opens then opens in front. */
   private front = false;
+  /** While `inFront` runs: the person's window, put back in front after. */
+  private back: number | null = null;
   private readonly place: TabPlace;
   private readonly kit: Kit;
 
@@ -126,7 +128,38 @@ export class WorkTab {
       await pause(300);
     }
     await pause(DRAW_MS);
+    await this.keepInFront();
     return id;
+  }
+
+  /**
+   * While `inFront` runs: brings its window back in front when the person put another over it meanwhile, as Chrome
+   * draws nothing in a window hidden behind another (the owner's Check of LinkedIn, 28 Oct 2026: once another window
+   * went over it, the box of who reacted drew nobody). Else nothing. Done for each page it opens, and before each step a
+   * Check tries.
+   */
+  async keepInFront(): Promise<void> {
+    if (!this.front || this.id === null) return;
+    const id = this.id;
+    let seen: unknown = null;
+    try {
+      const [ran] = await chrome.scripting.executeScript({
+        target: { tabId: id },
+        func: () => document.visibilityState,
+      });
+      seen = ran?.result;
+    } catch {
+      // A page the extension can't look at: left as it is.
+    }
+    if (seen !== 'hidden') return;
+    // The window they put over it is the one they get back after.
+    const [tab, now] = await Promise.all([
+      chrome.tabs.get(id).catch(() => null),
+      chrome.windows.getLastFocused().catch(() => null),
+    ]);
+    if (now?.id !== undefined && now.id !== tab?.windowId) this.back = now.id;
+    await this.focus();
+    await pause(DRAW_MS);
   }
 
   /** Brings the tab, and its window, to the front: a step is handed to the person there. */
@@ -141,28 +174,32 @@ export class WorkTab {
    * Brings its window to the front while `work` runs, opening it in front when it isn't open yet, then puts back the
    * window the person had in front: only while its own is still in front, as a person who went on to another window
    * keeps it. Some pages draw only what's on screen, and Chrome draws nothing in a window hidden behind another:
-   * LinkedIn's profile drew nothing below Activity in one (the owner's test, 16 Oct 2026). A tab in the person's window
-   * is left as it is.
+   * LinkedIn's profile drew nothing below Activity in one (the owner's test, 16 Oct 2026). Put behind another while it
+   * works, it comes back in front for its next page (`keepInFront`), and that other window is the one put back after. A
+   * tab in the person's window is left as it is.
    */
   async inFront<T>(work: () => Promise<T>): Promise<T> {
     if (this.place !== 'window' || this.front) return work();
     const theirs = await chrome.windows.getLastFocused().catch(() => null);
+    this.back = theirs?.id ?? null;
     this.front = true;
     await this.focus();
     try {
       return await work();
     } finally {
       this.front = false;
+      const back = this.back;
+      this.back = null;
       const tab = this.id === null ? null : await chrome.tabs.get(this.id).catch(() => null);
       const now = await chrome.windows.getLastFocused().catch(() => null);
       if (
-        theirs?.id !== undefined &&
+        back !== null &&
         tab?.windowId !== undefined &&
-        theirs.id !== tab.windowId &&
+        back !== tab.windowId &&
         now?.id === tab.windowId &&
         now.focused !== false
       )
-        await chrome.windows.update(theirs.id, { focused: true }).catch(() => undefined);
+        await chrome.windows.update(back, { focused: true }).catch(() => undefined);
     }
   }
 

@@ -92,6 +92,8 @@ function fakeTab(tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {}, more
   const asked: string[] = [];
   const tried: (readonly [TryStep, string])[] = [];
   const order: string[] = [];
+  /** How many steps were tried each time its window was brought back in front. */
+  const kept: number[] = [];
   const show = (url: string) => {
     const page = facebookPage(url, sent);
     if ('html' in page) {
@@ -131,6 +133,9 @@ function fakeTab(tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {}, more
       order.push('back');
       return out;
     },
+    async keepInFront() {
+      kept.push(tried.length);
+    },
     async ask(message: Record<string, unknown> & { readonly type: string }) {
       asked.push(message.type);
       if (!doc) return { ok: false, error: 'The Facebook tab was closed.' };
@@ -169,7 +174,7 @@ function fakeTab(tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {}, more
       }
     },
   } as unknown as JobTab;
-  return { tab, opened, asked, tried, order };
+  return { tab, opened, asked, tried, order, kept };
 }
 
 /** What Facebook shows over its username page: its password box, its ways to confirm it's you, or a warning. */
@@ -183,7 +188,7 @@ async function checkWith(
   tries: Partial<Record<TryStep, StepTry | StepTry[]>> = {},
   more: Asked = {},
 ) {
-  const { tab, opened, asked, tried, order } = fakeTab(tries, more);
+  const { tab, opened, asked, tried, order, kept } = fakeTab(tries, more);
   const notes: ReportNote[] = [];
   const warned: string[][] = [];
   const hfos = (async () => {
@@ -199,13 +204,15 @@ async function checkWith(
     report: async (note = {}) => void notes.push(note),
   };
   const end = await runAsk({ kind: 'checkup' }, job, 'facebook');
-  return { end, notes, opened, asked, tried, order, warned };
+  return { end, notes, opened, asked, tried, order, kept, warned };
 }
 
 describe('Check Facebook', () => {
   it('reads your main pages and tries each step on its own page, with its window in front', async () => {
-    const { end, notes, opened, asked, tried, order } = await checkWith();
+    const { end, notes, opened, asked, tried, order, kept } = await checkWith();
     expect(order).toEqual(['in front', 'back']);
+    // Brought back in front before each step, in case another window went over it.
+    expect(kept).toEqual(tried.map((_, i) => i));
     // The job only reads, and presses View sent requests as Check your friend requests does; the tab tries.
     expect(new Set(asked)).toEqual(
       new Set([

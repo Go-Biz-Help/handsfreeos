@@ -6,7 +6,8 @@
  * or joined. Each page and each step is noted in HandsFreeOS with what it found (./report.ts), the outline kept when a
  * step doesn't work, so everything that doesn't is found in one go; the end's line names the steps that don't, and
  * those it found nothing to try on. Its window stays in front while it works, as Chrome draws nothing in a window
- * hidden behind another, and then the person's own comes back. It stops on any warning of the network's.
+ * hidden behind another (put another over it, and it comes back in front for its next page or step), and then the
+ * person's own comes back. It stops on any warning of the network's.
  *
  * On Facebook: their profile (the bio; with no Edit bio, on the About tab's editor Edit profile leads to), Contact and
  * basic info (adding a link), their feed, their friend requests (confirming; then View sent requests, as
@@ -157,9 +158,13 @@ export class Checkup<R extends PageRead> {
     if (count === 0) this.nothingOn.push(name);
   }
 
-  /** Tries a step on the page the tab shows, notes how it went, and says. */
+  /**
+   * Tries a step on the page the tab shows, notes how it went, and says: with its window back in front first, when the
+   * person put another over it since the page opened.
+   */
   async tryHere(step: TryStep, profile?: ProfileRef): Promise<StepTry> {
     this.job.progress(`Trying ${TRYING[step]}…`);
+    await this.job.tab.keepInFront?.();
     const answer = await this.job.tab.ask({
       type: 'hfos-try',
       step,
