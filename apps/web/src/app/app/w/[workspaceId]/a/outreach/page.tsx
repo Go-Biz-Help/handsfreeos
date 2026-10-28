@@ -11,7 +11,7 @@ import { addonPage } from '@/addons/gate';
 import { OutreachHome } from '@/addons/outreach/home';
 import { BOARD_STAGES, type Board } from '@/addons/outreach/board';
 import type { PlaybookList } from '@/addons/outreach/types';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, errorMessage, unwrap, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Social Outreach' };
 
@@ -237,6 +237,33 @@ export default async function OutreachPage({
             search: shown.search,
             net: shown.net,
             asks,
+          }}
+        />
+      );
+    }
+    if (shown.view === 'groups' && shown.group) {
+      // A group's own page (decision 103): a group no longer kept says so, with the way back, not a 404.
+      const [got, people] = await Promise.all([
+        workspace,
+        api
+          .POST('/v1/queries/outreach.group.people', {
+            body: { workspaceId, groupId: shown.group, view: shown.outcome, page: shown.page },
+          })
+          .then((r) => ({ people: unwrap(r), problem: null }))
+          .catch((e: unknown) => ({ people: null, problem: errorMessage(e) })),
+      ]);
+      return (
+        <OutreachHome
+          workspaceId={workspaceId}
+          waitingCount={await waitingCount}
+          businessName={got.workspace.name}
+          canManage={got.workspace.permissions.includes('outreach.manage')}
+          shown={{
+            view: 'group',
+            groupId: shown.group,
+            people: people.people,
+            problem: people.problem,
+            outcome: shown.outcome,
           }}
         />
       );

@@ -52,3 +52,5 @@ export type Setup = Ok<'/v1/queries/outreach.setup'>;
 /** The person's Partners list, by stage (packages/core/src/addons/outreach/partners.ts, decision 81). */
 export type Partners = Ok<'/v1/queries/outreach.partners'>;
 export type PartnerListRow = Partners['partners'][number];
+/** A group's own page (decision 103): who was found there and how each turned out. */
+export type GroupPeople = Ok<'/v1/queries/outreach.group.people'>;

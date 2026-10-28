@@ -265,6 +265,9 @@ const QUERIES = [
   'outreach.setup',
   // The Pipeline screen: everyone the person reached, by where they stand (decision 47).
   'outreach.stages',
+  // A customer's Social card and a group's own page: how someone came along (decision 103).
+  'outreach.person',
+  'outreach.group.people',
   // Today's helpful post, and those up lately (decision 50).
   'outreach.helpful',
   // Get ready on Today: what's left before the extension reaches anyone (decision 63).

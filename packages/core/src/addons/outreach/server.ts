@@ -19,6 +19,7 @@ import { friendCommands, friendQueries } from './ops/friends';
 import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
 import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
+import { journeyQueries } from './ops/journey';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
@@ -103,6 +104,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...partnerQueries,
     ...personMenuQueries,
     ...findQueries,
+    ...journeyQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {

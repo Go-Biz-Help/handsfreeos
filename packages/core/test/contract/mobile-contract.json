@@ -14850,6 +14850,45 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.group.people": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view": {
+            "default": "all",
+            "type": "string",
+            "enum": [
+              "all",
+              "not_reached",
+              "found",
+              "warming",
+              "friends",
+              "talking",
+              "ready",
+              "pitched",
+              "booked",
+              "client",
+              "lost"
+            ]
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "required": ["workspaceId", "groupId"]
+      }
+    },
     "outreach.groups": {
       "input": {
         "type": "object",
@@ -14983,6 +15022,22 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "outreach.person": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
       }
     },
     "outreach.playbook.list": {

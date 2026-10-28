@@ -298,12 +298,13 @@ export const outreachAddon = defineAddon({
     ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
-    // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); and a playbook. The
-    // activity and friends stay on the web, and their links open it.
+    // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); a group's own page
+    // (`?view=groups&group=`, decision 103); and a playbook. The activity and friends stay on the web, and their links
+    // open it.
     phone: [
       {
         path: '',
-        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask'],
+        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask', 'group'],
         web: { view: ['activity', 'friends'] },
       },
       { path: 'playbooks/:playbookId' },

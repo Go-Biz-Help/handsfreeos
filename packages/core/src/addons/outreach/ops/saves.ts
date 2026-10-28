@@ -17,6 +17,7 @@ import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
 import { DONT_PITCH_TAG, type FriendState } from '../limits';
+import { Journey, NO_JOURNEY } from '../journey';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
 import {
@@ -29,6 +30,7 @@ import {
 } from '../saves';
 import { fileChats, profiles, threads } from '../tables';
 import { inWorkspace, neverTwins, once, saveProfile, sourceFor } from './common';
+import { journeysOf } from './journey';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
@@ -402,10 +404,15 @@ export const lookup = defineAddonQuery(outreachAddon, {
   },
 });
 
-/** What Social Outreach knows about one customer: their profiles and the chats saved with them. */
+/**
+ * What Social Outreach knows about one customer: their profiles, each with its way so far (decision 103: where they
+ * stand, why, the AI's next step, the groups they were found in, the chat's summary and every step), and the chats
+ * saved with them.
+ */
 export const personSocial = defineAddonQuery(outreachAddon, {
   name: 'outreach.person',
-  description: 'A customer’s social profiles and the chats saved with them, newest first.',
+  description:
+    'A customer’s social profiles, each with where they stand for the person (found, warming up, friends, talking, ready to pitch, pitched, booked, a client or not a fit) and why, the AI’s next step, the groups they were found in, the person’s chat with them as the AI summed it up, and every step either way (friend requests, likes, comments, messages, their replies, a demo booked); and the chats saved with them, newest first.',
   input: z.object({ workspaceId: z.uuid(), personId: z.uuid() }),
   output: z.object({
     profiles: z.array(
@@ -418,6 +425,8 @@ export const personSocial = defineAddonQuery(outreachAddon, {
         friendship: z.string(),
         mutualFriends: z.number().int().nullable(),
         lastSeenAt: z.iso.datetime(),
+        /** Their way so far (../journey.ts). */
+        journey: Journey,
       }),
     ),
     chats: z.array(
@@ -462,6 +471,11 @@ export const personSocial = defineAddonQuery(outreachAddon, {
     const owners = new Map<string, string | null>();
     for (const id of new Set(chats.flatMap((c) => (c.ownerUserId ? [c.ownerUserId] : []))))
       owners.set(id, (await userRef(ctx.tx, id))?.fullName ?? null);
+    const journeys = await journeysOf(
+      ctx,
+      requireHuman(ctx).userId,
+      found.map((p) => p.id),
+    );
     return {
       profiles: found.map((p) => ({
         id: p.id,
@@ -472,6 +486,7 @@ export const personSocial = defineAddonQuery(outreachAddon, {
         friendship: p.friendship,
         mutualFriends: p.mutualFriends,
         lastSeenAt: p.lastSeenAt.toISOString(),
+        journey: journeys.get(p.id) ?? NO_JOURNEY,
       })),
       chats: chats.map((c) => ({
         id: c.id,

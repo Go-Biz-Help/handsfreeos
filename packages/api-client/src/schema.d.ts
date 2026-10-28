@@ -18817,6 +18817,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.group.people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One group’s page: the group, everyone the extension found in it (its admins and moderators marked), and how each turned out for the person: where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, a client, not a fit) with why and the AI’s next step, or not reached yet; counted by outcome, the furthest first, one outcome at a time.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_group_people"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.groups": {
         parameters: {
             query?: never;
@@ -19107,7 +19127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A customer’s social profiles and the chats saved with them, newest first.
+         * A customer’s social profiles, each with where they stand for the person (found, warming up, friends, talking, ready to pitch, pitched, booked, a client or not a fit) and why, the AI’s next step, the groups they were found in, the person’s chat with them as the AI summed it up, and every step either way (friend requests, likes, comments, messages, their replies, a demo booked); and the chats saved with them, newest first.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_person"];
@@ -73215,6 +73235,82 @@ export interface operations {
             };
         };
     };
+    query_outreach_group_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    groupId: string;
+                    /** @default 1 */
+                    page?: number;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    view?: "all" | "not_reached" | "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            all: number;
+                            booked: number;
+                            client: number;
+                            found: number;
+                            friends: number;
+                            lost: number;
+                            not_reached: number;
+                            pitched: number;
+                            ready: number;
+                            talking: number;
+                            warming: number;
+                        };
+                        group: {
+                            /** Format: uuid */
+                            groupId: string;
+                            joined: boolean | null;
+                            members: number | null;
+                            name: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            url: string;
+                        };
+                        page: number;
+                        pages: number;
+                        people: {
+                            lastAt: string | null;
+                            name: string;
+                            nextStep: string | null;
+                            part: string | null;
+                            personId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            runsGroup: boolean;
+                            stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;
+                            url: string;
+                            why: string[];
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_groups: {
         parameters: {
             query?: never;
@@ -74173,6 +74269,39 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             intro: string[];
+                            journey: {
+                                chat: {
+                                    /** Format: date-time */
+                                    lastAt: string;
+                                    lastFromMe: boolean;
+                                    nextStep: string | null;
+                                    summary: string | null;
+                                } | null;
+                                groups: {
+                                    /** Format: uuid */
+                                    groupId: string;
+                                    name: string | null;
+                                    url: string;
+                                }[];
+                                moreSteps: number;
+                                nextStep: string | null;
+                                stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;
+                                steps: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    auto: boolean;
+                                    by: string | null;
+                                    group: {
+                                        name: string | null;
+                                        url: string;
+                                    } | null;
+                                    /** @enum {string} */
+                                    kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "reply" | "demo";
+                                    postUrl: string | null;
+                                    step: ("first_message" | "follow_up") | null;
+                                }[];
+                                why: string[];
+                            };
                             /** Format: date-time */
                             lastSeenAt: string;
                             mutualFriends: number | null;

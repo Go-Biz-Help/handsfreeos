@@ -29,7 +29,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 
-import { OutreachFrame } from './frame';
+import { OutreachFrame, OutreachWorkspace } from './frame';
 import {
   AskButton,
   AskLine,
@@ -39,11 +39,19 @@ import {
   useDoneReload,
   type AskActions,
 } from './asks';
-import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutreach,
+  openOutside,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 
 /**
  * Groups on the phone (decision 44): the groups the extension saved, by its verdict (Work these, Maybe, Skip, all),
- * why, and how they've done, searched by name, with Show more for the next page. Each opens on Facebook. From
+ * why, and how they've done, searched by name, with Show more for the next page. Each opens its own page of who was
+ * found there (./group-page.tsx, decision 103), and on Facebook. From
  * Facebook asks the person's computer to save their groups, find groups by words, save members and find posts, as the
  * web's buttons do (decision 43, ./asks.tsx); a group's own **Save its members** too. It needs signal.
  */
@@ -125,6 +133,7 @@ export function GroupsBody({
   asks?: AsksOutput | null;
   actions?: AskActions;
 }) {
+  const workspaceId = React.useContext(OutreachWorkspace);
   const empty = search.trim() ? W.groupsNoMatch : W.groupsEmpty[view];
   return (
     <OutreachFrame tab="groups" testID="outreach-groups">
@@ -179,6 +188,16 @@ export function GroupsBody({
                 {g.playbookName ? <Note>{g.playbookName}</Note> : null}
                 {g.left ? <Note>{W.leftToReach(g.left)}</Note> : null}
                 {g.join ? <Note testID="groups-join">{JOIN_STATES[g.join.state]}</Note> : null}
+                {/* Its own page: who was found there and how each turned out (decision 103). */}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="self-start"
+                  onPress={() => openOutreach(workspaceId, 'groups', `group=${g.groupId}`)}
+                  testID="groups-open"
+                >
+                  See who was found
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"

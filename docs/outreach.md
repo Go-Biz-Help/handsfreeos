@@ -173,7 +173,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   use's), **Save a group** (a group's link pasted), **Save members of my best groups**, **Find posts**, and each
   group's **Save its members**. Saving a group's members reads its admins and moderators first, to the end of the
   list, which marks the group's admins as read and keeps them as running it for good, then its members with the lines
-  under their names. Nobody is added to Contacts.
+  under their names. Nobody is added to Contacts. A group's name opens its own page (`&group=`, decision 103): who
+  was found there and how each turned out.
 - **Groups, theirs first, then new ones** (decision 48, `group-checks.ts`, `ops/group-checks.ts`, the worker's
   `groups.ts`, the extension's `src/jobs/groups-check.ts` and `src/jobs/join.ts`): the Groups tab's **Check my groups**
   (an ask, `group_checks`), and the once-a-day jobs after friend requests, have the person's computer read up to 8
@@ -616,7 +617,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   waiting for the person, copies its messages onto the customer's Social card, each with when it was sent. Nobody in
   Contacts yet: the same-named customers are offered first, or they're added. Saved again, only what's new is added.
   Nothing is read on Facebook for it.
-- **A Social card on each customer** (`person.panels`): their Facebook profile, and each chat saved to their card.
+- **A Social card on each customer** (`person.panels`, and the phone's customer page): each profile saved for them
+  with how they came along (decision 103: where they stand, the groups they were found in, the chat's summary and
+  every step), and each chat saved to their card.
 - **The Assistant** (Ask HandsFreeOS): it can do everything a person does on the add-on's screens, on the web or the
   phone, as that person. Its 72 tools are the add-on's own operations, each declaring `ai`: the 34 look-ups (Today,
   Waiting for you, the pipeline, friends, chats, groups, helpful posts, partners, the numbers, the settings and the
@@ -2445,6 +2448,16 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **An older build gets no comments on LinkedIn:** Today leaves them off its list (`commentSendsOn`), and
         `outreach.send.queue` refuses one (rule `outreach_comment_network`), as an older runner would send an OK'd
         comment as a message.
+103.  **How someone came along, on their page and their group's** (Chris, 28 Oct 2026, "all of your picks": 20 and
+      21). A customer's **Social** panel (the web's `person.panels`, the phone's `PersonPanel` in
+      `apps/mobile/src/addons/registry.ts`) has, for each profile saved for them, where they stand and why, the AI's
+      next step, the groups they were found in, the chat's summary and every step either way, the latest first
+      (`outreach.person`'s `journey`, `./journey.ts`). Each group has its own page (`?view=groups&group=`, on the web
+      and the phone): who was found there, its admins and moderators marked, and how each turned out, the furthest
+      first, then who's still to reach (`outreach.group.people`).
+      - **Each person's own, as the pipeline:** where someone stands and the chat are the person's; the steps are too,
+        but an owner's or admin's are everyone's, a teammate's named, as Results' are (`seesEveryone`).
+      - **The 50 latest steps** (`JOURNEY_STEPS_MOST`), with how many older ones are left out.
 
 ## Rules worth knowing before changing anything
 
