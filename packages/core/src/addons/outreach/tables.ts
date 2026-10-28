@@ -1600,6 +1600,51 @@ export const eventReads = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
+/**
+ * Who follows each person on Facebook, as their computer last read the list (./followers.ts, decision 113): someone who
+ * isn't their friend is checked by the AI like a friend, and a good fit goes on Today for a friend request. Each
+ * person's own.
+ */
+export const followers = addonOutreach.table(
+  'followers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** When each person's computer last read who follows them on Facebook (decision 113), about once a week. Each person's own. */
+export const followerReads = addonOutreach.table(
+  'follower_reads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('facebook').$type<'facebook'>(),
+    readAt: ts('read_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1612,6 +1657,8 @@ export const OUTREACH_TABLES = {
   fileChats,
   filePeople,
   finds,
+  followerReads,
+  followers,
   friendEnds,
   friends,
   groupPeople,

@@ -308,6 +308,36 @@ describe('checking people found by topic (decision 92)', () => {
     expect(await saidOf(ws)).toEqual([{ name: 'Made Up Person 9', said: null }]);
   });
 
+  it('asks about a follower who isn’t a friend like a friend, told they follow the owner (decision 113)', async () => {
+    const ai = asked();
+    const s = testServices({ ai: { provider: ai.provider } });
+    const ws = await outreachBusiness(owner, 'Outreach Follower Checks Co');
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: crm.details,
+    });
+    await runAs(owner, ws, 'outreach.followers.save', {
+      people: [{ profile: friend(8).profile, name: 'Made Up Person 8' }],
+      done: true,
+    });
+    const next = await runAs(owner, ws, 'outreach.checks.next', {});
+    expect(next.people).toEqual([expect.objectContaining({ reason: 'follower' })]);
+    await runAs(owner, ws, 'outreach.check.look', {
+      profileId: next.people[0].profileId,
+      lines: ['Owner at Made Up Roofing'],
+    });
+    await drain(s, ws);
+    expect(ai.checks).toHaveLength(1);
+    const [check] = ai.checks;
+    expect(check).toContain('Follows the owner on Facebook, though they aren’t friends');
+    expect(check).not.toContain('<how_found>');
+    expect(await states(ws)).toEqual([
+      expect.objectContaining({ name: 'Made Up Person 8', verdict: 'good', lines: [] }),
+    ]);
+  });
+
   it('lets what someone found said go after 2 weeks, with the feed’s daily prune', async () => {
     const s = testServices();
     const ws = await outreachBusiness(owner, 'Outreach Found Said Co');

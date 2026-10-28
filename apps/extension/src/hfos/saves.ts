@@ -38,6 +38,7 @@ import {
   FINDS_SAVE_MOST,
   type FindSaveHow,
 } from '@hfos/core/addons/outreach/finds';
+import { FOLLOWERS_SAVE_MOST } from '@hfos/core/addons/outreach/followers';
 import { POST_TEXT_MOST, POST_WORDS_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
@@ -62,6 +63,7 @@ import type {
   Business,
   ChatsCollectInput,
   FindsSaveInput,
+  FollowersSaveInput,
   FriendNoteInput,
   FriendsSaveInput,
   GroupSaveInput,
@@ -315,6 +317,37 @@ export function friendsSave(
       people: kept.slice(at, at + FRIENDS_SAVE_MOST),
     });
   return { ok: true, input: parts };
+}
+
+/**
+ * The person's own followers on Facebook (decision 113), in parts to save, each follower once. The last part notes the
+ * week's read done when it is (`done`): with nobody read, it's a part of none.
+ */
+export function followersSave(
+  people: readonly Person[],
+  workspaceId: string,
+  done: boolean,
+): FollowersSaveInput[] {
+  const seen = new Set<string>();
+  const kept: NonNullable<FollowersSaveInput['people']> = [];
+  for (const person of people) {
+    if (!person.profile || seen.has(profileKey(person.profile))) continue;
+    const who = whom({ name: person.name, profile: person.profile });
+    if (!who) continue;
+    seen.add(profileKey(person.profile));
+    kept.push(who);
+  }
+  const parts: FollowersSaveInput[] = [];
+  for (let at = 0; at < kept.length || !parts.length; at += FOLLOWERS_SAVE_MOST) {
+    const people = kept.slice(at, at + FOLLOWERS_SAVE_MOST);
+    parts.push({
+      workspaceId,
+      platform: 'facebook',
+      people,
+      done: done && at + FOLLOWERS_SAVE_MOST >= kept.length,
+    });
+  }
+  return parts;
 }
 
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */

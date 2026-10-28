@@ -114,7 +114,7 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, tidies, then groups, joins, members, posts, chats, friends and partners, each once a day', () => {
+  it('checks requests, tidies, then groups, joins, members, posts, chats, followers, friends and partners, each once a day', () => {
     expect(DAILY_JOBS).toEqual([
       'requests',
       'tidy',
@@ -124,6 +124,7 @@ describe('the once-a-day jobs, in order', () => {
       'members',
       'posts',
       'chats',
+      'followers',
       'checks',
       'partners',
       'helpful',
@@ -174,6 +175,7 @@ describe('the once-a-day jobs, in order', () => {
           members: '',
           posts: '',
           chats: '',
+          followers: '',
           checks: '',
           partners: '',
           helpful: '',
@@ -191,6 +193,7 @@ describe('the once-a-day jobs, in order', () => {
           members: '',
           posts: '',
           chats: '',
+          followers: '',
           checks: '',
           partners: '',
           helpful: '',
@@ -210,11 +213,31 @@ describe('the once-a-day jobs, in order', () => {
           members: '',
           posts: '',
           chats: '',
+          followers: '',
           checks: '',
           helpful: '',
         },
       }),
     ).toBe('partners');
+    // A state kept before the followers (0.105.0, decision 113) reads them next, before the checks.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          chats: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          profile: '',
+        },
+      }),
+    ).toBe('followers');
     // A state kept by 0.11 has none: it starts from the first.
     expect(nextDaily({})).toBe('requests');
   });

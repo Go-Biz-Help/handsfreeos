@@ -2628,6 +2628,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         group (`FIND_HOWS`).
       - **Nothing on an event is pressed**, so they're never signed up: no RSVP, Going, Interested or Share. Check
         Alignable opens their town's events and the first event's page after its groups, and presses nothing there.
+113.  **Your followers on Facebook, checked like friends** (Chris, 28 Oct 2026, "all of your picks": 18a). "Once a
+      week it reads your followers, the AI checks each one like a friend, and the fits go on Today for a friend
+      request."
+      - **Once a week, each person's own** (`FOLLOWERS_EVERY_DAYS`, `addon_outreach.followers` and
+        `addon_outreach.follower_reads`, 20261027017200): `outreach.followers.next` says it's due the first time and
+        then on the same day of the business's week after the last read. `outreach.followers.save` keeps each follower
+        as a profile with no customer and as theirs (`seen_at`), in parts of up to 100; the last part notes the read
+        done, so a list stopped part-way is read again next time. Nobody goes in Contacts.
+      - **The list** (0.105.0, `followers` after the chats and before the day's checks, `src/jobs/followers.ts`): their
+        own /me/followers, which Facebook sends on to their profile's Followers tab (a guess till the owner's next
+        Check Facebook), read a screen at a time up to 300 (`FOLLOWERS_READ_MOST`). Nothing is pressed. Check
+        Facebook opens it after their friends.
+      - **Each follower who isn't a friend is checked like a friend** (`outreach.checks.next`'s `follower`, after the
+        friends), inside the day's 40, and only while they're still someone to reach: not asked either way, not in
+        Contacts, not left alone. The look says it's of a follower (`checks.via` `follower`) and counts with the
+        friends' checks; the AI is asked as for a friend, told "Follows the owner on Facebook, though they aren't
+        friends". A follower who becomes a friend is one of theirs at once; till then they're never on the Friends
+        tab's fits or Reconnect. Someone not seen on the list for three weeks (`FOLLOWERS_KEPT_DAYS`) isn't counted
+        as a follower any more.
+      - **A good fit goes on Today for a friend request** ("Follows you on Facebook", with what the AI saw), ahead of
+        the groups' people as they made the first move. With Like a post first on, a like of one of their posts comes
+        first and the request a day after, as anyone's does.
 
 ## Rules worth knowing before changing anything
 

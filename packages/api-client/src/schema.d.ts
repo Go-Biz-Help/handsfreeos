@@ -7237,6 +7237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.followers.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who follows the person on Facebook, as their computer just read their followers list, in parts: each kept as theirs, as a profile with no customer. Those who aren’t their friends are checked by the AI like friends, and the good fits go on Today for a friend request. The last part notes the week’s read done. Adds nobody to Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_followers_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friend.end": {
         parameters: {
             query?: never;
@@ -18847,7 +18867,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, then their followers on Facebook who aren’t friends yet. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -18951,6 +18971,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_follow_backs_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.followers.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether the person’s computer reads who follows them on Facebook today: once a week, the first time and then a week after the last read.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_followers_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -40230,6 +40270,53 @@ export interface operations {
                     "application/json": {
                         added: number;
                         skipped: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_followers_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    done?: boolean;
+                    /** @default [] */
+                    people?: {
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        readAt: string | null;
+                        saved: number;
                     };
                 };
             };
@@ -73322,7 +73409,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend";
+                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower";
                             url: string;
                         }[];
                         perDay: number;
@@ -73551,6 +73638,40 @@ export interface operations {
                             username: string | null;
                         }[];
                         perDay: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_followers_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        due: boolean;
                     };
                 };
             };

@@ -53,6 +53,7 @@ export const DAILY_JOBS = [
   'members',
   'posts',
   'chats',
+  'followers',
   'checks',
   'partners',
   'helpful',

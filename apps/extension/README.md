@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.104.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.105.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1069,6 +1069,16 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Your followers on Facebook (0.105.0)
+
+From 0.105.0 (docs/outreach.md, decision 113) Facebook's once-a-day jobs read your followers once a week, after your
+chats and before the day's checks (`followers`, `src/jobs/followers.ts`). It opens /me/followers, which Facebook sends
+on to your profile's Followers tab, and reads it a screen at a time, up to 300, pressing nothing. Each follower goes to
+HandsFreeOS as yours (`hfos-followers-save`), nobody in Contacts. Those who aren't your friends are checked by the AI
+like friends, after your friends and inside the day's checks, and the good fits come onto Today for a friend request
+("Follows you on Facebook"), with a like of one of their posts first while Like a post first is on. Stopped part-way,
+what it read is kept and the list is read again next time. **Check Facebook** opens your followers after your friends.
+
 ### Events near you on Alignable (0.104.0)
 
 From 0.104.0 (docs/outreach.md, decision 112) Alignable's once-a-day jobs read the events near you once a week, after
@@ -1605,7 +1615,8 @@ on its own on every network (decisions 29 and 98, 0.97.0), every part of your pr
 1st (decision 99, 0.98.0), LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0), birthdays and new jobs read once a
 day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), accounts like yours on Instagram
 (decision 110, 0.102.0), their story liked as a warm-up on Instagram (decision 111, 0.103.0), and the events near
-you on Alignable read once a week (decision 112, 0.104.0); Social
+you on Alignable read once a week (decision 112, 0.104.0), and your Facebook followers checked like friends once a
+week (decision 113, 0.105.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

@@ -10,6 +10,8 @@
  * - Someone found by topic on Instagram, LinkedIn or Alignable (decision 92, a check `via = 'found'`) gets its own ask
  *   (`foundCheckSystem`): how they were found (`findFact`), the post it was on and what they said under it, against
  *   the playbooks' niche, who they're for and their problem; never a chat, as the person doesn't know them yet.
+ * - One of the person's followers on Facebook who isn't a friend (decision 113, a check `via = 'follower'`) is asked
+ *   about like a friend, told they follow the owner.
  * - While the business reaches only some countries, the AI also weighs where they live (decision 86): what their
  *   profile says, how many friends they have, where their mutual friends live, and how the person's own friends are
  *   spread, so it knows what "most of them" means here.
@@ -36,6 +38,7 @@ import {
 } from '@hfos/core/addons/outreach/countries';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
 import { findFact, type CheckVia, type FindHow } from '@hfos/core/addons/outreach/finds';
+import { FOLLOWER_FACT } from '@hfos/core/addons/outreach/followers';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { checkSave, mutualCountries } from '@hfos/core/addons/outreach/ops/checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -259,6 +262,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
               ...(person.group_lines ?? []),
               ...person.intro,
               ...(person.group_name ? [`Found in the group ${person.group_name}`] : []),
+              ...(person.via === 'follower' ? [FOLLOWER_FACT] : []),
               ...(person.mutual_friends
                 ? [
                     `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,

@@ -64,6 +64,8 @@ export const CHECK_REASONS = {
   chat_only: 'You’ve chatted, though you’re not friends',
   group: 'Found in one of your groups',
   friend: 'A friend',
+  /** Follows them on Facebook, though they aren't friends (decision 113): after the friends. */
+  follower: 'Follows you, though you’re not friends',
 } as const;
 export type CheckReason = keyof typeof CHECK_REASONS;
 export const CHECK_REASON_KEYS = Object.keys(CHECK_REASONS) as [CheckReason, ...CheckReason[]];

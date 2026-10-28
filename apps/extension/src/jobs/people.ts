@@ -39,7 +39,7 @@ const GROUP_PACE_MS = [15_000, 30_000] as const;
  * Reads a list of people, scrolling it for more up to `scrolls` times: the last page read, with everyone each read
  * showed, each once, and whether it got to the end of the list. `pick` says who on a page counts. A warning ends it.
  */
-async function gather(
+export async function gather(
   job: Job,
   scrolls: number,
   pick: (page: ReadResult) => readonly Person[],

@@ -67,6 +67,8 @@ function facebookPage(
       at: url,
     };
   if (url === `${FB}/me/friends`) return { fixture: 'friends-list.html', at: `${FB}/friends/list` };
+  if (url === `${FB}/me/followers`)
+    return { fixture: 'followers-2026-10.html', at: `${OWN}/followers` };
   if (url === `${FB}/groups/joins/`) return { fixture: 'groups-joined.html', at: url };
   if (url.startsWith(`${FB}/search/people/`))
     return { fixture: 'group-members-2026.html', at: url };
@@ -241,12 +243,14 @@ describe('Check Facebook', () => {
       'username',
       'file',
     ]);
-    expect(opened.slice(0, 6)).toEqual([
+    expect(opened.slice(0, 7)).toEqual([
       `${FB}/me`,
       CONTACT,
       `${FB}/`,
       REQUESTS,
       `${FB}/me/friends`,
+      // Their followers (decision 113).
+      `${FB}/me/followers`,
       `${FB}/groups/joins/`,
     ]);
     expect(opened).toContain(`${FB}/search/people/?q=small%20business`);

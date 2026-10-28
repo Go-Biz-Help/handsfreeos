@@ -151,6 +151,10 @@ export type EventsNextInput = Body<'/v1/queries/outreach.events.next'>;
 export type EventsNext = Ok<'/v1/queries/outreach.events.next'>;
 export type EventsReadInput = Body<'/v1/commands/outreach.events.read'>;
 export type EventsRead = Ok<'/v1/commands/outreach.events.read'>;
+export type FollowersNextInput = Body<'/v1/queries/outreach.followers.next'>;
+export type FollowersNext = Ok<'/v1/queries/outreach.followers.next'>;
+export type FollowersSaveInput = Body<'/v1/commands/outreach.followers.save'>;
+export type FollowersSaved = Ok<'/v1/commands/outreach.followers.save'>;
 /** Birthdays and new jobs read once a day (decision 108). */
 export type OccasionsSaveInput = Body<'/v1/commands/outreach.occasions.save'>;
 export type OccasionsSaved = Ok<'/v1/commands/outreach.occasions.save'>;
@@ -350,6 +354,9 @@ export type HfosAsk =
   /** Events near the person on Alignable (decision 112): whether this week's read is due, and a read noted. */
   | { readonly type: 'hfos-events-next'; readonly input: EventsNextInput }
   | { readonly type: 'hfos-events-read'; readonly input: EventsReadInput }
+  /** The person's own followers on Facebook (decision 113): whether this week's read is due, and a part of it saved. */
+  | { readonly type: 'hfos-followers-next'; readonly input: FollowersNextInput }
+  | { readonly type: 'hfos-followers-save'; readonly input: FollowersSaveInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
   /**
@@ -430,6 +437,8 @@ export interface HfosValues {
   readonly 'hfos-like-yours-read': LikeYoursRead;
   readonly 'hfos-events-next': EventsNext;
   readonly 'hfos-events-read': EventsRead;
+  readonly 'hfos-followers-next': FollowersNext;
+  readonly 'hfos-followers-save': FollowersSaved;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
   readonly 'hfos-groups-to-check': GroupsToCheck;

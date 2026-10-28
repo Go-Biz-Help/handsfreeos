@@ -46,13 +46,15 @@ export const strongerHow = (a: FindHow, b: FindHow): FindHow =>
   FIND_HOW_KEYS.indexOf(a) <= FIND_HOW_KEYS.indexOf(b) ? a : b;
 
 /**
- * What a check is of (`checks.via`): someone the person knows (decision 46), or someone found by topic. The server
- * sets it at each look; the readers about people the person knows decide by who they know now, never by this, and the
- * day's found checks are counted by it.
+ * What a check is of (`checks.via`): someone the person knows (decision 46), someone found by topic, or one of their
+ * followers on Facebook who isn't their friend (decision 113), checked like a friend. The server sets it at each look;
+ * the readers about people the person knows decide by who they know now, never by this, and the day's checks are
+ * counted by it: a follower's with the people they know, someone found's on its own.
  */
 export const CHECK_VIAS = {
   known: 'Someone you know',
   found: 'Someone found',
+  follower: 'Someone who follows you',
 } as const;
 export type CheckVia = keyof typeof CHECK_VIAS;
 export const CHECK_VIA_KEYS = Object.keys(CHECK_VIAS) as [CheckVia, ...CheckVia[]];

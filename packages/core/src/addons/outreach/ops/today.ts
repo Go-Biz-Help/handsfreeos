@@ -59,6 +59,7 @@ import {
   type FindHow,
 } from '../finds';
 import { RECONNECT_QUIET_DAYS } from '../checks';
+import { FOLLOWER_WHY, FOLLOWERS_KEPT_DAYS } from '../followers';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
 import { EVER, reachedPeople, resultsByGroup } from './activity';
@@ -81,7 +82,7 @@ import {
   recentOf,
   type Ctx,
 } from './common';
-import { knownCheck, myOwnProfile, stillToReach } from './checks';
+import { knownCheck, knowsThem, myOwnProfile, stillToReach } from './checks';
 import { foundByTopicSince, workingBuild } from './live';
 import { playbooksInUse } from './friends';
 import { readinessFor } from './readiness';
@@ -719,17 +720,129 @@ export const today = defineAddonQuery(outreachAddon, {
       }
     }
 
+    // The person's followers on Facebook (decision 113): those who aren't friends, checked by the AI like friends, and
+    // good. Ahead of the groups' people, as they made the first move. With Like a post first on, their request comes a
+    // day after one of their posts was liked, or at once after a warm-up missed, and the list has likes for tomorrow's.
+    let followerRequests = 0;
+    let followerLikes = 0;
+    const followersLeft = Math.max(
+      0,
+      leftToday(limits, 'friend_request') - warmRequests - searchRequests - foundRequests,
+    );
+    const followerLikesLeft = settings.warmUp
+      ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes)
+      : 0;
+    if (
+      input.platform === 'facebook' &&
+      playbooks.length &&
+      !requestsOff &&
+      (followersLeft || followerLikesLeft)
+    ) {
+      const good = (
+        await rows<{
+          id: string;
+          name: string;
+          url: string;
+          check_why: string[];
+          playbook_name: string | null;
+          liked_at: Date | string | null;
+          warm_up_missed_at: Date | string | null;
+        }>(
+          ctx.tx,
+          sql`select p.id, p.name, p.url, ch.why as check_why, pb.name as playbook_name, p.warm_up_missed_at,
+                (select max(t.at) from addon_outreach.touches t
+                  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
+                    and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
+              from addon_outreach.followers fo
+              join addon_outreach.profiles p on p.id = fo.profile_id
+              join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'
+              left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+              where fo.workspace_id = ${ws} and fo.user_id = ${me} and p.platform = 'facebook'
+                and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
+                and not ${knowsThem(me)} and ${stillToReach(me)} and ${lets}
+                and not exists (select 1 from addon_outreach.friends fr
+                  where fr.profile_id = p.id and fr.user_id = ${me})
+                and not exists (select 1 from addon_outreach.touches t
+                  where t.profile_id = p.id and t.kind = 'friend_request')
+              order by ch.checked_at desc nulls last, p.id
+              limit ${CANDIDATES_MOST}`,
+        )
+      ).filter((p) => !warmIds.has(p.id));
+      const likedBy = (p: (typeof good)[number]) =>
+        p.liked_at === null ? null : new Date(p.liked_at).getTime();
+      const whyOf = (p: (typeof good)[number]) => [
+        FOLLOWER_WHY,
+        ...p.check_why.slice(0, FOUND_WHY_MOST),
+      ];
+      const ready = good.filter((p) => {
+        const liked = likedBy(p);
+        return (
+          !settings.warmUp ||
+          p.warm_up_missed_at !== null ||
+          (liked !== null && liked <= now - WARM_UP_WAIT_HOURS * HOUR)
+        );
+      });
+      for (const p of ready.slice(0, followersLeft)) {
+        followerRequests++;
+        warmIds.add(p.id);
+        items.push(
+          item({
+            kind: 'friend_request',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            why: [
+              ...whyOf(p),
+              ...(settings.warmUp && likedBy(p) !== null ? ['You liked a post of theirs'] : []),
+            ],
+            playbookName: p.playbook_name,
+          }),
+        );
+      }
+      if (followerLikesLeft) {
+        // Enough warmed up for tomorrow's requests: those waiting, and those liked lately, count.
+        const waiting = good.filter((p) => {
+          const liked = likedBy(p);
+          return (
+            liked !== null &&
+            p.warm_up_missed_at === null &&
+            liked > now - WARM_UP_WAIT_HOURS * HOUR
+          );
+        }).length;
+        const wanted = Math.max(0, limits.friend_request.most - waiting - warmLikes - searchLikes);
+        const cold = good.filter((p) => likedBy(p) === null && p.warm_up_missed_at === null);
+        for (const p of cold.slice(0, Math.min(followerLikesLeft, wanted))) {
+          followerLikes++;
+          warmIds.add(p.id);
+          items.push(
+            item({
+              kind: 'warm_up',
+              name: p.name,
+              profileId: p.id,
+              profileUrl: p.url,
+              why: [...whyOf(p), 'Their friend request comes a day after'],
+              playbookName: p.playbook_name,
+            }),
+          );
+        }
+      }
+    }
+
     // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
     // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's. Only on
     // a network that weighs people by the words they show (Facebook's): elsewhere a group's member reaches the list
     // only as someone found, after a good check (decision 92).
     const requestsLeft = Math.max(
       0,
-      leftToday(limits, 'friend_request') - warmRequests - searchRequests - foundRequests,
+      leftToday(limits, 'friend_request') -
+        warmRequests -
+        searchRequests -
+        foundRequests -
+        followerRequests,
     );
     const likesLeft = Math.max(
       0,
-      leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes,
+      leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes - followerLikes,
     );
     if (
       kit.foundChecksPerDay === null &&
@@ -863,7 +976,7 @@ export const today = defineAddonQuery(outreachAddon, {
         );
         const wanted = Math.max(
           0,
-          limits.friend_request.most - waiting.length - warmLikes - searchLikes,
+          limits.friend_request.most - waiting.length - warmLikes - searchLikes - followerLikes,
         );
         const cold = fitted.filter(({ p }) => likedBy(p) === null && p.warm_up_missed_at === null);
         for (const { p, fit } of cold.slice(0, Math.min(likesLeft, wanted)))

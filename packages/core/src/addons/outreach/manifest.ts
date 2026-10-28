@@ -247,6 +247,8 @@ export const outreachAddon = defineAddon({
     'file_people',
     'finds',
     'follow_ups',
+    'follower_reads',
+    'followers',
     'friend_ends',
     'friends',
     'group_people',
