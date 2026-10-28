@@ -109,8 +109,6 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.lookup': EXTENSION,
     'outreach.follow_backs.next': EXTENSION,
     'outreach.helpful.next': EXTENSION,
-    'outreach.profile.save': EXTENSION,
-    'outreach.chat.save': EXTENSION,
     'outreach.touch.save': EXTENSION,
     'outreach.friend.note': EXTENSION,
     'outreach.friends.save': EXTENSION,

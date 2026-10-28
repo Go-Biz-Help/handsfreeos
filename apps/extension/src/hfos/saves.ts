@@ -69,7 +69,6 @@ import type {
   Me,
   PartnerLeadsInput,
   PostsSaveInput,
-  ProfileInput,
   TouchInput,
 } from './messages';
 import { instantOf } from './when';
@@ -91,7 +90,7 @@ const clipText = (text: string, most: number) => cut(text.trim(), most);
 const JOBS: Platform = facebook.platform;
 
 /** A profile as HandsFreeOS takes it: by its id, the name in its address, or both, each in its network's shape. */
-function ref(profile: ProfileRef, platform: Platform = JOBS): ProfileInput['profile'] {
+function ref(profile: ProfileRef, platform: Platform = JOBS): TouchInput['profile'] {
   const kit = NETWORKS[platform];
   return {
     id: profile.id && kit.profileId.test(profile.id) ? profile.id : null,

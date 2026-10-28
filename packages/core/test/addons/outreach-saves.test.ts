@@ -1,10 +1,9 @@
 /**
- * Social Outreach, Phase 1: what the browser extension saves (docs/outreach.md).
- * - Saving a profile finds the customer it's saved to, or the one picked, or adds one (source Facebook, texting
- *   consent unknown), with one line on their timeline; saving it again only brings it up to date.
- * - Saving a chat finds or adds the customer from the profile it links to (or the one it was saved with before) and
- *   adds only the messages it hadn't saved; each teammate's chat with the same person is their own.
- * - The look-up says which profiles and chats on a page are saved, and who else in Contacts has a name.
+ * Social Outreach: Add to Contacts, Save to their card's look-up, and playbooks (docs/outreach.md).
+ * - Adding someone kept as a profile to Contacts adds a customer (source Facebook, texting consent unknown) with one
+ *   line on their timeline, or ties the profile to the customer picked; adding them again changes nothing.
+ * - The look-up says which profiles and chats on a page are saved, and who else in Contacts has a name; a customer's
+ *   Social card shows their profiles and everyone's chats saved to it.
  * - Playbooks: everyone using the add-on reads them, owners and admins write them, and two in use never share a name.
  * - None of it runs while the add-on is off.
  */
@@ -16,6 +15,10 @@ import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachBusiness, refused, runAs, setOutreach } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
+const DAY = 86_400_000;
+const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
+const them = (text: string, at: string) => ({ fromMe: false, text, at });
+const me = (text: string, at: string) => ({ fromMe: true, text, at });
 
 let owner: TestUser;
 let member: TestUser;
@@ -29,6 +32,14 @@ const dana = {
   },
   name: 'Dana Reyes',
 };
+const lee = {
+  profile: {
+    id: '100000000000123',
+    username: null,
+    url: 'https://www.facebook.com/profile.php?id=100000000000123',
+  },
+  name: 'Lee Park',
+};
 
 /** The add-on's lines on a customer's timeline, oldest first; lines written by one save in the order of their words. */
 async function timeline(personId: string) {
@@ -39,6 +50,24 @@ async function timeline(personId: string) {
   );
 }
 
+/** The profile kept for someone, by its username or its number. */
+async function profileOf(key: { id: string | null; username: string | null }) {
+  const [row] = await rows<{ id: string }>(
+    admin(),
+    sql`select id from addon_outreach.profiles
+        where workspace_id = ${ws}
+          and (platform_id = ${key.id}::text or lower(username) = lower(${key.username}::text))`,
+  );
+  return row!.id;
+}
+
+/** Kept as profiles with no customer, the way a friends list keeps everyone on it. */
+const keep = (people: { profile: typeof lee.profile | typeof dana.profile; name: string }[]) =>
+  runAs(owner, ws, 'outreach.friends.save', {
+    list: 'friends',
+    people: people.map((p) => ({ ...p, mutualFriends: null })),
+  });
+
 beforeAll(async () => {
   [owner, member] = await Promise.all([
     createTestUser('out-owner', { fullName: 'Chris Owner' }),
@@ -48,19 +77,16 @@ beforeAll(async () => {
   await testDbs()
     .admin.db.insert(workspaceMemberships)
     .values({ workspaceId: ws, userId: member.id, role: 'member' });
+  await keep([dana, lee]);
 }, 60_000);
 
 afterAll(closeTestDbs);
 
-describe('saving a profile', () => {
-  it('adds them to Contacts from Facebook the first time, and only brings them up to date after', async () => {
-    const first = await runAs(owner, ws, 'outreach.profile.save', {
-      ...dana,
-      intro: ['Owner at Reyes Plumbing', 'Lives in Austin, Texas'],
-      friendship: 'not_friends',
-      mutualFriends: 4,
-    });
-    expect(first).toMatchObject({ personName: 'Dana Reyes', addedPerson: true });
+describe('adding a kept profile to Contacts', () => {
+  it('adds them from Facebook the first time, and changes nothing after', async () => {
+    const profileId = await profileOf(dana.profile);
+    const first = await runAs(owner, ws, 'outreach.profile.contact', { profileId });
+    expect(first).toMatchObject({ personName: 'Dana Reyes', profileId, addedPerson: true });
     const [person] = await rows<{ source: string; sms_consent: string; first_name: string }>(
       admin(),
       sql`select source, sms_consent::text, first_name from app.people where id = ${first.personId}`,
@@ -70,164 +96,59 @@ describe('saving a profile', () => {
       { words: 'added them from Facebook', body: dana.profile.url },
     ]);
 
-    const again = await runAs(member, ws, 'outreach.profile.save', {
-      ...dana,
-      profile: { ...dana.profile, username: 'Dana.Reyes.12' },
-      intro: ['Owner at Reyes Plumbing'],
-      friendship: 'request_sent',
-    });
-    expect(again).toMatchObject({
-      personId: first.personId,
-      profileId: first.profileId,
-      addedPerson: false,
-    });
-    const [profile] = await rows<{ intro: string[]; friendship: string; last_seen_by: string }>(
-      admin(),
-      sql`select intro, friendship, last_seen_by from addon_outreach.profiles where id = ${first.profileId}`,
-    );
-    expect(profile).toEqual({
-      intro: ['Owner at Reyes Plumbing'],
-      friendship: 'request_sent',
-      last_seen_by: member.id,
-    });
+    const again = await runAs(member, ws, 'outreach.profile.contact', { profileId });
+    expect(again).toMatchObject({ personId: first.personId, profileId, addedPerson: false });
     expect(await timeline(first.personId)).toHaveLength(1);
   });
 
-  it('links a profile to a customer already in Contacts when the person picks them', async () => {
+  it('ties a profile to a customer already in Contacts when the person picks them', async () => {
     const [existing] = await rows<{ id: string }>(
       admin(),
       sql`insert into app.people (workspace_id, first_name, last_name, email)
           values (${ws}, 'Lee', 'Park', 'lee@example.com') returning id`,
     );
-    const saved = await runAs(owner, ws, 'outreach.profile.save', {
-      profile: {
-        id: '100000000000123',
-        username: null,
-        url: 'https://www.facebook.com/profile.php?id=100000000000123',
-      },
-      name: 'Lee Park',
+    const saved = await runAs(owner, ws, 'outreach.profile.contact', {
+      profileId: await profileOf(lee.profile),
       personId: existing!.id,
     });
     expect(saved).toMatchObject({ personId: existing!.id, addedPerson: false });
     expect(await timeline(existing!.id)).toEqual([
-      {
-        words: 'linked their Facebook profile',
-        body: 'https://www.facebook.com/profile.php?id=100000000000123',
-      },
+      { words: 'linked their Facebook profile', body: lee.profile.url },
     ]);
-  });
-});
-
-describe('saving a chat', () => {
-  const thread = {
-    id: '100000000000777',
-    encrypted: false,
-    url: 'https://www.facebook.com/messages/t/100000000000777/',
-  };
-  const morgan = {
-    thread,
-    name: 'Morgan Lane',
-    profile: { id: null, username: 'morgan.lane', url: 'https://www.facebook.com/morgan.lane' },
-  };
-
-  it('adds the customer from the profile it links to, and then only the messages it hadn’t saved', async () => {
-    const first = await runAs(owner, ws, 'outreach.chat.save', {
-      ...morgan,
-      messages: [
-        { from: 'me', text: 'Hi Morgan, saw your post about missed calls.' },
-        { from: 'them', sender: 'Morgan', text: 'Yes! It’s been a mess.' },
-      ],
-    });
-    expect(first).toMatchObject({
-      personName: 'Morgan Lane',
-      addedPerson: true,
-      added: 2,
-      kept: 2,
-    });
-    expect(await timeline(first.personId)).toEqual([
-      { words: 'added them from Facebook', body: morgan.profile.url },
-      { words: 'saved 2 Facebook messages', body: 'Morgan: Yes! It’s been a mess.' },
-    ]);
-
-    const again = await runAs(owner, ws, 'outreach.chat.save', {
-      ...morgan,
-      messages: [
-        { from: 'them', sender: 'Morgan', text: 'Yes! It’s been a mess.' },
-        { from: 'me', text: 'Do you use a CRM?' },
-      ],
-    });
-    expect(again).toMatchObject({
-      personId: first.personId,
-      threadId: first.threadId,
-      addedPerson: false,
-      added: 1,
-      kept: 3,
-    });
-    const lines = await timeline(first.personId);
-    expect(lines.at(-1)).toEqual({
-      words: 'saved 1 Facebook message',
-      body: 'Chris Owner: Do you use a CRM?',
-    });
-
-    const same = await runAs(owner, ws, 'outreach.chat.save', {
-      ...morgan,
-      messages: [{ from: 'me', text: 'Do you use a CRM?' }],
-    });
-    expect(same).toMatchObject({ added: 0, kept: 3 });
-    expect(await timeline(first.personId)).toHaveLength(lines.length);
-    const [row] = await rows<{ saved_messages: number }>(
-      admin(),
-      sql`select saved_messages from addon_outreach.threads where id = ${first.threadId}`,
-    );
-    expect(row!.saved_messages).toBe(3);
-  });
-
-  it('keeps a teammate’s chat with the same person apart from yours', async () => {
-    const mine = await runAs(owner, ws, 'outreach.chat.save', {
-      ...morgan,
-      messages: [{ from: 'me', text: 'Do you use a CRM?' }],
-    });
-    const theirs = await runAs(member, ws, 'outreach.chat.save', {
-      ...morgan,
-      messages: [{ from: 'me', text: 'Hey Morgan, Sam here.' }],
-    });
-    expect(theirs.personId).toBe(mine.personId);
-    expect(theirs.threadId).not.toBe(mine.threadId);
-    expect(theirs).toMatchObject({ added: 1, kept: 1 });
-  });
-
-  it('saves a chat read again without its profile link to the customer it was saved with', async () => {
-    const before = await runAs(owner, ws, 'outreach.chat.save', {
-      ...morgan,
-      messages: [{ from: 'me', text: 'Do you use a CRM?' }],
-    });
-    const again = await runAs(owner, ws, 'outreach.chat.save', {
-      ...morgan,
-      profile: null,
-      messages: [{ from: 'me', text: 'Do you use a CRM?' }],
-    });
-    expect(again).toMatchObject({
-      personId: before.personId,
-      threadId: before.threadId,
-      added: 0,
-    });
-  });
-
-  it('refuses a chat that doesn’t say who it’s with', async () => {
-    expect(
-      await refused(
-        runAs(owner, ws, 'outreach.chat.save', {
-          thread: { ...thread, id: 'group123' },
-          name: 'Austin owners chat',
-          profile: null,
-          messages: [{ from: 'them', text: 'Welcome all' }],
-        }),
-      ),
-    ).toBe('outreach_chat_without_profile');
   });
 });
 
 describe('the look-up', () => {
+  const morgan = {
+    name: 'Morgan Lane',
+    thread: { id: '100000000000777', encrypted: false },
+    profile: { id: null, username: 'morgan.lane', url: 'https://www.facebook.com/morgan.lane' },
+  };
+  /** A chat read in Messenger, saved to Morgan's card by whoever read it. */
+  const saveChat = async (who: TestUser, messages: ReturnType<typeof me>[], add: boolean) => {
+    await runAs(who, ws, 'outreach.chats.collect', { chats: [{ ...morgan, messages }] });
+    const [chat] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.file_chats
+          where workspace_id = ${ws} and user_id = ${who.id} and name = ${morgan.name}`,
+    );
+    return runAs(who, ws, 'outreach.chat.keep', { chatId: chat!.id, add });
+  };
+
+  beforeAll(async () => {
+    await saveChat(
+      owner,
+      [
+        me('Hi Morgan, saw your post about missed calls.', daysAgo(3)),
+        them('Yes! It’s been a mess.', daysAgo(2)),
+        me('Do you use a CRM?', daysAgo(1)),
+      ],
+      true,
+    );
+    // The teammate's own chat with them goes on the same card.
+    await saveChat(member, [me('Hey Morgan, Sam here.', daysAgo(1))], false);
+  }, 60_000);
+
   it('says which profiles and chats are saved, and who else has a name', async () => {
     const found = await runAs(owner, ws, 'outreach.lookup', {
       profiles: [
@@ -264,11 +185,11 @@ describe('the look-up', () => {
   });
 
   it('shows a customer’s profiles and chats', async () => {
-    const [morgan] = await rows<{ id: string }>(
+    const [person] = await rows<{ id: string }>(
       admin(),
       sql`select id from app.people where workspace_id = ${ws} and first_name = 'Morgan'`,
     );
-    const social = await runAs(owner, ws, 'outreach.person', { personId: morgan!.id });
+    const social = await runAs(owner, ws, 'outreach.person', { personId: person!.id });
     expect(social.profiles).toEqual([
       expect.objectContaining({
         platform: 'facebook',
@@ -500,9 +421,13 @@ describe('with the add-on off', () => {
   it('saves nothing and shows nothing', async () => {
     await setOutreach(ws, 'disabled');
     try {
-      expect(await refused(runAs(owner, ws, 'outreach.profile.save', { ...dana, intro: [] }))).toBe(
-        'addon_inactive',
-      );
+      expect(
+        await refused(
+          runAs(owner, ws, 'outreach.profile.contact', {
+            profileId: await profileOf(dana.profile),
+          }),
+        ),
+      ).toBe('addon_inactive');
       expect(await refused(runAs(owner, ws, 'outreach.lookup', {}))).toBe('addon_inactive');
     } finally {
       await setOutreach(ws, 'enabled');

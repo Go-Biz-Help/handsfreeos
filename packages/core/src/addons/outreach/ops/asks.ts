@@ -1006,7 +1006,6 @@ export const profileContact = defineAddonCommand(outreachAddon, {
         platform: profile.platform,
         profile: { id: profile.platformId, username: profile.username, url: profile.url },
         name: profile.name,
-        facts: null,
         ...(input.personId ? { personId: input.personId } : {}),
       }),
     );

@@ -178,15 +178,14 @@ describe('reading the chats brought in', () => {
     );
     org = w!.org;
     // Sam's already a customer; Casey's on Don't pitch.
-    const save = (name: string, username: string) =>
-      runAs(owner, ws, 'outreach.profile.save', {
-        profile: { id: null, username, url: `https://www.facebook.com/${username}` },
-        name,
-      });
-    await save('Sam Lee', 'sam.lee.1');
     await runAs(owner, ws, 'outreach.friends.save', {
       list: 'friends',
       people: [
+        {
+          profile: { id: null, username: 'sam.lee.1', url: 'https://www.facebook.com/sam.lee.1' },
+          name: 'Sam Lee',
+          mutualFriends: null,
+        },
         {
           profile: { id: null, username: 'casey.m', url: 'https://www.facebook.com/casey.m' },
           name: 'Casey Moreno',
@@ -194,6 +193,11 @@ describe('reading the chats brought in', () => {
         },
       ],
     });
+    const [sam] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = 'sam.lee.1'`,
+    );
+    await runAs(owner, ws, 'outreach.profile.contact', { profileId: sam!.id });
     await runAs(owner, ws, 'outreach.friend.set', {
       profile: { id: null, username: 'casey.m', url: 'https://www.facebook.com/casey.m' },
       name: 'Casey Moreno',

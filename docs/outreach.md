@@ -690,8 +690,6 @@ Operations, all through the kernel:
 | `outreach.playbook.list`                              | `outreach.use`    | The playbooks, those in use first                                                                                                                                                                                                                                                                                                   |
 | `outreach.playbook.save`, `outreach.playbook.archive` | `outreach.manage` | Write one; put one away or bring it back                                                                                                                                                                                                                                                                                            |
 | `outreach.playbook.words`                             | the worker        | The AI's words for a customers' playbook (decision 92): fills only a list still empty that it hasn't written, sets works online only while unsaid, never a partner playbook                                                                                                                                                         |
-| `outreach.profile.save`                               | `outreach.use`    | A profile as the extension read it: finds the customer it's saved to, or the one picked, or adds one (no longer used by the extension)                                                                                                                                                                                              |
-| `outreach.chat.save`                                  | `outreach.use`    | A chat as read: the new messages join what was saved (no longer used by the extension; Save to their card is `outreach.chat.keep`)                                                                                                                                                                                                  |
 | `outreach.chat.keep`                                  | `outreach.use`    | Save to their card: one of the person's own chats on the Chats tab onto the customer's Social card; refused until they say who (`outreach_chat_who`)                                                                                                                                                                                |
 | `outreach.lookup`                                     | `outreach.use`    | Which profiles and chats on a page are saved, who in Contacts has a name, and Keep and Don't pitch (Add to Contacts' same-name check; no longer used by the extension)                                                                                                                                                              |
 | `outreach.profile.contact`                            | `outreach.use`    | Add to Contacts: a profile kept here becomes a customer (source Facebook), or is tied to the one named                                                                                                                                                                                                                              |
@@ -3039,10 +3037,11 @@ drafting stay on the web with those tabs and drafting. A pasted group link is as
 groups and their members, Read my chats, tidying and the look-up) do what the panel's buttons did, not yet tried on
 the owner's account from the app.
 
-`outreach.profile.save` and `outreach.chat.save` (and `outreach.lookup`'s profiles and chats) are kept only for
-extension builds from before the bare-bones one (0.19.0, settings part 4), which saved from the panel. The API now
-refuses every build older than 0.94.1 (decision 94), so the two commands can be retired; Add to Contacts is
-`outreach.profile.contact` and Save to their card `outreach.chat.keep`.
+`outreach.profile.save` and `outreach.chat.save`, kept for extension builds from before the bare-bones one (0.19.0,
+settings part 4), which saved from the panel, are retired: the API refuses every build older than 0.94.1 (decision
+94). Add to Contacts is `outreach.profile.contact` and Save to their card `outreach.chat.keep`. `outreach.lookup`
+still answers for profiles and chats, though the apps ask it only for names. The worker no longer empties the old
+table `reports` (decision 74), which nothing reads or writes, and a later migration drops it.
 
 From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
 the profile's read, and putting in its bio, name, username and links (decisions 64 and 89), follow page outlines, not

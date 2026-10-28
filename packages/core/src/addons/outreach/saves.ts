@@ -1,13 +1,11 @@
 /**
- * What the browser extension saves to Social Outreach (docs/outreach.md): a person's profile and a chat with them,
- * as it read them off the page, and how a chat read again joins what was saved before. Browser-safe: the extension
- * builds these inputs and the server checks them.
+ * What Social Outreach keeps of people and their chats (docs/outreach.md): a profile as its links show it, a chat
+ * saved to a customer's card and how saving it again joins what was saved before, and the look-up. Browser-safe: the
+ * extension builds these inputs and the server checks them.
  */
 import { z } from 'zod';
 import {
   FRIEND_STATE_KEYS,
-  INTRO_LINE_MOST,
-  INTRO_LINES,
   KEPT_MESSAGES,
   LOOKUP_NAMES,
   LOOKUP_PROFILES,
@@ -79,20 +77,6 @@ export const PersonName = z
   .min(1, 'Send their name as the page shows it.')
   .max(NAME_MOST, `Keep the name under ${NAME_MOST} characters.`);
 
-export const ProfileSaveInput = z.object({
-  workspaceId: z.uuid(),
-  platform: z.enum(PLATFORM_KEYS).default('facebook'),
-  profile: ProfileRef,
-  name: PersonName,
-  /** The lines under their name: work, business, town. */
-  intro: z.array(z.string().trim().min(1).max(INTRO_LINE_MOST)).max(INTRO_LINES).default([]),
-  friendship: z.enum(FRIENDSHIPS).default('unknown'),
-  mutualFriends: z.number().int().min(0).max(100_000).nullable().default(null),
-  /** A customer already in Contacts the person said this is. Left out: the one the profile is saved to, or a new one. */
-  personId: z.uuid().optional(),
-});
-export type ProfileSaveInput = z.input<typeof ProfileSaveInput>;
-
 export const ProfileSaveOutput = z.object({
   personId: z.uuid(),
   personName: z.string(),
@@ -116,28 +100,6 @@ export type ChatMessage = z.output<typeof ChatMessage>;
 export interface SavedMessage extends ChatMessage {
   readonly savedAt: string;
 }
-
-export const ChatSaveInput = z.object({
-  workspaceId: z.uuid(),
-  platform: z.enum(PLATFORM_KEYS).default('facebook'),
-  thread: z.object({
-    id: ThreadKey,
-    encrypted: z.boolean().default(false),
-    url: NetworkUrl,
-  }),
-  /** The name the chat shows. */
-  name: PersonName,
-  /** The profile the chat links to: who it's with. */
-  profile: ProfileRef.nullable(),
-  /** What the page shows, oldest first. Older ones join what was saved before. */
-  messages: z
-    .array(ChatMessage)
-    .min(1, 'There are no messages on the page to save.')
-    .max(KEPT_MESSAGES),
-  /** A customer already in Contacts the person said this is. */
-  personId: z.uuid().optional(),
-});
-export type ChatSaveInput = z.input<typeof ChatSaveInput>;
 
 export const ChatSaveOutput = z.object({
   personId: z.uuid(),

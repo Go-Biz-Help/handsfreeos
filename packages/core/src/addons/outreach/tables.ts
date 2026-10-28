@@ -986,8 +986,7 @@ export const asks = addonOutreach.table(
 
 /**
  * What extension 0.48.0 saw on a page a job read (decision 74). Its notes are core's problem reports now
- * (20261027008100 copied these there); nothing writes here, the worker's prune empties it within a week, and a later
- * migration drops it.
+ * (20261027008100 copied these there); nothing reads or writes it anymore, and a later migration drops it.
  */
 export const reports = addonOutreach.table(
   'reports',

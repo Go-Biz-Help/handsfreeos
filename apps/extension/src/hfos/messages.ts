@@ -26,8 +26,6 @@ type Ok<P extends keyof paths> = paths[P] extends {
   ? R
   : never;
 
-/** A profile saved (packages/core/src/addons/outreach/saves.ts), as the API takes it. */
-export type ProfileInput = Body<'/v1/commands/outreach.profile.save'>;
 /** Chats read in Messenger for the AI (packages/core/src/addons/outreach/chat-collect.ts). */
 export type ChatsCollectInput = Body<'/v1/commands/outreach.chats.collect'>;
 export type ChatsCollected = Ok<'/v1/commands/outreach.chats.collect'>;
