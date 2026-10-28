@@ -59,6 +59,9 @@ export const ROLE_PERMISSIONS = {
     'money.manage',
     'migrations.manage',
     'forms.manage',
+    // Documents to sign (20261027015200): making templates, and sending them to customers.
+    'documents.manage',
+    'documents.send',
     'templates.manage',
     'reviews.manage',
     'fields.manage',
@@ -103,6 +106,8 @@ export const ROLE_PERMISSIONS = {
     'money.manage',
     'migrations.manage',
     'forms.manage',
+    'documents.manage',
+    'documents.send',
     'templates.manage',
     'reviews.manage',
     'fields.manage',
@@ -117,6 +122,7 @@ export const ROLE_PERMISSIONS = {
     'assistant.use',
     'appointments.write',
     'money.read',
+    'documents.send',
   ],
   org_owner: [
     'org.read',
@@ -334,6 +340,23 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         label: 'Manage all money',
         description: 'Every bill, refunds, products, money settings and payment accounts.',
         requires: ['money.bill', 'money.read'],
+      },
+    ],
+  },
+  {
+    title: 'Documents',
+    permissions: [
+      {
+        permission: 'documents.send',
+        label: 'Send documents to sign',
+        description: 'Send a template to the customers they can see, remind them, and void one.',
+        requires: ['records.read'],
+      },
+      {
+        permission: 'documents.manage',
+        label: 'Make document templates',
+        description: 'Upload PDFs, place the fields people sign and fill in, and change the words.',
+        requires: [],
       },
     ],
   },

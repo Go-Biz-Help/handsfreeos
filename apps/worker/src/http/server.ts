@@ -75,6 +75,7 @@ import { registerVoiceRoutes } from './voice';
 import { registerVoiceAgentRoute } from './voice-agent';
 import { registerLiveCallRoute } from './live-calls';
 import { registerVideoCallRoutes } from '../video-calls/routes';
+import { registerDocumentRoutes } from '../documents/routes';
 
 export type { HttpDeps } from './common';
 
@@ -305,6 +306,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // A customer's own portal: their private link, the code emailed to them, and the device it signs in.
   await registerPortalRoutes(app, deps);
   await registerFormRoutes(app, deps);
+  // Documents: a signer's page (`/d/…`), their code, signing and declining, and the team's copy of a link.
+  await registerDocumentRoutes(app, deps);
   // Add-ons' public pages: a listing's page, an open house's sign-in.
   await registerAddonPublicRoutes(app, deps);
   // Signing in to the browser extension with a prompt on the phone or the web (20261027002910).

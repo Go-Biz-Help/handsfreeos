@@ -35,6 +35,8 @@ const PURPOSE = {
   invoice: 'hfos:invoice-links:v1',
   plan: 'hfos:plan-links:v1',
 } as const;
+/** A signer's link to a document they were sent to sign (documents/links.ts), and the codes that open it. */
+const SIGNING_PURPOSE = 'hfos:document-signing-links:v1';
 /** How far back a code is recognized as an older version's (a "this link is out of date" page). */
 const STALE_LOOKBACK = 50;
 
@@ -49,6 +51,8 @@ export type MoneyDocumentKind = 'estimate' | 'invoice' | 'plan';
 export interface MoneyLinks {
   readonly webUrl: string;
   readonly keys: Readonly<Record<MoneyDocumentKind, readonly Buffer[]>>;
+  /** The keys that sign a signer's link to a document (`/d/…`), beside the money pages' own. */
+  readonly signing: readonly Buffer[];
 }
 
 export function createMoneyLinks(opts: {
@@ -65,11 +69,15 @@ export function createMoneyLinks(opts: {
   return {
     webUrl: opts.webUrl.replace(/\/+$/, ''),
     keys: { estimate: keysFor('estimate'), invoice: keysFor('invoice'), plan: keysFor('plan') },
+    signing: [
+      derive(SIGNING_PURPOSE)(opts.key),
+      ...(opts.previousKeys ?? []).map(derive(SIGNING_PURPOSE)),
+    ],
   };
 }
 
 /** The digest as a base62 number, least significant digit first, cut to `length` characters. */
-function base62(bytes: Buffer, length: number): string {
+export function base62(bytes: Buffer, length: number): string {
   let n = BigInt(`0x${bytes.toString('hex')}`);
   let out = '';
   while (out.length < length) {

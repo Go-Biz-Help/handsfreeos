@@ -47,6 +47,8 @@ export const PUSH_SWITCHES = [
    * for. Only to the people the teammate's settings name ("Tell").
    */
   'qualifying',
+  /** Documents to sign (20261027015200): one you sent was signed by everyone, declined or ran out of time. */
+  'documents',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 /** The kinds nobody turns off (a check-in's): not a switch in Settings, and always on (`private.push_on`). */
@@ -77,6 +79,7 @@ export const PushSwitches = z.object({
   addons: z.boolean(),
   supportTickets: z.boolean(),
   qualifying: z.boolean(),
+  documents: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
@@ -204,6 +207,11 @@ export const PUSH_CATEGORIES = {
   customer_file: { switch: 'qualifying', buttons: ['open'] },
   lead_qualified: { switch: 'qualifying', buttons: ['open'] },
   /**
+   * A document you sent to sign (20261027015200): everyone signed and the signed copy is filed, someone declined, or
+   * it ran out of time. Open goes to the document.
+   */
+  document: { switch: 'documents', buttons: ['open'] },
+  /**
    * Someone wrote to HandsFreeOS support, in the app or by email: a new ticket, to the support people. It belongs to
    * no business; Open goes to the ticket on the support desk.
    */
@@ -288,6 +296,8 @@ export const PushRefs = z.object({
   checkInId: z.uuid().optional(),
   /** An extension sign-in waiting for its number (`extension_sign_in`). */
   signInId: z.uuid().optional(),
+  /** A document sent to sign (`document`). */
+  documentId: z.uuid().optional(),
 });
 export type PushRefs = z.infer<typeof PushRefs>;
 

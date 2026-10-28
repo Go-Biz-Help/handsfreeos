@@ -111,6 +111,15 @@ const PUSH_ROWS = [
     email: 'always',
   },
   {
+    key: 'notifications.documents',
+    title: 'Documents you sent',
+    detail: 'Signed by everyone, declined, or out of time',
+    description:
+      'When a document you sent to sign is signed by everyone and the signed copy is filed, when someone declines it, or when it runs out of time.',
+    push: 'documents',
+    email: null,
+  },
+  {
     key: 'notifications.payments',
     title: 'A customer pays',
     detail: 'An invoice is paid in full',

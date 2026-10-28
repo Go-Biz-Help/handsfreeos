@@ -2198,3 +2198,69 @@ export function affiliatePaidEmail(input: {
   );
   return { subject, text, html };
 }
+
+/**
+ * A document someone on the team signs too (answer 9b): their link, a reminder of it, the signed copy (attached),
+ * or word that it was taken back. Customers get theirs from the business's own address instead (documents/jobs.ts).
+ */
+export function documentTeamEmail(input: {
+  kind: 'sign' | 'reminder' | 'done' | 'voided';
+  business: string;
+  document: string;
+  /** Who sent it, for "Dana sent you…". */
+  from: string | null;
+  link: string | null;
+  reason?: string | null;
+}): EmailContent {
+  const doc = `“${input.document}”`;
+  const subject =
+    input.kind === 'sign'
+      ? `Please sign: ${input.document}`
+      : input.kind === 'reminder'
+        ? `Reminder: please sign ${input.document}`
+        : input.kind === 'done'
+          ? `Signed: ${input.document}`
+          : `No longer needs signing: ${input.document}`;
+  const opening =
+    input.kind === 'sign'
+      ? `${input.from ? `${input.from} sent` : `${input.business} sent`} you ${doc} to sign for ${input.business}.`
+      : input.kind === 'reminder'
+        ? `${doc} for ${input.business} is waiting for your signature.`
+        : input.kind === 'done'
+          ? `Everyone has signed ${doc}. The signed copy is attached, and it’s on the customer’s Files in HandsFreeOS.`
+          : `${doc} was taken back, so it doesn’t need your signature anymore.`;
+  const label = input.kind === 'done' ? 'Open the signed copy' : 'Open it to sign';
+  const reason = input.kind === 'voided' && input.reason ? input.reason : null;
+  const text = [
+    opening,
+    ...(reason ? ['', reason] : []),
+    ...(input.link && input.kind !== 'voided' ? ['', `${label}: ${input.link}`] : []),
+  ].join('\n');
+  const html = shell(
+    wordmark +
+      para(escapeHtml(opening)) +
+      (reason ? para(escapeHtml(reason)) : '') +
+      (input.link && input.kind !== 'voided' ? button(input.link, label) : ''),
+  );
+  return { subject, text, html };
+}
+
+/** The code someone from the team types to open a document they sign (answer 11a). */
+export function documentCodeEmail(input: {
+  business: string;
+  document: string;
+  code: string;
+}): EmailContent {
+  const subject = `Your code to open ${input.document}: ${input.code}`;
+  const text = `Your code to open “${input.document}” for ${input.business} is ${input.code}. It works for 10 minutes.\n\nIf you didn’t ask for it, ignore this email.`;
+  const html = shell(
+    preheader(`Your code is ${input.code}`) +
+      para(
+        `Your code to open <strong>${escapeHtml(input.document)}</strong> for ${escapeHtml(input.business)} is:`,
+      ) +
+      `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
+      para('It works for 10 minutes.') +
+      small('If you didn’t ask for it, ignore this email.'),
+  );
+  return { subject, text, html };
+}

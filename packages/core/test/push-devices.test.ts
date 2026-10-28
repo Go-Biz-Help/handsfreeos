@@ -313,6 +313,8 @@ describe('pushSwitchOn', () => {
       supportTickets: true,
       // 20261018000400: the AI teammate's qualifying, to the people its settings name.
       qualifying: true,
+      // 20261027015200: a document someone sent was signed, declined or ran out of time.
+      documents: true,
     });
   });
 });

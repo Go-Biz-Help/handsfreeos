@@ -156,6 +156,7 @@ import { ideaHandlers } from './ideas';
 import { affiliateHandlers } from './affiliates';
 import { roadmapHandlers } from '../addons/roadmap';
 import { onFileFingerprint } from './file-fingerprint';
+import { documentHandlers } from '../documents/jobs';
 import { onFileText } from '../files/file-text';
 import { onSupportAccessRequested } from './support-access';
 import { onOnboardingLinkRequested, onOnboardingRemindRequested } from './onboarding';
@@ -463,6 +464,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'safety.resolved': onAllClear,
       'safety.help': onHelp,
       'safety_contact.saved': onContactSaved,
+      // Documents (20261027015200): each signer's link when it's their turn, reminders, the signed copy, copies
+      // to everyone, and the sender hearing how it went (documents/jobs.ts).
+      ...documentHandlers,
     }),
   ),
 );
