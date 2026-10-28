@@ -2782,29 +2782,30 @@ function scriptedPlaceFields(message: string) {
     const near = unquote(m[3] ?? '').toLowerCase();
     const box = m[2] === 'a small box';
     if (!box && !/“[^”]*\S[^”]*”/.test(near)) continue;
-    const type = box
-      ? 'checkbox'
-      : /signature|sign here|signed/.test(near)
+    // The words on its own row say what it is; the lines above and below only when its row says nothing.
+    const beside = [...near.matchAll(/(?:left|right): “([^”]*)”/g)].map((b) => b[1]).join(' ');
+    const typeOf = (words: string) =>
+      /signature|sign here|signed/.test(words)
         ? 'signature'
-        : /initial/.test(near)
+        : /initial/.test(words)
           ? 'initials'
-          : /date/.test(near)
+          : /date/.test(words)
             ? 'date_signed'
-            : /e-?mail/.test(near)
+            : /e-?mail/.test(words)
               ? 'email'
-              : /phone|tel\b/.test(near)
+              : /phone|tel\b/.test(words)
                 ? 'phone'
-                : /name/.test(near)
+                : /name/.test(words)
                   ? 'name'
-                  : 'text';
-    const named = roles.find(
-      (r) =>
-        r.label && new RegExp(`\\b${r.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(near),
-    );
-    const role =
-      named ??
-      (team && /business|company|contractor|provider/.test(near) ? team : undefined) ??
-      customer;
+                  : null;
+    const type = box ? 'checkbox' : (typeOf(beside) ?? typeOf(near) ?? 'text');
+    const roleIn = (words: string) =>
+      roles.find(
+        (r) =>
+          r.label &&
+          new RegExp(`\\b${r.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(words),
+      ) ?? (team && /business|company|contractor|provider/.test(words) ? team : undefined);
+    const role = roleIn(beside) ?? roleIn(near) ?? customer;
     if (!role) continue;
     const fillFrom =
       role.team || !['name', 'email', 'phone'].includes(type) ? '' : `customer.${type}`;

@@ -109,7 +109,8 @@ describe('placing the fields', () => {
       start: START,
       spots: [
         spot('s1', 'line', 0.3, { left: 'Client signature:' }),
-        spot('s2', 'line', 0.34, { left: 'Date' }),
+        // Its own row says what it is, not the line above.
+        spot('s2', 'line', 0.34, { left: 'Date', above: 'Client signature: ' }),
         spot('s3', 'line', 0.4, { left: 'Print name' }),
         spot('s4', 'box', 0.5, { right: 'I have pets' }),
         // A rule between sections: no words, no field.
