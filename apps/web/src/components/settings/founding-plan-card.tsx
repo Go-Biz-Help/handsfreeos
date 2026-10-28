@@ -9,8 +9,8 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 /**
  * A founding spot paid by the month or the year (20261027009500, 20261027012700), on Settings → Usage & balance: when
- * it renews and for how much, stopping it renewing (or starting it again while it is paid for), and paying a refused
- * renewal with another card. That payment is a founding checkout like the first one, so it goes through the same page
+ * it renews and for how much (less a code's discount, or after its free trial), stopping it renewing (or starting it
+ * again while it is paid for), and paying a refused renewal with another card. That payment is a founding checkout like the first one, so it goes through the same page
  * that waits for Stripe and sends them there.
  */
 export function FoundingPlanCard({
@@ -59,6 +59,8 @@ export function FoundingPlanCard({
   };
 
   const refused = plan.renewalProblem !== null;
+  // A code's discount comes off while it lasts (20261027014300).
+  const nextCents = plan.nextChargeCents ?? plan.priceCents;
 
   return (
     <Card id="founding" className="px-[22px] py-5" data-testid="usage-founding">
@@ -75,9 +77,13 @@ export function FoundingPlanCard({
         </p>
       ) : (
         <p className="mt-4 text-[13px]" data-testid="usage-founding-line">
-          {plan.renewing
-            ? FOUNDING_PLAN_WORDS.renews(plan.paidThrough, plan.priceCents)
-            : FOUNDING_PLAN_WORDS.stopped(plan.paidThrough)}
+          {plan.trialEndsAt
+            ? plan.renewing
+              ? FOUNDING_PLAN_WORDS.trial(plan.trialEndsAt, nextCents)
+              : FOUNDING_PLAN_WORDS.trialStopped(plan.trialEndsAt)
+            : plan.renewing
+              ? FOUNDING_PLAN_WORDS.renews(plan.paidThrough, nextCents)
+              : FOUNDING_PLAN_WORDS.stopped(plan.paidThrough)}
         </p>
       )}
       {error && !asking ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}

@@ -43027,7 +43027,7 @@
     "/v1/commands/founding.buy": {
       "post": {
         "operationId": "command_founding_buy",
-        "summary": "Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer before paying gives the first hold back.",
+        "summary": "Buy a founding spot for this business, first come, first served: hold one in the offer picked and start paying for it, or pick up the payment already under way. A discount or trial code takes its discount off, or makes the page a free trial that only keeps the card; founding.code_preview says what it takes off first. The worker makes the Stripe page; ask founding.checkout_status for its address. Picking another offer, or another code, before paying gives the first page back.",
         "tags": [
           "commands"
         ],
@@ -43049,6 +43049,18 @@
                     "minLength": 3,
                     "maxLength": 40,
                     "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "code": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -43830,7 +43842,7 @@
     "/v1/commands/affiliates.save_settings": {
       "post": {
         "operationId": "command_affiliates_save_settings",
-        "summary": "Set the share every affiliate earns of each plan payment, unless they have their own. It counts for payments from now on.",
+        "summary": "Set the share every affiliate earns of each plan payment, and the most any affiliate’s code may take off, unless they have their own. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought.",
         "tags": [
           "commands"
         ],
@@ -43846,6 +43858,11 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 10000
+                  },
+                  "maxDiscountBp": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 9000
                   }
                 },
                 "required": [
@@ -43868,10 +43885,16 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "maxDiscountBp": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
-                    "rateBp"
+                    "rateBp",
+                    "maxDiscountBp"
                   ],
                   "additionalProperties": false
                 }
@@ -44023,6 +44046,23 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "ownMaxDiscountBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44042,7 +44082,9 @@
                         "clicks30",
                         "clicksAll",
                         "businesses",
-                        "earnedCents"
+                        "earnedCents",
+                        "ownMaxDiscountBp",
+                        "maxDiscountBp"
                       ],
                       "additionalProperties": false
                     }
@@ -44201,6 +44243,23 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "ownMaxDiscountBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44220,7 +44279,9 @@
                         "clicks30",
                         "clicksAll",
                         "businesses",
-                        "earnedCents"
+                        "earnedCents",
+                        "ownMaxDiscountBp",
+                        "maxDiscountBp"
                       ],
                       "additionalProperties": false
                     }
@@ -44383,6 +44444,23 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "ownMaxDiscountBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44402,7 +44480,9 @@
                         "clicks30",
                         "clicksAll",
                         "businesses",
-                        "earnedCents"
+                        "earnedCents",
+                        "ownMaxDiscountBp",
+                        "maxDiscountBp"
                       ],
                       "additionalProperties": false
                     }
@@ -44559,6 +44639,23 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "ownMaxDiscountBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44578,7 +44675,9 @@
                         "clicks30",
                         "clicksAll",
                         "businesses",
-                        "earnedCents"
+                        "earnedCents",
+                        "ownMaxDiscountBp",
+                        "maxDiscountBp"
                       ],
                       "additionalProperties": false
                     }
@@ -44720,6 +44819,1046 @@
                   },
                   "required": [
                     "organizationId",
+                    "affiliate"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/affiliate.make_code": {
+      "post": {
+        "operationId": "command_affiliate_make_code",
+        "summary": "Make one of your own discount or trial codes, as an approved affiliate: a percent or dollars off each payment, for some months or for good, a free trial of 7, 14 or 30 days, or a trial then a discount, up to your limit. It has its own link that fills it in on the plan page. A code is never changed: turn it off and make another.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits platform.affiliate_code_made.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 24,
+                    "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+                  },
+                  "offerId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "percentOffBp": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "amountOffCents": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discountMonths": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 36
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "trialDays": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "enum": [
+                              7
+                            ]
+                          },
+                          {
+                            "type": "number",
+                            "enum": [
+                              14
+                            ]
+                          },
+                          {
+                            "type": "number",
+                            "enum": [
+                              30
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "object",
+                      "properties": {
+                        "codeId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "affiliateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "offerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "percentOffBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "amountOffCents": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "discountMonths": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "trialDays": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "off"
+                          ]
+                        },
+                        "offByStaff": {
+                          "type": "boolean"
+                        },
+                        "paidUses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "codeId",
+                        "affiliateId",
+                        "code",
+                        "offerId",
+                        "percentOffBp",
+                        "amountOffCents",
+                        "discountMonths",
+                        "trialDays",
+                        "status",
+                        "offByStaff",
+                        "paidUses",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/affiliate.turn_code": {
+      "post": {
+        "operationId": "command_affiliate_turn_code",
+        "summary": "Turn one of your own codes off, so it stops working on the plan page, or back on. Businesses that already used it keep what they bought.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits platform.affiliate_code_turned_on, platform.affiliate_code_turned_off.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "codeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "on": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "codeId",
+                  "on"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "object",
+                      "properties": {
+                        "codeId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "affiliateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "offerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "percentOffBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "amountOffCents": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "discountMonths": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "trialDays": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "off"
+                          ]
+                        },
+                        "offByStaff": {
+                          "type": "boolean"
+                        },
+                        "paidUses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "codeId",
+                        "affiliateId",
+                        "code",
+                        "offerId",
+                        "percentOffBp",
+                        "amountOffCents",
+                        "discountMonths",
+                        "trialDays",
+                        "status",
+                        "offByStaff",
+                        "paidUses",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/affiliates.make_code": {
+      "post": {
+        "operationId": "command_affiliates_make_code",
+        "summary": "Make a discount or trial code for an affiliate, up to their limit, or a house code for HandsFreeOS’s own promotions (no affiliate, up to 90% off, earning nobody a share).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_made.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "affiliateId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 24,
+                    "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+                  },
+                  "offerId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "percentOffBp": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "amountOffCents": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discountMonths": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 36
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "trialDays": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "enum": [
+                              7
+                            ]
+                          },
+                          {
+                            "type": "number",
+                            "enum": [
+                              14
+                            ]
+                          },
+                          {
+                            "type": "number",
+                            "enum": [
+                              30
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "affiliateId",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "object",
+                      "properties": {
+                        "codeId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "affiliateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "offerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "percentOffBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "amountOffCents": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "discountMonths": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "trialDays": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "off"
+                          ]
+                        },
+                        "offByStaff": {
+                          "type": "boolean"
+                        },
+                        "paidUses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "codeId",
+                        "affiliateId",
+                        "code",
+                        "offerId",
+                        "percentOffBp",
+                        "amountOffCents",
+                        "discountMonths",
+                        "trialDays",
+                        "status",
+                        "offByStaff",
+                        "paidUses",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/affiliates.turn_code": {
+      "post": {
+        "operationId": "command_affiliates_turn_code",
+        "summary": "Turn any code off, an affiliate’s or a house code, or back on. An affiliate can’t turn back on a code staff turned off. Businesses that already used it keep what they bought.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_turned_on, platform.affiliate_code_turned_off.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "codeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "on": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "codeId",
+                  "on"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "object",
+                      "properties": {
+                        "codeId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "affiliateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "offerId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "percentOffBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "amountOffCents": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "discountMonths": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "trialDays": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "on",
+                            "off"
+                          ]
+                        },
+                        "offByStaff": {
+                          "type": "boolean"
+                        },
+                        "paidUses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "codeId",
+                        "affiliateId",
+                        "code",
+                        "offerId",
+                        "percentOffBp",
+                        "amountOffCents",
+                        "discountMonths",
+                        "trialDays",
+                        "status",
+                        "offByStaff",
+                        "paidUses",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/affiliate.set_max_discount": {
+      "post": {
+        "operationId": "command_affiliate_set_max_discount",
+        "summary": "Give one affiliate their own limit on what their codes take off, up to 90%, or put them back on everyone’s. It counts at once, on codes already made too, but never on what a business already bought.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_max_discount_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "affiliateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "maxDiscountBp": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 9000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "affiliateId",
+                  "maxDiscountBp"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "affiliate": {
+                      "type": "object",
+                      "properties": {
+                        "affiliateId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "userId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "applied",
+                            "approved",
+                            "turned_down",
+                            "paused",
+                            "ended"
+                          ]
+                        },
+                        "pitch": {
+                          "type": "string"
+                        },
+                        "links": {
+                          "type": "string"
+                        },
+                        "ownRateBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "rateBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "appliedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "decidedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "decidedByName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "clicks30": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "clicksAll": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "businesses": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "ownMaxDiscountBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "affiliateId",
+                        "userId",
+                        "name",
+                        "email",
+                        "code",
+                        "status",
+                        "pitch",
+                        "links",
+                        "ownRateBp",
+                        "rateBp",
+                        "appliedAt",
+                        "decidedAt",
+                        "decidedByName",
+                        "clicks30",
+                        "clicksAll",
+                        "businesses",
+                        "earnedCents",
+                        "ownMaxDiscountBp",
+                        "maxDiscountBp"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
                     "affiliate"
                   ],
                   "additionalProperties": false
@@ -110638,6 +111777,23 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "nextChargeCents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "trialEndsAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -110649,7 +111805,9 @@
                     "offerName",
                     "paidThrough",
                     "renewing",
-                    "renewalProblem"
+                    "renewalProblem",
+                    "nextChargeCents",
+                    "trialEndsAt"
                   ],
                   "additionalProperties": false
                 }
@@ -111271,10 +112429,129 @@
         }
       }
     },
+    "/v1/queries/founding.code_preview": {
+      "post": {
+        "operationId": "query_founding_code_preview",
+        "summary": "What a discount or trial code takes off each founding plan on sale, before paying: the full price, what comes off each payment and for how many months, and any free trial. Refused for a code that isn’t one or is turned off.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires money.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "code": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "offers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "offerId": {
+                            "type": "string",
+                            "minLength": 3,
+                            "maxLength": 40,
+                            "pattern": "^[a-z][a-z0-9_]*$"
+                          },
+                          "applies": {
+                            "type": "boolean"
+                          },
+                          "fullCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "discountCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "discountMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "trialDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "offerId",
+                          "applies",
+                          "fullCents",
+                          "discountCents",
+                          "discountMonths",
+                          "trialDays"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "offers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/affiliate.mine": {
       "post": {
         "operationId": "query_affiliate_mine",
-        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, and what you’ve earned.",
+        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, and your discount and trial codes with the most they may take off.",
         "tags": [
           "queries"
         ],
@@ -111375,6 +112652,128 @@
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
+                            "codes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "codeId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "affiliateId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "code": {
+                                    "type": "string"
+                                  },
+                                  "offerId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "percentOffBp": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "amountOffCents": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "discountMonths": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "trialDays": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "on",
+                                      "off"
+                                    ]
+                                  },
+                                  "offByStaff": {
+                                    "type": "boolean"
+                                  },
+                                  "paidUses": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "codeId",
+                                  "affiliateId",
+                                  "code",
+                                  "offerId",
+                                  "percentOffBp",
+                                  "amountOffCents",
+                                  "discountMonths",
+                                  "trialDays",
+                                  "status",
+                                  "offByStaff",
+                                  "paidUses",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "maxDiscountBp": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
                             "signUps": {
                               "type": "integer",
                               "minimum": -9007199254740991,
@@ -111463,6 +112862,8 @@
                             "applyAgainFrom",
                             "clicks30",
                             "clicksAll",
+                            "codes",
+                            "maxDiscountBp",
                             "signUps",
                             "payingBusinesses",
                             "earnings"
@@ -111478,11 +112879,46 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "plans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "offerId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "priceCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "billing": {
+                            "type": "string",
+                            "enum": [
+                              "once",
+                              "yearly",
+                              "monthly"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "offerId",
+                          "name",
+                          "priceCents",
+                          "billing"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "affiliate",
-                    "defaultRateBp"
+                    "defaultRateBp",
+                    "plans"
                   ],
                   "additionalProperties": false
                 }
@@ -111495,7 +112931,7 @@
     "/v1/queries/platform.affiliates": {
       "post": {
         "operationId": "query_platform_affiliates",
-        "summary": "The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.",
+        "summary": "The affiliate program for Admin → Affiliates: the share everyone earns and the most a code takes off, the house codes, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.",
         "tags": [
           "queries"
         ],
@@ -111534,12 +112970,169 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
-                        "rateBp"
+                        "rateBp",
+                        "maxDiscountBp"
                       ],
                       "additionalProperties": false
+                    },
+                    "houseCodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "codeId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "affiliateId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "offerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "percentOffBp": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "amountOffCents": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "discountMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "trialDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "on",
+                              "off"
+                            ]
+                          },
+                          "offByStaff": {
+                            "type": "boolean"
+                          },
+                          "paidUses": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "codeId",
+                          "affiliateId",
+                          "code",
+                          "offerId",
+                          "percentOffBp",
+                          "amountOffCents",
+                          "discountMonths",
+                          "trialDays",
+                          "status",
+                          "offByStaff",
+                          "paidUses",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "plans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "offerId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "priceCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "billing": {
+                            "type": "string",
+                            "enum": [
+                              "once",
+                              "yearly",
+                              "monthly"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "offerId",
+                          "name",
+                          "priceCents",
+                          "billing"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "applications": {
                       "type": "array",
@@ -111640,6 +113233,23 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "ownMaxDiscountBp": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "maxDiscountBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -111659,7 +113269,9 @@
                           "clicks30",
                           "clicksAll",
                           "businesses",
-                          "earnedCents"
+                          "earnedCents",
+                          "ownMaxDiscountBp",
+                          "maxDiscountBp"
                         ],
                         "additionalProperties": false
                       }
@@ -111763,6 +113375,23 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "ownMaxDiscountBp": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "maxDiscountBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -111782,7 +113411,9 @@
                           "clicks30",
                           "clicksAll",
                           "businesses",
-                          "earnedCents"
+                          "earnedCents",
+                          "ownMaxDiscountBp",
+                          "maxDiscountBp"
                         ],
                         "additionalProperties": false
                       }
@@ -111790,6 +113421,8 @@
                   },
                   "required": [
                     "settings",
+                    "houseCodes",
+                    "plans",
                     "applications",
                     "affiliates"
                   ],
@@ -111804,7 +113437,7 @@
     "/v1/queries/platform.affiliate": {
       "post": {
         "operationId": "query_platform_affiliate",
-        "summary": "One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.",
+        "summary": "One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.",
         "tags": [
           "queries"
         ],
@@ -111935,6 +113568,23 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "ownMaxDiscountBp": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxDiscountBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -111954,7 +113604,9 @@
                         "clicks30",
                         "clicksAll",
                         "businesses",
-                        "earnedCents"
+                        "earnedCents",
+                        "ownMaxDiscountBp",
+                        "maxDiscountBp"
                       ],
                       "additionalProperties": false
                     },
@@ -112128,6 +113780,157 @@
                         "additionalProperties": false
                       }
                     },
+                    "codes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "codeId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "affiliateId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "offerId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "percentOffBp": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "amountOffCents": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "discountMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "trialDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "on",
+                              "off"
+                            ]
+                          },
+                          "offByStaff": {
+                            "type": "boolean"
+                          },
+                          "paidUses": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "codeId",
+                          "affiliateId",
+                          "code",
+                          "offerId",
+                          "percentOffBp",
+                          "amountOffCents",
+                          "discountMonths",
+                          "trialDays",
+                          "status",
+                          "offByStaff",
+                          "paidUses",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "plans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "offerId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "priceCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "billing": {
+                            "type": "string",
+                            "enum": [
+                              "once",
+                              "yearly",
+                              "monthly"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "offerId",
+                          "name",
+                          "priceCents",
+                          "billing"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "clicks": {
                       "type": "array",
                       "items": {
@@ -112157,6 +113960,8 @@
                     "businesses",
                     "earnings",
                     "commissions",
+                    "codes",
+                    "plans",
                     "clicks"
                   ],
                   "additionalProperties": false

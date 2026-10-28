@@ -155,6 +155,8 @@ export interface FakeCheckout {
   readonly checkoutId: string;
   readonly amountCents: number;
   readonly productName: string;
+  /** What the page says under the name: what the money is for, and what's charged next. */
+  readonly description: string;
   readonly successUrl: string;
   readonly cancelUrl: string;
   readonly customerEmail: string | null;
@@ -169,6 +171,8 @@ export interface FakeCheckout {
   readonly metadata: Readonly<Record<string, string>>;
   /** The card is kept for later (`saveCard`): the customer and the card, once it is paid. */
   readonly saveCard: boolean;
+  /** A free trial's page (`setupOnly`): it keeps the card and charges nothing. */
+  readonly setupOnly: boolean;
   customerRef: string | null;
   cardRef: string | null;
 }
@@ -467,9 +471,14 @@ export function createFakePayments(opts: {
       metadata: { ...page.metadata, [`${page.kind}_id`]: page.checkoutId },
       customer: page.customerRef,
       status: page.status,
-      payment_status: page.status === 'complete' ? 'paid' : 'unpaid',
+      payment_status: page.setupOnly
+        ? 'no_payment_required'
+        : page.status === 'complete'
+          ? 'paid'
+          : 'unpaid',
       payment_intent: page.paymentRef,
-      amount_total: page.amountCents,
+      // A setup page has no total, as Stripe's.
+      amount_total: page.setupOnly ? null : page.amountCents,
       currency: 'usd',
     });
   }
@@ -1342,6 +1351,7 @@ export function createFakePayments(opts: {
             checkoutId: input.checkoutId,
             amountCents,
             productName: input.productName,
+            description: input.description ?? '',
             successUrl: input.successUrl,
             cancelUrl: input.cancelUrl,
             customerEmail: input.customerEmail,
@@ -1351,7 +1361,8 @@ export function createFakePayments(opts: {
             expiresAt: input.expiresAt ?? new Date(Date.now() + 86_400_000).toISOString(),
             lines: (input.lines ?? []).map((l) => ({ name: l.name, amountCents: l.amountCents })),
             metadata: { ...input.metadata },
-            saveCard: !!input.saveCard,
+            saveCard: !!input.saveCard || !!input.setupOnly,
+            setupOnly: !!input.setupOnly,
             customerRef: null,
             cardRef: null,
           };
@@ -1741,6 +1752,12 @@ export function createFakePayments(opts: {
         });
         page.customerRef = customerRef;
         page.cardRef = cardRef;
+      }
+      // A free trial's page only kept the card: nothing is charged.
+      if (page.setupOnly) {
+        page.status = 'complete';
+        await sendCheckout('checkout.session.completed', page);
+        return page;
       }
       // The money lands in our own account, like a top-up: a platform charge with no business's account on it.
       const c = record(PLATFORM_ACCOUNT, {

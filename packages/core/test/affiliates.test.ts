@@ -2,7 +2,9 @@
  * The affiliate program, part 1 (20261027014000), through the command pipeline: applying, staff deciding and setting
  * shares, and a business made through an affiliate's link being credited to them as it's made, and only then. And
  * part 2's reading (20261027014200): what they've earned, on their own page and staff's. The earning itself is
- * apps/worker/test/founding-checkout.test.ts, where the payments happen.
+ * apps/worker/test/founding-checkout.test.ts, where the payments happen. And part 3's codes (20261027014300): making
+ * and turning them, the limit, house codes, and what the plan page shows and buys with one. Paying with one, and the
+ * trial, are in the worker's test too.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -15,12 +17,19 @@ import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kerne
 import {
   affiliateApply,
   affiliateDecide,
+  affiliateMakeCode,
   affiliateMine,
   affiliateSetBusiness,
   affiliateSetCode,
+  affiliateSetMaxDiscount,
   affiliateSetRate,
   affiliateSetStatus,
+  affiliatesMakeCode,
   affiliatesSaveSettings,
+  affiliatesTurnCode,
+  affiliateTurnCode,
+  foundingBuy,
+  foundingCodePreview,
   organizationCreate,
   platformAffiliate,
   platformAffiliateOfBusiness,
@@ -81,7 +90,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await admin().execute(sql`update platform.affiliate_settings set rate_bp = 4000 where id`);
+  await admin().execute(
+    sql`update platform.affiliate_settings set rate_bp = 4000, max_discount_bp = 5000 where id`,
+  );
   await closeTestDbs();
 });
 
@@ -435,5 +446,346 @@ describe('what they earn', () => {
     expect(
       page.businesses.find((b) => b.organizationId === paying.organizationId)?.earnedCents,
     ).toBe(6760);
+  });
+});
+
+describe('codes', () => {
+  // Off sale but not in draft, so codes are made for them and no business made here is asked to pay; the plan page's
+  // test puts the monthly one on sale while it runs.
+  const MONTHLY = 'test_code_monthly';
+  const ONCE = 'test_code_once';
+  const terms = (code: string, extra: Record<string, unknown> = {}) => ({
+    code,
+    offerId: null,
+    percentOffBp: 2000,
+    amountOffCents: null,
+    discountMonths: 3,
+    trialDays: null,
+    ...extra,
+  });
+
+  beforeAll(async () => {
+    await admin().execute(
+      sql`insert into platform.founding_offers
+            (id, name, seat_cap, price_cents, status, billing, paid_yearly, starting_credit_cents, show_counter, sort)
+          values (${MONTHLY}, 'Code monthly', 5, 9700, 'closed', 'monthly', false, 0, true, 971),
+                 (${ONCE}, 'Code once', 5, 49700, 'closed', 'once', false, 0, true, 972)
+          on conflict (id) do update set status = 'closed', price_cents = excluded.price_cents`,
+    );
+  });
+
+  afterAll(async () => {
+    for (const offer of [MONTHLY, ONCE]) {
+      await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${offer}`);
+      await admin().execute(
+        sql`delete from app.workspace_plans where grant_id in
+              (select id from platform.founding_grants where offer_id = ${offer})`,
+      );
+      await admin().execute(sql`delete from platform.founding_grants where offer_id = ${offer}`);
+    }
+    await admin().execute(
+      sql`delete from platform.affiliate_codes where code like ${`%-${suffix}`}`,
+    );
+    await admin().execute(
+      sql`delete from platform.founding_offers where id in (${MONTHLY}, ${ONCE})`,
+    );
+  });
+
+  it('only an approved affiliate makes one, and it shows on their own page with the plans it can be for', async () => {
+    expect((await refusal(() => run(affiliateMakeCode, terms(codeFor('c1')), riley))).rule).toBe(
+      'affiliate_not_approved',
+    );
+    const { affiliateId } = await apply(dana, codeFor('maker'));
+    expect((await refusal(() => run(affiliateMakeCode, terms(codeFor('c1')), dana))).rule).toBe(
+      'affiliate_not_approved',
+    );
+    await run(affiliateDecide, { affiliateId, decision: 'approve' }, staff);
+
+    const made = await run(affiliateMakeCode, terms(codeFor('C1').toUpperCase()), dana);
+    expect(made.code).toMatchObject({
+      affiliateId,
+      code: codeFor('c1').toLowerCase(),
+      percentOffBp: 2000,
+      discountMonths: 3,
+      status: 'on',
+      offByStaff: false,
+      paidUses: 0,
+    });
+    const mine = await ask(affiliateMine, {}, dana);
+    expect(mine.affiliate?.codes.map((c) => c.codeId)).toEqual([made.code.codeId]);
+    expect(mine.affiliate?.maxDiscountBp).toBe(5000);
+    expect(mine.plans.map((p) => p.offerId)).toEqual(expect.arrayContaining([MONTHLY, ONCE]));
+    // Nobody else's page shows it; staff's does.
+    await apply(riley, codeFor('r'));
+    expect((await ask(affiliateMine, {}, riley)).affiliate?.codes).toEqual([]);
+    const page = await ask(platformAffiliate, { affiliateId }, staff);
+    expect(page.codes.map((c) => c.code)).toEqual([made.code.code]);
+  });
+
+  it('refuses a code somebody has, more off than the limit, a trial on a plan paid once, and both kinds at once', async () => {
+    await approved(dana, codeFor('limits'));
+    await run(affiliateMakeCode, terms(codeFor('mine')), dana);
+    await approved(riley, codeFor('limits2'));
+    expect((await refusal(() => run(affiliateMakeCode, terms(codeFor('mine')), riley))).rule).toBe(
+      'affiliate_code_taken',
+    );
+    const over = await refusal(() =>
+      run(affiliateMakeCode, terms(codeFor('big'), { percentOffBp: 6000 }), dana),
+    );
+    expect(over.rule).toBe('affiliate_code_over_limit');
+    expect(over.message).toContain('50%');
+    // Dollars: half the cheapest plan it's for.
+    const dollars = await refusal(() =>
+      run(
+        affiliateMakeCode,
+        terms(codeFor('bigd'), { offerId: MONTHLY, percentOffBp: null, amountOffCents: 5000 }),
+        dana,
+      ),
+    );
+    expect(dollars.rule).toBe('affiliate_code_over_limit');
+    expect(dollars.message).toContain('$48.50');
+    expect(
+      (
+        await refusal(() =>
+          run(
+            affiliateMakeCode,
+            terms(codeFor('trial'), { offerId: ONCE, percentOffBp: null, trialDays: 14 }),
+            dana,
+          ),
+        )
+      ).rule,
+    ).toBe('affiliate_code_no_plan');
+    expect(
+      (
+        await refusal(() =>
+          run(affiliateMakeCode, terms(codeFor('both'), { amountOffCents: 500 }), dana),
+        )
+      ).code,
+    ).toBe('validation');
+  });
+
+  it('staff turn a code off, and only staff turn it back on', async () => {
+    await approved(dana, codeFor('turn'));
+    const { code } = await run(affiliateMakeCode, terms(codeFor('turnme')), dana);
+    const off = await run(affiliateTurnCode, { codeId: code.codeId, on: false }, dana);
+    expect(off.code).toMatchObject({ status: 'off', offByStaff: false });
+    await run(affiliateTurnCode, { codeId: code.codeId, on: true }, dana);
+
+    const byStaff = await run(affiliatesTurnCode, { codeId: code.codeId, on: false }, staff);
+    expect(byStaff.code).toMatchObject({ status: 'off', offByStaff: true });
+    expect(
+      (await refusal(() => run(affiliateTurnCode, { codeId: code.codeId, on: true }, dana))).rule,
+    ).toBe('affiliate_code_off_by_staff');
+    // Somebody else's code isn't there for them.
+    await apply(riley, codeFor('nosy'));
+    expect(
+      (await refusal(() => run(affiliateTurnCode, { codeId: code.codeId, on: false }, riley))).code,
+    ).toBe('not_found');
+    const back = await run(affiliatesTurnCode, { codeId: code.codeId, on: true }, staff);
+    expect(back.code).toMatchObject({ status: 'on', offByStaff: false });
+  });
+
+  it('the limit for everyone, and one affiliate’s own', async () => {
+    const affiliateId = await approved(dana, codeFor('cap'));
+    await run(affiliatesSaveSettings, { rateBp: 4000, maxDiscountBp: 3000 }, staff);
+    expect((await ask(affiliateMine, {}, dana)).affiliate?.maxDiscountBp).toBe(3000);
+    expect(
+      (
+        await refusal(() =>
+          run(affiliateMakeCode, terms(codeFor('cap1'), { percentOffBp: 3500 }), dana),
+        )
+      ).rule,
+    ).toBe('affiliate_code_over_limit');
+    // The share is kept when only the limit changes.
+    await run(affiliatesSaveSettings, { rateBp: 4000 }, staff);
+    expect((await ask(platformAffiliates, {}, staff)).settings).toMatchObject({
+      rateBp: 4000,
+      maxDiscountBp: 3000,
+    });
+
+    await run(affiliateSetMaxDiscount, { affiliateId, maxDiscountBp: 4000 }, staff);
+    expect((await ask(affiliateMine, {}, dana)).affiliate?.maxDiscountBp).toBe(4000);
+    await run(affiliateMakeCode, terms(codeFor('cap2'), { percentOffBp: 3500 }), dana);
+    await run(affiliateSetMaxDiscount, { affiliateId, maxDiscountBp: null }, staff);
+    await run(affiliatesSaveSettings, { rateBp: 4000, maxDiscountBp: 5000 }, staff);
+    expect((await ask(affiliateMine, {}, dana)).affiliate?.maxDiscountBp).toBe(5000);
+  });
+
+  it('staff make house codes, up to 90% off, that belong to nobody', async () => {
+    const house = await run(
+      affiliatesMakeCode,
+      {
+        affiliateId: null,
+        ...terms(codeFor('house'), { percentOffBp: 9000, discountMonths: null }),
+      },
+      staff,
+    );
+    expect(house.code).toMatchObject({ affiliateId: null, percentOffBp: 9000 });
+    const list = await ask(platformAffiliates, {}, staff);
+    expect(list.houseCodes.map((c) => c.codeId)).toContain(house.code.codeId);
+    // Nobody but staff makes one.
+    await approved(dana, codeFor('nohouse'));
+    const e = await refusal(() =>
+      run(affiliatesMakeCode, { affiliateId: null, ...terms(codeFor('h2')) }, dana),
+    );
+    expect(['forbidden', 'not_found']).toContain(e.code);
+  });
+
+  describe('on the plan page', () => {
+    beforeAll(async () => {
+      await admin().execute(
+        sql`update platform.founding_offers set status = 'open' where id = ${MONTHLY}`,
+      );
+    });
+    afterAll(async () => {
+      await admin().execute(
+        sql`update platform.founding_offers set status = 'closed' where id = ${MONTHLY}`,
+      );
+    });
+
+    const business = () =>
+      run(organizationCreate, { businessName: `Code Plumbing ${randomUUID().slice(0, 4)}` }, buyer);
+    const page = async (checkoutId: string) =>
+      (
+        await rows<{
+          status: string;
+          amount_cents: number;
+          full_cents: number | null;
+          discount_cents: number;
+          discount_months: number | null;
+          trial_days: number | null;
+          code_id: string | null;
+          problem: string;
+        }>(
+          admin(),
+          sql`select status, amount_cents, full_cents, discount_cents, discount_months, trial_days, code_id, problem
+              from platform.founding_checkouts where id = ${checkoutId}`,
+        )
+      )[0]!;
+
+    it('shows what a code takes off each plan, and refuses one that isn’t one, is off, or is their own', async () => {
+      await approved(dana, codeFor('page'));
+      const off20 = (await run(affiliateMakeCode, terms(codeFor('off20')), dana)).code;
+      const trial = (
+        await run(
+          affiliateMakeCode,
+          terms(codeFor('try14'), { percentOffBp: null, discountMonths: null, trialDays: 14 }),
+          dana,
+        )
+      ).code;
+      const { workspaceId } = await business();
+
+      const seen = await ask(
+        foundingCodePreview,
+        { workspaceId, code: ` ${off20.code.toUpperCase()} ` },
+        buyer,
+      );
+      expect(seen.code).toBe(off20.code);
+      expect(seen.offers.find((o) => o.offerId === MONTHLY)).toEqual({
+        offerId: MONTHLY,
+        applies: true,
+        fullCents: 9700,
+        discountCents: 1940,
+        discountMonths: 3,
+        trialDays: null,
+      });
+      const trialSeen = await ask(foundingCodePreview, { workspaceId, code: trial.code }, buyer);
+      expect(trialSeen.offers.find((o) => o.offerId === MONTHLY)).toMatchObject({
+        applies: true,
+        discountCents: 0,
+        trialDays: 14,
+      });
+      // A trial is for a plan paid by the month or the year.
+      expect(trialSeen.offers.find((o) => o.offerId === ONCE)?.applies).toBe(false);
+
+      expect(
+        (
+          await refusal(() =>
+            ask(foundingCodePreview, { workspaceId, code: 'nobody-has-this' }, buyer),
+          )
+        ).rule,
+      ).toBe('affiliate_code_unknown');
+      await run(affiliatesTurnCode, { codeId: trial.codeId, on: false }, staff);
+      expect(
+        (await refusal(() => ask(foundingCodePreview, { workspaceId, code: trial.code }, buyer)))
+          .rule,
+      ).toBe('affiliate_code_unknown');
+
+      // The affiliate's own business never uses their code.
+      const own = await run(organizationCreate, { businessName: 'Dana’s Own Plumbing' }, dana);
+      expect(
+        (
+          await refusal(() =>
+            ask(foundingCodePreview, { workspaceId: own.workspaceId, code: off20.code }, dana),
+          )
+        ).rule,
+      ).toBe('affiliate_code_own');
+    });
+
+    it('buys with a code: the page keeps what it takes off, and changing the code makes a new page', async () => {
+      await approved(dana, codeFor('buy'));
+      const off20 = (await run(affiliateMakeCode, terms(codeFor('buy20')), dana)).code;
+      const trial = (
+        await run(
+          affiliateMakeCode,
+          terms(codeFor('buytry'), { percentOffBp: 1000, discountMonths: null, trialDays: 7 }),
+          dana,
+        )
+      ).code;
+      const { workspaceId, organizationId } = await business();
+      const buy = (code: string | null) =>
+        run(foundingBuy, { workspaceId, offerId: MONTHLY, code }, buyer);
+
+      const first = await buy(off20.code);
+      expect(first.created).toBe(true);
+      expect(await page(first.checkoutId)).toMatchObject({
+        status: 'pending',
+        amount_cents: 7760,
+        full_cents: 9700,
+        discount_cents: 1940,
+        discount_months: 3,
+        trial_days: null,
+        code_id: off20.codeId,
+      });
+      // The same code again is the same page.
+      expect(await buy(off20.code.toUpperCase())).toMatchObject({
+        checkoutId: first.checkoutId,
+        created: false,
+      });
+
+      // A trial then 10% off for good: the page only keeps the card, and charges the discounted price later.
+      const tried = await buy(trial.code);
+      expect(tried.created).toBe(true);
+      expect(await page(first.checkoutId)).toMatchObject({
+        status: 'failed',
+        problem: 'They changed the code before paying.',
+      });
+      expect(await page(tried.checkoutId)).toMatchObject({
+        amount_cents: 8730,
+        discount_cents: 970,
+        discount_months: null,
+        trial_days: 7,
+      });
+
+      const none = await buy(null);
+      expect(await page(none.checkoutId)).toMatchObject({
+        amount_cents: 9700,
+        full_cents: null,
+        code_id: null,
+      });
+      expect(
+        (
+          await refusal(() =>
+            run(foundingBuy, { workspaceId, offerId: ONCE, code: trial.code }, buyer),
+          )
+        ).rule,
+      ).toBe('affiliate_code_other_plan');
+      // Nobody's credited until the business pays with it.
+      const [credited] = await rows(
+        admin(),
+        sql`select 1 from platform.affiliate_referrals where organization_id = ${organizationId}`,
+      );
+      expect(credited).toBeUndefined();
+    });
   });
 });
