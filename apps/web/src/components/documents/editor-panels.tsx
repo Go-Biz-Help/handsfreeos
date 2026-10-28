@@ -4,8 +4,11 @@
  * the whole template. The Send screen borrows the settings and the word changes.
  */
 import {
+  DEFAULT_REMIND_AFTER_DAYS,
+  DEFAULT_REMIND_EVERY_DAYS,
   DOCUMENT_FIELD_LABELS,
   DOCUMENT_FONTS,
+  DOCUMENT_SCREEN_WORDS as W,
   FIELD_PROMPTS,
   FILL_SOURCES,
   FILL_SOURCE_KEYS,
@@ -677,52 +680,53 @@ export function SettingsFields({
     <div className="flex flex-col gap-3">
       {signers > 1 ? (
         <div>
-          <Label>Who signs when</Label>
+          <Label>{W.whoSignsWhen}</Label>
           <Segmented
             value={settings.order}
             onChange={(order) => onChange({ order })}
             fill
-            ariaLabel="Who signs when"
+            ariaLabel={W.whoSignsWhen}
             options={[
-              { value: 'order', label: 'One after another' },
-              { value: 'together', label: 'All at once' },
+              { value: 'order', label: W.inOrder },
+              { value: 'together', label: W.together },
             ]}
           />
         </div>
       ) : null}
       <label className="flex items-start justify-between gap-3 text-[13px]">
         <span>
-          Ask for a code
-          <span className="block text-[12px] text-text-3">
-            A 6-digit code by text or email before they can open it.
-          </span>
+          {W.askCode}
+          <span className="block text-[12px] text-text-3">{W.askCodeBody}</span>
         </span>
         <Switch
           checked={settings.askCode}
           onChange={(askCode) => onChange({ askCode })}
-          label="Ask for a code"
+          label={W.askCode}
           testId="settings-code"
         />
       </label>
       <label className="flex items-center justify-between gap-3 text-[13px]">
-        Send reminders
+        {W.reminders}
         <Switch
           checked={reminding}
           onChange={(on) =>
             onChange(
               on
-                ? { remindAfterDays: 2, remindEveryDays: 3 }
+                ? {
+                    remindAfterDays: DEFAULT_REMIND_AFTER_DAYS,
+                    remindEveryDays: DEFAULT_REMIND_EVERY_DAYS,
+                  }
                 : { remindAfterDays: null, remindEveryDays: null },
             )
           }
-          label="Send reminders"
+          label={W.reminders}
         />
       </label>
       {reminding ? (
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor={`${id}-after`} className="text-[12.5px]">
-              First after (days)
+              {W.firstAfter}
             </Label>
             <Input
               id={`${id}-after`}
@@ -730,7 +734,7 @@ export function SettingsFields({
               type="number"
               min={1}
               max={30}
-              value={settings.remindAfterDays ?? 2}
+              value={settings.remindAfterDays ?? DEFAULT_REMIND_AFTER_DAYS}
               onChange={(e) => {
                 const n = days(e.target.value, 1, 30);
                 if (n) onChange({ remindAfterDays: n });
@@ -739,7 +743,7 @@ export function SettingsFields({
           </div>
           <div>
             <Label htmlFor={`${id}-every`} className="text-[12.5px]">
-              Then every (days)
+              {W.thenEvery}
             </Label>
             <Input
               id={`${id}-every`}
@@ -747,7 +751,7 @@ export function SettingsFields({
               type="number"
               min={1}
               max={30}
-              value={settings.remindEveryDays ?? 3}
+              value={settings.remindEveryDays ?? DEFAULT_REMIND_EVERY_DAYS}
               onChange={(e) => {
                 const n = days(e.target.value, 1, 30);
                 if (n) onChange({ remindEveryDays: n });
@@ -757,7 +761,7 @@ export function SettingsFields({
         </div>
       ) : null}
       <div>
-        <Label htmlFor={`${id}-expire`}>Out of time after (days)</Label>
+        <Label htmlFor={`${id}-expire`}>{W.expireDays}</Label>
         <Input
           id={`${id}-expire`}
           inputSize="sm"

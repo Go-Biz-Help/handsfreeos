@@ -1,20 +1,13 @@
-import { DOCUMENT_STATUS_LABELS, type DocumentStatus } from '@hfos/core';
+import { documentBadge as badgeOf, type DocumentStatus } from '@hfos/core';
 import type { BadgeVariant } from '@/components/ui/badge';
 
-/** A document's state as a badge: out, finishing (everyone signed, the copy being made), signed, or closed. */
+/** A document's state as a badge, in core's words and colours (the phone's are the same). */
 export function documentBadge(
   status: DocumentStatus,
   finishing = false,
 ): { label: string; variant: BadgeVariant } {
-  if (finishing) return { label: 'Making the signed copy', variant: 'accent' };
-  const variant: Record<DocumentStatus, BadgeVariant> = {
-    out: 'pending',
-    completed: 'ok',
-    declined: 'danger',
-    voided: 'gray',
-    expired: 'gray',
-  };
-  return { label: DOCUMENT_STATUS_LABELS[status], variant: variant[status] };
+  const { label, tone } = badgeOf(status, finishing);
+  return { label, variant: tone };
 }
 
 /** Where the customer, company, lead or record a document is about lives in the app. */

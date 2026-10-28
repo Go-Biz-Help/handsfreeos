@@ -6,9 +6,10 @@
  */
 import {
   DOCUMENT_FIELD_LABELS,
+  DOCUMENT_SCREEN_WORDS as W,
   DocumentDefinition,
   SENDER_ROLE,
-  SIGNATURE_TYPES,
+  sendFillable,
   valueProblem,
   type DocumentDefinition as Definition,
   type DocumentField,
@@ -101,7 +102,7 @@ export function SendDocument({
     <div className="flex flex-col gap-4" data-testid="send-document">
       <Card className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
         <div>
-          <Label htmlFor="send-template">Template</Label>
+          <Label htmlFor="send-template">{W.template}</Label>
           {templates.length ? (
             <Select
               id="send-template"
@@ -109,7 +110,7 @@ export function SendDocument({
               onChange={(e) => setTemplateId(e.target.value)}
               data-testid="send-template"
             >
-              <option value="">Pick one</option>
+              <option value="">{W.pickOne}</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -117,14 +118,11 @@ export function SendDocument({
               ))}
             </Select>
           ) : (
-            <p className="text-[13px] text-text-2">
-              No template is ready to send yet. An owner or admin makes them under Documents →
-              Templates.
-            </p>
+            <p className="text-[13px] text-text-2">{W.noTemplateReady}</p>
           )}
         </div>
         <div>
-          <Label htmlFor="send-about">Who it’s for</Label>
+          <Label htmlFor="send-about">{W.whoFor}</Label>
           {about ? (
             <div className="flex h-10 items-center gap-2 rounded-control border border-border bg-card-2 px-3">
               <span
@@ -139,7 +137,7 @@ export function SendDocument({
                 onClick={() => setAbout(null)}
                 disabled={!!fromDocumentId}
               >
-                Change
+                {W.change}
               </Button>
             </div>
           ) : (
@@ -158,7 +156,7 @@ export function SendDocument({
       ) : null}
       {templateId && about && !prefill && !failed ? (
         <p className="text-[13px] text-text-3" aria-live="polite">
-          Filling it in…
+          {W.fillingIn}
         </p>
       ) : null}
       {prefill && about ? (
@@ -245,15 +243,7 @@ function SendForm({
 
   /** What the team fills in or checks before it goes: their own part, and what HandsFreeOS filled in for signers. */
   const fillable = useMemo(
-    () =>
-      d.fields
-        .filter(
-          (f) =>
-            f.type !== 'date_signed' &&
-            !SIGNATURE_TYPES.includes(f.type) &&
-            (f.role === SENDER_ROLE || f.fillFrom !== null || f.id in prefill.presets),
-        )
-        .sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x),
+    () => sendFillable(d, prefill.presets),
     // Which fields are listed is fixed by the template; what's in them changes as they're typed.
     [d.fields, prefill.presets],
   );
@@ -272,7 +262,7 @@ function SendForm({
     setError(null);
     const missing = d.roles.find((r) => !signers[r.key]);
     if (missing) {
-      setError(`Pick who signs as ${missing.label}.`);
+      setError(W.pickSigner(missing.label));
       return;
     }
     for (const f of fillable.filter((x) => x.role === SENDER_ROLE)) {
@@ -310,9 +300,7 @@ function SendForm({
       };
       const out = unwrap(await apiBrowser().POST('/v1/commands/document.send', { body }));
       toast.success(
-        out.signers.filter((s) => s.kind === 'signer').length > 1
-          ? 'Sent. Each signer gets their own link.'
-          : 'Sent. Their link is on its way.',
+        out.signers.filter((s) => s.kind === 'signer').length > 1 ? W.sentMany : W.sentOne,
       );
       router.push(`/app/w/${workspaceId}/documents/${out.documentId}`);
     } catch (e) {
@@ -341,11 +329,7 @@ function SendForm({
         ) : null}
 
         <Card className="flex flex-col gap-3 p-4">
-          <Field
-            label="What it’s called"
-            htmlFor="send-name"
-            hint="On their email and text, and on their Files."
-          >
+          <Field label={W.name} htmlFor="send-name" hint={W.nameHint}>
             <Input
               id="send-name"
               value={name}
@@ -356,7 +340,7 @@ function SendForm({
         </Card>
 
         <Card className="flex flex-col gap-3 p-4" data-testid="send-signers">
-          <h2 className="text-[15px] font-semibold">Who signs</h2>
+          <h2 className="text-[15px] font-semibold">{W.whoSigns}</h2>
           {d.roles.map((r, i) => {
             const who = signers[r.key];
             return (
@@ -378,7 +362,7 @@ function SendForm({
                       size="sm"
                       onClick={() => setSigners((s) => ({ ...s, [r.key]: null }))}
                     >
-                      Change
+                      {W.change}
                     </Button>
                   </div>
                 ) : r.kind === 'team' ? (
@@ -394,7 +378,7 @@ function SendForm({
                         }));
                     }}
                   >
-                    <option value="">Pick someone on your team</option>
+                    <option value="">{W.pickTeam}</option>
                     {members.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.fullName}
@@ -428,8 +412,7 @@ function SendForm({
                       data-testid={`signer-in-person-${r.key}`}
                     />
                     <span>
-                      <span className="font-medium text-text">With you now.</span> No link goes to
-                      them: they sign on your phone or computer with Sign now on the document.
+                      <span className="font-medium text-text">{W.inPerson}</span> {W.inPersonBody}
                     </span>
                   </label>
                 ) : null}
@@ -437,7 +420,7 @@ function SendForm({
             );
           })}
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-            <span className="text-[13px] font-medium">Gets a signed copy</span>
+            <span className="text-[13px] font-medium">{W.copies}</span>
             {copies.map((c, i) => (
               <div
                 key={`${c.personId ?? c.userId}`}
@@ -447,7 +430,7 @@ function SendForm({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={`Take ${c.name} off the copies`}
+                  aria-label={W.takeOffCopies(c.name)}
                   onClick={() => setCopies((was) => was.filter((_, n) => n !== i))}
                 >
                   <X className="h-4 w-4" strokeWidth={1.75} />
@@ -481,7 +464,7 @@ function SendForm({
                   setAddingCopy(null);
                 }}
               >
-                <option value="">Pick someone on your team</option>
+                <option value="">{W.pickTeam}</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.fullName}
@@ -491,11 +474,12 @@ function SendForm({
             ) : (
               <div className="flex flex-wrap gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setAddingCopy('person')}>
-                  <Plus className="h-4 w-4" strokeWidth={1.75} />A customer
+                  <Plus className="h-4 w-4" strokeWidth={1.75} />
+                  {W.copyCustomer}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setAddingCopy('team')}>
                   <Plus className="h-4 w-4" strokeWidth={1.75} />
-                  Someone on your team
+                  {W.copyTeam}
                 </Button>
               </div>
             )}
@@ -505,11 +489,8 @@ function SendForm({
         {fillable.length ? (
           <Card className="flex flex-col gap-3 p-4" data-testid="send-values">
             <div>
-              <h2 className="text-[15px] font-semibold">Filled in before it goes</h2>
-              <p className="text-[12.5px] text-text-3">
-                Your part, and what HandsFreeOS filled in for them. They can change what’s theirs
-                before they sign.
-              </p>
+              <h2 className="text-[15px] font-semibold">{W.filledIn}</h2>
+              <p className="text-[12.5px] text-text-3">{W.filledInBody}</p>
             </div>
             {fillable.map((f) => (
               <ValueInput
@@ -524,8 +505,8 @@ function SendForm({
         ) : null}
 
         <Card className="flex flex-col gap-3 p-4">
-          <h2 className="text-[15px] font-semibold">The note and the settings</h2>
-          <Field label="Note with the link" htmlFor="send-message">
+          <h2 className="text-[15px] font-semibold">{W.noteAndSettings}</h2>
+          <Field label={W.note} htmlFor="send-message">
             <Textarea
               id="send-message"
               className="min-h-20"
@@ -556,7 +537,7 @@ function SendForm({
           data-testid="send-submit"
         >
           <Send className="h-4 w-4" strokeWidth={1.75} />
-          Send it
+          {W.sendIt}
         </Button>
       </div>
 
@@ -652,7 +633,7 @@ function ValueInput({
         />
       ) : field.type === 'choice' ? (
         <Select id={id} value={text} onChange={(e) => set(e.target.value)}>
-          <option value="">Pick one</option>
+          <option value="">{W.pickOne}</option>
           {field.options.map((o) => (
             <option key={o} value={o}>
               {o}

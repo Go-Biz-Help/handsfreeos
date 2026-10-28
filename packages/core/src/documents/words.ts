@@ -15,6 +15,25 @@ export const DOCUMENT_STATUS_LABELS: Readonly<Record<DocumentStatus, string>> = 
   expired: 'Out of time',
 };
 
+/** The colours of a badge, as the web's and the phone's badges both name them. */
+export type DocumentTone = 'pending' | 'ok' | 'danger' | 'gray' | 'accent';
+
+/** A document's state as a badge: out, finishing (everyone signed, the copy being made), signed, or closed. */
+export function documentBadge(
+  status: DocumentStatus,
+  finishing = false,
+): { readonly label: string; readonly tone: DocumentTone } {
+  if (finishing) return { label: 'Making the signed copy', tone: 'accent' };
+  const tone: Record<DocumentStatus, DocumentTone> = {
+    out: 'pending',
+    completed: 'ok',
+    declined: 'danger',
+    voided: 'gray',
+    expired: 'gray',
+  };
+  return { label: DOCUMENT_STATUS_LABELS[status], tone: tone[status] };
+}
+
 export const SIGNER_STATUSES = ['waiting', 'sent', 'opened', 'signed', 'declined'] as const;
 export type SignerStatus = (typeof SIGNER_STATUSES)[number];
 
@@ -24,6 +43,14 @@ export const SIGNER_STATUS_LABELS: Readonly<Record<SignerStatus, string>> = {
   opened: 'Opened',
   signed: 'Signed',
   declined: 'Declined',
+};
+
+export const SIGNER_STATUS_TONES: Readonly<Record<SignerStatus, DocumentTone>> = {
+  waiting: 'gray',
+  sent: 'pending',
+  opened: 'accent',
+  signed: 'ok',
+  declined: 'danger',
 };
 
 /**
@@ -317,6 +344,158 @@ export const SIGNING_WORDS = {
   // From their portal (answer 10b).
   backToPortal: 'Back to your portal',
 } as const;
+
+/** The team's screens for Documents, as the web and the phone both say it. */
+export const DOCUMENT_SCREEN_WORDS = {
+  title: 'Documents',
+  sent: 'Sent',
+  templates: 'Templates',
+  allStates: 'All',
+  send: 'Send a document',
+  makeTemplateFirst: 'Make a template first',
+  nothingSent: 'Nothing sent yet',
+  nothingSentBody:
+    'Send a contract or agreement to a customer and they sign it online. You see every step here.',
+  noneHere: 'None here',
+  noneHereBody: 'No documents are in that state.',
+  older: 'Show older ones',
+  inUse: 'In use',
+  archived: 'Archived',
+  noTemplates: 'No templates yet',
+  nothingArchived: 'Nothing archived',
+  nothingArchivedBody: 'Templates you archive wait here, and can be restored.',
+  askForTemplates: 'An owner or admin makes the templates. Ask them for the one you need.',
+  ready: 'Ready to send',
+  notReady: 'Not ready yet',
+  out: (n: number) => `${n} out for signing`,
+  pages: (n: number) => (n === 1 ? '1 page' : `${n} pages`),
+  fields: (n: number) => (n === 1 ? '1 field' : `${n} fields`),
+  noPdf: 'No PDF yet',
+  // One document.
+  remind: 'Remind',
+  reminded: 'Reminder on its way.',
+  void: 'Void',
+  voidTitle: (name: string) => `Void “${name}”?`,
+  voidBody:
+    'Its links stop working and everyone on it is told. What’s been signed so far is kept. To fix something, void it, then send it again.',
+  voidReason: 'Why (they see this)',
+  voidReasonExample: 'The start date was wrong. A corrected copy is on its way.',
+  keepOut: 'Keep it out',
+  voidIt: 'Void it',
+  voided: 'Voided. Its links don’t open it anymore, and the signers are told.',
+  openSigned: 'Open the signed copy',
+  download: 'Download',
+  sendAgain: 'Send it again',
+  whoSigns: 'Who signs',
+  whatHappened: 'What happened',
+  getsCopy: 'Gets a copy',
+  signNow: 'Sign now',
+  copyLink: 'Copy their link',
+  shareLink: 'Send their link',
+  linkCopied: (name: string) =>
+    `${name}’s link is copied. It opens the document as them, so only send it to them.`,
+  about: 'About',
+  sentAt: (when: string, by: string | null) => `Sent ${when}${by ? ` by ${by}` : ''}`,
+  outOfTimeOn: (day: string) => `Out of time ${day}`,
+  everyoneSigned: (when: string) => `Everyone signed ${when}`,
+  voidedNote: (when: string, reason: string | null) =>
+    `Voided ${when}${reason ? `: ${reason}` : '.'}`,
+  declinedNote: (who: string | null, when: string, reason: string | null) =>
+    `${who ?? 'A signer'} declined ${when}${reason ? `: ${reason}` : '.'}`,
+  expiredNote: (when: string) => `Ran out of time ${when} before everyone signed.`,
+  completedNote:
+    'The signed copy is on their Files, locked, with a proof page at the end. Everyone who signed or gets a copy was sent it.',
+  signedAt: (when: string) => `Signed ${when}`,
+  openedAt: (when: string) => `Opened ${when}`,
+  linkSentAt: (when: string, reminders: number) =>
+    `Sent ${when}${reminders ? `, ${reminders} ${reminders === 1 ? 'reminder' : 'reminders'}` : ''}`,
+  // Sending one.
+  template: 'Template',
+  pickOne: 'Pick one',
+  noTemplateReady:
+    'No template is ready to send yet. An owner or admin makes them under Documents → Templates.',
+  whoFor: 'Who it’s for',
+  change: 'Change',
+  fillingIn: 'Filling it in…',
+  name: 'What it’s called',
+  nameHint: 'On their email and text, and on their Files.',
+  pickTeam: 'Pick someone on your team',
+  pickSigner: (role: string) => `Pick who signs as ${role}.`,
+  inPerson: 'With you now.',
+  inPersonBody:
+    'No link goes to them: they sign on your phone or computer with Sign now on the document.',
+  copies: 'Gets a signed copy',
+  copyCustomer: 'A customer',
+  copyTeam: 'Someone on your team',
+  takeOffCopies: (name: string) => `Take ${name} off the copies`,
+  filledIn: 'Filled in before it goes',
+  filledInBody:
+    'Your part, and what HandsFreeOS filled in for them. They can change what’s theirs before they sign.',
+  noteAndSettings: 'The note and the settings',
+  note: 'Note with the link',
+  noteExample: 'Here’s the agreement we talked about. Let me know if you have questions.',
+  sendIt: 'Send it',
+  sentOne: 'Sent. Their link is on its way.',
+  sentMany: 'Sent. Each signer gets their own link.',
+  // The settings a template keeps, and a document going out can change.
+  whoSignsWhen: 'Who signs when',
+  inOrder: 'One after another',
+  together: 'All at once',
+  askCode: 'Ask for a code',
+  askCodeBody: 'A 6-digit code by text or email before they can open it.',
+  reminders: 'Send reminders',
+  firstAfter: 'First after (days)',
+  thenEvery: 'Then every (days)',
+  expireDays: 'Out of time after (days)',
+  /** The phone's own words, where the phone does a thing its own way. */
+  phone: {
+    needsSignal: 'Documents need signal. They show here again once you’re back on.',
+    templatesOnWeb: 'Make and change templates on the web for now.',
+    pickTemplate: 'Pick a template',
+    searchCustomers: 'Search by name, number or street',
+    nobody: (typed: string) => `Nobody here matches “${typed}”.`,
+    customerTitle: 'Documents',
+    signNowTitle: (name: string) => `Hand your phone to ${name}?`,
+    signNowBody:
+      'Their signing page opens here. When they’re done, they tap Back to the document and hand it back.',
+    signNowLocks: 'The app locks again when the page closes, so only you can open it.',
+    signNowGo: 'Open it for them',
+    pagesOnWeb: 'See the pages on the web',
+    share: 'Share the signed copy',
+    fileShareFailed: 'This phone can’t save or share files.',
+    datePlaceholder: 'YYYY-MM-DD',
+  },
+} as const;
+
+/**
+ * Where the phone's Sign now comes back to: the signing page's way back (`#back=`), in the app's own scheme. Nothing on
+ * the phone opens it as a screen; it closes the signing page the phone opened, and the app locks.
+ */
+export const PHONE_HAND_BACK = 'handsfreeos://documents/handed-back';
+
+/** The Send screen's query for who a document is about (`?person=`…). */
+export const SEND_ABOUT_PARAM = {
+  person: 'person',
+  company: 'company',
+  lead: 'lead',
+  custom_record: 'record',
+} as const;
+
+/**
+ * Sending a corrected one again (answer 15a), from a voided, declined or out-of-time document: the Send screen's query
+ * (`template=…&from=…&person=…`), or null when it can't go again (it's still out, it was signed, or its template is
+ * gone).
+ */
+export function sendAgainQuery(doc: {
+  readonly id: string;
+  readonly status: DocumentStatus;
+  readonly templateId: string | null;
+  readonly about: { readonly kind: keyof typeof SEND_ABOUT_PARAM; readonly id: string } | null;
+}): string | null {
+  if (!doc.templateId || doc.status === 'out' || doc.status === 'completed') return null;
+  const about = doc.about ? `&${SEND_ABOUT_PARAM[doc.about.kind]}=${doc.about.id}` : '';
+  return `template=${doc.templateId}&from=${doc.id}${about}`;
+}
 
 /** The proof page added to the end of every signed copy. */
 export const PROOF_WORDS = {

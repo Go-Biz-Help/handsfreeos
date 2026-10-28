@@ -49,6 +49,8 @@ export const MORE_WORDS = {
   money: 'Money',
   /** M17: forms a phone can fill in with no signal. */
   forms: 'Forms',
+  /** Contracts and agreements sent to sign (docs/documents.md), for whoever can send them. */
+  documents: 'Documents',
   approvals: 'Approvals',
   /** The AI teammate's test console, for people who manage it. */
   testTeammate: 'Test your AI teammate',

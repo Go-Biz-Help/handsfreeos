@@ -8,6 +8,7 @@ import {
   DOCUMENT_FIELD_LABELS,
   SENDER_ROLE,
   type DocumentDefinition,
+  SIGNATURE_TYPES,
   type DocumentField,
   type DocumentValue,
   valueKindOf,
@@ -120,3 +121,20 @@ export function signerProblems(
 /** The fields the business fills in before it sends. */
 export const senderFields = (definition: DocumentDefinition): DocumentField[] =>
   definition.fields.filter((f) => f.role === SENDER_ROLE);
+
+/**
+ * What the team fills in or checks on the Send screen, top to bottom: their own part, and what HandsFreeOS filled in
+ * for signers. Signatures and the date signed are never filled in before it goes.
+ */
+export const sendFillable = (
+  definition: DocumentDefinition,
+  presets: Readonly<Record<string, unknown>>,
+): DocumentField[] =>
+  definition.fields
+    .filter(
+      (f) =>
+        f.type !== 'date_signed' &&
+        !SIGNATURE_TYPES.includes(f.type) &&
+        (f.role === SENDER_ROLE || f.fillFrom !== null || f.id in presets),
+    )
+    .sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x);

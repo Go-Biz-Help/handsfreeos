@@ -9,7 +9,8 @@ The owner's answers of 28 October 2026 decide what it does (27 of them, listed i
 `/mnt/project-files/e-signatures/plan.md` while it's being built, and summed up under "Rules worth knowing" below).
 It's built in five parts. **Part 1 is the web**: templates from a PDF, sending, the signing page, the signed copy,
 reminders, expiry, void and send again, and the Assistant. **Part 2** adds the AI placing the fields on a PDF (4a),
-**Sign now** for someone signing in person (13a), and documents in the customer's portal (10b).
+**Sign now** for someone signing in person (13a), and documents in the customer's portal (10b). **Part 3 is the
+phone** (24b): sending and following documents first, then templates.
 
 ## Where things are
 
@@ -31,6 +32,9 @@ reminders, expiry, void and send again, and the Assistant. **Part 2** adds the A
 | Part 2's tables                           | migration `20261027017000` (in-person signers, the portal's reads, `documents` usage)    |
 | The customer's portal                     | `portal.documents` in `packages/core/src/queries/portal.ts`; the page at                 |
 |                                           | `apps/web/src/app/c/[token]/documents/`; opening one is `apps/worker/src/http/portal.ts` |
+| The screens' words, web and phone         | `DOCUMENT_SCREEN_WORDS` in `packages/core/src/documents/words.ts`                        |
+| The phone                                 | `apps/mobile/src/documents/` (`calls.ts`, `screens.tsx`, `send.tsx`, `card.tsx`); routes |
+|                                           | under `apps/mobile/src/app/app/w/[workspaceId]/documents/` and `(tabs)/(more)/`          |
 
 ## The shape
 
@@ -116,9 +120,25 @@ is, never who the others are or how to reach them. Voided ones aren't shown. Ope
 /public/portal/documents/:signerId/open`) gives the signing page's own link and checks the code the template asks
 for, since signing in to the portal was a code to the same person; the trail says so.
 
+**The phone asks HandsFreeOS for documents; it keeps none.** Nothing of Documents is in the phone's copy or in
+`apps/sync/sync-config.yaml`, so the screens need signal and say so without it, and nothing waits in the queue: a
+document goes out, or is reminded or voided, as HandsFreeOS has it now. The phone makes the web's calls, in core's
+words (`DOCUMENT_SCREEN_WORDS`); what both decide is in core too (`documentBadge`, `sendFillable`,
+`sendAgainQuery`). Documents is in More for whoever holds `documents.send`, a customer's page has a Document button
+and their latest documents, and a document's push opens its screen (`apps/mobile/src/links/route-map.ts`).
+
+**Sign now on the phone opens the signing page in the phone's own browser, and the app locks after.** It's
+`openAuthSessionAsync` with an ephemeral session, so nothing of the person's own browser is shared, and the page's
+way back is `PHONE_HAND_BACK` (`handsfreeos://documents/handed-back`): the signing page treats it as in person, the
+browser closes on it, and the route map opens nothing for it. However the browser closes (Back to the document, or
+the customer tapping Cancel), the app locks when "Unlock with Face ID" is on (`lockIfEnabled`), so the customer
+holding the phone never lands in the business's app. With the lock off, the app opens where it was.
+
 ## Not yet
 
-- Part 3: the phone app, templates included.
+- Part 3, still to come: templates on the phone (a new one from a PDF, fields, who signs, settings, word changes, the
+  AI placing fields), changing one customer's words when sending (27a), and a document's pages on the phone. Until
+  then the phone opens the web for them.
 - Part 4: payments and file uploads when signing, an estimate carrying a contract, forms' Signature question on the
   new pad, workflows, and the AI teammate (asking a person first).
 - Part 5: writing templates in HandsFreeOS, turning an uploaded PDF into an editable one, and Real Estate's third

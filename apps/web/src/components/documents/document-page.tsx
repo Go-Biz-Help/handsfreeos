@@ -5,8 +5,11 @@
  * signer who's with them (Sign now, answer 13a), sends a corrected one again (answer 15a) and opens the signed copy.
  */
 import {
+  DOCUMENT_SCREEN_WORDS as W,
   DocumentDefinition,
   documentStepText,
+  sendAgainQuery,
+  SIGNER_STATUS_TONES,
   signerIsUp,
   signerStatusLabel,
   type DocumentValueInput,
@@ -25,7 +28,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
@@ -39,21 +42,6 @@ import { documentFileUrl } from '@/lib/documents/files';
 import { aboutHref, documentBadge } from '@/lib/documents/words';
 import { formatDate } from '@/lib/format';
 import { boxStyle, EditView, PdfPages, ValueView } from './pdf-pages';
-
-const SIGNER_BADGES: Record<DocumentSignerRow['status'], BadgeVariant> = {
-  waiting: 'gray',
-  sent: 'pending',
-  opened: 'accent',
-  signed: 'ok',
-  declined: 'danger',
-};
-
-const ABOUT_PARAM = {
-  person: 'person',
-  company: 'company',
-  lead: 'lead',
-  custom_record: 'record',
-} as const;
 
 export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: DocumentGetOut }) {
   const router = useRouter();
@@ -85,7 +73,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
           body: { workspaceId, documentId: doc.id },
         }),
       );
-      toast.success('Reminder on its way.');
+      toast.success(W.reminded);
       router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -107,7 +95,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
         }),
       );
       setVoiding(false);
-      toast.success('Voided. Its links don’t open it anymore, and the signers are told.');
+      toast.success(W.voided);
       router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -123,10 +111,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
         workspaceId,
         signerId: signer.id,
       });
-      await copyText(
-        url,
-        `${signer.name}’s link is copied. It opens the document as them, so only send it to them.`,
-      );
+      await copyText(url, W.linkCopied(signer.name));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -172,12 +157,8 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
     }
   }
 
-  const again =
-    doc.canSend && doc.templateId && doc.status !== 'out' && doc.status !== 'completed'
-      ? `/app/w/${workspaceId}/documents/send?template=${doc.templateId}&from=${doc.id}${
-          doc.about ? `&${ABOUT_PARAM[doc.about.kind]}=${doc.about.id}` : ''
-        }`
-      : null;
+  const againQuery = doc.canSend ? sendAgainQuery(doc) : null;
+  const again = againQuery ? `/app/w/${workspaceId}/documents/send?${againQuery}` : null;
 
   return (
     <div className="flex flex-col gap-4" data-testid="document-page">
@@ -210,7 +191,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                   data-testid="document-remind"
                 >
                   <BellRing className="h-4 w-4" strokeWidth={1.75} />
-                  Remind
+                  {W.remind}
                 </Button>
                 <Button
                   variant="secondary"
@@ -219,7 +200,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                   data-testid="document-void-open"
                 >
                   <Ban className="h-4 w-4" strokeWidth={1.75} />
-                  Void
+                  {W.void}
                 </Button>
               </>
             ) : null}
@@ -227,7 +208,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
               <>
                 <Button variant="secondary" size="sm" onClick={() => void openSigned(false)}>
                   <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
-                  Open the signed copy
+                  {W.openSigned}
                 </Button>
                 <Button
                   size="sm"
@@ -235,7 +216,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                   data-testid="document-download"
                 >
                   <Download className="h-4 w-4" strokeWidth={1.75} />
-                  Download
+                  {W.download}
                 </Button>
               </>
             ) : null}
@@ -247,7 +228,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                 data-testid="document-send-again"
               >
                 <RotateCcw className="h-4 w-4" strokeWidth={1.75} />
-                Send it again
+                {W.sendAgain}
               </ButtonLink>
             ) : null}
           </div>
@@ -255,7 +236,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
         <p className="text-[13px] text-text-2">
           {doc.about ? (
             <>
-              About{' '}
+              {W.about}{' '}
               <Link
                 className="font-medium text-text hover:underline"
                 href={aboutHref(workspaceId, doc.about)}
@@ -265,34 +246,29 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
               {' · '}
             </>
           ) : null}
-          Sent {formatDate(doc.sentAt, { time: true })}
-          {doc.sentBy ? ` by ${doc.sentBy.fullName}` : ''}
-          {doc.status === 'out' ? ` · Out of time ${formatDate(doc.expiresAt)}` : ''}
+          {W.sentAt(formatDate(doc.sentAt, { time: true }), doc.sentBy?.fullName ?? null)}
+          {doc.status === 'out' ? ` · ${W.outOfTimeOn(formatDate(doc.expiresAt))}` : ''}
           {doc.completedAt
-            ? ` · Everyone signed ${formatDate(doc.completedAt, { time: true })}`
+            ? ` · ${W.everyoneSigned(formatDate(doc.completedAt, { time: true }))}`
             : ''}
         </p>
         {doc.status === 'voided' ? (
-          <Note>
-            Voided {formatDate(doc.voidedAt, { time: true })}
-            {doc.voidReason ? `: ${doc.voidReason}` : '.'}
-          </Note>
+          <Note>{W.voidedNote(formatDate(doc.voidedAt, { time: true }), doc.voidReason)}</Note>
         ) : doc.status === 'declined' ? (
           <Note>
             {(() => {
               const who = doc.signers.find((s) => s.status === 'declined');
-              return `${who?.name ?? 'A signer'} declined ${formatDate(doc.declinedAt, { time: true })}${who?.declineReason ? `: ${who.declineReason}` : '.'}`;
+              return W.declinedNote(
+                who?.name ?? null,
+                formatDate(doc.declinedAt, { time: true }),
+                who?.declineReason ?? null,
+              );
             })()}
           </Note>
         ) : doc.status === 'expired' ? (
-          <Note>
-            Ran out of time {formatDate(doc.expiredAt, { time: true })} before everyone signed.
-          </Note>
+          <Note>{W.expiredNote(formatDate(doc.expiredAt, { time: true }))}</Note>
         ) : doc.status === 'completed' ? (
-          <p className="text-[12.5px] text-text-3">
-            The signed copy is on their Files, locked, with a proof page at the end. Everyone who
-            signed or gets a copy was sent it.
-          </p>
+          <p className="text-[12.5px] text-text-3">{W.completedNote}</p>
         ) : null}
       </div>
 
@@ -335,7 +311,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
         </div>
         <div className="flex flex-col gap-4 lg:sticky lg:top-4">
           <Card className="p-4">
-            <h2 className="mb-2 text-[15px] font-semibold">Who signs</h2>
+            <h2 className="mb-2 text-[15px] font-semibold">{W.whoSigns}</h2>
             <ul className="flex flex-col divide-y divide-border">
               {doc.signers.map((s) => (
                 <li
@@ -347,8 +323,8 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                     <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">
                       {s.name}
                     </span>
-                    <Badge variant={s.kind === 'copy' ? 'gray' : SIGNER_BADGES[s.status]}>
-                      {s.kind === 'copy' ? 'Gets a copy' : signerStatusLabel(s, doc.signers)}
+                    <Badge variant={s.kind === 'copy' ? 'gray' : SIGNER_STATUS_TONES[s.status]}>
+                      {s.kind === 'copy' ? W.getsCopy : signerStatusLabel(s, doc.signers)}
                     </Badge>
                   </div>
                   <span className="text-[12px] text-text-3">
@@ -356,18 +332,15 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                   </span>
                   {s.signedAt ? (
                     <span className="text-[12px] text-text-2">
-                      Signed {formatDate(s.signedAt, { time: true })}
+                      {W.signedAt(formatDate(s.signedAt, { time: true }))}
                     </span>
                   ) : s.openedAt ? (
                     <span className="text-[12px] text-text-2">
-                      Opened {formatDate(s.openedAt, { time: true })}
+                      {W.openedAt(formatDate(s.openedAt, { time: true }))}
                     </span>
                   ) : s.lastSentAt ? (
                     <span className="text-[12px] text-text-2">
-                      Sent {formatDate(s.lastSentAt, { time: true })}
-                      {s.reminders
-                        ? `, ${s.reminders} ${s.reminders === 1 ? 'reminder' : 'reminders'}`
-                        : ''}
+                      {W.linkSentAt(formatDate(s.lastSentAt, { time: true }), s.reminders)}
                     </span>
                   ) : null}
                   {doc.canSend && (doc.status === 'out' || doc.status === 'completed') ? (
@@ -382,7 +355,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                           data-testid="document-sign-now"
                         >
                           <PenLine className="h-4 w-4" strokeWidth={1.75} />
-                          Sign now
+                          {W.signNow}
                         </Button>
                       ) : null}
                       <Button
@@ -394,7 +367,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                         data-testid="document-copy-link"
                       >
                         <Link2 className="h-4 w-4" strokeWidth={1.75} />
-                        Copy their link
+                        {W.copyLink}
                       </Button>
                     </div>
                   ) : null}
@@ -403,7 +376,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
             </ul>
           </Card>
           <Card className="p-4">
-            <h2 className="mb-2 text-[15px] font-semibold">What happened</h2>
+            <h2 className="mb-2 text-[15px] font-semibold">{W.whatHappened}</h2>
             <ol className="flex flex-col gap-2" data-testid="document-steps">
               {[...doc.steps].reverse().map((st) => (
                 <li key={st.id} className="flex flex-col text-[12.5px]">
@@ -427,25 +400,22 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
       </div>
 
       <Dialog open={voiding} onOpenChange={(o) => busy !== 'void' && setVoiding(o)}>
-        <DialogContent
-          title={`Void “${doc.name}”?`}
-          description="Its links stop working and everyone on it is told. What’s been signed so far is kept. To fix something, void it, then send it again."
-        >
+        <DialogContent title={W.voidTitle(doc.name)} description={W.voidBody}>
           <div className="mt-4 flex flex-col gap-4">
-            <Field label="Why (they see this)" htmlFor="void-reason">
+            <Field label={W.voidReason} htmlFor="void-reason">
               <Textarea
                 id="void-reason"
                 className="min-h-16"
                 value={reason}
                 maxLength={500}
-                placeholder="The start date was wrong. A corrected copy is on its way."
+                placeholder={W.voidReasonExample}
                 onChange={(e) => setReason(e.target.value)}
                 data-testid="document-void-reason"
               />
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setVoiding(false)}>
-                Keep it out
+                {W.keepOut}
               </Button>
               <Button
                 variant="danger"
@@ -453,7 +423,7 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                 onClick={() => void voidIt()}
                 data-testid="document-void"
               >
-                Void it
+                {W.voidIt}
               </Button>
             </div>
           </div>
