@@ -203,6 +203,14 @@ export function skipReasonText(reason: string | null | undefined): string {
       return 'that workflow isn’t on';
     case 'no_recipients':
       return 'nobody to notify';
+    case 'no_call_consent':
+      return 'they haven’t agreed to calls in writing';
+    case 'no_calls':
+      return 'they asked not to be called';
+    case 'no_teammate':
+      return 'the AI teammate is off';
+    case 'already_called':
+      return 'it already called them for this run';
     case 'no_tester':
       return 'no email address to send the test to';
     case 'by_person':

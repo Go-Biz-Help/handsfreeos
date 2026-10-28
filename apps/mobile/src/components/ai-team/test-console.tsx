@@ -651,13 +651,13 @@ function SetupSheet({
             onChange={(p) => c.setPurpose(p as typeof c.purpose)}
             testID="test-call-why"
           />
-          {c.purpose === 'campaign' ? (
+          {c.goalAsk ? (
             <Input
               className="mt-2"
               value={c.goal}
               onChangeText={c.setGoal}
-              placeholder="What the calls are about"
-              accessibilityLabel="What the campaign call is about"
+              placeholder={c.goalAsk.placeholder}
+              accessibilityLabel={c.goalAsk.label}
               maxLength={TEST_CALL_GOAL_MAX}
               testID="test-call-goal"
             />

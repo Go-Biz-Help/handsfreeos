@@ -19283,7 +19283,8 @@
                       "estimate_follow_up",
                       "no_show_rebook",
                       "speed_to_lead_ai",
-                      "missed_call_text_back_ai"
+                      "missed_call_text_back_ai",
+                      "speed_to_lead_phone"
                     ]
                   },
                   "mapping": {
@@ -152570,7 +152571,8 @@
                                           "confirm_visit",
                                           "missed_call",
                                           "quote",
-                                          "campaign"
+                                          "campaign",
+                                          "workflow"
                                         ]
                                       },
                                       "to": {

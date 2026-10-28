@@ -9,13 +9,14 @@ import {
   WEBHOOK_PARTS,
   type ActionStep,
 } from '@hfos/core';
-import { Moon, Plus, Sparkles, X } from 'lucide-react';
+import { Moon, PhoneCall, Plus, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
+import { Textarea } from '@/components/ui/textarea';
 import { stepLines } from '@/lib/workflows/steps';
 import { useEditor } from '../editor-context';
 import { VariableField } from '../variable-field';
@@ -95,6 +96,8 @@ function ActionFields({ step }: { step: ActionStep }) {
       return <WorkflowRef step={step} />;
     case 'hand_to_ai_teammate':
       return <HandToTeammate step={step} />;
+    case 'call_with_ai':
+      return <CallWithAi step={step} />;
   }
 }
 
@@ -233,6 +236,120 @@ function HandToTeammate({ step }: { step: Of<'hand_to_ai_teammate'> }) {
           hint={`${name} reads this before it writes. Customers never see it.`}
         />
       </div>
+    </>
+  );
+}
+
+/**
+ * "AI teammate calls them": the step's call playbook. Why it's calling (it finishes "I'm calling …"), what to find
+ * out, what it may offer, and when to book. Only someone who agreed to calls in writing is called.
+ */
+function CallWithAi({ step }: { step: Of<'call_with_ai'> }) {
+  const update = useStepUpdate(step.id);
+  const vars = useVars(step.id);
+  const { readOnly, teammate } = useEditor();
+  const name = teammate?.name ?? 'The AI teammate';
+  const c = step.config;
+  const opening = useDraftText(c.opening, (next) =>
+    update({ config: { opening: next } }, 'Edit why it’s calling', {
+      group: 'opening',
+      quiet: true,
+    }),
+  );
+  const findOut = useDraftText(c.findOut, (next) =>
+    update({ config: { findOut: next } }, 'Edit what to find out', {
+      group: 'findOut',
+      quiet: true,
+    }),
+  );
+  const offer = useDraftText(c.offer, (next) =>
+    update({ config: { offer: next } }, 'Edit what to offer', { group: 'offer', quiet: true }),
+  );
+  const books: { key: typeof c.book; title: string; detail: string }[] = [
+    {
+      key: 'when_ready',
+      title: 'When they want to',
+      detail: 'It offers times from the calendars in its Book skill once they ask, or say yes.',
+    },
+    {
+      key: 'always',
+      title: 'Ask to book a visit',
+      detail: 'Once it knows what they need, it offers a time.',
+    },
+    {
+      key: 'never',
+      title: 'Leave it to the team',
+      detail: 'It finds out what they need. Your team follows up to book.',
+    },
+  ];
+  return (
+    <>
+      <TeammateStatusNote />
+      <Note icon={PhoneCall} className="mb-3.5" testId="call-with-ai-rules">
+        {name} calls only people who agreed to calls in writing, and only in your open hours, never
+        in quiet hours. It says who it is, that it’s an AI and that the call is recorded. Anyone
+        else is skipped, saying why.
+      </Note>
+      <div className="mb-3.5">
+        <VariableField
+          id={`call-opening-${step.id}`}
+          label="Why it’s calling"
+          value={opening.value}
+          onChange={opening.change}
+          error={opening.error}
+          variables={vars}
+          maxLength={300}
+          preview="plain"
+          hint="It finishes “I’m calling …”, like “about the quote you asked for on our website”."
+          testId="call-with-ai-opening"
+        />
+      </div>
+      <PanelField
+        label="What to find out (optional)"
+        htmlFor={`call-find-${step.id}`}
+        error={findOut.error}
+        hint="The questions to ask, like what they need done, where, and how soon."
+      >
+        <Textarea
+          id={`call-find-${step.id}`}
+          className="min-h-[60px] text-[14px]"
+          value={findOut.value}
+          readOnly={readOnly}
+          maxLength={1000}
+          onChange={(e) => findOut.change(e.target.value)}
+          data-testid="call-with-ai-find-out"
+        />
+      </PanelField>
+      <PanelField
+        label="What it may offer (optional)"
+        htmlFor={`call-offer-${step.id}`}
+        error={offer.error}
+        hint="A free estimate, this month’s price. It offers nothing else."
+      >
+        <Textarea
+          id={`call-offer-${step.id}`}
+          className="min-h-[60px] text-[14px]"
+          value={offer.value}
+          readOnly={readOnly}
+          maxLength={1000}
+          onChange={(e) => offer.change(e.target.value)}
+          data-testid="call-with-ai-offer"
+        />
+      </PanelField>
+      <PanelField label="Booking">
+        <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="Booking">
+          {books.map((b) => (
+            <RadioRow
+              key={b.key}
+              on={c.book === b.key}
+              onSelect={() => update({ config: { book: b.key } }, 'Change when it books')}
+              title={b.title}
+              detail={b.detail}
+              testId={`call-with-ai-book-${b.key}`}
+            />
+          ))}
+        </div>
+      </PanelField>
     </>
   );
 }

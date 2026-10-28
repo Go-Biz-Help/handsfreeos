@@ -8,6 +8,8 @@
  *   approves these first, whatever the teammate's mode (money never chases itself);
  * - `campaign`: a call campaign (automations/campaigns.ts) rings each person who agreed to calls in writing. The
  *   owner approved the whole list, so these don't wait again.
+ * - `workflow`: a workflow's "AI teammate calls them" step (workflows/actions.ts), with the step's own call playbook
+ *   (`ai_calls.playbook`: what to find out, what to offer, when to book). Only to someone who agreed in writing.
  *
  * The path, the same for every reason:
  * 1. `ai_calls.consider` checks the reason still holds and writes the call down (`app.ai_calls`, once per reason and
@@ -33,6 +35,7 @@ import {
   scheduleJob,
   walletRoom,
   workspaceMessaging,
+  type AiCallBooking,
   type AiCallPurpose,
   type AutomationSwitch,
   type CallVoicemailChoice,
@@ -77,6 +80,7 @@ const SWITCH_OF: Readonly<Record<AiCallPurpose, AutomationSwitch | null>> = {
   missed_call: 'callBackMissed',
   quote: 'callQuotes',
   campaign: null,
+  workflow: null,
 };
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
@@ -131,7 +135,16 @@ export interface CallToMake {
   readonly missedCallId?: string | null;
   readonly estimateId?: string | null;
   readonly campaignRecipientId?: string | null;
+  /** A workflow's call: the step's playbook. */
+  readonly playbook?: CallPlaybook | null;
   readonly dedupeKey: string;
+}
+
+/** A workflow step's call playbook (core's CallWithAiConfig, less the opening, which is the goal). */
+export interface CallPlaybook {
+  readonly findOut: string;
+  readonly offer: string;
+  readonly book: AiCallBooking;
 }
 
 /** A campaign's calls were approved on its review screen, all at once: they don't wait for a person again. */
@@ -156,9 +169,10 @@ export async function queueAiCall(
   const [made] = await rows<{ id: string }>(
     tx,
     sql`insert into app.ai_calls (workspace_id, person_id, purpose, attendee_id, missed_call_id, estimate_id,
-          campaign_recipient_id, to_e164, goal, status, dedupe_key)
+          campaign_recipient_id, playbook, to_e164, goal, status, dedupe_key)
         values (${scope.workspaceId}, ${call.personId}, ${call.purpose}, ${call.attendeeId ?? null},
           ${call.missedCallId ?? null}, ${call.estimateId ?? null}, ${call.campaignRecipientId ?? null},
+          ${call.playbook ? JSON.stringify(call.playbook) : null}::jsonb,
           ${call.to}, ${call.goal.slice(0, 500)}, 'queued', ${call.dedupeKey})
         on conflict (workspace_id, dedupe_key) do nothing
         returning id`,
@@ -501,11 +515,40 @@ export const aiCallConsiderJob: JobHandler = async (ctx) => {
   });
 };
 
+/**
+ * Why a workflow's call that waited isn't wanted any more: they booked, or they texted, emailed or called the business,
+ * since it was written down. Null when neither.
+ */
+async function sinceWorkflowCall(
+  tx: Tx,
+  personId: string,
+  since: Date,
+): Promise<'booked_since' | 'in_touch_since' | null> {
+  const at = since.toISOString();
+  const [b] = await rows(
+    tx,
+    sql`select 1 from app.appointment_attendees
+        where person_id = ${personId} and created_at > ${at}::timestamptz limit 1`,
+  );
+  if (b) return 'booked_since';
+  const [t] = await rows(
+    tx,
+    sql`select 1 where exists (
+          select 1 from app.messages m join app.conversations cv on cv.id = m.conversation_id
+          where cv.person_id = ${personId} and m.direction = 'inbound' and m.occurred_at > ${at}::timestamptz)
+        or exists (
+          select 1 from app.calls o
+          where o.person_id = ${personId} and o.direction = 'inbound' and o.started_at > ${at}::timestamptz)`,
+  );
+  return t ? 'in_touch_since' : null;
+}
+
 // ---------- what the AI knows on the call ----------
 
 /**
- * The facts a quote or campaign call is about, for the AI on the call (data, not instructions): the quote's
- * name, total and last day; or the campaign's goal and its offer. Null for the other reasons.
+ * The facts a quote, campaign or workflow call is about, for the AI on the call (data, not instructions): the
+ * quote's name, total and last day; the campaign's goal and its offer; or the workflow step's playbook. Null for
+ * the other reasons.
  */
 export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null> {
   const [c] = await rows<{
@@ -518,9 +561,10 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
     offer_name: string | null;
     offer_details: string | null;
     offer_ends: string | null;
+    playbook: unknown;
   }>(
     tx,
-    sql`select a.purpose, e.number, e.title, e.total_cents, e.expires_on::text as expires_on,
+    sql`select a.purpose, a.playbook, e.number, e.title, e.total_cents, e.expires_on::text as expires_on,
           k.goal, o.name as offer_name, o.details as offer_details, o.ends_on::text as offer_ends
         from app.ai_calls a
         left join app.estimates e on e.id = a.estimate_id
@@ -533,7 +577,35 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
   if (c.purpose === 'quote' && c.total_cents !== null)
     return quoteFacts({ ...c, total_cents: c.total_cents });
   if (c.purpose === 'campaign' && c.goal) return campaignFacts({ ...c, goal: c.goal });
+  if (c.purpose === 'workflow') return playbookFacts(playbookOf(c.playbook));
   return null;
+}
+
+const BOOKING_WORDS: Readonly<Record<AiCallBooking, string>> = {
+  when_ready: 'When they want to book, offer times and book it.',
+  always: 'Ask if they’d like to book a visit, and book it when they do.',
+  never: 'Don’t book on this call: say the team will follow up to set a time.',
+};
+
+/** The playbook kept on a workflow's call, read forgivingly: anything missing is left out. */
+export function playbookOf(raw: unknown): CallPlaybook {
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const book = o['book'];
+  return {
+    findOut: text(o['findOut']),
+    offer: text(o['offer']),
+    book: book === 'always' || book === 'never' ? book : 'when_ready',
+  };
+}
+
+/** A workflow step's playbook, as facts for the call: what to find out, what it may offer, and when to book. */
+export function playbookFacts(p: CallPlaybook): string {
+  const lines: string[] = [];
+  if (p.findOut) lines.push(`What to find out: ${p.findOut}`);
+  lines.push(p.offer ? `What you may offer, and nothing more: ${p.offer}` : 'No offer to make.');
+  lines.push(`Booking: ${BOOKING_WORDS[p.book]}`);
+  return lines.join('\n');
 }
 
 /** A quote's facts for a call about it: its number and title, total and last day. */
@@ -633,9 +705,12 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         campaign_status: string | null;
         call_consent: string;
         deleted: boolean;
+        person_id: string;
+        created_at: Date;
       }>(
         tx,
         sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id, c.estimate_id,
+              c.person_id, c.created_at,
               (select k.status from app.campaign_recipients r join app.campaigns k on k.id = r.campaign_id
                where r.id = c.campaign_recipient_id) as campaign_status,
               p.call_consent::text as call_consent,
@@ -648,6 +723,14 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
       // Deleting a customer cancels their calls waiting to go; one queued since isn't made either.
       if (c.deleted) return skip(tx, c.id, 'deleted').then(() => null);
       if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
+      if (c.purpose === 'workflow') {
+        // A workflow's call needs the written yes, still, as a campaign's does.
+        if (c.call_consent !== 'opted_in')
+          return skip(tx, c.id, 'no_call_consent').then(() => null);
+        // A call that waited (an approval, open hours) isn't wanted once they've booked or been in touch.
+        const since = await sinceWorkflowCall(tx, c.person_id, new Date(c.created_at));
+        if (since) return skip(tx, c.id, since).then(() => null);
+      }
       if (c.purpose === 'campaign') {
         // Marketing calls need the written yes, still, and a campaign that's still going.
         if (c.call_consent !== 'opted_in')
@@ -808,8 +891,8 @@ export const aiCallVoicemailTextJob: JobHandler = async (ctx) => {
       {
         phone: c.to_e164,
         email: null,
-        // Their own visit, their own call: a text back needs no marketing consent. A campaign's does.
-        smsOk: c.purpose !== 'campaign',
+        // Their own visit, their own call: a text back needs no marketing consent. A campaign's or a workflow's does.
+        smsOk: c.purpose !== 'campaign' && c.purpose !== 'workflow',
         personConsent: c.sms_consent,
       },
       { text: true, email: false },

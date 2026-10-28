@@ -10,7 +10,9 @@
  * - a quote still unanswered two days after its reminder (piece 4b): a call draft even while the teammate is
  *   automatic, and a word from them since leaves it alone;
  * - a call campaign (piece 4b): only people who agreed to calls in writing, the AI's opening line, and approved
- *   once, each call goes without a draft, even while the teammate trains.
+ *   once, each call goes without a draft, even while the teammate trains;
+ * - a workflow's "AI teammate calls them" (part 2): only someone who agreed in writing, with the step's opening and
+ *   playbook, and a call still waiting for an OK isn't made once they've written in since.
  */
 import type { AddressInfo } from 'node:net';
 import {
@@ -26,6 +28,7 @@ import {
   defaultAutomationSettings,
   estimateCreate,
   executeCommand,
+  leadCreate,
   personSetCallConsent,
   tagCreate,
 } from '@hfos/core/server';
@@ -55,6 +58,7 @@ import { twilioSignature } from '../src/telephony/signature';
 import { outboundGreetingOf } from '../src/voice-agent/prompt';
 import { openTicket } from '../src/voice-agent/ticket';
 import { TEST_PUBLIC_URL } from './helpers';
+import { addWorkflow, runsOf, sid, stepOf } from './workflow-world';
 import {
   admin,
   at,
@@ -683,6 +687,110 @@ describe('a call campaign', () => {
     );
     expect(cleanOpening('')).toBeNull();
     expect(fallbackOpening('Spring special: 10% off.')).toBe('about spring special: 10% off.');
+  });
+});
+
+describe('a workflow’s call (AI calls, part 2)', () => {
+  const stepId = sid('call');
+  let workflowId: string;
+  beforeAll(async () => {
+    const wf = await addWorkflow(w, 'Speed to lead by phone', {
+      version: 1,
+      trigger: { kind: 'event', event: 'lead.created' },
+      steps: [
+        {
+          id: stepId,
+          type: 'action',
+          action: 'call_with_ai',
+          config: {
+            opening: 'I’m calling about the {{lead.title}} request you just sent us',
+            findOut: 'Which rooms, and how soon.',
+            offer: 'A free estimate.',
+            book: 'always',
+          },
+        },
+      ],
+      settings: {},
+    });
+    workflowId = wf.id;
+  });
+
+  const agreed = (personId: string) =>
+    run(w, personSetCallConsent, {
+      workspaceId: w.workspaceId,
+      personId,
+      consent: 'opted_in',
+      source: 'Form: Get a quote',
+    });
+  const newLead = async (personId: string, title: string) => {
+    await run(w, leadCreate, { workspaceId: w.workspaceId, title, personId });
+    await drain(w);
+    const run1 = (await runsOf(workflowId)).find((r) => r.person_id === personId)!;
+    return stepOf(run1.id, stepId);
+  };
+
+  it('calls a new lead who agreed, with the step’s opening and playbook, and skips one who didn’t', async () => {
+    const ann = await newCustomer(w, 'Ann');
+    await agreed(ann.id);
+    const step = await newLead(ann.id, 'carpet cleaning');
+    const [call] = await aiCallsOf(ann.id);
+    expect(step).toMatchObject({
+      status: 'done',
+      output: { aiCallId: call!.id, waitsForApproval: false },
+    });
+    expect(call).toMatchObject({ status: 'calling', draft_id: null });
+    const placed = placedTo(ann.phone)!;
+    const answered = await post(`${V}/ai-call?aiCall=${call!.id}`, {
+      CallSid: placed.sid,
+      From: w.number!,
+      To: ann.phone,
+      AnsweredBy: 'human',
+    });
+    const line = await dial(placed.sid, ticketIn(answered.body)!);
+    await waitFor('the greeting', () => line.said.join(' ').includes('Is now a good time?'));
+    expect(line.said.join(' ')).toContain(
+      'I’m calling about the carpet cleaning request you just sent us. Is now a good time?',
+    );
+    const brief = await asWorker(testDbs().worker.db, scope(), (tx) => callBrief(tx, call!.id));
+    expect(brief).toContain('What to find out: Which rooms, and how soon.');
+    expect(brief).toContain('What you may offer, and nothing more: A free estimate.');
+    expect(brief).toContain('Ask if they’d like to book a visit');
+
+    const bo = await newCustomer(w, 'Bo');
+    expect(await newLead(bo.id, 'rugs')).toMatchObject({
+      status: 'skipped',
+      output: expect.objectContaining({ skipped: 'no_call_consent' }),
+    });
+    expect(await aiCallsOf(bo.id)).toEqual([]);
+  });
+
+  it('while training, waits for an OK, and leaves them alone once they’ve written in since', async () => {
+    await setStatus(w, 'training');
+    try {
+      const cy = await newCustomer(w, 'Cy');
+      await agreed(cy.id);
+      expect(await newLead(cy.id, 'stairs')).toMatchObject({
+        status: 'done',
+        output: expect.objectContaining({ waitsForApproval: true }),
+      });
+      const [waiting] = await aiCallsOf(cy.id);
+      expect(waiting).toMatchObject({ status: 'awaiting_approval' });
+      await textIn(w, cy.phone, 'Actually, can you text me a price instead?');
+      await drain(w);
+      await run(w, aiTeammateDecideDraft, {
+        workspaceId: w.workspaceId,
+        draftId: waiting!.draft_id!,
+        decision: 'approve',
+      });
+      await drain(w);
+      expect((await aiCallsOf(cy.id))[0]).toMatchObject({
+        status: 'skipped',
+        reason: 'in_touch_since',
+      });
+      expect(placedTo(cy.phone)).toBeUndefined();
+    } finally {
+      await setStatus(w, 'automatic');
+    }
   });
 });
 

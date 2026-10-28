@@ -9,6 +9,7 @@ import {
   TEST_CHANNEL_NAMES,
   restToSay,
   stepsLine,
+  testCallGoalAsk,
   testCallTimingLine,
   testSamples,
   testVerb,
@@ -404,11 +405,13 @@ export function TestConsole({
   const logRef = useRef<HTMLDivElement | null>(null);
   const phone = channel === 'phone';
   const outbound = phone && direction === 'outbound';
+  /** The box for what the call is about: a campaign's call and a workflow's need one. */
+  const goalAsk = outbound ? testCallGoalAsk(purpose) : null;
   const call: TestCall | null = phone
     ? {
         direction,
         purpose: outbound ? purpose : null,
-        goal: outbound && purpose === 'campaign' ? goal.trim() || null : null,
+        goal: goalAsk ? goal.trim() || null : null,
       }
     : null;
   const who = person
@@ -427,8 +430,8 @@ export function TestConsole({
     ? null
     : !person
       ? `Pick a customer for ${name} to call.`
-      : purpose === 'campaign' && !goal.trim()
-        ? 'Say what the campaign call is about.'
+      : goalAsk && !goal.trim()
+        ? goalAsk.missing
         : null;
 
   useEffect(
@@ -902,12 +905,12 @@ export function TestConsole({
                     </Select>
                   </div>
                 ) : null}
-                {outbound && purpose === 'campaign' ? (
+                {goalAsk ? (
                   <Input
                     inputSize="sm"
                     className="w-full max-w-[320px]"
-                    aria-label="What the campaign call is about"
-                    placeholder="What the calls are about, like our spring tune-up special"
+                    aria-label={goalAsk.label}
+                    placeholder={goalAsk.placeholder}
                     maxLength={TEST_CALL_GOAL_MAX}
                     value={goal}
                     onChange={(e) => change(setGoal)(e.target.value)}

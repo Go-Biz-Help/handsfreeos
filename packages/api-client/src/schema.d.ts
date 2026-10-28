@@ -60144,7 +60144,7 @@ export interface operations {
                     /** Format: uuid */
                     proposalId?: string;
                     /** @enum {string} */
-                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai";
+                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai" | "speed_to_lead_phone";
                     trigger?: {
                         /** @enum {string} */
                         event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
@@ -62743,7 +62743,7 @@ export interface operations {
                                     aiCallId: string;
                                     goal: string;
                                     /** @enum {string} */
-                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign";
+                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign" | "workflow";
                                     to: string;
                                     toDisplay: string;
                                 } | null;

@@ -8254,7 +8254,7 @@ When a text can't go, the workflow's **If they haven’t agreed to texts** setti
 
 The phone app keeps working without signal and sends what was done when it reconnects, so something can reach HandsFreeOS hours after it happened. A lead added in a basement at 2 PM may arrive at 5 PM. When whatever started a run happened more than 30 minutes before it reached HandsFreeOS:
 
-- Steps that would text or email the customer, or hand them to the AI teammate to write first, are skipped. The step log says, for example, "Not sent: what started this happened 3 hours before it reached HandsFreeOS, so a message now could be out of date."
+- Steps that would text, email or call the customer, or hand them to the AI teammate to write first, are skipped. The step log says, for example, "Not sent: what started this happened 3 hours before it reached HandsFreeOS, so a message now could be out of date."
 - The rest of the run still happens: notes, tasks, tags, stages and notices to the team.
 - Waits count from when it really happened. A 1-hour wait after that lead is already over when it arrives, so the run carries on at once and is still late. A wait that ends in the future brings the run back on time, and its texts go as usual.
 - A waiting run woken by something that itself arrived late is late in the same way.
@@ -9295,7 +9295,7 @@ loud (`source = 'talk'` in `app.speech_usage`), and their AI tokens like any oth
 ### AI calls
 
 The AI teammate can ring a customer itself. Three reasons, each a row on **Settings → Automations**, off to begin
-with, and call campaigns (see "Outreach campaigns" above):
+with, plus call campaigns (see "Outreach campaigns" above) and a workflow's **AI teammate calls them** step (below):
 
 | Row                                   | What it does                                                                                                                                                                                                                        | On to begin with |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -9341,6 +9341,19 @@ reminder set, there's no call either.
   number, never over a "Doesn't want calls", and never while the switch is off (the command checks it again, so a
   page loaded before it went off keeps nothing). The Assistant turns it on or off with `update_automations`
   (`askForOkToCall`).
+- **From a workflow, to a new lead:** the workflow step **AI teammate calls them** (under **Message the customer**
+  in the step menu) rings them with the step's own **call playbook**: **Why it's calling** (it finishes "I'm calling
+  …", and can use the details, like "about the {{lead.title}} request you just sent us"), **What to find out** (the
+  questions to ask), **What it may offer** (and nothing more), and **Booking**: when they want to (the default), ask
+  to book a visit, or leave it to the team. It calls only someone who agreed to calls in writing (the customer page,
+  an import or the "OK to call" box); anyone else is skipped, saying why (`no_call_consent`, `no_calls` for "Doesn't
+  want calls", `no_phone`, and `no_teammate` while the teammate is off). Every rule above holds: open hours, never
+  quiet hours, the same opening and, while training, an OK first. A call that waited (an OK, open hours) isn't made
+  once they've booked (`booked_since`) or written or called in (`in_touch_since`) since the step ran. The recipe
+  **Speed to lead by phone** (Workflows → New workflow) is a new lead → this call → a day's wait → a task for the
+  lead's assignee, and a booking stops it. The step queues one `ai_calls` row of reason `workflow`, keeping the
+  playbook in its `playbook` column, and a test run only says it would call. Needs
+  `20261027018100_workflow_ai_calls.sql`.
 - **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
   the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
   got (the team can text it again).
@@ -9356,7 +9369,8 @@ it's answered. Needs `20261008000100_ai_calls.sql` and, for quote and campaign c
 - **No calls go out:** check the row is on, the teammate is on with its phone on, the business has a live number,
   and the balance has room. An `ai_calls` row says why a call was left alone (`reason`: `already_confirmed`,
   `in_touch_since`, `no_calls`, `switched_off`, `no_voice`, `balance`, `no_number`, `too_late`, and for campaign
-  calls `no_call_consent` and `campaign_stopped`).
+  calls `no_call_consent` and `campaign_stopped`; for a workflow's call `no_call_consent`, `booked_since` and
+  `in_touch_since`).
 - **A call rings but the AI says nothing:** the voice agent isn't set up (`VOICE_AGENT` on the worker); the call
   hangs up by itself.
 

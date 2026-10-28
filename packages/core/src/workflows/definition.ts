@@ -350,6 +350,7 @@ export const ActionStep = z.discriminatedUnion('action', [
   actionStep('remove_from_workflow'),
   actionStep('hand_to_ai_teammate'),
   actionStep('send_form'),
+  actionStep('call_with_ai'),
 ]);
 export type ActionStep = z.infer<typeof ActionStep>;
 

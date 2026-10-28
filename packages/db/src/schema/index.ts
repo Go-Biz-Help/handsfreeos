@@ -7892,7 +7892,7 @@ export const aiCalls = app.table('ai_calls', {
   personId: uuid('person_id')
     .notNull()
     .references(() => people.id, { onDelete: 'cascade' }),
-  /** confirm_visit, missed_call, quote or campaign. */
+  /** confirm_visit, missed_call, quote, campaign or workflow. */
   purpose: text('purpose').notNull(),
   attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
     onDelete: 'cascade',
@@ -7902,6 +7902,8 @@ export const aiCalls = app.table('ai_calls', {
   campaignRecipientId: uuid('campaign_recipient_id').references(() => campaignRecipients.id, {
     onDelete: 'cascade',
   }),
+  /** A workflow's call: the step's playbook (what to find out, what to offer, when to book). */
+  playbook: jsonb('playbook'),
   toE164: text('to_e164').notNull(),
   goal: text('goal').notNull(),
   /** awaiting_approval, queued, calling, done, skipped, cancelled or failed. */
