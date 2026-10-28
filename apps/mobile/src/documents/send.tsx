@@ -1,6 +1,7 @@
 import {
   DEFAULT_REMIND_AFTER_DAYS,
   DEFAULT_REMIND_EVERY_DAYS,
+  DOCUMENT_EDITOR_WORDS as E,
   DOCUMENT_FIELD_LABELS,
   DOCUMENT_SCREEN_WORDS as W,
   DocumentDefinition,
@@ -14,10 +15,11 @@ import {
 } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
-import { View } from 'react-native';
+import { Modal, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCustomers, type CustomerChoice } from '@/calendar/use-calendar';
-import { Plus, Send, X } from '@/components/icons';
+import { Plus, Replace, Send, X } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
@@ -43,13 +45,15 @@ import {
   type DocumentTemplateRow,
   type TeamMember,
 } from './calls';
+import { PagesEditor } from './editor';
+import { useDefinitionEditor, type DefinitionEditor } from './editor-state';
 
 /**
  * Sending a document from the phone (docs/documents.md, part 3), as the web's Send screen does it: a template, who
  * it's about, who signs as each role (someone with you now signs on this phone with Sign now), who gets a copy, what's
  * filled in before it goes, the note and the settings. `document.prefill` starts it from HandsFreeOS; `document.send`
- * checks it all again and sends each signer their link. Changing the words for one customer (answer 27a) is the web's
- * until the phone has the pages.
+ * checks it all again and sends each signer their link. The words can change for this one customer (answer 27a) on
+ * the template's pages, with the fields where the template has them; the template stays as it is.
  */
 
 export type SendAboutKind = 'person' | 'company' | 'lead';
@@ -345,10 +349,17 @@ function SendForm({
   members: readonly TeamMember[];
 }) {
   const calls = React.useMemo(() => documentCalls(workspaceId), [workspaceId]);
-  const d = React.useMemo(() => DocumentDefinition.parse(prefill.definition), [prefill.definition]);
+  const base = React.useMemo(
+    () => DocumentDefinition.parse(prefill.definition),
+    [prefill.definition],
+  );
+  // This customer's own word changes (27a), with Undo, on top of the template's.
+  const editor = useDefinitionEditor(base);
+  const d = editor.definition;
+  const [words, setWords] = React.useState(false);
   const [name, setName] = React.useState(prefill.name);
   const [message, setMessage] = React.useState(prefill.message);
-  const [settings, setSettings] = React.useState<DocumentSettings>(d.settings);
+  const [settings, setSettings] = React.useState<DocumentSettings>(base.settings);
   const [values, setValues] = React.useState<Record<string, DocumentValueInput>>(
     prefill.presets as Record<string, DocumentValueInput>,
   );
@@ -386,10 +397,11 @@ function SendForm({
   const [error, setError] = React.useState<string | null>(null);
 
   const fillable = React.useMemo(
-    () => sendFillable(d, prefill.presets),
+    () => sendFillable(base, prefill.presets),
     // Which fields are listed is fixed by the template; what's in them changes as they're typed.
-    [d, prefill.presets],
+    [base, prefill.presets],
   );
+  const changedWords = d.edits.length - base.edits.length;
   const roleName = (role: string) => d.roles.find((r) => r.key === role)?.label ?? '';
 
   function setValue(id: string, v: DocumentValueInput | null) {
@@ -602,6 +614,23 @@ function SendForm({
         </>
       ) : null}
 
+      <Card className="gap-1.5 p-4" testID="send-words-card">
+        <Text className="text-[14px] font-medium">{E.forOnly(about.name)}</Text>
+        <Text className="text-[12.5px] text-text-3">
+          {`${E.templateStays} ${E.changesSoFar(changedWords)}`.trim()}
+        </Text>
+        <Button
+          variant="secondary"
+          size="md"
+          icon={Replace}
+          className="mt-1 self-start"
+          onPress={() => setWords(true)}
+          testID="send-words-open"
+        >
+          {E.phone.changeWords}
+        </Button>
+      </Card>
+
       <ListLabel>{W.noteAndSettings}</ListLabel>
       <Card className="gap-3 p-4">
         <View className="gap-1.5">
@@ -638,6 +667,17 @@ function SendForm({
         {W.sendIt}
       </Button>
 
+      <OneCustomerWords
+        open={words}
+        onClose={() => setWords(false)}
+        workspaceId={workspaceId}
+        templateId={prefill.templateId}
+        editor={editor}
+        values={values}
+        title={E.forOnly(about.name)}
+        changed={changedWords}
+      />
+
       <Sheet
         open={pickingTeam !== null}
         onClose={() => setPickingTeam(null)}
@@ -658,6 +698,63 @@ function SendForm({
         </List>
       </Sheet>
     </>
+  );
+}
+
+/** The template's pages, full screen, for changing the words on this one customer's copy (27a). */
+function OneCustomerWords({
+  open,
+  onClose,
+  workspaceId,
+  templateId,
+  editor,
+  values,
+  title,
+  changed,
+}: {
+  open: boolean;
+  onClose: () => void;
+  workspaceId: string;
+  templateId: string;
+  editor: DefinitionEditor;
+  values: Readonly<Record<string, DocumentValueInput>>;
+  title: string;
+  changed: number;
+}) {
+  const insets = useSafeAreaInsets();
+  const source = React.useMemo(() => ({ templateId }), [templateId]);
+  return (
+    <Modal
+      visible={open}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-bg" style={{ paddingTop: insets.top }} testID="send-words">
+        <View className="flex-row items-center gap-3 border-b border-border bg-card px-3 py-2">
+          <View className="min-w-0 flex-1">
+            <Text className="text-[15px] font-semibold" numberOfLines={1}>
+              {title}
+            </Text>
+            <Text className="text-[12.5px] text-text-3">
+              {`${E.templateStays} ${E.changesSoFar(changed)}`.trim()}
+            </Text>
+          </View>
+          <Button size="md" onPress={onClose} testID="send-words-done">
+            {E.phone.done}
+          </Button>
+        </View>
+        <PagesEditor
+          workspaceId={workspaceId}
+          source={source}
+          sourceKey={templateId}
+          editor={editor}
+          fieldsEditable={false}
+          values={values}
+          testID="send-pages"
+        />
+      </View>
+    </Modal>
   );
 }
 
@@ -747,8 +844,8 @@ const days = (typed: string, lo: number, hi: number) => {
   return typed.trim() && Number.isFinite(n) && n >= lo && n <= hi ? n : null;
 };
 
-/** The settings a document going out can change, as the web's Send screen has them. */
-function SettingsFields({
+/** The settings a document going out can change, as the web's Send screen has them; a template's editor too. */
+export function SettingsFields({
   settings,
   signers,
   onChange,

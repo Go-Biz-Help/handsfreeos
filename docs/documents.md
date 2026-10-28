@@ -10,7 +10,8 @@ The owner's answers of 28 October 2026 decide what it does (27 of them, listed i
 It's built in five parts. **Part 1 is the web**: templates from a PDF, sending, the signing page, the signed copy,
 reminders, expiry, void and send again, and the Assistant. **Part 2** adds the AI placing the fields on a PDF (4a),
 **Sign now** for someone signing in person (13a), and documents in the customer's portal (10b). **Part 3 is the
-phone** (24b): sending and following documents first, then templates.
+phone** (24b): sending and following documents, the templates and their editor, one customer's own word changes
+(27a), and a document's pages.
 
 ## Where things are
 
@@ -33,8 +34,12 @@ phone** (24b): sending and following documents first, then templates.
 | The customer's portal                     | `portal.documents` in `packages/core/src/queries/portal.ts`; the page at                 |
 |                                           | `apps/web/src/app/c/[token]/documents/`; opening one is `apps/worker/src/http/portal.ts` |
 | The screens' words, web and phone         | `DOCUMENT_SCREEN_WORDS` in `packages/core/src/documents/words.ts`                        |
-| The phone                                 | `apps/mobile/src/documents/` (`calls.ts`, `screens.tsx`, `send.tsx`, `card.tsx`); routes |
-|                                           | under `apps/mobile/src/app/app/w/[workspaceId]/documents/` and `(tabs)/(more)/`          |
+| Changing a definition, web and phone      | `packages/core/src/documents/edit.ts`, with the editor's words (`DOCUMENT_EDITOR_WORDS`) |
+| Reading a page's words and ink            | `packages/core/src/documents/read.ts`, for the browser and the worker alike              |
+| A PDF's pages drawn for the phone         | `apps/worker/src/documents/pages.ts` (`POST /v1/documents/pages`, `@napi-rs/canvas`)     |
+| The phone                                 | `apps/mobile/src/documents/` (`calls.ts`, `screens.tsx`, `send.tsx`, `card.tsx`,         |
+|                                           | `templates.tsx`, `editor.tsx`, `pages.tsx`); routes under                                |
+|                                           | `apps/mobile/src/app/app/w/[workspaceId]/documents/` and `(tabs)/(more)/`                |
 
 ## The shape
 
@@ -122,10 +127,27 @@ for, since signing in to the portal was a code to the same person; the trail say
 
 **The phone asks HandsFreeOS for documents; it keeps none.** Nothing of Documents is in the phone's copy or in
 `apps/sync/sync-config.yaml`, so the screens need signal and say so without it, and nothing waits in the queue: a
-document goes out, or is reminded or voided, as HandsFreeOS has it now. The phone makes the web's calls, in core's
-words (`DOCUMENT_SCREEN_WORDS`); what both decide is in core too (`documentBadge`, `sendFillable`,
-`sendAgainQuery`). Documents is in More for whoever holds `documents.send`, a customer's page has a Document button
-and their latest documents, and a document's push opens its screen (`apps/mobile/src/links/route-map.ts`).
+document goes out, or is reminded or voided, and a template is saved, as HandsFreeOS has it now. The phone makes the
+web's calls, in core's words (`DOCUMENT_SCREEN_WORDS`, `DOCUMENT_EDITOR_WORDS`); what both decide is in core too
+(`documentBadge`, `sendFillable`, `sendAgainQuery`, and every change the editors make, in `edit.ts`). Documents is in
+More for whoever holds `documents.send`, with Sent and Templates side by side; a customer's page has a Document button
+and their latest documents; and a document's push, a template's link and `?tab=templates` open the phone's screens
+(`apps/mobile/src/links/route-map.ts`).
+
+**The phone can't read a PDF, so the worker draws its pages.** `POST /v1/documents/pages` draws a few pages at a time
+with pdf.js (unpdf) on `@napi-rs/canvas`, at 2 pixels a point (8 million at most), and reads each page's lines of
+words with core's `read.ts`, the same as the browser, with the paper's and the ink's colours under each. It's asked as
+the person (`document_template.get` or `document.get`), and keeps what it drew beside the PDF, in `pages-v1/` (each
+page's PNG, and its lines as plain text, since the bucket takes no JSON), so a page is drawn once; links last an
+hour. The pictures go with the file (`file.deleted`). A PDF just picked on the phone is read the same way, by its file
+(`fileId`, for whoever holds `documents.manage`), for its pages' sizes before `document_template.set_source`. Place
+fields for me on the phone sends no spots: the worker finds them on the stored PDF itself.
+
+**The phone's editor does with a tap what the web's does with a click.** Add a field picks the kind and whose it is,
+then a tap on the page places it; Change words shows the PDF's lines to tap; Add words places new ones. A tap picks
+what's placed; picked, it drags, resizes from its corner, and nudges from its settings. It saves itself as the web's
+does, with the revision it started from, and saves what's left when the screen closes. The Send screen opens the same
+pages full screen for one customer's word changes (27a), with the fields fixed; the template isn't touched.
 
 **Sign now on the phone opens the signing page in the phone's own browser, and the app locks after.** It's
 `openAuthSessionAsync` with an ephemeral session, so nothing of the person's own browser is shared, and the page's
@@ -136,9 +158,6 @@ holding the phone never lands in the business's app. With the lock off, the app 
 
 ## Not yet
 
-- Part 3, still to come: templates on the phone (a new one from a PDF, fields, who signs, settings, word changes, the
-  AI placing fields), changing one customer's words when sending (27a), and a document's pages on the phone. Until
-  then the phone opens the web for them.
 - Part 4: payments and file uploads when signing, an estimate carrying a contract, forms' Signature question on the
   new pad, workflows, and the AI teammate (asking a person first).
 - Part 5: writing templates in HandsFreeOS, turning an uploaded PDF into an editable one, and Real Estate's third

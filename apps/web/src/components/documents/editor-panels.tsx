@@ -8,13 +8,20 @@ import {
   DEFAULT_REMIND_EVERY_DAYS,
   DOCUMENT_FIELD_LABELS,
   DOCUMENT_FONTS,
+  DOCUMENT_EDITOR_WORDS as E,
   DOCUMENT_SCREEN_WORDS as W,
+  documentRoleName,
   FIELD_PROMPTS,
   FILL_SOURCES,
   FILL_SOURCE_KEYS,
   MAX_DOCUMENT_ROLES,
+  NO_FILL_TYPES,
+  retypedField,
   SENDER_ROLE,
-  type DocumentDefinition,
+  withoutRole,
+  withRoleAdded,
+  withRoleChanged,
+  withRoleMoved,
   type DocumentEdit,
   type DocumentField,
   type DocumentFieldType,
@@ -51,7 +58,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { newRoleKey, roleColour, typesFor, type DefinitionEditor, type Tool } from './editor-state';
+import { roleColour, typesFor, type DefinitionEditor, type Tool } from './editor-state';
 
 export const FIELD_ICONS: Readonly<Record<DocumentFieldType, LucideIcon>> = {
   signature: Signature,
@@ -68,7 +75,7 @@ export const FIELD_ICONS: Readonly<Record<DocumentFieldType, LucideIcon>> = {
   choice: SquareChevronDown,
 };
 
-export const SENDER_LABEL = 'You, before sending';
+export const SENDER_LABEL = E.sender;
 
 export function PanelTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
@@ -102,48 +109,25 @@ export function RolesPanel({
   const count = (key: string) => d.fields.filter((f) => f.role === key).length;
 
   function rename(key: string, label: string) {
-    editor.change((def) => ({
-      ...def,
-      roles: def.roles.map((r) => (r.key === key ? { ...r, label } : r)),
-    }));
+    editor.change((def) => withRoleChanged(def, key, { label }));
   }
   function setKind(key: string, kind: 'customer' | 'team') {
-    editor.change((def) => ({
-      ...def,
-      roles: def.roles.map((r) => (r.key === key ? { ...r, kind } : r)),
-    }));
+    editor.change((def) => withRoleChanged(def, key, { kind }));
   }
   function moveRole(key: string, by: -1 | 1) {
-    editor.change((def) => {
-      const i = def.roles.findIndex((r) => r.key === key);
-      const j = i + by;
-      if (i < 0 || j < 0 || j >= def.roles.length) return def;
-      const roles = [...def.roles];
-      [roles[i], roles[j]] = [roles[j]!, roles[i]!];
-      return { ...def, roles };
-    });
+    editor.change((def) => withRoleMoved(def, key, by));
   }
   function remove(key: string) {
     const n = count(key);
     const label = d.roles.find((r) => r.key === key)?.label ?? 'them';
-    if (
-      n &&
-      !window.confirm(`Take ${label} off? Their ${n === 1 ? 'field goes' : `${n} fields go`} too.`)
-    )
-      return;
-    editor.change((def) => ({
-      ...def,
-      roles: def.roles.filter((r) => r.key !== key),
-      fields: def.fields.filter((f) => f.role !== key),
-    }));
+    if (n && !window.confirm(E.takeRoleOffAsk(label, n))) return;
+    editor.change((def) => withoutRole(def, key));
     if (role === key) onRole(d.roles.find((r) => r.key !== key)?.key ?? SENDER_ROLE);
   }
   function add(kind: 'customer' | 'team') {
-    const key = newRoleKey(d, kind);
-    const customers = d.roles.filter((r) => r.kind === 'customer').length;
-    const label = kind === 'team' ? 'Us' : customers ? `Customer ${customers + 1}` : 'Customer';
-    editor.change((def) => ({ ...def, roles: [...def.roles, { key, label, kind }] }));
-    onRole(key);
+    const added = withRoleAdded(d, kind);
+    editor.change(() => added.definition);
+    onRole(added.key);
   }
 
   return (
@@ -380,7 +364,6 @@ export function Palette({
 // ---------- what's picked ----------
 
 const FILL_GROUPS = [...new Set(FILL_SOURCE_KEYS.map((k) => FILL_SOURCES[k].group))];
-const NO_FILL: readonly DocumentFieldType[] = ['signature', 'initials', 'date_signed', 'checkbox'];
 
 export function FieldSettings({
   editor,
@@ -427,15 +410,7 @@ export function FieldSettings({
           id={`${id}-type`}
           selectSize="sm"
           value={field.type}
-          onChange={(e) => {
-            const type = e.target.value as DocumentFieldType;
-            set({
-              type,
-              fillFrom: NO_FILL.includes(type) ? null : field.fillFrom,
-              options:
-                type === 'choice' && field.options.length < 2 ? ['Yes', 'No'] : field.options,
-            });
-          }}
+          onChange={(e) => set(retypedField(field, e.target.value as DocumentFieldType))}
         >
           {typesFor(field.role).map((t) => (
             <option key={t} value={t}>
@@ -468,7 +443,7 @@ export function FieldSettings({
           />
         </label>
       )}
-      {NO_FILL.includes(field.type) ? null : (
+      {NO_FILL_TYPES.includes(field.type) ? null : (
         <div>
           <Label htmlFor={`${id}-fill`}>Fill in from HandsFreeOS</Label>
           <Select
@@ -797,5 +772,4 @@ export function SidePanel({ children, className }: { children: ReactNode; classN
 }
 
 /** The role a field is for, as the editor names it. */
-export const roleName = (d: DocumentDefinition, key: string) =>
-  key === SENDER_ROLE ? SENDER_LABEL : (d.roles.find((r) => r.key === key)?.label ?? key);
+export const roleName = documentRoleName;

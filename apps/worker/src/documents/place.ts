@@ -1,13 +1,14 @@
 /**
  * The AI placing the fields on a template's PDF (docs/documents.md; the owner's answer 4a). The editor finds the
- * spots a field could go and sends them with the words around each (core's `findDocumentSpots`); the model says
+ * spots a field could go and sends them with the words around each (core's `findDocumentSpots`); the phone, which
+ * can't read a PDF, sends none and the worker finds them on the template's PDF (pages.ts). The model says
  * which are fields, of what kind and for whom, and core turns its answer into fields that sit exactly on their line
  * or box (`placedFields`). Nothing is saved here: the editor adds what comes back as one change it can undo.
  *
  * When the PDF has few words to go on (a scan, or blanks with no labels), the model reads the PDF itself too.
  * The tokens count as `documents` usage for the person asking, against the daily AI limit.
  *
- * POST /v1/documents/place-fields {workspaceId, templateId, roles, start, spots} → {fields}
+ * POST /v1/documents/place-fields {workspaceId, templateId, roles, start?, spots?} → {fields}
  * 403 without documents.manage; 409 `document_template_archived` or `document_template_no_pdf`; 429 `budget_reached`
  * or `rate_limited`; 402 `wallet_empty`; 503 `ai_not_configured` or `ai_busy`; 502 `ai_failed`.
  */
@@ -41,6 +42,7 @@ import {
   askStructured,
 } from '../ai/ask';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
+import { findSpotsInStoredPdf } from './pages';
 
 /** Asks one address may make a minute. The daily AI limit applies on top. */
 export const PLACE_FIELDS_PER_MINUTE = 6;
@@ -51,7 +53,7 @@ const FEW_LABELLED = 0.3;
 /** The most pages the model reads of a PDF it's shown: a scan's pages cost far more than its words. */
 const MAX_PDF_PAGES = 30;
 
-export const PlaceFieldsBody = DocumentPlaceFind.extend({
+export const PlaceFieldsBody = DocumentPlaceFind.partial().extend({
   workspaceId: z.uuid(),
   templateId: z.uuid(),
   /** Who signs it as the editor has them now, saved or not. */
@@ -123,11 +125,17 @@ export async function placeFields(
       `“${template.name}” has no PDF yet. Add one, then the AI can place its fields.`,
     );
   const pages = parseDocumentDefinition(template.definition).pages;
-  const find = { start: input.start, spots: input.spots.filter((s) => s.page < pages.length) };
+  // The phone has no PDF reader: the worker finds the spots on the template's own PDF.
+  const found = input.spots
+    ? { start: input.start ?? '', spots: input.spots }
+    : await findSpotsInStoredPdf(deps.store, template.source);
+  const find = { start: found.start, spots: found.spots.filter((s) => s.page < pages.length) };
   if (!find.spots.length)
     throw HfosError.validation(
       [],
-      'There’s nowhere on this PDF that looks like a field. Place them yourself from the left.',
+      input.spots
+        ? 'There’s nowhere on this PDF that looks like a field. Place them yourself from the left.'
+        : 'Nothing on this PDF looks like a field: no lines to write on, boxes to tick or labels like “Signature:”. Add the fields yourself.',
     );
 
   const prompt = placeFieldsPrompt(input.roles, find);

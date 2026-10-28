@@ -665,6 +665,9 @@ importers:
       '@livekit/rtc-node':
         specifier: 1.1.0
         version: 1.1.0
+      '@napi-rs/canvas':
+        specifier: 1.0.13
+        version: 1.0.13
       '@opinly/backend':
         specifier: ^1.6.0
         version: 1.6.0
@@ -10844,7 +10847,6 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 1.0.13
       '@napi-rs/canvas-win32-arm64-msvc': 1.0.13
       '@napi-rs/canvas-win32-x64-msvc': 1.0.13
-    optional: true
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true

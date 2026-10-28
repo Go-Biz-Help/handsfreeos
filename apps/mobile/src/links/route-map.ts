@@ -116,10 +116,11 @@ export const ROUTES: readonly Rule[] = [
   { web: 'forms', phone: 'forms' },
   { web: 'forms/:formId', phone: 'forms/:formId' },
   { web: 'forms/:formId/answers/:responseId', phone: 'forms/:formId/answers/:responseId' },
-  // Documents sent to sign (docs/documents.md, part 3): the list, one document (its push opens it), and sending one.
-  // Templates (`?tab=templates`, `documents/templates/<id>`) and sending about a record of the business's own kinds
-  // (`?record=`) open the web.
-  { web: 'documents', phone: 'documents', webWhen: ['tab'] },
+  // Documents (docs/documents.md, part 3): what's been sent and the templates (`?tab=templates`), one template, one
+  // document (its push opens it), and sending one. Sending about a record of the business's own kinds (`?record=`)
+  // opens the web.
+  { web: 'documents', phone: 'documents', query: ['tab'] },
+  { web: 'documents/templates/:templateId', phone: 'documents/templates/:templateId' },
   {
     web: 'documents/send',
     phone: 'documents/send',
