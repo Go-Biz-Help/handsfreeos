@@ -7826,13 +7826,24 @@
                 "properties": {
                   "facebook": {
                     "default": {
-                      "on": true
+                      "on": true,
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
                       "on": {
                         "default": true,
                         "type": "boolean"
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   },
@@ -7846,7 +7857,9 @@
                       "collect": true,
                       "joinGroups": true,
                       "watchPosts": true,
-                      "posting": "after_ok"
+                      "posting": "after_ok",
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -7888,6 +7901,15 @@
                         "default": "after_ok",
                         "type": "string",
                         "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   },
@@ -7901,7 +7923,9 @@
                       "collect": true,
                       "joinGroups": true,
                       "watchPosts": true,
-                      "posting": "after_ok"
+                      "posting": "after_ok",
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -7943,6 +7967,15 @@
                         "default": "after_ok",
                         "type": "string",
                         "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   },
@@ -7956,7 +7989,9 @@
                       "collect": true,
                       "joinGroups": true,
                       "watchPosts": true,
-                      "posting": "after_ok"
+                      "posting": "after_ok",
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -7998,6 +8033,15 @@
                         "default": "after_ok",
                         "type": "string",
                         "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   }
