@@ -33,6 +33,7 @@ import { firstName } from '@/components/calendar/appt';
 import { AppointmentRow, UpcomingAppointments } from '@/components/calendar/upcoming-card';
 import { FileGrid } from '@/components/files/file-grid';
 import { UploadZone } from '@/components/files/upload-zone';
+import { StartVideoCallButton } from '@/components/video-call/start-call';
 import { TaskList } from '@/components/tasks/task-list';
 import { LogActivitySheet, type LoggableKind } from '@/components/timeline/log-activity-sheet';
 import { Timeline } from '@/components/timeline/timeline';
@@ -534,6 +535,12 @@ export function RecordPage(props: RecordPageProps) {
                     Email
                   </Button>
                 ) : null}
+                <StartVideoCallButton
+                  workspaceId={workspaceId}
+                  personId={person.id}
+                  phone={phoneE164 ? formatPhone(phoneE164) || phoneE164 : null}
+                  email={email ?? null}
+                />
                 <span aria-hidden className="mx-1 h-5 w-px bg-border" />
               </>
             ) : null}

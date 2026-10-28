@@ -14837,6 +14837,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a HandsFreeOS video call with a customer: texts or emails them their own link, as you, and opens the call for you.
+         * @description Risk level 2. Requires appointments.write. Emits video_call.opened.
+         */
+        post: operations["command_video_call_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.turn_away": {
         parameters: {
             query?: never;
@@ -16147,7 +16167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What was said on an appointment’s recorded calls, newest first.
+         * What was said on an appointment’s recorded calls, or on a HandsFreeOS video call that isn’t for an appointment, newest first.
          * @description Requires workspace.read.
          */
         post: operations["query_appointment_transcripts"];
@@ -16507,7 +16527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The AI’s summary of an appointment’s recorded call, and its suggestions with where each stands.
+         * The AI’s summary of a recorded call (an appointment’s, or a HandsFreeOS video call that isn’t for one), and its suggestions with where each stands.
          * @description Requires workspace.read.
          */
         post: operations["query_call_suggestion_list"];
@@ -56450,6 +56470,52 @@ export interface operations {
             };
         };
     };
+    command_video_call_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeQuietHours?: boolean;
+                    /** @enum {string} */
+                    channel?: "sms" | "email";
+                    /** Format: uuid */
+                    conversationId?: string;
+                    /** Format: uri */
+                    origin: string;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        callId: string;
+                        /** @enum {string} */
+                        channel: "sms" | "email" | "chat" | "portal" | "messenger" | "instagram";
+                        conversationId: string | null;
+                        name: string;
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
     command_video_call_turn_away: {
         parameters: {
             query?: never;
@@ -60983,7 +61049,9 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: uuid */
-                    appointmentId: string;
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    videoCallId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -62884,7 +62952,9 @@ export interface operations {
             content: {
                 "application/json": {
                     /** Format: uuid */
-                    appointmentId: string;
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    videoCallId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -84170,6 +84240,11 @@ export interface operations {
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
+                        } | null;
+                        customer: {
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
                         } | null;
                         host: {
                             name: string;

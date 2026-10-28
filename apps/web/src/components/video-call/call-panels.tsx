@@ -14,12 +14,12 @@ import {
 import { Track, type Participant } from 'livekit-client';
 import { Hand, MicOff, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { errorMessage } from '@/lib/api/errors';
 import { cn } from '@/lib/utils';
 import { actOn, type VideoCallGot, type VideoCallPerson } from './team-call';
+import { toast } from './toast';
 import type { TeamSide } from './types';
 
 function Panel({

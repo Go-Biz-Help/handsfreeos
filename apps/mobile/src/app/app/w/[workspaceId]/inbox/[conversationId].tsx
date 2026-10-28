@@ -110,6 +110,7 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { config } from '@/lib/config';
 import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
+import { useCanStartVideoCall, useStartVideoCall } from '@/video-call/start-call';
 
 type Row =
   ThreadEntry | { readonly kind: 'draft'; readonly key: string; readonly waiting: WaitingDraft };
@@ -148,6 +149,9 @@ function Thread() {
   const { online } = useNetwork();
   // Deleting for good (the Deleted bin, 20261027000400): owners, with signal.
   const canDelete = holds(useGrants(), 'records.delete');
+  // A video call (docs/video-calls.md, part 5) with the customer, its link sent in this conversation.
+  const canStartVideo = useCanStartVideoCall(business.id);
+  const video = useStartVideoCall(business.id);
   const { data, loading } = useConversation(conversationId);
   const c = data?.conversation ?? null;
   const person = data?.person ?? null;
@@ -1022,6 +1026,9 @@ function Thread() {
         teammateName={teammateName}
         assigneeShort={assigneeShort(c.assignee, myUserId)}
         onCall={() => startCall(callTarget)}
+        onVideoCall={
+          canStartVideo && person && !priv ? () => void video.start({ conversationId }) : null
+        }
         onAssign={priv ? null : () => setSheet('assign')}
         onHandToAi={() => setSheet('hand-back')}
         onSnooze={() => setSheet('snooze')}
@@ -1162,6 +1169,7 @@ function Thread() {
         onEdit={startEdit}
         onDiscard={discardDecided}
       />
+      {video.sheet}
     </Screen>
   );
 }

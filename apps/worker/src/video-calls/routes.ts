@@ -4,8 +4,12 @@
  *
  * - `POST /v1/video-calls/join` (signed in): someone from the team joins, straight in. Anyone who can't see the
  *   call's appointment is refused, and their page asks to be let in like anyone else.
+ * - `POST /v1/video-calls/start` (signed in): Video call on a customer's page or in a conversation, and Switch to
+ *   video on a phone call (part 5). It runs `video_call.start` as the person, with the business's own address for
+ *   the customer's link, the way every link a customer opens is built here.
  * - `POST /public/join/:token/enter`: a customer on their own Join link presses Join. In once someone from the team
  *   is there; until then their page asks again every few seconds. Taken out by the team, they ask to come back in.
+ *   Their own link is a booking's, or the one the team sent for a call that isn't for an appointment (links.ts).
  * - `GET /public/calls/:callId`, `POST /public/calls/:callId/knock` and `POST /public/calls/:callId/knock/:personId`:
  *   anyone else on the call's link (the team's own address) asks to be let in, and their page asks how it stands.
  *   The page keeps a random key and only its hash is stored, so only that page can ask, or come in. What the page
@@ -17,6 +21,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
   callIdOfRoom,
+  customerCallLinkOpens,
   executeCommand,
   executeQuery,
   HfosError,
@@ -28,15 +33,17 @@ import {
   videoCallKnockStatus,
   videoCallLinkOpens,
   videoCallRoom,
+  videoCallStart,
   type RequestMeta,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { resolveJoinToken } from '../booking/links';
 import { authenticate, header, parseBody, recordDelivery, type HttpDeps } from '../http/common';
 import { publicLookOf } from '../look/public';
+import { publicOrigin } from '../hosting/origin';
 import { systemActor, type TenantScope } from '../services';
+import { resolveCustomerLink } from './links';
 import type { VideoCallProvider } from './provider';
 
 /** LiveKit's reports are small; anything bigger isn't one. */
@@ -128,6 +135,50 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
     return { workspaceId: scope.workspaceId, ...joined, ticket };
   });
 
+  // Video call on a customer's page or in a conversation, and Switch to video (part 5): the link goes to the
+  // customer on the business's own domain once one works, and the screen opens the call with Join, as above.
+  app.post('/v1/video-calls/start', async (req, reply) => {
+    void reply.header('cache-control', 'no-store');
+    const actor = await authenticate(deps, req);
+    const body = parseBody(
+      z
+        .object({
+          workspaceId: Id,
+          personId: Id.optional(),
+          conversationId: Id.optional(),
+          channel: z.enum(['sms', 'email']).optional(),
+          acknowledgeQuietHours: z.boolean().default(false),
+        })
+        .refine((b) => !!b.personId || !!b.conversationId, {
+          error: 'Pick the customer or the conversation.',
+        }),
+      req.body,
+    );
+    videoOf(deps);
+    const [row] = await asWorker(deps.httpDb, {}, (tx) =>
+      rows<{ organization_id: string | null }>(
+        tx,
+        sql`select private.workspace_organization(${body.workspaceId}::uuid) as organization_id`,
+      ),
+    );
+    // A business that isn't there is the command's to refuse, in its own words.
+    const origin = row?.organization_id
+      ? await asWorker(
+          deps.httpDb,
+          { workspaceId: body.workspaceId, organizationId: row.organization_id },
+          (tx) => publicOrigin(tx, body.workspaceId, deps.bookingLinks.webUrl),
+        )
+      : deps.bookingLinks.webUrl;
+    const { output } = await executeCommand(
+      deps.httpDb,
+      videoCallStart,
+      { ...body, origin },
+      actor,
+      meta('web'),
+    );
+    return output;
+  });
+
   await app.register(async (pub) => {
     await pub.register(rateLimit, { global: false });
 
@@ -142,10 +193,58 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
           z.object({ name: Name, ask: z.boolean().default(false), key: Key.optional() }),
           req.body,
         );
-        const found = await resolveJoinToken(deps.httpDb, deps.bookingLinks, req.params.token);
-        if (found.status !== 'ok') throw joinNotFound();
+        const link = await resolveCustomerLink(deps.httpDb, deps.bookingLinks, req.params.token);
+        if (!link) throw joinNotFound();
         const video = videoOf(deps);
-        const { scope, attendeeId } = found;
+        const { scope } = link;
+        const enterAs = async (as: { attendeeId: string } | { callId: string }) => {
+          const said = (
+            await executeCommand(
+              deps.httpDb,
+              videoCallEnter,
+              {
+                workspaceId: scope.workspaceId,
+                ...as,
+                name: body.name,
+                ask: body.ask,
+                ...(body.key ? { knockKeyHash: knockKeyHash(body.key) } : {}),
+              },
+              systemActor(scope),
+              meta('booking_page'),
+            )
+          ).output;
+          if (said.status !== 'in' || !said.personId) return { ...said, ticket: null };
+          const ticket = await video.ticket({
+            room: videoCallRoom(said.callId),
+            identity: said.personId,
+            name: said.name,
+            kind: 'customer',
+          });
+          return { ...said, ticket };
+        };
+        // The link the team sent for a call that isn't for an appointment (part 5).
+        if (link.kind === 'call') {
+          const [c] = await asWorker(deps.httpDb, scope, (tx) =>
+            rows<{ created_at: Date | string; live: boolean }>(
+              tx,
+              sql`select created_at, state = 'live' as live from app.video_calls
+                  where id = ${link.callId}`,
+            ),
+          );
+          if (!c) throw joinNotFound();
+          const opens = customerCallLinkOpens(
+            { createdAt: new Date(c.created_at).getTime(), live: c.live },
+            Date.now(),
+          );
+          if (opens === 'over')
+            throw HfosError.rule(
+              'video_call_over',
+              409,
+              'This call has ended. Get in touch with the business if you’d like another.',
+            );
+          return enterAs({ callId: link.callId });
+        }
+        const { attendeeId } = link;
         const [w] = await asWorker(deps.httpDb, scope, (tx) =>
           rows<{ starts_at: Date | string; ends_at: Date | string; live: boolean }>(
             tx,
@@ -177,29 +276,7 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
             409,
             'This call has ended. Get in touch with the business to book another time.',
           );
-        const said = (
-          await executeCommand(
-            deps.httpDb,
-            videoCallEnter,
-            {
-              workspaceId: scope.workspaceId,
-              attendeeId,
-              name: body.name,
-              ask: body.ask,
-              ...(body.key ? { knockKeyHash: knockKeyHash(body.key) } : {}),
-            },
-            systemActor(scope),
-            meta('booking_page'),
-          )
-        ).output;
-        if (said.status !== 'in' || !said.personId) return { ...said, ticket: null };
-        const ticket = await video.ticket({
-          room: videoCallRoom(said.callId),
-          identity: said.personId,
-          name: said.name,
-          kind: 'customer',
-        });
-        return { ...said, ticket };
+        return enterAs({ attendeeId });
       },
     );
 

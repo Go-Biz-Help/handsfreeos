@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -8,38 +8,43 @@ carries the video and sound.
 Part 1, the call itself on the web, is built, and so is part 2, the AI hearing it: captions, "AI notes on", the
 transcript on the appointment and today's After the call. So is part 3, the Sales Coach in the call: its cards beside
 the video, and its write-up and score after. Part 4, the team's call screen in the phone app, is built too and reaches
-phones with the next store build ("On the phone" below). Calls that aren't for an appointment come next ("The owner's
-decisions" and "Not yet" below). Support turns calls on per
-business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
+phones with the next store build ("On the phone" below). So is part 5, calls any time: **Video call** on a customer's
+page and in a conversation, and **Switch to video** during a phone call, send the customer their own link and open the
+call ("Calls any time" below). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
 ## Where things are
 
-| What                                        | Where                                                                                                            |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Tables, the /admin switch and the rate line | `supabase/migrations/20261027013000_video_calls.sql`                                                             |
-| Rules and words both apps share             | `packages/core/src/meetings/video-calls.ts` (`VIDEO_CALL_WORDS`, `effectiveVideo`, `videoCallLinkOpens`)         |
-| Commands and the read                       | `packages/core/src/commands/video-call.ts`; the switch is `video-calls-switch.ts`                                |
-| Where an appointment's call comes from      | `locationFor` in `packages/core/src/calendar/booking.ts`; the meeting job in `apps/worker/src/meetings/sync.ts`  |
-| LiveKit, and the stand-in                   | `apps/worker/src/video-calls/livekit.ts`, `fake.ts`, behind `provider.ts`                                        |
-| Tickets, the customer's Join, knocking      | `apps/worker/src/video-calls/routes.ts`                                                                          |
-| LiveKit's webhooks, acted on                | `apps/worker/src/video-calls/reports.ts`; mute, remove and End for everyone in `handlers.ts`, from the events    |
-| The customer's page                         | `/j/<code>` (`apps/web/src/components/booking/join-session.tsx`), then `components/video-call/customer-call.tsx` |
-| The call's own link                         | `/call/<id>` (`apps/web/src/app/call/[callId]/page.tsx`, `components/video-call/link-call.tsx`)                  |
-| The call screen                             | `apps/web/src/components/video-call/` (`call-room.tsx`, `call-stage.tsx`, `call-panels.tsx`, `pre-join.tsx`)     |
-| Join and who joined, on the appointment     | `apps/web/src/components/calendar/video-call-block.tsx`                                                          |
-| The Online place's choice                   | `LocationsModule` and `ServicesModule` in `apps/web/src/components/calendars/modules.tsx`                        |
-| The switch in /admin                        | `apps/web/src/components/admin/video-calls-block.tsx`                                                            |
-| The browser test                            | `apps/web/e2e/video-call.spec.ts`, on a real LiveKit server in CI                                                |
-| What the AI heard, and the listener's list  | `supabase/migrations/20261027013300_video_call_words.sql` (`app.video_call_lines`, `video_calls_to_hear`)        |
-| The listener                                | `apps/worker/src/media.ts` (the `media` process in `fly.toml`), `video-calls/listener.ts`                        |
-| Hearing each person, captions, lines        | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                     |
-| The transcript, once a stretch is over      | `video_call.keep_words` (core), queued by `onVideoCallEnded` in `apps/worker/src/video-calls/handlers.ts`        |
-| The coach in the call                       | `apps/worker/src/video-calls/coach.ts` (`CallCoach`, `finishCoaching`); `video_call.coach` (core)                |
-| The coach's cards beside the video          | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), placed by `call-room.tsx`          |
-| The phone's call screen                     | `apps/mobile/src/video-call/` (`phone-call.tsx`, `room.tsx`, `team-call.ts`), at `app/app/w/[workspaceId]/call/` |
-| The coach's card on the phone               | `apps/mobile/src/addons/salescoach/call-card.tsx`, the phone registry's `CallCard`                               |
-| LiveKit in the phone's build                | `apps/mobile/app.json` (its plugins and the camera and microphone words), `app.config.ts` (no screen share)      |
+| What                                         | Where                                                                                                                             |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Tables, the /admin switch and the rate line  | `supabase/migrations/20261027013000_video_calls.sql`                                                                              |
+| Rules and words both apps share              | `packages/core/src/meetings/video-calls.ts` (`VIDEO_CALL_WORDS`, `effectiveVideo`, `videoCallLinkOpens`)                          |
+| Commands and the read                        | `packages/core/src/commands/video-call.ts`; the switch is `video-calls-switch.ts`                                                 |
+| Where an appointment's call comes from       | `locationFor` in `packages/core/src/calendar/booking.ts`; the meeting job in `apps/worker/src/meetings/sync.ts`                   |
+| LiveKit, and the stand-in                    | `apps/worker/src/video-calls/livekit.ts`, `fake.ts`, behind `provider.ts`                                                         |
+| Tickets, the customer's Join, knocking       | `apps/worker/src/video-calls/routes.ts`                                                                                           |
+| LiveKit's webhooks, acted on                 | `apps/worker/src/video-calls/reports.ts`; mute, remove and End for everyone in `handlers.ts`, from the events                     |
+| The customer's page                          | `/j/<code>` (`apps/web/src/components/booking/join-session.tsx`), then `components/video-call/customer-call.tsx`                  |
+| The call's own link                          | `/call/<id>` (`apps/web/src/app/call/[callId]/page.tsx`, `components/video-call/link-call.tsx`)                                   |
+| The call screen                              | `apps/web/src/components/video-call/` (`call-room.tsx`, `call-stage.tsx`, `call-panels.tsx`, `pre-join.tsx`)                      |
+| Join and who joined, on the appointment      | `apps/web/src/components/calendar/video-call-block.tsx`                                                                           |
+| The Online place's choice                    | `LocationsModule` and `ServicesModule` in `apps/web/src/components/calendars/modules.tsx`                                         |
+| The switch in /admin                         | `apps/web/src/components/admin/video-calls-block.tsx`                                                                             |
+| The browser test                             | `apps/web/e2e/video-call.spec.ts`, on a real LiveKit server in CI                                                                 |
+| What the AI heard, and the listener's list   | `supabase/migrations/20261027013300_video_call_words.sql` (`app.video_call_lines`, `video_calls_to_hear`)                         |
+| The listener                                 | `apps/worker/src/media.ts` (the `media` process in `fly.toml`), `video-calls/listener.ts`                                         |
+| Hearing each person, captions, lines         | `apps/worker/src/video-calls/hearing.ts`; LiveKit's media library only in `listener-room.ts`                                      |
+| The transcript, once a stretch is over       | `video_call.keep_words` (core), queued by `onVideoCallEnded` in `apps/worker/src/video-calls/handlers.ts`                         |
+| The coach in the call                        | `apps/worker/src/video-calls/coach.ts` (`CallCoach`, `finishCoaching`); `video_call.coach` (core)                                 |
+| The coach's cards beside the video           | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), placed by `call-room.tsx`                           |
+| The phone's call screen                      | `apps/mobile/src/video-call/` (`phone-call.tsx`, `room.tsx`, `team-call.ts`), at `app/app/w/[workspaceId]/call/`                  |
+| The coach's card on the phone                | `apps/mobile/src/addons/salescoach/call-card.tsx`, the phone registry's `CallCard`                                                |
+| LiveKit in the phone's build                 | `apps/mobile/app.json` (its plugins and the camera and microphone words), `app.config.ts` (no screen share)                       |
+| Calls any time: the link and the line        | `supabase/migrations/20261027014600_video_calls_any_time.sql`; `video_call.start` and `keepTimelineLine` (core)                   |
+| Which call a customer's `/j/` link opens     | `apps/worker/src/video-calls/links.ts` (`resolveCustomerLink`); the start route in `video-calls/routes.ts`                        |
+| Video call and Switch to video, on the web   | `apps/web/src/components/video-call/start-call.tsx`, used by `record-page.tsx`, `conversation-view.tsx` and `active-call-bar.tsx` |
+| Video call and Switch to video, on the phone | `apps/mobile/src/video-call/start-call.tsx`, used by the customer's screen, the conversation and `call-sheet.tsx`                 |
+| Notes from the call, on the timeline         | `components/video-call/call-notes.tsx` on the web, `src/video-call/call-notes.tsx` on the phone                                   |
 
 ## How a call goes
 
@@ -72,6 +77,9 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
    were really in, and everyone's minutes go on the business's balance as one line, `video.minute`. A minute after
    the call ends, what the AI heard becomes the appointment's transcript. Today's After the call starts from it, as
    with Zoom: the summary, tasks, a follow-up email and record changes, each waiting for a person.
+
+A call that isn't for an appointment (part 5) starts with **Video call** or **Switch to video** instead of a booking,
+and ends as its own line on the customer's timeline instead of on an appointment. Steps 3 and 5 to 7 are the same.
 
 ## The owner's decisions (2026-10-27)
 
@@ -162,7 +170,7 @@ joining by phone, team-only meetings.
 - **One transcript a stretch.** When the room closes, `video_call.ended` queues `video_call.keep_words` 20 seconds
   later, once the last lines are in. It makes the lines up to the stretch's end into the appointment's transcript
   (provider `handsfree`, kept once per stretch) and deletes them. Fewer than 15 words isn't kept: "Can you hear me?"
-  is no conversation. A call that isn't for an appointment keeps nothing yet (part 5).
+  is no conversation. A call that isn't for an appointment keeps its transcript on the call instead (part 5).
 - **The transcript emits `appointment.transcript_ready`** exactly as Zoom's does, so After the call, the timeline's
   summary and the suggestions need nothing of their own. The words themselves never go in an event or the
   activity log.
@@ -225,6 +233,34 @@ joining by phone, team-only meetings.
   an over-the-air update. Until people update, Join on their phone opens the browser as before. The camera and
   microphone words, and what each Android permission is for, are in `apps/mobile/store/permissions.md`.
 
+### Calls any time (part 5)
+
+- **Video call** on a customer's page and in a conversation, and **Switch to video** on a phone call's bar (the call
+  sheet on the phone), all run `video_call.start` through the worker's `/v1/video-calls/start`. It needs
+  `appointments.write` and `inbox.use`, and the business must have calls on. In one change it makes the call, hosted
+  by whoever pressed it, and sends the customer their own link as that person (`message.send`, so quiet hours, STOP
+  and the conversation work as for any message). The screen then opens the call for them.
+- **How the link goes** (`videoCallInviteChannel`): in a conversation, on its own channel; otherwise a text, else an
+  email. A customer with both on the web or phone is asked which. Someone who texted STOP, or a business that can't
+  text yet, gets the email. In quiet hours only a person's **Send the link anyway** sends a text, as in the composer.
+- **The customer's own link is `/j/<key>`,** the same path as a booking's Join link. The key is 32 random letters and
+  digits, and only its hash is kept (`link_key_hash`); a booking's link is 18 long, so `resolveCustomerLink` tells
+  them apart by length. It opens the call for a day after it was made, and for as long as the call is going
+  (`customerCallLinkOpens`); after that it says the call is over. Its page shows the business's name and look, never
+  the customer's.
+- **The customer goes straight in once the team is there** (the owner's 6a), as on an appointment: until then they
+  wait, and whoever started it gets the push that someone is waiting.
+- **The AI notice comes before joining** (decision 9): the link's message says AI takes notes, and so does the page
+  before Join. A call is made with its AI notes on, and the host can turn them off for that call as usual.
+- **Its own line on the timeline:** "Dana had a video call · 12:04" (`keepTimelineLine`), written when the first
+  stretch ends and kept up to date by later ones, timed by the customer's own time in the call. The AI's summary
+  becomes the line's body, and **Notes from the call** on it opens After the call and the transcript.
+- **Transcripts and After the call** belong to an appointment or to one of these calls (`video_call_id`, exactly one
+  of the two). The transcript emits `appointment.transcript_ready` with the customer and no appointment, so the
+  summary and suggestions need nothing new. Search never reads transcripts (decision 15).
+- **The phone asks `workspace.get` whether calls are on,** once while the app is open, since nothing about calls is
+  kept on the phone. `apps/sync/sync-config.yaml` is unchanged.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -243,6 +279,7 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
 - Bluetooth earbuds for a call on Android 12 and later, which needs the "Nearby devices" permission; the phone's
   speaker, earpiece and wired headphones work, and on an iPhone AirPods too, from its own picker.
 - A call that keeps going with the phone app in the background, or locked.
-- Calls that aren't for an appointment (part 5).
+- Starting a call from the Assistant. It can let people in, mute, remove and end a call as the call screen does,
+  but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, big sessions, breakout rooms and picture backgrounds.

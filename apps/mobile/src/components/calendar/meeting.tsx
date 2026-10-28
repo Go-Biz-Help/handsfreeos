@@ -113,19 +113,22 @@ const SHORT = 600;
 /**
  * A recorded call, once it's over: the AI's summary, the tasks, follow-up and record update it suggests (each
  * waits for an OK here or on the web), and what was said. Asked for online; nothing of it is kept on the phone.
+ * An appointment's call, or a HandsFreeOS video call that wasn't for one (docs/video-calls.md, part 5), from the
+ * line it has on the customer's timeline.
  */
 export function CallRecord({
   workspaceId,
-  appointmentId,
   online,
   ours = false,
+  ...call
 }: {
   workspaceId: string;
-  appointmentId: string;
   online: boolean;
   /** A HandsFreeOS video call: its transcript comes from the AI's notes, once the call ends. */
   ours?: boolean;
-}) {
+} & ({ appointmentId: string } | { videoCallId: string })) {
+  const appointmentId = 'appointmentId' in call ? call.appointmentId : undefined;
+  const videoCallId = 'videoCallId' in call ? call.videoCallId : undefined;
   const [review, setReview] = React.useState<Review | null>(null);
   const [transcripts, setTranscripts] = React.useState<Transcript[]>([]);
   const [titles, setTitles] = React.useState<Record<string, string>>({});
@@ -133,14 +136,16 @@ export function CallRecord({
   const [full, setFull] = React.useState(false);
 
   const load = React.useCallback(async () => {
-    const body = { body: { workspaceId, appointmentId } };
+    const body = {
+      body: { workspaceId, ...(appointmentId ? { appointmentId } : { videoCallId }) },
+    };
     const [r, t] = await Promise.allSettled([
       api.POST('/v1/queries/call_suggestion.list', body).then(unwrap),
       api.POST('/v1/queries/appointment.transcripts', body).then(unwrap),
     ]);
     if (r.status === 'fulfilled') setReview(r.value as Review);
     if (t.status === 'fulfilled') setTranscripts((t.value as { items: Transcript[] }).items);
-  }, [workspaceId, appointmentId]);
+  }, [workspaceId, appointmentId, videoCallId]);
 
   React.useEffect(() => {
     if (online) void load();
@@ -228,7 +233,9 @@ export function CallRecord({
                 <Text className="text-[13px] text-text-2">{text(s.preview.body)}</Text>
                 {pending ? (
                   <Text className="text-[12px] text-text-3">
-                    To change the wording, open this appointment on the web.
+                    {appointmentId
+                      ? 'To change the wording, open this appointment on the web.'
+                      : 'To change the wording, open this customer on the web.'}
                   </Text>
                 ) : null}
               </>
@@ -262,7 +269,12 @@ export function CallRecord({
       {latest ? (
         <View testID="call-transcript">
           <Text className="mb-1 text-[12px] font-semibold uppercase text-text-3">
-            What was said · {latest.provider === 'google_meet' ? 'Google Meet' : 'Zoom'}
+            What was said ·{' '}
+            {latest.provider === 'handsfree'
+              ? VIDEO_CALL_NAME
+              : latest.provider === 'google_meet'
+                ? 'Google Meet'
+                : 'Zoom'}
           </Text>
           <Text className="text-[13px] text-text-2">
             {full || latest.body.length <= SHORT ? latest.body : `${latest.body.slice(0, SHORT)}…`}

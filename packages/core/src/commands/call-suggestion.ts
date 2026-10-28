@@ -5,6 +5,9 @@
  * suggested tasks, follow-up and record change, which wait. `call_suggestion.decide` is a person's OK or no:
  * approving runs `task.create` (on the record too, sealed with a private deal like the note), `message.send` or
  * `person.update` as that person, with what they edited, in the same transaction.
+ *
+ * A HandsFreeOS video call that isn't for an appointment (docs/video-calls.md, part 5) has the same: its summary goes
+ * on the call's own line on the customer's timeline instead of a note, and its suggestions are the call's.
  */
 import { and, asc, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
@@ -13,9 +16,11 @@ import {
   appointments,
   appointmentStaff,
   appointmentTranscripts,
+  activities,
   callSuggestions,
   customRecords,
   people,
+  videoCalls,
 } from '@hfos/db/schema';
 import { z } from 'zod';
 import { HfosError } from '../errors';
@@ -62,11 +67,33 @@ const same = (a: string | null | undefined, b: string | null | undefined, field:
   return norm(a) === norm(b);
 };
 
-/** Who the call was with: its first booked customer, else its lead. */
-async function customerOf(
-  tx: Parameters<typeof executeCommandWithin>[0]['tx'],
-  appointmentId: string,
-) {
+type Tx = Parameters<typeof executeCommandWithin>[0]['tx'];
+
+/** What the call was: an appointment's, or a HandsFreeOS video call that isn't for one. */
+type CallOf = { readonly appointmentId: string | null; readonly videoCallId: string | null };
+
+/** A video call that isn't for an appointment: who it was with, who hosted it, and its line on the timeline. */
+async function videoCallOf(tx: Tx, workspaceId: string, videoCallId: string) {
+  const [c] = await tx
+    .select({
+      personId: videoCalls.personId,
+      hostUserId: videoCalls.hostUserId,
+      activityId: videoCalls.activityId,
+      startedAt: videoCalls.startedAt,
+      endedAt: videoCalls.endedAt,
+    })
+    .from(videoCalls)
+    .where(and(eq(videoCalls.id, videoCallId), eq(videoCalls.workspaceId, workspaceId)));
+  return c ?? null;
+}
+
+/** Who the call was with: an appointment's first booked customer, else its lead; or the video call's customer. */
+async function customerOf(tx: Tx, workspaceId: string, of: CallOf) {
+  if (!of.appointmentId) {
+    const c = of.videoCallId ? await videoCallOf(tx, workspaceId, of.videoCallId) : null;
+    return { personId: c?.personId ?? null, leadId: null };
+  }
+  const appointmentId = of.appointmentId;
   const [a] = await tx
     .select({ leadId: appointments.leadId })
     .from(appointments)
@@ -91,7 +118,7 @@ async function customerOf(
  * it as gone.
  */
 async function recordThatReads(
-  tx: Parameters<typeof executeCommandWithin>[0]['tx'],
+  tx: Tx,
   workspaceId: string,
   customRecordId: string | null,
 ): Promise<string | null> {
@@ -107,7 +134,7 @@ type SuggestionKind = 'task' | 'follow_up' | 'record_change';
 
 /** A record change only when the customer is on file and something actually differs from what's there. */
 async function recordChangeRow(
-  tx: Parameters<typeof executeCommandWithin>[0]['tx'],
+  tx: Tx,
   workspaceId: string,
   personId: string | null,
   changes: CallReview['recordChanges'],
@@ -137,12 +164,29 @@ async function recordChangeRow(
   return [{ kind: 'record_change', preview: { ...preview, was } }];
 }
 
-const RecordInput = z.object({
+/** The call: an appointment's, or a video call that isn't for one. */
+const CallInput = z.object({
   workspaceId: uuid,
-  appointmentId: uuid,
-  transcriptId: uuid,
-  review: CallReview,
+  appointmentId: uuid.optional(),
+  videoCallId: uuid.optional(),
 });
+const oneCall = (i: { appointmentId?: string; videoCallId?: string }) =>
+  !!i.appointmentId !== !!i.videoCallId;
+const ONE_CALL = { error: 'Name the appointment or the video call, not both.' } as const;
+const callOf = (i: { appointmentId?: string; videoCallId?: string }): CallOf => ({
+  appointmentId: i.appointmentId ?? null,
+  videoCallId: i.videoCallId ?? null,
+});
+/** Where a suggestion's events say it is. */
+const entityOf = (of: CallOf) =>
+  of.appointmentId
+    ? { entityType: 'appointment', entityId: of.appointmentId }
+    : { entityType: 'video_call', entityId: of.videoCallId! };
+
+const RecordInput = CallInput.extend({ transcriptId: uuid, review: CallReview }).refine(
+  oneCall,
+  ONE_CALL,
+);
 const RecordOutput = z.object({
   noted: z.boolean(),
   suggestions: z.int(),
@@ -161,53 +205,80 @@ export const callSuggestionRecord = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
+    const of = callOf(input);
     const [t] = await ctx.tx
       .select({ id: appointmentTranscripts.id, summary: appointmentTranscripts.summary })
       .from(appointmentTranscripts)
       .where(
         and(
           eq(appointmentTranscripts.id, input.transcriptId),
-          eq(appointmentTranscripts.appointmentId, input.appointmentId),
+          of.appointmentId
+            ? eq(appointmentTranscripts.appointmentId, of.appointmentId)
+            : eq(appointmentTranscripts.videoCallId, of.videoCallId!),
           eq(appointmentTranscripts.workspaceId, ws),
         ),
       )
       .for('update');
     // Gone, or already reviewed (a retried job): nothing twice.
     if (!t || t.summary !== null) return { noted: false, suggestions: 0 };
-    const [appt] = await ctx.tx
-      .select({
-        title: appointments.title,
-        endsAt: appointments.endsAt,
-        customRecordId: appointments.customRecordId,
-        sealed: appointments.sealed,
-      })
-      .from(appointments)
-      .where(eq(appointments.id, input.appointmentId));
-    if (!appt) return { noted: false, suggestions: 0 };
-    const record = await recordThatReads(ctx.tx, ws, appt.customRecordId);
     const review = input.review;
-    await ctx.tx
-      .update(appointmentTranscripts)
-      .set({ summary: review.summary })
-      .where(eq(appointmentTranscripts.id, t.id));
-
-    const who = await customerOf(ctx.tx, input.appointmentId);
+    const who = await customerOf(ctx.tx, ws, of);
     let noted = false;
-    // A record in the Deleted bin (binning leaves its appointments on it) can't take the note, so it goes on the
-    // customer alone. A private record never goes in the bin; were one not to read, its summary would show to
-    // everyone there, so it stays on the transcript, and the suggestions still wait.
-    if ((who.personId || who.leadId) && !(appt.sealed && !record)) {
-      await executeCommandWithin(ctx, activityLog, {
-        workspaceId: ws,
-        kind: 'note',
-        body: `Call summary: ${appt.title}\n\n${review.summary}`,
-        occurredAt: appt.endsAt.toISOString(),
-        ...(who.personId ? { personId: who.personId } : {}),
-        ...(who.leadId ? { leadId: who.leadId } : {}),
-        // A tour on a private deal: the note is sealed with the deal, so only its people read it.
-        ...(record ? { customRecordId: record } : {}),
-      });
-      noted = true;
+    let endsAt: Date;
+    let title: string;
+
+    if (of.appointmentId) {
+      const [appt] = await ctx.tx
+        .select({
+          title: appointments.title,
+          endsAt: appointments.endsAt,
+          customRecordId: appointments.customRecordId,
+          sealed: appointments.sealed,
+        })
+        .from(appointments)
+        .where(eq(appointments.id, of.appointmentId));
+      if (!appt) return { noted: false, suggestions: 0 };
+      const record = await recordThatReads(ctx.tx, ws, appt.customRecordId);
+      await ctx.tx
+        .update(appointmentTranscripts)
+        .set({ summary: review.summary })
+        .where(eq(appointmentTranscripts.id, t.id));
+      // A record in the Deleted bin (binning leaves its appointments on it) can't take the note, so it goes on the
+      // customer alone. A private record never goes in the bin; were one not to read, its summary would show to
+      // everyone there, so it stays on the transcript, and the suggestions still wait.
+      if ((who.personId || who.leadId) && !(appt.sealed && !record)) {
+        await executeCommandWithin(ctx, activityLog, {
+          workspaceId: ws,
+          kind: 'note',
+          body: `Call summary: ${appt.title}\n\n${review.summary}`,
+          occurredAt: appt.endsAt.toISOString(),
+          ...(who.personId ? { personId: who.personId } : {}),
+          ...(who.leadId ? { leadId: who.leadId } : {}),
+          // A tour on a private deal: the note is sealed with the deal, so only its people read it.
+          ...(record ? { customRecordId: record } : {}),
+        });
+        noted = true;
+      }
+      endsAt = appt.endsAt;
+      title = appt.title;
+    } else {
+      const call = await videoCallOf(ctx.tx, ws, of.videoCallId!);
+      if (!call) return { noted: false, suggestions: 0 };
+      await ctx.tx
+        .update(appointmentTranscripts)
+        .set({ summary: review.summary })
+        .where(eq(appointmentTranscripts.id, t.id));
+      // The call's own line on the customer's timeline shows its summary, rather than a note beside it.
+      if (call.activityId) {
+        const [line] = await ctx.tx
+          .update(activities)
+          .set({ body: review.summary })
+          .where(and(eq(activities.id, call.activityId), eq(activities.workspaceId, ws)))
+          .returning({ id: activities.id });
+        noted = !!line;
+      }
+      endsAt = call.endedAt ?? new Date();
+      title = 'Video call';
     }
 
     const suggested: { kind: SuggestionKind; preview: Record<string, unknown> }[] = [
@@ -219,7 +290,7 @@ export const callSuggestionRecord = defineCommand({
           dueAt:
             task.dueInDays === null
               ? null
-              : new Date(appt.endsAt.getTime() + task.dueInDays * DAY).toISOString(),
+              : new Date(endsAt.getTime() + task.dueInDays * DAY).toISOString(),
         },
       })),
       // A follow-up needs someone to send it to.
@@ -233,7 +304,8 @@ export const callSuggestionRecord = defineCommand({
         .insert(callSuggestions)
         .values({
           workspaceId: ws,
-          appointmentId: input.appointmentId,
+          appointmentId: of.appointmentId,
+          videoCallId: of.videoCallId,
           transcriptId: t.id,
           kind: r.kind,
           preview: r.preview,
@@ -241,10 +313,9 @@ export const callSuggestionRecord = defineCommand({
         .returning({ id: callSuggestions.id });
       await ctx.emit({
         type: 'call_suggestion.created',
-        entityType: 'appointment',
-        entityId: input.appointmentId,
+        ...entityOf(of),
         payload: { suggestionId: made!.id, kind: r.kind },
-        after: { title: appt.title, kind: r.kind },
+        after: { title, kind: r.kind },
       });
     }
     return { noted, suggestions: suggested.length };
@@ -310,6 +381,7 @@ export const callSuggestionDecide = defineCommand({
         kind: callSuggestions.kind,
         preview: callSuggestions.preview,
         appointmentId: callSuggestions.appointmentId,
+        videoCallId: callSuggestions.videoCallId,
       });
     if (!s) {
       const [seen] = await ctx.tx
@@ -320,7 +392,7 @@ export const callSuggestionDecide = defineCommand({
         );
       if (!seen)
         throw HfosError.notFound(
-          'That suggestion isn’t there anymore. Its appointment may have been deleted. Refresh and try again.',
+          'That suggestion isn’t there anymore. Its appointment or call may have been deleted. Refresh and try again.',
         );
       throw HfosError.rule(
         'call_suggestion_decided',
@@ -334,29 +406,37 @@ export const callSuggestionDecide = defineCommand({
     let conversationId: string | null = null;
     let preview: Record<string, unknown> = s.preview as Record<string, unknown>;
     if (input.decision === 'approve') {
-      const who = await customerOf(ctx.tx, s.appointmentId);
+      const of: CallOf = { appointmentId: s.appointmentId, videoCallId: s.videoCallId };
+      const who = await customerOf(ctx.tx, ws, of);
       if (s.kind === 'task') {
         const p = TaskPreview.parse({ ...preview, ...input.edits });
         preview = p;
         // On the call's record too, so a task from a tour on a private deal is sealed with the deal, as its summary
         // note is. A private record never goes in the bin, and whoever sees its sealed appointment sees it, so one
         // that doesn't read here was just taken away; made without it, the task would show to everyone.
-        const [appt] = await ctx.tx
-          .select({ customRecordId: appointments.customRecordId, sealed: appointments.sealed })
-          .from(appointments)
-          .where(eq(appointments.id, s.appointmentId));
+        const [appt] = of.appointmentId
+          ? await ctx.tx
+              .select({ customRecordId: appointments.customRecordId, sealed: appointments.sealed })
+              .from(appointments)
+              .where(eq(appointments.id, of.appointmentId))
+          : [];
         const record = await recordThatReads(ctx.tx, ws, appt?.customRecordId ?? null);
         if (appt?.sealed && !record)
           throw HfosError.notFound(
             'The record this call was on isn’t there anymore, so its task can’t be made. Refresh and try again.',
           );
         // Given to the call's host, about its customer; on a private record, only a host who is on it.
-        const [host] = await ctx.tx
-          .select({ userId: appointmentStaff.userId })
-          .from(appointmentStaff)
-          .where(eq(appointmentStaff.appointmentId, s.appointmentId))
-          .orderBy(asc(appointmentStaff.role))
-          .limit(1);
+        const [host] = of.appointmentId
+          ? await ctx.tx
+              .select({ userId: appointmentStaff.userId })
+              .from(appointmentStaff)
+              .where(eq(appointmentStaff.appointmentId, of.appointmentId))
+              .orderBy(asc(appointmentStaff.role))
+              .limit(1)
+          : await (async () => {
+              const c = await videoCallOf(ctx.tx, ws, of.videoCallId!);
+              return c?.hostUserId ? [{ userId: c.hostUserId }] : [];
+            })();
         const [onRecord] =
           host && record
             ? await rows<{ ok: boolean }>(
@@ -417,8 +497,7 @@ export const callSuggestionDecide = defineCommand({
       .where(eq(callSuggestions.id, s.id));
     await ctx.emit({
       type: 'call_suggestion.decided',
-      entityType: 'appointment',
-      entityId: s.appointmentId,
+      ...entityOf({ appointmentId: s.appointmentId, videoCallId: s.videoCallId }),
       payload: { suggestionId: s.id, kind: s.kind, decision: input.decision, taskId },
       after: { kind: s.kind, decision: input.decision },
     });
@@ -431,7 +510,7 @@ export const callSuggestionDecide = defineCommand({
   },
 });
 
-const ListInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+const ListInput = CallInput.refine(oneCall, ONE_CALL);
 const ListOutput = z.object({
   summary: z.string().nullable(),
   items: z.array(
@@ -448,7 +527,7 @@ const ListOutput = z.object({
 export const callSuggestionList = defineQuery({
   name: 'call_suggestion.list',
   description:
-    'The AI’s summary of an appointment’s recorded call, and its suggestions with where each stands.',
+    'The AI’s summary of a recorded call (an appointment’s, or a HandsFreeOS video call that isn’t for one), and its suggestions with where each stands.',
   input: ListInput,
   output: ListOutput,
   permission: 'workspace.read',
@@ -457,7 +536,11 @@ export const callSuggestionList = defineQuery({
     const [t] = await ctx.tx
       .select({ summary: appointmentTranscripts.summary })
       .from(appointmentTranscripts)
-      .where(eq(appointmentTranscripts.appointmentId, input.appointmentId))
+      .where(
+        input.appointmentId
+          ? eq(appointmentTranscripts.appointmentId, input.appointmentId)
+          : eq(appointmentTranscripts.videoCallId, input.videoCallId!),
+      )
       .orderBy(asc(appointmentTranscripts.createdAt))
       .limit(1);
     const list = await ctx.tx
@@ -465,7 +548,9 @@ export const callSuggestionList = defineQuery({
       .from(callSuggestions)
       .where(
         and(
-          eq(callSuggestions.appointmentId, input.appointmentId),
+          input.appointmentId
+            ? eq(callSuggestions.appointmentId, input.appointmentId)
+            : eq(callSuggestions.videoCallId, input.videoCallId!),
           eq(callSuggestions.workspaceId, input.workspaceId),
         ),
       )

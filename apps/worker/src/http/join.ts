@@ -12,13 +12,17 @@
  * - **A HandsFreeOS video call** (docs/video-calls.md) isn't sent anywhere: the page is the call. It answers `call`
  *   with the name on the booking and the business's look, and the page's Join goes to video-calls/routes.ts. Joining
  *   is counted when they're really in the call, not here.
+ * - **The link the team sent** for a call that isn't for an appointment (part 5) is the call too, on the same page:
+ *   open for a day after it was made, and for as long as the call is going (video-calls/links.ts).
  */
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
   attendeeSetAttendance,
   bookingLabel,
+  customerCallLinkOpens,
   executeCommand,
+  hostFirstName,
   HfosError,
   loadCalendar,
   videoCallLinkOpens,
@@ -28,9 +32,9 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { appointmentAttendees, appointments } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { resolveJoinToken } from '../booking/links';
 import { publicLookOf, type PublicLook } from '../look/public';
-import { systemActor } from '../services';
+import { systemActor, type TenantScope } from '../services';
+import { resolveCustomerLink } from '../video-calls/links';
 import { header, type HttpDeps } from './common';
 
 /** How early a Join link opens the meeting. */
@@ -107,9 +111,10 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
       { config: { rateLimit: limit } },
       async (req, reply): Promise<JoinAnswer> => {
         void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
-        const found = await resolveJoinToken(deps.httpDb, deps.bookingLinks, req.params.token);
-        if (found.status !== 'ok') throw notFound();
-        const { scope, attendeeId } = found;
+        const link = await resolveCustomerLink(deps.httpDb, deps.bookingLinks, req.params.token);
+        if (!link) throw notFound();
+        if (link.kind === 'call') return callAnswer(deps, link.scope, link.callId);
+        const { scope, attendeeId } = link;
         const seat = await asWorker(deps.httpDb, scope, async (tx) => {
           const [row] = await tx
             .select({ a: appointmentAttendees, p: appointments })
@@ -190,4 +195,60 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
       },
     );
   });
+}
+
+/** The link the team sent for a call that isn't for an appointment (part 5): the call itself, or why not. */
+async function callAnswer(deps: HttpDeps, scope: TenantScope, callId: string): Promise<JoinAnswer> {
+  const [c] = await asWorker(deps.httpDb, scope, (tx) =>
+    rows<{
+      created_at: Date | string;
+      live: boolean;
+      on: boolean;
+      ai_notes: boolean;
+      business: string;
+      settings: unknown;
+      timezone: string | null;
+      name: string | null;
+      host: string | null;
+    }>(
+      tx,
+      sql`select c.created_at, c.state = 'live' as live, w.video_calls as on, c.ai_notes,
+            coalesce(nullif(bs.name, ''), w.name) as business, w.settings, w.timezone,
+            trim(concat_ws(' ', p.first_name, p.last_name)) as name,
+            coalesce(nullif(u.full_name, ''), split_part(u.email::text, '@', 1)) as host
+          from app.video_calls c
+          join app.workspaces w on w.id = c.workspace_id
+          left join app.booking_sites bs on bs.workspace_id = w.id
+          left join app.people p on p.id = c.person_id
+          left join app.users u on u.id = c.host_user_id
+          where c.id = ${callId} and c.appointment_id is null`,
+    ),
+  );
+  if (!c) throw notFound();
+  const madeAt = new Date(c.created_at).getTime();
+  const title = `Video call with ${c.business}`;
+  if (!deps.videoCalls || !c.on)
+    return {
+      state: 'no_link',
+      title,
+      business: c.business,
+      when: bookingLabel(madeAt, c.timezone ?? 'America/Chicago'),
+    };
+  if (customerCallLinkOpens({ createdAt: madeAt, live: c.live }, Date.now()) === 'over')
+    return {
+      state: 'over',
+      title,
+      business: c.business,
+      when: bookingLabel(madeAt, c.timezone ?? 'America/Chicago'),
+    };
+  const host = hostFirstName(c.host);
+  return {
+    state: 'call',
+    title,
+    business: c.business,
+    when: host ? `With ${host}` : 'Join when you’re ready',
+    name: c.name ?? '',
+    look: publicLookOf(c.settings, deps.storageUrl),
+    aiNotes: c.ai_notes,
+  };
 }

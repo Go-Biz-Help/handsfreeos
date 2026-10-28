@@ -27,6 +27,7 @@ import {
   captionOf,
   isPersonIdentity,
   roomAiOn,
+  videoCallTitle,
   type VideoCallCaption,
 } from '@hfos/core';
 import {
@@ -80,7 +81,6 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { BrandMark } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
@@ -99,7 +99,8 @@ import { canBlur, setBlur } from './blur';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
 import { mediaProblem } from './pre-join';
-import { actOn, endForEveryone, setAiNotes, useVideoCall } from './team-call';
+import { actOn, endForEveryone, setAiNotes, useVideoCall, type VideoCallGot } from './team-call';
+import { toast } from './toast';
 import type { CallEnd, CallHeading, DeviceChoices, TeamSide } from './types';
 
 /** The stand-in's tickets (apps/worker/src/video-calls/fake.ts): nothing to connect to. */
@@ -400,7 +401,7 @@ function CallScreen({
   };
 
   const look = brandLook(color);
-  const title = team && got?.appointment ? got.appointment.title : heading.title;
+  const title = team ? teamTitle(got, heading.title) : heading.title;
   const detail =
     team && got?.appointment
       ? got.appointment.customers.map((c) => c.name).join(', ') || null
@@ -894,6 +895,12 @@ function Control({
  * The stand-in's call (`fake:` tickets): no video or sound to carry, so the screen says so. Leaving works, and the
  * team's panel works from the API, so the rest of a call's flow can be tried without LiveKit.
  */
+/** What the team sees on top: the appointment's title, or who a call that isn't for one is with (part 5). */
+function teamTitle(got: VideoCallGot | null, fallback: string): string {
+  if (got?.appointment) return got.appointment.title;
+  return got?.customer ? videoCallTitle(got.customer.name) : fallback;
+}
+
 function StandIn({ heading, team, onEnd }: CallRoomProps) {
   const { got, reload } = useVideoCall(team?.workspaceId ?? '', team?.callId ?? '', !!team);
   return (
@@ -904,7 +911,7 @@ function StandIn({ heading, team, onEnd }: CallRoomProps) {
     >
       <header className="px-4 py-2.5">
         <span className="text-[15px] font-medium" data-testid="call-title">
-          {team && got?.appointment ? got.appointment.title : heading.title}
+          {team ? teamTitle(got, heading.title) : heading.title}
         </span>
       </header>
       <div

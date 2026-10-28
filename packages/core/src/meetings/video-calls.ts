@@ -34,6 +34,94 @@ export function videoCallLinkOpens(
   return 'open';
 }
 
+// ---------- calls any time (part 5, pick 5c) ----------
+
+/**
+ * A call that isn't for an appointment, started from a customer's page, a conversation or a phone call: the
+ * customer's own link is `/j/<key>`, a random key of this many letters and digits that only its hash is kept of. An
+ * appointment's Join link is 18 long, so the two never mix.
+ */
+export const VIDEO_CALL_LINK_KEY_LENGTH = 32;
+const LINK_KEY_RE = new RegExp(`^[0-9A-Za-z]{${VIDEO_CALL_LINK_KEY_LENGTH}}$`);
+export const isVideoCallLinkKey = (token: string): boolean => LINK_KEY_RE.test(token);
+export const videoCallLinkPath = (key: string): string => `/j/${key}`;
+
+/** How long after it was made such a call's link still opens it, besides while it's going. */
+export const VIDEO_CALL_LINK_OPEN_MS = 24 * 60 * 60_000;
+
+/** Whether the customer's own link to a call that isn't for an appointment opens it now. */
+export function customerCallLinkOpens(
+  at: { readonly createdAt: number; readonly live: boolean },
+  now: number,
+): 'open' | 'over' {
+  return at.live || now - at.createdAt <= VIDEO_CALL_LINK_OPEN_MS ? 'open' : 'over';
+}
+
+/** What a call that isn't for an appointment is called, on its page, its line and its push. */
+export const videoCallTitle = (customer: string | null | undefined): string =>
+  customer?.trim() ? `Video call with ${customer.trim()}` : 'Video call';
+
+/** Where a call's link goes: a conversation's own channel, a text, or an email. */
+export const VIDEO_CALL_INVITE_CHANNELS = [
+  'sms',
+  'email',
+  'chat',
+  'portal',
+  'messenger',
+  'instagram',
+] as const;
+export type VideoCallInviteChannel = (typeof VIDEO_CALL_INVITE_CHANNELS)[number];
+
+/**
+ * How the customer gets their link when nobody said: in the conversation it was started from, on that
+ * conversation's own channel; otherwise a text when they have a number that takes texts, else an email. Null when
+ * there's no way to reach them.
+ */
+export function videoCallInviteChannel(input: {
+  readonly asked?: 'sms' | 'email' | null;
+  readonly conversation?: string | null;
+  readonly phone: boolean;
+  readonly textsOk: boolean;
+  readonly email: boolean;
+}): VideoCallInviteChannel | null {
+  const sms = input.phone && input.textsOk;
+  if (input.asked === 'sms') return sms ? 'sms' : null;
+  if (input.asked === 'email') return input.email ? 'email' : null;
+  // A text conversation with someone who can't take texts now (they texted STOP) goes on to their email.
+  const c = input.conversation;
+  if (c && (VIDEO_CALL_INVITE_CHANNELS as readonly string[]).includes(c) && (c !== 'sms' || sms))
+    return c as VideoCallInviteChannel;
+  if (sms) return 'sms';
+  return input.email ? 'email' : null;
+}
+
+/** The message that carries the customer's link, sent as whoever started the call. */
+export function videoCallInviteWords(input: {
+  readonly business: string;
+  readonly firstName: string | null;
+  readonly link: string;
+  readonly channel: VideoCallInviteChannel;
+  readonly aiNotes: boolean;
+}): { readonly subject: string | null; readonly body: string } {
+  const notice = input.aiNotes ? ` ${VIDEO_CALL_WORDS.emailNotice}` : '';
+  if (input.channel !== 'email')
+    return {
+      subject: null,
+      body: `Here’s the link to our video call: ${input.link}\nIt opens in your browser, with nothing to install.${notice}`,
+    };
+  return {
+    subject: `Video call with ${input.business}`,
+    body: [
+      `Hi ${input.firstName?.trim() || 'there'},`,
+      '',
+      'Here’s the link to our video call:',
+      input.link,
+      '',
+      `It opens in your browser, with nothing to install.${notice}`,
+    ].join('\n'),
+  };
+}
+
 /** How long a ticket to the room lasts: long enough to connect and reconnect, no longer. */
 export const VIDEO_CALL_TICKET_SECONDS = 15 * 60;
 
@@ -311,6 +399,30 @@ export const VIDEO_CALL_WORDS = {
   /** The appointment's transcript of a HandsFreeOS call. */
   transcriptFrom: 'From the video call',
   transcriptSoon: 'With AI notes on, the transcript shows here a minute after the call ends.',
+  // Calls any time (part 5).
+  /** On a customer's page and in a conversation. */
+  start: 'Video call',
+  /** On the phone call's bar. */
+  switchToVideo: 'Switch to video',
+  /** The choice of how the link goes, when the customer has a number and an email. */
+  sendBy: {
+    sms: (to: string) => `Text the link to ${to}`,
+    email: (to: string) => `Email the link to ${to}`,
+  },
+  /** Under the choice, on the phone. */
+  sendHow: 'They join from their own link, and the call opens for you.',
+  /** In quiet hours, only a person's yes sends a text (as in the composer). */
+  sendAnyway: 'Send the link anyway',
+  starting: 'Sending the link…',
+  /** Once the link is on its way, and the call opens for whoever pressed it. */
+  started: (name: string, channel: VideoCallInviteChannel) =>
+    `${name}’s link is on its way ${channel === 'sms' ? 'by text' : channel === 'email' ? 'by email' : 'in your conversation'}. The call opens for you now.`,
+  /** After Switch to video, while the phone call is still going. */
+  switchHint: 'Hang up the phone call once they’re in the video call.',
+  /** On that line: the call's summary, After the call and transcript. */
+  notes: 'Notes from the call',
+  notesSoon:
+    'The summary and suggestions show here a minute after the call ends, when its AI notes were on.',
 } as const;
 
 /** The push to the team when a customer waits for them, or someone asks to be let in. */

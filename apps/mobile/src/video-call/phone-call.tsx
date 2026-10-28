@@ -9,7 +9,7 @@
  * - **The stand-in** (`fake:` tickets, on laptops and in tests without LiveKit) carries nothing, so the screen says
  *   so; Let in and Leave still work, from the API.
  */
-import { VIDEO_CALL_WORDS as W } from '@hfos/core';
+import { VIDEO_CALL_WORDS as W, videoCallTitle } from '@hfos/core';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
@@ -76,7 +76,9 @@ export function PhoneCall({ workspaceId, callId }: { workspaceId: string; callId
     }
   };
 
-  const title = got?.appointment?.title ?? W.name;
+  // An appointment's call, or one with a customer that isn't for an appointment (part 5): "Video call with Dana".
+  const title =
+    got?.appointment?.title ?? (got?.customer ? videoCallTitle(got.customer.name) : W.name);
   const detail = got?.appointment?.customers.map((c) => c.name).join(', ') || null;
 
   if (step.kind === 'in') {
@@ -112,7 +114,8 @@ export function PhoneCall({ workspaceId, callId }: { workspaceId: string; callId
     return (
       <Frame onClose={close}>
         <Text className="text-center text-[15px] text-white" testID="call-problem">
-          This call isn’t here any more. Open the appointment to start a new one.
+          This call isn’t here any more. Start a new one from the appointment or the customer’s
+          page.
         </Text>
       </Frame>
     );

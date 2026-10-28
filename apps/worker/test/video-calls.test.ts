@@ -17,11 +17,16 @@
  *   - the AI's listener joins only a room with people in it, hears each person, keeps who said what, puts only the
  *     sound it sent on the balance, and leaves once it's alone; when the call ends, what it heard becomes the
  *     appointment's transcript once, and After the call starts from it;
- *   - the team turning AI notes off forgets what was heard, and the listener leaves.
+ *   - the team turning AI notes off forgets what was heard, and the listener leaves;
+ *   - a call with a customer that isn't for an appointment (part 5) sends them their own link on the business's
+ *     address, lets them in on it once the team is there, becomes a line on their timeline with its transcript and
+ *     summary, and stops opening a day after it was sent.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
+import type { AiProvider } from '@hfos/ai';
 import {
   calendarAvailability,
+  callSuggestionList,
   captionOf,
   executeCommand,
   pushDeviceRegister,
@@ -43,6 +48,7 @@ import { closeTestDbs, createTestUser, signInTestUser, testDbs } from '@hfos/db/
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { scriptedAi } from '../src/ai/scripted';
 import { passThroughBotCheck } from '../src/booking/bot-check';
 import { whereLine } from '../src/booking/messages';
 import { loadBooking } from '../src/booking/visit';
@@ -1003,5 +1009,166 @@ describe('with nothing to hold the call', () => {
     } finally {
       await bare.close();
     }
+  });
+});
+
+describe('a call with a customer that isn’t for an appointment (part 5)', () => {
+  const start = (token: string | null, body: Record<string, unknown>) =>
+    w.app.inject({
+      method: 'POST',
+      url: '/v1/video-calls/start',
+      headers: {
+        'content-type': 'application/json',
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      payload: JSON.stringify(body),
+    });
+
+  /**
+   * The worker thinks with the scripted AI while `f` runs, so After the call is written; the rest of this file has
+   * no AI, as a business with none would.
+   */
+  const withScriptedAi = async <T>(f: () => Promise<T>): Promise<T> => {
+    const ai = w.s.ai as { provider: AiProvider | null };
+    ai.provider = scriptedAi();
+    try {
+      return await f();
+    } finally {
+      ai.provider = null;
+    }
+  };
+  const lineOf = async (callId: string) =>
+    (
+      await rows<{ id: string; body: string | null; meta: Record<string, unknown> }>(
+        admin(),
+        sql`select id, body, meta from app.activities
+            where kind = 'call' and subtype = 'video' and meta->>'videoCallId' = ${callId}`,
+      )
+    )[0];
+
+  it('sends the customer their own link, which lets them in once the team is there', async () => {
+    const [gia] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${w.workspaceId}, 'Gia', 'Customer', ${`gia-${randomUUID().slice(0, 8)}@example.com`})
+          returning id`,
+    );
+    expect((await start(null, { workspaceId: w.workspaceId, personId: gia!.id })).statusCode).toBe(
+      401,
+    );
+    const res = await start(ownerToken, { workspaceId: w.workspaceId, personId: gia!.id });
+    expect(res.statusCode, res.body).toBe(200);
+    const out = res.json() as { callId: string; channel: string; conversationId: string };
+    expect(out).toMatchObject({ channel: 'email', name: 'Gia Customer' });
+    const [m] = await rows<{ body_text: string }>(
+      admin(),
+      sql`select body_text from app.messages where conversation_id = ${out.conversationId}`,
+    );
+    // On the address the business's links are on, as a booking's Join link is.
+    const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body_text)?.[1];
+    expect(link, m!.body_text).toBeDefined();
+    expect(new URL(link!).origin).toBe(new URL(w.s.bookingLinks.webUrl).origin);
+
+    expect((await openLink(link!)).json()).toMatchObject({
+      state: 'call',
+      title: `Video call with ${BUSINESS}`,
+      business: BUSINESS,
+      when: 'With Dale',
+      name: 'Gia Customer',
+      aiNotes: true,
+    });
+    const first = await enter(link!, { name: 'Gia Customer' });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json()).toMatchObject({ status: 'waiting', callId: out.callId, ticket: null });
+    await drain(w);
+    expect(pushesAbout(out.callId)).toEqual([
+      expect.objectContaining({
+        message: expect.objectContaining({ title: 'Gia Customer is waiting in the video call' }),
+      }),
+    ]);
+
+    const room = videoCallRoom(out.callId);
+    const roomSid = `RM_${randomUUID().slice(0, 12)}`;
+    const t0 = Date.now() - 10 * MIN;
+    const team = (await teamJoin(ownerToken, out.callId)).json() as { personId: string };
+    await cameIn(room, team.personId, { roomSid, at: t0 });
+    const inNow = await enter(link!, { name: 'Gia Customer' });
+    expect(inNow.json()).toMatchObject({ status: 'in', ticket: { url: 'fake:' } });
+    const said = inNow.json() as { personId: string };
+    expect(ticketOf(inNow)).toEqual({
+      room,
+      identity: said.personId,
+      name: 'Gia Customer',
+      kind: 'customer',
+    });
+    await cameIn(room, said.personId, { roomSid, at: t0 + MIN });
+
+    // What the AI heard while they talked.
+    await executeCommand(
+      w.s.db,
+      videoCallHeard,
+      {
+        workspaceId: w.workspaceId,
+        callId: out.callId,
+        lines: [
+          {
+            key: 'gia-1',
+            personId: said.personId,
+            text: 'Could you send me the quote for the duct cleaning by Friday, and one for the attic as well please?',
+            saidAt: iso(t0 + 2 * MIN),
+          },
+        ],
+      },
+      asSystem(),
+      workerMeta(),
+    );
+
+    // The room closes: the call is a line on Gia's timeline, and what was said becomes its transcript.
+    expect((await hook('room_finished', room, { roomSid, at: t0 + 6 * MIN })).statusCode).toBe(200);
+    await drain(w);
+    const line = await lineOf(out.callId);
+    expect(line?.meta).toMatchObject({ videoCallId: out.callId, durationSeconds: 5 * 60 });
+    await withScriptedAi(() => runDue(w, [`video_call.keep_words:${roomSid}`]));
+    const [kept] = await rows<{ id: string; video_call_id: string | null }>(
+      admin(),
+      sql`select id, video_call_id from app.appointment_transcripts where video_call_id = ${out.callId}`,
+    );
+    expect(kept?.video_call_id).toBe(out.callId);
+    // After the call starts from it, as from an appointment's, and its summary goes on the line.
+    expect(await jobRow(`appointment.call_review:${kept!.id}`)).toMatchObject({ status: 'done' });
+    const review = await query(w, callSuggestionList, {
+      workspaceId: w.workspaceId,
+      videoCallId: out.callId,
+    });
+    expect(review.summary).toBeTruthy();
+    expect((await lineOf(out.callId))?.body).toBe(review.summary);
+  });
+
+  it('closes the link a day after it was sent, once the call isn’t going', async () => {
+    const [hana] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name, email)
+          values (${w.workspaceId}, 'Hana', 'Customer', ${`hana-${randomUUID().slice(0, 8)}@example.com`})
+          returning id`,
+    );
+    const out = (
+      await start(ownerToken, { workspaceId: w.workspaceId, personId: hana!.id })
+    ).json() as { callId: string; conversationId: string };
+    const [m] = await rows<{ body_text: string }>(
+      admin(),
+      sql`select body_text from app.messages where conversation_id = ${out.conversationId}`,
+    );
+    const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body_text)![1]!;
+    await rows(
+      admin(),
+      sql`update app.video_calls set created_at = now() - interval '2 days' where id = ${out.callId}`,
+    );
+    expect((await openLink(link)).json()).toMatchObject({ state: 'over' });
+    const over = await enter(link, { name: 'Hana Customer' });
+    expect(over.statusCode).toBe(409);
+    expect(errorOf(over).rule).toBe('video_call_over');
+    // A link that was never sent opens nothing.
+    const made = await openLink(`${w.s.bookingLinks.webUrl}/j/${'Z'.repeat(32)}`);
+    expect(made.statusCode).toBe(404);
   });
 });
