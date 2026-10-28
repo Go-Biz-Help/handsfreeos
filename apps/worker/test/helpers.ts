@@ -207,6 +207,12 @@ export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}):
     async exists(bucket, path) {
       return uploads.has(`${bucket}/${path}`);
     },
+    async list(bucket, folder) {
+      const at = `${bucket}/${folder}/`;
+      return [...uploads.keys()]
+        .filter((k) => k.startsWith(at) && !k.slice(at.length).includes('/'))
+        .map((k) => k.slice(at.length));
+    },
     async signedUrl(bucket, path) {
       return `https://storage.test/${bucket}/${path}`;
     },

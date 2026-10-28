@@ -23,6 +23,7 @@
     "@hfos/ai": "workspace:*",
     "@hfos/db": "workspace:*",
     "@livekit/rtc-node": "1.1.0",
+    "@napi-rs/canvas": "1.0.13",
     "@opinly/backend": "^1.6.0",
     "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.0",

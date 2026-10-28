@@ -1,4 +1,5 @@
 import { rows, sql } from '@hfos/db/client';
+import { removeDrawnPages } from '../documents/pages';
 import { recordSystemEvent } from '../system-event';
 import type { HandlerContext } from './types';
 
@@ -29,6 +30,9 @@ export async function onFileDeleted(ctx: HandlerContext): Promise<void> {
     throw new Error('file.deleted payload is missing fileId, bucket or objectPath');
   assertInWorkspace(objectPath, ctx.event.workspaceId);
   await ctx.store.remove(bucket, objectPath);
+  // A template's PDF: the pages drawn of it for the phone go with it.
+  if (objectPath.split('/')[1] === 'document')
+    await removeDrawnPages(ctx.store, { bucket, objectPath });
   await recordSystemEvent(ctx.tx, {
     type: 'file.removed',
     action: 'file.remove',
