@@ -1,7 +1,7 @@
 /**
- * What the browser extension saves (docs/outreach.md): a person's profile, and a chat with them, as the page showed
- * them. Each save finds or adds the customer, so saving the same page twice changes nothing but what's new on it; and
- * a look-up tells the extension which of the people and chats on a page are saved already.
+ * Save to their card (docs/outreach.md): a chat brought in on the Chats tab copied onto the customer's Social card,
+ * finding or adding the customer, so saving it twice changes nothing but what's new in it. A look-up says which
+ * profiles and chats are saved here and which customers have a name, and a customer's Social card shows theirs.
  */
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -21,187 +21,17 @@ import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
 import {
   ChatKeepInput,
-  ChatSaveInput,
   ChatSaveOutput,
   joinMessages,
   OutreachLookupInput,
   OutreachLookupOutput,
-  ProfileSaveInput,
-  ProfileSaveOutput,
   type SavedMessage,
 } from '../saves';
 import { fileChats, profiles, threads } from '../tables';
-import { inWorkspace, keepFriendStates, neverTwins, once, saveProfile, sourceFor } from './common';
+import { inWorkspace, neverTwins, once, saveProfile, sourceFor } from './common';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
-
-export const profileSave = defineAddonCommand(outreachAddon, {
-  name: 'outreach.profile.save',
-  description:
-    'Save someone’s social profile as the extension read it: finds the customer it’s saved to, or the one picked, or adds them, and keeps their intro and where the two of you stand.',
-  risk: 1,
-  input: ProfileSaveInput,
-  output: ProfileSaveOutput,
-  permission: 'outreach.use',
-  scope: inWorkspace,
-  emits: ['outreach.profile.saved'],
-  async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
-    const saved = await once(async () => {
-      const done = await saveProfile(ctx, {
-        platform: input.platform,
-        profile: input.profile,
-        name: input.name,
-        facts: {
-          intro: input.intro,
-          friendship: input.friendship,
-          mutualFriends: input.mutualFriends,
-        },
-        ...(input.personId ? { personId: input.personId } : {}),
-      });
-      // The profile shows where the person's own Facebook stands with them.
-      if (input.friendship !== 'unknown')
-        await keepFriendStates(
-          ctx,
-          me,
-          [{ profileId: done.profileId, state: input.friendship }],
-          changeMoment(ctx.meta),
-        );
-      return done;
-    });
-    await ctx.emit({
-      type: 'outreach.profile.saved',
-      entityType: 'person',
-      entityId: saved.personId,
-      payload: {
-        platform: input.platform,
-        profileId: saved.profileId,
-        addedPerson: saved.addedPerson,
-      },
-    });
-    return saved;
-  },
-});
-
-export const chatSave = defineAddonCommand(outreachAddon, {
-  name: 'outreach.chat.save',
-  description:
-    'Save a chat as the extension read it: finds or adds the customer it’s with from the profile it links to, and adds the messages it hadn’t saved before, keeping the most recent.',
-  risk: 1,
-  input: ChatSaveInput,
-  output: ChatSaveOutput,
-  permission: 'outreach.use',
-  scope: inWorkspace,
-  emits: ['outreach.chat.saved', 'outreach.profile.saved'],
-  async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
-    const ws = ctx.scope.workspaceId!;
-    const at = changeMoment(ctx.meta);
-    const network = PLATFORMS[input.platform];
-    return once(async () => {
-      const [had] = await ctx.tx
-        .select()
-        .from(threads)
-        .where(
-          and(
-            eq(threads.workspaceId, ws),
-            eq(threads.platform, input.platform),
-            eq(threads.threadKey, input.thread.id),
-            eq(threads.ownerUserId, me),
-          ),
-        );
-      let person: { personId: string; personName: string; addedPerson: boolean };
-      if (input.profile) {
-        const saved = await saveProfile(ctx, {
-          platform: input.platform,
-          profile: input.profile,
-          name: input.name,
-          facts: null,
-          ...(input.personId ? { personId: input.personId } : {}),
-        });
-        person = saved;
-        if (saved.addedPerson)
-          await ctx.emit({
-            type: 'outreach.profile.saved',
-            entityType: 'person',
-            entityId: saved.personId,
-            payload: {
-              platform: input.platform,
-              profileId: saved.profileId,
-              addedPerson: true,
-            },
-          });
-      } else if (input.personId || had) {
-        // The one picked, or the one this chat was saved with before: the page doesn't always link the profile.
-        const p = await requirePerson(ctx.tx, ws, input.personId ?? had!.personId);
-        person = {
-          personId: p.id,
-          personName: fullName(p.firstName, p.lastName),
-          addedPerson: false,
-        };
-      } else
-        throw HfosError.rule(
-          'outreach_chat_without_profile',
-          422,
-          `This chat doesn’t link to anyone’s ${network} profile, so it can’t tell who it’s with. Group chats can’t be saved yet.`,
-        );
-
-      const joined = joinMessages(had?.messages ?? [], input.messages, at.toISOString());
-      const facts = {
-        personId: person.personId,
-        encrypted: input.thread.encrypted,
-        url: input.thread.url,
-        name: input.name,
-        messages: joined.messages,
-        lastSavedBy: me,
-        lastSavedAt: at,
-      };
-      let threadId: string;
-      if (had) {
-        await ctx.tx
-          .update(threads)
-          .set({ ...facts, savedMessages: sql`${threads.savedMessages} + ${joined.added}` })
-          .where(eq(threads.id, had.id));
-        threadId = had.id;
-      } else {
-        const [row] = await ctx.tx
-          .insert(threads)
-          .values({
-            ...facts,
-            workspaceId: ws,
-            platform: input.platform,
-            threadKey: input.thread.id,
-            ownerUserId: me,
-            savedMessages: joined.added,
-          })
-          .returning({ id: threads.id });
-        threadId = row!.id;
-      }
-
-      if (joined.added > 0) {
-        const newest = joined.messages.at(-1)!;
-        await addonTimelineLine(ctx, outreachAddon, {
-          personId: person.personId,
-          words: `saved ${joined.added} ${network} ${joined.added === 1 ? 'message' : 'messages'}`,
-          body: `${await whoSent(ctx, newest, person.personName)}: ${clip(newest.text, 280)}`,
-        });
-      }
-      await ctx.emit({
-        type: 'outreach.chat.saved',
-        entityType: 'person',
-        entityId: person.personId,
-        payload: { platform: input.platform, threadId, added: joined.added },
-      });
-      return {
-        ...person,
-        threadId,
-        added: joined.added,
-        kept: joined.messages.length,
-      };
-    });
-  },
-});
 
 /** A chat brought in, on a card: its number from its link, or one of its own while it has none (download only). */
 const keptKey = (chat: { id: string; threadKey: string | null }) =>
@@ -290,7 +120,6 @@ export const chatKeep = defineAddonCommand(outreachAddon, {
           platform: chat.platform,
           profile: { id: profile.platformId, username: profile.username, url: profile.url },
           name: profile.name,
-          facts: null,
           ...(known ? { personId: known } : {}),
         });
         person = saved;
@@ -658,5 +487,5 @@ export const personSocial = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const saveCommands = [profileSave, chatSave, chatKeep] as const;
+export const saveCommands = [chatKeep] as const;
 export const saveQueries = [lookup, personSocial] as const;

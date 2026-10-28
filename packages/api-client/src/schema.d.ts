@@ -6757,26 +6757,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/commands/outreach.chat.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save a chat as the extension read it: finds or adds the customer it’s with from the profile it links to, and adds the messages it hadn’t saved before, keeping the most recent.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.chat.saved, outreach.profile.saved.
-         */
-        post: operations["command_outreach_chat_save"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/commands/outreach.chats.collect": {
         parameters: {
             query?: never;
@@ -7651,26 +7631,6 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
          */
         post: operations["command_outreach_profile_contact"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/commands/outreach.profile.save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Save someone’s social profile as the extension read it: finds the customer it’s saved to, or the one picked, or adds them, and keeps their intro and where the two of you stand.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.profile.saved.
-         */
-        post: operations["command_outreach_profile_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38608,70 +38568,6 @@ export interface operations {
             };
         };
     };
-    command_outreach_chat_save: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    messages: {
-                        /** @enum {string} */
-                        from: "me" | "them" | "unknown";
-                        /** @default null */
-                        sender?: string | null;
-                        text: string;
-                        /** @default null */
-                        when?: string | null;
-                    }[];
-                    name: string;
-                    /** Format: uuid */
-                    personId?: string;
-                    /**
-                     * @default facebook
-                     * @enum {string}
-                     */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
-                    profile: {
-                        id: string | null;
-                        url: string;
-                        username: string | null;
-                    } | null;
-                    thread: {
-                        /** @default false */
-                        encrypted?: boolean;
-                        id: string;
-                        url: string;
-                    };
-                    /** Format: uuid */
-                    workspaceId: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Default Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        added: number;
-                        addedPerson: boolean;
-                        kept: number;
-                        /** Format: uuid */
-                        personId: string;
-                        personName: string;
-                        /** Format: uuid */
-                        threadId: string;
-                    };
-                };
-            };
-        };
-    };
     command_outreach_chats_collect: {
         parameters: {
             query?: never;
@@ -41139,62 +41035,6 @@ export interface operations {
                     personId?: string | null;
                     /** Format: uuid */
                     profileId: string;
-                    /** Format: uuid */
-                    workspaceId: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Default Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        addedPerson: boolean;
-                        /** Format: uuid */
-                        personId: string;
-                        personName: string;
-                        /** Format: uuid */
-                        profileId: string;
-                    };
-                };
-            };
-        };
-    };
-    command_outreach_profile_save: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /**
-                     * @default unknown
-                     * @enum {string}
-                     */
-                    friendship?: "friends" | "request_sent" | "request_received" | "not_friends" | "unknown";
-                    /** @default [] */
-                    intro?: string[];
-                    /** @default null */
-                    mutualFriends?: number | null;
-                    name: string;
-                    /** Format: uuid */
-                    personId?: string;
-                    /**
-                     * @default facebook
-                     * @enum {string}
-                     */
-                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
-                    profile: {
-                        id: string | null;
-                        url: string;
-                        username: string | null;
-                    };
                     /** Format: uuid */
                     workspaceId: string;
                 };

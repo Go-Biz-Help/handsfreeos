@@ -21,7 +21,7 @@ import type { CommandContext, QueryContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { addonTimelineLine } from '../../server';
 import { outreachSettings, type OutreachSettings } from '../chat-read';
-import { countryRuleOn, linesCountry, type CountryHow, type CountryRule } from '../countries';
+import { countryRuleOn, type CountryHow, type CountryRule } from '../countries';
 import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import type { SendKind } from '../automation';
@@ -29,7 +29,6 @@ import { outreachAddon } from '../manifest';
 import { profileMisfit } from '../networks';
 import type { ClientStanding } from '../person-menu';
 import { PARTNER_GOAL, PLATFORMS, type Platform } from '../playbooks';
-import type { Friendship } from '../saves';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
 import { friends, profiles, sends } from '../tables';
 import { matchFileLater } from './file-match';
@@ -523,13 +522,6 @@ export async function profilesFor(
   return found.sort((a, b) => Number(b.platformId === key.id) - Number(a.platformId === key.id));
 }
 
-/** What a profile page said about someone; a chat says only who it's with. */
-export interface ProfileFacts {
-  readonly intro: readonly string[];
-  readonly friendship: Friendship;
-  readonly mutualFriends: number | null;
-}
-
 export interface SavedProfile {
   readonly profileId: string;
   readonly personId: string;
@@ -548,7 +540,6 @@ export async function saveProfile(
     readonly platform: Platform;
     readonly profile: ProfileKey & { readonly url: string };
     readonly name: string;
-    readonly facts: ProfileFacts | null;
     readonly personId?: string;
   },
 ): Promise<SavedProfile> {
@@ -576,13 +567,6 @@ export async function saveProfile(
     addedPerson = true;
   }
 
-  const facts = input.facts
-    ? {
-        intro: [...input.facts.intro],
-        friendship: input.facts.friendship,
-        mutualFriends: input.facts.mutualFriends,
-      }
-    : {};
   let profileId: string;
   if (had) {
     // A later look fills in the number or username the first one didn't show, unless another saved profile has it.
@@ -597,7 +581,6 @@ export async function saveProfile(
         ...(!had.username && input.profile.username && !other
           ? { username: input.profile.username }
           : {}),
-        ...facts,
         lastSeenBy: me,
         lastSeenAt: at,
       })
@@ -614,7 +597,6 @@ export async function saveProfile(
         username: input.profile.username,
         url: input.profile.url,
         name: input.name,
-        ...facts,
         savedBy: me,
         lastSeenBy: me,
         lastSeenAt: at,
@@ -624,10 +606,6 @@ export async function saveProfile(
     // Saved after the person's file came in: the file's word on them now, not at the next file.
     if (me) await matchFileLater(ctx, me, input.platform, [{ name: input.name }]);
   }
-
-  // A "Lives in" or a "From" among their lines says where they live (decision 86).
-  const lined = input.facts ? linesCountry(input.facts.intro) : null;
-  if (lined) await keepCountry(ctx, profileId, lined);
 
   if (!had || had.personId !== personId)
     await addonTimelineLine(ctx, outreachAddon, {

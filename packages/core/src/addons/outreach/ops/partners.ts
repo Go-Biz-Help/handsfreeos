@@ -636,7 +636,6 @@ async function makeCorePartner(ctx: CommandContext, profileId: string): Promise<
         platform: profile.platform,
         profile: { id: profile.platformId, username: profile.username, url: profile.url },
         name: profile.name,
-        facts: null,
       })
     ).personId;
   await executeCommandWithin(ctx, partnerAdd, {

@@ -51,6 +51,15 @@ async function stateOf(ws: string, u: TestUser, username: string) {
   return row ?? null;
 }
 
+/** The profile kept for someone, by its username. */
+async function profileOf(ws: string, username: string) {
+  const [row] = await rows<{ id: string }>(
+    admin(),
+    sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = ${username}`,
+  );
+  return row!.id;
+}
+
 beforeAll(async () => {
   [owner, member] = await Promise.all([
     createTestUser('outf-owner', { fullName: 'Jordan Owner' }),
@@ -173,16 +182,17 @@ describe('answering a friend request, and what else says where things stand', ()
     expect((await stateOf(ws, owner, 'parker.reed.8'))?.state).toBe('declined');
   });
 
-  it('keeps a turned-down request when their profile later shows they aren’t friends', async () => {
-    await runAs(owner, ws, 'outreach.profile.save', {
+  it('keeps a turned-down request when a later look finds they aren’t friends', async () => {
+    await runAs(owner, ws, 'outreach.friend.end', {
+      kind: 'cancel_request',
       ...byName('parker.reed.8', 'Parker Reed'),
-      friendship: 'not_friends',
+      already: true,
     });
     expect((await stateOf(ws, owner, 'parker.reed.8'))?.state).toBe('declined');
-    // Their profile saved as friends after all: they asked again, and the person said yes.
-    await runAs(owner, ws, 'outreach.profile.save', {
-      ...byName('parker.reed.8', 'Parker Reed'),
-      friendship: 'friends',
+    // On their friends list after all: they asked again, and the person said yes.
+    await runAs(owner, ws, 'outreach.friends.save', {
+      list: 'friends',
+      people: [{ ...byName('parker.reed.8', 'Parker Reed'), mutualFriends: null }],
     });
     expect((await stateOf(ws, owner, 'parker.reed.8'))?.state).toBe('friends');
   });
@@ -267,9 +277,12 @@ describe('Keep and Don’t pitch', () => {
   });
 
   it('treats a customer tagged Friend or family as Don’t pitch', async () => {
-    const saved = await runAs(owner, ws, 'outreach.profile.save', {
-      ...byName('drew.palmer.6', 'Drew Palmer'),
-      friendship: 'friends',
+    await runAs(owner, ws, 'outreach.friends.save', {
+      list: 'friends',
+      people: [{ ...byName('drew.palmer.6', 'Drew Palmer'), mutualFriends: null }],
+    });
+    const saved = await runAs(owner, ws, 'outreach.profile.contact', {
+      profileId: await profileOf(ws, 'drew.palmer.6'),
     });
     const [tag] = await rows<{ id: string }>(
       admin(),
@@ -327,11 +340,15 @@ describe('the Friends tab and the look-up', () => {
         { ...byName('jamie.cole.3', 'Jamie Cole'), mutualFriends: null },
       ],
     });
-    // What their profiles said, saved: an owner in Round Rock, and someone selling CRMs.
-    await runAs(owner, ws, 'outreach.profile.save', {
-      ...byName('jamie.cole.3', 'Jamie Cole'),
-      intro: ['Owner at Cole Landscaping', 'Lives in Round Rock, Texas'],
-      friendship: 'request_received',
+    // What Jamie's profile said, kept: an owner in Round Rock. And Jamie's in Contacts.
+    await rows(
+      admin(),
+      sql`update addon_outreach.profiles
+          set intro = array['Owner at Cole Landscaping', 'Lives in Round Rock, Texas']
+          where workspace_id = ${ws} and username = 'jamie.cole.3'`,
+    );
+    await runAs(owner, ws, 'outreach.profile.contact', {
+      profileId: await profileOf(ws, 'jamie.cole.3'),
     });
     await runAs(owner, ws, 'outreach.touch.save', {
       kind: 'friend_request',
@@ -489,7 +506,7 @@ describe('the Friends tab and the look-up', () => {
       dontPitch: null,
       intro: ['Owner at Cole Landscaping', 'Lives in Round Rock, Texas'],
     });
-    // Only Jamie is a customer: saving their profile added them.
+    // Only Jamie is a customer: Add to Contacts added them.
     expect(looked.profiles.map((p: { username: string }) => p.username)).toEqual(['jamie.cole.3']);
   });
 });

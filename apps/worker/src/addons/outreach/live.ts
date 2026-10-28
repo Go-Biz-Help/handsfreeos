@@ -100,7 +100,7 @@ export async function liveChanged(ctx: AddonEventContext): Promise<void> {
 
 /**
  * `outreach.live_prune`: lines older than a week go, and so do asks of the extension asked a week ago (decision 43),
- * the notes of what it saw (decision 74), and codes from their email past their 10 minutes;
+ * and codes from their email past their 10 minutes;
  * needs done or let go more than `NEED_QUIET_DAYS` ago (Let it go keeps a step quiet that long, no more), and open ones
  * not seen for `NEED_SHOWN_DAYS` and `NEED_GONE_DAYS` more (off the list a while; noted again, one is new anyway);
  * what someone found by topic said under a post, once the find is `FIND_FRESH_DAYS` old (decision 92: nothing a
@@ -131,12 +131,6 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
       tx,
       sql`delete from addon_outreach.ask_codes
           where workspace_id = ${ctx.scope.workspaceId} and expires_at < ${new Date(ctx.now).toISOString()}::timestamptz`,
-    );
-    // What 0.48.0 saw (decision 74), before its notes became core's problem reports: they go after the same week.
-    await rows(
-      tx,
-      sql`delete from addon_outreach.reports
-          where workspace_id = ${ctx.scope.workspaceId} and created_at < ${asked}::timestamptz`,
     );
     await rows(
       tx,

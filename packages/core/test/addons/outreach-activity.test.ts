@@ -2,7 +2,7 @@
  * Social Outreach: what the browser extension notes as the person works on Facebook, and the activity panel
  * (docs/outreach.md, decisions 7 and 8).
  * - Noting a friend request, like, comment or message keeps who it was to and the group they were found in, and adds
- *   nobody to Contacts; saving the profile later does, and it keeps its steps.
+ *   nobody to Contacts; adding them later does, and it keeps their steps.
  * - The same post liked twice, or a second friend request within a day, is noted once.
  * - A message starts a chat, follows one up on a later day, or neither; answering them is neither.
  * - A step that waited to send keeps its moment, however long it waited.
@@ -54,6 +54,23 @@ async function business(name: string): Promise<{ ws: string; timezone: string }>
     sql`select timezone from app.workspaces where id = ${ws}`,
   );
   return { ws, timezone: w!.timezone };
+}
+
+/** A chat the owner read in Messenger and saved to the person's card, adding them to Contacts. */
+async function saveChat(
+  ws: string,
+  thread: string,
+  who: ReturnType<typeof someone>,
+  messages: { fromMe: boolean; text: string; at: string }[],
+) {
+  await runAs(owner, ws, 'outreach.chats.collect', {
+    chats: [{ name: who.name, thread: { id: thread }, profile: who.profile, messages }],
+  });
+  const [chat] = await rows<{ id: string }>(
+    admin(),
+    sql`select id from addon_outreach.file_chats where workspace_id = ${ws} and thread_key = ${thread}`,
+  );
+  await runAs(owner, ws, 'outreach.chat.keep', { chatId: chat!.id, add: true });
 }
 
 /** Noon in the business's time zone, `days` from today (before it when negative). */
@@ -143,23 +160,20 @@ describe('noting a step', () => {
 
   it('takes the first message in a chat saved before as writing to them again', async () => {
     const casey = someone('casey.morgan.31', 'Casey Morgan');
-    await runAs(owner, ws, 'outreach.chat.save', {
-      thread: { id: '4455667788', url: 'https://www.facebook.com/messages/t/4455667788/' },
-      name: casey.name,
-      profile: casey.profile,
-      messages: [{ from: 'them', text: 'Hi there!' }],
-    });
+    await saveChat(ws, '4455667788', casey, [
+      { fromMe: false, text: 'Hi there!', at: new Date().toISOString() },
+    ]);
     expect((await note(owner, { kind: 'message', ...casey, threadKey: '4455667788' })).step).toBe(
       'follow_up',
     );
   });
 
-  it('adds them to Contacts once the profile is saved, and keeps their steps', async () => {
-    const saved = await runAs(owner, ws, 'outreach.profile.save', {
-      ...riley,
-      intro: ['Owner at Brooks Landscaping'],
-      friendship: 'request_sent',
-    });
+  it('adds them to Contacts from the profile kept, and keeps their steps', async () => {
+    const [profile] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = ${riley.profile.username}`,
+    );
+    const saved = await runAs(owner, ws, 'outreach.profile.contact', { profileId: profile!.id });
     expect(saved).toMatchObject({ personName: 'Riley Brooks', addedPerson: true });
     const [kept] = await rows<{ person_id: string; steps: number }>(
       admin(),
@@ -258,16 +272,15 @@ describe('the activity panel', () => {
     // The member's: Emery, from the Austin group.
     await note(member, { kind: 'friend_request', ...emery, group: austin });
     await note(member, { kind: 'comment', ...emery, group: austin, postUrl: post(11) });
-    // Drew wrote back, as the chat saved today shows.
-    await runAs(owner, ws, 'outreach.chat.save', {
-      thread: { id: '7000000001', url: 'https://www.facebook.com/messages/t/7000000001/' },
-      name: drew.name,
-      profile: drew.profile,
-      messages: [
-        { from: 'me', text: 'Hi Drew, saw your post in the Austin group.' },
-        { from: 'them', text: 'Thanks! Happy to chat.' },
-      ],
-    });
+    // Drew wrote back today, as the chat read and saved to their card shows.
+    await saveChat(ws, '7000000001', drew, [
+      {
+        fromMe: true,
+        text: 'Hi Drew, saw your post in the Austin group.',
+        at: noon(-2, timezone).toISOString(),
+      },
+      { fromMe: false, text: 'Thanks! Happy to chat.', at: new Date().toISOString() },
+    ]);
   }, 60_000);
 
   it('counts the person’s own day, by group and by person', async () => {
