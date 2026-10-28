@@ -57,6 +57,8 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   lead_qualified: 24 * HOUR_S,
   // Someone waiting on HandsFreeOS, like a customer's message to a business; by tomorrow the desk's queue has it.
   support_ticket: 12 * HOUR_S,
+  // A document signed, declined or out of time: the document has it tomorrow too.
+  document: 24 * HOUR_S,
   // A check-in's "Still there?" and a contact's alert: an hour late is too late to matter.
   safety_check: HOUR_S,
   safety_alert: HOUR_S,

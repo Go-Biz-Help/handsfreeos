@@ -82,6 +82,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'workflow.restore_version': {},
   'workflow.test': {},
   'workflow_proposal.apply': {},
+  // ---- Documents to sign (20261027015200): sending waits for a Confirm card, like every change ----
+  'document_template.create': {},
+  'document_template.save': {},
+  'document_template.rename': {},
+  'document_template.archive': {},
+  'document_template.restore': {},
+  'document_template.duplicate': {},
+  'document.send': {},
+  'document.remind': {},
+  'document.void': {},
   // ---- Forms and reviews ----
   'form.set_delivery': {},
   'review_connection.disconnect': {},
@@ -300,6 +310,10 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'support.staff.accept': 'accepting a support invitation, which is the person’s own',
   'extension_sign_in.answer': 'letting the browser extension in, which is the person’s own',
   'live_meeting.claim': 'done from HandsFreeOS’s app inside Zoom',
+  'document_template.begin_upload':
+    'uploading a template’s PDF, a file from the person’s own computer; they add it on the template',
+  'document_template.set_source':
+    'reading in the pages of a PDF the person just uploaded, which goes with the upload',
   'user_phone.start_verification': 'confirming a cell by answering a call on it',
   'call.start': 'a call from the browser, on the person’s own microphone',
   'founding.buy': 'paying on Stripe’s page, which only the person can do',
@@ -415,6 +429,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   ],
   'notifications.assigned': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'assigned' }],
   'notifications.qualifying': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'qualifying' }],
+  'notifications.documents': [{ tool: 'update_my_alerts', field: 'turnOn', value: 'documents' }],
   'notifications.payments': [
     { tool: 'update_my_alerts', field: 'turnOn', value: 'payment' },
     { tool: 'update_my_account', field: 'emailWhenPaid' },

@@ -19,6 +19,8 @@ export * from './calendar/booking';
 export * from './calendar/reminders';
 export * from './workflows/load';
 export * from './forms/load';
+export * from './documents/load';
+export * from './documents/fill';
 export * from './workflows/template-update';
 export * from './knowledge/search';
 export * from './ai-team/load';

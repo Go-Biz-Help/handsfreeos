@@ -104,7 +104,9 @@ export function quietEndAt(window: QuietHoursWindow, timeZone: string, now: numb
   return end > now ? end : localInstant(addDays(today, 1), q.endsAt, timeZone);
 }
 
-export type Sent = { readonly messageId: string } | { readonly refused: string };
+/** `duplicate`: this clientId had gone out already, so nothing new went. */
+export type Sent =
+  { readonly messageId: string; readonly duplicate?: boolean } | { readonly refused: string };
 
 export const wasSent = (r: Sent): r is { readonly messageId: string } => 'messageId' in r;
 
@@ -148,7 +150,7 @@ export async function sendText(
       actor,
       meta,
     );
-    return { messageId: output.messageId };
+    return { messageId: output.messageId, duplicate: output.duplicate };
   } catch (e) {
     const why = refusal(e, TEXT_REFUSALS);
     if (why) return { refused: why };
@@ -172,6 +174,8 @@ export async function sendEmail(
    */
   opts: {
     readonly campaignRecipientId?: string;
+    /** Files on the customer's record sent with it (a signed document's copy). */
+    readonly attachmentFileIds?: readonly string[];
     readonly sealedParts?: readonly {
       readonly marker: string;
       readonly sealed: string;
@@ -194,11 +198,14 @@ export async function sendEmail(
         keepConversationStatus: true,
         ...(opts.campaignRecipientId ? { campaignRecipientId: opts.campaignRecipientId } : {}),
         ...(opts.sealedParts?.length ? { sealedParts: [...opts.sealedParts] } : {}),
+        ...(opts.attachmentFileIds?.length
+          ? { attachmentFileIds: [...opts.attachmentFileIds] }
+          : {}),
       },
       actor,
       meta,
     );
-    return { messageId: output.messageId };
+    return { messageId: output.messageId, duplicate: output.duplicate };
   } catch (e) {
     const why = refusal(e, EMAIL_REFUSALS);
     if (why) return { refused: why };

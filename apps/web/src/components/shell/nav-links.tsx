@@ -28,6 +28,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
+  FilePenLine,
   Home,
   Inbox,
   KanbanSquare,
@@ -105,6 +106,8 @@ const PLACES: Record<MenuKey, Place> = {
   campaigns: { path: '/campaigns', label: 'Campaigns', icon: Megaphone },
   // Forms is a drawer item on phones, so the bottom bar stays at five.
   forms: { path: '/forms', label: 'Forms', icon: ClipboardList },
+  // Documents to sign sit next to Forms (docs/documents.md): a drawer item on phones too.
+  documents: { path: '/documents', label: 'Documents', icon: FilePenLine },
   // Reviews is a drawer item on phones too. It sits after Forms because both are about what the outside
   // world says to you rather than what you do about it.
   reviews: { path: '/reviews', label: 'Reviews', icon: Star },
