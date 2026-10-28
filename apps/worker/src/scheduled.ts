@@ -100,6 +100,7 @@ import {
   unsentJobs,
 } from './messaging/unsent';
 import { moneyDocumentJobs, MONEY_JOBS, MONEY_PLAN_KEY } from './money/jobs';
+import { DOCUMENT_JOBS, DOCUMENT_SWEEP_KEY, documentJobs } from './documents/jobs';
 import {
   nextReconcileAt,
   RECONCILE_JOBS,
@@ -620,6 +621,9 @@ export const jobs: JobMap = {
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).
   ...moneyDocumentJobs,
+  // Documents: each signer's link and its reminders, a document taken back, the signed copy and its copies, and
+  // the hourly sweep for reminders and documents out of time (documents/jobs.ts).
+  ...documentJobs,
   ...RECONCILE_JOB_HANDLERS,
   ...RECHARGE_JOB_HANDLERS,
   // Paying partners (the partners plan's stage 3): each business's month, its charge and its transfers.
@@ -722,6 +726,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: BIN_JOBS.sweep,
       dedupeKey: BIN_SWEEP_KEY,
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Documents out for signing, hourly from a minute after the start: reminders due, and those out of time.
+    await scheduleJob(tx, {
+      kind: DOCUMENT_JOBS.sweep,
+      dedupeKey: DOCUMENT_SWEEP_KEY,
+      runAt: new Date(Date.now() + 60_000),
       payload: {},
       workspaceId: null,
       organizationId: null,

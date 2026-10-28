@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { searchHref, type SearchRecordRef } from '@hfos/core';
+import { PHONE_HAND_BACK, searchHref, type SearchRecordRef } from '@hfos/core';
 
 import { decideLink, NOT_YOURS } from '../decide';
 import { phonePathOf, ROUTES, routeFor, targetOfLink, webPathOf } from '../route-map';
@@ -64,6 +64,11 @@ describe('the route map', () => {
       forms: { href: 'forms', later: false },
       'forms/:formId': { href: `forms/${ID}`, later: false },
       'forms/:formId/answers/:responseId': { href: `forms/${ID}/answers/${ID}`, later: false },
+      // Documents sent to sign and the templates, one of each, and sending one (docs/documents.md, part 3).
+      documents: { href: 'documents', later: false },
+      'documents/templates/:templateId': { href: `documents/templates/${ID}`, later: false },
+      'documents/send': { href: 'documents/send', later: false },
+      'documents/:documentId': { href: `documents/${ID}`, later: false },
       // Search everything, by address.
       search: { href: 'search', later: false },
     };
@@ -225,6 +230,8 @@ describe('the route map', () => {
       [`/app/w/${WS}/leads/${ID}`, `/app/w/${WS}/leads/${ID}`],
       [`/app/w/${WS}/tasks`, `/app/w/${WS}/tasks`],
       [`/app/w/${WS}/money/invoices/${ID}`, `/app/w/${WS}/money/invoices/${ID}`],
+      // A document everyone signed, someone declined, or that ran out of time: the document.
+      [`/app/w/${WS}/documents/${ID}`, `/app/w/${WS}/documents/${ID}`],
       // A new support ticket, to the support people: the phone's Support desk.
       [`/admin/tickets/${ID}`, `/app/admin/tickets/${ID}`],
     ];
@@ -454,6 +461,26 @@ describe('the route map', () => {
     }
     // A business path whose business isn't an id isn't the app's either.
     expect(routeFor('/app/w/not-an-id/inbox')).toEqual({ kind: 'none' });
+  });
+
+  it('opens Documents and its templates on the phone, and sending about a record on the web', () => {
+    for (const page of [
+      `documents/send?template=${ID}&person=${OTHER}&from=${ID}`,
+      'documents?tab=templates',
+      `documents/templates/${ID}`,
+    ])
+      expect({ page, target: routeFor(`/app/w/${WS}/${page}`) }).toMatchObject({
+        page,
+        target: { kind: 'screen', href: `/app/w/${WS}/${page}` },
+      });
+    const page = `documents/send?template=${ID}&record=${OTHER}`;
+    expect(routeFor(`/app/w/${WS}/${page}`)).toEqual({
+      kind: 'web',
+      path: `/app/w/${WS}/${page}`,
+      businessId: WS,
+    });
+    // Sign now's way back closes the signing page the phone opened: it opens no screen.
+    expect(targetOfLink(PHONE_HAND_BACK)).toEqual({ kind: 'none' });
   });
 
   it('reads a notification’s path, an email’s link and the app’s scheme alike', () => {

@@ -202,6 +202,7 @@ describe('signing in on a new device', () => {
       person: { firstName: 'Linh', lastName: 'Nguyen' },
       addons: [],
       partner: false,
+      documents: { total: 0, toSign: 0 },
     });
     const nobody = await call('POST', '/public/portal/op/portal.home');
     expect(nobody.statusCode).toBe(401);

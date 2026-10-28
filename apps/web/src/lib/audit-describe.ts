@@ -349,7 +349,7 @@ function describeAction(e: AuditEntry): string {
     case 'file.remove':
       return `deleted the stored file ${name(e)}`;
     case 'import.start':
-      return `started importing ${s(e.after?.fileName)}`;
+      return `started importing ${s(e.after?.fileName)}${e.after?.callConsent ? ', with who agreed to calls' : ''}`;
     case 'import.cancel':
       return 'cancelled an import';
     case 'import.progress':

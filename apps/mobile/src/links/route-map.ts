@@ -116,6 +116,18 @@ export const ROUTES: readonly Rule[] = [
   { web: 'forms', phone: 'forms' },
   { web: 'forms/:formId', phone: 'forms/:formId' },
   { web: 'forms/:formId/answers/:responseId', phone: 'forms/:formId/answers/:responseId' },
+  // Documents (docs/documents.md, part 3): what's been sent and the templates (`?tab=templates`), one template, one
+  // document (its push opens it), and sending one. Sending about a record of the business's own kinds (`?record=`)
+  // opens the web.
+  { web: 'documents', phone: 'documents', query: ['tab'] },
+  { web: 'documents/templates/:templateId', phone: 'documents/templates/:templateId' },
+  {
+    web: 'documents/send',
+    phone: 'documents/send',
+    query: ['template', 'person', 'company', 'lead', 'from'],
+    webWhen: ['record'],
+  },
+  { web: 'documents/:documentId', phone: 'documents/:documentId' },
   // Search everything, by address: what's typed is after `#` on the web, and a query parameter on the phone.
   { web: 'search', phone: 'search', fragment: ['q', 'kind'] },
   // The Calendar tab opens the appointment itself when the link names one (?appt=<id>).

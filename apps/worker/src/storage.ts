@@ -9,6 +9,8 @@ export interface ObjectStore {
   remove(bucket: string, path: string): Promise<void>;
   download(bucket: string, path: string): Promise<Buffer>;
   exists(bucket: string, path: string): Promise<boolean>;
+  /** The names of the objects in a folder (not in the folders inside it). */
+  list(bucket: string, folder: string): Promise<string[]>;
   /** Server-side copies (MMS photos, recordings, the seed); people upload from the browser with their own session. */
   upload(
     bucket: string,
@@ -103,6 +105,18 @@ export function createSupabaseStore(url: string, secretKey: string): ObjectStore
       if (error) throw new Error(`storage list failed: ${credentialError(error.message)}`);
       return (data ?? []).some((o) => o.name === name);
     },
+    async list(bucket, folder) {
+      const names: string[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await client.storage
+          .from(bucket)
+          .list(folder, { limit: 1000, offset });
+        if (error) throw new Error(`storage list failed: ${credentialError(error.message)}`);
+        // A folder inside has no id.
+        names.push(...(data ?? []).filter((o) => o.id).map((o) => o.name));
+        if ((data ?? []).length < 1000) return names;
+      }
+    },
     async signedUrl(bucket, path, expiresInSeconds) {
       const { data, error } = await client.storage
         .from(bucket)
@@ -153,6 +167,7 @@ export const unconfiguredStore: ObjectStore = {
   remove: notConfigured,
   download: notConfigured,
   exists: notConfigured,
+  list: notConfigured,
   upload: notConfigured,
   signedUrl: notConfigured,
   signedUploadUrl: notConfigured,

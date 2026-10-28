@@ -97,7 +97,30 @@ export const PortalHomeOutput = z.object({
   addons: z.array(z.object({ id: z.string(), name: z.string(), pages: z.array(PortalHomePage) })),
   /** Whether they're a partner of the business, while partners are on in it: their page is `portal.partner`. */
   partner: z.boolean(),
+  /** The documents they sign or get a copy of (not voided ones), and how many are theirs to sign now. */
+  documents: z.object({ total: z.int(), toSign: z.int() }),
 });
+
+// ---------- documents to sign in the portal (answer 10b) ----------
+
+export const PortalDocumentsInput = z.object({ ...inWorkspace });
+export const PortalDocumentOut = z.object({
+  /** Their own place on it: what opening it from the portal names. */
+  signerId: uuid,
+  documentId: uuid,
+  name: z.string(),
+  /** signer: they sign it. copy: they get the signed copy. */
+  kind: z.enum(['signer', 'copy']),
+  status: z.enum(['out', 'completed', 'declined', 'expired']),
+  signerStatus: z.enum(['waiting', 'sent', 'opened', 'signed', 'declined']),
+  /** It's theirs to sign now. */
+  yourTurn: z.boolean(),
+  sentAt: isoDateTime,
+  expiresAt: isoDateTime,
+  completedAt: isoDateTime.nullable(),
+  signedCopy: z.boolean(),
+});
+export const PortalDocumentsOutput = z.object({ documents: z.array(PortalDocumentOut) });
 
 // ---------- files in the portal ----------
 

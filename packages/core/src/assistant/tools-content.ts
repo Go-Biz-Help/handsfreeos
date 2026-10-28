@@ -5,12 +5,13 @@
  * person can, with the same rules, events and audit. Anything that reaches a customer or changes a record waits
  * for the person's OK ("confirm").
  *
- * Left out on purpose: publishing a workflow, testing one and applying an AI builder proposal stay the person's
- * own clicks (draft_workflow only ever proposes). There is no way to bring back an archived workflow or offer on
- * the screens either, so there is none here.
+ * A workflow's steps change as its editor changes them, op by op against the draft (edit_workflow_steps); testing,
+ * publishing and applying an AI builder proposal are the screens' own commands (screen-actions.ts). There is no way
+ * to bring back an archived workflow or offer on the screens, so there is none here.
  */
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
+import { WorkflowOpSchema } from '../workflows/ops';
 import {
   CAMPAIGN_CALL_OPENING_MAX,
   CAMPAIGN_DRAFT_MAX,
@@ -270,12 +271,37 @@ export const contentTools: readonly AssistantTool[] = [
   define({
     name: 'manage_workflow',
     description:
-      'Rename a workflow or change its description, or archive it: its runs still going stop, it never runs again, and there is no bringing it back. Workflow ids come from list_workflows. Publishing, testing and applying a proposal stay the person’s to do on the workflow’s page.',
+      'Rename a workflow or change its description, or archive it: its runs still going stop, it never runs again, and there is no bringing it back. Workflow ids come from list_workflows. Its steps change with edit_workflow_steps; testing, publishing and applying a proposal are do_workflow_test, do_workflow_publish and do_workflow_proposal_apply.',
     input: z.object({
       workflowId: uuid,
       action: z.enum(['rename', 'archive']),
       name: z.string().trim().min(1).max(120).optional(),
       description: z.string().trim().max(2000).nullable().optional(),
+    }),
+    autonomy: 'confirm',
+    permission: 'workflows.manage',
+  }),
+  define({
+    name: 'get_workflow',
+    description:
+      'One workflow as its editor shows it: what starts it, each step in plain words with its id, the checks that need a fix, and its draft as written (the steps, trigger and settings) with the draft’s revision, for edit_workflow_steps. Workflow ids come from list_workflows.',
+    input: z.object({ workflowId: uuid }),
+    autonomy: 'auto',
+    permission: 'workspace.read',
+  }),
+  define({
+    name: 'edit_workflow_steps',
+    description:
+      'Change a workflow’s draft step by step, as its editor does: add, change, move or delete a step, add or delete a branch’s path, point a go-to, or change what starts it or its settings. Read it with get_workflow first, and write each change against its draft as written there; a new step’s id is s_ and 8 lowercase letters or digits. The changes apply in order, all or none. Only the draft changes: what runs now keeps running until the draft is tested and published. For a change in the person’s own words, draft_workflow makes a proposal instead.',
+    input: z.object({
+      workflowId: uuid,
+      baseRevision: z
+        .int()
+        .min(1)
+        .describe(
+          'The draft’s revision from get_workflow. If someone saves in between, it’s refused: read it again',
+        ),
+      ops: z.array(WorkflowOpSchema).min(1).max(50),
     }),
     autonomy: 'confirm',
     permission: 'workflows.manage',

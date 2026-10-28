@@ -7,6 +7,14 @@ export interface MailMessage {
   readonly html: string;
   /** 'high' marks it urgent in mail apps (X-Priority and Importance headers): emergencies only. */
   readonly priority?: 'high';
+  /** Files sent with it: a signed document's copy to someone on the team. */
+  readonly attachments?: readonly MailAttachment[];
+}
+
+export interface MailAttachment {
+  readonly filename: string;
+  readonly content: Buffer;
+  readonly contentType: string;
 }
 
 export interface Mailer {
@@ -18,7 +26,12 @@ export function createSmtpMailer(smtpUrl: string, from: string): Mailer {
   const transport = nodemailer.createTransport(smtpUrl);
   return {
     async send(message) {
-      const info = await transport.sendMail({ from, ...message });
+      const { attachments, ...rest } = message;
+      const info = await transport.sendMail({
+        from,
+        ...rest,
+        ...(attachments?.length ? { attachments: attachments.map((a) => ({ ...a })) } : {}),
+      });
       return { messageId: String(info.messageId ?? '') };
     },
   };

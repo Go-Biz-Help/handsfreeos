@@ -16,6 +16,7 @@ import {
   clipLine,
   COMPUTER_NAME_MOST,
   computerName,
+  dayGoing,
   dayLine,
   dayWords,
   isOffline,
@@ -235,6 +236,31 @@ describe('the live view’s words', () => {
     expect(ownDayWords({ ...live, sending: 'off', now: early, platform: 'linkedin' })).toBe('');
     expect(ownDayWords({ ...live, hours: undefined, now: early, platform: 'linkedin' })).toBe('');
     expect(startWords(Date.UTC(2026, 9, 28, 15), tz, early)).toBe('at 10:00 AM');
+  });
+
+  it('count a day going on its own in the working hours as going, so its button is Stop for today', () => {
+    // The owner, 28 Oct 2026: "why are they still saying Start My day?" Hours of 10 to 6 on weekdays, in Chicago.
+    const hours = { start: 10, end: 18, days: [1, 2, 3, 4, 5] };
+    const none = { date: '2026-10-28', state: 'none' as const, why: null, via: null, at: null };
+    const live = { day: none, timezone: tz, sending: 'steps' as const, hours };
+    const inHours = Date.UTC(2026, 9, 28, 17);
+    for (const platform of ['facebook', 'linkedin', 'instagram', 'alignable'] as const)
+      expect(dayGoing({ ...live, now: inHours, platform })).toBe(true);
+    // Before the hours or after them it isn't, nor while Sending is Off or the hours aren't known.
+    expect(dayGoing({ ...live, now: Date.UTC(2026, 9, 28, 13), platform: 'linkedin' })).toBe(false);
+    expect(dayGoing({ ...live, now: Date.UTC(2026, 9, 29, 1), platform: 'linkedin' })).toBe(false);
+    expect(dayGoing({ ...live, sending: 'off', now: inHours })).toBe(false);
+    expect(dayGoing({ ...live, hours: undefined, now: inHours })).toBe(false);
+    // Started goes at any hour; stopped for today never does.
+    const started = { ...none, state: 'started' as const, via: 'web' as const, at: null };
+    expect(dayGoing({ ...live, day: started, now: Date.UTC(2026, 9, 28, 13) })).toBe(true);
+    const stopped = {
+      ...none,
+      state: 'stopped' as const,
+      why: 'person' as const,
+      via: 'web' as const,
+    };
+    expect(dayGoing({ ...live, day: stopped, now: inHours })).toBe(false);
   });
 
   it('cut long lines and names short rather than refuse them', () => {

@@ -47,6 +47,7 @@ export * from './money';
 export * from './push';
 export * from './migration';
 export * from './form';
+export * from './document';
 export * from './template';
 export * from './review';
 export * from './social';

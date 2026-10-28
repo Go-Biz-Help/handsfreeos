@@ -2977,6 +2977,246 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/document_template.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a document template: it’s no longer offered when sending. Documents already out stay out, and it can be restored.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.archived.
+         */
+        post: operations["command_document_template_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.begin_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for the PDF a document template is made from (25 MB at most). Upload it to the returned path, confirm it with file.confirm, then document_template.set_source with its pages.
+         * @description Risk level 1. Requires documents.manage. Emits .
+         */
+        post: operations["command_document_template_begin_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a document template: a name, one customer to sign, and nothing placed yet. Add its PDF next (document_template.begin_upload), then place the fields.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.created.
+         */
+        post: operations["command_document_template_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a document template, its PDF, fields, word changes and settings included, under a new name.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.created.
+         */
+        post: operations["command_document_template_duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a document template. Documents already sent keep their own names.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.renamed.
+         */
+        post: operations["command_document_template_rename"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived document template back, ready to send again.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.restored.
+         */
+        post: operations["command_document_template_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a document template’s whole definition: who signs and in what order, the fields placed on its pages for each of them, the words typed over, and its settings (order, a code first, reminders, expiry, the note). Its pages come from its PDF and stay as they are. Pass the revision it was read at.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.saved.
+         */
+        post: operations["command_document_template_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document_template.set_source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make an uploaded PDF the one a document template is made from, with each page’s size. Fields on pages the new PDF doesn’t have come off, and so do word changes made on another PDF.
+         * @description Risk level 1. Requires documents.manage. Emits document_template.saved.
+         */
+        post: operations["command_document_template_set_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document.remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remind whoever still has to sign a document now: their link goes again by email and text. Someone who was to sign in person gets their link for the first time.
+         * @description Risk level 2. Requires documents.send. Emits document.reminder_asked.
+         */
+        post: operations["command_document_remind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a document template to sign: who it’s about (a customer, company, lead or record), who signs as each of its roles (customers, and someone from the team for a team role), who gets a copy, and what the team fills in. Each signer gets their own private link by email and text, in turn or all at once.
+         * @description Risk level 2. Requires documents.send. Emits document.sent.
+         */
+        post: operations["command_document_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document.sign_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign now in person: hand this device to someone whose turn it is to sign, so they sign it here. Their code isn’t asked: whoever hands it over says it’s them.
+         * @description Risk level 2. Requires documents.send. Emits document.handed_over.
+         */
+        post: operations["command_document_sign_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document.void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told. Send a corrected one after.
+         * @description Risk level 2. Requires documents.send. Emits document.voided.
+         */
+        post: operations["command_document_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_address.create": {
         parameters: {
             query?: never;
@@ -17017,6 +17257,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/document_template.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One document template: its PDF, who signs it, the fields and word changes placed on it, its settings, and what stops it going out.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_document_template_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/document_template.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s document templates: who signs each, how many fields, whether it’s ready to send, and how many are out for signing.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_document_template_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/document.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One document sent to sign: who it’s about, who signs and how far each has got, what’s filled in, the proof trail (sent, opened, code checked, agreed, signed, from where), and the signed copy once it’s filed.
+         * @description Requires records.read.
+         */
+        post: operations["query_document_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/document.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out, signed, declined, voided, out of time), with who signs each and how far they’ve got.
+         * @description Requires records.read.
+         */
+        post: operations["query_document_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/document.prefill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the Send screen starts with for one template and one customer, company, lead or record: the fill-ins from HandsFreeOS, who each role suggests, and what stops it going out. From a voided or declined document, its signers, fill-ins and word changes.
+         * @description Requires documents.send.
+         */
+        post: operations["query_document_prefill"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/email_sender_rule.list": {
         parameters: {
             query?: never;
@@ -29291,6 +29631,644 @@ export interface operations {
             };
         };
     };
+    command_document_template_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_begin_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mimeType: "application/pdf";
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_duplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_rename: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    definition: {
+                        /** @default [] */
+                        edits?: {
+                            /** @default #ffffff */
+                            background?: string;
+                            /** @default false */
+                            bold?: boolean;
+                            /** @default #000000 */
+                            color?: string;
+                            /**
+                             * @default sans
+                             * @enum {string}
+                             */
+                            font?: "sans" | "serif" | "mono";
+                            h: number;
+                            id: string;
+                            /** @default  */
+                            original?: string;
+                            page: number;
+                            /** @default 11 */
+                            size?: number;
+                            /** @default  */
+                            text?: string;
+                            w: number;
+                            x: number;
+                            y: number;
+                        }[];
+                        /** @default [] */
+                        fields?: {
+                            /** @default null */
+                            fillFrom?: ("customer.name" | "customer.first_name" | "customer.last_name" | "customer.email" | "customer.phone" | "customer.address" | "company.name" | "company.email" | "company.phone" | "company.website" | "lead.title" | "lead.value" | "record.name" | "business.name" | "business.phone" | "business.address" | "estimate.number" | "estimate.title" | "estimate.total" | "sender.name" | "today") | null;
+                            /** @default 11 */
+                            fontSize?: number;
+                            h: number;
+                            id: string;
+                            /** @default  */
+                            label?: string;
+                            /** @default [] */
+                            options?: string[];
+                            page: number;
+                            /** @default true */
+                            required?: boolean;
+                            role: string;
+                            /** @enum {string} */
+                            type: "signature" | "initials" | "date_signed" | "name" | "email" | "phone" | "text" | "long_text" | "number" | "date" | "checkbox" | "choice";
+                            w: number;
+                            x: number;
+                            y: number;
+                        }[];
+                        /** @default [] */
+                        pages?: {
+                            height: number;
+                            width: number;
+                        }[];
+                        /** @default {} */
+                        presets?: {
+                            [key: string]: {
+                                /** @enum {string} */
+                                kind: "text";
+                                text: string;
+                            } | {
+                                checked: boolean;
+                                /** @enum {string} */
+                                kind: "check";
+                            } | {
+                                /** Format: date */
+                                date: string;
+                                /** @enum {string} */
+                                kind: "date";
+                            } | {
+                                /** @enum {string} */
+                                how: "drawn" | "typed";
+                                image: string;
+                                /** @enum {string} */
+                                kind: "signature";
+                                name: string;
+                                /** @default null */
+                                style?: ("caveat" | "dancing" | "homemade" | "satisfy") | null;
+                            };
+                        };
+                        roles: {
+                            key: string;
+                            /**
+                             * @default customer
+                             * @enum {string}
+                             */
+                            kind?: "customer" | "team";
+                            label: string;
+                        }[];
+                        /** @default {} */
+                        settings?: {
+                            /** @default false */
+                            askCode?: boolean;
+                            /** @default 30 */
+                            expireDays?: number;
+                            /** @default  */
+                            message?: string;
+                            /**
+                             * @default order
+                             * @enum {string}
+                             */
+                            order?: "order" | "together";
+                            /** @default 2 */
+                            remindAfterDays?: number | null;
+                            /** @default 3 */
+                            remindEveryDays?: number | null;
+                        };
+                        /**
+                         * @default 1
+                         * @enum {number}
+                         */
+                        version?: 1;
+                    };
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        issues: {
+                            message: string;
+                            role?: string;
+                            rule: string;
+                        }[];
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_template_set_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision: number;
+                    /** Format: uuid */
+                    fileId: string;
+                    pages: {
+                        height: number;
+                        width: number;
+                    }[];
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        removedEdits: number;
+                        removedFields: number;
+                        revision: number;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_remind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        documentId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    about: {
+                        /** Format: uuid */
+                        companyId?: string;
+                        /** Format: uuid */
+                        customRecordId?: string;
+                        /** Format: uuid */
+                        leadId?: string;
+                        /** Format: uuid */
+                        personId?: string;
+                    };
+                    /** @default [] */
+                    copies?: {
+                        /** Format: uuid */
+                        personId?: string;
+                        /** Format: uuid */
+                        userId?: string;
+                    }[];
+                    edits?: {
+                        /** @default #ffffff */
+                        background?: string;
+                        /** @default false */
+                        bold?: boolean;
+                        /** @default #000000 */
+                        color?: string;
+                        /**
+                         * @default sans
+                         * @enum {string}
+                         */
+                        font?: "sans" | "serif" | "mono";
+                        h: number;
+                        id: string;
+                        /** @default  */
+                        original?: string;
+                        page: number;
+                        /** @default 11 */
+                        size?: number;
+                        /** @default  */
+                        text?: string;
+                        w: number;
+                        x: number;
+                        y: number;
+                    }[];
+                    /** Format: uuid */
+                    estimateId?: string;
+                    message?: string;
+                    name?: string;
+                    /** Format: uuid */
+                    replacesDocumentId?: string;
+                    /** @default {} */
+                    settings?: {
+                        askCode?: boolean;
+                        expireDays?: number;
+                        /** @enum {string} */
+                        order?: "order" | "together";
+                        remindAfterDays?: number | null;
+                        remindEveryDays?: number | null;
+                    };
+                    signers: {
+                        /** @default false */
+                        inPerson?: boolean;
+                        /** Format: uuid */
+                        personId?: string;
+                        roleKey: string;
+                        /** Format: uuid */
+                        userId?: string;
+                    }[];
+                    /** Format: uuid */
+                    templateId: string;
+                    /** @default {} */
+                    values?: {
+                        [key: string]: {
+                            /** @enum {string} */
+                            kind: "text";
+                            text: string;
+                        } | {
+                            checked: boolean;
+                            /** @enum {string} */
+                            kind: "check";
+                        } | {
+                            /** Format: date */
+                            date: string;
+                            /** @enum {string} */
+                            kind: "date";
+                        } | {
+                            /** @enum {string} */
+                            how: "drawn" | "typed";
+                            image: string;
+                            /** @enum {string} */
+                            kind: "signature";
+                            name: string;
+                            /** @default null */
+                            style?: ("caveat" | "dancing" | "homemade" | "satisfy") | null;
+                        };
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                        name: string;
+                        signers: {
+                            /** @enum {string} */
+                            kind: "signer" | "copy";
+                            name: string;
+                            roleKey: string | null;
+                            /** Format: uuid */
+                            signerId: string;
+                            /** @enum {string} */
+                            status: "waiting" | "sent" | "opened" | "signed" | "declined";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_document_sign_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    signerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        codeChecked: boolean;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        signerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_document_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    reason?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        documentId: string;
+                    };
+                };
+            };
+        };
+    };
     command_email_address_create: {
         parameters: {
             query?: never;
@@ -32421,6 +33399,7 @@ export interface operations {
                      *     }
                      */
                     options?: {
+                        callConsentSource?: string;
                         /**
                          * @default skip
                          * @enum {string}
@@ -43463,7 +44442,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "partners.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "documents.send" | "documents.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "partners.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -43497,7 +44476,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "partners.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.delete" | "records.hold" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "documents.send" | "documents.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "main_offer.manage" | "partners.manage" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove" | "members.view_as") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -64995,6 +65974,405 @@ export interface operations {
             };
         };
     };
+    query_document_template_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedAt: string | null;
+                        definition: {
+                            [key: string]: unknown;
+                        };
+                        documentsOut: number;
+                        /** Format: uuid */
+                        id: string;
+                        issues: {
+                            message: string;
+                            role?: string;
+                            rule: string;
+                        }[];
+                        name: string;
+                        revision: number;
+                        source: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            name: string;
+                            objectPath: string;
+                        } | null;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    query_document_template_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    archived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates: {
+                            archivedAt: string | null;
+                            documentsOut: number;
+                            fieldCount: number;
+                            hasPdf: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            pageCount: number;
+                            ready: boolean;
+                            roles: {
+                                key: string;
+                                kind: string;
+                                label: string;
+                            }[];
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_document_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    documentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        about: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "person" | "company" | "lead" | "custom_record";
+                            name: string;
+                        } | null;
+                        canSend: boolean;
+                        completedAt: string | null;
+                        declinedAt: string | null;
+                        definition: {
+                            [key: string]: unknown;
+                        };
+                        expiredAt: string | null;
+                        /** Format: date-time */
+                        expiresAt: string;
+                        finishing: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        message: string | null;
+                        name: string;
+                        remindAfterDays: number | null;
+                        remindEveryDays: number | null;
+                        /** Format: date-time */
+                        sentAt: string;
+                        sentBy: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        signed: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            name: string;
+                            objectPath: string;
+                        } | null;
+                        signedSha256: string | null;
+                        signers: {
+                            agreedAt: string | null;
+                            askCode: boolean;
+                            channels: string[];
+                            codeCheckedAt: string | null;
+                            declinedAt: string | null;
+                            declineReason: string | null;
+                            device: string | null;
+                            email: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            inPerson: boolean;
+                            ip: string | null;
+                            /** @enum {string} */
+                            kind: "signer" | "copy";
+                            lastSentAt: string | null;
+                            name: string;
+                            openedAt: string | null;
+                            personId: string | null;
+                            phone: string | null;
+                            position: number;
+                            reminders: number;
+                            roleKey: string | null;
+                            roleLabel: string | null;
+                            sentAt: string | null;
+                            signedAt: string | null;
+                            /** @enum {string} */
+                            status: "waiting" | "sent" | "opened" | "signed" | "declined";
+                            userId: string | null;
+                        }[];
+                        /** @enum {string} */
+                        signingOrder: "order" | "together";
+                        source: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            name: string;
+                            objectPath: string;
+                        } | null;
+                        sourceSha256: string | null;
+                        /** @enum {string} */
+                        status: "out" | "completed" | "declined" | "voided" | "expired";
+                        steps: {
+                            /** Format: date-time */
+                            at: string;
+                            byUserId: string | null;
+                            channel: string | null;
+                            detail: {
+                                [key: string]: unknown;
+                            };
+                            device: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ip: string | null;
+                            /** @enum {string} */
+                            kind: "prepared" | "sent" | "reminded" | "in_person" | "opened" | "code_sent" | "code_checked" | "agreed" | "signed" | "declined" | "voided" | "expired" | "completed" | "copy_sent";
+                            signerId: string | null;
+                        }[];
+                        templateId: string | null;
+                        values: {
+                            [key: string]: unknown;
+                        };
+                        valuesBy: {
+                            [key: string]: string | null;
+                        };
+                        voidedAt: string | null;
+                        voidReason: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_document_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    /** Format: uuid */
+                    companyId?: string;
+                    /** Format: uuid */
+                    customRecordId?: string;
+                    /** Format: uuid */
+                    leadId?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** @enum {string} */
+                    status?: "out" | "completed" | "declined" | "voided" | "expired";
+                    /** Format: uuid */
+                    templateId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents: {
+                            about: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "person" | "company" | "lead" | "custom_record";
+                                name: string;
+                            } | null;
+                            completedAt: string | null;
+                            /** Format: date-time */
+                            expiresAt: string;
+                            finishing: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** Format: date-time */
+                            sentAt: string;
+                            sentBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            signers: {
+                                /** Format: uuid */
+                                id: string;
+                                inPerson: boolean;
+                                /** @enum {string} */
+                                kind: "signer" | "copy";
+                                name: string;
+                                position: number;
+                                roleLabel: string | null;
+                                /** @enum {string} */
+                                status: "waiting" | "sent" | "opened" | "signed" | "declined";
+                            }[];
+                            /** @enum {string} */
+                            status: "out" | "completed" | "declined" | "voided" | "expired";
+                            templateId: string | null;
+                        }[];
+                        more: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_document_prefill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    about: {
+                        /** Format: uuid */
+                        companyId?: string;
+                        /** Format: uuid */
+                        customRecordId?: string;
+                        /** Format: uuid */
+                        leadId?: string;
+                        /** Format: uuid */
+                        personId?: string;
+                    };
+                    /** Format: uuid */
+                    estimateId?: string;
+                    /** Format: uuid */
+                    fromDocumentId?: string;
+                    /** Format: uuid */
+                    templateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        copies: {
+                            name: string;
+                            personId: string | null;
+                            userId: string | null;
+                        }[];
+                        definition: {
+                            [key: string]: unknown;
+                        };
+                        issues: {
+                            message: string;
+                            role?: string;
+                            rule: string;
+                        }[];
+                        message: string;
+                        name: string;
+                        presets: {
+                            [key: string]: unknown;
+                        };
+                        signers: {
+                            email: string | null;
+                            inPerson: boolean;
+                            name: string;
+                            personId: string | null;
+                            phone: string | null;
+                            roleKey: string;
+                            userId: string | null;
+                        }[];
+                        source: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            name: string;
+                            objectPath: string;
+                        } | null;
+                        /** Format: uuid */
+                        templateId: string;
+                    };
+                };
+            };
+        };
+    };
     query_email_sender_rule_list: {
         parameters: {
             query?: never;
@@ -67293,6 +68671,7 @@ export interface operations {
                                 [key: string]: string;
                             };
                             options: {
+                                callConsentSource?: string;
                                 /**
                                  * @default skip
                                  * @enum {string}
@@ -67356,6 +68735,7 @@ export interface operations {
                                 [key: string]: string;
                             };
                             options: {
+                                callConsentSource?: string;
                                 /**
                                  * @default skip
                                  * @enum {string}
