@@ -9,6 +9,9 @@
  *   the signature, so the page never writes its own.
  * - **Everything that changes something is a POST**, opening it included: mail scanners follow links.
  * - **Only their own fields are sent**, and the worker checks each the way core's `valueProblem` does here.
+ * - **Handed over in person** (Sign now, answer 13a), the address ends `#with=<first name>&back=<page>`: the page
+ *   says whose turn it is before the document shows, and once they've signed, to hand it back. From their portal
+ *   (answer 10b), `#back=/c/…` puts a way back on the page. Only a path in the app is followed, never an address.
  */
 import {
   FIELD_PROMPTS,
@@ -18,11 +21,13 @@ import {
   type DocumentValueInput,
 } from '@hfos/core';
 import {
+  ArrowLeft,
   CircleAlert,
   CircleCheck,
   CircleSlash,
   Clock,
   Download,
+  HandHelping,
   Link2Off,
   LockKeyhole,
   type LucideIcon,
@@ -71,6 +76,19 @@ const promptOf = (f: SigningField) =>
   f.label || FIELD_PROMPTS[f.type as keyof typeof FIELD_PROMPTS] || 'Fill this in';
 
 const byPlace = (a: SigningField, b: SigningField) => a.page - b.page || a.y - b.y || a.x - b.x;
+
+/** Who it's handed to in person, and the page in the app to go back to: read from after `#`. */
+type Hand = { readonly with: string | null; readonly back: string | null };
+
+function handOf(hash: string): Hand {
+  const p = new URLSearchParams(hash.replace(/^#/, ''));
+  const back = p.get('back');
+  return {
+    with: p.get('with')?.trim().slice(0, 40) || null,
+    back:
+      back && /^\/(app\/w|c)\/[A-Za-z0-9_\-/]+$/.test(back) && !back.includes('//') ? back : null,
+  };
+}
 
 const dayOf = (iso: string) =>
   new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -150,6 +168,8 @@ export function SigningPage({ token }: { token: string }) {
   const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [flash, setFlash] = useState(false);
+  const [hand, setHand] = useState<Hand>({ with: null, back: null });
+  const [handed, setHanded] = useState(false);
   const opened = useRef(false);
   const consentBox = useRef<HTMLDivElement>(null);
 
@@ -161,6 +181,10 @@ export function SigningPage({ token }: { token: string }) {
       if (f.mine && next.content?.values[f.id]) mine[f.id] = next.content.values[f.id]!;
     setValues(mine);
   };
+
+  useEffect(() => {
+    setHand(handOf(window.location.hash));
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -467,6 +491,47 @@ export function SigningPage({ token }: { token: string }) {
 
   const signing = signer.yourTurn && signer.status !== 'signed' && !!content;
   const pages = content?.pages ?? [];
+  const inPerson = !!hand.with && !!hand.back?.startsWith('/app/');
+  const back = hand.back ? (
+    <a
+      href={hand.back}
+      className={buttonClassName({ variant: 'secondary', size: 'sm', className: 'w-fit' })}
+      data-testid="signing-back"
+    >
+      <ArrowLeft size={16} aria-hidden />
+      {hand.back.startsWith('/c/') ? SIGNING_WORDS.backToPortal : SIGNING_WORDS.backToDocument}
+    </a>
+  ) : null;
+
+  // Handed over in person: who it's for, before anything of theirs shows.
+  if (inPerson && signing && !handed)
+    return (
+      <SigningFrame business={business}>
+        <div
+          className="mx-auto flex w-full max-w-[440px] flex-1 flex-col justify-center gap-4 px-4 py-10"
+          data-testid="signing-hand-over"
+        >
+          <div className="flex flex-col items-center gap-2 text-center">
+            <span className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-full bg-accent-soft text-accent-text">
+              <HandHelping size={20} aria-hidden />
+            </span>
+            <h1 className="text-[19px] font-semibold">{SIGNING_WORDS.handTitle(hand.with!)}</h1>
+            <p className="text-[13.5px] text-text-2">
+              {SIGNING_WORDS.handBody({ by: null, business: business.name, document: doc.name })}
+            </p>
+          </div>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={() => setHanded(true)}
+            data-testid="signing-hand-start"
+          >
+            {SIGNING_WORDS.handStart(hand.with!)}
+          </Button>
+          <div className="flex justify-center">{back}</div>
+        </div>
+      </SigningFrame>
+    );
 
   const footer = signing ? (
     <div className="flex items-center gap-3">
@@ -514,6 +579,16 @@ export function SigningPage({ token }: { token: string }) {
             <p className="text-sm text-text-2">Please sign by {dayOf(doc.expiresAt)}.</p>
           ) : null}
         </div>
+
+        {/* In person, the way back is the team's, so it shows only once they've handed it back. */}
+        {back && !(inPerson && signing) ? <div>{back}</div> : null}
+
+        {inPerson && signer.status === 'signed' ? (
+          <Band tone="info" icon={HandHelping} testId="signing-hand-back">
+            <b className="font-semibold">{SIGNING_WORDS.handBack(null)}.</b>{' '}
+            {SIGNING_WORDS.handBackBody}
+          </Band>
+        ) : null}
 
         {doc.status === 'completed' ? (
           <OkBox icon={<CircleCheck size={19} />} testId="signing-completed">

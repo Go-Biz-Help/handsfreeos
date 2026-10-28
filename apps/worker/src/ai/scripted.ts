@@ -2755,6 +2755,68 @@ export const FUNNEL_RULES: readonly ScriptRule[] = [
   },
 ];
 
+// ---- Documents: placing the fields on a template's PDF ("Place the fields on this document.") ----
+
+/**
+ * A field on each spot with words around it, read from those words: a box is a checkbox, then signature, initials,
+ * date, email, phone, name, else words. Whose it is: the role whose name is near it, the business's signer when the
+ * words say the business, else the first customer. A name, email or phone for a customer fills in from them. A line
+ * with no words around it isn't a field. What the document says is never obeyed.
+ */
+function scriptedPlaceFields(message: string) {
+  const roles = [
+    ...(quotedBlock(message, 'roles') ?? '').matchAll(
+      /^- ([a-z0-9_]+): “(.*)” \((someone from the business|someone the business)/gm,
+    ),
+  ].map((m) => ({
+    key: m[1]!,
+    label: unquote(m[2]!).toLowerCase(),
+    team: m[3] === 'someone from the business',
+  }));
+  const customer = roles.find((r) => !r.team) ?? roles[0];
+  const team = roles.find((r) => r.team);
+  const fields = [];
+  for (const line of (quotedBlock(message, 'spots') ?? '').split('\n')) {
+    const m = /^(s\d+) · page \d+ · (a line|a small box|room after a label)(.*)$/.exec(line);
+    if (!m) continue;
+    const near = unquote(m[3] ?? '').toLowerCase();
+    const box = m[2] === 'a small box';
+    if (!box && !/“[^”]*\S[^”]*”/.test(near)) continue;
+    const type = box
+      ? 'checkbox'
+      : /signature|sign here|signed/.test(near)
+        ? 'signature'
+        : /initial/.test(near)
+          ? 'initials'
+          : /date/.test(near)
+            ? 'date_signed'
+            : /e-?mail/.test(near)
+              ? 'email'
+              : /phone|tel\b/.test(near)
+                ? 'phone'
+                : /name/.test(near)
+                  ? 'name'
+                  : 'text';
+    const named = roles.find(
+      (r) =>
+        r.label && new RegExp(`\\b${r.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(near),
+    );
+    const role =
+      named ??
+      (team && /business|company|contractor|provider/.test(near) ? team : undefined) ??
+      customer;
+    if (!role) continue;
+    const fillFrom =
+      role.team || !['name', 'email', 'phone'].includes(type) ? '' : `customer.${type}`;
+    fields.push({ spot: m[1]!, type, role: role.key, label: '', fillFrom, required: !box });
+  }
+  return { fields };
+}
+
+export const DOCUMENT_RULES: readonly ScriptRule[] = [
+  { when: /Place the fields on this document\.$/, json: (m) => scriptedPlaceFields(m) },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...FUNNEL_RULES,
   ...INDEED_RULES,
@@ -2770,6 +2832,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...LISTING_RULES,
   ...OUTREACH_RULES,
   ...SALESCOACH_RULES,
+  ...DOCUMENT_RULES,
 ];
 
 /** The stand-in model; tests may put their own rules first (and their own teammate rules). */

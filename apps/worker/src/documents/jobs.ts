@@ -476,9 +476,10 @@ export const documentFinishJob: JobHandler = async (ctx) => {
       channel: ProofStep['channel'];
       ip: string | null;
       device: string | null;
+      detail: Record<string, unknown> | null;
     }>(
       tx,
-      sql`select signer_id, kind, at, channel, ip, device from app.document_steps
+      sql`select signer_id, kind, at, channel, ip, device, detail from app.document_steps
           where document_id = ${documentId} order by at, id`,
     );
     const m = await workspaceMessaging(tx, ws);
@@ -551,6 +552,7 @@ export const documentFinishJob: JobHandler = async (ctx) => {
           channel: x.channel,
           ip: x.ip,
           device: x.device,
+          detail: x.detail,
         }))
         .sort(compareSteps),
     }));
@@ -762,11 +764,19 @@ export const documentJobs: JobMap = {
 // The events
 // ---------------------------------------------------------------------------
 
-/** document.sent and document.turn: the links of everyone whose turn it is. */
+/**
+ * document.sent and document.turn: the links of everyone whose turn it is, except anyone signing in person, with the
+ * team (answer 13a): they sign on the team's device, so no link goes to them unless someone asks (Remind).
+ */
 const onTurn: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
-  for (const signerId of idsOf(payloadOf(ctx)['signerIds']))
-    await queueLink(ctx.tx, scope, signerId, 0);
+  const ids = idsOf(payloadOf(ctx)['signerIds']);
+  if (!ids.length) return;
+  const linked = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select id from app.document_signers where id = any(${uuidArray(ids)}) and not in_person`,
+  );
+  for (const s of linked) await queueLink(ctx.tx, scope, s.id, 0);
 };
 
 /** document.reminder_asked: "Remind" on the document, for everyone whose turn it is. */
@@ -774,11 +784,12 @@ const onReminderAsked: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const ids = idsOf(payloadOf(ctx)['signerIds']);
   if (!ids.length) return;
-  const found = await rows<{ id: string; reminders: number }>(
+  const found = await rows<{ id: string; reminders: number; sent_at: Date | string | null }>(
     ctx.tx,
-    sql`select id, reminders from app.document_signers where id = any(${uuidArray(ids)})`,
+    sql`select id, reminders, sent_at from app.document_signers where id = any(${uuidArray(ids)})`,
   );
-  for (const s of found) await queueLink(ctx.tx, scope, s.id, s.reminders + 1);
+  // Someone signing in person who never had a link gets their first, not a reminder of it.
+  for (const s of found) await queueLink(ctx.tx, scope, s.id, s.sent_at ? s.reminders + 1 : 0);
 };
 
 /** document.voided: everyone who had a link hears it doesn't need signing. */

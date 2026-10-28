@@ -67,6 +67,8 @@ import {
   DocumentSendInput,
   DocumentSendOutput,
   DocumentSignInput,
+  DocumentSignNowInput,
+  DocumentSignNowOutput,
   DocumentSignOutput,
   DocumentVoidInput,
 } from '../schemas/document';
@@ -309,6 +311,7 @@ export const documentSend = defineCommand({
       label: string;
       kind: 'customer' | 'team';
       position: number;
+      inPerson: boolean;
     })[] = [];
     for (const [i, role] of base.roles.entries()) {
       const pick = byRole.get(role.key);
@@ -330,11 +333,12 @@ export const documentSend = defineCommand({
       const who = pick.personId
         ? await personRecipient(ctx, pick.personId)
         : await userRecipient(ctx, pick.userId!);
-      if (!who.email && !who.phone)
+      // Someone signing in person needs no link (answer 13a); they get the signed copy if they can be reached.
+      if (!who.email && !who.phone && !pick.inPerson)
         throw HfosError.rule(
           'document_signer_unreachable',
           409,
-          `${who.name} has no email or mobile number, so their link can’t reach them. Add one on their page, then send it.`,
+          `${who.name} has no email or mobile number, so their link can’t reach them. Add one on their page, or tick “With you now” to have them sign on your device.`,
         );
       signers.push({
         ...who,
@@ -342,6 +346,7 @@ export const documentSend = defineCommand({
         label: role.label,
         kind: role.kind,
         position: settings.order === 'order' ? i : 0,
+        inPerson: pick.inPerson,
       });
     }
     const copies: Recipient[] = [];
@@ -442,6 +447,7 @@ export const documentSend = defineCommand({
           email: s.email,
           phoneE164: s.phone,
           askCode: settings.askCode && s.kind === 'customer',
+          inPerson: s.inPerson,
         })),
         ...copies.map((c) => ({
           workspaceId: ws,
@@ -508,7 +514,7 @@ export const documentSend = defineCommand({
 export const documentRemind = defineCommand({
   name: 'document.remind',
   description:
-    'Remind whoever still has to sign a document now: their link goes again by email and text.',
+    'Remind whoever still has to sign a document now: their link goes again by email and text. Someone who was to sign in person gets their link for the first time.',
   risk: 2,
   input: DocumentRefInput,
   output: DocumentOkOutput,
@@ -526,15 +532,23 @@ export const documentRemind = defineCommand({
         409,
         `Everyone has signed “${row.name}”. The signed copy is on its way.`,
       );
-    const due = signersUp(await signersOf(ctx.tx, row.id)).filter(
-      (s) => s.sentAt && s.status !== 'declined',
-    );
-    if (!due.length)
+    // Whose turn it is: a reminder of their link, or, for someone signing in person, their first link after all.
+    const up = signersUp(await signersOf(ctx.tx, row.id)).filter((s) => s.status !== 'declined');
+    const due = up.filter((s) => s.sentAt || (s.inPerson && (s.email || s.phoneE164)));
+    if (!due.length) {
+      const unreachable = up.find((s) => s.inPerson && !s.sentAt);
+      if (unreachable)
+        throw HfosError.rule(
+          'document_signer_unreachable',
+          409,
+          `${unreachable.name} signs with you in person and has no email or mobile number, so a link can’t reach them. Use Sign now when you’re together.`,
+        );
       throw HfosError.rule(
         'document_nobody_to_remind',
         409,
         `Nobody’s link for “${row.name}” has gone out yet. It goes on its own in a moment.`,
       );
+    }
     const recent = due.find(
       (s) => s.lastSentAt && Date.now() - s.lastSentAt.getTime() < 60 * 60_000,
     );
@@ -619,6 +633,84 @@ export const documentVoid = defineCommand({
   },
 });
 
+/**
+ * Sign now (answer 13a): the team member hands their phone or tablet to a signer whose turn it is, and they sign it
+ * there. Recorded as a step by the team member; a code the template asks for is checked by handing it over, since
+ * they say who's holding it. The worker's `/v1/documents/link` then gives the screen their link to open.
+ */
+export const documentSignNow = defineCommand({
+  name: 'document.sign_now',
+  description:
+    'Sign now in person: hand this device to someone whose turn it is to sign, so they sign it here. Their code isn’t asked: whoever hands it over says it’s them.',
+  risk: 2,
+  input: DocumentSignNowInput,
+  output: DocumentSignNowOutput,
+  permission: 'documents.send',
+  scope: inWorkspace,
+  emits: ['document.handed_over'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const me = requireHuman(ctx).userId;
+    // As the person: a signer of a document about someone they can't see isn't there.
+    const [found] = await ctx.tx
+      .select({ documentId: documentSigners.documentId })
+      .from(documentSigners)
+      .where(and(eq(documentSigners.id, input.signerId), eq(documentSigners.workspaceId, ws)));
+    if (!found) throw documentGone();
+    const { row } = await loadDocument(ctx.tx, ws, found.documentId, { forUpdate: true });
+    assertOut(row);
+    if (row.allSignedAt)
+      throw HfosError.rule(
+        'document_finishing',
+        409,
+        `Everyone has signed “${row.name}”. The signed copy is on its way.`,
+      );
+    const all = await signersOf(ctx.tx, row.id);
+    const signer = all.find((s) => s.id === input.signerId);
+    if (!signer || signer.kind !== 'signer') throw documentGone();
+    if (signer.status === 'signed')
+      throw HfosError.rule('document_signer_done', 409, `${signer.name} has signed it already.`);
+    if (signer.status === 'declined')
+      throw HfosError.rule(
+        'document_declined',
+        409,
+        `${signer.name} declined to sign it, so it’s closed. Send a corrected one if it’s still needed.`,
+      );
+    if (!signersUp(all).some((s) => s.id === signer.id)) {
+      const first = signersUp(all)[0];
+      throw HfosError.rule(
+        'document_not_their_turn',
+        409,
+        `It isn’t ${signer.name}’s turn yet.${first ? ` ${first.name} signs first.` : ''}`,
+      );
+    }
+    const codeChecked = signer.askCode && !signer.codeCheckedAt;
+    if (codeChecked)
+      await ctx.tx
+        .update(documentSigners)
+        .set({ codeCheckedAt: new Date() })
+        .where(eq(documentSigners.id, signer.id));
+    const [u] = await ctx.tx
+      .select({ fullName: users.fullName, email: users.email })
+      .from(users)
+      .where(eq(users.id, me));
+    const by = u?.fullName?.trim() || u?.email || 'Someone from the team';
+    await addStep(ctx, row, {
+      kind: 'in_person',
+      signerId: signer.id,
+      detail: { by, ...(signer.userId === me ? { self: true } : {}) },
+    });
+    await ctx.emit({
+      type: 'document.handed_over',
+      entityType: 'document',
+      entityId: row.id,
+      payload: { documentId: row.id, signerId: signer.id, name: row.name, signer: signer.name },
+      after: { handedTo: signer.name, codeChecked },
+    });
+    return { documentId: row.id, signerId: signer.id, codeChecked };
+  },
+});
+
 // ---------- the worker, for the people signing ----------
 
 export const documentLinkSent = defineCommand({
@@ -668,28 +760,52 @@ export const documentLinkSent = defineCommand({
 
 export const documentOpen = defineCommand({
   name: 'document.open',
-  description: 'Worker: a signer opened their link.',
+  description:
+    'Worker: a signer opened their link, or opened it from their portal (which checks a code the template asks for: signing in there was a code to them).',
   risk: 1,
   input: DocumentOpenInput,
   output: DocumentOpenOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['document.opened'],
+  emits: ['document.opened', 'document.code_checked'],
   actors: ['system'],
   async handler(ctx, input) {
     const { signer, doc } = await loadSigner(ctx, input.signerId, { forUpdate: true });
-    if (signer.openedAt || doc.status !== 'out') return { signerId: signer.id, first: false };
+    if (doc.status !== 'out') return { signerId: signer.id, first: false };
+    const now = new Date();
+    const still = signer.status !== 'signed' && signer.status !== 'declined';
+    if (input.channel === 'portal' && still && signer.askCode && !signer.codeCheckedAt) {
+      await ctx.tx
+        .update(documentSigners)
+        .set({ codeCheckedAt: now, codeHash: null, codeExpiresAt: null })
+        .where(eq(documentSigners.id, signer.id));
+      await addStep(ctx, doc, {
+        kind: 'code_checked',
+        signerId: signer.id,
+        channel: 'portal',
+        ip: input.ip,
+        device: input.device,
+      });
+      await ctx.emit({
+        type: 'document.code_checked',
+        entityType: 'document',
+        entityId: doc.id,
+        payload: { signerId: signer.id, by: 'portal' },
+        after: { signer: signer.name },
+      });
+    }
+    if (signer.openedAt) return { signerId: signer.id, first: false };
     await ctx.tx
       .update(documentSigners)
       .set({
-        openedAt: new Date(),
+        openedAt: now,
         status: signer.status === 'sent' || signer.status === 'waiting' ? 'opened' : signer.status,
       })
       .where(eq(documentSigners.id, signer.id));
     await addStep(ctx, doc, {
       kind: 'opened',
       signerId: signer.id,
-      channel: 'page',
+      channel: input.channel,
       ip: input.ip,
       device: input.device,
     });
@@ -1178,6 +1294,7 @@ export const documentCommands = [
   documentSend,
   documentRemind,
   documentVoid,
+  documentSignNow,
   documentLinkSent,
   documentOpen,
   documentCodeSent,

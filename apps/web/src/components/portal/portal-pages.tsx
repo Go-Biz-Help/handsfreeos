@@ -4,8 +4,8 @@
  * with each add-on's part of it and the newest message; Messages, the customer's thread with the business; Files,
  * what's been shared with them and what they added; and the door to an add-on's pages.
  */
-import { ADDON_CATALOG, dayTime, PARTNER_PAGE_WORDS } from '@hfos/core';
-import { Paperclip } from 'lucide-react';
+import { ADDON_CATALOG, dayTime, PARTNER_PAGE_WORDS, PORTAL_DOCUMENT_WORDS } from '@hfos/core';
+import { FileSignature, Paperclip } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { ADDON_UI } from '@/addons/registry';
@@ -41,6 +41,21 @@ interface PortalFile {
   readonly addedAt: string;
 }
 
+/** `portal.documents`: their own place on each document they sign or get a copy of. */
+interface PortalDocument {
+  readonly signerId: string;
+  readonly documentId: string;
+  readonly name: string;
+  readonly kind: 'signer' | 'copy';
+  readonly status: 'out' | 'completed' | 'declined' | 'expired';
+  readonly signerStatus: 'waiting' | 'sent' | 'opened' | 'signed' | 'declined';
+  readonly yourTurn: boolean;
+  readonly sentAt: string;
+  readonly expiresAt: string;
+  readonly completedAt: string | null;
+  readonly signedCopy: boolean;
+}
+
 /** The customer's own zone, for times in their portal. */
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -65,6 +80,16 @@ export function PortalHomePage() {
           </AddonBoundary>
         );
       })}
+      {home.documents.toSign ? (
+        <Link href={href('documents')} className="block" data-testid="portal-home-documents">
+          <Card className="p-4 hover:bg-card-2">
+            <PortalCardHead action={<Badge variant="accent">{home.documents.toSign}</Badge>}>
+              {PORTAL_DOCUMENT_WORDS.homeTitle}
+            </PortalCardHead>
+            <p className="text-[14px]">{PORTAL_DOCUMENT_WORDS.homeToSign(home.documents.toSign)}</p>
+          </Card>
+        </Link>
+      ) : null}
       {home.partner ? (
         <Link href={href('partner')} className="block" data-testid="portal-home-partner">
           <Card className="p-4 hover:bg-card-2">
@@ -269,5 +294,85 @@ export function PortalAddonPage({ addonId, path }: { addonId: string; path: read
         <Pages path={path} />
       </Suspense>
     </AddonBoundary>
+  );
+}
+
+/** Where one of their documents stands, for them. */
+function documentState(d: PortalDocument): {
+  readonly label: string;
+  readonly variant: 'accent' | 'ok' | 'gray' | 'danger';
+} {
+  if (d.status === 'declined') return { label: PORTAL_DOCUMENT_WORDS.declined, variant: 'danger' };
+  if (d.status === 'expired') return { label: PORTAL_DOCUMENT_WORDS.expired, variant: 'gray' };
+  if (d.status === 'completed') return { label: PORTAL_DOCUMENT_WORDS.completed, variant: 'ok' };
+  if (d.kind === 'copy') return { label: PORTAL_DOCUMENT_WORDS.copy, variant: 'gray' };
+  if (d.signerStatus === 'signed')
+    return { label: PORTAL_DOCUMENT_WORDS.signedWaiting, variant: 'gray' };
+  return d.yourTurn
+    ? { label: PORTAL_DOCUMENT_WORDS.toSign, variant: 'accent' }
+    : { label: PORTAL_DOCUMENT_WORDS.notYet, variant: 'gray' };
+}
+
+/**
+ * Documents (docs/documents.md, answer 10b): the ones they sign or get a copy of, newest first. One that's theirs to
+ * sign opens at its signing page with no code to type (signing in here was one); a signed one opens there too, for
+ * the copy.
+ */
+export function PortalDocumentsPage() {
+  const { openDocument } = usePortal();
+  const { data, error } = usePortalQuery<{ documents: readonly PortalDocument[] }>(
+    'portal.documents',
+  );
+  const { busy, act } = usePortalAct();
+  const list = data?.documents ?? [];
+  return (
+    <div className="space-y-4" data-testid="portal-documents">
+      <h1 className="text-[24px] font-semibold">{PORTAL_DOCUMENT_WORDS.title}</h1>
+      {error ? <p className="text-[14px] text-danger-text">{error}</p> : null}
+      {data && !list.length ? (
+        <Card className="p-4">
+          <p className="text-[14px] text-text-2">{PORTAL_DOCUMENT_WORDS.none}</p>
+        </Card>
+      ) : null}
+      {list.map((d) => {
+        const state = documentState(d);
+        const canOpen = d.status === 'out' || (d.status === 'completed' && d.signedCopy);
+        const signNow = d.status === 'out' && d.yourTurn && d.kind === 'signer';
+        return (
+          <Card
+            key={d.signerId}
+            className="flex flex-col gap-2.5 p-4"
+            data-testid="portal-document"
+          >
+            <div className="flex items-start gap-3">
+              <FileSignature className="mt-0.5 h-5 w-5 flex-none text-text-3" strokeWidth={1.75} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-semibold">{d.name}</div>
+                <div className="text-[12.5px] text-text-3">
+                  {d.status === 'completed' && d.completedAt
+                    ? `Signed by everyone ${dayTime(d.completedAt, zone())}`
+                    : d.status === 'out' && signNow
+                      ? `Please sign by ${dayTime(d.expiresAt, zone())}`
+                      : `Sent ${dayTime(d.sentAt, zone())}`}
+                </div>
+              </div>
+              <Badge variant={state.variant}>{state.label}</Badge>
+            </div>
+            {canOpen ? (
+              <Button
+                variant={signNow ? 'primary' : 'secondary'}
+                size="sm"
+                className="w-fit"
+                loading={busy === d.signerId}
+                onClick={() => void act(d.signerId, () => openDocument(d.signerId))}
+                data-testid={signNow ? 'portal-document-sign' : 'portal-document-open'}
+              >
+                {signNow ? PORTAL_DOCUMENT_WORDS.sign : PORTAL_DOCUMENT_WORDS.open}
+              </Button>
+            ) : null}
+          </Card>
+        );
+      })}
+    </div>
   );
 }

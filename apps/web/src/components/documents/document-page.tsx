@@ -1,17 +1,26 @@
 'use client';
 /**
  * One sent document (docs/documents.md): where it is, who has signed, every step of its proof trail, and the pages as
- * they stand. From here the team reminds, voids with a reason, copies a signer's link, sends a corrected one again
- * (answer 15a) and opens the signed copy.
+ * they stand. From here the team reminds, voids with a reason, copies a signer's link, hands their device to a
+ * signer who's with them (Sign now, answer 13a), sends a corrected one again (answer 15a) and opens the signed copy.
  */
 import {
-  DOCUMENT_CHANNEL_LABELS,
-  DOCUMENT_STEP_LABELS,
   DocumentDefinition,
+  documentStepText,
+  signerIsUp,
   signerStatusLabel,
   type DocumentValueInput,
 } from '@hfos/core';
-import { ArrowLeft, Ban, BellRing, Download, ExternalLink, Link2, RotateCcw } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  BellRing,
+  Download,
+  ExternalLink,
+  Link2,
+  PenLine,
+  RotateCcw,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -121,6 +130,33 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Sign now (answer 13a): noted as handed over by this person, then their signing page opens here, saying whose
+   * turn it is and how to come back to this page.
+   */
+  async function signNow(signer: DocumentSignerRow) {
+    setBusy(`now:${signer.id}`);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/document.sign_now', {
+          body: { workspaceId, signerId: signer.id },
+        }),
+      );
+      const { url } = await workerPost<{ url: string }>('/v1/documents/link', {
+        workspaceId,
+        signerId: signer.id,
+      });
+      const hand = new URLSearchParams({
+        with: signer.name.split(' ')[0] || signer.name,
+        back: `/app/w/${workspaceId}/documents/${doc.id}`,
+      });
+      window.location.assign(`${new URL(url).pathname}#${hand.toString()}`);
+    } catch (e) {
+      toast.error(errorMessage(e));
       setBusy(null);
     }
   }
@@ -335,17 +371,32 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
                     </span>
                   ) : null}
                   {doc.canSend && (doc.status === 'out' || doc.status === 'completed') ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-fit"
-                      loading={busy === s.id}
-                      onClick={() => void copyLink(s)}
-                      data-testid="document-copy-link"
-                    >
-                      <Link2 className="h-4 w-4" strokeWidth={1.75} />
-                      Copy their link
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {doc.status === 'out' && !doc.finishing && signerIsUp(s, doc.signers) ? (
+                        <Button
+                          variant={s.inPerson ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="w-fit"
+                          loading={busy === `now:${s.id}`}
+                          onClick={() => void signNow(s)}
+                          data-testid="document-sign-now"
+                        >
+                          <PenLine className="h-4 w-4" strokeWidth={1.75} />
+                          Sign now
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-fit"
+                        loading={busy === s.id}
+                        onClick={() => void copyLink(s)}
+                        data-testid="document-copy-link"
+                      >
+                        <Link2 className="h-4 w-4" strokeWidth={1.75} />
+                        Copy their link
+                      </Button>
+                    </div>
                   ) : null}
                 </li>
               ))}
@@ -357,11 +408,12 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
               {[...doc.steps].reverse().map((st) => (
                 <li key={st.id} className="flex flex-col text-[12.5px]">
                   <span className="text-text">
-                    {DOCUMENT_STEP_LABELS[st.kind]}
+                    {documentStepText({
+                      kind: st.kind,
+                      channel: st.channel,
+                      detail: st.detail as Record<string, unknown> | null,
+                    })}
                     {st.signerId && names.get(st.signerId) ? `: ${names.get(st.signerId)}` : ''}
-                    {st.channel && st.channel in DOCUMENT_CHANNEL_LABELS
-                      ? ` (${DOCUMENT_CHANNEL_LABELS[st.channel as keyof typeof DOCUMENT_CHANNEL_LABELS]})`
-                      : ''}
                   </span>
                   <span className="text-text-3">
                     {formatDate(st.at, { time: true })}

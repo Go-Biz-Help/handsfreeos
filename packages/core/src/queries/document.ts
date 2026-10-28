@@ -263,6 +263,7 @@ export const documentList = defineQuery({
             roleLabel: s.roleLabel,
             status: s.status as 'sent',
             position: s.position,
+            inPerson: s.inPerson,
           })),
       })),
       more,
@@ -336,6 +337,7 @@ export const documentGet = defineQuery({
         roleKey: s.roleKey,
         status: s.status as 'sent',
         position: s.position,
+        inPerson: s.inPerson,
         personId: s.personId,
         userId: s.userId,
         email: s.email,
@@ -412,6 +414,7 @@ export const documentPrefill = defineQuery({
           name: before.name,
           email: before.email,
           phone: before.phoneE164,
+          inPerson: before.inPerson,
         };
       if (role.kind === 'team')
         return {
@@ -421,6 +424,7 @@ export const documentPrefill = defineQuery({
           name: meName,
           email: null,
           phone: null,
+          inPerson: false,
         };
       if (role.key === firstCustomer?.key && fill.customer)
         return {
@@ -433,6 +437,7 @@ export const documentPrefill = defineQuery({
             'Customer',
           email: fill.customer.email,
           phone: fill.customer.phone,
+          inPerson: false,
         };
       return {
         roleKey: role.key,
@@ -441,6 +446,7 @@ export const documentPrefill = defineQuery({
         name: '',
         email: null,
         phone: null,
+        inPerson: false,
       };
     });
     const source = await fileOf(ctx.tx, ws, row.sourceFileId);

@@ -213,6 +213,10 @@ function SendForm({
       ]),
     ),
   );
+  // Signing in person, with the team now (answer 13a): no link at their turn; Sign now on the document hands it over.
+  const [inPerson, setInPerson] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(prefill.signers.map((s) => [s.roleKey, s.inPerson])),
+  );
   const [copies, setCopies] = useState<Who[]>(
     prefill.copies.map((c) => ({
       personId: c.personId,
@@ -289,7 +293,7 @@ function SendForm({
           const who = signers[r.key]!;
           return who.userId
             ? { roleKey: r.key, userId: who.userId }
-            : { roleKey: r.key, personId: who.personId! };
+            : { roleKey: r.key, personId: who.personId!, inPerson: !!inPerson[r.key] };
         }),
         copies: copies.map((c) => (c.userId ? { userId: c.userId } : { personId: c.personId! })),
         values: values as DocumentSendBody['values'],
@@ -414,6 +418,21 @@ function SendForm({
                     }
                   />
                 )}
+                {who && r.kind === 'customer' ? (
+                  <label className="flex items-start gap-2.5 text-[13px] text-text-2">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-accent"
+                      checked={!!inPerson[r.key]}
+                      onChange={(e) => setInPerson((m) => ({ ...m, [r.key]: e.target.checked }))}
+                      data-testid={`signer-in-person-${r.key}`}
+                    />
+                    <span>
+                      <span className="font-medium text-text">With you now.</span> No link goes to
+                      them: they sign on your phone or computer with Sign now on the document.
+                    </span>
+                  </label>
+                ) : null}
               </div>
             );
           })}

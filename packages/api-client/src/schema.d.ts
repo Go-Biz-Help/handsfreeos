@@ -3147,7 +3147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Remind whoever still has to sign a document now: their link goes again by email and text.
+         * Remind whoever still has to sign a document now: their link goes again by email and text. Someone who was to sign in person gets their link for the first time.
          * @description Risk level 2. Requires documents.send. Emits document.reminder_asked.
          */
         post: operations["command_document_remind"];
@@ -3171,6 +3171,26 @@ export interface paths {
          * @description Risk level 2. Requires documents.send. Emits document.sent.
          */
         post: operations["command_document_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/document.sign_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign now in person: hand this device to someone whose turn it is to sign, so they sign it here. Their code isn’t asked: whoever hands it over says it’s them.
+         * @description Risk level 2. Requires documents.send. Emits document.handed_over.
+         */
+        post: operations["command_document_sign_now"];
         delete?: never;
         options?: never;
         head?: never;
@@ -30111,6 +30131,8 @@ export interface operations {
                         remindEveryDays?: number | null;
                     };
                     signers: {
+                        /** @default false */
+                        inPerson?: boolean;
                         /** Format: uuid */
                         personId?: string;
                         roleKey: string;
@@ -30173,6 +30195,41 @@ export interface operations {
                             /** @enum {string} */
                             status: "waiting" | "sent" | "opened" | "signed" | "declined";
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_document_sign_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    signerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        codeChecked: boolean;
+                        /** Format: uuid */
+                        documentId: string;
+                        /** Format: uuid */
+                        signerId: string;
                     };
                 };
             };
@@ -66009,6 +66066,7 @@ export interface operations {
                             email: string | null;
                             /** Format: uuid */
                             id: string;
+                            inPerson: boolean;
                             ip: string | null;
                             /** @enum {string} */
                             kind: "signer" | "copy";
@@ -66052,7 +66110,7 @@ export interface operations {
                             id: string;
                             ip: string | null;
                             /** @enum {string} */
-                            kind: "prepared" | "sent" | "reminded" | "opened" | "code_sent" | "code_checked" | "agreed" | "signed" | "declined" | "voided" | "expired" | "completed" | "copy_sent";
+                            kind: "prepared" | "sent" | "reminded" | "in_person" | "opened" | "code_sent" | "code_checked" | "agreed" | "signed" | "declined" | "voided" | "expired" | "completed" | "copy_sent";
                             signerId: string | null;
                         }[];
                         templateId: string | null;
@@ -66133,6 +66191,7 @@ export interface operations {
                             signers: {
                                 /** Format: uuid */
                                 id: string;
+                                inPerson: boolean;
                                 /** @enum {string} */
                                 kind: "signer" | "copy";
                                 name: string;
@@ -66210,6 +66269,7 @@ export interface operations {
                         };
                         signers: {
                             email: string | null;
+                            inPerson: boolean;
                             name: string;
                             personId: string | null;
                             phone: string | null;

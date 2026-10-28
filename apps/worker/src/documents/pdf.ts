@@ -21,10 +21,10 @@ import {
   type PDFPage,
   type RGB,
 } from 'pdf-lib';
+import type { DOCUMENT_CHANNEL_LABELS } from '@hfos/core/server';
 import {
-  DOCUMENT_CHANNEL_LABELS,
   documentDay,
-  DOCUMENT_STEP_LABELS,
+  documentStepText,
   PROOF_WORDS,
   SIGNING_WORDS,
   type DocumentDefinition,
@@ -40,6 +40,8 @@ export interface ProofStep {
   readonly channel: keyof typeof DOCUMENT_CHANNEL_LABELS | null;
   readonly ip: string | null;
   readonly device: string | null;
+  /** Who handed it over in person, for an `in_person` step. */
+  readonly detail?: Readonly<Record<string, unknown>> | null;
 }
 
 export interface ProofSigner {
@@ -504,15 +506,8 @@ class ProofWriter {
 
 /** One step of the trail as a line: "Link sent by email · Oct 28, 2026, 4:05:12 AM CDT · from 203.0.113.9". */
 export function stepLine(step: ProofStep, timeZone: string): string {
-  const what =
-    step.kind === 'sent' ||
-    step.kind === 'reminded' ||
-    step.kind === 'code_sent' ||
-    step.kind === 'copy_sent'
-      ? `${DOCUMENT_STEP_LABELS[step.kind]}${step.channel ? ` by ${DOCUMENT_CHANNEL_LABELS[step.channel]}` : ''}`
-      : DOCUMENT_STEP_LABELS[step.kind];
   return [
-    what,
+    documentStepText(step),
     momentWords(step.at, timeZone),
     ...(step.ip ? [`${PROOF_WORDS.from} ${step.ip}`] : []),
   ].join(' · ');

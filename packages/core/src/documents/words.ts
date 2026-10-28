@@ -31,7 +31,11 @@ export const SIGNER_STATUS_LABELS: Readonly<Record<SignerStatus, string>> = {
  * sign; a signer whose turn it is waits only for their link to go out.
  */
 export function signerStatusLabel(
-  signer: { readonly status: SignerStatus; readonly position: number },
+  signer: {
+    readonly status: SignerStatus;
+    readonly position: number;
+    readonly inPerson?: boolean;
+  },
   signers: readonly {
     readonly kind: string;
     readonly status: SignerStatus;
@@ -42,13 +46,36 @@ export function signerStatusLabel(
   const ahead = signers.some(
     (s) => s.kind === 'signer' && s.position < signer.position && s.status !== 'signed',
   );
-  return ahead ? SIGNER_STATUS_LABELS.waiting : 'Link on its way';
+  if (ahead) return SIGNER_STATUS_LABELS.waiting;
+  return signer.inPerson ? 'Signs with you in person' : 'Link on its way';
+}
+
+/**
+ * Whether it's this signer's turn: they're still to sign, at the lowest position of those who are (core's
+ * `signersUp`, for the screens), on a document still out.
+ */
+export function signerIsUp(
+  signer: { readonly id: string; readonly kind: string; readonly status: SignerStatus },
+  signers: readonly {
+    readonly id: string;
+    readonly kind: string;
+    readonly status: SignerStatus;
+    readonly position: number;
+  }[],
+): boolean {
+  if (signer.kind !== 'signer' || signer.status === 'signed' || signer.status === 'declined')
+    return false;
+  const left = signers.filter((s) => s.kind === 'signer' && s.status !== 'signed');
+  if (!left.length) return false;
+  const first = Math.min(...left.map((s) => s.position));
+  return left.some((s) => s.id === signer.id && s.position === first);
 }
 
 export const DOCUMENT_STEP_KINDS = [
   'prepared',
   'sent',
   'reminded',
+  'in_person',
   'opened',
   'code_sent',
   'code_checked',
@@ -76,6 +103,7 @@ export const DOCUMENT_STEP_LABELS: Readonly<Record<DocumentStepKind, string>> = 
   prepared: 'Prepared and sent',
   sent: 'Link sent',
   reminded: 'Reminder sent',
+  in_person: 'Handed over to sign in person',
   opened: 'Opened',
   code_sent: 'Code sent',
   code_checked: 'Code checked',
@@ -94,6 +122,36 @@ export const DOCUMENT_CHANNEL_LABELS = {
   portal: 'their portal',
   page: 'the signing page',
 } as const;
+
+/**
+ * One step of the proof trail in words, as the document's page and the proof page say it: how a link went ("Link sent
+ * by text"), who handed it over in person ("Handed over to sign in person by Sam Lee"), and what their portal did
+ * ("Opened from their portal").
+ */
+export function documentStepText(step: {
+  readonly kind: DocumentStepKind;
+  readonly channel: string | null;
+  readonly detail?: Readonly<Record<string, unknown>> | null;
+}): string {
+  const label = DOCUMENT_STEP_LABELS[step.kind];
+  const by = step.detail?.['by'];
+  if (step.kind === 'in_person') return typeof by === 'string' && by ? `${label} by ${by}` : label;
+  if (step.channel === 'portal') {
+    if (step.kind === 'opened') return 'Opened from their portal';
+    if (step.kind === 'code_checked') return 'Code not needed: signed in to their portal';
+  }
+  const channel =
+    step.channel && step.channel in DOCUMENT_CHANNEL_LABELS
+      ? DOCUMENT_CHANNEL_LABELS[step.channel as keyof typeof DOCUMENT_CHANNEL_LABELS]
+      : null;
+  return (step.kind === 'sent' ||
+    step.kind === 'reminded' ||
+    step.kind === 'code_sent' ||
+    step.kind === 'copy_sent') &&
+    channel
+    ? `${label} by ${channel}`
+    : label;
+}
 
 /**
  * "I agree to sign electronically" (answer 16a), word for word as the signer sees it and as it's kept with their
@@ -248,6 +306,16 @@ export const SIGNING_WORDS = {
   requiredLeft: (n: number) =>
     n === 1 ? '1 field left to fill in.' : `${n} fields left to fill in.`,
   poweredBy: 'Powered by HandsFreeOS',
+  // Sign now, on the team's phone or tablet (answer 13a).
+  handTitle: (signer: string) => `Hand this to ${signer}`,
+  handBody: (a: { by: string | null; business: string; document: string }) =>
+    `${a.by ? `${a.by} from ${a.business}` : a.business} asked you to sign “${a.document}” here, on this device.`,
+  handStart: (first: string) => `I’m ${first}. Start`,
+  handBack: (by: string | null) => (by ? `Hand it back to ${by}` : 'Hand it back'),
+  handBackBody: 'You’re done here. The rest is for them.',
+  backToDocument: 'Back to the document',
+  // From their portal (answer 10b).
+  backToPortal: 'Back to your portal',
 } as const;
 
 /** The proof page added to the end of every signed copy. */
@@ -271,7 +339,25 @@ export const PROOF_WORDS = {
   device: 'Device',
   consent: 'What each signer agreed to',
   footer:
-    'Signed electronically through HandsFreeOS. Each signer opened their own private link, agreed to sign electronically, and signed. The times are in the business’s time zone.',
+    'Signed electronically through HandsFreeOS. Each signer opened their own private link, their portal, or the business’s device handed to them in person, agreed to sign electronically, and signed. The times are in the business’s time zone.',
+} as const;
+
+/** A customer's documents in their portal (answer 10b). */
+export const PORTAL_DOCUMENT_WORDS = {
+  title: 'Documents',
+  homeTitle: 'Documents to sign',
+  homeToSign: (n: number) =>
+    n === 1 ? '1 document is ready for you to sign.' : `${n} documents are ready for you to sign.`,
+  none: 'Nothing to sign yet. When there’s something, it shows here and we’ll email or text you.',
+  sign: 'Sign it',
+  open: 'Open',
+  toSign: 'Ready for you to sign',
+  notYet: 'Not your turn yet',
+  signedWaiting: 'You signed. Waiting for the others',
+  completed: 'Signed by everyone',
+  copy: 'You get a copy',
+  declined: 'Declined',
+  expired: 'Ran out of time',
 } as const;
 
 /** What a field asks for when the template gave it no label. */

@@ -10,10 +10,12 @@
  *   - a signer must fill in their required fields, their date fills itself, and a code first when it's asked for;
  *   - what the customer typed fills their blanks, and never writes over anything (answer 7a);
  *   - voided, declined and out of time stop signing; a customer with a document out can't be deleted;
- *   - a person changes a document only by voiding it, and the proof trail never changes.
+ *   - a person changes a document only by voiding it, and the proof trail never changes;
+ *   - someone signing in person gets no link, and Sign now hands it over on their turn only, noting who did (13a);
+ *   - a customer's portal shows them their own documents, whose turn it is, and checks their code (10b).
  */
-import { createHash, randomUUID } from 'node:crypto';
-import { asUser, rows, sql } from '@hfos/db/client';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { asCustomer, asUser, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, expectPgError, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -30,6 +32,7 @@ import {
   documentRemind,
   documentSend,
   documentSign,
+  documentSignNow,
   documentTemplateBeginUpload,
   documentTemplateCreate,
   documentTemplateDuplicate,
@@ -37,15 +40,27 @@ import {
   documentTemplateSave,
   documentTemplateSetSource,
   documentVoid,
+  executeQuery,
   fileConfirm,
   fileDelete,
   fileStore,
   personCreate,
   personDelete,
+  portalAccessGive,
+  portalCheckCode,
+  portalDocuments,
+  portalHome,
+  portalSendCode,
   storedFilePath,
   timelineList,
+  type CustomerActor,
 } from '../src/server';
-import { consentWording, type DocumentDefinitionInput } from '../src';
+import {
+  consentWording,
+  documentStepText,
+  signerStatusLabel,
+  type DocumentDefinitionInput,
+} from '../src';
 import { admin, ask, expectHfos, run, runSystem, setupTeam, type Team } from './calendar-helpers';
 
 let t: Team;
@@ -716,5 +731,281 @@ describe('the database', () => {
       sql`select name from app.document_templates where id = ${templateId}`,
     );
     expect(still!.name).toBe('Lease');
+  });
+});
+
+/** A device signed in to this person's portal: the way the worker does it. */
+async function portalOf(personId: string): Promise<CustomerActor> {
+  const { accessId } = await run(portalAccessGive, { workspaceId: t.wsId, personId }, t.owner);
+  const sent = await runSystem(portalSendCode, { workspaceId: t.wsId, accessId }, t.scope);
+  const hit = await runSystem(
+    portalCheckCode,
+    {
+      workspaceId: t.wsId,
+      accessId,
+      code: sent.code,
+      tokenHash: createHash('sha256').update(randomBytes(32)).digest('hex'),
+    },
+    t.scope,
+  );
+  return { type: 'customer', ...t.scope, personId, sessionId: hit.sessionId! };
+}
+
+const asCustomerAsk = <O>(q: Parameters<typeof executeQuery>[1], who: CustomerActor) =>
+  executeQuery(testDbs().worker.db, q, { workspaceId: t.wsId }, who, {
+    correlationId: randomUUID(),
+    channel: 'portal',
+  }) as Promise<O>;
+
+describe('signing in person', () => {
+  it('sends no link, and Sign now hands it over on their turn, checking the code', async () => {
+    const gus = await customerWith('Gus', { email: 'gus@example.com' });
+    const sent = await run(
+      documentSend,
+      {
+        workspaceId: t.wsId,
+        templateId,
+        about: { personId: gus },
+        signers: [
+          { roleKey: 'customer', personId: gus, inPerson: true },
+          { roleKey: 'us', userId: t.owner.id },
+        ],
+        values: { f_price: { kind: 'text', text: '$1,450' } },
+        settings: { askCode: true },
+      },
+      t.member,
+    );
+    const [customer, us] = sent.signers;
+    let got = await ask(
+      documentGet,
+      { workspaceId: t.wsId, documentId: sent.documentId },
+      t.member,
+    );
+    expect(got.signers[0]).toMatchObject({ inPerson: true, status: 'waiting' });
+    expect(signerStatusLabel(got.signers[0]!, got.signers)).toBe('Signs with you in person');
+
+    await expectHfos(
+      () => run(documentSignNow, { workspaceId: t.wsId, signerId: us!.signerId }, t.member),
+      'document_not_their_turn',
+      409,
+    );
+    expect(
+      await run(documentSignNow, { workspaceId: t.wsId, signerId: customer!.signerId }, t.member),
+    ).toEqual({ documentId: sent.documentId, signerId: customer!.signerId, codeChecked: true });
+    got = await ask(documentGet, { workspaceId: t.wsId, documentId: sent.documentId }, t.member);
+    const step = got.steps.find((s) => s.kind === 'in_person');
+    expect(step).toMatchObject({ signerId: customer!.signerId, byUserId: t.member.id });
+    expect(documentStepText(step as never)).toBe('Handed over to sign in person by Mike Member');
+    expect(await events(sent.documentId, 'document.handed_over')).toHaveLength(1);
+
+    // No code to type: whoever handed it over says it's them.
+    await runSystem(
+      documentSign,
+      {
+        workspaceId: t.wsId,
+        signerId: customer!.signerId,
+        agreedWording: 'I agree',
+        values: {
+          f_name: { kind: 'text', text: 'Gus Renter' },
+          f_email: { kind: 'text', text: 'gus@example.com' },
+          f_sign: signature('Gus'),
+        },
+      },
+      t.scope,
+    );
+    await expectHfos(
+      () => run(documentSignNow, { workspaceId: t.wsId, signerId: customer!.signerId }, t.member),
+      'document_signer_done',
+      409,
+    );
+  });
+
+  it('goes out to someone with no way to reach them, and Remind sends a link only when there is one', async () => {
+    const hal = await customerWith('Hal', {});
+    const unreachable = () =>
+      run(
+        documentSend,
+        {
+          workspaceId: t.wsId,
+          templateId,
+          about: { personId: hal },
+          signers: [
+            { roleKey: 'customer', personId: hal },
+            { roleKey: 'us', userId: t.owner.id },
+          ],
+          values: { f_price: { kind: 'text', text: '$1,450' } },
+        },
+        t.member,
+      );
+    await expectHfos(unreachable, 'document_signer_unreachable', 409);
+    const sent = await run(
+      documentSend,
+      {
+        workspaceId: t.wsId,
+        templateId,
+        about: { personId: hal },
+        signers: [
+          { roleKey: 'customer', personId: hal, inPerson: true },
+          { roleKey: 'us', userId: t.owner.id },
+        ],
+        values: { f_price: { kind: 'text', text: '$1,450' } },
+      },
+      t.member,
+    );
+    const e = await expectHfos(
+      () => run(documentRemind, { workspaceId: t.wsId, documentId: sent.documentId }, t.member),
+      'document_signer_unreachable',
+      409,
+    );
+    expect(e.message).toContain('Use Sign now when you’re together');
+
+    const ida = await customerWith('Ida', { email: 'ida@example.com' });
+    const withEmail = await run(
+      documentSend,
+      {
+        workspaceId: t.wsId,
+        templateId,
+        about: { personId: ida },
+        signers: [
+          { roleKey: 'customer', personId: ida, inPerson: true },
+          { roleKey: 'us', userId: t.owner.id },
+        ],
+        values: { f_price: { kind: 'text', text: '$1,450' } },
+      },
+      t.member,
+    );
+    await run(documentRemind, { workspaceId: t.wsId, documentId: withEmail.documentId }, t.member);
+    const [asked] = await events(withEmail.documentId, 'document.reminder_asked');
+    expect(asked!.payload['signerIds']).toEqual([withEmail.signers[0]!.signerId]);
+  });
+
+  it('lets a person note only a hand-over, on a signer whose turn it may be', async () => {
+    const jo = await customerWith('Jo', { email: 'jo@example.com' });
+    const sent = await send(jo);
+    const asMember = (q: ReturnType<typeof sql>) =>
+      asUser(testDbs().api.db, t.member.claims, (tx) => rows(tx, q));
+    const signed = await expectPgError(() =>
+      asMember(
+        sql`update app.document_signers set status = 'signed', signed_at = now() where id = ${sent.signers[0]!.signerId}`,
+      ),
+    );
+    expect(signed.code).toBe('42501');
+    const step = await expectPgError(() =>
+      asMember(
+        sql`insert into app.document_steps (workspace_id, document_id, signer_id, kind, by_user_id)
+            values (${t.wsId}, ${sent.documentId}, ${sent.signers[0]!.signerId}, 'signed', ${t.member.id})`,
+      ),
+    );
+    expect(step.code).toBe('42501');
+  });
+});
+
+describe('the customer’s portal', () => {
+  it('shows them their own documents, and whose turn it is', async () => {
+    const kay = await customerWith('Kay', { email: 'kay@example.com' });
+    const lou = await customerWith('Lou', { email: 'lou@example.com' });
+    const kays = await portalOf(kay);
+    expect(
+      (await asCustomerAsk<{ documents: unknown[] }>(portalDocuments, kays)).documents,
+    ).toEqual([]);
+    expect(
+      (await asCustomerAsk<{ documents: { total: number } }>(portalHome, kays)).documents,
+    ).toEqual({ total: 0, toSign: 0 });
+
+    const first = await send(kay);
+    const voided = await send(kay);
+    await run(documentVoid, { workspaceId: t.wsId, documentId: voided.documentId }, t.owner);
+    // Someone else's isn't theirs to see.
+    await send(lou);
+
+    const { documents } = await asCustomerAsk<{
+      documents: { documentId: string; yourTurn: boolean; status: string; kind: string }[];
+    }>(portalDocuments, kays);
+    expect(documents).toEqual([
+      expect.objectContaining({
+        documentId: first.documentId,
+        yourTurn: true,
+        status: 'out',
+        kind: 'signer',
+      }),
+    ]);
+    expect((await asCustomerAsk<{ documents: unknown }>(portalHome, kays)).documents).toEqual({
+      total: 1,
+      toSign: 1,
+    });
+
+    // The database shows them their own place, and nobody's contact details.
+    const seen = await asCustomer(testDbs().worker.db, kays.sessionId!, (tx) =>
+      rows<{ id: string }>(tx, sql`select id from app.document_signers order by id`),
+    );
+    expect(seen.map((s) => s.id).sort()).toEqual(first.signers.map((s) => s.signerId).sort());
+    const email = await expectPgError(() =>
+      asCustomer(testDbs().worker.db, kays.sessionId!, (tx) =>
+        rows(tx, sql`select email from app.document_signers`),
+      ),
+    );
+    expect(email.code).toBe('42501');
+
+    // Once they've signed, it's the team's turn, not theirs.
+    await runSystem(
+      documentSign,
+      {
+        workspaceId: t.wsId,
+        signerId: first.signers[0]!.signerId,
+        agreedWording: 'I agree',
+        values: {
+          f_name: { kind: 'text', text: 'Kay Renter' },
+          f_email: { kind: 'text', text: 'kay@example.com' },
+          f_sign: signature('Kay'),
+        },
+      },
+      t.scope,
+    );
+    const after = await asCustomerAsk<{
+      documents: { yourTurn: boolean; signerStatus: string }[];
+    }>(portalDocuments, kays);
+    expect(after.documents).toEqual([
+      expect.objectContaining({ yourTurn: false, signerStatus: 'signed' }),
+    ]);
+  });
+
+  it('checks their code when they open it from there', async () => {
+    const max = await customerWith('Max', { email: 'max@example.com' });
+    const sent = await send(max, { settings: { askCode: true } });
+    const signerId = sent.signers[0]!.signerId;
+    await runSystem(
+      documentOpen,
+      { workspaceId: t.wsId, signerId, channel: 'portal', ip: '203.0.113.9', device: null },
+      t.scope,
+    );
+    const got = await ask(
+      documentGet,
+      { workspaceId: t.wsId, documentId: sent.documentId },
+      t.owner,
+    );
+    expect(got.signers[0]).toMatchObject({ status: 'opened' });
+    const texts = got.steps
+      .filter((s) => s.signerId === signerId)
+      .map((s) => documentStepText(s as never));
+    expect(texts).toEqual(
+      expect.arrayContaining([
+        'Code not needed: signed in to their portal',
+        'Opened from their portal',
+      ]),
+    );
+    await runSystem(
+      documentSign,
+      {
+        workspaceId: t.wsId,
+        signerId,
+        agreedWording: 'I agree',
+        values: {
+          f_name: { kind: 'text', text: 'Max Renter' },
+          f_email: { kind: 'text', text: 'max@example.com' },
+          f_sign: signature('Max'),
+        },
+      },
+      t.scope,
+    );
   });
 });
