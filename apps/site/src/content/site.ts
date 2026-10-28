@@ -100,6 +100,7 @@ export const foundingSpots = [
       'About five months of the monthly price, for the whole year',
       'Every feature we add to the core product, at no extra cost',
       'Renews each year on its own, and you can stop it any time',
+      '30 days, or your money back',
     ],
   },
   {
@@ -114,6 +115,7 @@ export const foundingSpots = [
       'Everything in HandsFreeOS, paid a month at a time',
       'Every feature we add to the core product, at no extra cost',
       'Renews each month on its own, and you can stop it any time',
+      '30 days, or your money back',
     ],
   },
 ] as const;
@@ -126,13 +128,27 @@ export const signUpFor = (spot: FoundingSpotContent): string => `${urls.signUp}?
 /** "$497 a year or $97 a month": both prices, in the order above. */
 export const spotPrices = foundingSpots.map((s) => `${s.priceLabel} ${s.per}`).join(' or ');
 
+/** What most businesses spend on usage a month, in dollars: the range the usage note and the home page's bill quote. */
+export const typicalUsage = { low: 30, high: 60 } as const;
+
+/**
+ * The money-back promise (the owner's call, 2026-10-28): within 30 days of the first plan payment, a business that
+ * asks gets that payment back in full, monthly or yearly. Usage is not refunded, because the phone and AI
+ * companies have already charged us for it. The terms page says the same in its billing section, and "The 30-day
+ * money back" in docs/operations.md is how staff give it.
+ */
+export const moneyBack = {
+  days: 30,
+  short: '30-day money back',
+  line: 'Use HandsFreeOS for 30 days. If it isn’t for you, ask, and we refund your plan payment in full, monthly or yearly. The texts, calls and AI you used are what the phone and AI companies charged us, so those aren’t refunded.',
+} as const;
+
 /**
  * What sits on top of every spot: texts, calls, numbers and AI, billed for what you use. Saying it in the same
  * breath as the price is the point — somebody who finds out about it afterwards has been misled, however
  * technically accurate the page was.
  */
-export const usageNote =
-  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $30–$60 a month. This is the same on both founding spots — it is what the phone companies charge us, passed through.';
+export const usageNote = `Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $${typicalUsage.low}–$${typicalUsage.high} a month. This is the same on both founding spots — it is what the phone companies charge us, passed through.`;
 
 /** What the pages say when no spot has room, or none is on sale. The app's plan page says much the same. */
 export const noSpotsNote = `No founding spots are open right now. Email ${company.supportEmail} and we’ll tell you when more open.`;

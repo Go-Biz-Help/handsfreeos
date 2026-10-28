@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Container, Prose } from '@/components/ui';
-import { company, urls } from '@/content/site';
+import { company, moneyBack, urls } from '@/content/site';
 
 /*
  * Reviewed by Chris before launch. The governing state and the address come from
@@ -9,7 +9,7 @@ import { company, urls } from '@/content/site';
  * ever emptied, on purpose.
  */
 
-const LAST_UPDATED = 'October 15, 2026';
+const LAST_UPDATED = 'October 28, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of service',
@@ -84,8 +84,18 @@ export default function TermsPage() {
             customers pay you.
           </li>
           <li>
-            You can cancel any time and you will not be billed again. We do not refund the part of a
-            month you have already paid for, unless we got something wrong.
+            <strong>{moneyBack.days} days, or your money back.</strong> If HandsFreeOS isn&rsquo;t
+            for you, email {company.supportEmail} within {moneyBack.days} days of your
+            business&rsquo;s first plan payment, and we will refund that payment in full, whether it
+            was monthly or yearly. This covers one business&rsquo;s first plan payment, once. It
+            does not cover later months or years, or the texts, calls, phone numbers and AI you
+            used, which other companies have already charged us for. A refunded plan is cancelled,
+            so it will not renew.
+          </li>
+          <li>
+            You can cancel any time and you will not be billed again. Apart from the{' '}
+            {moneyBack.days}-day money back above, we do not refund the part of a month you have
+            already paid for, unless we got something wrong.
           </li>
           <li>
             If a payment fails we will tell you and try again. If it stays unpaid we may suspend the

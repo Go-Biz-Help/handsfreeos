@@ -26,7 +26,7 @@ const DEFAULT_SHARE_IMAGE = {
   url: '/opengraph-image',
   width: 1200,
   height: 630,
-  alt: 'HandsFreeOS — the CRM that doesn’t want you to use it',
+  alt: 'HandsFreeOS — answer every lead in seconds and get your evenings back',
 };
 
 /**
