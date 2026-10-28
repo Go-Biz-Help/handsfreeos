@@ -11,10 +11,12 @@
  * - **Only their own fields are sent**, and the worker checks each the way core's `valueProblem` does here.
  * - **Handed over in person** (Sign now, answer 13a), the address ends `#with=<first name>&back=<page>`: the page
  *   says whose turn it is before the document shows, and once they've signed, to hand it back. From their portal
- *   (answer 10b), `#back=/c/…` puts a way back on the page. Only a path in the app is followed, never an address.
+ *   (answer 10b), `#back=/c/…` puts a way back on the page. Only a path in the app is followed, never an address,
+ *   but for the phone's own way back (`PHONE_HAND_BACK`), which closes the signing page the phone's Sign now opened.
  */
 import {
   FIELD_PROMPTS,
+  PHONE_HAND_BACK,
   SIGNING_WORDS,
   valueProblem,
   type DocumentField,
@@ -86,7 +88,10 @@ function handOf(hash: string): Hand {
   return {
     with: p.get('with')?.trim().slice(0, 40) || null,
     back:
-      back && /^\/(app\/w|c)\/[A-Za-z0-9_\-/]+$/.test(back) && !back.includes('//') ? back : null,
+      back === PHONE_HAND_BACK ||
+      (back && /^\/(app\/w|c)\/[A-Za-z0-9_\-/]+$/.test(back) && !back.includes('//'))
+        ? back
+        : null,
   };
 }
 
@@ -491,7 +496,9 @@ export function SigningPage({ token }: { token: string }) {
 
   const signing = signer.yourTurn && signer.status !== 'signed' && !!content;
   const pages = content?.pages ?? [];
-  const inPerson = !!hand.with && !!hand.back?.startsWith('/app/');
+  // From the team's own screen: the web's document page, or the phone's Sign now.
+  const inPerson =
+    !!hand.with && (!!hand.back?.startsWith('/app/') || hand.back === PHONE_HAND_BACK);
   const back = hand.back ? (
     <a
       href={hand.back}

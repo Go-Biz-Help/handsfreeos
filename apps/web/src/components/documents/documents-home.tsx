@@ -2,7 +2,12 @@
 /**
  * The Documents page: what's been sent and where each one is, and the templates they're sent from.
  */
-import { DOCUMENT_STATUS_LABELS, signerStatusLabel, type DocumentStatus } from '@hfos/core';
+import {
+  DOCUMENT_SCREEN_WORDS as W,
+  DOCUMENT_STATUS_LABELS,
+  signerStatusLabel,
+  type DocumentStatus,
+} from '@hfos/core';
 import { Copy, FilePenLine, Send } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -52,10 +57,10 @@ export function DocumentsHome({
         }
         ariaLabel="Sent documents or templates"
         options={[
-          { value: 'sent', label: 'Sent', testId: 'documents-tab-sent' },
+          { value: 'sent', label: W.sent, testId: 'documents-tab-sent' },
           {
             value: 'templates',
-            label: `Templates ${templates.length || ''}`.trim(),
+            label: `${W.templates} ${templates.length || ''}`.trim(),
             testId: 'documents-tab-templates',
           },
         ]}
@@ -133,8 +138,8 @@ function SentList({
         }}
         ariaLabel="Which documents"
         options={[
-          { value: 'all', label: 'All' },
-          { value: 'out', label: 'Out for signing' },
+          { value: 'all', label: W.allStates },
+          { value: 'out', label: DOCUMENT_STATUS_LABELS.out },
           { value: 'completed', label: DOCUMENT_STATUS_LABELS.completed },
           { value: 'declined', label: DOCUMENT_STATUS_LABELS.declined },
           { value: 'voided', label: DOCUMENT_STATUS_LABELS.voided },
@@ -144,26 +149,24 @@ function SentList({
       {rows.length === 0 ? (
         <Card>
           <EmptyState
-            title={filter === 'all' ? 'Nothing sent yet' : 'None here'}
+            title={filter === 'all' ? W.nothingSent : W.noneHere}
             actions={
               filter !== 'all' ? null : hasTemplates && canSend ? (
                 <ButtonLink variant="primary" href={`/app/w/${workspaceId}/documents/send`}>
                   <Send className="h-4 w-4" strokeWidth={1.75} />
-                  Send a document
+                  {W.send}
                 </ButtonLink>
               ) : canManage ? (
                 <ButtonLink
                   variant="secondary"
                   href={`/app/w/${workspaceId}/documents?tab=templates`}
                 >
-                  Make a template first
+                  {W.makeTemplateFirst}
                 </ButtonLink>
               ) : null
             }
           >
-            {filter === 'all'
-              ? 'Send a contract or agreement to a customer and they sign it online. You see every step here.'
-              : 'No documents are in that state.'}
+            {filter === 'all' ? W.nothingSentBody : W.noneHereBody}
           </EmptyState>
         </Card>
       ) : (
@@ -181,7 +184,7 @@ function SentList({
             loading={busy}
             onClick={() => void load(filter, rows[rows.length - 1]?.sentAt)}
           >
-            Show older ones
+            {W.older}
           </Button>
         </div>
       ) : null}
@@ -274,18 +277,18 @@ function TemplateList({
         onChange={(v) => void show(v === 'archived')}
         ariaLabel="Templates in use or archived"
         options={[
-          { value: 'live', label: 'In use' },
-          { value: 'archived', label: 'Archived' },
+          { value: 'live', label: W.inUse },
+          { value: 'archived', label: W.archived },
         ]}
       />
       {rows.length === 0 ? (
         <Card>
-          <EmptyState title={archived ? 'Nothing archived' : 'No templates yet'}>
+          <EmptyState title={archived ? W.nothingArchived : W.noTemplates}>
             {archived
-              ? 'Templates you archive wait here, and can be restored.'
+              ? W.nothingArchivedBody
               : canManage
                 ? 'Make one from the PDF of a contract or agreement you send often: New template, top right.'
-                : 'An owner or admin makes the templates. Ask them for the one you need.'}
+                : W.askForTemplates}
           </EmptyState>
         </Card>
       ) : (
@@ -303,25 +306,23 @@ function TemplateList({
               </Link>
               <p className="text-[12.5px] text-text-3">
                 {[
-                  t.hasPdf
-                    ? `${t.pageCount} ${t.pageCount === 1 ? 'page' : 'pages'}`
-                    : 'No PDF yet',
+                  t.hasPdf ? W.pages(t.pageCount) : W.noPdf,
                   t.roles.map((r) => r.label).join(', '),
-                  `${t.fieldCount} ${t.fieldCount === 1 ? 'field' : 'fields'}`,
+                  W.fields(t.fieldCount),
                 ]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 {t.archivedAt ? (
-                  <Badge>Archived</Badge>
+                  <Badge>{W.archived}</Badge>
                 ) : t.ready ? (
-                  <Badge variant="ok">Ready to send</Badge>
+                  <Badge variant="ok">{W.ready}</Badge>
                 ) : (
-                  <Badge variant="pending">Not ready yet</Badge>
+                  <Badge variant="pending">{W.notReady}</Badge>
                 )}
                 {t.documentsOut ? (
-                  <span className="text-[12px] text-text-3">{t.documentsOut} out for signing</span>
+                  <span className="text-[12px] text-text-3">{W.out(t.documentsOut)}</span>
                 ) : null}
               </div>
               <div className={cn('mt-auto flex flex-wrap gap-2 pt-1')}>

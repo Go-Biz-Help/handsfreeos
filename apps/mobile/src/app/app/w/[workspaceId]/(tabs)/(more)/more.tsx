@@ -15,6 +15,7 @@ import {
   ClipboardList,
   ClipboardPen,
   CloudCheck,
+  FilePenLine,
   FlaskConical,
   Globe,
   Headset,
@@ -37,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { DOCUMENTS_SEND } from '@/documents/calls';
 import { useWhatsNewUnseen } from '@/ideas/whats-new-signal';
 import { ROLE_LABELS } from '@/lib/businesses';
 import { useGrants } from '@/lib/grants';
@@ -45,9 +47,10 @@ import { VIEW_AS_PHONE_WORDS } from '@/view-as/words';
 
 /**
  * More: the places of add-ons running here (Real Estate's Deals, My duties, Coordinate, Vendors), then Contacts,
- * Tasks, Money, Approvals, the AI teammate's quick setup or its test console (for those who manage it) and Settings,
- * then Add-ons (for owners and admins), Ideas and Get help, which are about HandsFreeOS itself, and Open on the web
- * for the desk work. Somebody who answers HandsFreeOS support also has the Support desk, which belongs to no business.
+ * Tasks, Money, Forms, Documents (for whoever sends them), Approvals, the AI teammate's quick setup or its test
+ * console (for those who manage it) and Settings, then Add-ons (for owners and admins), Ideas and Get help, which are
+ * about HandsFreeOS itself, and Open on the web for the desk work. Somebody who answers HandsFreeOS support also has
+ * the Support desk, which belongs to no business.
  */
 export default function More() {
   const { me, business, userId, openSwitcher, viewing } = useBusiness();
@@ -64,6 +67,8 @@ export default function More() {
   const { manage: managesAddons } = useAddonGrants();
   // Owners and admins, as themselves: viewing as a teammate shows what someone below them sees (20261018000100).
   const canViewAs = !viewing && holds(grants, 'members.view_as');
+  // Documents, next to Forms, for whoever can send them (as the web's menu has it).
+  const sendsDocuments = holds(grants, DOCUMENTS_SEND);
   const { staff } = useStaff(userId);
   const go = (path: string) => router.push(businessHref(business.id, path));
   // Add-ons' places sit at the top while they run here, each only for people who may open it.
@@ -122,6 +127,14 @@ export default function More() {
           onPress={() => go('forms')}
           testID="more-forms"
         />
+        {sendsDocuments ? (
+          <ListRow
+            icon={FilePenLine}
+            label={MORE_WORDS.documents}
+            onPress={() => go('documents')}
+            testID="more-documents"
+          />
+        ) : null}
         <ListRow
           icon={Sparkles}
           label={MORE_WORDS.approvals}
