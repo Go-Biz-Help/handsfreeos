@@ -105771,7 +105771,7 @@
     "/v1/commands/outreach.finds.save": {
       "post": {
         "operationId": "command_outreach_finds_save",
-        "summary": "People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.",
+        "summary": "People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, the hosts and guests of an Alignable event near them, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.",
         "tags": [
           "commands"
         ],
@@ -105804,6 +105804,7 @@
                       "commented",
                       "searched",
                       "member",
+                      "event",
                       "follows"
                     ]
                   },
@@ -106723,6 +106724,74 @@
                   },
                   "required": [
                     "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.events.read": {
+      "post": {
+        "operationId": "command_outreach_events_read",
+        "summary": "The person’s computer read the events in their town on Alignable this week: up to 5 not read before, whose hosts and guests went to the AI to check. Nothing on an event was pressed. The next read is a week on.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires outreach.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "alignable",
+                    "type": "string",
+                    "enum": [
+                      "alignable"
+                    ]
+                  },
+                  "urls": {
+                    "default": [],
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "readAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "readAt"
                   ],
                   "additionalProperties": false
                 }
@@ -216422,6 +216491,7 @@
                               "commented",
                               "liked",
                               "member",
+                              "event",
                               "follows",
                               "searched"
                             ]
@@ -217125,6 +217195,71 @@
                   "required": [
                     "searches",
                     "account"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.events.next": {
+      "post": {
+        "operationId": "query_outreach_events_next",
+        "summary": "Whether the person’s computer reads the events in their town on Alignable today: once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "alignable",
+                    "type": "string",
+                    "enum": [
+                      "alignable"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "due": {
+                      "type": "boolean"
+                    },
+                    "read": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "due",
+                    "read"
                   ],
                   "additionalProperties": false
                 }

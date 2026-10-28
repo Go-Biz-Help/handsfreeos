@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.103.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.104.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1069,6 +1069,17 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Events near you on Alignable (0.104.0)
+
+From 0.104.0 (docs/outreach.md, decision 112) Alignable's once-a-day jobs read the events near you once a week, after
+the week's helpful post (`events`, `src/jobs/alignable/events.ts`). It opens the events in the town your business
+page's address names (/<town-st>/events, then your town group's /groups/<town-st>/events), and up to 5 events not
+read before, one at a time at a person's pace. Who's hosting each and who's going go to HandsFreeOS as found
+("Hosting or going to the Alignable event “Spring Business Mixer” in Austin, TX"), never your own business, and each
+gets the AI's check from their own page before anything is done for them. Nothing on an event is pressed, so you're
+never signed up: no RSVP, Going, Interested or Share. HandsFreeOS keeps which events were read, so none is read
+twice. **Check Alignable** opens your town's events and the first event's page after its groups, pressing nothing.
+
 ### Their story liked as a warm-up on Instagram (0.103.0)
 
 From 0.103.0 (docs/outreach.md, decision 111) an Instagram warm-up likes their story when their account shows one,
@@ -1593,7 +1604,8 @@ feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisi
 on its own on every network (decisions 29 and 98, 0.97.0), every part of your profile put in, read on its own on the
 1st (decision 99, 0.98.0), LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0), birthdays and new jobs read once a
 day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), accounts like yours on Instagram
-(decision 110, 0.102.0), and their story liked as a warm-up on Instagram (decision 111, 0.103.0); Social
+(decision 110, 0.102.0), their story liked as a warm-up on Instagram (decision 111, 0.103.0), and the events near
+you on Alignable read once a week (decision 112, 0.104.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

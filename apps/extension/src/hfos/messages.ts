@@ -143,6 +143,14 @@ export type LikeYoursFoundInput = Body<'/v1/commands/outreach.like_yours.found'>
 export type LikeYoursFound = Ok<'/v1/commands/outreach.like_yours.found'>;
 export type LikeYoursReadInput = Body<'/v1/commands/outreach.like_yours.read'>;
 export type LikeYoursRead = Ok<'/v1/commands/outreach.like_yours.read'>;
+/**
+ * Events near the person on Alignable (decision 112, packages/core/src/addons/outreach/events-near.ts): whether this
+ * week's read is due and which events were read lately, and a read noted.
+ */
+export type EventsNextInput = Body<'/v1/queries/outreach.events.next'>;
+export type EventsNext = Ok<'/v1/queries/outreach.events.next'>;
+export type EventsReadInput = Body<'/v1/commands/outreach.events.read'>;
+export type EventsRead = Ok<'/v1/commands/outreach.events.read'>;
 /** Birthdays and new jobs read once a day (decision 108). */
 export type OccasionsSaveInput = Body<'/v1/commands/outreach.occasions.save'>;
 export type OccasionsSaved = Ok<'/v1/commands/outreach.occasions.save'>;
@@ -339,6 +347,9 @@ export type HfosAsk =
   | { readonly type: 'hfos-like-yours-next'; readonly input: LikeYoursNextInput }
   | { readonly type: 'hfos-like-yours-found'; readonly input: LikeYoursFoundInput }
   | { readonly type: 'hfos-like-yours-read'; readonly input: LikeYoursReadInput }
+  /** Events near the person on Alignable (decision 112): whether this week's read is due, and a read noted. */
+  | { readonly type: 'hfos-events-next'; readonly input: EventsNextInput }
+  | { readonly type: 'hfos-events-read'; readonly input: EventsReadInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
   /**
@@ -417,6 +428,8 @@ export interface HfosValues {
   readonly 'hfos-like-yours-next': LikeYoursNext;
   readonly 'hfos-like-yours-found': LikeYoursFound;
   readonly 'hfos-like-yours-read': LikeYoursRead;
+  readonly 'hfos-events-next': EventsNext;
+  readonly 'hfos-events-read': EventsRead;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
   readonly 'hfos-groups-to-check': GroupsToCheck;

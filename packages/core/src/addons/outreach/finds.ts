@@ -1,8 +1,10 @@
 /**
  * People found by topic on Instagram, LinkedIn and Alignable (docs/outreach.md, decision 92): the writers of posts the
  * AI called good, who liked or reacted to them and who commented, the businesses an Alignable search showed, the
- * members of Alignable groups, and the followers of an Instagram account like the business's (decision 110). Each is kept in `finds`, the person's own, as a profile with no customer: never in
- * `engagements` (warm leads who engaged with the person's own posts) and never in Contacts.
+ * members of Alignable groups, the followers of an Instagram account like the business's (decision 110), and the hosts
+ * and guests of Alignable events near the person (decision 112). Each is kept in `finds`, the person's own, as a
+ * profile with no customer: never in `engagements` (warm leads who engaged with the person's own posts) and never in
+ * Contacts.
  *
  * - **Each is checked by the AI from their own page** before any like, follow, invitation or connection: a check
  *   marked `via = 'found'` (decision 46's checks, its own count a day), and only a good one puts them on Today.
@@ -23,14 +25,16 @@ import { PersonName, ProfileRef } from './saves';
 
 /**
  * How someone was found, the strongest first: they wrote a post the AI called good, commented on one, liked or reacted
- * to one, are in a group, follow an account like the business's (decision 110), or a search showed them. Found again,
- * a find changes only to a stronger one, and the people to check go in this order.
+ * to one, are in a group, host or go to an event near the person (decision 112), follow an account like the
+ * business's (decision 110), or a search showed them. Found again, a find changes only to a stronger one, and the
+ * people to check go in this order.
  */
 export const FIND_HOWS = {
   posted: 'Wrote a good post',
   commented: 'Commented on a good post',
   liked: 'Liked or reacted to a good post',
   member: 'In a group',
+  event: 'At an event near you',
   follows: 'Follows an account like yours',
   searched: 'Found by a search',
 } as const;
@@ -91,7 +95,7 @@ export interface FindOf {
    * with its @ ("@austinchamber"), whose post or followers it was.
    */
   readonly words: string | null;
-  /** The place an Alignable search showed: "Austin, TX". */
+  /** The place an Alignable search showed, or the town an event is in: "Austin, TX". */
   readonly place?: string | null;
   /** The name of the group they're in, or the group the post was in. */
   readonly group?: string | null;
@@ -134,6 +138,12 @@ export function findFact(find: FindOf): string {
       return `${LIKED[find.platform]} ${postWhere(find)}`;
     case 'member':
       return find.group ? `In the ${name} group ${find.group}` : `In a group on ${name}`;
+    case 'event': {
+      const where = find.place ? ` in ${find.place}` : '';
+      return find.words
+        ? `Hosting or going to the ${name} event “${find.words}”${where}`
+        : `Hosting or going to an event on ${name}${where}`;
+    }
     case 'follows':
       return find.words
         ? `Follows ${find.words} on ${name}`
@@ -171,10 +181,17 @@ export const FINDS_NEXT_MOST = 40;
 
 /**
  * How the extension's saves find people (`outreach.finds.save`): who liked or commented on a good post, what a search
- * showed, a group's members, an account like yours's followers. A good post's writer is found by the AI's check of the
- * post itself.
+ * showed, a group's members, an event's hosts and guests, an account like yours's followers. A good post's writer is
+ * found by the AI's check of the post itself.
  */
-export const FIND_SAVE_HOWS = ['liked', 'commented', 'searched', 'member', 'follows'] as const;
+export const FIND_SAVE_HOWS = [
+  'liked',
+  'commented',
+  'searched',
+  'member',
+  'event',
+  'follows',
+] as const;
 export type FindSaveHow = (typeof FIND_SAVE_HOWS)[number];
 
 /** Someone as a post's people, a search's results or a group's members showed them. */
@@ -211,10 +228,10 @@ export const FindsSaveInput = z
     group: GroupRef.nullable().default(null),
     /**
      * The kind of business a search went with (`outreach.finds.searches`); for followers, the account like yours
-     * whose they are, with its @ ("@austinchamber").
+     * whose they are, with its @ ("@austinchamber"); for an event's people, the event's name.
      */
     words: z.string().trim().min(1).max(FIND_WORDS_MOST).nullable().default(null),
-    /** The town a search looked in: none when it looked anywhere. */
+    /** The town a search looked in (none when it looked anywhere), or an event is in. */
     place: z.string().trim().min(1).max(FIND_PLACE_MOST).nullable().default(null),
     /** Everyone the page showed, once: none when it showed nobody, which still marks a post's people read. */
     people: z.array(FindIn).max(FINDS_SAVE_MOST).default([]),
@@ -230,6 +247,10 @@ export const FindsSaveInput = z
   })
   .refine((i) => i.how !== 'follows' || /^@[a-z0-9._]{1,30}$/.test(i.words ?? ''), {
     error: 'Say whose followers they are, by the account’s @username.',
+    path: ['words'],
+  })
+  .refine((i) => i.how !== 'event' || i.words !== null, {
+    error: 'Say which event they’re hosting or going to, by its name.',
     path: ['words'],
   });
 export type FindsSaveInput = z.input<typeof FindsSaveInput>;

@@ -2608,6 +2608,26 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         passed over for their posts, and its page is noted with its outline once a day (`warm_up.story`).
       - **Check Instagram** looks at the story of the account it opens, when it shows one (`story`): it presses View
         story, finds the viewer's Like without pressing it, and closes it.
+112.  **Events near you on Alignable** (Chris, 28 Oct 2026, "all of your picks": 13a). "Once a week it reads events
+      near you, and their hosts and attendees go to the AI to check. It never signs you up."
+      - **Once a week, each person's own** (`EVENTS_EVERY_DAYS`, `addon_outreach.event_reads`, 20261027017100):
+        `outreach.events.next` says it's due the first time and then on the same day of the business's week after the
+        last read, with the addresses of the events read lately (up to 60, `EVENTS_KEPT_MOST`), which are never read
+        again. `outreach.events.read` notes the read, even one with nothing new, so a town with no events isn't
+        opened again till next week.
+      - **Their town's events** (0.104.0, `events` after the week's helpful post and before the businesses found are
+        checked, `src/jobs/alignable/events.ts`): the town their business page's address names, at /<town-st>/events,
+        then its own group's /groups/<town-st>/events, till one lists any (guesses till the owner's next Check
+        Alignable). Up to 5 events not read before (`EVENTS_READ_MOST`) are opened in turn at a person's pace. With
+        no town known it says so and what to check.
+      - **Each event's hosts and guests are found people** (`how: 'event'`, "Hosting or going to the Alignable event
+        “Spring Business Mixer” in Austin, TX"): those under its hosts' heading or marked Host, and those under its
+        guests' (Attendees, Who's going), never anyone else on the page (`eventPage`,
+        `src/networks/alignable/read.ts`) and never the person's own business. Each gets the AI's found check before
+        anything is done for them, and an event is stronger than following an account like yours, weaker than a
+        group (`FIND_HOWS`).
+      - **Nothing on an event is pressed**, so they're never signed up: no RSVP, Going, Interested or Share. Check
+        Alignable opens their town's events and the first event's page after its groups, and presses nothing there.
 
 ## Rules worth knowing before changing anything
 

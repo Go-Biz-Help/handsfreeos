@@ -7197,6 +7197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.events.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer read the events in their town on Alignable this week: up to 5 not read before, whose hosts and guests went to the AI to check. Nothing on an event was pressed. The next read is a week on.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_events_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.finds.save": {
         parameters: {
             query?: never;
@@ -7207,7 +7227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
+         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, the hosts and guests of an Alignable event near them, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
          * @description Risk level 1. Requires outreach.use. Emits outreach.finds.saved.
          */
         post: operations["command_outreach_finds_save"];
@@ -18851,6 +18871,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_countries_skipped"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.events.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether the person’s computer reads the events in their town on Alignable today: once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_events_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -40098,6 +40138,42 @@ export interface operations {
             };
         };
     };
+    command_outreach_events_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default alignable
+                     * @enum {string}
+                     */
+                    platform?: "alignable";
+                    /** @default [] */
+                    urls?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        readAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_finds_save: {
         parameters: {
             query?: never;
@@ -40117,7 +40193,7 @@ export interface operations {
                         url: string;
                     } | null;
                     /** @enum {string} */
-                    how: "liked" | "commented" | "searched" | "member" | "follows";
+                    how: "liked" | "commented" | "searched" | "member" | "event" | "follows";
                     people?: {
                         /** @default [] */
                         lines?: string[];
@@ -73318,6 +73394,41 @@ export interface operations {
             };
         };
     };
+    query_outreach_events_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default alignable
+                     * @enum {string}
+                     */
+                    platform?: "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        due: boolean;
+                        read: string[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_finds_next: {
         parameters: {
             query?: never;
@@ -73347,7 +73458,7 @@ export interface operations {
                     "application/json": {
                         people: {
                             /** @enum {string} */
-                            how: "posted" | "commented" | "liked" | "member" | "follows" | "searched";
+                            how: "posted" | "commented" | "liked" | "member" | "event" | "follows" | "searched";
                             name: string;
                             postUrl: string | null;
                             /** Format: uuid */

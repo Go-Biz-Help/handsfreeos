@@ -61,7 +61,7 @@ import {
   putUsernameIn,
   unseenWords as centerUnseenWords,
 } from './accounts-center';
-import { groupStops } from './alignable/checkup';
+import { eventStops, groupStops } from './alignable/checkup';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
 import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from './own-parts';
@@ -511,8 +511,9 @@ async function nextPages(
       await c.note('a chat with messages', countOf(read, 'chats'));
     } else c.nothingOn.push('a chat with messages');
   } else c.nothingOn.push('a chat with a connection');
-  // From 0.95.0 (decision 92), its groups: theirs, a search for them, and one not their town's (./alignable/checkup.ts).
-  return groupStops(c, job, town);
+  // From 0.95.0 (decision 92), its groups: theirs, a search for them, and one not their town's (./alignable/checkup.ts);
+  // then from 0.104.0 the events in their town and one event (decision 112).
+  return (await groupStops(c, job, town)) ?? eventStops(c, job, town);
 }
 
 /** How many of one of the network's own readers' lists a page had (`LookingRead.found`). */

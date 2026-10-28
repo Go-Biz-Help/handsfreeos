@@ -242,6 +242,7 @@ export const outreachAddon = defineAddon({
     'days',
     'demos',
     'engagements',
+    'event_reads',
     'file_chats',
     'file_people',
     'finds',

@@ -1002,9 +1002,9 @@ export interface FoundOn {
   readonly postId?: string | null;
   /** The group whose members they are. */
   readonly group?: AlignableGroupLink | null;
-  /** The kind of business a search went with (`outreach.finds.searches`). */
+  /** The kind of business a search went with (`outreach.finds.searches`), or the event's name. */
   readonly words?: string | null;
-  /** The town a search looked in: none when it looked anywhere. */
+  /** The town a search looked in (none when it looked anywhere), or the event is in. */
   readonly place?: string | null;
 }
 
@@ -1027,6 +1027,8 @@ export function findsSave(
     return { ok: false, why: 'Couldn’t tell which post they’re the people of.' };
   const group = on.group ? groupRef(on.group, platform) : null;
   if (how === 'member' && !group) return { ok: false, why: NOT_WHICH_GROUP };
+  if (how === 'event' && !words(on.words, FIND_WORDS_MOST))
+    return { ok: false, why: 'Couldn’t tell which event they’re hosting or going to.' };
   const seen = new Set<string>();
   const people = found.flatMap((person) => {
     const who = whom({ name: person.name, profile: person.profile }, platform);
@@ -1054,7 +1056,7 @@ export function findsSave(
     group,
     // A post's people take their words from the post itself (its hashtag or phrase).
     words: onPost ? null : words(on.words, FIND_WORDS_MOST),
-    place: how === 'searched' ? words(on.place, FIND_PLACE_MOST) : null,
+    place: how === 'searched' || how === 'event' ? words(on.place, FIND_PLACE_MOST) : null,
   };
   if (!people.length) return { ok: true, input: [{ ...facts, people: [] }] };
   const parts: FindsSaveInput[] = [];

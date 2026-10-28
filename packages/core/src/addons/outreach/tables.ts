@@ -1575,6 +1575,31 @@ export const likeYours = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.platform, t.username)],
 );
 
+/**
+ * When each person's computer last read the events near them on Alignable (./events-near.ts, decision 112), about once
+ * a week, and the addresses of the events it read lately, the newest first, so none is read twice. Each person's own:
+ * one row a person and network.
+ */
+export const eventReads = addonOutreach.table(
+  'event_reads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('alignable').$type<'alignable'>(),
+    readAt: ts('read_at').notNull(),
+    urls: text('urls')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1583,6 +1608,7 @@ export const OUTREACH_TABLES = {
   computers,
   days,
   engagements,
+  eventReads,
   fileChats,
   filePeople,
   finds,

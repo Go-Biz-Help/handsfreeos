@@ -257,6 +257,17 @@ const ALIGNABLE_PAGES: Record<string, string> = {
     <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
       <span>Painter in Boise</span><button>Connect</button></div>
   </main>`),
+  // The events in their town (decision 112), and one event's page with who's hosting and going: its RSVP never pressed.
+  [`${AL}/austin-tx/events`]: html(`${ALIGNABLE_MENU}<main><h1>Events in Austin, TX</h1>
+    <div><h3><a href="/austin-tx/events/101-spring-mixer">Spring Business Mixer</a></h3><span>Thu, Nov 6</span></div>
+  </main>`),
+  [`${AL}/austin-tx/events/101-spring-mixer`]:
+    html(`${ALIGNABLE_MENU}<main><h1>Spring Business Mixer</h1>
+    <button>RSVP</button><h2>Hosted by</h2>
+    <div><a href="/austin-tx/cole-bakery/morgan-cole">Morgan Cole</a><a href="/austin-tx/cole-bakery">Cole Bakery</a></div>
+    <h2>Attendees</h2>
+    <div><a href="/austin-tx/pine-painting/jamie-pine">Jamie Pine</a><a href="/austin-tx/pine-painting">Pine Painting</a></div>
+  </main>`),
 };
 
 /** Where Alignable sends an address: their own profile, to their business's page in its town. */
@@ -281,6 +292,12 @@ function alignableDoes(doc: Document) {
     dialog.querySelectorAll('button')[1]!.addEventListener('click', () => dialog.remove());
     doc.body.append(dialog);
   });
+  // An event's RSVP would sign them up (decision 112): Check never presses it.
+  for (const button of doc.querySelectorAll('button'))
+    if (/^rsvp$/i.test(button.textContent?.trim() ?? ''))
+      button.addEventListener('click', () => {
+        throw new Error('An event’s RSVP was pressed, which signs them up');
+      });
   // About Us's Edit asks for a code Alignable emails them (0.69.0), so Check never presses it.
   doc.querySelector('a[href*="source=about_us_section"]')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -585,6 +602,9 @@ describe('Check Alignable', () => {
       `${AL}/groups/home-pros-network`,
       `${AL}/groups/home-pros-network/about`,
       `${AL}/groups/home-pros-network/members`,
+      // Then the events in their town and one event's page (0.104.0, decision 112): nothing on it is pressed.
+      `${AL}/austin-tx/events`,
+      `${AL}/austin-tx/events/101-spring-mixer`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
     // Nothing is written in the chat or the answer's box, and nothing's pressed there.
@@ -617,7 +637,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 21 Alignable pages and tried 10 steps up to their last press. Everything works.',
+      'Read 23 Alignable pages and tried 10 steps up to their last press. Everything works.',
     );
   });
 
@@ -666,7 +686,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 21 Alignable pages and tried 10 steps up to their last press. Not working: recommending.',
+      'Read 23 Alignable pages and tried 10 steps up to their last press. Not working: recommending.',
     );
   });
 });

@@ -194,6 +194,10 @@ export type AlignableFound = {
    * page or a post's is no longer for it (../../jobs/report.ts keeps only so much).
    */
   readonly group?: GroupPage;
+  /** From 0.104.0 (decision 112): the events a list of them shows, left out on any other page. */
+  readonly events?: readonly EventCard[];
+  /** An event's own page: who's hosting it and who's going. */
+  readonly event?: EventPage;
 };
 
 export function urlOf(href: string | null | undefined, base: string): URL | null {
@@ -1097,10 +1101,18 @@ export function memberBusiness(url: URL): ProfileRef | null {
   return businessRef(url, idIn(url));
 }
 
-/** A member's row: the largest part around their links that links to nobody else's business, a few steps up. */
+/** A heading that starts a section of a group's people: its leaders, or its members. */
+const peopleSection = (words: string) => LEADERS.test(words) || PEOPLE_SECTION.test(words);
+
+/**
+ * A member's row: the largest part around their links that links to nobody else's business, a few steps up, never
+ * past a heading that starts a section of people (`sectionAt`: a group's leaders or members, an event's hosts or
+ * guests).
+ */
 function rowsOf(
   main: Element,
   base: string,
+  sectionAt: (words: string) => boolean = peopleSection,
 ): { row: Element; profile: ProfileRef; anchors: HTMLAnchorElement[] }[] {
   const byBusiness = new Map<string, { profile: ProfileRef; anchors: HTMLAnchorElement[] }>();
   const keyOf = (profile: ProfileRef) =>
@@ -1122,10 +1134,9 @@ function rowsOf(
       }),
     );
   // A section's heading is never part of a row, even a section of one: its leaders, with one leader in it.
-  const sections = [...main.querySelectorAll(HEADINGS)].filter((h) => {
-    const words = clean(h.textContent);
-    return LEADERS.test(words) || PEOPLE_SECTION.test(words);
-  });
+  const sections = [...main.querySelectorAll(HEADINGS)].filter((h) =>
+    sectionAt(clean(h.textContent)),
+  );
   return [...byBusiness].flatMap(([key, { profile, anchors }]) => {
     let row = around(anchors);
     for (
@@ -1142,12 +1153,58 @@ function rowsOf(
   });
 }
 
-/** Whether a part of the page sits under a heading of its leaders: the nearest heading before it, outside any row. */
-function underLeaders(row: Element, headings: readonly Element[]): boolean {
+/** The nearest heading before a part of the page, outside any row: what section of the page it's in. */
+function headingBefore(row: Element, headings: readonly Element[]): string | null {
   let last: Element | null = null;
   for (const heading of headings)
     if (heading.compareDocumentPosition(row) & heading.DOCUMENT_POSITION_FOLLOWING) last = heading;
-  return last !== null && LEADERS.test(clean(last.textContent));
+  return last ? clean(last.textContent) : null;
+}
+
+/** Whether a part of the page sits under a heading of its leaders: the nearest heading before it, outside any row. */
+function underLeaders(row: Element, headings: readonly Element[]): boolean {
+  const heading = headingBefore(row, headings);
+  return heading !== null && LEADERS.test(heading);
+}
+
+/**
+ * Who a row of people is, by their business: their own name on the link to them (/<town-st>/<business>/<person>),
+ * else the first words on a link; their business's name; and the lines under them, never the page's words, the row's
+ * own buttons or a mark beside them (`mark`: a group's leader's, an event's host's). Null when no link says a name.
+ */
+function personIn(
+  { row, profile, anchors }: { row: Element; profile: ProfileRef; anchors: HTMLAnchorElement[] },
+  base: string,
+  mark: RegExp,
+): { readonly member: Omit<Member, 'leader'>; readonly marked: boolean } | null {
+  const said = anchors
+    .map((a) => ({ a, words: clean(a.textContent) }))
+    .filter(({ words }) => words && !pageWords(words));
+  const own = said.find(({ a }) => {
+    const url = urlOf(a.getAttribute('href'), base);
+    return url !== null && parts(url).length === 3;
+  });
+  const name = (own ?? said[0])?.words;
+  if (!name) return null;
+  const business = said.find(({ words }) => words !== name)?.words ?? null;
+  const all = leafLines(row);
+  const lines = all.filter(
+    (line) =>
+      line !== name &&
+      line !== business &&
+      !pageWords(line) &&
+      !mark.test(line) &&
+      !ROW_CONTROLS.test(line),
+  );
+  return {
+    member: {
+      name,
+      profile: { ...profile, id: profile.id ?? idAround(row, base) },
+      business,
+      lines,
+    },
+    marked: all.some((line) => mark.test(line)),
+  };
 }
 
 /** Who a group's page of its people shows, each by their business, and its leaders marked. */
@@ -1164,32 +1221,11 @@ function peopleOn(
     (h) => !rows.some(({ row }) => row.contains(h)) && !inMenu(h),
   );
   let marked = false;
-  const members = rows.slice(0, MEMBERS_MOST).flatMap(({ row, profile, anchors }): Member[] => {
-    const said = anchors
-      .map((a) => ({ a, words: clean(a.textContent) }))
-      .filter(({ words }) => words && !pageWords(words));
-    // Their own name is on the link to them (/<town-st>/<business>/<person>), else the first words on a link.
-    const own = said.find(({ a }) => {
-      const url = urlOf(a.getAttribute('href'), base);
-      return url !== null && parts(url).length === 3;
-    });
-    const name = (own ?? said[0])?.words;
-    if (!name) return [];
-    const business = said.find(({ words }) => words !== name)?.words ?? null;
-    const lines = leafLines(row).filter(
-      (line) => line !== name && line !== business && !pageWords(line) && !LEADER_MARK.test(line),
-    );
-    const mark = leafLines(row).some((line) => LEADER_MARK.test(line));
-    marked ||= mark;
-    return [
-      {
-        name,
-        profile: { ...profile, id: profile.id ?? idAround(row, base) },
-        business,
-        lines: lines.filter((line) => !ROW_CONTROLS.test(line)),
-        leader: mark || underLeaders(row, headings),
-      },
-    ];
+  const members = rows.slice(0, MEMBERS_MOST).flatMap((found): Member[] => {
+    const person = personIn(found, base, LEADER_MARK);
+    if (!person) return [];
+    marked ||= person.marked;
+    return [{ ...person.member, leader: person.marked || underLeaders(found.row, headings) }];
   });
   return {
     members,
@@ -1210,6 +1246,152 @@ export function groupLeaders(
 ): { readonly shown: boolean; readonly leaders: Member[] } {
   const { members, shown } = peopleOn(doc, base);
   return { shown, leaders: members.filter((m) => m.leader) };
+}
+
+// ------------------------------------------------------------------------------------------------ events
+
+/** What sits at …/events/<word> that's never one event: Alignable's own pages for them, as far as they can be told. */
+const NOT_EVENTS = new Set([
+  'new',
+  'create',
+  'search',
+  'past',
+  'upcoming',
+  'calendar',
+  'mine',
+  'my_events',
+  'my-events',
+  'attending',
+  'hosting',
+  'all',
+  'edit',
+  'manage',
+  'nearby',
+  'local',
+]);
+/** An event's name in its address: "123-spring-mixer". */
+const EVENT_SLUG = /^[A-Za-z0-9._-]{1,120}$/;
+/** How many events a list of them keeps: a town's page shows a few dozen. */
+const EVENTS_MOST = 40;
+/** A link to an event that's only a way in, or its own buttons: never its name. */
+const EVENT_CONTROLS =
+  /^(view|view event|details|see details|more info|learn more|rsvp|going|interested|attend|register|sign up|share|save|add to calendar|maybe|not going)$/i;
+/** A heading that starts an event's hosts, or its guests; and the mark beside a host in a row. */
+const EVENT_HOSTS =
+  /^(hosted by|hosts?|co-?hosts?|organi[sz]ed by|organi[sz]ers?|presented by)( \(\d[\d,]*\))?:?$/i;
+const EVENT_GUESTS =
+  /^(attendees|attending|going|guests|people going|who['’]s (going|attending|coming)|rsvps?)( \(\d[\d,]*\))?:?$/i;
+const HOST_MARK = /^(host|co-?host|hosted by|organi[sz]er|organi[sz]ed by)$/i;
+const eventSection = (words: string) => EVENT_HOSTS.test(words) || EVENT_GUESTS.test(words);
+
+/**
+ * An event's own page, from a link to it, as its address without anything after: one in a town
+ * (/<town-st>/events/<event>), a group's (/groups/<group>/events/<event>), or the site's (/events/<event>,
+ * /biz/events/<event>). A page of its own under it (its attendees) is the event's. Null for any other address, and for
+ * Alignable's own pages of events (its search, its calendar). Guesses till the owner's next Check outlines one.
+ */
+export function eventOf(url: URL): string | null {
+  if (!/^(www\.)?alignable\.com$/i.test(url.hostname)) return null;
+  const all = parts(url);
+  const at = all.findIndex((part) => part.toLowerCase() === 'events');
+  const slug = all[at + 1];
+  if (at < 0 || !slug || all.length > at + 3) return null;
+  if (!EVENT_SLUG.test(slug) || NOT_EVENTS.has(slug.toLowerCase())) return null;
+  const [first = '', second = ''] = all.map((p) => p.toLowerCase());
+  const under =
+    at === 0 ||
+    (at === 1 && (TOWN.test(first) || first === 'biz')) ||
+    (at === 2 && first === 'groups' && GROUP_SLUG.test(second));
+  return under ? `${HOST}/${all.slice(0, at + 2).join('/')}` : null;
+}
+
+/** An event as a list of them showed it: its own page, its name, and the line under it (when, or where). */
+export interface EventCard {
+  readonly url: string;
+  readonly name: string;
+  readonly detail: string | null;
+}
+
+/** An event's own page: its name, who's hosting it and who's going, each by their business. */
+export interface EventPage {
+  readonly url: string;
+  readonly name: string | null;
+  readonly hosts: readonly Omit<Member, 'leader'>[];
+  readonly guests: readonly Omit<Member, 'leader'>[];
+}
+
+/** Whether a page is a list of events (a town's, a search's): its address has events in it, and isn't one event. */
+const eventsListAt = (url: URL) =>
+  eventOf(url) === null && parts(url).some((part) => part.toLowerCase() === 'events');
+
+/** The events a list of them shows (the person's town's events), each once by its own page, in the page's order. */
+export function eventCards(doc: Document, base: string): EventCard[] {
+  const here = urlOf(base, base);
+  if (!here || !eventsListAt(here)) return [];
+  const main = mainOf(doc);
+  const byEvent = new Map<string, HTMLAnchorElement[]>();
+  for (const { a, url } of linksIn(main, base)) {
+    const event = inMenu(a) ? null : eventOf(url);
+    if (!event) continue;
+    const seen = byEvent.get(event);
+    if (seen) seen.push(a);
+    else byEvent.set(event, [a]);
+  }
+  const eventsIn = (root: Element) =>
+    new Set(linksIn(root, base).flatMap(({ url }) => eventOf(url) ?? []));
+  const found: EventCard[] = [];
+  for (const [url, anchors] of byEvent) {
+    let card = around(anchors);
+    for (
+      let up = card?.parentElement ?? null, steps = 0;
+      card && up && up !== main && main.contains(up) && steps < CARD_STEPS;
+      up = up.parentElement, steps++
+    ) {
+      const events = eventsIn(up);
+      if (events.size > 1 || !events.has(url)) break;
+      card = up;
+    }
+    if (!card) continue;
+    // Its name: its card's heading, else the first words on a link to it that aren't a way in.
+    const named = anchors
+      .map((a) => clean(a.textContent) || clean(a.getAttribute('title')))
+      .find((words) => words && words.length <= 160 && !EVENT_CONTROLS.test(words));
+    const name = clean(card.querySelector(HEADINGS)?.textContent) || named;
+    if (!name) continue;
+    const lines = leafLines(card).filter(
+      (line) => line !== name && !EVENT_CONTROLS.test(line) && !pageWords(line),
+    );
+    found.push({ url, name, detail: lines[0] ?? null });
+    if (found.length >= EVENTS_MOST) break;
+  }
+  return found;
+}
+
+/**
+ * An event's own page: its name (its first heading), who's hosting it (under a heading of its hosts, or marked as one)
+ * and who's going (under a heading of its guests), each once by their business. Nobody elsewhere on the page (other
+ * events, suggestions beside it) is either. Nothing on the page is pressed.
+ */
+export function eventPage(doc: Document, base: string): EventPage | null {
+  const here = urlOf(base, base);
+  const url = here ? eventOf(here) : null;
+  if (!url) return null;
+  const main = mainOf(doc);
+  const rows = rowsOf(main, base, eventSection);
+  const headings = [...main.querySelectorAll(HEADINGS)].filter(
+    (h) => !rows.some(({ row }) => row.contains(h)) && !inMenu(h),
+  );
+  const hosts: Omit<Member, 'leader'>[] = [];
+  const guests: Omit<Member, 'leader'>[] = [];
+  for (const found of rows.slice(0, MEMBERS_MOST)) {
+    const person = personIn(found, base, HOST_MARK);
+    if (!person) continue;
+    const under = headingBefore(found.row, headings);
+    if (person.marked || (under !== null && EVENT_HOSTS.test(under))) hosts.push(person.member);
+    else if (under !== null && EVENT_GUESTS.test(under)) guests.push(person.member);
+  }
+  const named = headings.find((h) => !eventSection(clean(h.textContent)));
+  return { url, name: clean(named?.textContent) || null, hosts, guests };
 }
 
 /** Alignable's id for a discussion, from a link to it (/biz/discussions/<id>): how a post's own page is known. */
@@ -1437,6 +1619,8 @@ function engagedOn(doc: Document, base: string): Engaged[] {
 
 export function readAlignable(doc: Document, href: string): AlignableFound {
   const group = groupFacts(doc, href);
+  const events = eventCards(doc, href);
+  const event = eventPage(doc, href);
   return {
     businesses: [...searchResults(doc, href).slice(0, MOST), ...connectionRows(doc, href)],
     engaged: engagedOn(doc, href),
@@ -1451,5 +1635,7 @@ export function readAlignable(doc: Document, href: string): AlignableFound {
     groups: groupCards(doc, href),
     members: memberRows(doc, href),
     ...(group ? { group } : {}),
+    ...(events.length ? { events } : {}),
+    ...(event ? { event } : {}),
   };
 }

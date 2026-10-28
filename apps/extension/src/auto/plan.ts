@@ -66,8 +66,9 @@ export type DailyJob = (typeof DAILY_JOBS)[number];
  * (`found_checks`, ../jobs/found-checks.ts), and on Alignable its search of businesses (`search`), the person's own
  * groups read first (`my_groups`) and the posts of the groups they joined (`group_posts`), beside Facebook's
  * `group_checks`, `join` and `members`; from 0.101.0 the week's helpful post asked for on Instagram and Alignable
- * (`weekly_post`, decision 109); and from 0.102.0 Instagram's accounts like the business's (`like_yours`, decision
- * 110, ../jobs/instagram/like-yours.ts).
+ * (`weekly_post`, decision 109); from 0.102.0 Instagram's accounts like the business's (`like_yours`, decision
+ * 110, ../jobs/instagram/like-yours.ts); and from 0.104.0 the events near the person on Alignable, once a week
+ * (`events`, decision 112, ../jobs/alignable/events.ts).
  */
 export type OwnDailyJob =
   | 'follow_backs'
@@ -77,7 +78,8 @@ export type OwnDailyJob =
   | 'my_groups'
   | 'group_posts'
   | 'weekly_post'
-  | 'like_yours';
+  | 'like_yours'
+  | 'events';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;
