@@ -51,6 +51,7 @@ import {
   ExtensionTicks,
   NetworkModes,
   NetworkTicks,
+  NetworkTidy,
   Section,
   Stepper,
   StepperRow,
@@ -164,6 +165,14 @@ export function NetworkMine({
                 testID={testID}
               />
               <NetworkTicks
+                platform={p}
+                value={choices}
+                onChange={set}
+                boxed
+                disabled={disabled}
+                testID={testID}
+              />
+              <NetworkTidy
                 platform={p}
                 value={choices}
                 onChange={set}

@@ -90528,7 +90528,8 @@
                           "facebook": {
                             "default": {
                               "on": true,
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "type": "object",
                             "properties": {
@@ -90539,6 +90540,15 @@
                               "young": {
                                 "default": false,
                                 "type": "boolean"
+                              },
+                              "tidy": {
+                                "default": "cancel",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
                               }
                             }
                           },
@@ -90553,7 +90563,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "type": "object",
                             "properties": {
@@ -90612,6 +90623,15 @@
                               "young": {
                                 "default": false,
                                 "type": "boolean"
+                              },
+                              "tidy": {
+                                "default": "cancel",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
                               }
                             }
                           },
@@ -90626,7 +90646,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "type": "object",
                             "properties": {
@@ -90685,6 +90706,15 @@
                               "young": {
                                 "default": false,
                                 "type": "boolean"
+                              },
+                              "tidy": {
+                                "default": "cancel",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
                               }
                             }
                           },
@@ -90699,7 +90729,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "type": "object",
                             "properties": {
@@ -90758,6 +90789,15 @@
                               "young": {
                                 "default": false,
                                 "type": "boolean"
+                              },
+                              "tidy": {
+                                "default": "cancel",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
                               }
                             }
                           }
@@ -90929,7 +90969,8 @@
                           "default": {
                             "facebook": {
                               "on": true,
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "linkedin": {
                               "on": false,
@@ -90941,7 +90982,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "instagram": {
                               "on": false,
@@ -90953,7 +90995,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "alignable": {
                               "on": false,
@@ -90965,7 +91008,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             }
                           },
                           "type": "object",
@@ -90973,7 +91017,8 @@
                             "facebook": {
                               "default": {
                                 "on": true,
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -90984,11 +91029,21 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
                                 "on",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             },
@@ -91003,7 +91058,8 @@
                                 "joinGroups": true,
                                 "watchPosts": true,
                                 "posting": "after_ok",
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -91062,6 +91118,15 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
@@ -91074,7 +91139,8 @@
                                 "joinGroups",
                                 "watchPosts",
                                 "posting",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             },
@@ -91089,7 +91155,8 @@
                                 "joinGroups": true,
                                 "watchPosts": true,
                                 "posting": "after_ok",
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -91148,6 +91215,15 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
@@ -91160,7 +91236,8 @@
                                 "joinGroups",
                                 "watchPosts",
                                 "posting",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             },
@@ -91175,7 +91252,8 @@
                                 "joinGroups": true,
                                 "watchPosts": true,
                                 "posting": "after_ok",
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -91234,6 +91312,15 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
@@ -91246,7 +91333,8 @@
                                 "joinGroups",
                                 "watchPosts",
                                 "posting",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             }
@@ -204073,6 +204161,180 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "own": {
+                      "default": {
+                        "mode": "off",
+                        "cancel": [],
+                        "unfriend": []
+                      },
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "cancel",
+                            "unfriend"
+                          ]
+                        },
+                        "cancel": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "profileId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "platformId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "username": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "since": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "lastContact": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "fit": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "good",
+                                      "maybe",
+                                      "unknown",
+                                      "skip"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "profileId",
+                              "name",
+                              "url",
+                              "platformId",
+                              "username",
+                              "since",
+                              "lastContact",
+                              "fit"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "unfriend": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "profileId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "platformId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "username": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "since": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "lastContact": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "fit": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "good",
+                                      "maybe",
+                                      "unknown",
+                                      "skip"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "profileId",
+                              "name",
+                              "url",
+                              "platformId",
+                              "username",
+                              "since",
+                              "lastContact",
+                              "fit"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "cancel",
+                        "unfriend"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -204084,7 +204346,8 @@
                     "limits",
                     "friends",
                     "cap",
-                    "warning"
+                    "warning",
+                    "own"
                   ],
                   "additionalProperties": false
                 }
@@ -204601,7 +204864,8 @@
                           "default": {
                             "facebook": {
                               "on": true,
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "linkedin": {
                               "on": false,
@@ -204613,7 +204877,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "instagram": {
                               "on": false,
@@ -204625,7 +204890,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             },
                             "alignable": {
                               "on": false,
@@ -204637,7 +204903,8 @@
                               "joinGroups": true,
                               "watchPosts": true,
                               "posting": "after_ok",
-                              "young": false
+                              "young": false,
+                              "tidy": "cancel"
                             }
                           },
                           "type": "object",
@@ -204645,7 +204912,8 @@
                             "facebook": {
                               "default": {
                                 "on": true,
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -204656,11 +204924,21 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
                                 "on",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             },
@@ -204675,7 +204953,8 @@
                                 "joinGroups": true,
                                 "watchPosts": true,
                                 "posting": "after_ok",
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -204734,6 +205013,15 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
@@ -204746,7 +205034,8 @@
                                 "joinGroups",
                                 "watchPosts",
                                 "posting",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             },
@@ -204761,7 +205050,8 @@
                                 "joinGroups": true,
                                 "watchPosts": true,
                                 "posting": "after_ok",
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -204820,6 +205110,15 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
@@ -204832,7 +205131,8 @@
                                 "joinGroups",
                                 "watchPosts",
                                 "posting",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             },
@@ -204847,7 +205147,8 @@
                                 "joinGroups": true,
                                 "watchPosts": true,
                                 "posting": "after_ok",
-                                "young": false
+                                "young": false,
+                                "tidy": "cancel"
                               },
                               "type": "object",
                               "properties": {
@@ -204906,6 +205207,15 @@
                                 "young": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "tidy": {
+                                  "default": "cancel",
+                                  "type": "string",
+                                  "enum": [
+                                    "off",
+                                    "cancel",
+                                    "unfriend"
+                                  ]
                                 }
                               },
                               "required": [
@@ -204918,7 +205228,8 @@
                                 "joinGroups",
                                 "watchPosts",
                                 "posting",
-                                "young"
+                                "young",
+                                "tidy"
                               ],
                               "additionalProperties": false
                             }

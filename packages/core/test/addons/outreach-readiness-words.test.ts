@@ -326,7 +326,12 @@ describe('your numbers', () => {
     const noInstagram = { ...NO_RULES, networkLimits: { instagram: { first_message: 0 } } };
     expect(numbersPace(facebookOnly, noInstagram).more).toEqual(['linkedin', 'alignable']);
     // Working no network at all counts Facebook, as it's on to start.
-    const none = { networks: { ...NETWORKS_DEFAULTS, facebook: { on: false, young: false } } };
+    const none = {
+      networks: {
+        ...NETWORKS_DEFAULTS,
+        facebook: { on: false, young: false, tidy: 'cancel' as const },
+      },
+    };
     expect(numbersPace(none, NO_RULES).networks).toEqual([{ platform: 'facebook', canSend: 15 }]);
   });
 

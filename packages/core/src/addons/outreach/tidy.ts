@@ -6,12 +6,17 @@
  * extension presses Cancel request or Unfriend on each one's profile for them, slowly, in a tab they can see, within a
  * daily limit.
  *
+ * On its own (decisions 29 and 98), with the once-a-day jobs, as the person picks for each network: the oldest of those
+ * requests, up to 20 a day; and on Facebook, if they pick it too, friends to unfriend the AI found aren't a fit and
+ * they never chatted with, up to 10 a day.
+ *
  * And Facebook's warnings (decision 25): the extension notes each one it sees, which halves the person's daily limits
  * for a week, leaves friend requests off Today's list for two days, and stops what it does for them for the day.
  *
  * Browser-safe: the extension and the web draw these, and the server checks them.
  */
 import { z } from 'zod';
+import { TIDY_MODE_KEYS } from './automation';
 import { FIT_LEVEL_KEYS } from './fit';
 import {
   TIDY_KIND_KEYS,
@@ -24,6 +29,7 @@ import { PLATFORM_KEYS, type Platform } from './playbooks';
 import { NetworkUrl, PersonName, ProfileRef } from './saves';
 
 export {
+  OWN_TIDY_LIMITS,
   TIDY_KIND_KEYS,
   TIDY_LIMITS,
   WARNING_NO_REQUESTS_DAYS,
@@ -148,6 +154,18 @@ export const TidyOutput = z.object({
   /** Facebook's cap on friends. */
   cap: n,
   warning: WarningState.nullable(),
+  /**
+   * What the extension tidies on its own today (decision 98), from the person's choice on this network: the oldest of
+   * `cancel`, and friends to unfriend the AI found aren't a fit and they never chatted with; each within what's left of
+   * today's limit, and of its own limit on its own. Empty while they pick only who they tick, or a warning stops it.
+   */
+  own: z
+    .object({
+      mode: z.enum(TIDY_MODE_KEYS),
+      cancel: z.array(Candidate),
+      unfriend: z.array(Candidate),
+    })
+    .default({ mode: 'off', cancel: [], unfriend: [] }),
 });
 export type TidyOutput = z.output<typeof TidyOutput>;
 

@@ -347,19 +347,31 @@ describe('what it does on LinkedIn’s list', () => {
       'friend_request',
     ]);
     expect(nextLinkedInDaily({ daily: {} })).toBe('requests');
-    expect(nextLinkedInDaily({ daily: { requests: 'x', checks: 'y' } })).toBe('chats');
+    // Old invitations withdrawn as they chose, right after the invitations they got (0.97.0, decision 98).
+    expect(nextLinkedInDaily({ daily: { requests: 'x' } })).toBe('tidy');
+    expect(nextLinkedInDaily({ daily: { requests: 'x', tidy: 't', checks: 'y' } })).toBe('chats');
     // People who could partner (decision 81) are read after the posts, before the helpful post.
     expect(
-      nextLinkedInDaily({ daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w' } }),
+      nextLinkedInDaily({
+        daily: { requests: 'x', tidy: 't', checks: 'y', chats: 'z', posts: 'w' },
+      }),
     ).toBe('partners');
     expect(
       nextLinkedInDaily({
-        daily: { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v' },
+        daily: { requests: 'x', tidy: 't', checks: 'y', chats: 'z', posts: 'w', partners: 'v' },
       }),
     ).toBe('helpful');
     // Then who reacted to and commented on the good posts its search found, and last the people found by topic
     // checked for good fits (decision 92).
-    const all = { requests: 'x', checks: 'y', chats: 'z', posts: 'w', partners: 'v', helpful: 'u' };
+    const all = {
+      requests: 'x',
+      tidy: 't',
+      checks: 'y',
+      chats: 'z',
+      posts: 'w',
+      partners: 'v',
+      helpful: 'u',
+    };
     expect(nextLinkedInDaily({ daily: all })).toBe('post_people');
     expect(nextLinkedInDaily({ daily: { ...all, post_people: 's' } })).toBe('found_checks');
     expect(

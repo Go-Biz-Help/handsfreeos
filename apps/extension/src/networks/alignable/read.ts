@@ -121,6 +121,11 @@ export interface BusinessPage {
   readonly connect: boolean;
   /** You're connected with them: their page shows their own Remove Connection (/biz/connections/<their id>). */
   readonly connected: boolean;
+  /**
+   * A request to them waits: one of their own controls says so (Request Sent, Pending), a button or their Connect's
+   * own link (0.97.0, for withdrawing it).
+   */
+  readonly asked: boolean;
   readonly recommend: boolean;
   readonly refer: boolean;
   /** Its own Message: to its conversation by Alignable's id for it, or Alignable's newer one, beside its own buttons. */
@@ -624,21 +629,61 @@ const OWN_ROW_STEPS = 10;
  */
 function ownNewMessage(root: Element, base: string, page: ProfileRef): boolean {
   if (!page.id) return false;
-  return linksIn(root, base).some(({ a, url }) => {
-    if (!MESSAGE_NEW_AT.test(url.pathname) || !url.searchParams.get('recipient_ids')) return false;
-    if (a.closest(PART('discussion-comment'))) return false;
-    for (
-      let up = a.parentElement, steps = 0;
-      up && root.contains(up) && steps < OWN_ROW_STEPS;
-      up = up.parentElement, steps++
-    ) {
-      const named = linksIn(up, base).flatMap(({ url: u }) => {
-        const whose = whoseLink(u, page);
-        return whose ? [whose] : [];
-      });
-      if (named.length) return named.every((whose) => whose === 'theirs');
-    }
-    return false;
+  return linksIn(root, base).some(
+    ({ a, url }) =>
+      MESSAGE_NEW_AT.test(url.pathname) &&
+      !!url.searchParams.get('recipient_ids') &&
+      amongTheirOwn(a, root, base, page),
+  );
+}
+
+/**
+ * Whether a control on a business's page is one of theirs: the nearest part of the page around it naming any business
+ * names theirs alone (their header, their row of buttons), never in an answer, and never with no business named near
+ * it. Their newer Message is told this way, and from 0.97.0 what their page shows while a request to them waits.
+ */
+export function amongTheirOwn(
+  control: Element,
+  root: Element,
+  base: string,
+  page: ProfileRef,
+): boolean {
+  if (control.closest(PART('discussion-comment'))) return false;
+  for (
+    let up = control.parentElement, steps = 0;
+    up && root.contains(up) && steps < OWN_ROW_STEPS;
+    up = up.parentElement, steps++
+  ) {
+    const named = linksIn(up, base).flatMap(({ url: u }) => {
+      const whose = whoseLink(u, page);
+      return whose ? [whose] : [];
+    });
+    if (named.length) return named.every((whose) => whose === 'theirs');
+  }
+  return false;
+}
+
+/** What a business's own control says while a request to them waits. */
+export const REQUEST_WAITS =
+  /^(request sent|requested|pending|invitation sent|connection requested|awaiting (response|approval))$/i;
+/** A way to take a request back, by its own words: never a bare Cancel, which closes a box. */
+export const REQUEST_TAKE_BACK =
+  /^(cancel( connection)? request|withdraw( connection)?( request| invitation)?|remove( connection)? request|undo( connection)? request)$/i;
+
+/**
+ * Whether a request to a business waits, by its own controls' words (what it says while it waits, or a way to take it
+ * back): its Connect's own link, by its id, or a button among its own (`amongTheirOwn`); never another business's,
+ * nor one in a post or an answer.
+ */
+function requestWaits(main: Element, base: string, page: ProfileRef): boolean {
+  if (!page.id) return false;
+  return [...main.querySelectorAll(CONTROLS)].some((control) => {
+    const words = clean(control.textContent) || clean(control.getAttribute('aria-label'));
+    if (!REQUEST_WAITS.test(words) && !REQUEST_TAKE_BACK.test(words)) return false;
+    if (control.closest(PART('discussion-comment'))) return false;
+    const url = control.matches('a[href]') ? urlOf(control.getAttribute('href'), base) : null;
+    if (url && CONNECT_AT.test(url.pathname)) return idIn(url) === page.id;
+    return amongTheirOwn(control, main, base, page);
   });
 }
 
@@ -677,6 +722,7 @@ export function businessPage(doc: Document, base: string): BusinessPage | null {
     // Connected already: its own Remove Connection, by its id (the owner's report, 26 Oct 2026). Never another's.
     connected:
       id !== null && linksIn(main, base).some(({ a, url: u }) => removeConnectionOf(a, u) === id),
+    asked: profile !== null && requestWaits(main, base, profile),
     recommend: hasLink(main, base, RECOMMEND_AT),
     refer: hasLink(main, base, REFER_AT),
     // Its Message by its id, or Alignable's newer one where it sits among its own buttons.

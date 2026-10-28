@@ -146,8 +146,9 @@ From 0.80.0 Instagram works by hand, as Alignable did before its runner (the Ins
   accounts you followed for who follows you back (below, "From 0.85.0"). It presses nothing but, from 0.84.0, your
   account's count of followers, once, when Instagram doesn't open the box from its address.
 - **Unfollow the ones you ticked**, those who didn't follow back in your business's wait (3 weeks to start), 20 a day
-  at most, in a tab you can see: their Following, then Unfollow in its box, each by its own words. Nothing is
-  unfollowed on its own.
+  at most, in a tab you can see: their Following, then Unfollow in its box, each by its own words. Until 0.97.0 nothing
+  was unfollowed on its own; from 0.97.0 it unfollows on its own once a day, as you choose (below, "Tidying up on its
+  own").
 
 From 0.81.0 it takes the rest of Instagram's asks from HandsFreeOS (the Instagram plan's part 13; `src/jobs/instagram/`),
 in a window of its own at a person's pace, pressing nothing but a chat's row in your messages:
@@ -165,7 +166,7 @@ in a window of its own at a person's pace, pressing nothing but a chat's row in 
 
 From 0.82.0 it works your Instagram list on its own once you let it and start your day there (below, "On its own on
 Instagram"): warm-ups, follows and the messages you OK, with your newest followers, the checks, your chats and Find
-partners among its once-a-day jobs. Comments and unfollowing stay yours.
+partners among its once-a-day jobs. Comments stay yours, and unfollowing until 0.97.0.
 
 From 0.83.0 it grows your Instagram list (the Instagram plan's part 15), once a day among those jobs: a look at a few
 of your area's hashtags and the places their posts were tagged at, whose posts go for the AI's check (a good one's
@@ -842,7 +843,8 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   49).
 - **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts, Read
   my chats and checking your friends for good fits, which fill your list, and checking your groups and joining good ones
-  when they run low (decisions 32, 46 and 48).
+  when they run low (decisions 32, 46 and 48). From 0.97.0, right after the friend requests, it tidies up as you chose
+  for each network (below, "Tidying up on its own").
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
 
 Before anything else in your day, it saves your own lists (`src/auto/lists.ts`; docs/outreach.md, decision 60): your
@@ -946,8 +948,8 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   outside its messages is them (a window whose Close it can't tell is nobody's), a conversation in messaging only
   when it links to them the way HandsFreeOS keeps them or their profile shows them (else their profile's
   **Message** opens it), and it checks the box is still theirs just before sending.
-  Invitations they sent you are left for you to accept, and old invitations are withdrawn only when you tick them
-  (your ask).
+  Invitations they sent you are left for you to accept. Old invitations are withdrawn when you tick them (your ask),
+  and from 0.97.0 on their own once a day as you choose (above, "Tidying up on its own").
 - **At LinkedIn's pace:** 2 to 6 minutes between steps, inside LinkedIn's limits, which HandsFreeOS keeps (its list
   holds only what they have room for, the week's 80 invitations among them).
 - **A LinkedIn warning** stops it for the day, and only it: Facebook's runner goes on.
@@ -992,9 +994,9 @@ line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say
   when it was, and a good post gets a comment (`src/auto/comments.ts`): the AI drafts it, it waits in Needs you till
   you OK it or the comment hold is past, then it goes in the post's own reply form at the top, only while that's empty,
   with that form's Send. A forum answer waits for your OK every time. Before 0.95.0 comments and forum answers were
-  yours to post. Recommendations are only ever yours. Requests they sent you are left for you to accept. Old requests
-  are yours to withdraw too: no reader of the requests you've sent is built yet, so nothing works out which to
-  withdraw.
+  yours to post. Recommendations are only ever yours. Requests they sent you are left for you to accept. From 0.97.0
+  old requests are withdrawn, the ones you tick and once a day on their own as you choose (above, "Tidying up on its
+  own"): HandsFreeOS knows the ones it sent or noted, which stay waiting until your connections show them.
 - **At Alignable's pace:** 2 to 6 minutes between steps, inside Alignable's limits, which HandsFreeOS keeps.
 - **An Alignable warning** stops it for the day, and only it. If Alignable asks you to sign in, it stops for now and
   tries again in a few minutes.
@@ -1054,8 +1056,8 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
   split. From 0.95.0 someone found by topic gets their like on the post it found them by (on their latest only when
   that one's gone), and a good post gets a comment (`src/auto/comments.ts`): the AI drafts it, it waits in Needs you
   till you OK it or the comment hold is past, then it goes on the post's own page, in its own box, with that box's
-  Post. Before 0.95.0 comments were yours to post. Unfollowing is only ever the ones you tick; follow requests from
-  private accounts are yours to confirm.
+  Post. Before 0.95.0 comments were yours to post. Unfollowing is the ones you tick, and from 0.97.0 once a day on its
+  own as you choose (above, "Tidying up on its own"); follow requests from private accounts are yours to confirm.
 - **At Instagram's pace:** 3 to 8 minutes between steps, slower than LinkedIn's, inside Instagram's low limits, which
   HandsFreeOS keeps.
 - **An Instagram warning** ("Action blocked", "Try again later") stops it for the day, and only it; HandsFreeOS halves
@@ -1064,6 +1066,29 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
+
+### Tidying up on its own (0.97.0)
+
+From 0.97.0 (docs/outreach.md, decision 98) each network's once-a-day jobs tidy up too (`tidy`), as you choose under
+that network on Social Outreach's **Settings** tab (**Tidy up on its own**): **Off** (only the ones you tick on the
+Friends tab), the old requests (to start), or on Facebook the old requests and friends to unfriend. HandsFreeOS picks
+who (core's `own` in `outreach.friends.tidy`): the oldest requests nobody answered in your business's wait (3 weeks to
+start), up to 20 a day; and friends to unfriend only where the AI found they aren't a fit and you've never chatted, up
+to 10 a day; each inside today's limit with the ones you ticked, halved while a limit is, and none on a day Facebook
+warned you. The extension goes through them with the same job as your ticks (`src/jobs/own-tidy.ts`), but hands
+nobody to you: a step it can't do, it passes over. On each network:
+
+- **Facebook** (after Friend requests): Cancel request, then Unfriend, on each profile (`src/jobs/tidy.ts`).
+- **LinkedIn** (after Invitations): Withdraw on Sent invitations (`src/jobs/linkedin/withdraw.ts`).
+- **Instagram** (after Who followed you back, so nobody who followed back goes): Unfollow, never anyone who wrote
+  back or a customer (`src/jobs/instagram/unfollow.ts`).
+- **Alignable** (after Connection requests; new in 0.97.0, ticked too as **Withdraw old connection requests**): on
+  each business's own page, by Alignable's id for it, the way to take the request back among its own buttons
+  (`src/networks/alignable/withdraw.ts`): a **Cancel request** of its own, or **Request Sent** (or **Pending**) pressed
+  as a button to open one, never as a link, which could ask again; then the box's own **Withdraw**, **Cancel request**
+  or **Yes**, never a bare **Cancel**. It went once their page shows their own **Connect** again. No Check has shown
+  Alignable's markup for a request that waits yet, so a page it can't work is noted with its outline (decision 74,
+  `tidy.<why>`) for the next Check to show the real controls; not yet tried on the owner's account.
 
 ## What it tells HandsFreeOS
 
@@ -1371,12 +1396,16 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   handed over, and a bio that doesn't show on the form read again after isn't said to be in. Its username and name are
   changed on Instagram's Accounts Center instead (above). Anything not as expected is handed to you.
   `test/instagram-profile-edit.test.ts` and `test/profile-everywhere.test.ts` walk a made-up form.
-- **Pressing on profiles only for the people ticked.** Cancelling and unfriending (`src/networks/facebook/tidy.ts`) press only
-  on a profile (`tidyPage`) the person ticked on the Friends tab, and only those still on its lists, after checking
+- **Pressing on profiles only for the people ticked, or HandsFreeOS picked.** Cancelling and unfriending
+  (`src/networks/facebook/tidy.ts`) press only on a profile (`tidyPage`) the person ticked on the Friends tab, or from
+  0.97.0 one of today's `own` picks as they chose (decision 98), and only those still on its lists, after checking
   it's them (`sameProfile`) and where things
   stand. The first press is a button under their name, never a link or the Friends tab (`buttonsOnly`); Unfriend and
   Confirm are pressed only in Facebook's box on top (`inBox`). It re-reads the profile after and hands anything else
-  to the person. `test/tidy.test.ts` walks a made-up profile's menu and box, and again with bare boxes.
+  to the person, or passes it over on its own. `test/tidy.test.ts` walks a made-up profile's menu and box, and again
+  with bare boxes. Alignable's withdraw (`src/networks/alignable/withdraw.ts`) presses only that business's own
+  controls (`amongTheirOwn`), never a waiting link, and in the box never a bare Cancel; `test/tidy-own.test.ts` walks
+  a made-up business page.
 - **On its own, only from the list, only what you let it.** The runner (`src/auto/run.ts`) does only the kinds on
   your list for today that the list says it does for you (its `auto`), in the window it opened, one step per alarm
   (`chrome.alarms`), with its state in the extension's storage. It presses Add friend and Confirm the way tidying
@@ -1486,8 +1515,8 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 
 LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): its asks are in (0.40.0), what it does
 on its own there (0.41.0), getting and bringing in its file (0.42.0), and growing, with the helpful post on your own
-feed (0.43.0). Tidying on its own and joining groups (decisions 29 and 31; docs/outreach.md, the rest
-of decisions 26 to 35); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
+feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, and tidying
+on its own on every network (decisions 29 and 98, 0.97.0); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 
 Finding people by topic (0.95.0, decision 92) was checked by the owner's Check Instagram, Check LinkedIn and Check

@@ -14,11 +14,14 @@ import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import {
   SENDING_MODES,
+  TIDY_MODE_KEYS,
+  tidyModeOn,
   type AutomationSettings,
   type NetworkChoices,
   type SendingMode,
+  type TidyMode,
 } from './automation';
-import { DAILY_WORDS, type DailyStep, type TidyKind } from './limits';
+import { DAILY_WORDS, OWN_TIDY_LIMITS, type DailyStep, type TidyKind } from './limits';
 import {
   inNetworkWords,
   isLooking,
@@ -80,8 +83,9 @@ export function withNetwork(
   platform: Platform,
   change: Partial<NetworkChoices>,
 ): AutomationSettings {
-  const { on, young, ...choices } = change;
-  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch and its account's age.
+  const { on, young, tidy, ...choices } = change;
+  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch, its account's age and its
+  // tidying, kept beside them.
   const own = platform === 'facebook';
   const networks = {
     ...settings.networks,
@@ -89,6 +93,7 @@ export function withNetwork(
       ...settings.networks[platform],
       ...(on === undefined ? {} : { on }),
       ...(young === undefined ? {} : { young }),
+      ...(tidy === undefined ? {} : { tidy }),
       ...(own ? {} : choices),
     },
   } as AutomationSettings['networks'];
@@ -131,6 +136,8 @@ interface MoreWords {
     readonly why: string;
     readonly since?: string;
     readonly about?: (weeks: string) => string;
+    /** Tidying them on its own (decision 98): the choice that does it, and what it does once a day. */
+    readonly own: { readonly pick: string; readonly does: string; readonly never?: string };
   };
 }
 
@@ -163,6 +170,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       button: 'Cancel the ticked requests',
       done: 'requests cancelled',
       why: 'Facebook pauses your requests when too many wait.',
+      own: {
+        pick: 'Cancel old friend requests',
+        does: 'cancels friend requests nobody answered in your business’s wait',
+      },
     },
   },
   linkedin: {
@@ -201,6 +212,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       button: 'Withdraw the ticked invitations',
       done: 'invitations withdrawn',
       why: 'LinkedIn limits how many invitations can wait, so withdrawing old ones makes room for new ones.',
+      own: {
+        pick: 'Withdraw old invitations',
+        does: 'withdraws invitations nobody answered in your business’s wait',
+      },
     },
   },
   // A follow network: a follow goes at once, a follow-back is the accepting, and tidying unfollows (the Instagram and
@@ -241,6 +256,11 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       since: 'followed',
       about: (weeks) =>
         `Followed more than ${weeks} ago and not following you back. Never anyone who wrote back, a customer, or anyone you followed before HandsFreeOS saw it.`,
+      own: {
+        pick: 'Unfollow who didn’t follow back',
+        does: 'unfollows people who didn’t follow you back in your business’s wait',
+        never: 'Never anyone who wrote back, or a customer.',
+      },
     },
   },
   alignable: {
@@ -280,6 +300,10 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       button: 'Withdraw the ticked requests',
       done: 'requests withdrawn',
       why: 'Old requests that were never answered are best withdrawn.',
+      own: {
+        pick: 'Withdraw old connection requests',
+        does: 'withdraws connection requests nobody answered in your business’s wait',
+      },
     },
   },
 };
@@ -427,6 +451,37 @@ export function requestsHeldWords(
         : `To make room, remove some ${friends} on ${kit.name}.`
     }`;
   return `No new ${friendRequests} for now: ${count} of yours are still waiting for an answer, and ${kit.name} watches accounts with many. They start again under ${held.most.toLocaleString('en-US')}. Tick some under ${MORE[platform].oldRequests.title} in Tidy up on the Friends tab.`;
+}
+
+/**
+ * Tidying up on its own (decisions 29 and 98) on a network's page in Settings, in its words: the choice, what it does
+ * once a day, and its picks. Unfriending is offered only where the network has it (Facebook's).
+ */
+export function tidyChoiceOn(platform: Platform) {
+  const kit = NETWORKS[platform];
+  const own = MORE[platform].oldRequests.own;
+  const unfriends = tidyModeOn(platform, 'unfriend') === 'unfriend';
+  const picks: Readonly<Record<TidyMode, string>> = {
+    off: 'Off: only the ones I tick',
+    cancel: own.pick,
+    unfriend: `${own.pick}, and unfriend`,
+  };
+  return {
+    label: 'Tidy up on its own',
+    about: [
+      `Once a day it ${own.does} (3 weeks to start, set on General), up to ${OWN_TIDY_LIMITS.cancel_request} a day.`,
+      own.never ?? null,
+      unfriends
+        ? `Unfriending takes only ${kit.words.friends} the AI found aren’t a fit and you’ve never chatted with, up to ${OWN_TIDY_LIMITS.unfriend} a day.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' '),
+    options: TIDY_MODE_KEYS.filter((k) => unfriends || k !== 'unfriend').map((key) => ({
+      key,
+      label: picks[key],
+    })),
+  };
 }
 
 /**

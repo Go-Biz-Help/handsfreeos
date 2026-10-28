@@ -11,6 +11,7 @@
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
+import type { AlignableWithdrawResult } from '../alignable/withdraw';
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import type { JoinStep } from '../facebook/join';
 import type { BioResult } from '../facebook/own-profile';
@@ -150,6 +151,15 @@ export interface LookingSite {
    * `done`, `not_found` when they aren't followed, or `none`.
    */
   readonly unfollow?: (doc: Document) => Promise<'done' | 'not_found' | 'none'>;
+  /**
+   * Withdrawing a request the person sent, on that business's own page, once they ticked it or on its own (Alignable's
+   * tidying, 0.97.0).
+   */
+  readonly withdraw?: (
+    doc: Document,
+    href: string,
+    profile: ProfileRef,
+  ) => Promise<AlignableWithdrawResult>;
   /**
    * Going through one of its lists, for the person's asks (Alignable's connections and requests, partners stage 6c):
    * scroll for more, its own Show more pressed where the list ends in one, and a list that opens on a few switched to

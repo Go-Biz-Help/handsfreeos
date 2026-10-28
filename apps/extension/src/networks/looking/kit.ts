@@ -4,7 +4,8 @@
  * network's warnings as the person goes, notes their steps where its site knows them, and answers Check <network>'s
  * asks (a page read and outlined, and a look for a step's button, never pressed) and those its site has: its lists,
  * the person's own profile, its runner's presses (`auto`: Alignable's and Instagram's; from 0.95.0 a comment and a
- * group's Join where the site declares them, decision 92), and, on Instagram, who wrote back in its chats. Where its
+ * group's Join where the site declares them, decision 92), tidying where its site does (Instagram's unfollow, and from
+ * 0.97.0 Alignable's withdraw), and, on Instagram, who wrote back in its chats. Where its
  * site has its own Accounts Center (Instagram's, decision 89), its tab may go there too, and answers Put these in's
  * asks for the username and the name there (../accounts-center/work.ts); those pages aren't its own (`owns`), so
  * nothing done there is noted.
@@ -27,6 +28,8 @@ import type {
   TryAnswer,
   TryAsk,
   UnfollowAnswer,
+  WithdrawAnswer,
+  WithdrawAsk,
 } from '../../messages';
 import { centerUrl } from '../accounts-center/pages';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
@@ -114,6 +117,13 @@ async function unfollowHere(site: LookingSite): Promise<UnfollowAnswer> {
   if (!site.unfollow)
     return { ok: false, error: `The extension doesn’t unfollow on ${site.name}.` };
   return { ok: true, result: await site.unfollow(document) };
+}
+
+/** Withdraws the request to the business whose page the tab shows, where the site does (Alignable's tidying). */
+async function withdrawHere(site: LookingSite, ask: WithdrawAsk): Promise<WithdrawAnswer> {
+  if (!site.withdraw)
+    return { ok: false, error: `The extension doesn’t withdraw requests on ${site.name}.` };
+  return { ok: true, result: await site.withdraw(document, location.href, ask.profile) };
 }
 
 /**
@@ -236,8 +246,10 @@ export function lookingKit(site: LookingSite): Kit {
                 ? browse(site, ask as LookingBrowseAsk)
                 : ask.type === 'hfos-unfollow'
                   ? unfollowHere(site)
-                  : ON_ITS_OWN_ASKS.has(ask.type)
-                    ? onItsOwn(site, ask as OnItsOwnAsk)
-                    : null,
+                  : ask.type === 'hfos-withdraw'
+                    ? withdrawHere(site, ask as WithdrawAsk)
+                    : ON_ITS_OWN_ASKS.has(ask.type)
+                      ? onItsOwn(site, ask as OnItsOwnAsk)
+                      : null,
   };
 }

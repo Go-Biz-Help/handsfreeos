@@ -43,6 +43,7 @@ export type DoneKind = AutoKind | 'drafted' | 'sent';
 /** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
 export const DAILY_JOBS = [
   'requests',
+  'tidy',
   'group_checks',
   'join',
   'members',

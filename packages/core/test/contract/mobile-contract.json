@@ -7827,7 +7827,8 @@
                   "facebook": {
                     "default": {
                       "on": true,
-                      "young": false
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -7838,6 +7839,11 @@
                       "young": {
                         "default": false,
                         "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   },
@@ -7852,7 +7858,8 @@
                       "joinGroups": true,
                       "watchPosts": true,
                       "posting": "after_ok",
-                      "young": false
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -7898,6 +7905,11 @@
                       "young": {
                         "default": false,
                         "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   },
@@ -7912,7 +7924,8 @@
                       "joinGroups": true,
                       "watchPosts": true,
                       "posting": "after_ok",
-                      "young": false
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -7958,6 +7971,11 @@
                       "young": {
                         "default": false,
                         "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   },
@@ -7972,7 +7990,8 @@
                       "joinGroups": true,
                       "watchPosts": true,
                       "posting": "after_ok",
-                      "young": false
+                      "young": false,
+                      "tidy": "cancel"
                     },
                     "type": "object",
                     "properties": {
@@ -8018,6 +8037,11 @@
                       "young": {
                         "default": false,
                         "type": "boolean"
+                      },
+                      "tidy": {
+                        "default": "cancel",
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
                       }
                     }
                   }

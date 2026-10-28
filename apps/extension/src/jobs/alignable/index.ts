@@ -11,6 +11,7 @@
  * - `chats`: their conversations down Messages' side, opened one at a time by their rows and sent for the AI, noting
  *   who wrote last (./chats.ts, 0.84.0).
  * - `posts`: their town's posts and forum questions, a few screens, sent for the AI to check (./posts.ts).
+ * - `cancel`: the old connection requests they ticked, withdrawn on each business's page (./withdraw.ts, 0.97.0).
  * - `checkup`, `profile_read` and `profile_edit`: Check Alignable, and their own profile read and its About Us put
  *   in, as before (../looking.ts).
  */
@@ -24,6 +25,7 @@ import { checkConnections, researchOnAlignable } from './checks';
 import { lookupOnAlignable } from './lookup';
 import { checkRequests, saveConnections } from './people';
 import { findPostsInTown } from './posts';
+import { withdrawTicked } from './withdraw';
 
 type Ended = JobEnd & { readonly result?: AskResult | null };
 
@@ -50,6 +52,8 @@ export async function alignableAsk(task: AskTaken['task'], job: Job): Promise<En
       });
     case 'posts':
       return findPostsInTown(job);
+    case 'cancel':
+      return withdrawTicked(job, task.profileIds);
     default:
       return looked(task, job);
   }

@@ -69,6 +69,7 @@ import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
+import { unfollowOnItsOwn } from '../jobs/instagram/unfollow';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { checkFound } from '../jobs/found-checks';
@@ -126,7 +127,8 @@ export const INSTAGRAM_ALARM = 'hfos-auto-instagram';
 export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Instagram, in order: the newest followers first (`requests`: on Instagram, who followed back
- * is who accepted), then who followed back seen on their own accounts (`follow_backs`), the checks, the chats, Find
+ * is who accepted), then who followed back seen on their own accounts (`follow_backs`), from 0.97.0 unfollowing who
+ * didn't follow back as the person chose (`tidy`, decision 98), the checks, the chats, Find
  * partners, and from part 15 the day's hashtags and places (`posts`) and the notifications' warm leads (`helpful`, as
  * Alignable's are). From 0.95.0 (decision 92) who liked and commented on the good posts the hashtags found
  * (`post_people`), and last the people found by topic checked for good fits (`found_checks`).
@@ -134,6 +136,7 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
 export const INSTAGRAM_DAILY = [
   'requests',
   'follow_backs',
+  'tidy',
   'checks',
   'chats',
   'partners',
@@ -147,6 +150,7 @@ type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
 const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Reading your newest followers on Instagram…',
   follow_backs: 'Looking at the accounts you followed on Instagram for who followed you back…',
+  tidy: 'Unfollowing who didn’t follow you back on Instagram…',
   checks: 'Checking your followers for good fits…',
   chats: 'Reading your Instagram chats for the AI…',
   partners: 'Searching Instagram for people who could partner with you, then reading them…',
@@ -158,6 +162,7 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Your newest followers',
   follow_backs: 'Who followed you back',
+  tidy: 'Tidy up',
   checks: 'Check my followers',
   chats: 'Read my chats',
   partners: 'Find partners',
@@ -846,6 +851,8 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
       return saveFollowers(job);
     case 'follow_backs':
       return lookForFollowBacks(job);
+    case 'tidy':
+      return unfollowOnItsOwn(job);
     case 'checks':
       return checkFollowers(job, NETWORKS.instagram.checksPerDay);
     case 'chats':

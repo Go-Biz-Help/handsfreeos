@@ -2,7 +2,8 @@
  * Unfollowing on Instagram (the Instagram and Alignable plan's question 5; core's tidy `cancel_request` there), asked
  * from the Friends tab in HandsFreeOS once the person ticks who: those they followed who didn't follow back in the
  * business's wait (3 weeks to start), never anyone who wrote back or a customer (packages/core/src/addons/outreach/ops/
- * tidy.ts). At most 20 a day, its kit's tidy limit. Nothing is unfollowed on its own: only who the person ticked.
+ * tidy.ts). At most 20 a day, its kit's tidy limit. From 0.97.0 it also unfollows on its own once a day, as the person
+ * chose (decision 98): the oldest HandsFreeOS picks, with nobody handed to them.
  *
  * It opens each one's account in a tab they can see (decision 17: what's pressed on their network is pressed where they
  * see it), checks it's them and where things stand, presses Following then Unfollow by Instagram's own words
@@ -11,9 +12,10 @@
  * warning. A step it can't do, it hands to the person: Carry on once they've done it, or Skip that person.
  */
 import { TIDY_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
-import type { TidyCandidate } from '../../hfos/messages';
+import type { Tidy, TidyCandidate } from '../../hfos/messages';
 import { counted } from '../../words';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { ownTidy } from '../own-tidy';
 import { readInstagramIn, signedOutEnd } from './read';
 
 /** Between people, a steady pace like a person's: never the same twice. */
@@ -104,12 +106,38 @@ function summary(done: number, skipped: number, gone: number, already: number): 
  */
 export async function unfollowTicked(job: Job, profileIds: readonly string[]): Promise<JobEnd> {
   job.progress('Getting the list from HandsFreeOS…');
-  const lists = valueOf(
-    await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId, platform: 'instagram' }),
-  );
+  const lists = await listsOf(job);
   const byId = new Map(lists.cancel.map((c) => [c.profileId, c]));
   const picks = profileIds.map((id) => byId.get(id)).filter((c): c is TidyCandidate => !!c);
-  const gone = profileIds.length - picks.length;
+  return unfollowThese(job, picks, lists, profileIds.length - picks.length);
+}
+
+/**
+ * Unfollowing on its own, once a day (decision 98), after it looked for who followed back: the oldest HandsFreeOS
+ * picked for today, as the person chose for Instagram. Nobody is handed to the person: one it can't unfollow, it
+ * passes over.
+ */
+export async function unfollowOnItsOwn(job: Job): Promise<JobEnd> {
+  const lists = await listsOf(job);
+  return ownTidy(job, lists, (which, picks) =>
+    which === 'cancel_request'
+      ? unfollowThese(job, picks, lists)
+      : Promise.resolve({ line: '', warned: false }),
+  );
+}
+
+const listsOf = async (job: Job): Promise<Tidy> =>
+  valueOf(
+    await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId, platform: 'instagram' }),
+  );
+
+/** Goes through those picked, a person at a time, up to today's limit on Instagram. */
+async function unfollowThese(
+  job: Job,
+  picks: readonly TidyCandidate[],
+  lists: Tidy,
+  gone = 0,
+): Promise<JobEnd> {
   const limit = lists.limits.cancel_request;
   let room = Math.max(0, limit.most - limit.done);
   let done = 0;

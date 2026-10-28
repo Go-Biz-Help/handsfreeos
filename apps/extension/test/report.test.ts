@@ -150,7 +150,7 @@ describe('a report of a page with more found than core keeps', () => {
   });
 
   it('keeps within it by folding the lists with none into one, keeping the page’s own read and the job’s facts whole', () => {
-    const found = reportFound(read, ['About Us'], { works: false, tried: true });
+    const found = reportFound(read, ['About Us'], { works: false });
     expect(ProblemFound.safeParse(found).success).toBe(true);
     expect(Object.keys(found)).toHaveLength(PROBLEM_FOUND_MOST);
     expect(own).toMatchObject({ businessConnected: true, warnings: 0, notes: 1 });
@@ -158,7 +158,6 @@ describe('a report of a page with more found than core keeps', () => {
       ...own,
       sections: ['About Us'],
       works: false,
-      tried: true,
       emptyLists: empties,
       // Nothing else had to go: each list's parts are still counted.
       threads: 1,
@@ -182,19 +181,24 @@ describe('a report of a page with more found than core keeps', () => {
     };
     const found = reportFound(read, ['About Us'], job);
     expect(ProblemFound.safeParse(found).success).toBe(true);
-    expect(Object.keys(found)).toHaveLength(PROBLEM_FOUND_MOST);
+    expect(Object.keys(found).length).toBeLessThanOrEqual(PROBLEM_FOUND_MOST);
+    // The answers' parts first, then the posts'.
     expect(found).toMatchObject({
       ...own,
       ...job,
       emptyLists: empties,
       answers: 1,
       answersLacking: ['connect', 'reply'],
-      threadsAuthor: 1,
-      threadsConnect: 0,
+      threads: 1,
+      threadsLacking: ['connect'],
     });
     expect(Object.keys(found).filter((key) => key.startsWith('answers'))).toEqual([
       'answers',
       'answersLacking',
+    ]);
+    expect(Object.keys(found).filter((key) => key.startsWith('threads'))).toEqual([
+      'threads',
+      'threadsLacking',
     ]);
     expect(reportFound(read, ['About Us'], job)).toEqual(found);
   });
@@ -205,7 +209,6 @@ describe('a report of a page with more found than core keeps', () => {
     expect(found).toMatchObject({ ...own, sections: ['About Us'], works: false });
     expect(Object.keys(found).filter((key) => !(key in own))).toEqual([
       'people',
-      'posts',
       'emptyLists',
       'sections',
       'works',

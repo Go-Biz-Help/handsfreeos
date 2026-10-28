@@ -412,9 +412,11 @@ describe('what it does on Alignable’s list', () => {
     // Their own groups first, before any search or join (decision 92), then the requests.
     expect(nextAlignableDaily({ daily: {} })).toBe('my_groups');
     expect(nextAlignableDaily({ daily: { my_groups: 'g' } })).toBe('requests');
+    // Old requests withdrawn as they chose, right after the requests they got (0.97.0, decision 98).
+    expect(nextAlignableDaily({ daily: { my_groups: 'g', requests: 'x' } })).toBe('tidy');
     // Their chats right after the connections are checked (0.84.0), as on Instagram; then Find partners, then the
     // town's posts.
-    const done = { my_groups: 'g', requests: 'x', checks: 'y' };
+    const done = { my_groups: 'g', requests: 'x', tidy: 't', checks: 'y' };
     expect(nextAlignableDaily({ daily: done })).toBe('chats');
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c' } })).toBe('partners');
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z' } })).toBe('posts');

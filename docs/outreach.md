@@ -24,8 +24,9 @@ how the AI writes, the chat so far beside a message, Start fresh and the setup's
 offer's plan (decisions 62 to 70: the playbook's niche, Get ready, the profile's check, the conversation: warm up,
 ask straight out, the video, the link, follow-ups until they answer; the short video's script; and the daily numbers,
 with the day's report and the week's review), finding people by topic on Instagram, LinkedIn and Alignable
-(decision 92), and the safety for new accounts: half limits on a network new to the person, and no new friend
-requests while 200 wait or near the cap (decisions 96 and 97).
+(decision 92), the safety for new accounts: half limits on a network new to the person, and no new friend
+requests while 200 wait or near the cap (decisions 96 and 97), and tidying up on its own on every network (decision
+98, extension 0.97.0).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -892,7 +893,7 @@ than a store extension, and for more features, and answered the questions the sa
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
     button. Built, on every network from extension 0.96.0 (decision 95).
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
-    their own. Automation part 5.
+    their own. Built on every network from extension 0.97.0 (decision 98).
 30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
     fit well.
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Automation part 5.
@@ -1305,7 +1306,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       off says so. While it's on: the first time's **Allow** in Chrome (every network but Facebook), its training
       wheels, what it does on its own, replies and helpful posts, along the way, on Facebook the extension's three
       switches, and **Your daily limits on** it, read only: the business's own there, halved while its training
-      wheels are on or the person is new there (decision 96, with its "under a year old" switch), with its cap in any 7 days and the kit's other limits (`limitsShownOn`). For owners and admins,
+      wheels are on or the person is new there (decision 96, with its "under a year old" switch), with its cap in any 7 days and the kit's other limits (`limitsShownOn`); and
+      **Tidy up on its own** (decision 98, `tidyChoiceOn`): Off, the old requests, or on Facebook unfriending too. For owners and admins,
       **For your team on** it: **Your team may use** it (Facebook is always allowed), and its daily limits for each
       person, at most its starting ones.
     - **Every change saves as it's made** (the web's `use-autosave.ts`): no Save button, but the extension's link
@@ -1539,7 +1541,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       this from extension 0.95.0: the AI drafts a comment for each good post, and it goes through Waiting for you,
       waiting for an OK under a comment hold of its own, then on its own; still never in `runs.auto`.)
       **Unfollowing stays the person's ticks**, as withdrawing old requests does on Facebook, LinkedIn and Alignable:
-      the runner works out who before the first day, and never unfollows on its own. Its limits are the plan's, all in its kit already (20
+      the runner works out who before the first day, and never unfollows on its own (until decision 98, from extension
+      0.97.0, as the person chooses). Its limits are the plan's, all in its kit already (20
       follows, 30 likes, 10 comments, 10 first messages with at most 5 to Requests, 15 follow-ups, 20 profiles
       checked, 20 unfollows).
     - **Instagram's growing from part 15** (extension 0.83.0; **migration `20261027010100_outreach_engagement_follows`**,
@@ -2342,6 +2345,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **None once their friends there come within 100 of its cap** (`FRIENDS_CAP_ROOM`): 4,900 on Facebook.
     - **Today says why and what to do** (`requestsHeldWords`, `requestsHeld` on `outreach.today`), on the web and the
       phone, and leaves the requests and the likes before them off the list, as after a warning.
+98. **Tidying up on its own** (Chris, 28 Oct 2026, "all of your picks": 1a and 12; decision 29's setting). Each
+    network's once-a-day jobs tidy up as the person picks under that network in Settings, **Tidy up on its own**
+    (`tidy` in its choices; Facebook's in `networks.facebook`): **Off** (only the ones they tick), the old requests
+    (to start), or on Facebook the old requests and friends to unfriend.
+    - **Old requests** nobody answered in the business's wait (3 weeks to start, on General): Facebook cancels them,
+      LinkedIn and Alignable withdraw them, Instagram unfollows who didn't follow back (never anyone who wrote back, or
+      a customer). Up to 20 a day (`OWN_TIDY_LIMITS`), the oldest first.
+    - **Friends to unfriend, on Facebook,** only those the AI found aren't a fit and the person never chatted with
+      (no chat in the file, no reply, no message noted), up to 10 a day.
+    - **Inside the day's limits:** each within what's left of the network's tidy limit after the ones ticked,
+      halved while a limit is (a warning, training wheels, a new network), and none on a day the network warned them.
+      HandsFreeOS picks who (`own` on `outreach.friends.tidy`); the extension does it with the same job as the ticks,
+      right after the day's requests (on Instagram after who followed back), and hands nobody to the person: a step
+      it can't do, it passes over.
+    - **Alignable's withdraw is new** (pick 12): ticked too, as **Withdraw old connection requests** on the Friends
+      tab (the `cancel` ask, from 0.97.0), on each business's own page, among its own buttons. No Check has shown
+      Alignable's markup for a request that waits, so a page it can't work is noted with its outline (decision 74)
+      for the next Check; not yet tried on the owner's account.
 
 ## Rules worth knowing before changing anything
 
@@ -2767,8 +2788,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   the computer that works, telling of what was there, replies too, in one pop-up at most on its first look; its
   icon's number is everything waiting, asked again on the person's own changes, HandsFreeOS's own, and anyone's
   change to their settings or training wheels.
-- **Training wheels halve the limits as a warning does** (`slowerFor`), on Today, the activity panel and tidying,
+- **Training wheels halve the limits as a warning does** (`automationOf`'s `slower`), on Today, the activity panel and tidying,
   and they're counted only on OKs while they're on (`countWheels`).
+- **Tidying on its own picks in core, and does with the ticks' jobs** (decision 98): `outreach.friends.tidy`'s `own`
+  is who goes today, already inside the day's limits (`OWN_TIDY_LIMITS` within the kit's, less the day's done, halved
+  by `slower`, none on a warned day), and unfriending only for those found not a fit and never chatted with. The
+  extension's `ownTidy` only goes through it, so a limit or a filter changes in core. A network whose kit can't unfriend
+  reads `unfriend` as `cancel` (`tidyModeOn`). Nothing is handed to the person on its own.
 - **A network new to the person halves them the same way** (decision 96): `automationOf` gives `fresh` and folds it
   into `slower` beside the wheels, so a new caller of the limits gets it by using `slower`. A network's start is
   `network_starts`, the person's own, written only by `outreach.touch.save`; tests start everyone 90 days back
@@ -3063,8 +3089,9 @@ account. A profile's business page is only one its lines link to by name ("Owner
 link isn't followed.
 
 Cancelling and unfriending follow Facebook's usual buttons (Friends, Unfriend, Confirm; Cancel request), not yet
-tried on the owner's account; a step it can't find is handed to the person. Unfriending on its own within a daily
-limit (decision 10's other choice) comes with tidying on its own (decision 29).
+tried on the owner's account; a step it can't find is handed to the person, or passed over on its own. Unfriending on
+its own within a daily limit (decision 10's other choice) came with tidying on its own (decisions 29 and 98).
+Alignable's withdraw goes by Alignable's words for a request that waits, which no Check has shown yet.
 
 The runner's presses (Add friend, Respond and Confirm, Like on the latest post, the comment box and its button) follow
 Facebook's usual 2026 pages, not yet tried on the owner's account; one it can't find is passed over for the day, and
@@ -3104,7 +3131,7 @@ reading likers on Alignable, a business setting for the 30 found checks a day, r
 business, and tidying away finds never checked after two weeks (what they said is gone already).
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
-decision 36, and joining groups, decision 48, are built), in the order above: tidying on its own, then team sharing, the after-demo workflow, birthday notes and
+decision 36, joining groups, decision 48, and tidying on its own, decision 98, are built), in the order above: team sharing, the after-demo workflow, birthday notes and
 templates, then LinkedIn and Instagram. LinkedIn and the networks after it are planned in
 HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md: one add-on, a kit per network, and each network on its own, so a
 warning or a pause on one never affects the others (Chris, 15 Oct 2026).

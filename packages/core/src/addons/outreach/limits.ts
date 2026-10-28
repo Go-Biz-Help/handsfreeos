@@ -86,6 +86,14 @@ export const DAILY_WORDS: Readonly<
 export const TIDY_LIMITS = { cancel_request: 30, unfriend: 20 } as const;
 export type TidyKind = keyof typeof TIDY_LIMITS;
 export const TIDY_KIND_KEYS = Object.keys(TIDY_LIMITS) as [TidyKind, ...TidyKind[]];
+/**
+ * Tidying on its own (decision 98): the most it cancels, withdraws or unfollows in a day with nobody ticking them, and
+ * the most friends it unfriends, inside the network's own tidy limits and the day's done by hand.
+ */
+export const OWN_TIDY_LIMITS: Readonly<Record<TidyKind, number>> = {
+  cancel_request: 20,
+  unfriend: 10,
+};
 
 /**
  * After Facebook warns the person (decision 25): every daily limit is halved for a week, and friend requests are left
