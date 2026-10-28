@@ -4,3 +4,5 @@ export * from './words';
 export * from './codes';
 // Paying affiliates (20261027014400).
 export * from './payouts';
+// The affiliate terms (20261027014500).
+export * from './terms';

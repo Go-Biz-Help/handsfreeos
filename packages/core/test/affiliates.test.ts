@@ -15,6 +15,8 @@ import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kernel/types';
 import {
+  AFFILIATE_TERMS_VERSION,
+  affiliateAcceptTerms,
   affiliateApply,
   affiliateDecide,
   affiliateMakeCode,
@@ -105,7 +107,15 @@ beforeEach(async () => {
 const apply = (u: TestUser, code: string, extra: Record<string, unknown> = {}) =>
   run(
     affiliateApply,
-    { name: 'Dana Seller', code, pitch: 'My podcast', links: '', livesInUs: true, ...extra },
+    {
+      name: 'Dana Seller',
+      code,
+      pitch: 'My podcast',
+      links: '',
+      livesInUs: true,
+      acceptTerms: true,
+      ...extra,
+    },
     u,
   );
 
@@ -164,6 +174,81 @@ describe('applying', () => {
     );
     expect(await apply(dana, codeFor('no'))).toEqual({ affiliateId, created: false });
     expect((await ask(affiliateMine, {}, dana)).affiliate?.status).toBe('applied');
+  });
+});
+
+describe('the terms', () => {
+  it('are agreed to with the application, by the person, never by the Assistant', async () => {
+    await apply(dana, codeFor('terms'));
+    const mine = (await ask(affiliateMine, {}, dana)).affiliate!;
+    expect(mine).toMatchObject({ termsAccepted: true, termsAcceptedAt: expect.any(String) });
+
+    // The Assistant applying for somebody doesn't agree for them.
+    await executeCommand(
+      api(),
+      affiliateApply,
+      {
+        name: 'Riley Seller',
+        code: codeFor('termsai'),
+        pitch: '',
+        links: '',
+        livesInUs: true,
+        acceptTerms: true,
+      },
+      human(riley),
+      { ...meta(), channel: 'assistant' },
+    );
+    expect((await ask(affiliateMine, {}, riley)).affiliate).toMatchObject({
+      termsAccepted: false,
+      termsAcceptedAt: null,
+    });
+  });
+
+  it('an approved affiliate agrees before making codes; old terms are asked again', async () => {
+    const affiliateId = await approved(dana, codeFor('agree'));
+    await admin().execute(
+      sql`update platform.affiliates set terms_version = '2026-01-01', terms_accepted_at = now() - interval '1 day'
+          where id = ${affiliateId}`,
+    );
+    const before = (await ask(affiliateMine, {}, dana)).affiliate!;
+    expect(before.termsAccepted).toBe(false);
+    const e = await refusal(() =>
+      run(
+        affiliateMakeCode,
+        {
+          code: codeFor('early'),
+          offerId: null,
+          percentOffBp: 1000,
+          amountOffCents: null,
+          discountMonths: 3,
+          trialDays: null,
+        },
+        dana,
+      ),
+    );
+    expect(e.rule).toBe('affiliate_terms_needed');
+
+    const old = await refusal(() => run(affiliateAcceptTerms, { version: '2026-01-01' }, dana));
+    expect(old.rule).toBe('affiliate_terms_old');
+    expect(await run(affiliateAcceptTerms, { version: AFFILIATE_TERMS_VERSION }, dana)).toEqual({
+      changed: true,
+    });
+    expect(await run(affiliateAcceptTerms, { version: AFFILIATE_TERMS_VERSION }, dana)).toEqual({
+      changed: false,
+    });
+    expect((await ask(affiliateMine, {}, dana)).affiliate!.termsAccepted).toBe(true);
+    const page = await ask(platformAffiliate, { affiliateId }, staff);
+    expect(page.affiliate).toMatchObject({
+      termsVersion: AFFILIATE_TERMS_VERSION,
+      termsAcceptedAt: expect.any(String),
+    });
+  });
+
+  it('somebody who hasn’t applied has nothing to agree to', async () => {
+    const e = await refusal(() =>
+      run(affiliateAcceptTerms, { version: AFFILIATE_TERMS_VERSION }, buyer),
+    );
+    expect(e.rule).toBe('affiliate_not_applied');
   });
 });
 

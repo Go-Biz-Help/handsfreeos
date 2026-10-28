@@ -1,6 +1,6 @@
 /**
- * The affiliate program's worker half (20261027014000): the website's click counter, through the real HTTP server
- * and the worker's real login, and the emails its events send.
+ * The affiliate program's worker half (20261027014000): the website's click counter and its program numbers
+ * (20261027014500), through the real HTTP server and the worker's real login, and the emails its events send.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -74,6 +74,19 @@ const clicks = async () =>
       )
     )[0]?.n ?? 0,
   );
+
+describe('GET /public/affiliates/program', () => {
+  it('says the share everyone earns and the most a code takes off, and nothing about anybody', async () => {
+    const res = await app.inject({ method: 'GET', url: '/public/affiliates/program' });
+    expect(res.statusCode).toBe(200);
+    const [s] = await rows<{ rate_bp: number; max_discount_bp: number }>(
+      admin(),
+      sql`select rate_bp, max_discount_bp from platform.affiliate_settings where id`,
+    );
+    expect(res.json()).toEqual({ rateBp: s!.rate_bp, maxDiscountBp: s!.max_discount_bp });
+    expect(res.headers['cache-control']).toContain('max-age=60');
+  });
+});
 
 describe('POST /public/affiliates/click', () => {
   beforeEach(() =>

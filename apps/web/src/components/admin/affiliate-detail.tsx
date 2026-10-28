@@ -5,7 +5,8 @@
  * they sent and their link's clicks a day. Pausing and ending ask first, since each changes what their link does.
  * And what they've earned (20261027014200): waiting and ready, what each business earned them, and each share earned
  * or taken back by a refund. And their codes (20261027014300): made for them, turned off or on, and their own limit on
- * what a code takes off. And getting paid (20261027014400): their bank as Stripe last said, and their payouts.
+ * what a code takes off. And getting paid (20261027014400): their bank as Stripe last said, and their payouts. And
+ * whether they agreed to the terms that count now (20261027014500).
  */
 import {
   AFFILIATE_ADMIN_WORDS,
@@ -16,9 +17,11 @@ import {
   AFFILIATE_PAYOUT_ADMIN_WORDS as P,
   AFFILIATE_PAYOUT_WORDS,
   AFFILIATE_STATUS_WORDS,
+  AFFILIATE_TERMS_WORDS as T,
   affiliateLink,
   affiliatePercentToBp,
   affiliateRateWords,
+  affiliateTermsCurrent,
   money,
 } from '@hfos/core';
 import Link from 'next/link';
@@ -109,6 +112,13 @@ export function AffiliateDetail({ page }: { page: Page }) {
           <p className="mt-1 text-[13px] text-text-3">
             {a.email} · {W.applied(whenWords(a.appliedAt))}
             {a.decidedAt ? ` · ${W.decided(whenWords(a.decidedAt), a.decidedByName)}` : ''}
+          </p>
+          <p className="mt-0.5 text-[13px] text-text-3" data-testid="affiliate-terms-line">
+            {!a.termsAcceptedAt
+              ? T.notAgreed
+              : affiliateTermsCurrent(a.termsVersion)
+                ? T.agreedOn(whenWords(a.termsAcceptedAt))
+                : T.agreedOld(whenWords(a.termsAcceptedAt))}
           </p>
         </div>
         <Badge variant={AFFILIATE_BADGE[a.status]} data-testid="affiliate-status">

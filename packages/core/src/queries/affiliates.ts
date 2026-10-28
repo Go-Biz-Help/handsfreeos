@@ -5,13 +5,14 @@
  *
  * - `affiliate.mine` is the signed-in person's own standing, for their page: what they applied with, their link
  *   code, their share, their link's clicks, how many signed up, the businesses that paid by name, and what they've
- *   earned (20261027014200), their codes (20261027014300), and their bank at Stripe and payouts (20261027014400).
- *   Read through their own rows' policies and two functions that answer only for them, so it can only ever be theirs.
+ *   earned (20261027014200), their codes (20261027014300), their bank at Stripe and payouts (20261027014400), and
+ *   whether they agreed to the terms (20261027014500). Read through their own rows' policies and two functions that answer only for them, so it can only ever be theirs.
  * - `platform.affiliates`, `platform.affiliate` and `platform.affiliate_of_business` are staff's, for Admin →
  *   Affiliates and a business's page under Admin → Businesses (`platform.affiliates.manage`).
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { affiliateBankState, type AffiliatePayoutStatus } from '../affiliates/payouts';
+import { affiliateTermsCurrent } from '../affiliates/terms';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -57,6 +58,8 @@ type Row = {
   clicks_all: number | string;
   businesses: number | string;
   earned: number | string;
+  terms_version: string | null;
+  terms_accepted_at: Date | string | null;
 };
 
 /** Each affiliate with their share, clicks and how many businesses they sent. `where` narrows it. */
@@ -66,7 +69,7 @@ const rowsWhere = (tx: Tx, where: ReturnType<typeof sql>, limit = 500) =>
     sql`select a.id, a.user_id, a.name, u.email::text as email, a.code, a.status, a.pitch, a.links,
           a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp,
           a.max_discount_bp as own_max_discount_bp, coalesce(a.max_discount_bp, s.max_discount_bp) as max_discount_bp,
-          a.applied_at, a.decided_at,
+          a.applied_at, a.decided_at, a.terms_version, a.terms_accepted_at,
           coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(du.full_name), ''), du.email::text)
             as decided_by_name,
           coalesce((select sum(c.clicks) from platform.affiliate_clicks c
@@ -106,6 +109,8 @@ const rowOut = (r: Row) => ({
   earnedCents: Number(r.earned),
   ownMaxDiscountBp: r.own_max_discount_bp,
   maxDiscountBp: r.max_discount_bp,
+  termsVersion: r.terms_version,
+  termsAcceptedAt: isoOrNull(r.terms_accepted_at),
 });
 
 type CodeRow = {
@@ -315,7 +320,7 @@ async function settingsOf(
 export const affiliateMine = defineQuery({
   name: 'affiliate.mine',
   description:
-    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, and your monthly payouts.',
+    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, your monthly payouts, and whether you’ve agreed to the affiliate terms that count now.',
   input: AffiliateMineInput,
   output: AffiliateMineOutput,
   permission: null,
@@ -334,6 +339,7 @@ export const affiliateMine = defineQuery({
       sql`select a.id, a.user_id, a.name, a.code, a.status, a.pitch, a.links,
             a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp,
             coalesce(a.max_discount_bp, s.max_discount_bp) as max_discount_bp, a.applied_at, a.decided_at,
+            a.terms_version, a.terms_accepted_at,
             coalesce((select sum(c.clicks) from platform.affiliate_clicks c
                       where c.affiliate_id = a.id and c.day > (now() at time zone 'UTC')::date - 30), 0)
               as clicks30,
@@ -386,6 +392,8 @@ export const affiliateMine = defineQuery({
         earnings: await earningsOf(ctx.tx, mine.id),
         bank: await bankOf(ctx.tx, mine.id),
         payouts: await payoutsOf(ctx.tx, mine.id),
+        termsAccepted: affiliateTermsCurrent(mine.terms_version),
+        termsAcceptedAt: isoOrNull(mine.terms_accepted_at),
       },
       defaultRateBp,
       payoutsOn,

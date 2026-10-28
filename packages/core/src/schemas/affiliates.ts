@@ -190,12 +190,26 @@ export const AffiliateApplyInput = z.strictObject({
   links: z.string().trim().max(1000).default(''),
   /** Payouts are to US bank accounts only, to start (decision 7). */
   livesInUs: z.boolean(),
+  /**
+   * They ticked that they agree to the affiliate terms that count now (20261027014500), which is kept with the
+   * application. Optional only so a page from before the terms still sends; it's asked for again before the link.
+   */
+  acceptTerms: z.boolean().optional(),
 });
 
 export const AffiliateApplyOutput = z.strictObject({
   affiliateId: uuid,
   /** False when they changed an application already waiting, or applied again after being turned down. */
   created: z.boolean(),
+});
+
+/** Agreeing to the affiliate terms (20261027014500): the version they read, which must be the one that counts. */
+export const AffiliateAcceptTermsInput = z.strictObject({
+  version: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export const AffiliateAcceptTermsOutput = z.strictObject({
+  /** False when they'd already agreed to this version. */
+  changed: z.boolean(),
 });
 
 /**
@@ -274,6 +288,12 @@ export const AffiliateMine = z.strictObject({
   /** Their bank at Stripe, and their payouts, newest first (20261027014400). */
   bank: AffiliateBank,
   payouts: z.array(AffiliatePayoutRow),
+  /**
+   * Whether they agreed to the affiliate terms that count now, and when they last agreed to any (20261027014500).
+   * Until they agree, their page asks first, before their link and codes.
+   */
+  termsAccepted: z.boolean(),
+  termsAcceptedAt: isoDateTime.nullable(),
 });
 export const AffiliateMineOutput = z.strictObject({
   affiliate: AffiliateMine.nullable(),
@@ -344,6 +364,9 @@ export const AffiliateRow = z.strictObject({
   /** Their own limit on codes, or null for everyone's; and the limit that counts now. */
   ownMaxDiscountBp: z.int().nullable(),
   maxDiscountBp: z.int(),
+  /** The affiliate terms they agreed to, by version, and when (20261027014500); null until they have. */
+  termsVersion: z.string().nullable(),
+  termsAcceptedAt: isoDateTime.nullable(),
 });
 
 export const AffiliateOutput = z.strictObject({ affiliate: AffiliateRow });

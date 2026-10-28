@@ -9,7 +9,10 @@ carried through sign-up, applying, and the Admin area's Affiliates page (migrati
 Part 2 is built: plan payments and their refunds are kept, and affiliates earn their share
 (`20261027014200_affiliate_commissions.sql`). Part 3 is built: discount and trial codes
 (`20261027014300_affiliate_codes.sql`). Part 4 is built: monthly payouts through Stripe Express, off until staff turn
-them on (`20261027014400_affiliate_payouts.sql`). Part 5, the website's page and the terms, is next.
+them on (`20261027014400_affiliate_payouts.sql`). Part 5 is built: the website's Affiliates page, the affiliate
+terms, which affiliates agree to before their link (`20261027014500_affiliate_terms.sql`), and Sell HandsFreeOS in the
+account menu. The owner's lawyer approved the terms on 28 Oct 2026 ("lawyer approves", 02:52 UTC); payouts stay
+off until staff turn on Pay affiliates under Admin → Affiliates.
 
 This is about selling **HandsFreeOS itself**. It's separate from Partners (`HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md`),
 where a business pays its own partners for its own customers. It's called **Affiliates** so the two never get mixed
@@ -146,6 +149,11 @@ The questions and the follow-ups on codes are in the project files, `affiliates/
   everyone's; nobody but the worker writes them.
 - **A key pays only accounts of its own mode.** An account made with a test key takes only test money; going live
   makes the affiliate a new account when they next press Set up payouts.
+- **The terms are agreed to by version** (`AFFILIATE_TERMS_VERSION`, the day the website's terms page was
+  published), on the affiliate's own row, through `private.affiliate_accept_terms`: with the application, or on their
+  page. An approved affiliate who hasn't agreed to the ones that count now sees the terms before their link, codes and
+  payouts, and can't make a code or set up payouts. Their link keeps crediting businesses, and what they earned keeps.
+  Never the Assistant: `affiliate.accept_terms` isn't offered to it, and an application it sends doesn't agree.
 - **No webhook for an affiliate's account.** Stripe's word is read when they come back to their page from Stripe's
   form, and every six hours for an account that can't be paid yet while they're owed money or have a payout held.
 
@@ -177,11 +185,15 @@ The questions and the follow-ups on codes are in the project files, `affiliates/
    (`apps/worker/src/payments/stripe.ts`); the payout email; "Getting paid" on the affiliate's page; the Pay
    affiliates switch, and their bank and payouts, under Admin → Affiliates. Setting it up is "Paying affiliates:
    Stripe Express" in `docs/operations.md`.
-5. **The website's Affiliates page** with Apply, the **terms** affiliates accept before they get their link, and a
-   link from the account menu.
+5. **The website's page and the terms** (built, `20261027014500`; decision 14). `handsfreeos.com/affiliates` with the
+   live share (`GET /public/affiliates/program`), examples worked out from the founding prices, Apply and the
+   questions; `handsfreeos.com/affiliates/terms`; the terms box on the application and the command
+   `affiliate.accept_terms`; Sell HandsFreeOS in the account menu (`apps/web/src/components/shell/user-menu.tsx`).
 
 ## Before payouts go live
 
-- The owner's accountant or lawyer reads the terms. Stripe files the 1099s, as it does for Partners.
+- The owner's lawyer reads the terms (`apps/site/src/app/affiliates/terms/page.tsx`): approved 28 Oct 2026. A change that
+  matters gets a new date there and in `AFFILIATE_TERMS_VERSION`, and every affiliate agrees again. Stripe files the
+  1099s, as it does for Partners.
 - The terms say affiliates must tell people they earn from it (an FTC rule), and must not spam or promise what
   HandsFreeOS doesn't.

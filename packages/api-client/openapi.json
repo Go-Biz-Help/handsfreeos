@@ -43798,6 +43798,9 @@
                   },
                   "livesInUs": {
                     "type": "boolean"
+                  },
+                  "acceptTerms": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -43830,6 +43833,57 @@
                   "required": [
                     "affiliateId",
                     "created"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/affiliate.accept_terms": {
+      "post": {
+        "operationId": "command_affiliate_accept_terms",
+        "summary": "Agree to the affiliate terms that count now, as an affiliate or while your application waits. They say what you earn, how you’re paid and how to tell people about HandsFreeOS. Your link and codes show on your page once you have.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Emits platform.affiliate_terms_accepted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -44070,6 +44124,24 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "termsVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "termsAcceptedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -44091,7 +44163,9 @@
                         "businesses",
                         "earnedCents",
                         "ownMaxDiscountBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "termsVersion",
+                        "termsAcceptedAt"
                       ],
                       "additionalProperties": false
                     }
@@ -44267,6 +44341,24 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "termsVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "termsAcceptedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -44288,7 +44380,9 @@
                         "businesses",
                         "earnedCents",
                         "ownMaxDiscountBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "termsVersion",
+                        "termsAcceptedAt"
                       ],
                       "additionalProperties": false
                     }
@@ -44468,6 +44562,24 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "termsVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "termsAcceptedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -44489,7 +44601,9 @@
                         "businesses",
                         "earnedCents",
                         "ownMaxDiscountBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "termsVersion",
+                        "termsAcceptedAt"
                       ],
                       "additionalProperties": false
                     }
@@ -44663,6 +44777,24 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "termsVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "termsAcceptedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -44684,7 +44816,9 @@
                         "businesses",
                         "earnedCents",
                         "ownMaxDiscountBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "termsVersion",
+                        "termsAcceptedAt"
                       ],
                       "additionalProperties": false
                     }
@@ -45839,6 +45973,24 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "termsVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "termsAcceptedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -45860,7 +46012,9 @@
                         "businesses",
                         "earnedCents",
                         "ownMaxDiscountBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "termsVersion",
+                        "termsAcceptedAt"
                       ],
                       "additionalProperties": false
                     }
@@ -112558,7 +112712,7 @@
     "/v1/queries/affiliate.mine": {
       "post": {
         "operationId": "query_affiliate_mine",
-        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, and your monthly payouts.",
+        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, your monthly payouts, and whether you’ve agreed to the affiliate terms that count now.",
         "tags": [
           "queries"
         ],
@@ -112944,6 +113098,21 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "termsAccepted": {
+                              "type": "boolean"
+                            },
+                            "termsAcceptedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -112965,7 +113134,9 @@
                             "payingBusinesses",
                             "earnings",
                             "bank",
-                            "payouts"
+                            "payouts",
+                            "termsAccepted",
+                            "termsAcceptedAt"
                           ],
                           "additionalProperties": false
                         },
@@ -113357,6 +113528,24 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "termsVersion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "termsAcceptedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -113378,7 +113567,9 @@
                           "businesses",
                           "earnedCents",
                           "ownMaxDiscountBp",
-                          "maxDiscountBp"
+                          "maxDiscountBp",
+                          "termsVersion",
+                          "termsAcceptedAt"
                         ],
                         "additionalProperties": false
                       }
@@ -113499,6 +113690,24 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "termsVersion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "termsAcceptedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -113520,7 +113729,9 @@
                           "businesses",
                           "earnedCents",
                           "ownMaxDiscountBp",
-                          "maxDiscountBp"
+                          "maxDiscountBp",
+                          "termsVersion",
+                          "termsAcceptedAt"
                         ],
                         "additionalProperties": false
                       }
@@ -113692,6 +113903,24 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "termsVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "termsAcceptedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -113713,7 +113942,9 @@
                         "businesses",
                         "earnedCents",
                         "ownMaxDiscountBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "termsVersion",
+                        "termsAcceptedAt"
                       ],
                       "additionalProperties": false
                     },

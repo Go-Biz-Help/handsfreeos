@@ -1,5 +1,5 @@
 /**
- * The affiliate program's doors on the worker (20261027014000, 20261027014400).
+ * The affiliate program's doors on the worker (20261027014000, 20261027014400, 20261027014500).
  *
  * - **`POST /public/affiliates/click`**, signed out. The website calls it, from its own server, when somebody arrives
  *   on an affiliate's link (`handsfreeos.com/?ref=`) for the first time on that browser: today's count for that
@@ -7,14 +7,16 @@
  *   affiliate; `private.affiliate_click` counts only an approved one's. A count is all it can change, and nobody is
  *   paid on clicks, so it carries no token. Rate-limited by address like every public route here, generously: the
  *   website calls it for all its visitors from a few addresses of its own.
+ * - **`GET /public/affiliates/program`**, signed out: the share everyone earns and the most a code takes off, for the
+ *   website's Affiliates page (20261027014500). The two numbers staff set, and nothing about any affiliate.
  * - **`POST /v1/affiliate/payouts`** (bearer token): an affiliate setting up their bank at Stripe from their page, on
  *   the worker because HandsFreeOS's own Stripe key is. `start` makes their Express account the first time and opens
  *   Stripe's form for it; `check`, on their way back, reads it from Stripe and keeps what it says; `stripe` opens
- *   their Stripe page. Only their own row, found by who's signed in. Where Stripe sends them back is built here,
+ *   their Stripe page. Only their own row, found by who's signed in; `start` waits for the terms that count now. Where Stripe sends them back is built here,
  *   never taken from the request: a return address a caller could set is an open redirect.
  */
 import rateLimit from '@fastify/rate-limit';
-import { HfosError } from '@hfos/core/server';
+import { affiliateTermsCurrent, affiliateTermsNeeded, HfosError } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -77,6 +79,22 @@ export async function registerAffiliateRoutes(app: FastifyInstance, deps: HttpDe
         return { ok: true };
       },
     );
+
+    pub.get(
+      '/public/affiliates/program',
+      { config: { rateLimit: { max: 240, timeWindow: '1 minute' } } },
+      async (_req, reply) => {
+        const [s] = await asWorker(deps.httpDb, {}, (tx) =>
+          rows<{ rate_bp: number; max_discount_bp: number }>(
+            tx,
+            sql`select rate_bp, max_discount_bp from platform.affiliate_settings where id`,
+          ),
+        );
+        // The website caches it too: a share staff just changed shows within a few minutes.
+        void reply.header('cache-control', 'public, max-age=60, s-maxage=60');
+        return { rateBp: s?.rate_bp ?? null, maxDiscountBp: s?.max_discount_bp ?? null };
+      },
+    );
   });
 
   app.post('/v1/affiliate/payouts', async (req, reply) => {
@@ -90,10 +108,11 @@ export async function registerAffiliateRoutes(app: FastifyInstance, deps: HttpDe
         account_ref: string | null;
         livemode: boolean | null;
         details_submitted: boolean | null;
+        terms_version: string | null;
         email: string | null;
       }>(
         tx,
-        sql`select a.id, a.status, p.account_ref, p.livemode, p.details_submitted,
+        sql`select a.id, a.status, p.account_ref, p.livemode, p.details_submitted, a.terms_version,
               (select t.email from private.affiliate_to_tell(a.id) t) as email
             from platform.affiliates a
             left join platform.affiliate_payout_accounts p on p.affiliate_id = a.id
@@ -124,6 +143,13 @@ export async function registerAffiliateRoutes(app: FastifyInstance, deps: HttpDe
         return { url: (await platform.payouts.loginLink(kept)).url };
       }
       if (action === 'check' && !kept) return { ready: false };
+      // Setting up payouts waits for the terms that count now (20261027014500).
+      if (
+        action === 'start' &&
+        me.status === 'approved' &&
+        !affiliateTermsCurrent(me.terms_version)
+      )
+        throw affiliateTermsNeeded();
 
       let accountRef = kept;
       if (!accountRef) {
