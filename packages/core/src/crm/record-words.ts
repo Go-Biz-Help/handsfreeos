@@ -150,6 +150,8 @@ export const RECORD_WORDS = {
     logCall: 'Log call',
     file: 'File',
     tag: 'Tag',
+    /** Send a document to sign (docs/documents.md), for whoever can send them. */
+    document: 'Document',
   },
 } as const;
 

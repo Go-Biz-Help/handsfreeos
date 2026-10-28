@@ -2,6 +2,7 @@ import { isApiErrorBody } from '@hfos/api-client';
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
   clockWords,
+  dayGoing,
   isOffline,
   LIVE_REFETCH_SECONDS,
   offlineWords,
@@ -398,6 +399,8 @@ export function LiveBody({
     : undefined;
   // A Facebook warning stops the day, and Start my day can't undo it (ops/day.ts).
   const warned = live.day.why === 'warning';
+  // Going, started or on its own in the working hours (decision 95): Start my day has nothing to start.
+  const going = dayGoing({ ...live, day, now, platform });
   const stale = !online && at !== null;
   return (
     <Screen
@@ -486,7 +489,7 @@ export function LiveBody({
             <Button
               className="flex-1"
               icon={Play}
-              disabled={day.state === 'started' || warned || !ready}
+              disabled={going || warned || !ready}
               onPress={onStart}
               testID="live-start"
             >

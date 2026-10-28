@@ -12,8 +12,12 @@
  * Anything that reaches customers, or can't be taken back, says so on the card.
  */
 import {
+  allSteps,
+  applyWorkflowOps,
   closedStageWords,
+  describeOps,
   describeStep,
+  describeTrigger,
   findStep,
   HfosError,
   KnowledgeEditableContent,
@@ -23,10 +27,11 @@ import {
   plainSpaces,
   type AssistantCard,
   type WorkflowCatalogs,
+  type WorkflowOp,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { command, query, quoted, when } from './tools-read';
+import { command, query, quoted, rehearse, when } from './tools-read';
 import type { SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -2009,6 +2014,12 @@ interface WorkflowGet {
     description: string | null;
     status: 'draft' | 'active' | 'paused' | 'archived';
     activeRuns: number;
+    /** The draft's: a save is made against it. */
+    revision: number;
+    activeVersion: { id: string; version: number } | null;
+    /** The draft as written. */
+    definition: Record<string, unknown>;
+    issues: { severity: 'error' | 'warning'; message: string; stepId: string | null }[];
   };
 }
 interface RunOut {
@@ -2243,6 +2254,125 @@ const manageWorkflow: SettingsConfirmTool = {
       outcome: `Archived.${out.stoppedRunIds.length ? ` ${plural(out.stoppedRunIds.length, 'run')} stopped.` : ''}`,
       href: p.workflows(),
       command: 'workflow.archive',
+    };
+  },
+};
+
+/** The most of a draft, in characters of JSON, the model reads whole. */
+const DRAFT_MOST = 20_000;
+
+/** A workflow's draft, read as its editor reads it, with the names of what its steps point at. */
+async function workflowDraft(db: Db, ctx: ToolContext, workflowId: unknown) {
+  const [{ workflow: wf }, names] = await Promise.all([
+    query<WorkflowGet>(db, ctx, 'workflow.get', { workflowId }),
+    query<{ catalogs: WorkflowCatalogs }>(db, ctx, 'workflow.catalogs').catch(() => null),
+  ]);
+  return { wf, def: parseDefinition(wf.definition), names: names?.catalogs ?? {} };
+}
+
+async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
+  const { wf, def, names } = await workflowDraft(db, ctx, args['workflowId']);
+  const startsWhen = describeTrigger(def.trigger, names);
+  const errors = wf.issues.filter((i) => i.severity === 'error');
+  const main = def.steps.map((s) => describeStep(s, names, def));
+  const whole = JSON.stringify(wf.definition).length <= DRAFT_MOST;
+  return {
+    result: {
+      id: wf.id,
+      name: wf.name,
+      status: wf.status,
+      startsWhen,
+      liveVersion: wf.activeVersion?.version ?? null,
+      // Each step, paths inside branches too, with the id a change names it by.
+      steps: allSteps(def).map((l) => ({
+        id: l.step.id,
+        depth: l.depth,
+        says: describeStep(l.step, names, def),
+      })),
+      checksToFix: errors.map((i) => i.message),
+      draftRevision: wf.revision,
+      ...(whole
+        ? { draft: wf.definition }
+        : {
+            draftCutShort: true,
+            note: 'Its draft is too long to read whole here, so change it on its page.',
+          }),
+    },
+    card: {
+      type: 'workflow',
+      workflowId: wf.id,
+      proposalId: null,
+      name: wf.name,
+      status: wf.status,
+      trigger: startsWhen,
+      steps: main.slice(0, 8),
+      more: Math.max(0, main.length - 8),
+      changes: [],
+      issues: errors.length,
+      issueNote: errors[0]?.message ?? null,
+      unsupported: [],
+      href: contentPaths(ctx.workspaceId).workflow(wf.id),
+    },
+  };
+}
+
+const editWorkflowSteps: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { wf, def, names } = await workflowDraft(db, ctx, args['workflowId']);
+    const ops = args['ops'] as WorkflowOp[];
+    await rehearse(db, ctx, 'workflow.save_draft', {
+      workflowId: wf.id,
+      baseRevision: args['baseRevision'],
+      ops,
+    });
+    let after: unknown = null;
+    try {
+      after = applyWorkflowOps(def, ops).definition;
+    } catch {
+      // The command took them; its own way of applying them is the one that counts.
+    }
+    if (after && JSON.stringify(after) === JSON.stringify(def))
+      throw nothingChanges(`“${wf.name}”’s draft is that way already.`);
+    const lines = describeOps(ops, def, names);
+    const shown =
+      lines.length > 8
+        ? [...lines.slice(0, 7), `And ${plural(lines.length - 7, 'more change')}`]
+        : lines;
+    return {
+      card: card(toolCallId, 'edit_workflow_steps', {
+        title: `Change “${wf.name}”?`,
+        fields: [
+          { label: 'Workflow', value: wf.name },
+          ...shown.map((value, i) => ({ label: i === 0 ? 'Change' : 'Then', value })),
+        ],
+        confirmLabel: 'Save draft',
+        warnings: [
+          {
+            kind: 'note',
+            text: wf.activeVersion
+              ? `Only the draft changes. Version ${wf.activeVersion.version} keeps running until the draft is tested and published.`
+              : 'Only the draft changes. Nothing runs until it’s tested and published.',
+          },
+        ],
+      }),
+      result: { workflow: wf.name, changes: lines },
+    };
+  },
+  async commit(db, ctx, args) {
+    const workflowId = String(args['workflowId']);
+    const out = await command<{ issues: { severity: string; message: string }[] }>(
+      db,
+      ctx,
+      'workflow.save_draft',
+      { workflowId, baseRevision: args['baseRevision'], ops: args['ops'] },
+    );
+    const errors = out.issues.filter((i) => i.severity === 'error');
+    return {
+      outcome: errors.length
+        ? `Saved the draft. Fix ${errors.length === 1 ? 'this' : `${plural(errors.length, 'check')}, starting with this,`} before it can be published: ${errors[0]!.message}`
+        : 'Saved the draft.',
+      href: contentPaths(ctx.workspaceId).workflow(workflowId),
+      command: 'workflow.save_draft',
     };
   },
 };
@@ -2639,6 +2769,7 @@ export const contentAutoTools: Record<
   list_knowledge_items: listKnowledgeItems,
   list_knowledge_suggestions: listKnowledgeSuggestions,
   list_offers: listOffers,
+  get_workflow: getWorkflow,
   list_workflow_runs: listWorkflowRuns,
   list_teammate_drafts: listTeammateDrafts,
 };
@@ -2654,6 +2785,7 @@ export const contentConfirmTools: Record<string, SettingsConfirmTool> = {
   scan_website: scanWebsite,
   manage_offer: manageOffer,
   manage_workflow: manageWorkflow,
+  edit_workflow_steps: editWorkflowSteps,
   manage_workflow_run: manageWorkflowRun,
   decide_teammate_draft: decideTeammateDraft,
 };
@@ -2678,6 +2810,8 @@ export const contentStepLabels: Record<string, string> = {
   list_offers: 'Looking at promotions',
   manage_offer: 'Getting the promotion ready',
   manage_workflow: 'Getting the workflow change ready',
+  get_workflow: 'Looking at the workflow',
+  edit_workflow_steps: 'Getting the steps ready',
   list_workflow_runs: 'Looking at workflow runs',
   manage_workflow_run: 'Looking at the run',
   list_teammate_drafts: 'Looking at what the AI teammate wrote',

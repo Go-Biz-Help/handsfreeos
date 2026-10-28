@@ -552,7 +552,8 @@ From top to bottom:
   (another computer works for you, noting is off, you do everything yourself); Facebook's warning that day; a warning
   when your own steps today go past a daily limit (`pastLimitWords`: the limits count, they don't stop); today's steps
   against the daily limits, as bars, from `outreach.live`; **Start my day**, and **Stop for today** while the day
-  goes, with HandsFreeOS's words when it refuses one; and anything you asked of it from HandsFreeOS while it goes,
+  goes, with HandsFreeOS's words when it refuses one (from 0.96.1, a day going on its own in the working hours has
+  Stop for today alone, as on the web and the phone: `dayGoing`, decision 95); and anything you asked of it from HandsFreeOS while it goes,
   each network's on its own line with what it's doing and **Stop**. A step it hands you says what to do, then "When
   you’ve done it, press Carry on in HandsFreeOS → Needs you." (", or Skip to leave this person." for someone you
   ticked), with **Open Needs you**: Carry on and Skip are pressed there, never in the panel. Until you're ready

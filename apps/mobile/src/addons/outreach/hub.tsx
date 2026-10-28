@@ -1,5 +1,6 @@
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
+  dayGoing,
   isOffline,
   offlineWords,
   seenWords,
@@ -301,6 +302,8 @@ export function LiveStrip({
   const words = dailyWordsOn(platform);
   const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
   const said = todayWords({ ...live, day }, platform, now);
+  // Going, started or on its own in the working hours (decision 95): its button is Stop for today.
+  const going = dayGoing({ ...live, day, now, platform });
   const full = !many || shown;
   return (
     <Card
@@ -394,7 +397,7 @@ export function LiveStrip({
         </View>
       ) : (
         <View className="flex-row gap-2">
-          {day.state === 'started' ? (
+          {going ? (
             <Button
               className="flex-1"
               variant="secondary"

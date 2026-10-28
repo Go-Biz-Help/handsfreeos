@@ -7,7 +7,8 @@
  *
  * Each network on its own (Chris): with more than one network on, the strip has a row for each, by name, with its own
  * day, its own Start my day or Stop for today (`outreach.day.*` with its `platform`) and its own warning line, and
- * **Start all** and **Stop all** press each one. Stopping one leaves the others going. The limits, the first lists
+ * **Start all** and **Stop all** press each one. Stopping one leaves the others going. A network going, started or on
+ * its own in the working hours, has Stop for today (`dayGoing`, decision 95). The limits, the first lists
  * and the list below are the network shown (`?net=`); its name opens it.
  *
  * A Start my day that can't be pressed always says why beside it (the owner, 26 Oct 2026): what holds that network's
@@ -17,6 +18,7 @@
  */
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
+  dayGoing,
   isOffline,
   offlineWords,
   seenWords,
@@ -159,9 +161,11 @@ export function StatusStrip({
       kind === 'start' ? keptBesideStart : undefined,
     );
   };
+  // A network going on its own in the working hours goes as one started does: its button is Stop for today.
+  const going = (n: NetworkLive) => dayGoing({ ...n.live, now, platform: n.platform });
   // Start all and Stop all just press each one that can be.
-  const toStart = networks.filter((n) => n.live.day.state !== 'started' && canStart(n, ready));
-  const toStop = networks.filter((n) => n.live.day.state === 'started');
+  const toStart = networks.filter((n) => !going(n) && canStart(n, ready));
+  const toStop = networks.filter(going);
   const pressAll = (kind: Press) => {
     setRefused(null);
     void act(
@@ -215,7 +219,7 @@ export function StatusStrip({
       </p>
     ) : null;
   const dayButton = (n: NetworkLive, testId: string) =>
-    n.live.day.state === 'started' ? (
+    going(n) ? (
       <Button
         variant="secondary"
         size="sm"

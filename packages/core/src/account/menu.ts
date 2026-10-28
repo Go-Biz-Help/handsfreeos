@@ -43,6 +43,7 @@ export const MENU_KEYS = [
   'workflows',
   'campaigns',
   'forms',
+  'documents',
   'reviews',
   'knowledge',
   'ai-team',
@@ -158,7 +159,7 @@ export const DEFAULT_MENU: Menu<MenuKey> = {
 
 /**
  * The tidy-up the editor offers in one press: the places a day is spent in stay out, Campaigns among them just
- * above **More** (the owner's decision, 2026-09-28), and the rest fold into More. Ten rows instead of sixteen, and
+ * above **More** (the owner's decision, 2026-09-28), and the rest fold into More. Ten rows instead of seventeen, and
  * nothing is lost.
  */
 export const SUGGESTED_MENU: Menu<MenuKey> = {
@@ -175,7 +176,16 @@ export const SUGGESTED_MENU: Menu<MenuKey> = {
       kind: 'group',
       id: 'more',
       label: MENU_GROUP_DEFAULT_LABEL,
-      keys: ['workflows', 'forms', 'reviews', 'knowledge', 'ai-team', 'members', 'audit'],
+      keys: [
+        'workflows',
+        'forms',
+        'documents',
+        'reviews',
+        'knowledge',
+        'ai-team',
+        'members',
+        'audit',
+      ],
     },
     { kind: 'link', key: 'settings' },
   ],
@@ -190,6 +200,7 @@ export const MENU_NEEDS: Readonly<Partial<Record<MenuKey, WorkspacePermission>>>
   inbox: 'inbox.use',
   money: 'money.read',
   audit: 'audit.read',
+  documents: 'documents.send',
 };
 
 /** What the menu needs to know about add-ons in one business (0108). */

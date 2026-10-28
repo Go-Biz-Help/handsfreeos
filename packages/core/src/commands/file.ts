@@ -74,6 +74,12 @@ const BUSINESS_OWN = {
     refusal:
       'Only owners and admins of this business can change the papers for moving a number. Ask one of them.',
   },
+  /** The PDF a document template is made from (20261027015200): its record is the template. */
+  document: {
+    permission: 'documents.manage',
+    refusal:
+      'Only people who make document templates can change a template’s PDF. Ask an owner or admin of this business.',
+  },
 } as const;
 
 type BusinessOwnType = keyof typeof BUSINESS_OWN;
@@ -314,6 +320,13 @@ export const fileDelete = defineCommand({
     if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
     const ownFile = businessOwn(current.recordType);
     if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
+    // The database refuses it too (private.guard_document_file): documents sent from it still read it.
+    if (current.recordType === 'document')
+      throw HfosError.rule(
+        'document_file_kept',
+        409,
+        `${current.name} is a template’s PDF, kept for the documents sent from it. Add another PDF on the template to replace it.`,
+      );
     // The database refuses it too (private.guard_locked_file); this says so with the file's name.
     if (current.lockedAt)
       throw HfosError.rule(

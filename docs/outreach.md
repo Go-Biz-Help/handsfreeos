@@ -2316,7 +2316,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **On their own in the working hours,** the person's, the same on every network, on the business's clock: each
       starts at a random time in the hours' first minutes and spreads its steps over them (`networkDay` and
       `gapAfter` in `apps/extension/src/auto/plan.ts`).
-    - **Start my day still starts one early,** straight away at a person's pace, hours or not.
+    - **Start my day still starts one early,** straight away at a person's pace, hours or not. In the hours, a
+      network going on its own has Stop for today in its place, as one started does, on the web, the phone and the
+      extension's panel (0.96.1), and Start all and Stop all count it as going (`dayGoing` in `live.ts`; the owner, 28 Oct 2026: "why are they still
+      saying Start My day?").
     - **Stop for today holds it for the rest of the business's day,** till the working hours of a later one. A press
       from another day changes nothing.
     - **Before the hours, Today says when.** Beside Start my day, on the web and the phone, a network whose day
