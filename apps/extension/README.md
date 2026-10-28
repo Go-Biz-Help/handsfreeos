@@ -909,10 +909,14 @@ with LinkedIn's asks (`src/auto/turns.ts`), its own window, alarm (`hfos-auto-li
 (`hfos.auto.linkedin`, whose line the panel shows under LinkedIn), so Facebook's runner never waits on it, nor it on
 Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.networks.linkedin`).
 
-- **Only while LinkedIn's day is started:** you press Start my day for LinkedIn in HandsFreeOS or on the phone, and
-  the beat brings it (`days.linkedin` in `outreach.live.beat`'s answer). Stop for today on LinkedIn ends what it's
-  doing at its next page, and a LinkedIn ask under way too. It works only while LinkedIn is on and Chrome allows it,
-  noting is on, this computer is the one that works, and your LinkedIn Sending choice isn't Off.
+- **In your working hours, or once you start its day** (0.96.0, decision 95): it starts on its own in your working
+  hours, on your business's clock, at a random time in their first minutes and spread out over them, as Facebook's
+  does (`networkDay` in `src/auto/plan.ts`). Start my day for LinkedIn, in HandsFreeOS or on the phone, starts it
+  straight away at a person's pace; the beat brings it (`days.linkedin` in `outreach.live.beat`'s answer). Before
+  then its line says when it starts ("Starts on its own on LinkedIn at 10:00 AM…"). Stop for today on LinkedIn ends
+  what it's doing at its next page, and a LinkedIn ask under way too, until your working hours on a later day. It
+  works only while LinkedIn is on and Chrome allows it, noting is on, this computer is the one that works, and your
+  LinkedIn Sending choice isn't Off.
 - **Lists first** (decision 60): before LinkedIn's first day it saves your connections, then the invitations you've
   got and those you've sent, each to its end, works out the old invitations to withdraw and checks your connections
   once (`src/auto/lists.ts`, `outreach.lists` with `platform: 'linkedin'`); then the invitations each morning and the
@@ -957,9 +961,10 @@ and turn with Alignable's asks, its own window, alarm (`hfos-auto-alignable`) an
 line the panel shows under Alignable). Your Alignable choices in HandsFreeOS say what it does
 (`settings.networks.alignable`).
 
-- **Only while Alignable's day is started** (`days.alignable`), Alignable is on and Chrome allows it, noting is on,
-  this computer is the one that works, and your Alignable Sending choice isn't Off. Stop for today ends what it's
-  doing at its next page, and an Alignable ask under way too.
+- **In your working hours, or once you start its day** (`days.alignable`; 0.96.0, decision 95), as LinkedIn's, while
+  Alignable is on and Chrome allows it, noting is on, this computer is the one that works, and your Alignable Sending
+  choice isn't Off. Stop for today ends what it's doing at its next page, and an Alignable ask under way too, until
+  your working hours on a later day.
 - **Lists first:** before Alignable's first day it saves your connections and the connection requests you've got,
   each to its end, then checks your connections once (`src/auto/lists.ts`); then the requests each morning and the
   connections weekly.
@@ -1002,9 +1007,10 @@ Instagram's runner (`src/auto/instagram.ts`; the Instagram plan's part 14) is it
 Instagram's asks, its own window, alarm (`hfos-auto-instagram`) and state (`hfos.auto.instagram`, whose line the panel
 shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (`settings.networks.instagram`).
 
-- **Only while Instagram's day is started** (`days.instagram`), Instagram is on and Chrome allows it, noting is on,
-  this computer is the one that works, and your Instagram Sending choice isn't Off. Stop for today ends what it's doing
-  at its next page, and an Instagram ask under way too.
+- **In your working hours, or once you start its day** (`days.instagram`; 0.96.0, decision 95), as LinkedIn's, while
+  Instagram is on and Chrome allows it, noting is on, this computer is the one that works, and your Instagram Sending
+  choice isn't Off. Stop for today ends what it's doing at its next page, and an Instagram ask under way too, until
+  your working hours on a later day.
 - **Lists first:** before Instagram's first day it saves your newest followers (the newest 200, from 0.86.0), works out
   who to unfollow (those who didn't follow back in your business's wait, for you to tick under Friends → Tidy up), then
   checks your followers once (`src/auto/lists.ts`); then the followers new since, weekly.

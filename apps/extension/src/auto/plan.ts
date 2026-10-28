@@ -11,7 +11,14 @@
  * which fill that list. In the working hours, every hour or two, it looks at the newest posts in their best groups
  * (decision 49), so one asking for what they offer is answered fast.
  */
-import { workWindow, type WorkingHours } from '@hfos/core/addons/outreach/automation';
+import {
+  businessDay,
+  nextInHours,
+  startAfterToday,
+  workWindow,
+  type WorkingHours,
+} from '@hfos/core/addons/outreach/automation';
+import { startWords, type LiveDay } from '@hfos/core/addons/outreach/live';
 import { WATCH_EVERY_MINUTES } from '@hfos/core/addons/outreach/posts';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import type { NeedNoteInput, TodayList, TodayListItem } from '../hfos/messages';
@@ -296,6 +303,71 @@ export function nextStart(
     if (window && window.from > now) return window.from + Math.round(random * START_JITTER_MS);
   }
   return null;
+}
+
+/**
+ * Where a network's day stands for its runner (LinkedIn's, Instagram's and Alignable's, as Facebook's in ./run.ts;
+ * decision 28, and the owner, 28 Oct 2026: "they should just start at the time selected in our settings"): after Start
+ * my day there it goes now, at a person's pace, hours or not; with nothing pressed today it goes on its own in the
+ * person's working hours, spread out over them; Stop for today, or a warning's stop, holds it for the rest of the
+ * business's day, till the working hours of a later one. A press from another day changes nothing. `random` is from 0
+ * to 1, for when in the first minutes it starts.
+ */
+export type NetworkDay =
+  | { readonly go: true; readonly started: boolean; readonly until: number | null }
+  | { readonly go: false; readonly stopped: string | null; readonly next: number | null };
+
+export function networkDay(input: {
+  /** The network's day as HandsFreeOS last said it (`days.<network>`); null when it hasn't. */
+  readonly day: Pick<LiveDay, 'date' | 'state' | 'why'> | null;
+  /** The business's day now. */
+  readonly today: string;
+  readonly hours: WorkingHours;
+  readonly timeZone: string;
+  readonly now: number;
+  readonly random: number;
+}): NetworkDay {
+  const pressed = input.day?.date === input.today ? input.day : null;
+  const next = () => nextStart(input.hours, input.timeZone, input.now, input.random);
+  if (pressed?.state === 'stopped') {
+    // Held for the rest of the business's day, whatever its hours: it starts again on a later one.
+    const again = startAfterToday(input.hours, input.timeZone, input.today);
+    const jitter = Math.round(input.random * START_JITTER_MS);
+    return {
+      go: false,
+      stopped: pressed.why ?? 'person',
+      next: again === null ? null : again + jitter,
+    };
+  }
+  if (pressed?.state === 'started') return { go: true, started: true, until: null };
+  const window = workWindow(input.hours, input.timeZone, input.now);
+  if (window && input.now >= window.from && input.now < window.to)
+    return { go: true, started: false, until: window.to };
+  return { go: false, stopped: null, next: next() };
+}
+
+/**
+ * What a network's runner says while its day waits: when it starts on its own (the hours' start, as Today shows it),
+ * and that Start my day starts it now. `name` is the network's.
+ */
+export function networkWaitWords(
+  name: string,
+  wait: { readonly stopped: string | null },
+  hours: WorkingHours,
+  timeZone: string,
+  now: number,
+): string {
+  const at = wait.stopped
+    ? startAfterToday(hours, timeZone, businessDay(now, timeZone))
+    : nextInHours(hours, timeZone, now);
+  const when = at !== null && at > now ? startWords(at, timeZone, now) : null;
+  if (wait.stopped)
+    return when
+      ? `Stopped on ${name} for today. It starts again on its own ${when}.`
+      : `Stopped on ${name} for today.`;
+  return when
+    ? `Starts on its own on ${name} ${when}. To start now, press Start my day for ${name} on Today in HandsFreeOS.`
+    : `Waiting for you to start your day on ${name}: press Start my day for ${name} on Today in HandsFreeOS.`;
 }
 
 /**

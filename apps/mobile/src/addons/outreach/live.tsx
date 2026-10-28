@@ -2,7 +2,6 @@ import { isApiErrorBody } from '@hfos/api-client';
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
   clockWords,
-  dayWords,
   isOffline,
   LIVE_REFETCH_SECONDS,
   offlineWords,
@@ -11,6 +10,7 @@ import {
   SHOWN_STATES,
   shownState,
   stateTone,
+  todayWords,
   type LiveDay,
   type LiveOutput,
   type LiveTeamOutput,
@@ -509,8 +509,8 @@ export function LiveBody({
           <Note testID="live-not-ready">{held || READY_WORDS.stripNotReady}</Note>
         )}
         {refused && day.state !== 'started' ? <StartRefusedNote refused={refused} /> : null}
-        {dayWords(day, tz, live.lists, platform) ? (
-          <Note testID="live-day-words">{dayWords(day, tz, live.lists, platform)}</Note>
+        {todayWords({ ...live, day }, platform, now) ? (
+          <Note testID="live-day-words">{todayWords({ ...live, day }, platform, now)}</Note>
         ) : null}
         {pressed ? <QueuedNote online={online} /> : null}
       </Card>

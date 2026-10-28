@@ -21,7 +21,13 @@
 import { z } from 'zod';
 import { addDays, localDateOf } from '../../calendar/engine/zoned';
 import { fmtDateShort, fmtTime } from '../../calendar/when';
-import { SENDING_MODE_KEYS, type SendingMode } from './automation';
+import {
+  nextInHours,
+  SENDING_MODE_KEYS,
+  workWindow,
+  WorkingHours,
+  type SendingMode,
+} from './automation';
 import { LIST_MARK_KEYS, listsWaitWords, ListsSaved, type ListMark } from './lists';
 import { runsOnItsOwn } from './networks';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from './playbooks';
@@ -320,6 +326,11 @@ export const LiveOutput = z.object({
    * them. Missing from an API from before them.
    */
   lists: ListsSaved.optional(),
+  /**
+   * The person's working hours, the same on every network: with nothing pressed, each network's day starts on its own
+   * in them (decision 28). Missing from an API from before it gave them.
+   */
+  hours: WorkingHours.optional(),
   /** Today's steps, the newest first. */
   steps: z.array(LiveStep),
 });
@@ -447,6 +458,48 @@ export function dayWords(
   const waiting = listsWaitWords(lists, true, platform);
   return waiting ? `Started${at}${via}. ${waiting}` : `Started${at}${via}.`;
 }
+
+/** When something starts, after "Starts on its own": "at 10:00 AM" today, "tomorrow at 10:00 AM", else "on Mon, Nov 2 at 10:00 AM". */
+export function startWords(at: number, timeZone: string, now: number): string {
+  const when = seenWords(at, timeZone, now);
+  if (localDateOf(at, timeZone || 'UTC') === localDateOf(now, timeZone || 'UTC'))
+    return `at ${when}`;
+  return when.startsWith('tomorrow') ? when : `on ${when}`;
+}
+
+/**
+ * When a network's day goes on its own, with nothing pressed there today (decision 28; the owner, 28 Oct 2026: "we
+ * shouldn't have to start the day for each platform manually, they should just start at the time selected in our
+ * settings"): before the person's working hours, "Starts on its own at 10:00 AM"; in them, "Going on its own until
+ * 5:00 PM". Empty once a press says the day (`dayWords`), when Sending is off there or the extension doesn't work it
+ * on its own, and from an API from before it gave the hours.
+ */
+export function ownDayWords(input: {
+  readonly day: LiveDay;
+  readonly sending: SendingMode;
+  readonly hours?: WorkingHours | undefined;
+  readonly timezone: string;
+  readonly now: number;
+  readonly platform?: Platform;
+}): string {
+  const { day, hours, timezone, now } = input;
+  if (day.state !== 'none' || input.sending === 'off' || !hours) return '';
+  if (!runsOnItsOwn(input.platform ?? 'facebook')) return '';
+  const next = nextInHours(hours, timezone || 'UTC', now);
+  if (next === null) return '';
+  if (next > now) return `Starts on its own ${startWords(next, timezone, now)}.`;
+  const window = workWindow(hours, timezone || 'UTC', now);
+  return window ? `Going on its own until ${clockWords(window.to, timezone)}.` : '';
+}
+
+/** A network's day in a line on Today: what was pressed there today, or when it goes on its own. */
+export const todayWords = (
+  live: Pick<LiveOutput, 'day' | 'timezone' | 'lists' | 'sending' | 'hours'>,
+  platform: Platform,
+  now: number,
+): string =>
+  dayWords(live.day, live.timezone, live.lists, platform) ||
+  ownDayWords({ ...live, now, platform });
 
 /** The feed's line for a day pressed, which HandsFreeOS writes. */
 export const dayLine = (state: DayState, via: DayVia): string =>

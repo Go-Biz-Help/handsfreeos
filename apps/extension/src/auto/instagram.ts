@@ -4,8 +4,11 @@
  * (./run.ts) and never waiting on any. It has its own line (its own turn with Instagram's asks, ./turns.ts), its own
  * window, its own alarm and its own state (`hfos.auto.instagram`).
  *
- * - **Only while Instagram's day is started.** Instagram's Start my day, pressed in HandsFreeOS or on the phone, which
- *   the beat brings (`days.instagram`); Stop for today there ends what it's doing at its next page, and its asks' too.
+ * - **In the working hours, or once its day is started.** From 0.96.0 it starts on its own in the person's working
+ *   hours, in the business's time zone, at random times spread over the day as Facebook's does (./plan.ts,
+ *   `networkDay`); Instagram's Start my day, pressed in HandsFreeOS or on the phone, which the beat brings
+ *   (`days.instagram`), starts it straight away at a person's pace. Stop for today there ends what it's doing at its
+ *   next page, and its asks' too, until its next working hours.
  *   It works only while Instagram is on for the person and Chrome allows it, while noting is on, while this computer
  *   is the one that works, and while the person's Instagram Sending choice isn't Off.
  * - **Lists first** (decision 60): before Instagram's first day, its newest followers are saved (the newest 200, the
@@ -98,6 +101,9 @@ import {
   INSTAGRAM_STATE_KEY,
   isState,
   needOf,
+  networkDay,
+  networkWaitWords,
+  nextStart,
   workKey,
   workLeft,
   type AutoState,
@@ -913,22 +919,26 @@ async function go(): Promise<void> {
     await say(standDownWords(kept.workingName));
     return goAt(null);
   }
-  const day = dayOf(kept);
-  if (!day || day.date !== today || day.state !== 'started') {
+  // Its day (decision 28): after Start my day, now, at a person's pace; with nothing pressed, on its own in the
+  // working hours, spread out over them; outside them, or after Stop for today, at the start of the next ones.
+  const random = Math.random();
+  const own = networkDay({
+    day: dayOf(kept),
+    today,
+    hours: settings.hours,
+    timeZone: timezone,
+    now: at,
+    random,
+  });
+  const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
+  if (!own.go) {
     await closeWindow();
-    await setState({
-      started: false,
-      stopped: day?.date === today && day.state === 'stopped' ? (day.why ?? 'person') : null,
-    });
-    await say(
-      day?.date === today && day.state === 'stopped'
-        ? `Stopped on ${NAME} for today. It starts again when you press Start my day for ${NAME}.`
-        : `Waiting for you to start your day on ${NAME}: press Start my day for ${NAME} on Today in HandsFreeOS.`,
-    );
-    // The beat says when the day starts (`days.instagram`), and wakes this.
-    return goAt(null);
+    await setState({ started: false, stopped: own.stopped });
+    await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
+    // The beat says when it's pressed (`days.instagram`), and wakes this before then.
+    return goAt(own.next);
   }
-  if (!state.started) state = await setState({ started: true, stopped: null });
+  if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
     const warned = await warnedNow(PLATFORM);
     await closeWindow();
@@ -936,7 +946,7 @@ async function go(): Promise<void> {
       `Stopped: ${NAME} warned you today${warned ? ` (“${warned.words[0]}”)` : ''}. The extension stops on ${NAME} until tomorrow.`,
       { stopped: 'warning' },
     );
-    return goAt(null);
+    return goAt(tomorrow());
   }
   if (!(await isNoting())) {
     await closeWindow();
@@ -951,7 +961,6 @@ async function go(): Promise<void> {
     await say(ASK_FIRST_WORDS);
     return goAt(at + ASK_FIRST_MS);
   }
-  const random = Math.random();
   const soon = () => goAt(Date.now() + pickGap(random));
 
   // Lists first (decision 60), Instagram's own.
@@ -966,7 +975,7 @@ async function go(): Promise<void> {
     if (end.warned) {
       await closeWindow();
       await say(end.line, { stopped: 'warning' });
-      return goAt(null);
+      return goAt(tomorrow());
     }
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
@@ -987,7 +996,7 @@ async function go(): Promise<void> {
     if (end.warned) {
       await closeWindow();
       await say(end.line, { stopped: 'warning' });
-      return goAt(null);
+      return goAt(tomorrow());
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line);
@@ -1054,7 +1063,7 @@ async function go(): Promise<void> {
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
-    return goAt(null);
+    return goAt(tomorrow());
   }
   await say(outcome.line);
   const need =
@@ -1067,7 +1076,13 @@ async function go(): Promise<void> {
   }
   const gap = Math.max(
     pickGap(Math.random()),
-    gapAfter({ now: Date.now(), until: null, left: left.length - 1, started: true, random }),
+    gapAfter({
+      now: Date.now(),
+      until: own.until,
+      left: left.length - 1,
+      started: own.started,
+      random,
+    }),
   );
   if (gap > KEEP_WINDOW_MS) await closeWindow();
   await goAt(Date.now() + gap);
